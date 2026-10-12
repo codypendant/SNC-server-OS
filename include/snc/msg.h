@@ -23,7 +23,7 @@ enum MsgFlags : u8 {
   kMsgDurApplied = 1u << 3,
 };
 
-inline constexpr u32 kMsgInlineBytes = 80;
+inline constexpr u32 kMsgInlineBytes = 16;
 
 struct alignas(64) Msg {
   MsgKind kind;          //  0
@@ -46,7 +46,7 @@ struct alignas(64) Msg {
   const u8* data() const { return (flags & kMsgArgsExternal) ? ext.ptr : inline_data; }
 };
 
-static_assert(sizeof(Msg) == 128, "Msg must be exactly two cache lines");
+static_assert(sizeof(Msg) == 64, "Msg must be exactly one cache line");
 static_assert(offsetof(Msg, inline_data) == 48);
 
 }  // namespace snc

@@ -152,6 +152,29 @@ still loses badly when ops cross cores in process (every remote op costs a
 ring round trip, which the baseline never pays), and it leads durable
 everywhere.
 
+## One-cache-line ring messages
+
+A ring message was 128 bytes: a 48-byte header and 80 bytes of inline
+args or result. Every op in the account type carries at most 16 bytes
+(deposit args, balance result), so inline space is now 16 bytes and a
+message is one cache line; larger args (creates, email index keys) go
+out of line as they already did past 80 bytes. Each cross-core op moves
+two messages, so this halves the lines that change cores per op.
+`bench/results/matrix_msg64.csv`, 3 runs, medians:
+
+| `snc_bench` flags | 128-byte messages | 64-byte messages |
+| --- | --- | --- |
+| `--remote 50 --reads 95` | 9.17M | 9.88M (+8%) |
+| `--remote 100 --reads 50` | 6.69M, p99 48 µs | 7.13M, p99 43 µs (+7%) |
+| `--remote 100 --reads 95` | 6.81M | 7.87M (+16%) |
+| `--remote 0 --reads 50` | 15.19M | 15.61M |
+| durable, `--remote 100` | 1.84M | 1.80M |
+
+The baseline still does 11.78M with every op "remote", because for it
+remote only means another thread's keys, not a hand-off. An SNC op on
+another core is a request and a response through two rings and runs on
+two cores; routing at ingress (ROUTING.md) is how SNC avoids paying it.
+
 ## Limits
 
 - Prefetch helps only when requests arrive in batches. A lightly loaded
