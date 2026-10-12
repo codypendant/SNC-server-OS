@@ -32,7 +32,7 @@ target_include_directories(snc_core PUBLIC include)
 target_link_libraries(snc_core PUBLIC Threads::Threads ${MIMALLOC_LIB} ${XXHASH_LIB} ${URING_LIB})
 
 enable_testing()
-foreach(t test_object_id test_local_map test_runtime test_execute test_persistence test_crash test_net)
+foreach(t test_object_id test_local_map test_runtime test_execute test_persistence test_crash test_net test_transfer)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})

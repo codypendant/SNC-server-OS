@@ -53,6 +53,9 @@ struct TypeDescriptor {
   OpID create_op = 0;  // OpKind::CREATE descriptor, required
   OpID delete_op = 0;  // OpKind::DELETE descriptor, optional
   u32 index_id = 0;    // v0.1: at most one secondary index per type, 0 = none
+  // Runs on every object of the type once recovery finishes, so it can
+  // re-emit follow-ups its state says are pending (OpCtx::emit). Optional.
+  void (*resume)(OpCtx& ctx) = nullptr;
 };
 
 inline constexpr u32 kFirstUserTypeId = 256;

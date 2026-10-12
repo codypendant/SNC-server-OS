@@ -59,6 +59,14 @@ class Shard {
     });
   }
 
+  // Follow-ups (OpCtx::emit). Paused shards queue but do not dispatch.
+  void pause_emits(bool on) { emits_paused_ = on; }
+  // Queued here; follow-ups in rings are sent minus received, summed over
+  // all shards (Engine::wait_emits).
+  u64 emits_in_flight() const { return emit_ready_count_ + emit_wait_.size(); }
+  u64 emits_sent() const { return stats_.emits_sent; }
+  u64 emits_received() const { return stats_.emits_received; }
+
   LocalMap& map() { return map_; }
   ShardAllocator& alloc() { return alloc_; }
 
@@ -103,6 +111,22 @@ class Shard {
     // ERASE
     ObjectID id;
   };
+
+  struct Emit {
+    ObjectID source, target;
+    OpID op = 0, fail_op = 0;
+    u8 len = 0;
+    u8 args[OpCtx::kMaxEmitArgs];
+    u64 lsn = 0;  // dispatch once durable
+  };
+  static constexpr u64 kEmitBacklog = 1024;
+  void route_emit(const Emit& e);
+  bool send_emit(u16 dst, const Emit& e);
+  void run_emit(const Emit& e);
+  void serve_emit(const Msg& m);
+  void emit_result(const Emit& e, Status s);
+  bool run_emits();
+  void queue_emits(u64 lsn);
 
   struct Checkpoint {
     bool active = false;
@@ -182,6 +206,16 @@ class Shard {
 
   std::unique_ptr<WalStream> wal_;
   std::deque<Waiter> waiters_;  // sorted by lsn
+
+  std::vector<Emit> emit_scratch_;  // emitted by the op now running
+  // Durable source state: dispatch at the next poll.
+  std::vector<Emit> emit_local_;
+  std::vector<std::deque<Emit>> emit_remote_;  // per destination shard
+  u64 emit_ready_count_ = 0;
+  ObjectID cur_source_;  // source of the follow-up now running (OpCtx::source)
+  std::deque<Emit> emit_wait_;      // sorted by lsn
+  bool emits_paused_ = false;
+  bool resuming_ = false;
   Checkpoint ckpt_;
 };
 

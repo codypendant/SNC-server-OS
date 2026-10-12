@@ -1,0 +1,295 @@
+// Transfers between accounts (docs/TRANSFERS.md): money is conserved and
+// every acknowledged transfer lands exactly once, in memory, durable, across
+// a clean stop with transfers in flight, across a change of shard count, and
+// across SIGKILL. A transfer to a missing account is refunded.
+#include <signal.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <map>
+#include <mutex>
+#include <random>
+#include <string>
+
+#include "harness.h"
+#include "snc/types/account.h"
+
+using namespace snc;
+using namespace snc::account;
+using namespace snc::test;
+
+namespace {
+
+constexpr i64 kStart = 1000;
+
+Engine::Config config(u16 shards, const std::string& dir, bool init) {
+  Engine::Config c;
+  c.runtime.n_shards = shards;
+  c.runtime.ring_slots = 64;  // small rings: exercise the overloaded retry path
+  c.expected_objects = 4096;
+  c.data_dir = dir;
+  c.init = init;
+  c.wal_segment_bytes = 1u << 20;
+  return c;
+}
+
+std::vector<ObjectID> create_accounts(Engine& eng, u32 n) {
+  std::vector<ObjectID> ids(n);
+  u16 shards = eng.shard_count();
+  u64 per = (n + shards - 1) / shards;
+  std::mutex mu;
+  run_all(
+      eng, per,
+      [&](u16 s, u64 i, Completion c, void* ctx) {
+        CreateArgs a{};
+        a.balance_cents = kStart;
+        a.created_ns = 1;
+        a.email_len = 1;
+        a.email[0] = 'e';
+        a.name_len = 1;
+        a.name[0] = 'n';
+        (void)s;
+        (void)i;
+        create(kTypeId, ByteView(&a, sizeof(a)), {}, c, ctx);
+      },
+      [&](u16 s, u64 i, const ExecResult& r) {
+        CHECK_EQ(r.status, Status::OK);
+        u64 k = s * per + i;
+        std::lock_guard<std::mutex> g(mu);
+        if (k < n) ids[k] = r.id;
+      });
+  return ids;
+}
+
+struct Snapshot {
+  std::map<ObjectID, i64> balance;
+  u64 entries = 0;
+  i64 total = 0;
+};
+
+Snapshot snapshot(Engine& eng) {
+  Snapshot s;
+  for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
+    eng.for_each_object(sh, [&](const ObjectHeader& h) {
+      const auto* a = reinterpret_cast<const AccountV1*>(h.payload());
+      s.balance[h.id] = a->balance_cents;
+      s.entries += a->n_out + a->n_in;
+      s.total += a->balance_cents;
+    });
+  }
+  return s;
+}
+
+// Random transfers from every shard; `net` gets the effect of every one
+// that was acknowledged.
+void transfers(Engine& eng, const std::vector<ObjectID>& ids, u64 per_shard, u32 seed,
+               std::map<ObjectID, i64>& net, u64& ok, u64& rejected) {
+  std::mutex mu;
+  std::vector<std::mt19937_64> rng;
+  for (u16 s = 0; s < eng.shard_count(); ++s) rng.emplace_back(seed + s);
+  struct Pick {
+    ObjectID from, to;
+    i64 amount;
+  };
+  std::vector<std::vector<Pick>> picks(eng.shard_count());
+  for (u16 s = 0; s < eng.shard_count(); ++s) {
+    for (u64 i = 0; i < per_shard; ++i) {
+      Pick p;
+      p.from = ids[rng[s]() % ids.size()];
+      do p.to = ids[rng[s]() % ids.size()];
+      while (p.to == p.from);
+      p.amount = 1 + static_cast<i64>(rng[s]() % 50);
+      picks[s].push_back(p);
+    }
+  }
+  run_all(
+      eng, per_shard,
+      [&](u16 s, u64 i, Completion c, void* ctx) {
+        const Pick& p = picks[s][i];
+        TransferArgs t{p.to, p.amount, 7};
+        execute(p.from, kOpTransfer, ByteView(&t, sizeof(t)), {}, c, ctx);
+      },
+      [&](u16 s, u64 i, const ExecResult& r) {
+        const Pick& p = picks[s][i];
+        std::lock_guard<std::mutex> g(mu);
+        if (r.status == Status::OK) {
+          ++ok;
+          net[p.from] -= p.amount;
+          net[p.to] += p.amount;
+        } else if (r.status == Status::E_OVERLOADED) {
+          ++rejected;  // the ring to the source's owner was full: never ran
+        } else {
+          if (r.status != Status::E_APP) std::fprintf(stderr, "transfer: %s\n", status_name(r.status));
+          CHECK_EQ(r.status, Status::E_APP);
+          CHECK(r.app_code == kAppInsufficientFunds || r.app_code == kAppBusy);
+          ++rejected;
+        }
+      });
+}
+
+void verify(Engine& eng, const std::vector<ObjectID>& ids, const std::map<ObjectID, i64>& net) {
+  CHECK(eng.wait_emits());
+  Snapshot s = snapshot(eng);
+  CHECK_EQ(s.entries, 0u);
+  CHECK_EQ(s.total, kStart * static_cast<i64>(ids.size()));
+  for (const ObjectID& id : ids) {
+    auto it = net.find(id);
+    CHECK_EQ(s.balance.at(id), kStart + (it == net.end() ? 0 : it->second));
+  }
+}
+
+void test_memory() {
+  Engine eng(config(4, "", false));
+  eng.start();
+  auto ids = create_accounts(eng, 200);
+  std::map<ObjectID, i64> net;
+  u64 ok = 0, rejected = 0;
+  transfers(eng, ids, 5000, 1, net, ok, rejected);
+  CHECK(ok > 10000);
+  verify(eng, ids, net);
+
+  // A transfer to an ID nobody owns is refunded.
+  OneResult r = one(eng, 0, [&](Completion c, void* ctx) {
+    TransferArgs t{ObjectID::make(999999, 1), 10, 7};
+    execute(ids[0], kOpTransfer, ByteView(&t, sizeof(t)), {}, c, ctx);
+  });
+  CHECK_EQ(r.r.status, Status::OK);
+  CHECK(eng.wait_emits());
+  CHECK_EQ(snapshot(eng).balance.at(ids[0]), kStart + net[ids[0]]);
+  CHECK(eng.stats(0).emits_failed_over + eng.stats(1).emits_failed_over +
+            eng.stats(2).emits_failed_over + eng.stats(3).emits_failed_over >=
+        1);
+
+  // Bad args and self-transfers are rejected up front.
+  r = one(eng, 0, [&](Completion c, void* ctx) {
+    TransferArgs t{ids[0], 10, 7};
+    execute(ids[0], kOpTransfer, ByteView(&t, sizeof(t)), {}, c, ctx);
+  });
+  CHECK_EQ(r.r.status, Status::E_BAD_ARGS);
+
+  // Clients cannot call the follow-ups (a direct credit would mint money).
+  r = one(eng, 0, [&](Completion c, void* ctx) {
+    CreditArgs ca{1, 1000000};
+    execute(ids[1], kOpXferCredit, ByteView(&ca, sizeof(ca)), {}, c, ctx);
+  });
+  CHECK_EQ(r.r.status, Status::E_BAD_ARGS);
+  eng.stop();
+  std::printf("memory: %llu transfers ok, %llu rejected\n", (unsigned long long)ok,
+              (unsigned long long)rejected);
+}
+
+void test_durable() {
+  char tmpl[] = "/tmp/snc-xfer-XXXXXX";
+  std::string dir = mkdtemp(tmpl);
+  std::vector<ObjectID> ids;
+  std::map<ObjectID, i64> net;
+  u64 ok = 0, rejected = 0;
+  {
+    Engine eng(config(4, dir, true));
+    eng.start();
+    ids = create_accounts(eng, 200);
+    transfers(eng, ids, 3000, 2, net, ok, rejected);
+    verify(eng, ids, net);
+    // Stop with transfers in flight: stop() pauses follow-ups, so entries
+    // are left in the objects for resume to finish.
+    transfers(eng, ids, 3000, 3, net, ok, rejected);
+    eng.stop();
+  }
+  {
+    Engine eng(config(4, dir, false));
+    eng.start();
+    u64 pending = snapshot(eng).entries;  // may already be settling
+    std::printf("durable: restart found %llu entries in flight\n", (unsigned long long)pending);
+    verify(eng, ids, net);
+    transfers(eng, ids, 3000, 4, net, ok, rejected);
+    eng.stop();
+  }
+  {
+    // Shard-count change with entries in flight: they move with their objects.
+    Engine eng(config(3, dir, false));
+    eng.start();
+    CHECK(eng.recovery().remapped);
+    verify(eng, ids, net);
+    transfers(eng, ids, 2000, 5, net, ok, rejected);
+    eng.stop();
+  }
+  {
+    Engine eng(config(4, dir, false));
+    eng.start();
+    verify(eng, ids, net);
+    eng.stop();
+  }
+  std::printf("durable: %llu transfers ok, %llu rejected\n", (unsigned long long)ok,
+              (unsigned long long)rejected);
+}
+
+// The child runs transfers until killed. Without the acks we cannot know
+// which in-flight transfers committed, so the parent checks conservation
+// and that every exchange finishes; test_crash covers acknowledged
+// durability for single-object ops.
+[[noreturn]] void crash_child(const std::string& dir, bool init, u32 round, int ready_fd) {
+  Engine eng(config(4, dir, init));
+  eng.start();
+  std::vector<ObjectID> ids;
+  if (init) {
+    ids = create_accounts(eng, 200);
+  } else {
+    for (u16 s = 0; s < eng.shard_count(); ++s) {
+      eng.for_each_object(s, [&](const ObjectHeader& h) { ids.push_back(h.id); });
+    }
+  }
+  char c = 1;
+  if (::write(ready_fd, &c, 1) != 1) _exit(3);
+  std::map<ObjectID, i64> net;
+  u64 ok = 0, rejected = 0;
+  for (u32 i = 0;; ++i) transfers(eng, ids, 2000, 100 * round + i, net, ok, rejected);
+}
+
+void test_crash() {
+  char tmpl[] = "/tmp/snc-xfer-crash-XXXXXX";
+  std::string dir = mkdtemp(tmpl);
+  for (u32 round = 0; round < 4; ++round) {
+    int fds[2];
+    CHECK_EQ(::pipe(fds), 0);
+    pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      ::close(fds[0]);
+      crash_child(dir, round == 0, round, fds[1]);
+    }
+    ::close(fds[1]);
+    char c;
+    CHECK_EQ(::read(fds[0], &c, 1), 1);
+    ::close(fds[0]);
+    ::usleep(150000 + 70000 * round);
+    ::kill(pid, SIGKILL);
+    int st = 0;
+    ::waitpid(pid, &st, 0);
+    CHECK(WIFSIGNALED(st));
+
+    Engine eng(config(4, dir, false));
+    eng.start();
+    u64 pending = snapshot(eng).entries;
+    CHECK(eng.wait_emits());
+    Snapshot s = snapshot(eng);
+    std::printf("crash round %u: %llu entries in flight at recovery\n", round,
+                (unsigned long long)pending);
+    CHECK_EQ(s.balance.size(), 200u);
+    CHECK_EQ(s.entries, 0u);
+    CHECK_EQ(s.total, kStart * 200);
+    eng.stop();
+  }
+  std::printf("crash: 4 rounds conserved\n");
+}
+
+}  // namespace
+
+int main() {
+  register_type();
+  test_memory();
+  test_durable();
+  test_crash();
+  std::printf("test_transfer: ok\n");
+  return 0;
+}

@@ -53,6 +53,7 @@ struct Args {
   bool route_owner = true;
   int misroute_pct = 0;
   double zipf = 0;  // > 0: Zipf key choice over all objects
+  int transfer_pct = 0;  // ops that move 1 cent to a random account
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -104,9 +105,14 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView) {
   auto* t = static_cast<Thread*>(ctx);
   u32 slot = static_cast<u32>(h.req_id);
   t->hist.add(now_ns() - t->start[slot]);
-  ++t->ops;
-  if (h.status == static_cast<u16>(Status::E_OVERLOADED)) ++t->overloaded;
-  else if (h.status != static_cast<u16>(Status::OK)) ++t->errors;
+  // Turned-away requests never ran, so they do not count as ops.
+  auto st = static_cast<Status>(h.status);
+  if (st == Status::E_OVERLOADED) {
+    ++t->overloaded;
+  } else {
+    ++t->ops;
+    if (st != Status::OK && st != Status::E_APP) ++t->errors;  // E_APP: no funds
+  }
   --t->outstanding;
   t->free_slots.push_back(slot);
 }
@@ -170,7 +176,13 @@ void run(Thread& t) {
       q.target = id;
       t.start[slot] = now_ns();
       ++t.outstanding;
-      if (static_cast<int>(t.rng() % 100) < a.reads_pct) {
+      if (a.transfer_pct && static_cast<int>(t.rng() % 100) < a.transfer_pct) {
+        q.op = kOpTransfer;
+        u64 j = t.rng() % n_ids;
+        if (sh.ids[j] == id) j = (j + 1) % n_ids;
+        TransferArgs x{sh.ids[j], 1, t.start[slot]};
+        t.client.send(dst, q, ByteView(&x, sizeof(x)));
+      } else if (static_cast<int>(t.rng() % 100) < a.reads_pct) {
         q.op = kOpGetBalance;
         t.client.send(dst, q, {});
       } else {
@@ -224,6 +236,7 @@ Args parse(int argc, char** argv) {
       a.route_owner = r == "owner";
     } else if (k == "--misroute") a.misroute_pct = std::atoi(val());
     else if (k == "--zipf") a.zipf = std::atof(val());
+    else if (k == "--transfer") a.transfer_pct = std::atoi(val());
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);

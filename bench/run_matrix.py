@@ -55,6 +55,12 @@ def main():
     for theta in (0.99, 1.5):
         runs.append(("skew-durable", "snc", f"--zipf {theta} --reads 50 --depth 256 --data-dir D"))
         runs.append(("skew-durable", "baseline", f"--zipf {theta} --reads 50 --depth 256 --data-dir D --logs 4"))
+    # Transfers between two random accounts (docs/TRANSFERS.md).
+    for engine in ("snc", "baseline"):
+        for pct in (100, 20):
+            runs.append(("transfer", engine, f"--transfer {pct} --reads 50 --depth 32"))
+    runs.append(("transfer-durable", "snc", "--transfer 100 --depth 256 --data-dir D"))
+    runs.append(("transfer-durable", "baseline", "--transfer 100 --depth 256 --data-dir D --logs 4"))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
 
     if a.groups:

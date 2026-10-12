@@ -45,6 +45,16 @@ Shard::~Shard() {
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
+  // Follow-ups first: new client work waits while this shard's backlog of
+  // follow-ups is long, so transfers settle instead of piling up.
+  if (emits_in_flight() > kEmitBacklog) {
+    ++stats_.overloaded;
+    ExecResult r;
+    r.status = Status::E_OVERLOADED;
+    r.id = target;
+    done(ctx, r);
+    return;
+  }
   u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
   u16 owner = slots_.owner[h >> 52];
   if (owner == id_) {
@@ -145,6 +155,7 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.result_buf_ = result_scratch_.data();
   c.result_len_ = 0;
   c.max_result_ = op->max_result;
+  c.source_ = cur_source_;
   c.result_overflow_ = false;
 }
 
@@ -205,6 +216,7 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
   prepare_ctx(c, obj, t, op);
   Status s = validate_checked(c, op, args);
   if (s != Status::OK) {
+    if (!emit_scratch_.empty()) contract_violation("emit outside apply", op);
     out.r.status = s;
     out.r.app_code = c.app_code_;
     return;
@@ -235,6 +247,7 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
       }
     }
     o->last_lsn = log(RecType::UPDATE, *o);
+    if (!emit_scratch_.empty()) queue_emits(o->last_lsn);
     out.r.durable = durable(o->last_lsn);
     if (opts.durability == Durability::DURABLE) out.wait_lsn = o->last_lsn;
   }
@@ -379,6 +392,10 @@ void Shard::defer(Waiter&& w) {
 void Shard::on_wal_durable(void* ctx) { static_cast<Shard*>(ctx)->release_waiters(); }
 
 void Shard::release_waiters() {
+  while (!emit_wait_.empty() && durable(emit_wait_.front().lsn)) {
+    route_emit(emit_wait_.front());
+    emit_wait_.pop_front();
+  }
   while (!waiters_.empty() && durable(waiters_.front().lsn)) {
     Waiter w = std::move(waiters_.front());
     waiters_.pop_front();
@@ -406,7 +423,7 @@ void Shard::release_waiters() {
 }
 
 bool Shard::poll() {
-  bool busy = false;
+  bool busy = run_emits();
   if (wal_) busy |= wal_->poll(sri_now_ns(), /*force=*/false);
   if (ckpt_.active) {
     checkpoint_step();
@@ -458,7 +475,7 @@ void Shard::index_find(u32 index_id, ByteView key, u32 max_results,
 void Shard::rebuild_index() {
   indexes_.clear();
   u8 key[kMaxIndexKey];
-  map_.for_each([&](ObjectHeader* o) {
+  map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted()) return;
     const TypeDescriptor* t = registry().type(o->type_id);
     if (!t->index_id) return;
@@ -597,6 +614,7 @@ void Shard::on_message(const Msg& m) {
     case MsgKind::INDEX_QUERY: serve_index(m); break;
     case MsgKind::INDEX_RESP: complete_index(m); break;
     case MsgKind::BUF_RETURN: alloc_.free(m.ext.ptr); break;
+    case MsgKind::EMIT: serve_emit(m); break;
     default:
       std::fprintf(stderr, "snc: shard %u got unexpected message kind %u\n", id_,
                    static_cast<unsigned>(m.kind));
@@ -790,6 +808,19 @@ void Shard::install(const WalRecord& r, const u8* payload) {
 
 void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   rebuild_index();
+  // Recovered state is durable, so whatever resume hooks emit is ready now.
+  resuming_ = true;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted()) return;
+    const TypeDescriptor* t = registry().type(o->type_id);
+    if (t == nullptr || t->resume == nullptr) return;
+    OpCtx c;
+    c.obj_ = const_cast<ObjectHeader*>(o);
+    c.type_ = t;
+    t->resume(c);
+  });
+  resuming_ = false;
+  queue_emits(0);
   if (!wal_cfg.data_dir.empty()) {
     wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
     wal_->on_durable = &Shard::on_wal_durable;
@@ -904,6 +935,7 @@ ShardStats Shard::stats() const {
   ShardStats s = stats_;
   s.objects = 0;
   map_.for_each([&](const ObjectHeader* o) { s.objects += !o->deleted(); });
+  s.emits_in_flight = emits_in_flight();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
   if (wal_) {
@@ -941,6 +973,134 @@ u8* OpCtx::resize(u32 new_len) {
   if (new_len > old_len) std::memset(obj_->payload() + old_len, 0, new_len - old_len);
   obj_->length = new_len;
   return obj_->payload();
+}
+
+// ---- Follow-ups (docs/TRANSFERS.md) ------------------------------------------------
+
+void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
+  Shard* s = tl_shard;
+  if (!s->resuming_ && (op_ == nullptr || op_->kind != OpKind::MUTATE)) {
+    contract_violation("emit from a non-MUTATE op", op_);
+  }
+  if (args.len > kMaxEmitArgs) contract_violation("emit args too large", op_);
+  Shard::Emit e;
+  e.source = obj_->id;
+  e.target = target;
+  e.op = op;
+  e.fail_op = fail_op;
+  e.len = static_cast<u8>(args.len);
+  if (args.len) std::memcpy(e.args, args.data, args.len);
+  s->emit_scratch_.push_back(e);
+}
+
+void Shard::queue_emits(u64 lsn) {
+  stats_.emits += emit_scratch_.size();
+  for (Emit& e : emit_scratch_) {
+    e.lsn = lsn;
+    // A local follow-up's record lands later in this shard's WAL stream, and
+    // recovery replays a prefix of the stream, so it cannot outlive the
+    // record that emitted it: no need to wait.
+    if (durable(lsn) || owner_of(e.target) == id_) {
+      route_emit(e);
+    } else {
+      emit_wait_.push_back(e);  // this shard's LSNs only grow, so stays sorted
+    }
+  }
+  emit_scratch_.clear();
+}
+
+// Ready follow-ups wait per destination: local ones run at the next poll,
+// remote ones go out in order until that destination's ring is full.
+void Shard::route_emit(const Emit& e) {
+  ++emit_ready_count_;
+  u16 owner = owner_of(e.target);
+  if (owner == id_) {
+    emit_local_.push_back(e);
+  } else {
+    if (emit_remote_.size() <= owner) emit_remote_.resize(slots_.n_shards);
+    emit_remote_[owner].push_back(e);
+  }
+}
+
+bool Shard::run_emits() {
+  if (emits_paused_ || emit_ready_count_ == 0) return false;
+  std::vector<Emit> local;
+  local.swap(emit_local_);
+  emit_ready_count_ -= local.size();
+  for (const Emit& e : local) run_emit(e);
+  for (u16 dst = 0; dst < emit_remote_.size(); ++dst) {
+    std::deque<Emit>& q = emit_remote_[dst];
+    while (!q.empty()) {
+      if (!send_emit(dst, q.front())) break;  // ring full: keep the rest in order
+      q.pop_front();
+      --emit_ready_count_;
+    }
+  }
+  return true;
+}
+
+void Shard::run_emit(const Emit& e) {
+  ExecOptions opts;
+  opts.durability = Durability::APPLIED;  // the follow-up's own emits wait for its record
+  opts.allow_undurable = true;
+  RunOut out;
+  out.r.id = e.target;
+  cur_source_ = e.source;
+  run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out);
+  cur_source_ = ObjectID{};
+  emit_result(e, out.r.status);
+}
+
+bool Shard::send_emit(u16 dst, const Emit& e) {
+  Msg m;
+  zero_header(m);
+  m.kind = MsgKind::EMIT;
+  m.flags = kMsgArgsInline;
+  m.src_shard = id_;
+  m.op_id = e.op;
+  m.req_id = e.source.hi;
+  m.expected_version = e.source.lo;
+  m.status = static_cast<u16>(e.fail_op);
+  m.aux = static_cast<u16>(e.fail_op >> 16);
+  m.target = e.target;
+  m.len = e.len;
+  if (e.len) std::memcpy(m.inline_data, e.args, e.len);
+  if (!sri_send(dst, m)) return false;
+  ++stats_.emits_sent;
+  return true;
+}
+
+void Shard::serve_emit(const Msg& m) {
+  ++stats_.emits_received;
+  Emit e;
+  e.source = ObjectID{m.req_id, m.expected_version};
+  e.target = m.target;
+  e.op = m.op_id;
+  e.fail_op = OpID{m.status} | (OpID{m.aux} << 16);
+  e.len = static_cast<u8>(m.len);
+  if (m.len) std::memcpy(e.args, m.inline_data, m.len);
+  run_emit(e);
+}
+
+void Shard::emit_result(const Emit& e, Status s) {
+  switch (s) {
+    case Status::E_NOT_FOUND:
+    case Status::E_TYPE_MISMATCH:
+    case Status::E_UNKNOWN_OP:
+      if (e.fail_op != 0) {
+        ++stats_.emits_failed_over;
+        Emit f = e;  // runs on the source, with the missing target as its source
+        f.source = e.target;
+        f.target = e.source;
+        f.op = e.fail_op;
+        f.fail_op = 0;
+        f.lsn = 0;
+        route_emit(f);
+      }
+      break;
+    default:
+      break;
+  }
 }
 
 // ---- Public API -------------------------------------------------------------------------

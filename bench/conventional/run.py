@@ -8,6 +8,10 @@ updated_ns set, returning the new balance and op count). Durable means a
 reply only after the write is fsynced: synchronous_commit/fsync on for
 PostgreSQL, appendfsync always for Redis. Memory means those are off.
 
+--workload transfer instead moves 1 cent between two random accounts per
+op (docs/TRANSFERS.md): one UPDATE of both rows in PostgreSQL, one Lua
+script in Redis.
+
 Needs: postgresql (16), redis-server, pgbench, redis-benchmark. Run as root
 (PostgreSQL runs as the postgres user).
 """
@@ -81,6 +85,10 @@ class Redis:
     SCRIPT = ("local b = redis.call('HINCRBY', KEYS[1], 'balance', 1); "
               "local c = redis.call('HINCRBY', KEYS[1], 'op_count', 1); "
               "redis.call('HSET', KEYS[1], 'updated_ns', ARGV[1]); return {b, c}")
+    XFER = ("if tonumber(redis.call('HGET', KEYS[1], 'balance')) < 1 then return 0 end; "
+            "redis.call('HINCRBY', KEYS[1], 'balance', -1); redis.call('HINCRBY', KEYS[1], 'op_count', 1); "
+            "redis.call('HINCRBY', KEYS[2], 'balance', 1); redis.call('HINCRBY', KEYS[2], 'op_count', 1); "
+            "return 1")
 
     def __init__(self, a):
         self.a = a
@@ -100,6 +108,7 @@ class Redis:
                "    w('*%d\\r\\n' % len(p) + ''.join('$%d\\r\\n%s\\r\\n' % (len(x), x) for x in p))\n")
         sh(f"python3 -c \"{gen}\" | {self.cli} --pipe")
         self.sha = sh(f"{self.cli} SCRIPT LOAD \"{self.SCRIPT}\"").strip()
+        self.xfer_sha = sh(f"{self.cli} SCRIPT LOAD \"{self.XFER}\"").strip()
 
     def durable(self, on):
         if on:
@@ -111,15 +120,19 @@ class Redis:
         else:
             sh(f"{self.cli} CONFIG SET appendonly no")
 
-    def run(self, n_each):
+    def run(self, n_each, workload):
         # One load generator per client core: reads on one, deposits on the
-        # other, so the server sees a 50/50 mix.
+        # other, so the server sees a 50/50 mix; or transfers on both.
         cpus = self.a.client_cpus.split(",")
         base = f"redis-benchmark -p {self.a.redis_port} -c 32 -P 16 -n {n_each} -r 1000000 -q"
+        if workload == "transfer":
+            cmds = [f"EVALSHA {self.xfer_sha} 2 acct:__rand_int__ acct:__rand_int__"] * 2
+        else:
+            cmds = ["HMGET acct:__rand_int__ balance op_count", f"EVALSHA {self.sha} 1 acct:__rand_int__ 7"]
         procs = [
-            subprocess.Popen(f"taskset -c {cpus[0]} {base} HMGET acct:__rand_int__ balance op_count",
+            subprocess.Popen(f"taskset -c {cpus[0]} {base} {cmds[0]}",
                              shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True),
-            subprocess.Popen(f"taskset -c {cpus[-1]} {base} EVALSHA {self.sha} 1 acct:__rand_int__ 7",
+            subprocess.Popen(f"taskset -c {cpus[-1]} {base} {cmds[1]}",
                              shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True),
         ]
         total, p50 = 0.0, []
@@ -144,8 +157,14 @@ def main():
     ap.add_argument("--pg-bin", default="/usr/lib/postgresql/16/bin")
     ap.add_argument("--pg-port", type=int, default=5440)
     ap.add_argument("--redis-port", type=int, default=6390)
-    ap.add_argument("--out", default="bench/results/conventional.csv")
+    ap.add_argument("--workload", choices=("mixed", "transfer"), default="mixed")
+    ap.add_argument("--out", default="")
     a = ap.parse_args()
+    if not a.out:
+        a.out = "bench/results/conventional.csv" if a.workload == "mixed" else \
+            "bench/results/conventional_transfer.csv"
+    scripts = (("pg_mixed.sql", 16, 1), ("pg_mixed_pipeline16.sql", 8, 16)) if a.workload == "mixed" \
+        else (("pg_transfer.sql", 16, 1), ("pg_transfer_pipeline16.sql", 8, 16))
     os.makedirs(a.work, exist_ok=True)
     os.chmod(a.work, 0o777)
 
@@ -155,7 +174,7 @@ def main():
     try:
         for durable in (False, True):
             pg.durable(durable)
-            for script, clients, per in (("pg_mixed.sql", 16, 1), ("pg_mixed_pipeline16.sql", 8, 16)):
+            for script, clients, per in scripts:
                 for rep in range(a.reps):
                     ops, lat = pg.run(script, clients, a.seconds, per)
                     rows.append(dict(engine="postgres", mode="durable" if durable else "memory",
@@ -171,7 +190,7 @@ def main():
         for durable in (False, True):
             rd.durable(durable)
             for rep in range(a.reps):
-                ops, p50 = rd.run(4000000 if not durable else 1000000)
+                ops, p50 = rd.run(4000000 if not durable else 1000000, a.workload)
                 rows.append(dict(engine="redis", mode="durable" if durable else "memory",
                                  config="-c 32 -P 16 per generator, io-threads 2", rep=rep,
                                  ops_s=round(ops), latency_us=round(p50, 1)))

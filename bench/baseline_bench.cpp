@@ -68,6 +68,7 @@ struct Args {
   u16 logs = 1;
   bool prefetch = true;
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
+  int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
 };
 
 // ---- Workers ---------------------------------------------------------------------
@@ -95,7 +96,7 @@ struct Worker {
   u16 id = 0;
   std::mt19937_64 rng;
   Histogram hist;
-  u64 ops = 0, errors = 0;
+  u64 ops = 0, errors = 0, rejected = 0;
 };
 
 void pin_to(u16 cpu) {
@@ -158,7 +159,7 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
   // Run: closed loop with `depth` ops outstanding.
   std::vector<Pending> pending;
   pending.reserve(sh.args.depth);
-  std::vector<ObjectID> next;
+  std::vector<ObjectID> next, next_to, prefetch_ids;
   auto complete = [&] {
     u64 t = now_ns();
     std::size_t k = 0;
@@ -181,12 +182,35 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
       // At most `depth` ops per pass, then re-check the phase. Targets are
       // chosen first so the batch can be prefetched, as snc_bench does.
       next.clear();
-      for (std::size_t i = pending.size(); i < sh.args.depth; ++i) next.push_back(pick(sh, w));
-      if (sh.args.prefetch && !next.empty()) sh.map.prefetch(next.data(), static_cast<u32>(next.size()));
-      for (const ObjectID& id : next) {
+      next_to.clear();
+      for (std::size_t i = pending.size(); i < sh.args.depth; ++i) {
+        next.push_back(pick(sh, w));
+        ObjectID to;  // null: not a transfer
+        if (sh.args.transfer_pct && static_cast<int>(w.rng() % 100) < sh.args.transfer_pct) {
+          const auto& v = sh.created[w.rng() % sh.created.size()];
+          std::size_t j = w.rng() % v.size();
+          if (v[j] == next.back()) j = (j + 1) % v.size();
+          to = v[j];
+          prefetch_ids.push_back(to);
+        }
+        next_to.push_back(to);
+      }
+      if (sh.args.prefetch && !next.empty()) {
+        prefetch_ids.insert(prefetch_ids.end(), next.begin(), next.end());
+        sh.map.prefetch(prefetch_ids.data(), static_cast<u32>(prefetch_ids.size()));
+      }
+      prefetch_ids.clear();
+      for (std::size_t k = 0; k < next.size(); ++k) {
+        const ObjectID& id = next[k];
         u64 t = now_ns();
-        bool read = static_cast<int>(w.rng() % 100) < sh.args.reads_pct;
-        Wait wt = execute_op(sh.map, sh.logs, w.id, id, read, t);
+        Wait wt;
+        if (!next_to[k].is_null()) {
+          wt = transfer_op(sh.map, sh.logs, w.id, id, next_to[k], 1, t);
+          if (wt.found && wt.version == 0) ++w.rejected;
+        } else {
+          bool read = static_cast<int>(w.rng() % 100) < sh.args.reads_pct;
+          wt = execute_op(sh.map, sh.logs, w.id, id, read, t);
+        }
         if (!wt.found) {
           ++w.errors;
           continue;
@@ -220,6 +244,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
     else if (k == "--zipf") a.zipf = std::atof(val());
+    else if (k == "--transfer") a.transfer_pct = std::atoi(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--data-dir") a.data_dir = val();
@@ -287,11 +312,12 @@ int main(int argc, char** argv) {
   double run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
 
   Histogram all;
-  u64 ops = 0, errors = 0;
+  u64 ops = 0, errors = 0, rejected = 0;
   for (auto& w : workers) {
     all.merge(w.hist);
     ops += w.ops;
     errors += w.errors;
+    rejected += w.rejected;
   }
   u64 contended = sh.map.contended.load() - contended0;
   std::printf("baseline_bench threads=%u pinned=%s durability=%s\n", args.threads,
@@ -306,6 +332,10 @@ int main(int argc, char** argv) {
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per thread)  errors %llu\n", ops / run_s, ops / run_s / args.threads,
               (unsigned long long)errors);
+  if (args.transfer_pct) {
+    std::printf("  transfers %d%% of ops, rejected for funds %llu\n", args.transfer_pct,
+                (unsigned long long)rejected);
+  }
   std::printf("  latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", all.percentile(50),
               all.percentile(95), all.percentile(99), all.percentile(99.9));
   std::printf("  contended stripe locks %.3f%% of ops\n", 100.0 * contended / std::max<u64>(1, ops));
