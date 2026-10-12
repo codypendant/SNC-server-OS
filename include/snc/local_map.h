@@ -49,6 +49,19 @@ class LocalMap {
     }
   }
 
+  // The entry's storage, for swapping in a moved block: look it up before
+  // realloc, write it after. Probing compares IDs through the stored
+  // pointers, so the map must never be searched while it holds a freed block.
+  // Invalidated by any insert or erase.
+  ObjectHeader** slot(const ObjectID& id) {
+    std::size_t i = index_of(id);
+    while (table_[i].obj != nullptr) {
+      if (table_[i].obj->id == id) return &table_[i].obj;
+      i = (i + 1) & mask_;
+    }
+    return nullptr;
+  }
+
   // Removes and returns the entry, or nullptr if absent.
   ObjectHeader* erase(const ObjectID& id) {
     std::size_t i = index_of(id);

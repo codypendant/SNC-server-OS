@@ -1,10 +1,14 @@
-// Locality micro-benchmark (spec: Benchmark run 4, without durability yet).
+// Locality and durability micro-benchmark (spec: Benchmark runs 1, 4 and 5).
 // Loads N accounts, then each shard runs a closed loop of deposits/reads
 // against targets chosen so that a fixed fraction is owned by another shard.
 // Reports throughput, latency percentiles and cross-shard messages per op.
+// With --data-dir every op is DURABLE (writes and reads wait for the WAL),
+// and after the run it times a checkpoint and a full restart (recovery).
 //
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
+//                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
+//                  [--no-checkpoint]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -13,6 +17,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <latch>
+#include <memory>
 #include <random>
 #include <string>
 #include <thread>
@@ -35,6 +40,11 @@ struct Args {
   u32 depth = 32;  // outstanding ops per shard
   bool pin = true;
   bool spin = false;
+  std::string data_dir;  // empty = in memory, no WAL
+  u32 group_commit_us = 50;
+  bool direct = true;
+  bool sync = true;
+  bool checkpoint = true;  // false: restart replays the whole WAL
 };
 
 // Log-linear latency histogram: 2^-5 relative precision, ns resolution.
@@ -142,7 +152,7 @@ bool issue(ShardDriver& d) {
 
 struct Loader {
   u16 shard = 0;
-  u64 next = 0, total = 0, done = 0, inflight = 0, errors = 0;
+  u64 next = 0, total = 0, done = 0, inflight = 0, errors = 0, retries = 0;
   u32 depth = 0;
   bool signalled = false;
 };
@@ -150,6 +160,11 @@ struct Loader {
 void on_created(void* c, const ExecResult& r) {
   auto* l = static_cast<Loader*>(c);
   --l->inflight;
+  if (r.status == Status::E_OVERLOADED) {
+    ++l->total;  // backpressure from a full owner (spec: bounded overflow): issue one more
+    ++l->retries;
+    return;
+  }
   ++l->done;
   if (r.status != Status::OK) ++l->errors;
 }
@@ -189,7 +204,7 @@ bool bench_poll(void* user, u16 shard) {
     case kLoad: {
       Loader& l = b->loaders[shard];
       bool did = load_step(l);
-      if (l.done == l.total && !l.signalled) {
+      if (l.done + l.retries == l.total && !l.signalled) {
         l.signalled = true;
         b->loaded->count_down();
       }
@@ -223,6 +238,11 @@ Args parse(int argc, char** argv) {
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--spin") a.spin = true;
+    else if (k == "--data-dir") a.data_dir = val();
+    else if (k == "--group-commit-us") a.group_commit_us = static_cast<u32>(std::atoi(val()));
+    else if (k == "--no-direct") a.direct = false;
+    else if (k == "--no-sync") a.sync = false;
+    else if (k == "--no-checkpoint") a.checkpoint = false;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -261,7 +281,14 @@ int main(int argc, char** argv) {
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;
-  Engine eng(cfg);
+  cfg.data_dir = args.data_dir;
+  cfg.init = true;  // the directory must be new or empty
+  cfg.group_commit_us = args.group_commit_us;
+  cfg.wal_direct = args.direct;
+  cfg.wal_sync = args.sync;
+  const bool durable = !args.data_dir.empty();
+  auto eng_ptr = std::make_unique<Engine>(cfg);
+  Engine& eng = *eng_ptr;
   eng.start();
 
   // Load: each shard creates its share of accounts; IDs land on owners by hash.
@@ -334,18 +361,30 @@ int main(int argc, char** argv) {
   }
   int pinned = 0;
   for (u16 s = 0; s < args.shards; ++s) pinned += eng.runtime().topology(s).pinned;
+  CheckpointReport cp;
+  if (durable && args.checkpoint) cp = eng.checkpoint();
   eng.stop();
 
   u64 heap = 0, objects = 0, map_bytes = 0;
+  WalStream::Stats wal;
+  int direct = 0;
   for (u16 s = 0; s < args.shards; ++s) {
     ShardStats st = eng.stats(s);
     heap += st.heap_live_bytes;
     objects += st.objects;
     map_bytes += st.local_map_bytes;
+    wal.records += st.wal.records;
+    wal.record_bytes += st.wal.record_bytes;
+    wal.written_bytes += st.wal.written_bytes;
+    wal.flushes += st.wal.flushes;
+    wal.segments += st.wal.segments;
+    direct += st.wal_direct;
   }
 
-  std::printf("snc_bench backend=native shards=%u pinned=%d/%u durability=none(no WAL yet)\n",
-              args.shards, pinned, args.shards);
+  std::printf("snc_bench backend=native shards=%u pinned=%d/%u durability=%s\n", args.shards,
+              pinned, args.shards,
+              !durable ? "none (in memory)"
+                       : (args.sync ? "DURABLE (WAL, RWF_DSYNC)" : "WAL without sync (dev only)"));
   std::printf("load: %llu objects in %.2fs (%.0f creates/s), heap %.1f B/object, local maps %.1f MiB\n",
               (unsigned long long)objects, load_s, objects / load_s, double(heap) / objects,
               map_bytes / 1048576.0);
@@ -358,5 +397,33 @@ int main(int argc, char** argv) {
   std::printf("  local ops %.1f%%  cross-shard msgs/op %.2f  msg payload bytes/op %.1f  ring-full events %llu\n",
               100.0 * local / std::max<u64>(1, local + remote), double(msgs) / std::max<u64>(1, ops),
               double(bytes) / std::max<u64>(1, ops), (unsigned long long)full);
+  if (durable) {
+    std::printf("wal: %llu records, %.1f MiB written (%.0f%% padding), %llu flushes "
+                "(%.1f records/flush), %llu segments, O_DIRECT %d/%u, group commit %u us\n",
+                (unsigned long long)wal.records, wal.written_bytes / 1048576.0,
+                100.0 * (wal.written_bytes - wal.record_bytes) / std::max<u64>(1, wal.written_bytes),
+                (unsigned long long)wal.flushes, double(wal.records) / std::max<u64>(1, wal.flushes),
+                (unsigned long long)wal.segments, direct, args.shards, args.group_commit_us);
+    if (args.checkpoint) std::printf("checkpoint: %llu objects, %.1f MiB in %.2fs, %llu WAL segments deleted\n",
+                (unsigned long long)cp.objects, cp.bytes / 1048576.0, cp.seconds,
+                (unsigned long long)cp.segments_deleted);
+    // Restart: recover the space from the checkpoint plus the WAL written since.
+    eng_ptr.reset();
+    Engine::Config rc;
+    rc.runtime.n_shards = args.shards;
+    rc.runtime.pin = args.pin;
+    rc.expected_objects = args.objects;
+    rc.data_dir = args.data_dir;
+    rc.wal_direct = args.direct;
+    Engine again(rc);
+    again.start();
+    const RecoveryReport& rr = again.recovery();
+    std::printf("recovery: %llu objects (%llu images + %llu WAL records) in %.2fs: "
+                "checkpoint load %.2fs, WAL replay %.2fs, index rebuild %.2fs\n",
+                (unsigned long long)rr.objects, (unsigned long long)rr.images_loaded,
+                (unsigned long long)rr.wal_records_replayed, rr.total_s, rr.checkpoint_load_s,
+                rr.wal_replay_s, rr.index_rebuild_s);
+    again.stop();
+  }
   return errors ? 1 : 0;
 }

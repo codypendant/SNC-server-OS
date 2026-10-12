@@ -6,6 +6,7 @@
 namespace snc::account {
 
 inline constexpr u32 kTypeId = 256;
+inline constexpr u32 kEmailIndex = 1;  // Account.email -> ObjectID
 
 enum : OpID {
   kOpCreate = 1001,

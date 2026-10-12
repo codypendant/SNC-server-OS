@@ -9,6 +9,7 @@
 #include "snc/local_map.h"
 #include "snc/registry.h"
 #include "snc/slot_map.h"
+#include "snc/storage.h"
 
 namespace snc {
 
@@ -35,6 +36,12 @@ void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, C
              void* ctx);
 void create(u32 type_id, ByteView init_args, const ExecOptions& opts, Completion done, void* ctx);
 void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
+
+// Secondary index lookup (spec section 11): asks every shard, merges, and
+// returns at most `max_results` IDs. Skips objects whose state is not yet
+// durable. Not a snapshot across shards.
+using IndexCompletion = void (*)(void* ctx, Status s, const ObjectID* ids, u32 n);
+void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
 
 // Owner of an ID under the current slot map. Valid on a worker thread.
 u16 owner_of(const ObjectID& id);
@@ -82,6 +89,31 @@ struct ShardStats {
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
   u64 heap_live_bytes = 0;
+  u64 index_lookups_served = 0;
+  u64 deferred_completions = 0;  // completions that waited for durability
+  WalStream::Stats wal;
+  u64 wal_durable_lsn = 0;
+  bool wal_direct = false;
+};
+
+struct RecoveryReport {
+  bool fresh = false;          // initialized a new data directory
+  bool remapped = false;       // shard count changed: slot map rebuilt
+  u64 checkpoint_seq = 0;      // checkpoint loaded (0 = none)
+  u64 images_loaded = 0;
+  u64 wal_records_replayed = 0;
+  u64 torn_tails = 0;          // WAL segments that ended at a crash tail
+  u64 objects = 0;
+  double superblock_s = 0, checkpoint_load_s = 0, wal_replay_s = 0, index_rebuild_s = 0,
+         final_checkpoint_s = 0, total_s = 0;
+};
+
+struct CheckpointReport {
+  u64 seq = 0;
+  u64 objects = 0;
+  u64 bytes = 0;
+  u64 segments_deleted = 0;
+  double seconds = 0;
 };
 
 // Wires the SNC core into a backend. One Engine per process.
@@ -94,13 +126,28 @@ class Engine {
     // (load drivers, ingress). Returns true if it did work.
     bool (*app_poll)(void* user, u16 shard) = nullptr;
     void* app_user = nullptr;
+
+    // Persistence. Empty data_dir = in-memory only: every state reports durable.
+    std::string data_dir;
+    bool init = false;            // create the data directory if it has no superblock
+    u64 wal_segment_bytes = 64ull << 20;
+    u32 group_commit_us = 50;
+    bool wal_sync = true;         // false = wal_sync none (development only)
+    bool wal_direct = true;
   };
 
   explicit Engine(const Config& cfg);
   ~Engine();
 
+  // With a data_dir: recovers (superblock, checkpoint, WAL replay, index
+  // rebuild, new mint leases) before returning. Aborts on corruption.
   void start();
+  // Flushes every WAL stream and waits for pending durability, then stops.
   void stop();
+
+  // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
+  CheckpointReport checkpoint();
+  const RecoveryReport& recovery() const { return recovery_; }
 
   NativeRuntime& runtime() { return *rt_; }
   u16 shard_count() const { return cfg_.runtime.n_shards; }
@@ -116,6 +163,13 @@ class Engine {
   std::unique_ptr<NativeRuntime> rt_;
   std::vector<class Shard*> shards_;
   bool running_ = false;
+
+  // Persistence state (control thread only).
+  void recover();
+  Superblock sb_{};
+  Uuid uuid_{};
+  SlotMap slots_;
+  RecoveryReport recovery_;
 };
 
 }  // namespace snc

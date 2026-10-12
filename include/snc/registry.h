@@ -29,6 +29,16 @@ struct OpDescriptor {
   void (*apply)(OpCtx& ctx, ByteView args) = nullptr;
 };
 
+// Secondary index (spec section 11): shard-local, non-unique, equality only.
+struct IndexDescriptor {
+  u32 index_id = 0;
+  u32 type_id = 0;
+  const char* name = "";
+  // Returns key length (0 = object not indexed); writes at most kMaxIndexKey
+  // bytes to key_out.
+  u32 (*extract)(const u8* payload, u32 len, u8* key_out) = nullptr;
+};
+
 struct TypeDescriptor {
   u32 type_id = 0;  // stable registry number; 0..255 reserved for the runtime
   const char* name = "";
@@ -39,6 +49,7 @@ struct TypeDescriptor {
   bool (*check)(const u8* payload, u32 len) = nullptr;
   OpID create_op = 0;  // OpKind::CREATE descriptor, required
   OpID delete_op = 0;  // OpKind::DELETE descriptor, optional
+  u32 index_id = 0;    // v0.1: at most one secondary index per type, 0 = none
 };
 
 inline constexpr u32 kFirstUserTypeId = 256;
@@ -49,15 +60,18 @@ class Registry {
   // programming errors in compiled-in code.
   void add_type(const TypeDescriptor& t);
   void add_op(const OpDescriptor& op);
+  void add_index(const IndexDescriptor& idx);  // also sets the type's index_id
 
   const TypeDescriptor* type(u32 type_id) const;
   const OpDescriptor* op(OpID op_id) const;
+  const IndexDescriptor* index(u32 index_id) const;
 
   const std::vector<TypeDescriptor>& types() const { return types_; }
 
  private:
   std::vector<TypeDescriptor> types_;
   std::vector<OpDescriptor> ops_;  // dense by op_id for O(1) lookup
+  std::vector<IndexDescriptor> indexes_;
 };
 
 // Process-wide registry. Populate before starting the runtime.

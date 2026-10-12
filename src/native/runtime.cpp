@@ -3,6 +3,7 @@
 #include "snc/native_runtime.h"
 
 #include <emmintrin.h>
+#include <liburing.h>
 #include <poll.h>
 #include <sched.h>
 #include <sys/eventfd.h>
@@ -95,6 +96,23 @@ struct Worker {
   std::vector<std::function<void()>> injected;
   std::atomic<bool> has_injected{false};
 
+  // File I/O: io_uring when available, else synchronous pwritev2 with the
+  // completion deferred to the next loop iteration.
+  io_uring ring{};
+  bool uring_ok = false;
+  u32 io_inflight = 0;
+  struct IoReq {
+    IoDone done;
+    void* ctx;
+    int result;
+  };
+  struct IoOp {
+    IoDone done;
+    void* ctx;
+    iovec iov;
+  };
+  std::vector<IoReq> io_deferred;
+
   std::thread thread;
 };
 
@@ -153,6 +171,77 @@ bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   return true;
 }
 
+void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
+  Worker& w = *tl_worker;
+  int flags = dsync ? RWF_DSYNC : 0;
+  if (w.uring_ok) {
+    io_uring_sqe* sqe = io_uring_get_sqe(&w.ring);
+    if (sqe == nullptr) {
+      io_uring_submit(&w.ring);
+      sqe = io_uring_get_sqe(&w.ring);
+    }
+    if (sqe != nullptr) {
+      // The iovec must live until completion, so it travels with the op.
+      auto* op = new Worker::IoOp{done, ctx, iovec{const_cast<void*>(buf), len}};
+      io_uring_prep_writev2(sqe, fd, &op->iov, 1, off, flags);
+      io_uring_sqe_set_data(sqe, op);
+      io_uring_submit(&w.ring);
+      ++w.io_inflight;
+      return;
+    }
+  }
+  iovec iov{const_cast<void*>(buf), len};
+  ssize_t n = ::pwritev2(fd, &iov, 1, static_cast<off_t>(off), flags);
+  w.io_deferred.push_back(Worker::IoReq{done, ctx, n < 0 ? -errno : static_cast<int>(n)});
+}
+
+void sri_fdatasync(int fd, IoDone done, void* ctx) {
+  Worker& w = *tl_worker;
+  if (w.uring_ok) {
+    io_uring_sqe* sqe = io_uring_get_sqe(&w.ring);
+    if (sqe == nullptr) {
+      io_uring_submit(&w.ring);
+      sqe = io_uring_get_sqe(&w.ring);
+    }
+    if (sqe != nullptr) {
+      auto* op = new Worker::IoOp{done, ctx, iovec{}};
+      io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
+      io_uring_sqe_set_data(sqe, op);
+      io_uring_submit(&w.ring);
+      ++w.io_inflight;
+      return;
+    }
+  }
+  int r = ::fdatasync(fd);
+  w.io_deferred.push_back(Worker::IoReq{done, ctx, r < 0 ? -errno : 0});
+}
+
+namespace {
+// Runs completed file I/O callbacks. Returns true if any ran.
+bool reap_io(Worker& w) {
+  bool did = false;
+  if (!w.io_deferred.empty()) {
+    std::vector<Worker::IoReq> ready;
+    ready.swap(w.io_deferred);
+    for (auto& r : ready) r.done(r.ctx, r.result);
+    did = true;
+  }
+  if (w.uring_ok && w.io_inflight > 0) {
+    io_uring_cqe* cqe;
+    while (io_uring_peek_cqe(&w.ring, &cqe) == 0) {
+      auto* op = static_cast<Worker::IoOp*>(io_uring_cqe_get_data(cqe));
+      int res = cqe->res;
+      io_uring_cqe_seen(&w.ring, cqe);
+      --w.io_inflight;
+      op->done(op->ctx, res);
+      delete op;
+      did = true;
+    }
+  }
+  return did;
+}
+}  // namespace
+
 // ---- Worker loop ------------------------------------------------------------
 
 void NativeRuntime::Impl::wake(Worker& target) {
@@ -199,7 +288,14 @@ bool NativeRuntime::Impl::drain(Worker& w, u16 src) {
 void NativeRuntime::Impl::loop(Worker& w) {
   const u16 n = static_cast<u16>(workers.size());
   u64 idle_since = 0;
-  while (!stopping.load(std::memory_order_relaxed)) {
+  while (true) {
+    // Stop once asked and the shard has nothing in flight (e.g. its WAL is
+    // flushed), so a clean stop never drops acknowledged-but-pending work.
+    if (stopping.load(std::memory_order_relaxed) &&
+        (hooks.quiesced == nullptr || hooks.quiesced(hooks.user)) && w.io_inflight == 0 &&
+        w.io_deferred.empty()) {
+      break;
+    }
     bool did = false;
     for (u16 s = 0; s < n; ++s) {
       if (s != w.id) did |= drain(w, s);
@@ -214,6 +310,7 @@ void NativeRuntime::Impl::loop(Worker& w) {
       for (auto& fn : fns) fn();
       did = true;
     }
+    did |= reap_io(w);
     if (hooks.poll) did |= hooks.poll(hooks.user);
     publish_all(w);
     if (did || !w.touched.empty()) {
@@ -234,7 +331,8 @@ void NativeRuntime::Impl::loop(Worker& w) {
     w.sleeping.store(true, std::memory_order_relaxed);
     std::atomic_thread_fence(std::memory_order_seq_cst);
     bool pending = w.has_injected.load(std::memory_order_relaxed) ||
-                   stopping.load(std::memory_order_relaxed);
+                   stopping.load(std::memory_order_relaxed) || !w.io_deferred.empty() ||
+                   (w.uring_ok && io_uring_cq_ready(&w.ring) > 0);
     for (u16 s = 0; s < n && !pending; ++s) {
       if (s != w.id) pending = w.inbound[s]->has_pending_for_consumer();
     }
@@ -282,6 +380,12 @@ void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch
   }
 
   w.alloc = std::make_unique<ShardAllocator>(cfg.heap_limit_bytes);
+  // io_uring completions signal the same eventfd that wakes a sleeping loop.
+  if (io_uring_queue_init(256, &w.ring, 0) == 0) {
+    w.uring_ok = io_uring_register_eventfd(&w.ring, w.efd) == 0;
+    if (!w.uring_ok) io_uring_queue_exit(&w.ring);
+  }
+  w.topo.io_uring = w.uring_ok;
   // Inbound rings are allocated by their consumer (spec: consumer's node).
   w.inbound.assign(n, nullptr);
   for (u16 s = 0; s < n; ++s) {
@@ -299,6 +403,9 @@ void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch
   init_done.count_down();
   loop(w);
   if (hooks.fini) hooks.fini(hooks.user);
+  // fini may have waited on I/O; drain whatever is left before tearing down.
+  while (w.io_inflight > 0 || !w.io_deferred.empty()) reap_io(w);
+  if (w.uring_ok) io_uring_queue_exit(&w.ring);
   // mimalloc heaps belong to their thread: destroy it here, not in ~Worker.
   w.alloc.reset();
   tl_worker = nullptr;

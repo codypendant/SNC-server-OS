@@ -33,6 +33,26 @@ void Registry::add_op(const OpDescriptor& op) {
   ops_[op.op_id] = op;
 }
 
+void Registry::add_index(const IndexDescriptor& idx) {
+  if (idx.index_id == 0 || index(idx.index_id)) die("bad or duplicate index id", idx.index_id);
+  if (idx.extract == nullptr) die("index has no extractor", idx.index_id);
+  TypeDescriptor* t = nullptr;
+  for (auto& x : types_) {
+    if (x.type_id == idx.type_id) t = &x;
+  }
+  if (t == nullptr) die("index for unknown type", idx.index_id);
+  if (t->index_id != 0) die("type already has an index (v0.1 allows one)", idx.index_id);
+  t->index_id = idx.index_id;
+  indexes_.push_back(idx);
+}
+
+const IndexDescriptor* Registry::index(u32 index_id) const {
+  for (const auto& i : indexes_) {
+    if (i.index_id == index_id) return &i;
+  }
+  return nullptr;
+}
+
 const TypeDescriptor* Registry::type(u32 type_id) const {
   for (const auto& t : types_) {
     if (t.type_id == type_id) return &t;

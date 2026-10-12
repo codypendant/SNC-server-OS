@@ -14,6 +14,7 @@ struct ShardTopology {
   int cpu = -1;        // core the worker runs on, -1 if unknown
   int numa_node = -1;  // -1 if unknown
   bool pinned = false;
+  bool io_uring = false;  // false: file writes fall back to synchronous pwritev2
 };
 
 // Callbacks the backend runs on each worker thread.
@@ -21,6 +22,9 @@ struct ShardHooks {
   void (*init)(void* user) = nullptr;                  // after pinning, before any message
   void (*on_message)(void* user, const Msg&) = nullptr;
   bool (*poll)(void* user) = nullptr;                  // per-iteration work; true if it did work
+  // During stop: true once the shard has no work in flight. The loop keeps
+  // running until it returns true. Null = always quiesced.
+  bool (*quiesced)(void* user) = nullptr;
   void (*fini)(void* user) = nullptr;                  // after the loop stops
   void* user = nullptr;
 };
@@ -38,5 +42,15 @@ ShardAllocator& sri_allocator();
 bool sri_send(u16 dst, const Msg& msg, bool must_deliver = false);
 
 u64 sri_now_ns();
+
+// Asynchronous positional file write, completed on this shard's loop.
+// `result` is bytes written or -errno. With `dsync` the data is on stable
+// storage when the completion runs (RWF_DSYNC: the fdatasync is part of the
+// write). Buffers must stay valid until completion; with O_DIRECT they must
+// be 4 KiB aligned.
+using IoDone = void (*)(void* ctx, int result);
+void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx);
+// Asynchronous fdatasync of everything written to `fd` so far.
+void sri_fdatasync(int fd, IoDone done, void* ctx);
 
 }  // namespace snc
