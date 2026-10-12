@@ -90,7 +90,8 @@ Resident memory: SNC 499 B per object, baseline 452 B.
    1.19× over TCP with half reads, with p99 latency 30-60% lower. One
    WAL stream per shard with no shared lock beats a shared or partitioned
    log behind a mutex, and that holds with every op remote too.
-3. **The two engines do different amounts of work per op.** With 10K
+3. **The two engines do different amounts of work per op.** (Partly
+   superseded: see "Fixing SNC's object prefetch" below.) With 10K
    objects (everything in cache) SNC does 22.2M ops/s and the baseline
    25.2M. The baseline's deposit is a hard-coded increment under a lock;
    SNC looks up the op descriptor and runs a generic two-phase
@@ -105,6 +106,51 @@ Resident memory: SNC 499 B per object, baseline 452 B.
    real workloads have, would contend on stripe locks and bounce cache
    lines between cores, and they are what shard-per-core is meant to
    handle. This matrix does not test them yet.
+
+## Fixing SNC's object prefetch
+
+Point 3 above blamed SNC's longer per-op path for hiding less miss
+latency. Most of the gap was a bug in the prefetch itself. Stage 2
+(`LocalMap::prefetch_object`) walked the probe chain until it found the
+hash: a loop whose exit depends on entries that are still cache misses, so
+it mispredicted often and threw away the speculative work behind it. The
+baseline's version checks only the home slot. SNC now does the same; an
+object whose entry sits further down the chain is simply not prefetched.
+Two variants were slower: checking the home slot and the next one (2.27M
+ops/s, 1 shard, 1M objects) and a branchless select of either (2.23M),
+against 3.0-3.4M for the home slot alone.
+
+Two smaller cuts: `OpCtx::set_result` is inline (it was an out-of-line
+call to `memcpy` for a 16-byte result, 8% of in-cache CPU), which took one
+shard with 10K objects from 5.3M to 6.0M ops/s against the baseline's 6.6M.
+Inlining `snc_hash64` as well looked like a further gain in cache but cut
+the 1M-object rate from 3.4M to 2.0M, so it stays out of line. The cause
+was not pinned down.
+
+Rerun of both matrices (`bench/results/matrix_lean.csv`,
+`net_matrix_lean.csv`, 3 runs, medians):
+
+| Workload | SNC | Tuned baseline |
+| --- | --- | --- |
+| in process, memory, all local, 50% reads | **15.19M** | 13.55M |
+| in process, memory, all local, 95% reads | 18.30M | 17.85M |
+| in process, memory, all remote, 50% reads | 6.69M | **11.78M** |
+| in process, 1 shard or thread | 3.34M | 3.34M |
+| in process, durable, all local | **1.83M**, p99 1.9 ms | 1.32M (4 logs), p99 2.8 ms |
+| in process, Zipf 0.99, 50% reads | 8.11M | **12.63M** |
+| in process, Zipf 1.5, 50% reads | **8.25M** | 6.89M |
+| TCP, memory, 50% reads | 2.38M (owner-routed) | 2.35M |
+| TCP, memory, 95% reads | 2.56M | 2.55M |
+| TCP, Zipf 0.99, 50% reads | **2.68M** | 2.53M |
+| TCP, Zipf 1.5, 50% reads | **3.35M** | 2.48M |
+| TCP, durable, 50% reads | **1.21M**, p99 1.2 ms | 0.91M (2 logs), p99 3.5 ms |
+
+With the prefetch fixed, SNC matches or beats the tuned baseline wherever
+requests reach the owning core: in process when ops are local, and over
+TCP when the client routes to the owner, including YCSB's default skew. It
+still loses badly when ops cross cores in process (every remote op costs a
+ring round trip, which the baseline never pays), and it leads durable
+everywhere.
 
 ## Limits
 

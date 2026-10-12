@@ -70,8 +70,16 @@ class OpCtx {
     app_code_ = app_code;
     return Status::E_APP;
   }
-  // Write the op result (at most the op's max_result).
-  void set_result(const void* data, u32 len);
+  // Write the op result (at most the op's max_result). Inline: it runs on
+  // nearly every op and its results are a few bytes.
+  void set_result(const void* data, u32 len) {
+    if (len > max_result_) {
+      result_overflow_ = true;
+      return;
+    }
+    std::memcpy(result_buf_, data, len);
+    result_len_ = len;
+  }
 
  private:
   friend class Shard;
@@ -82,6 +90,7 @@ class OpCtx {
   u16 app_code_ = 0;
   u8* result_buf_ = nullptr;
   u32 result_len_ = 0;
+  u32 max_result_ = 0;
   bool result_overflow_ = false;
 };
 

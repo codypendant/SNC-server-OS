@@ -27,6 +27,12 @@ Same VM as before (4 vCPUs), 1M objects, 3 runs, medians;
 
 ## Results
 
+These runs predate the prefetch fix in
+[PREFETCH.md](PREFETCH.md#fixing-sncs-object-prefetch); after it, SNC over
+TCP also leads at θ 0.99 (2.68M vs 2.53M) and by 1.35× at θ 1.5
+(`net_matrix_lean.csv`). In process, θ 0.99 is still a baseline win
+(8.11M vs 12.63M), because three quarters of SNC's ops cross cores.
+
 In process, in memory (4 shards or threads, depth 32):
 
 | θ | Reads | SNC | Baseline | Baseline stripe contention |

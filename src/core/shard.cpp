@@ -144,6 +144,7 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.app_code_ = 0;
   c.result_buf_ = result_scratch_.data();
   c.result_len_ = 0;
+  c.max_result_ = op->max_result;
   c.result_overflow_ = false;
 }
 
@@ -940,15 +941,6 @@ u8* OpCtx::resize(u32 new_len) {
   if (new_len > old_len) std::memset(obj_->payload() + old_len, 0, new_len - old_len);
   obj_->length = new_len;
   return obj_->payload();
-}
-
-void OpCtx::set_result(const void* data, u32 len) {
-  if (len > op_->max_result) {
-    result_overflow_ = true;
-    return;
-  }
-  std::memcpy(result_buf_, data, len);
-  result_len_ = len;
 }
 
 // ---- Public API -------------------------------------------------------------------------
