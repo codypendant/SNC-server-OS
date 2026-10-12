@@ -54,6 +54,7 @@ struct Args {
   int misroute_pct = 0;
   double zipf = 0;  // > 0: Zipf key choice over all objects
   int transfer_pct = 0;  // ops that move 1 cent to a random account
+  int xfer_local = -1;   // % of transfers to an account the source's owner also owns (-1: uniform)
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -63,6 +64,7 @@ struct Shared {
   std::atomic<int> phase{kLoad};
   std::vector<ObjectID> ids;  // all accounts, filled between load and run
   bench::Zipf zipf;           // used when args.zipf > 0; ids is then in rank order
+  std::vector<std::vector<ObjectID>> by_owner;  // --xfer-local: ids by owning shard
 };
 
 struct Thread {
@@ -178,9 +180,23 @@ void run(Thread& t) {
       ++t.outstanding;
       if (a.transfer_pct && static_cast<int>(t.rng() % 100) < a.transfer_pct) {
         q.op = kOpTransfer;
-        u64 j = t.rng() % n_ids;
-        if (sh.ids[j] == id) j = (j + 1) % n_ids;
-        TransferArgs x{sh.ids[j], 1, t.start[slot]};
+        ObjectID to;
+        if (a.xfer_local >= 0 && n > 1) {
+          // Same owner with probability xfer_local, else another shard's account.
+          u16 o = t.client.owner_of(id);
+          u16 d = static_cast<int>(t.rng() % 100) < a.xfer_local
+                      ? o
+                      : static_cast<u16>((o + 1 + t.rng() % (n - 1)) % n);
+          const auto& v = sh.by_owner[d];
+          std::size_t j = t.rng() % v.size();
+          if (v[j] == id) j = (j + 1) % v.size();
+          to = v[j];
+        } else {
+          u64 j = t.rng() % n_ids;
+          if (sh.ids[j] == id) j = (j + 1) % n_ids;
+          to = sh.ids[j];
+        }
+        TransferArgs x{to, 1, t.start[slot]};
         t.client.send(dst, q, ByteView(&x, sizeof(x)));
       } else if (static_cast<int>(t.rng() % 100) < a.reads_pct) {
         q.op = kOpGetBalance;
@@ -237,6 +253,7 @@ Args parse(int argc, char** argv) {
     } else if (k == "--misroute") a.misroute_pct = std::atoi(val());
     else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
+    else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -298,6 +315,11 @@ int main(int argc, char** argv) {
   if (a.zipf > 0) {
     sh.ids = bench::zipf_order({sh.ids});
     sh.zipf = bench::Zipf(sh.ids.size(), a.zipf);
+  }
+  if (a.xfer_local >= 0) {
+    const net::Client& c = threads[0].client;
+    sh.by_owner.resize(c.shard_count());
+    for (const ObjectID& id : sh.ids) sh.by_owner[c.owner_of(id)].push_back(id);
   }
   sh.phase.store(kRun, std::memory_order_release);
   auto t1 = std::chrono::steady_clock::now();

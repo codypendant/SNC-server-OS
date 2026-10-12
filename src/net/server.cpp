@@ -77,12 +77,19 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
   r->ps = ps;
   r->conn = c;
   r->req_id = h.req_id;
-  r->forwarded = h.kind != wire::Kind::CREATE && owner_of(h.target) != sri_shard_id();
+  r->forwarded = (h.kind != wire::Kind::CREATE || !h.target.is_null()) &&
+                 owner_of(h.target) != sri_shard_id();
   ps->forwarded += r->forwarded;
   ConnSet::hold(c);
   switch (h.kind) {
     case wire::Kind::EXEC: execute(h.target, h.op, args, opts, on_done, r); break;
-    case wire::Kind::CREATE: create(h.op, args, opts, on_done, r); break;
+    case wire::Kind::CREATE:
+      if (h.target.is_null()) {
+        create(h.op, args, opts, on_done, r);
+      } else {
+        create_near(h.target, h.op, args, opts, on_done, r);
+      }
+      break;
     case wire::Kind::DELETE: remove(h.target, opts, on_done, r); break;
     default: {
       ExecResult bad;

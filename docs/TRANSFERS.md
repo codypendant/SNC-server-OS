@@ -172,6 +172,20 @@ process, 100% transfers; the baseline does not care where accounts live):
 | Memory | 2.76M/s | 4.28M/s | 7.03M/s | 9.50M/s | 6.27M/s |
 | Durable | 516K/s | 561K/s | 579K/s | 558K/s | 569K/s |
 
+Over TCP (2 server cores, `net_bench --xfer-local P`; the baseline at
+1.69M/s in memory and 476K/s durable in the same matrix):
+
+| Same-shard pairs | 0% | 50% | 90% | 100% |
+| --- | --- | --- | --- | --- |
+| Memory | 0.77M/s | 1.06M/s | 1.72M/s | 1.82M/s (p99 0.13 ms) |
+| Durable | 324K/s | 433K/s | 528K/s | 512K/s |
+
+Over TCP the socket path costs the same for both engines, so placement
+moves the ratio less: SNC ties the baseline at 90% same-shard pairs and
+leads by 8% (memory) to 11% (durable) beyond that. A wire `CREATE` that
+names a target is `create_near(target)`, so a client can place a new
+account next to an existing one.
+
 Correctness: `test_transfer` passes in release, ASan/UBSan and TSan
 builds: exact balances after transfers settle in memory and durable,
 across a clean stop with transfers in flight, a 4→3→4 shard-count change,
