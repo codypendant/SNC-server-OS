@@ -548,7 +548,12 @@ void WalStream::start_flush() {
   u32 padded = (active_len_ + kBlock - 1) / kBlock * kBlock;
   std::memset(active_ + active_len_, 0, padded - active_len_);
   if (seg_off_ > kBlock && seg_off_ + padded > cfg_.segment_bytes) {
-    if (!take_spare(active_first_lsn_)) open_segment(active_first_lsn_);
+    u64 t0 = sri_now_ns();
+    if (!take_spare(active_first_lsn_)) {
+      open_segment(active_first_lsn_);
+      ++stats_.segment_opens;
+    }
+    stats_.rollover_us_max = std::max(stats_.rollover_us_max, (sri_now_ns() - t0) / 1000);
   }
   std::swap(active_, flushing_);
   std::swap(active_cap_, flushing_cap_);
@@ -573,6 +578,7 @@ void WalStream::start_flush() {
   seg_off_ += padded;
   stats_.written_bytes += len;
   ++stats_.flushes;
+  flush_start_ns_ = sri_now_ns();
   sri_write(fd_, off, buf, len, cfg_.sync, &WalStream::flush_done, this);
 }
 
@@ -707,6 +713,9 @@ void WalStream::flush_done(void* ctx, int result) {
     storage_fatal("WAL write failed (spec C7: fail-stop)");
   }
   w->inflight_ = false;
+  u64 us = (sri_now_ns() - w->flush_start_ns_) / 1000;
+  ++w->stats_.flush_us_log2[std::min(23, us == 0 ? 0 : 63 - __builtin_clzll(us))];
+  w->stats_.flush_us_max = std::max(w->stats_.flush_us_max, us);
   w->durable_lsn_ = w->flushing_last_lsn_;
   if (w->on_durable) w->on_durable(w->on_durable_ctx);
 }

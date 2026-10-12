@@ -21,6 +21,12 @@ and the handoff's development sequence (§24).
 | 11. Checkpoint/recovery | Done: fuzzy per-shard checkpoint, A/B superblock, replay, remap on shard-count change | `src/core/engine.cpp`, `src/core/shard.cpp` |
 | 12. Locality benchmarks | Done: SNC vs a thread-pool baseline, in memory and durable; report in `docs/BENCHMARKS.md` | `bench/`, `docs/BENCHMARKS.md` |
 
+## After v0.1
+
+| Step | State | Where |
+| --- | --- | --- |
+| Request routing to the owning shard | Done: per-shard TCP listeners, wire protocol v0, owner-aware client, owner-local minting for creates; measured against the baseline behind the same front end | `src/net/`, `include/snc/wire.h`, `tools/snc_server.cpp`, [ROUTING.md](ROUTING.md) |
+
 ## Known deviations from the spec
 
 - **Recovery after a remap routes records on the control thread.** With an
@@ -69,10 +75,15 @@ and the handoff's development sequence (§24).
   survived and that every account's balance matches its version. A process
   kill does not tear writes the kernel already accepted, so torn tails are
   covered by `test_persistence`, not here; power loss is not tested.
-- All six tests pass in RelWithDebInfo, ASan+UBSan and TSan builds.
+- `test_net`: the TCP front end in memory and durable: topology, creates
+  that stay on their entry shard, requests to the owner and forwarded
+  requests (flagged), reads, unknown targets and ops, a client that
+  disconnects with 2,000 requests in flight, and a malformed frame.
+- All seven tests pass in RelWithDebInfo, ASan+UBSan and TSan builds.
 
 ## Benchmark numbers
 
-See [BENCHMARKS.md](BENCHMARKS.md) for the step 12 comparison against a
+Routing over TCP, and the cause of the durable p99 gap, are in
+[ROUTING.md](ROUTING.md). See [BENCHMARKS.md](BENCHMARKS.md) for the step 12 comparison against a
 conventional thread-pool baseline, including durable throughput, latency,
 memory and restart time.

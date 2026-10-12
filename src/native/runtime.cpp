@@ -113,6 +113,9 @@ struct Worker {
   };
   std::vector<IoReq> io_deferred;
 
+  // Idle wait: the eventfd plus any fds registered with sri_watch_fd.
+  std::vector<pollfd> idle_fds;
+
   std::thread thread;
 };
 
@@ -194,6 +197,8 @@ void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
   ssize_t n = ::pwritev2(fd, &iov, 1, static_cast<off_t>(off), flags);
   w.io_deferred.push_back(Worker::IoReq{done, ctx, n < 0 ? -errno : static_cast<int>(n)});
 }
+
+void sri_watch_fd(int fd) { tl_worker->idle_fds.push_back(pollfd{fd, POLLIN, 0}); }
 
 void sri_fdatasync(int fd, IoDone done, void* ctx) {
   Worker& w = *tl_worker;
@@ -338,8 +343,8 @@ void NativeRuntime::Impl::loop(Worker& w) {
     }
     if (!pending) {
       // Timeout keeps periodic work (group commit, checkpoints) alive later.
-      pollfd p{w.efd, POLLIN, 0};
-      if (::poll(&p, 1, 1) > 0) {
+      for (pollfd& p : w.idle_fds) p.revents = 0;
+      if (::poll(w.idle_fds.data(), w.idle_fds.size(), 1) > 0 && w.idle_fds[0].revents) {
         u64 v;
         ssize_t r = ::read(w.efd, &v, sizeof(v));
         (void)r;
@@ -380,6 +385,7 @@ void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch
   }
 
   w.alloc = std::make_unique<ShardAllocator>(cfg.heap_limit_bytes);
+  w.idle_fds.assign(1, pollfd{w.efd, POLLIN, 0});
   // io_uring completions signal the same eventfd that wakes a sleeping loop.
   if (io_uring_queue_init(256, &w.ring, 0) == 0) {
     w.uring_ok = io_uring_register_eventfd(&w.ring, w.efd) == 0;

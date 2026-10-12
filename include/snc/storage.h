@@ -189,6 +189,12 @@ class WalStream {
     u64 flushes = 0;
     u64 segments = 0;
     u64 spares_used = 0;    // segments that came ready-made from the preparer
+    u64 segment_opens = 0;  // segments created on the shard thread (no spare ready)
+    // Flush latency, submit to completion: bucket i counts flushes that took
+    // [2^i, 2^(i+1)) microseconds.
+    u64 flush_us_log2[24] = {};
+    u64 flush_us_max = 0;
+    u64 rollover_us_max = 0;  // longest segment switch on the shard thread
   };
   const Stats& stats() const { return stats_; }
 
@@ -222,6 +228,7 @@ class WalStream {
   u64 flushing_last_lsn_ = 0;
   u32 flushing_len_ = 0;
   bool inflight_ = false;
+  u64 flush_start_ns_ = 0;
 
   Stats stats_;
 };

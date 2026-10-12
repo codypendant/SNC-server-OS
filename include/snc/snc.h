@@ -45,6 +45,8 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 
 // Owner of an ID under the current slot map. Valid on a worker thread.
 u16 owner_of(const ObjectID& id);
+// The slot map this shard routes with. Valid on a worker thread.
+const SlotMap& slot_map();
 
 // Handler-facing context (spec section 6, "What apply may do").
 class OpCtx {
@@ -126,6 +128,9 @@ class Engine {
     // (load drivers, ingress). Returns true if it did work.
     bool (*app_poll)(void* user, u16 shard) = nullptr;
     void* app_user = nullptr;
+    // create() mints only IDs that hash to the calling shard, so every create
+    // runs on its entry shard (docs/ROUTING.md). Off: IDs land anywhere.
+    bool mint_local = false;
 
     // Persistence. Empty data_dir = in-memory only: every state reports durable.
     std::string data_dir;
