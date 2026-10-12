@@ -50,29 +50,30 @@ batched. `Engine::Config::batch_remote` (on by default; `snc_bench
 
 Messages per remote op fall from 2.0 to about 0.5. What that buys depends
 on how many requests are in flight, because a shard batches what it
-issued in one loop iteration (`remote-depth` group in
-`bench/results/matrix_batch.csv`; in process, 100% remote, 50% reads,
-mean of 3 runs):
+issued in one loop iteration. The owner also publishes each batched
+response as soon as it is written (`sri_publish`) instead of at the end
+of its loop iteration. In process, 100% remote, 50% reads, mean of 3 runs
+(`bench/results/matrix_batch_depth.csv`):
 
 | Requests in flight per shard | 32 | 128 | 512 |
 | --- | --- | --- | --- |
-| SNC, batched | 8.27M | 10.57M | 11.86M |
-| SNC, one message per op | 7.91M | 9.06M | 8.93M |
-| Baseline | 11.53M | 11.57M | 10.42M |
-| SNC / baseline | 0.72x | 0.91x | 1.14x |
+| SNC, batched | 9.31M | 11.43M | 12.47M |
+| SNC, one message per op | 8.04M | 9.36M | 10.05M |
+| Baseline | 11.32M | 11.84M | 10.42M |
+| SNC / baseline | 0.82x | 0.97x | 1.20x |
 
 At depth 32 the remote path is latency-bound: an op waits for its shard's
 loop to send it, the owner's loop to run it, and its own loop to see the
-answer, so the p50 is about 10 us and batches stay small. Deeper
+answer, so the p50 is about 9 us and batches stay small. Deeper
 pipelines (an ingress with many clients, or a batch job) fill the batches,
 and at 512 in flight SNC overtakes the baseline on all-remote work.
 
 The cost is latency: the baseline answers in 0.2 us at p50, because it
-runs the op on the calling thread; SNC's remote p50 is 10 us at depth 32
-and 110 us at depth 512 (196 us without batching). Ops that reach their
+runs the op on the calling thread; SNC's remote p50 is 8.5 us at depth 32
+and 104 us at depth 512 (179 us without batching). Ops that reach their
 owner directly (TCP routing, `docs/ROUTING.md`) do not pay it.
 
-Durable throughput is unchanged (`durable` group in the same file: 1.86-2.03M
+Durable throughput is unchanged (`durable` group in `matrix_batch.csv`: 1.86-2.03M
 ops/s against 0.91-1.21M for the baseline), since durable writes are
 answered apart once their record is on disk.
 
