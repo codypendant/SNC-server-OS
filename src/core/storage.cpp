@@ -453,8 +453,10 @@ u64 scan_part(const std::string& d, u64 seq, u16 stream, const Uuid& uuid, const
 WalStream::WalStream(const WalConfig& cfg, u16 stream, u64 next_lsn)
     : cfg_(cfg), stream_(stream), next_lsn_(next_lsn), durable_lsn_(next_lsn - 1) {
   active_cap_ = flushing_cap_ = 2u << 20;  // fits the largest record (1 MiB payload)
-  active_ = aligned_block(active_cap_);
-  flushing_ = aligned_block(flushing_cap_);
+  // One block of headroom in front of each buffer: a segment's header goes
+  // out in the same write as its first records.
+  active_ = aligned_block(active_cap_ + kBlock) + kBlock;
+  flushing_ = aligned_block(flushing_cap_ + kBlock) + kBlock;
   make_dirs(stream_dir(cfg_.data_dir, stream_));
   // Recovery found no valid record at or after next_lsn, so a segment that
   // already carries this name holds only a header, zeros or an unacknowledged
@@ -466,8 +468,8 @@ WalStream::WalStream(const WalConfig& cfg, u16 stream, u64 next_lsn)
 
 WalStream::~WalStream() {
   if (fd_ >= 0) ::close(fd_);
-  std::free(active_);
-  std::free(flushing_);
+  std::free(active_ - kBlock);
+  std::free(flushing_ - kBlock);
 }
 
 void WalStream::open_segment(u64 first_lsn) {
@@ -486,9 +488,8 @@ void WalStream::open_segment(u64 first_lsn) {
   direct_ = fd_ >= 0;
   if (fd_ < 0) fd_ = ::open(path.c_str(), flags, 0644);
   if (fd_ < 0) storage_fatal("create WAL segment failed: " + path);
-  // Reserve the space so steady-state writes do not extend the file. The
-  // spec asks for pre-zeroed segments created ahead by the control thread;
-  // that is a later optimization (docs/STATUS.md).
+  // Reserve the space so steady-state writes do not extend the file. Only
+  // the first segment and rollovers that find no spare come through here.
   if (::fallocate(fd_, 0, 0, static_cast<off_t>(cfg_.segment_bytes)) != 0 &&
       ::ftruncate(fd_, static_cast<off_t>(cfg_.segment_bytes)) != 0) {
     storage_fatal("size WAL segment failed: " + path);
@@ -509,9 +510,9 @@ void WalStream::ensure_capacity(u32 extra) {
   if (active_len_ + extra + kBlock <= active_cap_) return;
   u32 cap = active_cap_;
   while (active_len_ + extra + kBlock > cap) cap *= 2;
-  u8* bigger = aligned_block(cap);
+  u8* bigger = aligned_block(cap + kBlock) + kBlock;
   std::memcpy(bigger, active_, active_len_);
-  std::free(active_);
+  std::free(active_ - kBlock);
   active_ = bigger;
   active_cap_ = cap;
 }
@@ -546,18 +547,157 @@ bool WalStream::poll(u64 now_ns, bool force) {
 void WalStream::start_flush() {
   u32 padded = (active_len_ + kBlock - 1) / kBlock * kBlock;
   std::memset(active_ + active_len_, 0, padded - active_len_);
-  if (seg_off_ > kBlock && seg_off_ + padded > cfg_.segment_bytes) open_segment(active_first_lsn_);
+  if (seg_off_ > kBlock && seg_off_ + padded > cfg_.segment_bytes) {
+    if (!take_spare(active_first_lsn_)) open_segment(active_first_lsn_);
+  }
   std::swap(active_, flushing_);
   std::swap(active_cap_, flushing_cap_);
-  flushing_len_ = padded;
   flushing_last_lsn_ = active_last_lsn_;
   active_len_ = 0;
   inflight_ = true;
   u64 off = seg_off_;
+  u8* buf = flushing_;
+  u32 len = padded;
+  if (header_pending_) {
+    // First write into a spare: the header block rides in the headroom, so
+    // the header and the first records are durable together.
+    buf = flushing_ - kBlock;
+    std::memset(buf, 0, kBlock);
+    FileHeader h = make_header(kWalMagic, stream_, 0, active_first_lsn_seg_, cfg_.uuid);
+    std::memcpy(buf, &h, sizeof(h));
+    off = 0;
+    len += kBlock;
+    header_pending_ = false;
+  }
+  flushing_len_ = len;
   seg_off_ += padded;
-  stats_.written_bytes += padded;
+  stats_.written_bytes += len;
   ++stats_.flushes;
-  sri_write(fd_, off, flushing_, padded, cfg_.sync, &WalStream::flush_done, this);
+  sri_write(fd_, off, buf, len, cfg_.sync, &WalStream::flush_done, this);
+}
+
+bool WalStream::take_spare(u64 first_lsn) {
+  if (cfg_.spares == nullptr) return false;
+  bool direct = false;
+  int fd = cfg_.spares->take(stream_, &direct);
+  if (fd < 0) {
+    cfg_.spares->request(stream_);  // not ready yet: create this one here
+    return false;
+  }
+  std::string path = segment_path(cfg_.data_dir, stream_, first_lsn);
+  if (::rename(spare_path(cfg_.data_dir, stream_).c_str(), path.c_str()) != 0) {
+    storage_fatal("rename WAL spare failed: " + path);
+  }
+  // Only now may the preparer reuse the spare name.
+  cfg_.spares->request(stream_);
+  // No directory sync: if the rename is lost, recovery adopts the spare by
+  // its header, which is written with the first records.
+  ::close(fd_);
+  fd_ = fd;
+  direct_ = direct;
+  seg_off_ = kBlock;
+  header_pending_ = true;
+  active_first_lsn_seg_ = first_lsn;
+  ++stats_.segments;
+  ++stats_.spares_used;
+  return true;
+}
+
+// ---- Segment preparer -----------------------------------------------------------
+
+std::string spare_path(const std::string& d, u16 stream) { return stream_dir(d, stream) + "/spare.tmp"; }
+
+SegmentPreparer::SegmentPreparer(const std::string& data_dir, u16 streams, u64 segment_bytes,
+                                 bool direct)
+    : dir_(data_dir), segment_bytes_(segment_bytes), direct_(direct),
+      slots_(new Slot[streams]), n_(streams) {
+  thread_ = std::thread([this] { run(); });
+}
+
+SegmentPreparer::~SegmentPreparer() {
+  {
+    std::lock_guard<std::mutex> g(mu_);
+    stop_ = true;
+  }
+  cv_.notify_one();
+  thread_.join();
+  for (u16 s = 0; s < n_; ++s) {
+    int fd = slots_[s].fd.exchange(-1);
+    if (fd >= 0) ::close(fd);  // the file stays as an unused spare
+  }
+}
+
+int SegmentPreparer::take(u16 stream, bool* direct) {
+  Slot& sl = slots_[stream];
+  int fd = sl.fd.exchange(-1, std::memory_order_acquire);
+  if (fd >= 0) *direct = sl.direct.load(std::memory_order_relaxed);
+  return fd;
+}
+
+void SegmentPreparer::request(u16 stream) {
+  if (!slots_[stream].wanted.exchange(true)) {
+    std::lock_guard<std::mutex> g(mu_);
+    cv_.notify_one();
+  }
+}
+
+void SegmentPreparer::run() {
+  std::unique_lock<std::mutex> lk(mu_);
+  while (!stop_) {
+    bool did = false;
+    for (u16 s = 0; s < n_ && !stop_; ++s) {
+      Slot& sl = slots_[s];
+      if (sl.wanted.load() && sl.fd.load(std::memory_order_acquire) < 0) {
+        lk.unlock();
+        prepare(s);
+        lk.lock();
+        did = true;
+      }
+    }
+    if (!did) cv_.wait(lk);
+  }
+}
+
+void SegmentPreparer::prepare(u16 stream) {
+  Slot& sl = slots_[stream];
+  std::string path = spare_path(dir_, stream);
+  make_dirs(stream_dir(dir_, stream));
+  ::unlink(path.c_str());  // a leftover spare from an earlier run
+  int flags = O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC;
+  int fd = -1;
+  if (direct_) {
+    fd = ::open(path.c_str(), flags | O_DIRECT, 0644);
+    if (fd < 0 && errno == EINVAL) ::unlink(path.c_str());
+  }
+  bool direct = fd >= 0;
+  if (fd < 0) fd = ::open(path.c_str(), flags, 0644);
+  if (fd < 0) storage_fatal("create WAL spare failed: " + path);
+  if (::fallocate(fd, 0, 0, static_cast<off_t>(segment_bytes_)) != 0 &&
+      ::ftruncate(fd, static_cast<off_t>(segment_bytes_)) != 0) {
+    storage_fatal("size WAL spare failed: " + path);
+  }
+  if (::fsync(fd) != 0) storage_fatal("fsync WAL spare failed: " + path);
+  fsync_dir(stream_dir(dir_, stream));
+  sl.direct.store(direct, std::memory_order_relaxed);
+  sl.wanted.store(false);
+  sl.fd.store(fd, std::memory_order_release);
+}
+
+bool adopt_spare(const std::string& d, u16 stream, const Uuid& uuid) {
+  std::string path = spare_path(d, stream);
+  int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return false;
+  FileHeader h{};
+  ssize_t got = ::pread(fd, &h, sizeof(h), 0);
+  ::close(fd);
+  if (got == static_cast<ssize_t>(sizeof(h)) && header_ok(h, kWalMagic, stream, uuid)) {
+    std::string to = segment_path(d, stream, h.first_lsn);
+    if (::rename(path.c_str(), to.c_str()) != 0) storage_fatal("adopt WAL spare failed: " + to);
+    fsync_dir(stream_dir(d, stream));
+    return true;
+  }
+  ::unlink(path.c_str());
+  return false;
 }
 
 void WalStream::flush_done(void* ctx, int result) {

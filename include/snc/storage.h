@@ -6,9 +6,14 @@
 #pragma once
 
 #include <array>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "snc/slot_map.h"
@@ -93,6 +98,8 @@ u64 scan_part(const std::string& data_dir, u64 seq, u16 stream, const Uuid& uuid
 
 // ---- WAL writer -----------------------------------------------------------------
 
+class SegmentPreparer;
+
 struct WalConfig {
   std::string data_dir;
   Uuid uuid{};
@@ -101,7 +108,57 @@ struct WalConfig {
   u32 group_commit_us = 50;      // or when the oldest record is this old
   bool sync = true;              // false: wal_sync=none (development only)
   bool direct = true;            // O_DIRECT, falls back to buffered if refused
+  SegmentPreparer* spares = nullptr;  // null: create segments on the shard thread
 };
+
+// Creates the next WAL segment of each stream ahead of time, on its own
+// thread (spec section 12: segments are created and zeroed off the shard
+// thread). A spare is `spare.tmp` in the stream directory: allocated,
+// synced, directory synced, header still zero. At rollover the shard takes
+// the open file, renames it to its first-LSN name and writes the header with
+// its first flush, so the shard pays for one rename instead of a create,
+// fallocate and three syncs. If the rename is lost in a crash, recovery finds
+// the spare by its header (adopt_spare).
+class SegmentPreparer {
+ public:
+  SegmentPreparer(const std::string& data_dir, u16 streams, u64 segment_bytes, bool direct);
+  ~SegmentPreparer();
+  SegmentPreparer(const SegmentPreparer&) = delete;
+  SegmentPreparer& operator=(const SegmentPreparer&) = delete;
+
+  // Shard thread: takes the ready spare of `stream` (fd >= 0) or returns -1
+  // when none is ready yet. The spare keeps its name until the caller
+  // renames it; request() then lets the preparer make the next one.
+  int take(u16 stream, bool* direct);
+  void request(u16 stream);
+
+ private:
+  void run();
+  void prepare(u16 stream);
+
+  struct Slot {
+    std::atomic<int> fd{-1};
+    std::atomic<bool> direct{false};
+    std::atomic<bool> wanted{true};
+  };
+  std::string dir_;
+  u64 segment_bytes_;
+  bool direct_;
+  std::unique_ptr<Slot[]> slots_;
+  u16 n_;
+  std::mutex mu_;
+  std::condition_variable cv_;
+  bool stop_ = false;
+  std::thread thread_;
+};
+
+// Path of a stream's spare segment.
+std::string spare_path(const std::string& data_dir, u16 stream);
+
+// Recovery, before scanning a stream: a spare whose header is valid was
+// renamed into use but the rename was lost in a crash, so it gets its proper
+// name back. Any other spare is deleted. Returns true if one was adopted.
+bool adopt_spare(const std::string& data_dir, u16 stream, const Uuid& uuid);
 
 // One shard's WAL stream. Append-only, group commit, at most one flush in
 // flight (spec C2: durability is a prefix). Lives on its shard's thread.
@@ -131,6 +188,7 @@ class WalStream {
     u64 written_bytes = 0;  // bytes written including block padding
     u64 flushes = 0;
     u64 segments = 0;
+    u64 spares_used = 0;    // segments that came ready-made from the preparer
   };
   const Stats& stats() const { return stats_; }
 
@@ -142,6 +200,7 @@ class WalStream {
   static void flush_done(void* ctx, int result);
   void start_flush();
   void open_segment(u64 first_lsn);
+  bool take_spare(u64 first_lsn);
   void ensure_capacity(u32 extra);
 
   WalConfig cfg_;
@@ -149,6 +208,8 @@ class WalStream {
   int fd_ = -1;
   bool direct_ = false;
   u64 seg_off_ = 0;      // next write offset in the current segment
+  bool header_pending_ = false;  // spare in use: header goes out with the first flush
+  u64 active_first_lsn_seg_ = 0;  // first LSN of the segment awaiting its header
   u64 next_lsn_;
   u64 durable_lsn_;
 
