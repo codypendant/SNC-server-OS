@@ -1,0 +1,400 @@
+// Native SRI backend: one pinned pthread per shard, a full mesh of SPSC rings
+// of 128-byte slots, eventfd wakeup after a short spin (spec sections 5, 7).
+#include "snc/native_runtime.h"
+
+#include <emmintrin.h>
+#include <poll.h>
+#include <sched.h>
+#include <sys/eventfd.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+
+#include <atomic>
+#include <barrier>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <deque>
+#include <latch>
+#include <mutex>
+#include <thread>
+
+namespace snc {
+
+namespace {
+
+inline void cpu_relax() { _mm_pause(); }
+
+u64 now_ns() {
+  return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now().time_since_epoch())
+                              .count());
+}
+
+// Single-producer, single-consumer ring. The producer batches writes and
+// publishes its tail once per loop iteration; the consumer advances head
+// once per drain. Head and tail live on separate cache lines.
+struct Ring {
+  alignas(64) std::atomic<u32> tail{0};  // published by producer
+  alignas(64) std::atomic<u32> head{0};  // published by consumer
+  alignas(64) u32 mask = 0;
+  Msg* slots = nullptr;
+  // Producer-private.
+  alignas(64) u32 p_tail = 0;
+  u32 p_published = 0;
+  u32 p_head_cache = 0;
+  RingStats stats;
+  // Consumer-private.
+  alignas(64) u32 c_head = 0;
+
+  explicit Ring(u32 n_slots) : mask(n_slots - 1) {
+    slots = static_cast<Msg*>(std::aligned_alloc(64, sizeof(Msg) * n_slots));
+    if (slots == nullptr) std::abort();
+  }
+  ~Ring() { std::free(slots); }
+
+  bool try_push(const Msg& m) {
+    if (p_tail - p_head_cache == mask + 1) {
+      p_head_cache = head.load(std::memory_order_acquire);
+      if (p_tail - p_head_cache == mask + 1) return false;
+    }
+    slots[p_tail & mask] = m;
+    ++p_tail;
+    return true;
+  }
+
+  // Returns true if new messages became visible to the consumer.
+  bool publish() {
+    if (p_tail == p_published) return false;
+    tail.store(p_tail, std::memory_order_release);
+    p_published = p_tail;
+    return true;
+  }
+
+  bool has_pending_for_consumer() const {
+    return tail.load(std::memory_order_acquire) != c_head;
+  }
+};
+
+}  // namespace
+
+struct Worker {
+  u16 id = 0;
+  ShardTopology topo;
+  std::unique_ptr<ShardAllocator> alloc;
+  int efd = -1;
+  alignas(64) std::atomic<bool> sleeping{false};
+
+  std::vector<Ring*> inbound;   // [src], owned; allocated on this worker
+  std::vector<Ring*> outbound;  // [dst], = workers[dst].inbound[id]
+  std::vector<std::deque<Msg>> overflow;  // [dst], producer-private
+  std::vector<u16> touched;     // dsts with unpublished pushes
+  std::vector<u8> touched_flag;
+
+  std::mutex inject_mu;
+  std::vector<std::function<void()>> injected;
+  std::atomic<bool> has_injected{false};
+
+  std::thread thread;
+};
+
+struct NativeRuntime::Impl {
+  RuntimeConfig cfg;
+  ShardHooks hooks;
+  std::vector<std::unique_ptr<Worker>> workers;
+  std::atomic<bool> stopping{false};
+  bool started = false;
+
+  void run(Worker& w, std::barrier<>& rings_ready, std::latch& init_done);
+  void loop(Worker& w);
+  bool drain(Worker& w, u16 src);
+  void publish_all(Worker& w);
+  void wake(Worker& target);
+};
+
+namespace {
+thread_local Worker* tl_worker = nullptr;
+thread_local NativeRuntime::Impl* tl_rt = nullptr;
+}  // namespace
+
+// ---- SRI implementation ----------------------------------------------------
+
+u16 sri_shard_id() { return tl_worker->id; }
+u16 sri_shard_count() { return static_cast<u16>(tl_rt->workers.size()); }
+const ShardTopology& sri_topology() { return tl_worker->topo; }
+ShardAllocator& sri_allocator() { return *tl_worker->alloc; }
+u64 sri_now_ns() { return now_ns(); }
+
+bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  auto& ov = w.overflow[dst];
+  bool queued;
+  if (ov.empty() && r.try_push(msg)) {
+    queued = true;
+  } else {
+    ++r.stats.full_events;
+    if (!must_deliver && ov.size() >= tl_rt->cfg.overflow_limit) {
+      ++r.stats.refused;
+      return false;
+    }
+    ov.push_back(msg);
+    queued = true;
+  }
+  if (queued) {
+    ++r.stats.msgs;
+    if (msg.flags & kMsgArgsExternal) r.stats.bytes_external += msg.len;
+    else r.stats.bytes_inline += msg.len;
+    if (!w.touched_flag[dst]) {
+      w.touched_flag[dst] = 1;
+      w.touched.push_back(dst);
+    }
+  }
+  return true;
+}
+
+// ---- Worker loop ------------------------------------------------------------
+
+void NativeRuntime::Impl::wake(Worker& target) {
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  if (target.sleeping.load(std::memory_order_relaxed)) {
+    u64 one = 1;
+    ssize_t n = ::write(target.efd, &one, sizeof(one));
+    (void)n;
+  }
+}
+
+void NativeRuntime::Impl::publish_all(Worker& w) {
+  // Iterate by index: nothing here appends to `touched`.
+  std::size_t keep = 0;
+  for (std::size_t i = 0; i < w.touched.size(); ++i) {
+    u16 dst = w.touched[i];
+    Ring& r = *w.outbound[dst];
+    auto& ov = w.overflow[dst];
+    while (!ov.empty() && r.try_push(ov.front())) ov.pop_front();
+    if (r.publish()) wake(*workers[dst]);
+    if (!ov.empty()) {
+      w.touched[keep++] = dst;  // retry next iteration
+    } else {
+      w.touched_flag[dst] = 0;
+    }
+  }
+  w.touched.resize(keep);
+}
+
+bool NativeRuntime::Impl::drain(Worker& w, u16 src) {
+  Ring& r = *w.inbound[src];
+  u32 t = r.tail.load(std::memory_order_acquire);
+  if (t == r.c_head) return false;
+  u32 n = 0;
+  while (r.c_head != t && n < cfg.batch_in) {
+    hooks.on_message(hooks.user, r.slots[r.c_head & r.mask]);
+    ++r.c_head;
+    ++n;
+  }
+  r.head.store(r.c_head, std::memory_order_release);
+  return true;
+}
+
+void NativeRuntime::Impl::loop(Worker& w) {
+  const u16 n = static_cast<u16>(workers.size());
+  u64 idle_since = 0;
+  while (!stopping.load(std::memory_order_relaxed)) {
+    bool did = false;
+    for (u16 s = 0; s < n; ++s) {
+      if (s != w.id) did |= drain(w, s);
+    }
+    if (w.has_injected.load(std::memory_order_acquire)) {
+      std::vector<std::function<void()>> fns;
+      {
+        std::lock_guard<std::mutex> g(w.inject_mu);
+        fns.swap(w.injected);
+        w.has_injected.store(false, std::memory_order_relaxed);
+      }
+      for (auto& fn : fns) fn();
+      did = true;
+    }
+    if (hooks.poll) did |= hooks.poll(hooks.user);
+    publish_all(w);
+    if (did || !w.touched.empty()) {
+      idle_since = 0;
+      continue;
+    }
+    if (cfg.spin_forever) {
+      cpu_relax();
+      continue;
+    }
+    u64 now = now_ns();
+    if (idle_since == 0) idle_since = now;
+    if (now - idle_since < u64{cfg.idle_spin_us} * 1000) {
+      cpu_relax();
+      continue;
+    }
+    // Dekker-style handshake with producers (see wake()).
+    w.sleeping.store(true, std::memory_order_relaxed);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    bool pending = w.has_injected.load(std::memory_order_relaxed) ||
+                   stopping.load(std::memory_order_relaxed);
+    for (u16 s = 0; s < n && !pending; ++s) {
+      if (s != w.id) pending = w.inbound[s]->has_pending_for_consumer();
+    }
+    if (!pending) {
+      // Timeout keeps periodic work (group commit, checkpoints) alive later.
+      pollfd p{w.efd, POLLIN, 0};
+      if (::poll(&p, 1, 1) > 0) {
+        u64 v;
+        ssize_t r = ::read(w.efd, &v, sizeof(v));
+        (void)r;
+      }
+    }
+    w.sleeping.store(false, std::memory_order_relaxed);
+    idle_since = 0;
+  }
+}
+
+void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch& init_done) {
+  tl_worker = &w;
+  tl_rt = this;
+  const u16 n = static_cast<u16>(workers.size());
+
+  // Pin before allocating anything, so first-touch lands on the local node.
+  w.topo.shard = w.id;
+  if (cfg.pin) {
+    int cpu = cfg.cpus.empty() ? -1 : cfg.cpus[w.id % cfg.cpus.size()];
+    if (cpu < 0) {
+      cpu_set_t allowed;
+      CPU_ZERO(&allowed);
+      sched_getaffinity(0, sizeof(allowed), &allowed);
+      int count = CPU_COUNT(&allowed), k = w.id % (count > 0 ? count : 1);
+      for (int c = 0; c < CPU_SETSIZE; ++c) {
+        if (CPU_ISSET(c, &allowed) && k-- == 0) { cpu = c; break; }
+      }
+    }
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(cpu, &set);
+    w.topo.pinned = sched_setaffinity(0, sizeof(set), &set) == 0;
+  }
+  unsigned cpu = 0, node = 0;
+  if (syscall(SYS_getcpu, &cpu, &node, nullptr) == 0) {
+    w.topo.cpu = static_cast<int>(cpu);
+    w.topo.numa_node = static_cast<int>(node);
+  }
+
+  w.alloc = std::make_unique<ShardAllocator>(cfg.heap_limit_bytes);
+  // Inbound rings are allocated by their consumer (spec: consumer's node).
+  w.inbound.assign(n, nullptr);
+  for (u16 s = 0; s < n; ++s) {
+    if (s != w.id) w.inbound[s] = new Ring(cfg.ring_slots);
+  }
+  rings_ready.arrive_and_wait();
+  w.outbound.assign(n, nullptr);
+  for (u16 d = 0; d < n; ++d) {
+    if (d != w.id) w.outbound[d] = workers[d]->inbound[w.id];
+  }
+  w.overflow.resize(n);
+  w.touched_flag.assign(n, 0);
+
+  if (hooks.init) hooks.init(hooks.user);
+  init_done.count_down();
+  loop(w);
+  if (hooks.fini) hooks.fini(hooks.user);
+  // mimalloc heaps belong to their thread: destroy it here, not in ~Worker.
+  w.alloc.reset();
+  tl_worker = nullptr;
+  tl_rt = nullptr;
+}
+
+// ---- Public API -------------------------------------------------------------
+
+NativeRuntime::NativeRuntime(const RuntimeConfig& cfg, const ShardHooks& hooks)
+    : impl_(std::make_unique<Impl>()) {
+  if (cfg.n_shards == 0 || cfg.n_shards > kMaxShards) {
+    std::fprintf(stderr, "snc: n_shards must be 1..%u\n", kMaxShards);
+    std::abort();
+  }
+  if (cfg.ring_slots < 2 || (cfg.ring_slots & (cfg.ring_slots - 1)) != 0) {
+    std::fprintf(stderr, "snc: ring_slots must be a power of two\n");
+    std::abort();
+  }
+  impl_->cfg = cfg;
+  impl_->hooks = hooks;
+  for (u16 i = 0; i < cfg.n_shards; ++i) {
+    auto w = std::make_unique<Worker>();
+    w->id = i;
+    w->efd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+    if (w->efd < 0) std::abort();
+    impl_->workers.push_back(std::move(w));
+  }
+}
+
+NativeRuntime::~NativeRuntime() {
+  stop();
+  for (auto& w : impl_->workers) {
+    for (Ring* r : w->inbound) delete r;
+    if (w->efd >= 0) ::close(w->efd);
+  }
+}
+
+void NativeRuntime::start() {
+  if (impl_->started) return;
+  impl_->started = true;
+  const auto n = static_cast<std::ptrdiff_t>(impl_->workers.size());
+  std::barrier<> rings_ready(n);
+  std::latch init_done(n);
+  for (auto& w : impl_->workers) {
+    Worker* wp = w.get();
+    wp->thread = std::thread([this, wp, &rings_ready, &init_done] {
+      impl_->run(*wp, rings_ready, init_done);
+    });
+  }
+  init_done.wait();
+}
+
+void NativeRuntime::stop() {
+  if (!impl_->started) return;
+  impl_->stopping.store(true);
+  for (auto& w : impl_->workers) {
+    u64 one = 1;
+    ssize_t n = ::write(w->efd, &one, sizeof(one));
+    (void)n;
+  }
+  for (auto& w : impl_->workers) {
+    if (w->thread.joinable()) w->thread.join();
+  }
+  impl_->started = false;
+}
+
+void NativeRuntime::submit(u16 shard, std::function<void()> fn) {
+  Worker& w = *impl_->workers.at(shard);
+  {
+    std::lock_guard<std::mutex> g(w.inject_mu);
+    w.injected.push_back(std::move(fn));
+    w.has_injected.store(true, std::memory_order_release);
+  }
+  impl_->wake(w);
+}
+
+void NativeRuntime::run_on_all(const std::function<void(u16)>& fn) {
+  std::latch done(static_cast<std::ptrdiff_t>(impl_->workers.size()));
+  for (u16 i = 0; i < impl_->workers.size(); ++i) {
+    submit(i, [&fn, &done, i] {
+      fn(i);
+      done.count_down();
+    });
+  }
+  done.wait();
+}
+
+u16 NativeRuntime::shard_count() const { return static_cast<u16>(impl_->workers.size()); }
+
+const ShardTopology& NativeRuntime::topology(u16 shard) const {
+  return impl_->workers.at(shard)->topo;
+}
+
+RingStats NativeRuntime::ring_stats(u16 src, u16 dst) const {
+  if (src == dst) return {};
+  return impl_->workers.at(dst)->inbound.at(src)->stats;
+}
+
+}  // namespace snc
