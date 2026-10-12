@@ -47,6 +47,14 @@ def main():
             runs.append(("durable", "baseline", f"--remote {remote} --reads 50 --depth 256 --data-dir D --logs {logs}"))
     runs.append(("durable", "snc", "--remote 0 --reads 0 --depth 256 --data-dir D"))
     runs.append(("durable", "baseline", "--remote 0 --reads 0 --depth 256 --data-dir D --logs 4"))
+    # Hot keys: Zipf key choice over all objects (--remote no longer applies).
+    for theta in (0.99, 1.2, 1.5):
+        for reads in (50, 0):
+            runs.append(("skew", "snc", f"--zipf {theta} --reads {reads} --depth 32"))
+            runs.append(("skew", "baseline", f"--zipf {theta} --reads {reads} --depth 32"))
+    for theta in (0.99, 1.5):
+        runs.append(("skew-durable", "snc", f"--zipf {theta} --reads 50 --depth 256 --data-dir D"))
+        runs.append(("skew-durable", "baseline", f"--zipf {theta} --reads 50 --depth 256 --data-dir D --logs 4"))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
 
     if a.groups:

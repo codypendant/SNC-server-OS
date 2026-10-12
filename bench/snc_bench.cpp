@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "bench_common.h"
+#include "zipf.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
 
@@ -49,6 +50,7 @@ struct Args {
   u32 io_yield_us = 50;  // RuntimeConfig default
   bool prefetch = true;
   std::vector<int> io_cpus;
+  double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
 };
 
 struct ShardDriver {
@@ -69,6 +71,8 @@ struct ShardDriver {
   std::vector<u32> free_slots;
   bool prefetch = true;
   std::vector<ObjectID> next;  // targets chosen ahead, for prefetch
+  const bench::Zipf* zipf = nullptr;
+  const std::vector<ObjectID>* ranked = nullptr;
 };
 
 void on_op_done(void* ctx, const ExecResult& r) {
@@ -82,6 +86,7 @@ void on_op_done(void* ctx, const ExecResult& r) {
 }
 
 ObjectID pick(ShardDriver& d) {
+  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];
   const auto& by = *d.by_owner;
   u16 n = static_cast<u16>(by.size());
   u16 owner = d.shard;
@@ -207,6 +212,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--seconds") a.seconds = std::atof(val());
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
+    else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--spin") a.spin = true;
@@ -295,6 +301,14 @@ int main(int argc, char** argv) {
   for (u16 s = 0; s < args.shards; ++s) {
     eng.for_each_object(s, [&](const ObjectHeader& h) { by_owner[s].push_back(h.id); });
   }
+  std::vector<ObjectID> ranked;
+  double zipf_top = 0;
+  bench::Zipf zipf;
+  if (args.zipf > 0) {
+    ranked = bench::zipf_order(by_owner);
+    zipf = bench::Zipf(ranked.size(), args.zipf);
+    zipf_top = zipf.top_share();
+  }
 
   std::vector<ShardStats> before(args.shards);
   for (u16 s = 0; s < args.shards; ++s) before[s] = eng.stats(s);
@@ -310,6 +324,10 @@ int main(int argc, char** argv) {
     d.remote_pct = args.remote_pct;
     d.reads_pct = args.reads_pct;
     d.prefetch = args.prefetch;
+    if (args.zipf > 0) {
+      d.zipf = &zipf;
+      d.ranked = &ranked;
+    }
     d.rng.seed(1234 + s);
     d.slots.resize(args.depth);
     for (u32 i = 0; i < args.depth; ++i) {
@@ -380,6 +398,7 @@ int main(int argc, char** argv) {
               "local maps %.1f MiB\n",
               (unsigned long long)objects, load_s, objects / load_s,
               double(rss1 - rss0) / objects, double(heap) / objects, map_bytes / 1048576.0);
+  if (args.zipf > 0) std::printf("keys: zipf theta=%.2f (hottest key %.2f%% of ops)\n", args.zipf, 100 * zipf_top);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per shard)  errors %llu\n", ops / run_s, ops / run_s / args.shards,

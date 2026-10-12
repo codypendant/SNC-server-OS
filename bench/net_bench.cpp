@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "bench_common.h"
+#include "zipf.h"
 #include "snc/net.h"
 #include "snc/types/account.h"
 
@@ -51,6 +52,7 @@ struct Args {
   int reads_pct = 50;
   bool route_owner = true;
   int misroute_pct = 0;
+  double zipf = 0;  // > 0: Zipf key choice over all objects
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -59,6 +61,7 @@ struct Shared {
   Args args;
   std::atomic<int> phase{kLoad};
   std::vector<ObjectID> ids;  // all accounts, filled between load and run
+  bench::Zipf zipf;           // used when args.zipf > 0; ids is then in rank order
 };
 
 struct Thread {
@@ -150,7 +153,7 @@ void run(Thread& t) {
     while (running && !t.free_slots.empty()) {
       u32 slot = t.free_slots.back();
       t.free_slots.pop_back();
-      const ObjectID& id = sh.ids[t.rng() % n_ids];
+      const ObjectID& id = sh.ids[a.zipf > 0 ? sh.zipf.next(t.rng) : t.rng() % n_ids];
       u16 dst;
       if (!a.route_owner) {
         dst = static_cast<u16>(t.rng() % n);
@@ -220,6 +223,7 @@ Args parse(int argc, char** argv) {
       }
       a.route_owner = r == "owner";
     } else if (k == "--misroute") a.misroute_pct = std::atoi(val());
+    else if (k == "--zipf") a.zipf = std::atof(val());
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -277,6 +281,10 @@ int main(int argc, char** argv) {
     }
     std::fprintf(stderr, "load failed (%llu create errors)\n", (unsigned long long)load_errors);
     return 1;
+  }
+  if (a.zipf > 0) {
+    sh.ids = bench::zipf_order({sh.ids});
+    sh.zipf = bench::Zipf(sh.ids.size(), a.zipf);
   }
   sh.phase.store(kRun, std::memory_order_release);
   auto t1 = std::chrono::steady_clock::now();

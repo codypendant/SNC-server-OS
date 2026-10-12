@@ -43,6 +43,7 @@
 
 #include "baseline_core.h"
 #include "bench_common.h"
+#include "zipf.h"
 #include "snc/object_id.h"
 #include "snc/types/account.h"
 #include "snc/wal_format.h"
@@ -66,6 +67,7 @@ struct Args {
   bool sync = true;
   u16 logs = 1;
   bool prefetch = true;
+  double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
 };
 
 // ---- Workers ---------------------------------------------------------------------
@@ -79,6 +81,8 @@ struct Shared {
   std::atomic<int> phase{kLoad};
   std::atomic<u32> loaded{0};
   std::vector<std::vector<ObjectID>> created;  // per worker, for key choice
+  std::vector<ObjectID> ranked;                // --zipf: index = rank
+  bench::Zipf zipf;
 };
 
 struct Pending {
@@ -102,6 +106,7 @@ void pin_to(u16 cpu) {
 }
 
 ObjectID pick(Shared& sh, Worker& w) {
+  if (sh.args.zipf > 0) return sh.ranked[sh.zipf.next(w.rng)];
   u16 n = static_cast<u16>(sh.created.size());
   u16 owner = w.id;
   if (n > 1 && static_cast<int>(w.rng() % 100) < sh.args.remote_pct) {
@@ -214,6 +219,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--seconds") a.seconds = std::atof(val());
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
+    else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--data-dir") a.data_dir = val();
@@ -264,6 +270,12 @@ int main(int argc, char** argv) {
   while (sh.loaded.load() < args.threads) std::this_thread::sleep_for(std::chrono::milliseconds(1));
   double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
   u64 rss1 = rss_bytes();
+  double zipf_top = 0;
+  if (args.zipf > 0) {
+    sh.ranked = bench::zipf_order(sh.created);
+    sh.zipf = bench::Zipf(sh.ranked.size(), args.zipf);
+    zipf_top = sh.zipf.top_share();
+  }
   u64 contended0 = sh.map.contended.load();
   u64 flushes0 = log_total(&SharedLog::flushes);
 
@@ -289,6 +301,7 @@ int main(int argc, char** argv) {
   std::printf("load: %llu objects in %.2fs (%.0f creates/s), RSS %.1f B/object\n",
               (unsigned long long)args.objects, load_s, args.objects / load_s,
               double(rss1 - rss0) / args.objects);
+  if (args.zipf > 0) std::printf("keys: zipf theta=%.2f (hottest key %.2f%% of ops)\n", args.zipf, 100 * zipf_top);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per thread)  errors %llu\n", ops / run_s, ops / run_s / args.threads,
