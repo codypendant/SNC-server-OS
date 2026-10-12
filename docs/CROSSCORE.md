@@ -62,11 +62,13 @@ of its loop iteration. In process, 100% remote, 50% reads, mean of 3 runs
 | Baseline | 11.32M | 11.84M | 10.42M |
 | SNC / baseline | 0.82x | 0.97x | 1.20x |
 
-At depth 32 the remote path is latency-bound: an op waits for its shard's
-loop to send it, the owner's loop to run it, and its own loop to see the
-answer, so the p50 is about 9 us and batches stay small. Deeper
-pipelines (an ingress with many clients, or a batch job) fill the batches,
-and at 512 in flight SNC overtakes the baseline on all-remote work.
+At depth 32 batches stay small (about five ops per destination per
+iteration), so each op carries a larger share of the loop's fixed work:
+draining every ring, publishing, and one prefetch pass per batch. The
+shards are not waiting: counting cycles spent in loop iterations that found
+no work gives under 1% at depth 32. Deeper pipelines (an ingress with many
+clients, or a batch job) fill the batches, and at 512 in flight SNC
+overtakes the baseline on all-remote work.
 
 The cost is latency: the baseline answers in 0.2 us at p50, because it
 runs the op on the calling thread; SNC's remote p50 is 8.5 us at depth 32
@@ -79,10 +81,17 @@ answered apart once their record is on disk.
 
 ## What is left
 
-At shallow depth the remote path is bound by loop latency, not by work:
-an op crosses three loop iterations before it completes. Shortening that
-(sending a batch as soon as it fills rather than at the end of the
-iteration, or polling rings more often while ops are outstanding) is the
-next lever. Ops that reach their owner directly avoid the path entirely,
-which is why routing at ingress (`docs/ROUTING.md`) and placing related
-objects together (`create_near`, `docs/TRANSFERS.md`) matter most.
+At shallow depth the remote path is bound by work per op, not by waiting:
+the shards spend under 1% of their cycles in idle iterations, and the
+latency follows from throughput (32 ops in flight at about 2.3M ops/s per
+shard is about 14 us each). Sending a batch earlier or polling more often
+would not help, since nothing waits.
+
+Tried and dropped: one drain pass over every inbound ring, prefetching the
+batch buffers and targets of all sources together before running any.
+It moved depth 32 by +5% and depth 512 by -4% in alternating A/B runs,
+both within the noise of this VM, so the per-ring prefetch stays.
+
+Ops that reach their owner directly avoid the path entirely, which is why
+routing at ingress (`docs/ROUTING.md`) and placing related objects together
+(`create_near`, `docs/TRANSFERS.md`) matter most.
