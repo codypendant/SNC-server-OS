@@ -31,6 +31,7 @@ class Shard {
   void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx);
   void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
   void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
+  void prefetch(const ObjectID* ids, u32 n);
 
   // ---- Backend hooks ----
   void on_message(const Msg& m);
@@ -122,7 +123,8 @@ class Shard {
 
   void run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args, const ExecOptions& opts,
            RunOut& out);
-  void run_exec(ObjectID target, OpID op_id, ByteView args, const ExecOptions& opts, RunOut& out);
+  void run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args, const ExecOptions& opts,
+                RunOut& out);
   void run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out);
   void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out);
 

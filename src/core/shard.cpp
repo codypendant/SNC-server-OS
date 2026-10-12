@@ -45,11 +45,13 @@ Shard::~Shard() {
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
-  u16 owner = owner_of(target);
+  u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
+  u16 owner = slots_.owner[h >> 52];
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
-    run(MsgKind::EXEC_REQ, target, op, args, opts, out);
+    out.r.id = target;
+    run_exec(target, h, op, args, opts, out);
     complete_local(out, done, ctx);
     return;
   }
@@ -88,6 +90,21 @@ void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, vo
   send_request(MsgKind::DELETE_REQ, owner, target, 0, ByteView{}, opts, done, ctx);
 }
 
+void Shard::prefetch(const ObjectID* ids, u32 n) {
+  constexpr u32 kBatch = 64;
+  u64 h[kBatch];
+  for (u32 base = 0; base < n; base += kBatch) {
+    u32 m = 0;
+    for (u32 i = base; i < n && i < base + kBatch; ++i) {
+      u64 x = snc_hash64(ids[i]);
+      if (slots_.owner[x >> 52] != id_) continue;  // slot_of() uses the top 12 bits
+      map_.prefetch_entry(x);
+      h[m++] = x;
+    }
+    for (u32 i = 0; i < m; ++i) map_.prefetch_object(h[i]);
+  }
+}
+
 void Shard::complete_local(RunOut& out, Completion done, void* ctx) {
   if (out.wait_lsn == 0 || durable(out.wait_lsn)) {
     if (out.wait_lsn != 0) out.r.durable = true;
@@ -111,7 +128,7 @@ void Shard::run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args,
   out = RunOut{};
   out.r.id = target;
   switch (kind) {
-    case MsgKind::EXEC_REQ: run_exec(target, op_or_type, args, opts, out); break;
+    case MsgKind::EXEC_REQ: run_exec(target, snc_hash64(target), op_or_type, args, opts, out); break;
     case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, out); break;
     case MsgKind::DELETE_REQ: run_delete(target, opts, out); break;
     default: std::abort();
@@ -127,6 +144,7 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.app_code_ = 0;
   c.result_buf_ = result_scratch_.data();
   c.result_len_ = 0;
+  c.max_result_ = op->max_result;
   c.result_overflow_ = false;
 }
 
@@ -155,9 +173,9 @@ u64 Shard::log(RecType type, const ObjectHeader& obj) {
   return wal_->append(type, obj.type_id, obj.id, obj.version, obj.schema_ver, obj.payload(), len);
 }
 
-void Shard::run_exec(ObjectID target, OpID op_id, ByteView args, const ExecOptions& opts,
-                     RunOut& out) {
-  ObjectHeader* obj = map_.find(target);
+void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
+                     const ExecOptions& opts, RunOut& out) {
+  ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
     // A just-deleted object reports gone only once the delete is durable.
@@ -196,14 +214,22 @@ void Shard::run_exec(ObjectID target, OpID op_id, ByteView args, const ExecOptio
     out.r.durable = durable(c.obj_->last_lsn);
     if (!opts.allow_undurable) out.wait_lsn = c.obj_->last_lsn;
   } else {
+    // Ops declared keeps_index_key skip index maintenance; debug builds
+    // check the declaration.
+#ifdef NDEBUG
+    const bool track = t->index_id && !op->keeps_index_key;
+#else
+    const bool track = t->index_id != 0;
+#endif
     u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
-    u32 old_len = t->index_id ? extract_key(*t, *obj, old_key) : 0;
+    u32 old_len = track ? extract_key(*t, *obj, old_key) : 0;
     if (op->apply) op->apply(c, args);
     ObjectHeader* o = c.obj_;
     ++o->version;
-    if (t->index_id) {
+    if (track) {
       u32 new_len = extract_key(*t, *o, new_key);
       if (new_len != old_len || std::memcmp(old_key, new_key, new_len) != 0) {
+        if (op->keeps_index_key) contract_violation("op declared keeps_index_key changed the key", op);
         if (old_len) index_erase(t->index_id, old_key, old_len, o->id);
         if (new_len) index_insert(t->index_id, new_key, new_len, o->id);
       }
@@ -917,15 +943,6 @@ u8* OpCtx::resize(u32 new_len) {
   return obj_->payload();
 }
 
-void OpCtx::set_result(const void* data, u32 len) {
-  if (len > op_->max_result) {
-    result_overflow_ = true;
-    return;
-  }
-  std::memcpy(result_buf_, data, len);
-  result_len_ = len;
-}
-
 // ---- Public API -------------------------------------------------------------------------
 
 void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
@@ -947,5 +964,6 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
 const SlotMap& slot_map() { return tl_shard->slots(); }
+void prefetch(const ObjectID* ids, u32 n) { tl_shard->prefetch(ids, n); }
 
 }  // namespace snc

@@ -50,15 +50,77 @@ struct Obj {
   AccountV1 a{};
 };
 
-struct IdHash {
-  std::size_t operator()(const ObjectID& id) const { return snc_hash64(id); }
-};
 
 constexpr std::size_t kStripes = 4096;
 
+// Open addressing with the full hash in each entry, like SNC's LocalMap, so
+// the baseline gets the same lookup cost (docs/PREFETCH.md). Guarded by its
+// stripe's mutex, except prefetch reads, which are hints and may race.
+class FlatMap {
+ public:
+  void reserve(std::size_t n) {
+    std::size_t cap = 16;
+    while (cap * 4 < n * 5) cap <<= 1;
+    if (cap > table_.size()) rehash(cap);
+  }
+  Obj* find(const ObjectID& id, u64 h) const {
+    if (table_.empty()) return nullptr;
+    for (std::size_t i = h & mask_;; i = (i + 1) & mask_) {
+      const Entry& e = table_[i];
+      if (e.obj == nullptr) return nullptr;
+      if (e.hash == h && e.obj->id == id) return e.obj;
+    }
+  }
+  void emplace(const ObjectID&, Obj* o) { insert(o, snc_hash64(o->id)); }
+  void insert(Obj* o, u64 h) {
+    if ((size_ + 1) * 5 > table_.size() * 4) rehash(table_.empty() ? 16 : table_.size() * 2);
+    for (std::size_t i = h & mask_;; i = (i + 1) & mask_) {
+      Entry& e = table_[i];
+      if (e.obj == nullptr) {
+        e.obj = o;
+        e.hash = h;
+        ++size_;
+        return;
+      }
+      if (e.hash == h && e.obj->id == o->id) {
+        e.obj = o;
+        return;
+      }
+    }
+  }
+  // Prefetch hints. Valid only while the table does not grow (the run phase).
+  void prefetch_entry(u64 h) const {
+    if (!table_.empty()) __builtin_prefetch(&table_[h & mask_]);
+  }
+  void prefetch_object(u64 h) const {
+    if (table_.empty()) return;
+    const Entry& e = table_[h & mask_];
+    Obj* o = __atomic_load_n(&e.obj, __ATOMIC_RELAXED);
+    if (o != nullptr && __atomic_load_n(&e.hash, __ATOMIC_RELAXED) == h) __builtin_prefetch(o);
+  }
+
+ private:
+  struct Entry {
+    Obj* obj = nullptr;
+    u64 hash = 0;
+  };
+  void rehash(std::size_t cap) {
+    std::vector<Entry> old;
+    old.swap(table_);
+    table_.assign(cap, Entry{});
+    mask_ = cap - 1;
+    size_ = 0;
+    for (const Entry& e : old) {
+      if (e.obj) insert(e.obj, e.hash);
+    }
+  }
+  std::vector<Entry> table_;
+  std::size_t mask_ = 0, size_ = 0;
+};
+
 struct alignas(64) Stripe {
   std::mutex mu;
-  std::unordered_map<ObjectID, Obj*, IdHash> map;
+  FlatMap map;
 };
 
 // Secondary index Account.email -> ObjectID, striped the same way. Kept for
@@ -73,7 +135,26 @@ struct Map {
   std::unique_ptr<IndexStripe[]> email{new IndexStripe[kStripes]};
   std::atomic<u64> contended{0};  // lock acquisitions that had to wait
 
-  Stripe& stripe(const ObjectID& id) { return stripes[(snc_hash64(id) >> 20) & (kStripes - 1)]; }
+  Stripe& stripe(const ObjectID& id) { return stripe_of(snc_hash64(id)); }
+  Stripe& stripe_of(u64 h) { return stripes[(h >> 20) & (kStripes - 1)]; }
+
+  // Same two-stage batch prefetch as SNC's, without taking any lock: warm
+  // the stripes and entries, then the objects.
+  void prefetch(const ObjectID* ids, u32 n) {
+    constexpr u32 kBatch = 64;
+    u64 h[kBatch];
+    for (u32 base = 0; base < n; base += kBatch) {
+      u32 m = 0;
+      for (u32 i = base; i < n && i < base + kBatch; ++i) {
+        h[m] = snc_hash64(ids[i]);
+        Stripe& s = stripe_of(h[m]);
+        __builtin_prefetch(&s.mu);
+        s.map.prefetch_entry(h[m]);
+        ++m;
+      }
+      for (u32 i = 0; i < m; ++i) stripe_of(h[i]).map.prefetch_object(h[i]);
+    }
+  }
   std::unique_lock<std::mutex> lock(Stripe& s) {
     std::unique_lock<std::mutex> g(s.mu, std::try_to_lock);
     if (!g.owns_lock()) {
@@ -221,11 +302,11 @@ struct Wait {
 // Executes one op to completion in memory and says which LSN it must wait
 // for. Writes append to log `log_hint % logs.size()`.
 inline Wait execute_op(Map& map, Logs& logs, u16 log_hint, const ObjectID& id, bool read, u64 now) {
-  Stripe& s = map.stripe(id);
+  u64 h = snc_hash64(id);
+  Stripe& s = map.stripe_of(h);
   auto g = map.lock(s);
-  auto it = s.map.find(id);
-  if (it == s.map.end()) return Wait{0, 0, false};
-  Obj* o = it->second;
+  Obj* o = s.map.find(id, h);
+  if (o == nullptr) return Wait{0, 0, false};
   if (read) {
     // get_balance. D7: wait until the state it saw is durable.
     return Wait{o->last_log, o->last_lsn, true, o->version, o->a.balance_cents, o->a.op_count};

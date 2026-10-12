@@ -43,6 +43,11 @@ void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx
 using IndexCompletion = void (*)(void* ctx, Status s, const ObjectID* ids, u32 n);
 void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
 
+// Hint: `ids` are about to be executed here. Warms the map entries and
+// objects of the ones this shard owns, so a batch pays its cache misses in
+// parallel rather than one op at a time. Ignores IDs owned elsewhere.
+void prefetch(const ObjectID* ids, u32 n);
+
 // Owner of an ID under the current slot map. Valid on a worker thread.
 u16 owner_of(const ObjectID& id);
 // The slot map this shard routes with. Valid on a worker thread.
@@ -65,8 +70,16 @@ class OpCtx {
     app_code_ = app_code;
     return Status::E_APP;
   }
-  // Write the op result (at most the op's max_result).
-  void set_result(const void* data, u32 len);
+  // Write the op result (at most the op's max_result). Inline: it runs on
+  // nearly every op and its results are a few bytes.
+  void set_result(const void* data, u32 len) {
+    if (len > max_result_) {
+      result_overflow_ = true;
+      return;
+    }
+    std::memcpy(result_buf_, data, len);
+    result_len_ = len;
+  }
 
  private:
   friend class Shard;
@@ -77,6 +90,7 @@ class OpCtx {
   u16 app_code_ = 0;
   u8* result_buf_ = nullptr;
   u32 result_len_ = 0;
+  u32 max_result_ = 0;
   bool result_overflow_ = false;
 };
 
@@ -131,6 +145,8 @@ class Engine {
     // create() mints only IDs that hash to the calling shard, so every create
     // runs on its entry shard (docs/ROUTING.md). Off: IDs land anywhere.
     bool mint_local = false;
+    // Prefetch the targets of each batch of requests drained from a ring.
+    bool prefetch = true;
 
     // Persistence. Empty data_dir = in-memory only: every state reports durable.
     std::string data_dir;

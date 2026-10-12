@@ -44,6 +44,7 @@ def main():
     ap.add_argument("--client-cpus", default="2,3")
     ap.add_argument("--data-dir", default="/tmp/snc-net-matrix")
     ap.add_argument("--out", default="bench/results/net_matrix.csv")
+    ap.add_argument("--groups", default="", help="comma-separated groups to run (default: all)")
     a = ap.parse_args()
     n_client = len(a.client_cpus.split(","))
 
@@ -63,6 +64,16 @@ def main():
             runs.append(("durable", "baseline", f"--data-dir D --logs {logs}",
                          f"--route any --reads {reads} --depth 256"))
     runs.append(("durable", "snc", "--data-dir D", "--route owner --misroute 100 --reads 50 --depth 256"))
+    # Hot keys: Zipf key choice over all objects.
+    for theta in (0.99, 1.5):
+        for reads in (50, 0):
+            runs.append(("skew", "snc", "", f"--route owner --zipf {theta} --reads {reads} --depth 64"))
+            runs.append(("skew", "baseline", "", f"--route any --zipf {theta} --reads {reads} --depth 64"))
+    runs.append(("skew-durable", "snc", "--data-dir D", "--route owner --zipf 1.2 --reads 50 --depth 256"))
+    runs.append(("skew-durable", "baseline", f"--data-dir D --logs {n_srv}",
+                 "--route any --zipf 1.2 --reads 50 --depth 256"))
+    if a.groups:
+        runs = [r for r in runs if r[0] in a.groups.split(",")]
 
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fields = ["group", "engine", "server_flags", "client_flags", "rep", "ops_s", "p50_ns", "p95_ns",

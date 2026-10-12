@@ -167,10 +167,43 @@ shard. The rerun on this VM reproduces the gap (`bench/results/matrix_rerun.csv`
   other cores, shards idle in `epoll` between batches) SNC's p99 is already
   below the baseline's.
 
-So the fix is about where kernel I/O work runs, not about the WAL design:
-leave a housekeeping core for I/O workers (simplest), bind them with
-`io_uring_register_iowq_aff`, or let a shard yield when it is waiting only
-on I/O. That is the next step on this branch's list.
+### The fix: yield while disk I/O is in flight
+
+A shard with WAL records buffered never idles, so it never gives up its
+core on its own. `RuntimeConfig::io_yield_us` (default 50) makes a shard
+call `sched_yield()` at most every 50 µs while it has file I/O in flight,
+which lets an `iou-wrk` thread waiting on that core complete the write. It
+costs nothing in memory (no I/O in flight) and one syscall per 50 µs
+otherwise. Binding the I/O workers to a core that also runs a shard
+(`io_worker_cpus`, via `io_uring_register_iowq_aff`) did not help; that
+option is for machines with a spare housekeeping core.
+
+5 runs each, 4 shards, `--remote 0 --reads 50 --depth 256`, durable:
+
+| Setting | ops/s | p99 |
+| --- | --- | --- |
+| no yield (v0.1) | 1.23–1.57M | 3.3–7.2 ms |
+| yield every 20 µs | 1.68–1.80M | 1.47–1.87 ms |
+| yield every 50 µs | 1.69–1.84M | 1.54–1.77 ms |
+| yield every 100 µs | 1.68–1.83M | 1.47–1.77 ms |
+| no yield, 3 shards (1 core free) | 1.52–1.74M | 1.18–1.34 ms |
+
+The durable in-process matrix with the 50 µs default
+(`bench/results/matrix_io_yield.csv`, 3 runs, medians) against the rerun
+without it (`matrix_rerun.csv`) and the 4-log baseline:
+
+| Flags | SNC before | SNC after | Baseline, 4 logs |
+| --- | --- | --- | --- |
+| `--remote 0 --reads 50` | 1.30M, p99 6.68 ms | **1.91M, p99 1.44 ms** | 1.39M, p99 2.36 ms |
+| `--remote 50 --reads 50` | 1.16M, p99 7.73 ms | **1.86M, p99 1.97 ms** | 1.30M, p99 2.75 ms |
+| `--remote 100 --reads 50` | 1.01M, p99 7.73 ms | **1.51M, p99 2.69 ms** | 1.32M, p99 2.36 ms |
+| `--remote 0 --reads 0` | 0.78M, p99 2.36 ms | **0.84M, p99 2.23 ms** | 0.60M, p99 10.5 ms |
+
+Durable SNC now leads the strongest baseline by 1.37× with every op local
+and by 1.14× with every op remote, and its all-local p99 is lower than the
+baseline's. Over sockets (2 shards with free client cores) the change makes
+no measurable difference, as expected: those shards were not starving the
+I/O workers.
 
 ## In-process rerun on this VM
 

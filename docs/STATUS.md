@@ -25,6 +25,9 @@ and the handoff's development sequence (§24).
 
 | Step | State | Where |
 | --- | --- | --- |
+| Object lookup cost | Done: local map entries carry their hash; batch prefetch on socket and ring ingress (`snc::prefetch`). Measured against a baseline with the same map and prefetch: SNC leads when ops reach the owner and durable, trails on cross-core ops in process. Ring messages are one cache line | `include/snc/local_map.h`, `src/core/shard.cpp`, [PREFETCH.md](PREFETCH.md) |
+| Durable tail latency | Done: shards yield every 50 µs while disk I/O is in flight so io_uring workers can complete WAL writes (`RuntimeConfig::io_yield_us`) | `src/native/runtime.cpp`, [ROUTING.md](ROUTING.md#durable-p99-the-cause) |
+| Hot-key (Zipf) workloads | Done: `--zipf THETA` in all benchmarks; SNC overtakes the baseline at high skew (θ 1.5), and over TCP at θ 0.99 too; leads durable at every skew | `bench/zipf.h`, [SKEW.md](SKEW.md) |
 | Request routing to the owning shard | Done: per-shard TCP listeners, wire protocol v0, owner-aware client, owner-local minting for creates; measured against the baseline behind the same front end | `src/net/`, `include/snc/wire.h`, `tools/snc_server.cpp`, [ROUTING.md](ROUTING.md) |
 
 ## Known deviations from the spec

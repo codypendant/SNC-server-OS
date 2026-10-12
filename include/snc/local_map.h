@@ -2,7 +2,9 @@
 // probing from ObjectID to ObjectHeader*. Touched only by the owning worker,
 // so it has no locks or atomics. Uses the low bits of snc_hash64 (the slot
 // uses the high bits). Deletion uses backward shift, so there are no
-// tombstones in the table itself.
+// tombstones in the table itself. Each entry keeps the full hash next to the
+// pointer, so probing past other objects costs no cache miss on them, and
+// prefetch() can warm an entry and then its object ahead of execution.
 //
 // Deviation from spec, tracked in docs/STATUS.md: growth currently rehashes
 // in one step instead of incrementally across loop iterations. Callers can
@@ -19,28 +21,40 @@ class LocalMap {
  public:
   explicit LocalMap(std::size_t expected = 1024) { reserve(expected); }
 
-  ObjectHeader* find(const ObjectID& id) const {
-    std::size_t i = index_of(id);
+  ObjectHeader* find(const ObjectID& id) const { return find(id, snc_hash64(id)); }
+  ObjectHeader* find(const ObjectID& id, u64 h) const {
+    std::size_t i = h & mask_;
     while (true) {
       const Entry& e = table_[i];
       if (e.obj == nullptr) return nullptr;
-      if (e.obj->id == id) return e.obj;
+      if (e.hash == h && e.obj->id == id) return e.obj;
       i = (i + 1) & mask_;
     }
+  }
+
+  // Batch prefetch, in two stages so neither stalls: stage 1 warms the
+  // entries of every hash, stage 2 (after stage 1 for the whole batch)
+  // reads each entry and warms the object it points to.
+  void prefetch_entry(u64 h) const { __builtin_prefetch(&table_[h & mask_]); }
+  void prefetch_object(u64 h) const {
+    const Entry& a = table_[h & mask_];
+    if (a.hash == h) __builtin_prefetch(a.obj);
   }
 
   // Inserts or replaces. Returns the previous pointer, or nullptr.
   ObjectHeader* upsert(ObjectHeader* obj) {
     if ((size_ + 1) * 5 > table_.size() * 4) grow();  // load factor <= 0.8
-    std::size_t i = index_of(obj->id);
+    u64 h = snc_hash64(obj->id);
+    std::size_t i = h & mask_;
     while (true) {
       Entry& e = table_[i];
       if (e.obj == nullptr) {
         e.obj = obj;
+        e.hash = h;
         ++size_;
         return nullptr;
       }
-      if (e.obj->id == obj->id) {
+      if (e.hash == h && e.obj->id == obj->id) {
         ObjectHeader* old = e.obj;
         e.obj = obj;
         return old;
@@ -54,9 +68,10 @@ class LocalMap {
   // pointers, so the map must never be searched while it holds a freed block.
   // Invalidated by any insert or erase.
   ObjectHeader** slot(const ObjectID& id) {
-    std::size_t i = index_of(id);
+    u64 h = snc_hash64(id);
+    std::size_t i = h & mask_;
     while (table_[i].obj != nullptr) {
-      if (table_[i].obj->id == id) return &table_[i].obj;
+      if (table_[i].hash == h && table_[i].obj->id == id) return &table_[i].obj;
       i = (i + 1) & mask_;
     }
     return nullptr;
@@ -64,10 +79,11 @@ class LocalMap {
 
   // Removes and returns the entry, or nullptr if absent.
   ObjectHeader* erase(const ObjectID& id) {
-    std::size_t i = index_of(id);
+    u64 h = snc_hash64(id);
+    std::size_t i = h & mask_;
     while (true) {
       if (table_[i].obj == nullptr) return nullptr;
-      if (table_[i].obj->id == id) break;
+      if (table_[i].hash == h && table_[i].obj->id == id) break;
       i = (i + 1) & mask_;
     }
     ObjectHeader* removed = table_[i].obj;
@@ -75,7 +91,7 @@ class LocalMap {
     std::size_t hole = i;
     std::size_t j = (i + 1) & mask_;
     while (table_[j].obj != nullptr) {
-      std::size_t home = index_of(table_[j].obj->id);
+      std::size_t home = table_[j].hash & mask_;
       // Move j into the hole if its home is not in (hole, j] cyclically.
       bool movable = (j > hole) ? (home <= hole || home > j) : (home <= hole && home > j);
       if (movable) {
@@ -109,9 +125,8 @@ class LocalMap {
  private:
   struct Entry {
     ObjectHeader* obj = nullptr;
+    u64 hash = 0;
   };
-
-  std::size_t index_of(const ObjectID& id) const { return snc_hash64(id) & mask_; }
 
   void grow() { rehash(table_.size() * 2); }
 

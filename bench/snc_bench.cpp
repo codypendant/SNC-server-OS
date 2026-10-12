@@ -8,7 +8,7 @@
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
-//                  [--no-checkpoint]
+//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "bench_common.h"
+#include "zipf.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
 
@@ -46,6 +47,10 @@ struct Args {
   bool direct = true;
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
+  u32 io_yield_us = 50;  // RuntimeConfig default
+  bool prefetch = true;
+  std::vector<int> io_cpus;
+  double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
 };
 
 struct ShardDriver {
@@ -64,6 +69,10 @@ struct ShardDriver {
   };
   std::vector<Slot> slots;
   std::vector<u32> free_slots;
+  bool prefetch = true;
+  std::vector<ObjectID> next;  // targets chosen ahead, for prefetch
+  const bench::Zipf* zipf = nullptr;
+  const std::vector<ObjectID>* ranked = nullptr;
 };
 
 void on_op_done(void* ctx, const ExecResult& r) {
@@ -77,6 +86,7 @@ void on_op_done(void* ctx, const ExecResult& r) {
 }
 
 ObjectID pick(ShardDriver& d) {
+  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];
   const auto& by = *d.by_owner;
   u16 n = static_cast<u16>(by.size());
   u16 owner = d.shard;
@@ -91,16 +101,22 @@ ObjectID pick(ShardDriver& d) {
 // completion, so local completions (which run inline) cannot recurse.
 bool issue(ShardDriver& d) {
   bool did = false;
+  // Choose the batch's targets first and prefetch them, as an ingress path
+  // that reads many requests at once can.
+  d.next.clear();
+  for (std::size_t i = 0; i < d.free_slots.size(); ++i) d.next.push_back(pick(d));
+  if (d.prefetch && !d.next.empty()) prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+  std::size_t k = 0;
   // Local ops complete inline and return their slot at once, so bound the
   // batch per poll to keep the loop (and the phase check) moving.
-  for (std::size_t n = d.slots.size(); n > 0 && !d.free_slots.empty(); --n) {
+  for (std::size_t n = d.next.size(); n > 0 && !d.free_slots.empty(); --n) {
     u32 i = d.free_slots.back();
     d.free_slots.pop_back();
     ++d.outstanding;
     did = true;
     ShardDriver::Slot& s = d.slots[i];
     s.start_ns = sri_now_ns();
-    ObjectID target = pick(d);
+    ObjectID target = d.next[k++];
     if (static_cast<int>(d.rng() % 100) < d.reads_pct) {
       execute(target, kOpGetBalance, {}, {}, on_op_done, &s);
     } else {
@@ -196,6 +212,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--seconds") a.seconds = std::atof(val());
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
+    else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--spin") a.spin = true;
@@ -204,6 +221,15 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-direct") a.direct = false;
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
+    else if (k == "--no-prefetch") a.prefetch = false;
+    else if (k == "--io-yield-us") a.io_yield_us = static_cast<u32>(std::atoi(val()));
+    else if (k == "--io-cpus") {
+      for (const char* p = val(); *p;) {
+        a.io_cpus.push_back(std::atoi(p));
+        while (*p && *p != ',') ++p;
+        if (*p == ',') ++p;
+      }
+    }
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -239,6 +265,9 @@ int main(int argc, char** argv) {
   cfg.runtime.spin_forever = args.spin;
   cfg.runtime.ring_slots = 1024;
   cfg.runtime.overflow_limit = 1024;
+  cfg.runtime.io_yield_us = args.io_yield_us;
+  cfg.runtime.io_worker_cpus = args.io_cpus;
+  cfg.prefetch = args.prefetch;
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;
@@ -272,6 +301,14 @@ int main(int argc, char** argv) {
   for (u16 s = 0; s < args.shards; ++s) {
     eng.for_each_object(s, [&](const ObjectHeader& h) { by_owner[s].push_back(h.id); });
   }
+  std::vector<ObjectID> ranked;
+  double zipf_top = 0;
+  bench::Zipf zipf;
+  if (args.zipf > 0) {
+    ranked = bench::zipf_order(by_owner);
+    zipf = bench::Zipf(ranked.size(), args.zipf);
+    zipf_top = zipf.top_share();
+  }
 
   std::vector<ShardStats> before(args.shards);
   for (u16 s = 0; s < args.shards; ++s) before[s] = eng.stats(s);
@@ -286,6 +323,11 @@ int main(int argc, char** argv) {
     d.by_owner = &by_owner;
     d.remote_pct = args.remote_pct;
     d.reads_pct = args.reads_pct;
+    d.prefetch = args.prefetch;
+    if (args.zipf > 0) {
+      d.zipf = &zipf;
+      d.ranked = &ranked;
+    }
     d.rng.seed(1234 + s);
     d.slots.resize(args.depth);
     for (u32 i = 0; i < args.depth; ++i) {
@@ -356,6 +398,7 @@ int main(int argc, char** argv) {
               "local maps %.1f MiB\n",
               (unsigned long long)objects, load_s, objects / load_s,
               double(rss1 - rss0) / objects, double(heap) / objects, map_bytes / 1048576.0);
+  if (args.zipf > 0) std::printf("keys: zipf theta=%.2f (hottest key %.2f%% of ops)\n", args.zipf, 100 * zipf_top);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per shard)  errors %llu\n", ops / run_s, ops / run_s / args.shards,

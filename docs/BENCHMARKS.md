@@ -99,8 +99,9 @@ Other measurements (medians):
    3.5 ms for the baseline at the same throughput levels. (Follow-up in
    [ROUTING.md](ROUTING.md#durable-p99-the-cause): the cause is the
    kernel's io_uring workers starving for CPU behind 4 spinning shards on
-   4 cores, not one flush in flight; with a free core p99 drops to about
-   1.2 ms.)
+   4 cores, not one flush in flight. With shards yielding while disk I/O
+   is in flight, durable SNC does 1.91M ops/s at p99 1.44 ms against the
+   4-log baseline's 1.39M at 2.36 ms on the same VM.)
 4. **Scaling is near linear for both** from 1 to 4 cores (SNC 1.21M →
    4.06M at 50% remote, baseline 0.76M → 3.21M). SNC's 2-shard point
    (1.87M) shows the cost of the first remote messages.

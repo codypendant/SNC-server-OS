@@ -1,0 +1,31 @@
+group,engine,server_flags,client_flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,misrouted_pct,forwarded_pct,load_s,creates_s
+skew,snc,,--route owner --zipf 0.99 --reads 50 --depth 64,0,2459829,40960,62464,94208,401408,0.0,0.0,0.87,1153982
+skew,snc,,--route owner --zipf 0.99 --reads 50 --depth 64,1,2364166,41984,65536,102400,540672,0.0,0.0,0.87,1148746
+skew,snc,,--route owner --zipf 0.99 --reads 50 --depth 64,2,2253093,44032,69632,108544,524288,0.0,0.0,0.97,1031414
+skew,baseline,,--route any --zipf 0.99 --reads 50 --depth 64,0,2500104,40960,62464,94208,327680,50.0,0.0,1.03,968772
+skew,baseline,,--route any --zipf 0.99 --reads 50 --depth 64,1,2434624,40960,61440,92160,499712,50.0,0.0,1.03,969511
+skew,baseline,,--route any --zipf 0.99 --reads 50 --depth 64,2,2508931,39936,60416,86016,360448,50.0,0.0,1.02,978080
+skew,snc,,--route owner --zipf 0.99 --reads 0 --depth 64,0,2303980,43008,67584,116736,655360,0.0,0.0,0.91,1098749
+skew,snc,,--route owner --zipf 0.99 --reads 0 --depth 64,1,2336347,41984,67584,112640,622592,0.0,0.0,0.94,1064715
+skew,snc,,--route owner --zipf 0.99 --reads 0 --depth 64,2,2313346,43008,69632,106496,507904,0.0,0.0,0.99,1015052
+skew,baseline,,--route any --zipf 0.99 --reads 0 --depth 64,0,2357096,43008,67584,100352,434176,50.0,0.0,1.17,853642
+skew,baseline,,--route any --zipf 0.99 --reads 0 --depth 64,1,2329329,41984,64512,102400,638976,50.0,0.0,1.1,909175
+skew,baseline,,--route any --zipf 0.99 --reads 0 --depth 64,2,2389452,41984,62464,92160,434176,50.0,0.0,1.03,974338
+skew,snc,,--route owner --zipf 1.5 --reads 50 --depth 64,0,3218118,30720,53248,81920,360448,0.0,0.0,0.94,1069376
+skew,snc,,--route owner --zipf 1.5 --reads 50 --depth 64,1,2878475,33792,60416,92160,483328,0.0,0.0,0.91,1094362
+skew,snc,,--route owner --zipf 1.5 --reads 50 --depth 64,2,3086454,31744,56320,86016,409600,0.0,0.0,0.9,1112222
+skew,baseline,,--route any --zipf 1.5 --reads 50 --depth 64,0,2581771,38912,64512,102400,589824,50.0,0.0,1.07,933128
+skew,baseline,,--route any --zipf 1.5 --reads 50 --depth 64,1,2512234,39936,64512,96256,475136,50.0,0.0,1.03,966616
+skew,baseline,,--route any --zipf 1.5 --reads 50 --depth 64,2,2623697,38912,60416,90112,344064,50.0,0.0,1.03,972651
+skew,snc,,--route owner --zipf 1.5 --reads 0 --depth 64,0,3223152,30720,53248,81920,376832,0.0,0.0,0.88,1140559
+skew,snc,,--route owner --zipf 1.5 --reads 0 --depth 64,1,2820104,32768,62464,104448,573440,0.0,0.0,0.95,1052846
+skew,snc,,--route owner --zipf 1.5 --reads 0 --depth 64,2,3193293,30720,52224,79872,360448,0.0,0.0,0.92,1089046
+skew,baseline,,--route any --zipf 1.5 --reads 0 --depth 64,0,2443051,41984,67584,106496,524288,50.0,0.0,1.01,992435
+skew,baseline,,--route any --zipf 1.5 --reads 0 --depth 64,1,2560279,39936,64512,96256,385024,50.0,0.0,1.14,877972
+skew,baseline,,--route any --zipf 1.5 --reads 0 --depth 64,2,2729659,37888,56320,81920,393216,50.0,0.0,1.03,971810
+skew-durable,snc,--data-dir D,--route owner --zipf 1.2 --reads 50 --depth 256,0,900534,540672,884736,1802240,7208960,0.0,0.0,1.55,646332
+skew-durable,snc,--data-dir D,--route owner --zipf 1.2 --reads 50 --depth 256,1,968892,524288,851968,1376256,4128768,0.0,0.0,1.57,637888
+skew-durable,snc,--data-dir D,--route owner --zipf 1.2 --reads 50 --depth 256,2,966768,540672,851968,1310720,3145728,0.0,0.0,1.61,622540
+skew-durable,baseline,--data-dir D --logs 2,--route any --zipf 1.2 --reads 50 --depth 256,0,749148,655360,1212416,2752512,5636096,50.1,0.0,2.14,467087
+skew-durable,baseline,--data-dir D --logs 2,--route any --zipf 1.2 --reads 50 --depth 256,1,751224,671744,1179648,2359296,5767168,50.0,0.0,1.87,533723
+skew-durable,baseline,--data-dir D --logs 2,--route any --zipf 1.2 --reads 50 --depth 256,2,701713,688128,1310720,2555904,7864320,50.1,0.0,2.16,462236

@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--seconds", type=float, default=4)
     ap.add_argument("--data-dir", default="/tmp/snc-matrix")
     ap.add_argument("--out", default="bench/results/matrix.csv")
+    ap.add_argument("--groups", default="", help="comma-separated groups to run (default: all)")
     a = ap.parse_args()
 
     runs = []  # (group, engine, flags)
@@ -46,7 +47,18 @@ def main():
             runs.append(("durable", "baseline", f"--remote {remote} --reads 50 --depth 256 --data-dir D --logs {logs}"))
     runs.append(("durable", "snc", "--remote 0 --reads 0 --depth 256 --data-dir D"))
     runs.append(("durable", "baseline", "--remote 0 --reads 0 --depth 256 --data-dir D --logs 4"))
+    # Hot keys: Zipf key choice over all objects (--remote no longer applies).
+    for theta in (0.99, 1.2, 1.5):
+        for reads in (50, 0):
+            runs.append(("skew", "snc", f"--zipf {theta} --reads {reads} --depth 32"))
+            runs.append(("skew", "baseline", f"--zipf {theta} --reads {reads} --depth 32"))
+    for theta in (0.99, 1.5):
+        runs.append(("skew-durable", "snc", f"--zipf {theta} --reads 50 --depth 256 --data-dir D"))
+        runs.append(("skew-durable", "baseline", f"--zipf {theta} --reads 50 --depth 256 --data-dir D --logs 4"))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
+
+    if a.groups:
+        runs = [r for r in runs if r[0] in a.groups.split(",")]
 
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fields = ["group", "engine", "flags", "rep", "ops_s", "p50_ns", "p95_ns", "p99_ns", "p999_ns",

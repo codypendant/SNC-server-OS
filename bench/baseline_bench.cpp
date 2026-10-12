@@ -18,6 +18,7 @@
 // Usage: baseline_bench [--threads N] [--objects N] [--seconds S] [--remote PCT]
 //                       [--reads PCT] [--depth D] [--no-pin]
 //                       [--data-dir DIR] [--logs K] [--group-commit-us N] [--no-sync]
+//                       [--no-prefetch]
 #include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
@@ -42,6 +43,7 @@
 
 #include "baseline_core.h"
 #include "bench_common.h"
+#include "zipf.h"
 #include "snc/object_id.h"
 #include "snc/types/account.h"
 #include "snc/wal_format.h"
@@ -64,6 +66,8 @@ struct Args {
   u32 group_commit_us = 50;
   bool sync = true;
   u16 logs = 1;
+  bool prefetch = true;
+  double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
 };
 
 // ---- Workers ---------------------------------------------------------------------
@@ -77,6 +81,8 @@ struct Shared {
   std::atomic<int> phase{kLoad};
   std::atomic<u32> loaded{0};
   std::vector<std::vector<ObjectID>> created;  // per worker, for key choice
+  std::vector<ObjectID> ranked;                // --zipf: index = rank
+  bench::Zipf zipf;
 };
 
 struct Pending {
@@ -100,6 +106,7 @@ void pin_to(u16 cpu) {
 }
 
 ObjectID pick(Shared& sh, Worker& w) {
+  if (sh.args.zipf > 0) return sh.ranked[sh.zipf.next(w.rng)];
   u16 n = static_cast<u16>(sh.created.size());
   u16 owner = w.id;
   if (n > 1 && static_cast<int>(w.rng() % 100) < sh.args.remote_pct) {
@@ -151,6 +158,7 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
   // Run: closed loop with `depth` ops outstanding.
   std::vector<Pending> pending;
   pending.reserve(sh.args.depth);
+  std::vector<ObjectID> next;
   auto complete = [&] {
     u64 t = now_ns();
     std::size_t k = 0;
@@ -170,10 +178,13 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
     bool running = sh.phase.load(std::memory_order_acquire) == kRun;
     if (!running && pending.empty()) break;
     if (running) {
-      // At most `depth` ops per pass, then re-check the phase.
-      for (u32 batch = 0; batch < sh.args.depth && pending.size() < sh.args.depth; ++batch) {
+      // At most `depth` ops per pass, then re-check the phase. Targets are
+      // chosen first so the batch can be prefetched, as snc_bench does.
+      next.clear();
+      for (std::size_t i = pending.size(); i < sh.args.depth; ++i) next.push_back(pick(sh, w));
+      if (sh.args.prefetch && !next.empty()) sh.map.prefetch(next.data(), static_cast<u32>(next.size()));
+      for (const ObjectID& id : next) {
         u64 t = now_ns();
-        ObjectID id = pick(sh, w);
         bool read = static_cast<int>(w.rng() % 100) < sh.args.reads_pct;
         Wait wt = execute_op(sh.map, sh.logs, w.id, id, read, t);
         if (!wt.found) {
@@ -208,12 +219,14 @@ Args parse(int argc, char** argv) {
     else if (k == "--seconds") a.seconds = std::atof(val());
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
+    else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--data-dir") a.data_dir = val();
     else if (k == "--logs") a.logs = static_cast<u16>(std::max(1, std::atoi(val())));
     else if (k == "--group-commit-us") a.group_commit_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-sync") a.sync = false;
+    else if (k == "--no-prefetch") a.prefetch = false;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -257,6 +270,12 @@ int main(int argc, char** argv) {
   while (sh.loaded.load() < args.threads) std::this_thread::sleep_for(std::chrono::milliseconds(1));
   double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
   u64 rss1 = rss_bytes();
+  double zipf_top = 0;
+  if (args.zipf > 0) {
+    sh.ranked = bench::zipf_order(sh.created);
+    sh.zipf = bench::Zipf(sh.ranked.size(), args.zipf);
+    zipf_top = sh.zipf.top_share();
+  }
   u64 contended0 = sh.map.contended.load();
   u64 flushes0 = log_total(&SharedLog::flushes);
 
@@ -282,6 +301,7 @@ int main(int argc, char** argv) {
   std::printf("load: %llu objects in %.2fs (%.0f creates/s), RSS %.1f B/object\n",
               (unsigned long long)args.objects, load_s, args.objects / load_s,
               double(rss1 - rss0) / args.objects);
+  if (args.zipf > 0) std::printf("keys: zipf theta=%.2f (hottest key %.2f%% of ops)\n", args.zipf, 100 * zipf_top);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per thread)  errors %llu\n", ops / run_s, ops / run_s / args.threads,

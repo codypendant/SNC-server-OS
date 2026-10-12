@@ -114,6 +114,17 @@ bool ConnSet::read_conn(Conn* c) {
 
   // Dispatch every whole frame. A handler may respond inline, which only
   // appends to c->out, so `c` stays valid; hold it anyway for clarity.
+  if (on_batch_) {
+    batch_.clear();
+    for (std::size_t p = 0; c->in_len - p >= sizeof(wire::ReqHeader);) {
+      wire::ReqHeader h;
+      std::memcpy(&h, c->in.data() + p, sizeof(h));
+      if (h.len < sizeof(h) || c->in_len - p < h.len) break;
+      batch_.push_back(h.target);
+      p += h.len;
+    }
+    if (!batch_.empty()) on_batch_(user_, batch_.data(), static_cast<u32>(batch_.size()));
+  }
   hold(c);
   std::size_t pos = 0;
   while (!c->closed && c->in_len - pos >= sizeof(u32)) {

@@ -1,0 +1,70 @@
+group,engine,flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,msgs_per_op,contended_pct,load_s,rss_per_obj,checkpoint_s,recovery_s,ckpt_load_s,wal_replay_s
+memory,snc,--remote 0 --reads 50 --depth 32,0,15605422,106,328,472,736,0.0,,0.47,499.3,,,,
+memory,snc,--remote 0 --reads 50 --depth 32,1,14774062,108,336,488,1376,0.0,,0.35,499.4,,,,
+memory,snc,--remote 0 --reads 50 --depth 32,2,15977396,106,328,480,688,0.0,,0.44,499.3,,,,
+memory,snc,--remote 0 --reads 95 --depth 32,0,18014994,74,280,424,672,0.0,,0.37,499.3,,,,
+memory,snc,--remote 0 --reads 95 --depth 32,1,17968446,74,280,424,672,0.0,,0.36,499.3,,,,
+memory,snc,--remote 0 --reads 95 --depth 32,2,18294370,74,280,424,624,0.0,,0.38,499.3,,,,
+memory,snc,--remote 50 --reads 50 --depth 32,0,8415774,1920,23552,38912,163840,1.0,,0.34,499.4,,,,
+memory,snc,--remote 50 --reads 50 --depth 32,1,8223936,1504,24064,41984,253952,1.0,,0.37,499.4,,,,
+memory,snc,--remote 50 --reads 50 --depth 32,2,8866175,1984,22016,35840,118784,1.0,,0.41,499.3,,,,
+memory,snc,--remote 50 --reads 95 --depth 32,0,9882880,2112,19456,31744,118784,1.0,,0.37,499.4,,,,
+memory,snc,--remote 50 --reads 95 --depth 32,1,10046145,1408,18432,32768,139264,1.0,,0.4,499.3,,,,
+memory,snc,--remote 50 --reads 95 --depth 32,2,9608058,1440,19968,33792,172032,1.0,,0.33,499.4,,,,
+memory,snc,--remote 100 --reads 50 --depth 32,0,7116094,11776,23552,43008,229376,2.0,,0.43,499.3,,,,
+memory,snc,--remote 100 --reads 50 --depth 32,1,7404474,11264,21504,39936,233472,2.0,,0.38,499.4,,,,
+memory,snc,--remote 100 --reads 50 --depth 32,2,7128166,11520,23040,45056,262144,2.0,,0.33,499.4,,,,
+memory,snc,--remote 100 --reads 95 --depth 32,0,7870451,10496,22016,40960,253952,2.0,,0.42,499.3,,,,
+memory,snc,--remote 100 --reads 95 --depth 32,1,8219042,10240,19968,37888,208896,2.0,,0.36,499.3,,,,
+memory,snc,--remote 100 --reads 95 --depth 32,2,7448826,10752,22528,44032,311296,2.0,,0.35,499.3,,,,
+memory,baseline,--remote 0 --reads 50 --depth 32,0,14047930,168,328,456,832,,0.032,0.38,452.4,,,,
+memory,baseline,--remote 0 --reads 50 --depth 32,1,14073765,156,320,456,992,,0.032,0.37,452.5,,,,
+memory,baseline,--remote 0 --reads 50 --depth 32,2,14582556,152,320,448,736,,0.032,0.36,452.5,,,,
+memory,baseline,--remote 0 --reads 95 --depth 32,0,18968826,66,228,368,608,,0.019,0.38,452.4,,,,
+memory,baseline,--remote 0 --reads 95 --depth 32,1,18226898,68,236,384,640,,0.019,0.37,452.5,,,,
+memory,baseline,--remote 0 --reads 95 --depth 32,2,15688772,68,232,384,608,,0.018,0.37,452.5,,,,
+memory,baseline,--remote 50 --reads 50 --depth 32,0,12204247,172,360,488,992,,0.029,0.36,452.4,,,,
+memory,baseline,--remote 50 --reads 50 --depth 32,1,12819948,172,352,480,800,,0.03,0.42,452.4,,,,
+memory,baseline,--remote 50 --reads 50 --depth 32,2,13298102,168,336,464,752,,0.031,0.36,452.4,,,,
+memory,baseline,--remote 50 --reads 95 --depth 32,0,16514100,66,264,416,640,,0.018,0.36,452.5,,,,
+memory,baseline,--remote 50 --reads 95 --depth 32,1,16574977,66,264,416,656,,0.018,0.39,452.4,,,,
+memory,baseline,--remote 50 --reads 95 --depth 32,2,16211463,68,272,424,656,,0.018,0.37,452.5,,,,
+memory,baseline,--remote 100 --reads 50 --depth 32,0,12659612,172,344,472,880,,0.031,0.36,452.5,,,,
+memory,baseline,--remote 100 --reads 50 --depth 32,1,11790013,172,368,504,2560,,0.029,0.36,452.4,,,,
+memory,baseline,--remote 100 --reads 50 --depth 32,2,11714792,172,368,504,3072,,0.029,0.45,452.5,,,,
+memory,baseline,--remote 100 --reads 95 --depth 32,0,15617721,68,272,432,704,,0.018,0.4,452.4,,,,
+memory,baseline,--remote 100 --reads 95 --depth 32,1,15869158,68,272,432,704,,0.018,0.38,452.5,,,,
+memory,baseline,--remote 100 --reads 95 --depth 32,2,16855370,66,256,408,624,,0.018,0.4,452.5,,,,
+durable,snc,--remote 0 --reads 50 --depth 256 --data-dir D,0,2131632,303104,1048576,1409024,4587520,0.0,,0.8,502.9,1.53,0.73,0.3,0.32
+durable,snc,--remote 0 --reads 50 --depth 256 --data-dir D,1,1721371,286720,1245184,2162688,6815744,0.0,,0.84,502.9,1.42,0.76,0.28,0.38
+durable,snc,--remote 0 --reads 50 --depth 256 --data-dir D,2,1890921,311296,1146880,1638400,5898240,0.0,,0.79,503.0,1.42,0.87,0.29,0.47
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 1,0,862828,688128,1540096,2293760,5767168,,0.069,2.9,457.2,,,,
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 1,1,892919,688128,1507328,2097152,5636096,,0.067,2.83,454.7,,,,
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 1,2,851110,688128,1540096,2621440,16515072,,0.07,2.84,453.8,,,,
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 4,0,1394564,557056,1671168,2162688,4128768,,0.014,0.72,459.3,,,,
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 4,1,1521406,573440,1507328,1933312,3407872,,0.036,0.72,458.0,,,,
+durable,baseline,--remote 0 --reads 50 --depth 256 --data-dir D --logs 4,2,1330349,540672,1769472,2424832,4325376,,0.032,0.74,458.9,,,,
+durable,snc,--remote 50 --reads 50 --depth 256 --data-dir D,0,2069488,385024,1179648,1703936,3604480,1.0,,0.78,502.9,1.51,0.74,0.27,0.35
+durable,snc,--remote 50 --reads 50 --depth 256 --data-dir D,1,1927185,401408,1179648,1933312,7471104,1.0,,0.88,503.4,1.42,0.94,0.27,0.56
+durable,snc,--remote 50 --reads 50 --depth 256 --data-dir D,2,1887602,417792,1277952,1736704,4849664,1.0,,0.86,502.8,1.51,0.81,0.28,0.41
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 1,0,885600,671744,1474560,2097152,4587520,,0.069,2.79,458.1,,,,
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 1,1,856262,704512,1572864,2293760,5242880,,0.069,2.77,453.3,,,,
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 1,2,862238,671744,1507328,2097152,10747904,,0.069,2.78,455.5,,,,
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 4,0,1382705,434176,1769472,2359296,6029312,,0.022,0.65,458.5,,,,
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 4,1,1049198,573440,1933312,12582912,18350080,,0.022,0.68,458.2,,,,
+durable,baseline,--remote 50 --reads 50 --depth 256 --data-dir D --logs 4,2,1422872,557056,1736704,2293760,4325376,,0.019,0.69,459.1,,,,
+durable,snc,--remote 100 --reads 50 --depth 256 --data-dir D,0,2004175,434176,1245184,1835008,4456448,2.0,,0.9,503.0,1.87,0.72,0.3,0.3
+durable,snc,--remote 100 --reads 50 --depth 256 --data-dir D,1,1552689,466944,1343488,2752512,24117248,2.0,,0.77,503.1,1.4,0.7,0.3,0.3
+durable,snc,--remote 100 --reads 50 --depth 256 --data-dir D,2,1802935,450560,1310720,2031616,8650752,2.0,,0.82,503.4,1.46,0.81,0.29,0.42
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 1,0,898774,655360,1409024,1835008,3211264,,0.069,2.74,457.1,,,,
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 1,1,876154,688128,1507328,2097152,8388608,,0.071,2.8,453.3,,,,
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 1,2,840290,737280,1638400,2162688,6684672,,0.073,2.85,453.6,,,,
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 4,0,1372359,507904,1671168,2686976,10485760,,0.035,0.79,457.6,,,,
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 4,1,1474014,589824,1572864,2162688,4980736,,0.033,0.69,458.1,,,,
+durable,baseline,--remote 100 --reads 50 --depth 256 --data-dir D --logs 4,2,1321523,557056,1835008,2490368,7471104,,0.021,0.66,457.7,,,,
+durable,snc,--remote 0 --reads 0 --depth 256 --data-dir D,0,874317,901120,1409024,2162688,6291456,0.0,,0.74,503.2,1.6,0.75,0.27,0.37
+durable,snc,--remote 0 --reads 0 --depth 256 --data-dir D,1,931183,819200,1245184,1998848,7733248,0.0,,0.91,502.9,1.35,0.78,0.28,0.38
+durable,snc,--remote 0 --reads 0 --depth 256 --data-dir D,2,914263,851968,1277952,1933312,5111808,0.0,,0.84,503.1,1.38,0.76,0.29,0.37
+durable,baseline,--remote 0 --reads 0 --depth 256 --data-dir D --logs 4,0,653101,1310720,2064384,3276800,12058624,,0.022,0.69,460.7,,,,
+durable,baseline,--remote 0 --reads 0 --depth 256 --data-dir D --logs 4,1,803729,1081344,1736704,2555904,7471104,,0.026,0.68,458.6,,,,
+durable,baseline,--remote 0 --reads 0 --depth 256 --data-dir D --logs 4,2,630827,1343488,2228224,4194304,13107200,,0.02,0.7,462.5,,,,

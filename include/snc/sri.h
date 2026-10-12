@@ -21,6 +21,9 @@ struct ShardTopology {
 struct ShardHooks {
   void (*init)(void* user) = nullptr;                  // after pinning, before any message
   void (*on_message)(void* user, const Msg&) = nullptr;
+  // Optional: sees each batch drained from one ring before on_message runs
+  // for any of them (for prefetching their targets).
+  void (*on_batch)(void* user, const Msg* const* msgs, u32 n) = nullptr;
   bool (*poll)(void* user) = nullptr;                  // per-iteration work; true if it did work
   // During stop: true once the shard has no work in flight. The loop keeps
   // running until it returns true. Null = always quiesced.

@@ -35,6 +35,17 @@ void hook_init(void* user) {
 
 void hook_message(void*, const Msg& m) { current_shard()->on_message(m); }
 
+void hook_batch(void*, const Msg* const* msgs, u32 n) {
+  ObjectID ids[64];
+  u32 k = 0;
+  for (u32 i = 0; i < n && k < 64; ++i) {
+    if (msgs[i]->kind == MsgKind::EXEC_REQ || msgs[i]->kind == MsgKind::DELETE_REQ) {
+      ids[k++] = msgs[i]->target;
+    }
+  }
+  if (k) current_shard()->prefetch(ids, k);
+}
+
 bool hook_poll(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   bool busy = current_shard()->poll();
@@ -87,6 +98,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
+  if (cfg_.prefetch) h.on_batch = hook_batch;
   h.poll = hook_poll;
   h.quiesced = hook_quiesced;
   h.fini = hook_fini;

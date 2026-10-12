@@ -30,6 +30,11 @@ class ConnSet {
   ConnSet(const ConnSet&) = delete;
   ConnSet& operator=(const ConnSet&) = delete;
 
+  // Optional: called with the targets of each batch of whole frames read
+  // from one connection, before any of them is dispatched.
+  using OnBatch = void (*)(void* user, const ObjectID* targets, u32 n);
+  void set_on_batch(OnBatch fn) { on_batch_ = fn; }
+
   // Readable when sockets have work; for sri_watch_fd or an idle poll().
   int wait_fd() const { return epfd_; }
 
@@ -61,7 +66,9 @@ class ConnSet {
   int listen_fd_ = -1;
   int epfd_ = -1;
   OnRequest on_request_;
+  OnBatch on_batch_ = nullptr;
   void* user_;
+  std::vector<ObjectID> batch_;
   std::vector<Conn*> conns_;  // open connections
   std::vector<Conn*> dirty_;  // connections with queued output (each holds a ref)
   Stats stats_;

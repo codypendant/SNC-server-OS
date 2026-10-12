@@ -146,8 +146,10 @@ void register_type() {
   r.add_type(t);
 
   auto op = [&](OpID id, const char* name, OpKind kind, u32 max_args, u32 max_result,
-                Status (*v)(OpCtx&, const ObjectHeader&, ByteView), void (*a)(OpCtx&, ByteView)) {
+                Status (*v)(OpCtx&, const ObjectHeader&, ByteView), void (*a)(OpCtx&, ByteView),
+                bool keeps_index_key = false) {
     OpDescriptor d;
+    d.keeps_index_key = keeps_index_key;
     d.op_id = id;
     d.type_id = kTypeId;
     d.name = name;
@@ -162,9 +164,9 @@ void register_type() {
      create_apply);
   op(kOpGet, "Account.get", OpKind::READ, 0, sizeof(AccountV1), read_validate, get_apply);
   op(kOpDeposit, "Account.deposit", OpKind::MUTATE, sizeof(AmountArgs), sizeof(BalanceResult),
-     deposit_validate, deposit_apply);
+     deposit_validate, deposit_apply, /*keeps_index_key=*/true);
   op(kOpWithdraw, "Account.withdraw", OpKind::MUTATE, sizeof(AmountArgs), sizeof(BalanceResult),
-     withdraw_validate, withdraw_apply);
+     withdraw_validate, withdraw_apply, /*keeps_index_key=*/true);
   op(kOpSetEmail, "Account.set_email", OpKind::MUTATE, sizeof(SetEmailArgs), 0,
      set_email_validate, set_email_apply);
   op(kOpGetBalance, "Account.get_balance", OpKind::READ, 0, sizeof(BalanceResult),
