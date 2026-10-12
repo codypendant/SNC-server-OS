@@ -181,8 +181,8 @@ Over TCP (2 server cores, `net_bench --xfer-local P`; the baseline at
 | Durable | 324K/s | 433K/s | 528K/s | 512K/s |
 
 Over TCP the socket path costs the same for both engines, so placement
-moves the ratio less: SNC ties the baseline at 90% same-shard pairs and
-leads by 8% (memory) to 11% (durable) beyond that. A wire `CREATE` that
+moves the ratio less: at 90% same-shard pairs SNC ties the baseline in
+memory and leads by 11% durable; at 100% it leads by 8% in both. A wire `CREATE` that
 names a target is `create_near(target)`, so a client can place a new
 account next to an existing one.
 
