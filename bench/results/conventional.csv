@@ -1,0 +1,19 @@
+engine,mode,config,rep,ops_s,latency_us
+postgres,memory,pg_mixed.sql -c 16,0,39486,405.0
+postgres,memory,pg_mixed.sql -c 16,1,37269,429.0
+postgres,memory,pg_mixed.sql -c 16,2,40629,394.0
+postgres,memory,pg_mixed_pipeline16.sql -c 8,0,47023,2722.0
+postgres,memory,pg_mixed_pipeline16.sql -c 8,1,45693,2801.0
+postgres,memory,pg_mixed_pipeline16.sql -c 8,2,45651,2804.0
+postgres,durable,pg_mixed.sql -c 16,0,21911,730.0
+postgres,durable,pg_mixed.sql -c 16,1,24896,643.0
+postgres,durable,pg_mixed.sql -c 16,2,23201,690.0
+postgres,durable,pg_mixed_pipeline16.sql -c 8,0,34312,3731.0
+postgres,durable,pg_mixed_pipeline16.sql -c 8,1,37405,3422.0
+postgres,durable,pg_mixed_pipeline16.sql -c 8,2,35462,3609.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",0,242940,3735.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",1,253073,3655.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",2,248694,3743.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",0,129016,6579.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",1,118158,6543.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",2,140727,6115.0
