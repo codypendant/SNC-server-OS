@@ -45,11 +45,13 @@ Shard::~Shard() {
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
-  u16 owner = owner_of(target);
+  u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
+  u16 owner = slots_.owner[h >> 52];
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
-    run(MsgKind::EXEC_REQ, target, op, args, opts, out);
+    out.r.id = target;
+    run_exec(target, h, op, args, opts, out);
     complete_local(out, done, ctx);
     return;
   }
@@ -126,7 +128,7 @@ void Shard::run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args,
   out = RunOut{};
   out.r.id = target;
   switch (kind) {
-    case MsgKind::EXEC_REQ: run_exec(target, op_or_type, args, opts, out); break;
+    case MsgKind::EXEC_REQ: run_exec(target, snc_hash64(target), op_or_type, args, opts, out); break;
     case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, out); break;
     case MsgKind::DELETE_REQ: run_delete(target, opts, out); break;
     default: std::abort();
@@ -170,9 +172,9 @@ u64 Shard::log(RecType type, const ObjectHeader& obj) {
   return wal_->append(type, obj.type_id, obj.id, obj.version, obj.schema_ver, obj.payload(), len);
 }
 
-void Shard::run_exec(ObjectID target, OpID op_id, ByteView args, const ExecOptions& opts,
-                     RunOut& out) {
-  ObjectHeader* obj = map_.find(target);
+void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
+                     const ExecOptions& opts, RunOut& out) {
+  ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
     // A just-deleted object reports gone only once the delete is durable.
@@ -211,14 +213,22 @@ void Shard::run_exec(ObjectID target, OpID op_id, ByteView args, const ExecOptio
     out.r.durable = durable(c.obj_->last_lsn);
     if (!opts.allow_undurable) out.wait_lsn = c.obj_->last_lsn;
   } else {
+    // Ops declared keeps_index_key skip index maintenance; debug builds
+    // check the declaration.
+#ifdef NDEBUG
+    const bool track = t->index_id && !op->keeps_index_key;
+#else
+    const bool track = t->index_id != 0;
+#endif
     u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
-    u32 old_len = t->index_id ? extract_key(*t, *obj, old_key) : 0;
+    u32 old_len = track ? extract_key(*t, *obj, old_key) : 0;
     if (op->apply) op->apply(c, args);
     ObjectHeader* o = c.obj_;
     ++o->version;
-    if (t->index_id) {
+    if (track) {
       u32 new_len = extract_key(*t, *o, new_key);
       if (new_len != old_len || std::memcmp(old_key, new_key, new_len) != 0) {
+        if (op->keeps_index_key) contract_violation("op declared keeps_index_key changed the key", op);
         if (old_len) index_erase(t->index_id, old_key, old_len, o->id);
         if (new_len) index_insert(t->index_id, new_key, new_len, o->id);
       }

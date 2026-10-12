@@ -37,44 +37,80 @@ map.
 ## Results
 
 Same VM and method as ROUTING.md, 3 runs, medians. "Before" is
-`bench/results/matrix_rerun.csv` and `net_matrix.csv`; "after" is
-`matrix_prefetch.csv` and `net_matrix_prefetch.csv`.
-
-In process, in memory (4 shards, depth 32):
-
-| Flags | SNC before | SNC after | Baseline |
-| --- | --- | --- | --- |
-| `--remote 0 --reads 50` | 5.03M, p50 0.6 µs | **9.03M**, p50 0.3 µs | 4.09M |
-| `--remote 0 --reads 95` | 5.68M | **9.95M** | 3.88M |
-| `--remote 50 --reads 50` | 4.23M, p50 3.8 µs | **6.41M**, p50 2.6 µs | 3.58M |
-| `--remote 100 --reads 50` | 3.37M, p50 22.5 µs | **5.18M**, p50 15.4 µs | 3.51M |
-| `--shards 1 --remote 50` | 1.33M | **2.19M** | 0.94M (1 thread) |
-
-Single runs separating the two changes (`--remote 0 --reads 50`): the
-tagged map alone took 5.0M to 7.6M; prefetch took 7.6M to 9.3M. At 100%
+`bench/results/matrix_rerun.csv` and `net_matrix.csv` (v0.1 map, baseline
+with `std::unordered_map`); "SNC after, old baseline" is
+`matrix_prefetch.csv` and `net_matrix_prefetch.csv`. A single-run check
+separated the two SNC changes (`--remote 0 --reads 50`): the tagged map
+alone took 5.0M to 7.6M ops/s, prefetch took 7.6M to 9.3M, and at 100%
 remote, ring prefetch took 4.4M to 5.4M.
 
-Over TCP (2 shards on cores 0-1, client on 2-3):
+## The baseline gets the same map and prefetch
 
-| Workload | SNC before | SNC after | Baseline |
+Part of that gain was the map, not the architecture, so the baseline now
+gets the same treatment: each lock stripe holds a flat open-addressing
+table with the hash in every entry (`FlatMap` in `bench/baseline_core.h`),
+and both `baseline_bench` and `baseline_server` prefetch each batch's
+stripes, entries and objects before running it (`--no-prefetch` turns it
+off). SNC also lost two per-op costs found while profiling: it now hashes a
+target once per op instead of twice, and ops declared `keeps_index_key`
+(deposit, withdraw) skip index-key extraction, which debug builds verify.
+All runs below are `bench/results/matrix_tuned.csv` and
+`net_matrix_tuned.csv`.
+
+In process (4 shards or threads, depth 32):
+
+| Flags | SNC | Tuned baseline | Old baseline |
 | --- | --- | --- | --- |
-| memory, owner-routed, 50% reads | 1.78M, p99 148 µs | **2.08M**, p99 109 µs | 1.42M |
-| memory, owner-routed, 95% reads | 1.71M | **2.19M** | 1.44M |
-| memory, any shard, 50% reads | 1.36M | 1.59M | 1.42M |
-| durable, owner-routed, 50% reads | 1.12M, p99 1.28 ms | 1.18M, p99 1.21 ms | 0.82M (2 logs) |
-| durable, owner-routed, writes only | 0.64M | 0.67M | 0.57M (2 logs) |
+| memory `--remote 0 --reads 50` | 10.25M | **13.95M** | 4.26M |
+| memory `--remote 0 --reads 95` | 10.84M | **18.45M** | 4.19M |
+| memory `--remote 100 --reads 50` | 5.28M | **12.35M** | 3.64M |
+| scaling, 1 shard or thread | 2.27M | **3.29M** | 0.92M |
+| durable `--remote 0 --reads 50` | **1.85M**, p99 1.54 ms | 1.30M (4 logs), p99 2.29 ms | 1.18M |
+| durable `--remote 100 --reads 50` | **1.77M**, p99 1.97 ms | 1.23M, p99 2.62 ms | 1.21M |
+| durable `--remote 0 --reads 0` | **0.85M**, p99 2.23 ms | 0.64M, p99 8.26 ms | 0.65M |
 
-So routed SNC is now 1.46× the baseline over sockets in memory (it was
-1.30×) and 2.2× in process with every op local. Durable runs move little:
-they are bound by the disk.
+Over TCP (2 shards or workers on cores 0-1, client on 2-3):
+
+| Workload | SNC, owner-routed | SNC, any shard | Tuned baseline |
+| --- | --- | --- | --- |
+| memory, 50% reads | 2.07M, p99 121 µs | 1.64M | **2.25M**, p99 113 µs |
+| memory, 95% reads | 2.26M | 1.62M | **2.58M** |
+| durable, 50% reads | **1.18M**, p99 1.34 ms | 1.09M | 0.99M (2 logs), p99 3.34 ms |
+| durable, writes only | **0.70M**, p99 1.70 ms | 0.67M | 0.63M, p99 3.01 ms |
+
+Resident memory: SNC 499 B per object, baseline 452 B.
+
+### What this says
+
+1. **In memory, the tuned baseline is faster.** With the same map and
+   prefetch, it beats SNC by 1.36× in process with every op local, by
+   2.3× with every op remote, and by 1.09-1.14× over TCP. The v0.1 claim
+   that SNC wins in memory came from the baseline's slower map.
+2. **The durable path is where SNC still leads**: 1.42× in process and
+   1.19× over TCP with half reads, with p99 latency 30-60% lower. One
+   WAL stream per shard with no shared lock beats a shared or partitioned
+   log behind a mutex, and that holds with every op remote too.
+3. **The two engines do different amounts of work per op.** With 10K
+   objects (everything in cache) SNC does 22.2M ops/s and the baseline
+   25.2M. The baseline's deposit is a hard-coded increment under a lock;
+   SNC looks up the op descriptor and runs a generic two-phase
+   validate/apply with version checks, result buffers and completion
+   callbacks. The longer path also hides less of each cache miss behind
+   prefetch: with 1M objects SNC loses about 205 ns per op to memory
+   against the baseline's 140 ns (a single-thread microbenchmark shows the
+   same effect for any long per-op path). Part of SNC's deficit is this
+   generic machinery, not shard-per-core.
+4. **Uniform random keys flatter the baseline.** Its 4,096 stripes are
+   almost never contended when keys are spread evenly. Hot keys, which
+   real workloads have, would contend on stripe locks and bounce cache
+   lines between cores, and they are what shard-per-core is meant to
+   handle. This matrix does not test them yet.
 
 ## Limits
 
-- The baseline keeps `std::unordered_map` per lock stripe and does not
-  prefetch. A tuned conventional engine could use a flatter map and
-  prefetch as well, though looking ahead there means touching stripes
-  other threads lock. Part of SNC's new lead is the map, not the
-  architecture.
 - Prefetch helps only when requests arrive in batches. A lightly loaded
   server sees one request per `recv` and gains nothing; it also loses
   nothing measurable.
+- The baseline's prefetch reads entries without the stripe lock, as a hint
+  (relaxed atomic loads); the run phase never grows a table, so a stale
+  read only costs a wasted prefetch.

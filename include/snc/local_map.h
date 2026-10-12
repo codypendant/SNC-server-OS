@@ -37,8 +37,12 @@ class LocalMap {
   // reads each entry and warms the object it points to.
   void prefetch_entry(u64 h) const { __builtin_prefetch(&table_[h & mask_]); }
   void prefetch_object(u64 h) const {
-    const Entry& e = table_[h & mask_];
-    if (e.obj != nullptr && e.hash == h) __builtin_prefetch(e.obj);
+    for (std::size_t i = h & mask_; table_[i].obj != nullptr; i = (i + 1) & mask_) {
+      if (table_[i].hash == h) {
+        __builtin_prefetch(table_[i].obj);
+        return;
+      }
+    }
   }
 
   // Inserts or replaces. Returns the previous pointer, or nullptr.

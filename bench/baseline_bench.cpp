@@ -18,6 +18,7 @@
 // Usage: baseline_bench [--threads N] [--objects N] [--seconds S] [--remote PCT]
 //                       [--reads PCT] [--depth D] [--no-pin]
 //                       [--data-dir DIR] [--logs K] [--group-commit-us N] [--no-sync]
+//                       [--no-prefetch]
 #include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
@@ -64,6 +65,7 @@ struct Args {
   u32 group_commit_us = 50;
   bool sync = true;
   u16 logs = 1;
+  bool prefetch = true;
 };
 
 // ---- Workers ---------------------------------------------------------------------
@@ -151,6 +153,7 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
   // Run: closed loop with `depth` ops outstanding.
   std::vector<Pending> pending;
   pending.reserve(sh.args.depth);
+  std::vector<ObjectID> next;
   auto complete = [&] {
     u64 t = now_ns();
     std::size_t k = 0;
@@ -170,10 +173,13 @@ void worker_main(Shared& sh, Worker& w, u64 load_count) {
     bool running = sh.phase.load(std::memory_order_acquire) == kRun;
     if (!running && pending.empty()) break;
     if (running) {
-      // At most `depth` ops per pass, then re-check the phase.
-      for (u32 batch = 0; batch < sh.args.depth && pending.size() < sh.args.depth; ++batch) {
+      // At most `depth` ops per pass, then re-check the phase. Targets are
+      // chosen first so the batch can be prefetched, as snc_bench does.
+      next.clear();
+      for (std::size_t i = pending.size(); i < sh.args.depth; ++i) next.push_back(pick(sh, w));
+      if (sh.args.prefetch && !next.empty()) sh.map.prefetch(next.data(), static_cast<u32>(next.size()));
+      for (const ObjectID& id : next) {
         u64 t = now_ns();
-        ObjectID id = pick(sh, w);
         bool read = static_cast<int>(w.rng() % 100) < sh.args.reads_pct;
         Wait wt = execute_op(sh.map, sh.logs, w.id, id, read, t);
         if (!wt.found) {
@@ -214,6 +220,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--logs") a.logs = static_cast<u16>(std::max(1, std::atoi(val())));
     else if (k == "--group-commit-us") a.group_commit_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-sync") a.sync = false;
+    else if (k == "--no-prefetch") a.prefetch = false;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);

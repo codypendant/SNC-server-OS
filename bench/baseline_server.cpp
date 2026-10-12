@@ -7,6 +7,7 @@
 //
 // Usage: baseline_server [--threads N] [--cpus 0,1,...] [--host H] [--port P]
 //                        [--objects N] [--data-dir DIR] [--logs K] [--group-commit-us N]
+//                        [--no-prefetch]
 #include <poll.h>
 #include <pthread.h>
 #include <sched.h>
@@ -201,6 +202,7 @@ int main(int argc, char** argv) {
   u16 port = 7400, n_logs = 1;
   u64 objects = 1000000;
   u32 group_commit_us = 50;
+  bool prefetch = true;
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -218,6 +220,7 @@ int main(int argc, char** argv) {
     else if (k == "--data-dir") data_dir = val();
     else if (k == "--logs") n_logs = static_cast<u16>(std::max(1, std::atoi(val())));
     else if (k == "--group-commit-us") group_commit_us = static_cast<u32>(std::atoi(val()));
+    else if (k == "--no-prefetch") prefetch = false;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       return 2;
@@ -246,6 +249,11 @@ int main(int argc, char** argv) {
     w->id = i;
     w->srv = &srv;
     w->cs = std::make_unique<net::ConnSet>(host, static_cast<u16>(port + i), on_request, w.get());
+    if (prefetch) {
+      w->cs->set_on_batch([](void* user, const ObjectID* ids, u32 n) {
+        static_cast<Worker*>(user)->srv->map.prefetch(ids, n);
+      });
+    }
     workers.push_back(std::move(w));
   }
   std::vector<std::thread> ts;

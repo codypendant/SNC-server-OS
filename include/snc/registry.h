@@ -27,6 +27,9 @@ struct OpDescriptor {
   // Phase 2: in-place mutation through ctx.obj(). Must succeed once validate
   // returned OK. May be null for ops with nothing to apply.
   void (*apply)(OpCtx& ctx, ByteView args) = nullptr;
+  // MUTATE only: apply never changes the type's indexed key, so the runtime
+  // skips index maintenance for this op. Checked in debug builds.
+  bool keeps_index_key = false;
 };
 
 // Secondary index (spec section 11): shard-local, non-unique, equality only.

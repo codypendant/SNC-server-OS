@@ -25,7 +25,7 @@ and the handoff's development sequence (§24).
 
 | Step | State | Where |
 | --- | --- | --- |
-| Object lookup cost | Done: local map entries carry their hash; batch prefetch on socket and ring ingress (`snc::prefetch`) | `include/snc/local_map.h`, `src/core/shard.cpp`, [PREFETCH.md](PREFETCH.md) |
+| Object lookup cost | Done: local map entries carry their hash; batch prefetch on socket and ring ingress (`snc::prefetch`). The baseline now has the same map and prefetch and is faster in memory; SNC still leads durable | `include/snc/local_map.h`, `src/core/shard.cpp`, [PREFETCH.md](PREFETCH.md) |
 | Durable tail latency | Done: shards yield every 50 µs while disk I/O is in flight so io_uring workers can complete WAL writes (`RuntimeConfig::io_yield_us`) | `src/native/runtime.cpp`, [ROUTING.md](ROUTING.md#durable-p99-the-cause) |
 | Request routing to the owning shard | Done: per-shard TCP listeners, wire protocol v0, owner-aware client, owner-local minting for creates; measured against the baseline behind the same front end | `src/net/`, `include/snc/wire.h`, `tools/snc_server.cpp`, [ROUTING.md](ROUTING.md) |
 
