@@ -140,6 +140,10 @@ struct ShardStats {
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
   u64 heap_live_bytes = 0;
+  PageMode map_pages = PageMode::SMALL;   // pages the local map got
+  PageMode heap_pages = PageMode::SMALL;  // pages the heap arena got (SMALL = no arena)
+  u64 heap_arena_bytes = 0;
+  u64 heap_arena_misses = 0;              // allocations that spilled to normal pages
   u64 index_lookups_served = 0;
   u64 deferred_completions = 0;  // completions that waited for durability
   u64 emits = 0;                 // follow-ups emitted (OpCtx::emit)

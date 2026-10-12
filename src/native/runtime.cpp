@@ -457,7 +457,7 @@ void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch
     w.topo.numa_node = static_cast<int>(node);
   }
 
-  w.alloc = std::make_unique<ShardAllocator>(cfg.heap_limit_bytes);
+  w.alloc = std::make_unique<ShardAllocator>(cfg.heap_limit_bytes, cfg.pages, cfg.heap_reserve_bytes);
   w.idle_fds.assign(1, pollfd{w.efd, POLLIN, 0});
   // io_uring completions signal the same eventfd that wakes a sleeping loop.
   if (io_uring_queue_init(256, &w.ring, 0) == 0) {

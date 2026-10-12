@@ -9,17 +9,25 @@
 // Deviation from spec, tracked in docs/STATUS.md: growth currently rehashes
 // in one step instead of incrementally across loop iterations. Callers can
 // reserve() up front to keep rehashing out of measured runs.
+//
+// The table is mapped with the given PageMode (docs/HUGEPAGES.md): huge
+// pages keep its random probes from missing the TLB.
 #pragma once
 
-#include <vector>
-
 #include "snc/object.h"
+#include "snc/pages.h"
 
 namespace snc {
 
 class LocalMap {
  public:
-  explicit LocalMap(std::size_t expected = 1024) { reserve(expected); }
+  explicit LocalMap(std::size_t expected = 1024, PageMode pages = PageMode::SMALL)
+      : pages_(pages) {
+    reserve(expected);
+  }
+  ~LocalMap() { unmap_pages(table_, cap_ * sizeof(Entry), got_); }
+  LocalMap(const LocalMap&) = delete;
+  LocalMap& operator=(const LocalMap&) = delete;
 
   ObjectHeader* find(const ObjectID& id) const { return find(id, snc_hash64(id)); }
   ObjectHeader* find(const ObjectID& id, u64 h) const {
@@ -43,7 +51,7 @@ class LocalMap {
 
   // Inserts or replaces. Returns the previous pointer, or nullptr.
   ObjectHeader* upsert(ObjectHeader* obj) {
-    if ((size_ + 1) * 5 > table_.size() * 4) grow();  // load factor <= 0.8
+    if ((size_ + 1) * 5 > cap_ * 4) grow();  // load factor <= 0.8
     u64 h = snc_hash64(obj->id);
     std::size_t i = h & mask_;
     while (true) {
@@ -108,17 +116,19 @@ class LocalMap {
   void reserve(std::size_t n) {
     std::size_t cap = 16;
     while (cap * 4 < n * 5) cap <<= 1;
-    if (cap > table_.size()) rehash(cap);
+    if (cap > cap_) rehash(cap);
   }
 
   std::size_t size() const { return size_; }
-  std::size_t capacity() const { return table_.size(); }
-  std::size_t memory_bytes() const { return table_.size() * sizeof(Entry); }
+  std::size_t capacity() const { return cap_; }
+  std::size_t memory_bytes() const { return cap_ * sizeof(Entry); }
+  // Pages the table actually got (HUGETLB falls back to THP).
+  PageMode page_mode() const { return got_; }
 
   template <typename F>
   void for_each(F&& fn) const {
-    for (const Entry& e : table_) {
-      if (e.obj) fn(e.obj);
+    for (std::size_t i = 0; i < cap_; ++i) {
+      if (table_[i].obj) fn(table_[i].obj);
     }
   }
 
@@ -128,20 +138,29 @@ class LocalMap {
     u64 hash = 0;
   };
 
-  void grow() { rehash(table_.size() * 2); }
+  void grow() { rehash(cap_ * 2); }
 
   void rehash(std::size_t cap) {
-    std::vector<Entry> old;
-    old.swap(table_);
-    table_.assign(cap, Entry{});
+    Entry* old = table_;
+    const std::size_t old_cap = cap_;
+    const PageMode old_got = got_;
+    // Small tables stay on normal pages: a 2 MiB page for a few entries
+    // would only waste memory.
+    const PageMode mode = cap * sizeof(Entry) >= (2u << 20) ? pages_ : PageMode::SMALL;
+    table_ = static_cast<Entry*>(map_pages(cap * sizeof(Entry), mode, 64, &got_));  // zeroed
+    cap_ = cap;
     mask_ = cap - 1;
     size_ = 0;
-    for (const Entry& e : old) {
-      if (e.obj) upsert(e.obj);
+    for (std::size_t i = 0; i < old_cap; ++i) {
+      if (old[i].obj) upsert(old[i].obj);
     }
+    unmap_pages(old, old_cap * sizeof(Entry), old_got);
   }
 
-  std::vector<Entry> table_;
+  PageMode pages_;
+  PageMode got_ = PageMode::SMALL;
+  Entry* table_ = nullptr;
+  std::size_t cap_ = 0;
   std::size_t mask_ = 0;
   std::size_t size_ = 0;
 };

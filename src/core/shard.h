@@ -16,7 +16,8 @@ namespace snc {
 
 class Shard {
  public:
-  Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects);
+  Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects,
+        PageMode pages = PageMode::SMALL);
   ~Shard();
 
   u16 id() const { return id_; }

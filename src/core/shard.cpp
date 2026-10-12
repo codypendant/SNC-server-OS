@@ -29,10 +29,10 @@ void zero_header(Msg& m) { std::memset(static_cast<void*>(&m), 0, offsetof(Msg, 
 Shard* current_shard() { return tl_shard; }
 void set_current_shard(Shard* s) { tl_shard = s; }
 
-Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects)
+Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
     : id_(id),
       slots_(slots),
-      map_(expected_objects / (slots.n_shards ? slots.n_shards : 1) + 1024),
+      map_(expected_objects / (slots.n_shards ? slots.n_shards : 1) + 1024, pages),
       minter_(lease),
       alloc_(sri_allocator()),
       result_scratch_(kMaxResult) {}
@@ -1140,6 +1140,10 @@ ShardStats Shard::stats() const {
   s.emits_in_flight = emits_in_flight();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
+  s.map_pages = map_.page_mode();
+  s.heap_pages = alloc_.stats().arena_pages;
+  s.heap_arena_bytes = alloc_.stats().arena_bytes;
+  s.heap_arena_misses = alloc_.stats().arena_misses;
   if (wal_) {
     s.wal = wal_->stats();
     s.wal_durable_lsn = wal_->durable_lsn();

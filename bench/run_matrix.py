@@ -14,6 +14,8 @@ def parse(out):
     m = re.search(r"ops/s (\d+)", out); r["ops_s"] = int(m[1])
     m = re.search(r"p50 (\d+)\s+p95 (\d+)\s+p99 (\d+)\s+p99.9 (\d+)", out)
     r.update(p50_ns=int(m[1]), p95_ns=int(m[2]), p99_ns=int(m[3]), p999_ns=int(m[4]))
+    m = re.search(r"pages: asked \w+, map (\w+), heap (\w+)", out)
+    if m: r["pages_got"] = f"map {m[1]} heap {m[2]}"
     m = re.search(r"cross-shard msgs/op ([\d.]+)", out)
     if m: r["msgs_per_op"] = float(m[1])
     m = re.search(r"contended stripe locks ([\d.]+)%", out)
@@ -73,6 +75,17 @@ def main():
         runs.append(("transfer-local", "snc", f"--transfer 100 --xfer-local {local} --depth 32"))
         runs.append(("transfer-local-durable", "snc",
                      f"--transfer 100 --xfer-local {local} --depth 256 --data-dir D"))
+    # Page size for the object map and heap (docs/HUGEPAGES.md). The baseline
+    # has no page option, so it runs with system-wide THP instead.
+    pages_loads = ["--remote 0 --reads 50 --depth 256", "--remote 100 --reads 50 --depth 128",
+                   "--transfer 100 --reads 50 --depth 32",
+                   "--remote 0 --reads 50 --depth 256 --data-dir D"]
+    for load in pages_loads:
+        for mode in ("4k", "thp", "hugetlb"):
+            runs.append(("pages", "snc", f"{load} --pages {mode}"))
+        for thp in ("madvise", "always"):
+            logs = " --logs 4" if "--data-dir" in load else ""
+            runs.append(("pages", "baseline", f"{load}{logs} THP={thp}"))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
 
     if a.groups:
@@ -80,7 +93,7 @@ def main():
 
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     fields = ["group", "engine", "flags", "rep", "ops_s", "p50_ns", "p95_ns", "p99_ns", "p999_ns",
-              "msgs_per_op", "contended_pct", "load_s", "rss_per_obj", "checkpoint_s",
+              "msgs_per_op", "contended_pct", "pages_got", "load_s", "rss_per_obj", "checkpoint_s",
               "recovery_s", "ckpt_load_s", "wal_replay_s"]
     with open(a.out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
@@ -90,7 +103,9 @@ def main():
                 shutil.rmtree(a.data_dir, ignore_errors=True)
                 binary = os.path.join(a.build, "snc_bench" if engine == "snc" else "baseline_bench")
                 argv = [binary, "--objects", "1000000", "--seconds", str(a.seconds)]
-                argv += [a.data_dir if x == "D" else x for x in flags.split()]
+                argv += [a.data_dir if x == "D" else x for x in flags.split() if not x.startswith("THP=")]
+                set_thp(re.search(r"THP=(\w+)", flags)[1] if "THP=" in flags else "madvise")
+                if "hugetlb" in flags: set_hugepages(1100)
                 out = subprocess.run(argv, capture_output=True, text=True, timeout=600)
                 if out.returncode != 0:
                     sys.exit(f"failed: {' '.join(argv)}\n{out.stdout}\n{out.stderr}")
@@ -99,6 +114,26 @@ def main():
                 f.flush()
                 print(f"[{i + 1}/{len(runs)}] {engine} {flags} rep {rep}: {row['ops_s']} ops/s", flush=True)
     shutil.rmtree(a.data_dir, ignore_errors=True)
+    set_thp("madvise")
+
+THP = "/sys/kernel/mm/transparent_hugepage/enabled"
+
+def set_thp(mode):
+    """System-wide transparent huge pages (needs root; skipped otherwise)."""
+    try:
+        with open(THP, "w") as f: f.write(mode)
+    except OSError:
+        pass
+
+def set_hugepages(n):
+    """Reserves n 2 MiB pages for --pages hugetlb (needs root); without them
+    SNC falls back to THP and says so in its output."""
+    try:
+        with open("/proc/sys/vm/nr_hugepages") as f:
+            if int(f.read()) >= n: return
+        with open("/proc/sys/vm/nr_hugepages", "w") as f: f.write(str(n))
+    except OSError:
+        pass
 
 if __name__ == "__main__":
     main()
