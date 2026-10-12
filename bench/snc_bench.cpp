@@ -8,7 +8,7 @@
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
-//                  [--no-checkpoint]
+//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -46,6 +46,8 @@ struct Args {
   bool direct = true;
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
+  u32 io_yield_us = 50;  // RuntimeConfig default
+  std::vector<int> io_cpus;
 };
 
 struct ShardDriver {
@@ -204,6 +206,14 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-direct") a.direct = false;
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
+    else if (k == "--io-yield-us") a.io_yield_us = static_cast<u32>(std::atoi(val()));
+    else if (k == "--io-cpus") {
+      for (const char* p = val(); *p;) {
+        a.io_cpus.push_back(std::atoi(p));
+        while (*p && *p != ',') ++p;
+        if (*p == ',') ++p;
+      }
+    }
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -239,6 +249,8 @@ int main(int argc, char** argv) {
   cfg.runtime.spin_forever = args.spin;
   cfg.runtime.ring_slots = 1024;
   cfg.runtime.overflow_limit = 1024;
+  cfg.runtime.io_yield_us = args.io_yield_us;
+  cfg.runtime.io_worker_cpus = args.io_cpus;
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;

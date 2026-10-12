@@ -115,6 +115,7 @@ struct Worker {
 
   // Idle wait: the eventfd plus any fds registered with sri_watch_fd.
   std::vector<pollfd> idle_fds;
+  u64 last_yield_ns = 0;
 
   std::thread thread;
 };
@@ -318,6 +319,13 @@ void NativeRuntime::Impl::loop(Worker& w) {
     did |= reap_io(w);
     if (hooks.poll) did |= hooks.poll(hooks.user);
     publish_all(w);
+    if (cfg.io_yield_us && w.io_inflight > 0) {
+      u64 now = now_ns();
+      if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
+        sched_yield();
+        w.last_yield_ns = now;
+      }
+    }
     if (did || !w.touched.empty()) {
       idle_since = 0;
       continue;
@@ -389,7 +397,16 @@ void NativeRuntime::Impl::run(Worker& w, std::barrier<>& rings_ready, std::latch
   // io_uring completions signal the same eventfd that wakes a sleeping loop.
   if (io_uring_queue_init(256, &w.ring, 0) == 0) {
     w.uring_ok = io_uring_register_eventfd(&w.ring, w.efd) == 0;
-    if (!w.uring_ok) io_uring_queue_exit(&w.ring);
+    if (!w.uring_ok) {
+      io_uring_queue_exit(&w.ring);
+    } else if (!cfg.io_worker_cpus.empty()) {
+      cpu_set_t io_set;
+      CPU_ZERO(&io_set);
+      for (int c : cfg.io_worker_cpus) CPU_SET(c, &io_set);
+      if (io_uring_register_iowq_aff(&w.ring, sizeof(io_set), &io_set) != 0) {
+        std::fprintf(stderr, "snc: io_uring_register_iowq_aff failed; using default placement\n");
+      }
+    }
   }
   w.topo.io_uring = w.uring_ok;
   // Inbound rings are allocated by their consumer (spec: consumer's node).
