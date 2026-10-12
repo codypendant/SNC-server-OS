@@ -71,54 +71,8 @@ and the handoff's development sequence (§24).
   covered by `test_persistence`, not here; power loss is not tested.
 - All six tests pass in RelWithDebInfo, ASan+UBSan and TSan builds.
 
-## In-memory benchmark numbers
+## Benchmark numbers
 
-These numbers are from a cloud VM: 4 vCPUs (Xeon @ 2.80GHz), 1 NUMA node,
-4 shards on 4 cores with the benchmark's main thread sharing them. There is
-no WAL, and the workload is 50% `get_balance` and 50% `deposit` with 32
-outstanding ops per shard and 1M accounts. Treat them as a smoke test, not
-evidence for the thesis.
-
-| Remote targets | ops/s | p50 | p99 | p99.9 | Messages per op |
-| --- | --- | --- | --- | --- | --- |
-| 0% | 5.07M | 0.6 µs | 1.6 µs | 18 µs | 0 |
-| 50% | 4.13M | 3.8 µs | 96 µs | 410 µs | 1.0 |
-| 100% | 3.57M | 22.5 µs | 92 µs | 639 µs | 2.0 |
-
-Latency includes queueing behind the 32 outstanding ops. Load ran at about
-3.5M creates/s. The heap used 320 bytes per 248-byte object (mimalloc size
-class), and the local maps used 16 MiB.
-
-## Durable benchmark numbers
-
-Same VM, `--data-dir` on the VM's virtio disk (ext4), O_DIRECT, writes
-with `RWF_DSYNC`, 50 µs group commit, 1M accounts. Every op is DURABLE:
-deposits wait for their WAL record, and reads wait until the state they
-saw is durable (D7). Latency is dominated by the disk's sync write time
-and queueing behind the outstanding ops, so the deeper queue is what lets
-group commit batch.
-
-| Workload | Depth/shard | ops/s | p50 | p99 | Records per flush |
-| --- | --- | --- | --- | --- | --- |
-| 50% reads, 0% remote | 32 | 240K | 213 µs | 3.8 ms | 28 |
-| 50% reads, 0% remote | 256 | 1.24M | 475 µs | 4.2 ms | 136 |
-| 50% reads, 50% remote | 256 | 1.06M | 754 µs | 5.1 ms | 115 |
-| 100% deposits, 0% remote | 256 | 680K | 1.1 ms | 2.6 to 3.2 ms | 236 |
-| 50% reads, no sync (dev only) | 256 | 1.88M | 311 µs | 1.1 ms | n/a |
-
-WAL records are full after-images (56-byte header + 200-byte payload);
-block padding added 1 to 5% at depth 256 and 21% at depth 32. Records per
-flush counts the whole run, load included. Loading 1M
-accounts took 1.5 to 3.3 s because each create waits for durability.
-
-Restart of 1M accounts (`snc_bench` restarts after the run):
-
-| Starting point | Total | Checkpoint load | WAL replay | Index rebuild |
-| --- | --- | --- | --- | --- |
-| Checkpoint (244 MiB) + WAL tail | 2.9 to 3.1 s | 0.95 s | 1.85 s | 0.17 s |
-| WAL only (2.3M records, 598 MiB) | 5.5 s | n/a | 5.3 s | 0.18 s |
-
-A checkpoint of 1M objects wrote 244 MiB in 1.1 to 1.6 s while shards kept
-serving. In the first row, nearly all of the replay time is spent scanning
-the segment that holds the checkpoint's start LSN; both replay costs are
-the two recovery deviations above.
+See [BENCHMARKS.md](BENCHMARKS.md) for the step 12 comparison against a
+conventional thread-pool baseline, including durable throughput, latency,
+memory and restart time.
