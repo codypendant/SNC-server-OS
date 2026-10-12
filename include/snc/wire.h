@@ -12,7 +12,7 @@ namespace snc::wire {
 
 enum class Kind : u8 {
   EXEC = 1,      // execute(target, op, args)
-  CREATE = 2,    // create(type = op, args); target ignored
+  CREATE = 2,    // create(type = op, args); a non-null target asks for create_near(target)
   DELETE = 3,    // remove(target)
   TOPOLOGY = 4,  // returns a TopologyBody: slot map and shard count
   RESP = 16,

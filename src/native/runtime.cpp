@@ -147,6 +147,35 @@ const ShardTopology& sri_topology() { return tl_worker->topo; }
 ShardAllocator& sri_allocator() { return *tl_worker->alloc; }
 u64 sri_now_ns() { return now_ns(); }
 
+Msg* sri_claim(u16 dst, bool must_deliver) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  auto& ov = w.overflow[dst];
+  if (ov.empty()) {
+    if (r.p_tail - r.p_head_cache == r.mask + 1) r.p_head_cache = r.head.load(std::memory_order_acquire);
+    if (r.p_tail - r.p_head_cache != r.mask + 1) return &r.slots[r.p_tail & r.mask];
+  }
+  ++r.stats.full_events;
+  if (!must_deliver && ov.size() >= tl_rt->cfg.overflow_limit) {
+    ++r.stats.refused;
+    return nullptr;
+  }
+  return &ov.emplace_back();
+}
+
+void sri_commit(u16 dst, Msg* msg) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  if (msg == &r.slots[r.p_tail & r.mask] && w.overflow[dst].empty()) ++r.p_tail;
+  ++r.stats.msgs;
+  if (msg->flags & kMsgArgsExternal) r.stats.bytes_external += msg->len;
+  else r.stats.bytes_inline += msg->len;
+  if (!w.touched_flag[dst]) {
+    w.touched_flag[dst] = 1;
+    w.touched.push_back(dst);
+  }
+}
+
 bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   Worker& w = *tl_worker;
   Ring& r = *w.outbound[dst];
@@ -260,14 +289,25 @@ void NativeRuntime::Impl::wake(Worker& target) {
 }
 
 void NativeRuntime::Impl::publish_all(Worker& w) {
-  // Iterate by index: nothing here appends to `touched`.
+  // Iterate by index: nothing here appends to `touched`. Publish every
+  // tail first, then one fence for all of them before checking who sleeps
+  // (the Dekker handshake in wake()): a full fence also waits for the
+  // store buffer, so one per destination per iteration adds up.
   std::size_t keep = 0;
+  u16 published[64];
+  u32 n_published = 0;
   for (std::size_t i = 0; i < w.touched.size(); ++i) {
     u16 dst = w.touched[i];
     Ring& r = *w.outbound[dst];
     auto& ov = w.overflow[dst];
     while (!ov.empty() && r.try_push(ov.front())) ov.pop_front();
-    if (r.publish()) wake(*workers[dst]);
+    if (r.publish()) {
+      if (n_published < 64) {
+        published[n_published++] = dst;
+      } else {
+        wake(*workers[dst]);
+      }
+    }
     if (!ov.empty()) {
       w.touched[keep++] = dst;  // retry next iteration
     } else {
@@ -275,6 +315,16 @@ void NativeRuntime::Impl::publish_all(Worker& w) {
     }
   }
   w.touched.resize(keep);
+  if (n_published == 0) return;
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  for (u32 i = 0; i < n_published; ++i) {
+    Worker& t = *workers[published[i]];
+    if (t.sleeping.load(std::memory_order_relaxed)) {
+      u64 one = 1;
+      ssize_t n = ::write(t.efd, &one, sizeof(one));
+      (void)n;
+    }
+  }
 }
 
 bool NativeRuntime::Impl::drain(Worker& w, u16 src) {

@@ -95,6 +95,25 @@ void run(const std::string& data_dir, u16 port) {
   }
   for (u16 s = 0; s < n; ++s) CHECK_EQ(eng.stats(s).ops_remote, 0u);
 
+  // A CREATE naming a target places the new object in the target's slot
+  // (create_near), wherever it is sent.
+  u64 near_forwarded = 0;
+  for (u64 i = 0; i < 8; ++i) {
+    near_forwarded += static_cast<u16>((i + 1) % n) != c.owner_of(ids[i]);
+    CreateArgs a = account_args(kAccounts + i);
+    wire::ReqHeader q{};
+    q.kind = wire::Kind::CREATE;
+    q.op = kTypeId;
+    q.req_id = i;
+    q.target = ids[i];
+    c.send(static_cast<u16>((i + 1) % n), q, ByteView(&a, sizeof(a)));
+  }
+  for (auto& [i, g] : collect(c, 8)) {
+    CHECK_EQ(g.h.status, u16(Status::OK));
+    CHECK_EQ(slot_of(g.h.id), slot_of(ids[i]));
+    CHECK_EQ(g.h.owner, c.owner_of(ids[i]));
+  }
+
   // Deposits: even i to the owner, odd i to the next shard (forwarded).
   for (u64 i = 0; i < kAccounts; ++i) {
     u16 owner = c.owner_of(ids[i]);
@@ -113,7 +132,7 @@ void run(const std::string& data_dir, u16 port) {
     CHECK_EQ(bool(g.h.flags & wire::kRespForwarded), i % 2 == 1);
     CHECK_EQ(g.h.owner, c.owner_of(ids[i]));
   }
-  CHECK_EQ(c.forwarded(), kAccounts / 2);
+  CHECK_EQ(c.forwarded(), kAccounts / 2 + near_forwarded);
 
   // Reads return the balance through either path.
   for (u64 i = 0; i < kAccounts; ++i) {

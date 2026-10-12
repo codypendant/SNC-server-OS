@@ -78,6 +78,11 @@ def main():
     runs.append(("transfer-durable", "snc", "--data-dir D", "--route owner --transfer 100 --depth 256"))
     runs.append(("transfer-durable", "baseline", f"--data-dir D --logs {n_srv}",
                  "--route any --transfer 100 --depth 256"))
+    # Share of transfers between accounts the same server shard owns.
+    for local in (0, 50, 90, 100):
+        runs.append(("transfer-local", "snc", "", f"--route owner --transfer 100 --xfer-local {local} --depth 64"))
+        runs.append(("transfer-local-durable", "snc", "--data-dir D",
+                     f"--route owner --transfer 100 --xfer-local {local} --depth 256"))
     if a.groups:
         runs = [r for r in runs if r[0] in a.groups.split(",")]
 

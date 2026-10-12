@@ -186,6 +186,7 @@ class Shard {
   void complete_index(const Msg& m);
   void finish_gather(u32 slot);
   void return_buffer(u16 owner, u8* ptr);
+  void fill_resp(Msg& resp, const Msg& req, const ExecResult& r);
   Msg make_resp(const Msg& req, const ExecResult& r);
 
   // Checkpoint.

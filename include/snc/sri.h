@@ -43,6 +43,13 @@ ShardAllocator& sri_allocator();
 // returns (`must_deliver`) are never refused: they are bounded by the
 // requests already admitted.
 bool sri_send(u16 dst, const Msg& msg, bool must_deliver = false);
+// The same in two steps, so the hot paths write a message in place instead
+// of building it on the stack and copying it (copying a struct just written
+// field by field stalls on store forwarding). sri_claim returns where to
+// write, or null when sri_send would refuse; sri_commit sends it. Nothing
+// else may send to `dst` in between.
+Msg* sri_claim(u16 dst, bool must_deliver = false);
+void sri_commit(u16 dst, Msg* msg);
 
 u64 sri_now_ns();
 
