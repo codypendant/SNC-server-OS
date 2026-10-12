@@ -1,5 +1,9 @@
 #include "snc/object_id.h"
 
+// Inline xxHash here only: snc_hash64 stays one out-of-line function, but
+// its 16-byte case compiles to straight-line code instead of a call into
+// the shared library and its length dispatch. Same function, same values.
+#define XXH_INLINE_ALL
 #include <xxhash.h>
 
 namespace snc {
