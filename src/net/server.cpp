@@ -11,7 +11,9 @@ namespace snc::net {
 
 struct NetServer::PerShard {
   explicit PerShard(const std::string& host, u16 port)
-      : cs(host, port, &PerShard::on_request, this) {}
+      : cs(host, port, &PerShard::on_request, this) {
+    cs.set_on_batch([](void*, const ObjectID* ids, u32 n) { prefetch(ids, n); });
+  }
 
   struct Req {
     PerShard* ps;

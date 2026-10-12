@@ -43,6 +43,11 @@ void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx
 using IndexCompletion = void (*)(void* ctx, Status s, const ObjectID* ids, u32 n);
 void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
 
+// Hint: `ids` are about to be executed here. Warms the map entries and
+// objects of the ones this shard owns, so a batch pays its cache misses in
+// parallel rather than one op at a time. Ignores IDs owned elsewhere.
+void prefetch(const ObjectID* ids, u32 n);
+
 // Owner of an ID under the current slot map. Valid on a worker thread.
 u16 owner_of(const ObjectID& id);
 // The slot map this shard routes with. Valid on a worker thread.
@@ -131,6 +136,8 @@ class Engine {
     // create() mints only IDs that hash to the calling shard, so every create
     // runs on its entry shard (docs/ROUTING.md). Off: IDs land anywhere.
     bool mint_local = false;
+    // Prefetch the targets of each batch of requests drained from a ring.
+    bool prefetch = true;
 
     // Persistence. Empty data_dir = in-memory only: every state reports durable.
     std::string data_dir;

@@ -88,6 +88,21 @@ void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, vo
   send_request(MsgKind::DELETE_REQ, owner, target, 0, ByteView{}, opts, done, ctx);
 }
 
+void Shard::prefetch(const ObjectID* ids, u32 n) {
+  constexpr u32 kBatch = 64;
+  u64 h[kBatch];
+  for (u32 base = 0; base < n; base += kBatch) {
+    u32 m = 0;
+    for (u32 i = base; i < n && i < base + kBatch; ++i) {
+      u64 x = snc_hash64(ids[i]);
+      if (slots_.owner[x >> 52] != id_) continue;  // slot_of() uses the top 12 bits
+      map_.prefetch_entry(x);
+      h[m++] = x;
+    }
+    for (u32 i = 0; i < m; ++i) map_.prefetch_object(h[i]);
+  }
+}
+
 void Shard::complete_local(RunOut& out, Completion done, void* ctx) {
   if (out.wait_lsn == 0 || durable(out.wait_lsn)) {
     if (out.wait_lsn != 0) out.r.durable = true;
@@ -947,5 +962,6 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
 const SlotMap& slot_map() { return tl_shard->slots(); }
+void prefetch(const ObjectID* ids, u32 n) { tl_shard->prefetch(ids, n); }
 
 }  // namespace snc

@@ -31,6 +31,7 @@ class Shard {
   void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx);
   void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
   void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
+  void prefetch(const ObjectID* ids, u32 n);
 
   // ---- Backend hooks ----
   void on_message(const Msg& m);

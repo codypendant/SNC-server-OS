@@ -282,6 +282,12 @@ bool NativeRuntime::Impl::drain(Worker& w, u16 src) {
   u32 t = r.tail.load(std::memory_order_acquire);
   if (t == r.c_head) return false;
   u32 n = 0;
+  if (hooks.on_batch) {
+    const Msg* batch[64];
+    u32 m = 0;
+    for (u32 h = r.c_head; h != t && m < cfg.batch_in && m < 64; ++h) batch[m++] = &r.slots[h & r.mask];
+    hooks.on_batch(hooks.user, batch, m);
+  }
   while (r.c_head != t && n < cfg.batch_in) {
     hooks.on_message(hooks.user, r.slots[r.c_head & r.mask]);
     ++r.c_head;

@@ -8,7 +8,7 @@
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
-//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3]
+//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -47,6 +47,7 @@ struct Args {
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
   u32 io_yield_us = 50;  // RuntimeConfig default
+  bool prefetch = true;
   std::vector<int> io_cpus;
 };
 
@@ -66,6 +67,8 @@ struct ShardDriver {
   };
   std::vector<Slot> slots;
   std::vector<u32> free_slots;
+  bool prefetch = true;
+  std::vector<ObjectID> next;  // targets chosen ahead, for prefetch
 };
 
 void on_op_done(void* ctx, const ExecResult& r) {
@@ -93,16 +96,22 @@ ObjectID pick(ShardDriver& d) {
 // completion, so local completions (which run inline) cannot recurse.
 bool issue(ShardDriver& d) {
   bool did = false;
+  // Choose the batch's targets first and prefetch them, as an ingress path
+  // that reads many requests at once can.
+  d.next.clear();
+  for (std::size_t i = 0; i < d.free_slots.size(); ++i) d.next.push_back(pick(d));
+  if (d.prefetch && !d.next.empty()) prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+  std::size_t k = 0;
   // Local ops complete inline and return their slot at once, so bound the
   // batch per poll to keep the loop (and the phase check) moving.
-  for (std::size_t n = d.slots.size(); n > 0 && !d.free_slots.empty(); --n) {
+  for (std::size_t n = d.next.size(); n > 0 && !d.free_slots.empty(); --n) {
     u32 i = d.free_slots.back();
     d.free_slots.pop_back();
     ++d.outstanding;
     did = true;
     ShardDriver::Slot& s = d.slots[i];
     s.start_ns = sri_now_ns();
-    ObjectID target = pick(d);
+    ObjectID target = d.next[k++];
     if (static_cast<int>(d.rng() % 100) < d.reads_pct) {
       execute(target, kOpGetBalance, {}, {}, on_op_done, &s);
     } else {
@@ -206,6 +215,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-direct") a.direct = false;
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
+    else if (k == "--no-prefetch") a.prefetch = false;
     else if (k == "--io-yield-us") a.io_yield_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--io-cpus") {
       for (const char* p = val(); *p;) {
@@ -251,6 +261,7 @@ int main(int argc, char** argv) {
   cfg.runtime.overflow_limit = 1024;
   cfg.runtime.io_yield_us = args.io_yield_us;
   cfg.runtime.io_worker_cpus = args.io_cpus;
+  cfg.prefetch = args.prefetch;
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;
@@ -298,6 +309,7 @@ int main(int argc, char** argv) {
     d.by_owner = &by_owner;
     d.remote_pct = args.remote_pct;
     d.reads_pct = args.reads_pct;
+    d.prefetch = args.prefetch;
     d.rng.seed(1234 + s);
     d.slots.resize(args.depth);
     for (u32 i = 0; i < args.depth; ++i) {
