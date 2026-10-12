@@ -23,6 +23,7 @@ thread_local Shard* tl_shard = nullptr;
 }
 
 void zero_header(Msg& m) { std::memset(static_cast<void*>(&m), 0, offsetof(Msg, inline_data)); }
+
 }  // namespace
 
 Shard* current_shard() { return tl_shard; }
@@ -673,34 +674,40 @@ void Shard::send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type,
   p.ctx = ctx;
   ++p.gen;
 
-  Msg m;
-  zero_header(m);
-  m.kind = kind;
-  m.src_shard = id_;
-  m.op_id = op_or_type;
-  m.req_id = (u64{p.gen} << 32) | slot;
-  m.target = target;
-  m.expected_version = opts.expected_version;
-  m.len = args.len;
-  if (opts.allow_undurable) m.flags |= kMsgAllowUndurable;
-  if (opts.durability == Durability::APPLIED) m.flags |= kMsgDurApplied;
-  if (args.len <= kMsgInlineBytes) {
-    m.flags |= kMsgArgsInline;
-    if (args.len) std::memcpy(m.inline_data, args.data, args.len);
-  } else {
-    m.flags |= kMsgArgsExternal;
-    m.ext.ptr = static_cast<u8*>(alloc_.alloc(args.len, 16));
-    if (m.ext.ptr == nullptr) {
+  u8* ext = nullptr;
+  if (args.len > kMsgInlineBytes) {
+    ext = static_cast<u8*>(alloc_.alloc(args.len, 16));
+    if (ext == nullptr) {
       fail_pending(slot, target, Status::E_NO_MEMORY);
       return;
     }
-    std::memcpy(m.ext.ptr, args.data, args.len);
+    std::memcpy(ext, args.data, args.len);
   }
-  if (!sri_send(dst, m)) {
-    if (m.flags & kMsgArgsExternal) alloc_.free(m.ext.ptr);
+  Msg* m = sri_claim(dst);
+  if (m == nullptr) {
+    if (ext) alloc_.free(ext);
     ++stats_.overloaded;
     fail_pending(slot, target, Status::E_OVERLOADED);
+    return;
   }
+  zero_header(*m);
+  m->kind = kind;
+  m->src_shard = id_;
+  m->op_id = op_or_type;
+  m->req_id = (u64{p.gen} << 32) | slot;
+  m->target = target;
+  m->expected_version = opts.expected_version;
+  m->len = args.len;
+  u8 flags = ext ? kMsgArgsExternal : kMsgArgsInline;
+  if (opts.allow_undurable) flags |= kMsgAllowUndurable;
+  if (opts.durability == Durability::APPLIED) flags |= kMsgDurApplied;
+  m->flags = flags;
+  if (ext) {
+    m->ext.ptr = ext;
+  } else if (args.len) {
+    std::memcpy(m->inline_data, args.data, args.len);
+  }
+  sri_commit(dst, m);
 }
 
 void Shard::fail_pending(u32 slot, ObjectID target, Status s) {
@@ -715,6 +722,11 @@ void Shard::fail_pending(u32 slot, ObjectID target, Status s) {
 
 Msg Shard::make_resp(const Msg& req, const ExecResult& r) {
   Msg resp;
+  fill_resp(resp, req, r);
+  return resp;
+}
+
+void Shard::fill_resp(Msg& resp, const Msg& req, const ExecResult& r) {
   zero_header(resp);
   resp.kind = MsgKind::RESP;
   resp.src_shard = id_;
@@ -740,7 +752,6 @@ Msg Shard::make_resp(const Msg& req, const ExecResult& r) {
       std::memcpy(resp.ext.ptr, r.result.data, r.result.len);
     }
   }
-  return resp;
 }
 
 void Shard::serve(const Msg& m) {
@@ -764,7 +775,9 @@ void Shard::serve(const Msg& m) {
     return;
   }
   if (out.wait_lsn != 0) out.r.durable = true;
-  sri_send(m.src_shard, make_resp(m, out.r), /*must_deliver=*/true);
+  Msg* resp = sri_claim(m.src_shard, /*must_deliver=*/true);
+  fill_resp(*resp, m, out.r);
+  sri_commit(m.src_shard, resp);
   if (args_buf) return_buffer(m.src_shard, args_buf);
 }
 
@@ -1112,20 +1125,21 @@ void Shard::run_emit(const Emit& e) {
 }
 
 bool Shard::send_emit(u16 dst, const Emit& e) {
-  Msg m;
-  zero_header(m);
-  m.kind = MsgKind::EMIT;
-  m.flags = kMsgArgsInline;
-  m.src_shard = id_;
-  m.op_id = e.op;
-  m.req_id = e.source.hi;
-  m.expected_version = e.source.lo;
-  m.status = static_cast<u16>(e.fail_op);
-  m.aux = static_cast<u16>(e.fail_op >> 16);
-  m.target = e.target;
-  m.len = e.len;
-  if (e.len) std::memcpy(m.inline_data, e.args, e.len);
-  if (!sri_send(dst, m)) return false;
+  Msg* m = sri_claim(dst);
+  if (m == nullptr) return false;
+  zero_header(*m);
+  m->kind = MsgKind::EMIT;
+  m->flags = kMsgArgsInline;
+  m->src_shard = id_;
+  m->op_id = e.op;
+  m->req_id = e.source.hi;
+  m->expected_version = e.source.lo;
+  m->status = static_cast<u16>(e.fail_op);
+  m->aux = static_cast<u16>(e.fail_op >> 16);
+  m->target = e.target;
+  m->len = e.len;
+  if (e.len) std::memcpy(m->inline_data, e.args, e.len);
+  sri_commit(dst, m);
   ++stats_.emits_sent;
   return true;
 }

@@ -147,6 +147,35 @@ const ShardTopology& sri_topology() { return tl_worker->topo; }
 ShardAllocator& sri_allocator() { return *tl_worker->alloc; }
 u64 sri_now_ns() { return now_ns(); }
 
+Msg* sri_claim(u16 dst, bool must_deliver) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  auto& ov = w.overflow[dst];
+  if (ov.empty()) {
+    if (r.p_tail - r.p_head_cache == r.mask + 1) r.p_head_cache = r.head.load(std::memory_order_acquire);
+    if (r.p_tail - r.p_head_cache != r.mask + 1) return &r.slots[r.p_tail & r.mask];
+  }
+  ++r.stats.full_events;
+  if (!must_deliver && ov.size() >= tl_rt->cfg.overflow_limit) {
+    ++r.stats.refused;
+    return nullptr;
+  }
+  return &ov.emplace_back();
+}
+
+void sri_commit(u16 dst, Msg* msg) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  if (msg == &r.slots[r.p_tail & r.mask] && w.overflow[dst].empty()) ++r.p_tail;
+  ++r.stats.msgs;
+  if (msg->flags & kMsgArgsExternal) r.stats.bytes_external += msg->len;
+  else r.stats.bytes_inline += msg->len;
+  if (!w.touched_flag[dst]) {
+    w.touched_flag[dst] = 1;
+    w.touched.push_back(dst);
+  }
+}
+
 bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   Worker& w = *tl_worker;
   Ring& r = *w.outbound[dst];
