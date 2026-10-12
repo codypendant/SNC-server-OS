@@ -29,6 +29,7 @@ void hook_init(void* user) {
   u16 id = sri_shard_id();
   auto* s = new Shard(id, *h->slots, h->lease_base + id, h->cfg->expected_objects);
   s->set_mint_local(h->cfg->mint_local);
+  s->set_batch_remote(h->cfg->batch_remote);
   set_current_shard(s);
   (*h->shards)[id] = s;
 }
@@ -51,6 +52,7 @@ bool hook_poll(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   bool busy = current_shard()->poll();
   if (h->cfg->app_poll) busy |= h->cfg->app_poll(h->cfg->app_user, sri_shard_id());
+  current_shard()->flush_batches();  // after the app issued this iteration's requests
   return busy;
 }
 

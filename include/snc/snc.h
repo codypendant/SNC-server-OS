@@ -187,6 +187,9 @@ class Engine {
     bool mint_local = false;
     // Prefetch the targets of each batch of requests drained from a ring.
     bool prefetch = true;
+    // Requests one shard sends another within a loop iteration travel as
+    // one message, answered in the same buffer (docs/CROSSCORE.md).
+    bool batch_remote = true;
 
     // Persistence. Empty data_dir = in-memory only: every state reports durable.
     std::string data_dir;

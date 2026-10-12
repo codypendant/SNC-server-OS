@@ -61,6 +61,12 @@ def main():
             runs.append(("transfer", engine, f"--transfer {pct} --reads 50 --depth 32"))
     runs.append(("transfer-durable", "snc", "--transfer 100 --depth 256 --data-dir D"))
     runs.append(("transfer-durable", "baseline", "--transfer 100 --depth 256 --data-dir D --logs 4"))
+    # Cross-core ops at increasing pipeline depth, with and without batched
+    # ring messages (docs/CROSSCORE.md).
+    for depth in (32, 128, 512):
+        runs.append(("remote-depth", "snc", f"--remote 100 --reads 50 --depth {depth}"))
+        runs.append(("remote-depth", "snc", f"--remote 100 --reads 50 --depth {depth} --no-batch"))
+        runs.append(("remote-depth", "baseline", f"--remote 100 --reads 50 --depth {depth}"))
     # Share of transfers whose destination is on the source's shard (one op,
     # no follow-ups); the baseline has no notion of placement.
     for local in (0, 50, 90, 100):

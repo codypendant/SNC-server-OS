@@ -34,15 +34,54 @@ fair comparison:
 Durable, SNC stays ahead of the 4-log baseline: 2.04-2.07M vs 1.07-1.34M
 ops/s with 50% reads, 0.97M vs 0.65M deposits only.
 
+## Batched ring messages
+
+Requests one shard sends another within one loop iteration now travel as
+one `MULTI_REQ` message: up to 32 48-byte records (target, op, pending
+slot, flags, args up to 16 bytes) in a buffer from the sender's heap. The
+owner prefetches all the targets, runs the ops, writes each response over
+its record and returns the same buffer as `MULTI_RESP`; the sender
+completes the ops and frees it. A batch of one is sent as an ordinary
+request. An op that must wait for durability, or whose result is over 16
+bytes, is answered with its own `RESP` and marked in the batch as
+answered apart. Requests with a version condition or larger args are not
+batched. `Engine::Config::batch_remote` (on by default; `snc_bench
+--no-batch`) turns it off.
+
+Messages per remote op fall from 2.0 to about 0.5. What that buys depends
+on how many requests are in flight, because a shard batches what it
+issued in one loop iteration (`remote-depth` group in
+`bench/results/matrix_batch.csv`; in process, 100% remote, 50% reads,
+mean of 3 runs):
+
+| Requests in flight per shard | 32 | 128 | 512 |
+| --- | --- | --- | --- |
+| SNC, batched | 8.27M | 10.57M | 11.86M |
+| SNC, one message per op | 7.91M | 9.06M | 8.93M |
+| Baseline | 11.53M | 11.57M | 10.42M |
+| SNC / baseline | 0.72x | 0.91x | 1.14x |
+
+At depth 32 the remote path is latency-bound: an op waits for its shard's
+loop to send it, the owner's loop to run it, and its own loop to see the
+answer, so the p50 is about 10 us and batches stay small. Deeper
+pipelines (an ingress with many clients, or a batch job) fill the batches,
+and at 512 in flight SNC overtakes the baseline on all-remote work.
+
+The cost is latency: the baseline answers in 0.2 us at p50, because it
+runs the op on the calling thread; SNC's remote p50 is 10 us at depth 32
+and 110 us at depth 512 (196 us without batching). Ops that reach their
+owner directly (TCP routing, `docs/ROUTING.md`) do not pay it.
+
+Durable throughput is unchanged (`durable` group in the same file: 1.86-2.03M
+ops/s against 0.91-1.21M for the baseline), since durable writes are
+answered apart once their record is on disk.
+
 ## What is left
 
-At 100% remote an op costs SNC about 2x a local op: two cache-line
-messages (request and response), each written on one core and read on
-another, plus the ring drain and dispatch. The baseline pays none of
-that, because uniform keys almost never contend its stripe locks. The
-profile left after this round has no single large item: the benchmark
-driver and its per-op timestamps (also paid by the baseline), the op
-itself, and the ring path in roughly equal parts. Going further needs
-fewer messages per op, not cheaper ones: routing requests to the owner
-at ingress (`docs/ROUTING.md`) and placing related objects together
-(`create_near`, `docs/TRANSFERS.md`).
+At shallow depth the remote path is bound by loop latency, not by work:
+an op crosses three loop iterations before it completes. Shortening that
+(sending a batch as soon as it fills rather than at the end of the
+iteration, or polling rings more often while ops are outstanding) is the
+next lever. Ops that reach their owner directly avoid the path entirely,
+which is why routing at ingress (`docs/ROUTING.md`) and placing related
+objects together (`create_near`, `docs/TRANSFERS.md`) matter most.

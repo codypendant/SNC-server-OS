@@ -652,6 +652,8 @@ void Shard::on_message(const Msg& m) {
     case MsgKind::INDEX_RESP: complete_index(m); break;
     case MsgKind::BUF_RETURN: alloc_.free(m.ext.ptr); break;
     case MsgKind::EMIT: serve_emit(m); break;
+    case MsgKind::MULTI_REQ: serve_multi(m); break;
+    case MsgKind::MULTI_RESP: complete_multi(m); break;
     default:
       std::fprintf(stderr, "snc: shard %u got unexpected message kind %u\n", id_,
                    static_cast<unsigned>(m.kind));
@@ -672,7 +674,32 @@ void Shard::send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type,
   Pending& p = pending_[slot];
   p.done = done;
   p.ctx = ctx;
+  p.target = target;
   ++p.gen;
+
+  if (batch_remote_ && kind == MsgKind::EXEC_REQ && args.len <= kMsgInlineBytes &&
+      opts.expected_version == 0) {
+    if (out_batches_.size() <= dst) out_batches_.resize(slots_.n_shards);
+    OutBatch& b = out_batches_[dst];
+    if (b.recs == nullptr) {
+      b.recs = static_cast<BatchReq*>(alloc_.alloc(sizeof(BatchReq) * kBatchMax, 64));
+    }
+    if (b.recs != nullptr) {
+      if (b.n == 0) batch_dsts_.push_back(dst);
+      BatchReq& q = b.recs[b.n++];
+      q.target = target;
+      q.op = op_or_type;
+      q.slot = slot;
+      q.gen = p.gen;
+      q.flags = static_cast<u8>((opts.allow_undurable ? kMsgAllowUndurable : 0) |
+                                (opts.durability == Durability::APPLIED ? kMsgDurApplied : 0));
+      q.len = static_cast<u8>(args.len);
+      q.pad = 0;
+      if (args.len) std::memcpy(q.args, args.data, args.len);
+      if (b.n == kBatchMax) send_batch(dst);
+      return;
+    }
+  }
 
   u8* ext = nullptr;
   if (args.len > kMsgInlineBytes) {
@@ -708,6 +735,131 @@ void Shard::send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type,
     std::memcpy(m->inline_data, args.data, args.len);
   }
   sri_commit(dst, m);
+}
+
+// ---- Batched requests (docs/CROSSCORE.md) --------------------------------------------
+
+void Shard::flush_batches() {
+  for (u16 dst : batch_dsts_) send_batch(dst);
+  batch_dsts_.clear();
+}
+
+void Shard::send_batch(u16 dst) {
+  OutBatch& b = out_batches_[dst];
+  if (b.n == 0) return;
+  const u32 n = b.n;
+  b.n = 0;
+  Msg* m = sri_claim(dst);
+  if (m == nullptr) {
+    for (u32 i = 0; i < n; ++i) {
+      ++stats_.overloaded;
+      fail_pending(b.recs[i].slot, b.recs[i].target, Status::E_OVERLOADED);
+    }
+    return;  // the buffer stays for the next batch
+  }
+  zero_header(*m);
+  m->src_shard = id_;
+  if (n == 1) {
+    // Alone: an ordinary request, and the buffer stays here for reuse.
+    const BatchReq& q = b.recs[0];
+    m->kind = MsgKind::EXEC_REQ;
+    m->op_id = q.op;
+    m->req_id = (u64{q.gen} << 32) | q.slot;
+    m->target = q.target;
+    m->len = q.len;
+    m->flags = static_cast<u8>(q.flags | kMsgArgsInline);
+    if (q.len) std::memcpy(m->inline_data, q.args, q.len);
+  } else {
+    m->kind = MsgKind::MULTI_REQ;
+    m->flags = kMsgArgsExternal;
+    m->len = n;
+    m->ext.ptr = reinterpret_cast<u8*>(b.recs);
+    b.recs = nullptr;  // comes back with MULTI_RESP
+  }
+  sri_commit(dst, m);
+}
+
+void Shard::serve_multi(const Msg& m) {
+  auto* recs = reinterpret_cast<BatchReq*>(m.ext.ptr);
+  const u32 n = m.len;
+  ObjectID ids[kBatchMax];
+  for (u32 i = 0; i < n; ++i) ids[i] = recs[i].target;
+  prefetch(ids, n);
+  for (u32 i = 0; i < n; ++i) {
+    const BatchReq q = recs[i];  // the response is written over it
+    ++stats_.ops_served;
+    ExecOptions opts;
+    opts.allow_undurable = q.flags & kMsgAllowUndurable;
+    opts.durability = (q.flags & kMsgDurApplied) ? Durability::APPLIED : Durability::DURABLE;
+    RunOut out;
+    run(MsgKind::EXEC_REQ, q.target, q.op, ByteView(q.args, q.len), opts, out);
+    auto& r = *reinterpret_cast<BatchResp*>(&recs[i]);
+    r.slot = q.slot;
+    r.gen = q.gen;
+    const bool wait = out.wait_lsn != 0 && !durable(out.wait_lsn);
+    if (wait || out.r.result.len > kMsgInlineBytes) {
+      // Answered apart: when durable, or with a result too big for the record.
+      Msg req;
+      zero_header(req);
+      req.req_id = (u64{q.gen} << 32) | q.slot;
+      req.src_shard = m.src_shard;
+      if (wait) {
+        Waiter w;
+        w.lsn = out.wait_lsn;
+        w.kind = Waiter::Kind::REMOTE;
+        w.resp = make_resp(req, out.r);
+        w.dst = m.src_shard;
+        defer(std::move(w));
+      } else {
+        if (out.wait_lsn != 0) out.r.durable = true;
+        Msg* resp = sri_claim(m.src_shard, /*must_deliver=*/true);
+        fill_resp(*resp, req, out.r);
+        sri_commit(m.src_shard, resp);
+      }
+      r.status = kBatchAnsweredApart;
+      continue;
+    }
+    r.status = static_cast<u16>(out.r.status);
+    r.app_code = out.r.app_code;
+    r.durable = out.r.durable || out.wait_lsn != 0;
+    r.len = static_cast<u8>(out.r.result.len);
+    r.pad = 0;
+    r.version = out.r.version;
+    if (r.len) std::memcpy(r.result, out.r.result.data, r.len);
+  }
+  Msg* resp = sri_claim(m.src_shard, /*must_deliver=*/true);
+  zero_header(*resp);
+  resp->kind = MsgKind::MULTI_RESP;
+  resp->src_shard = id_;
+  resp->flags = kMsgArgsExternal;
+  resp->len = n;
+  resp->ext.ptr = m.ext.ptr;
+  sri_commit(m.src_shard, resp);
+}
+
+void Shard::complete_multi(const Msg& m) {
+  const auto* recs = reinterpret_cast<const BatchResp*>(m.ext.ptr);
+  for (u32 i = 0; i < m.len; ++i) {
+    const BatchResp& r = *reinterpret_cast<const BatchResp*>(
+        reinterpret_cast<const u8*>(recs) + i * sizeof(BatchReq));
+    if (r.status == kBatchAnsweredApart) continue;
+    Pending p = pending_.at(r.slot);
+    if (p.gen != r.gen || p.done == nullptr) {
+      std::fprintf(stderr, "snc: batched response for unknown request on shard %u\n", id_);
+      std::abort();
+    }
+    pending_[r.slot].done = nullptr;
+    free_pending_.push_back(r.slot);
+    ExecResult x;
+    x.status = static_cast<Status>(r.status);
+    x.app_code = r.app_code;
+    x.version = r.version;
+    x.durable = r.durable;
+    x.id = p.target;
+    x.result = ByteView(r.result, r.len);
+    p.done(p.ctx, x);
+  }
+  alloc_.free(m.ext.ptr);
 }
 
 void Shard::fail_pending(u32 slot, ObjectID target, Status s) {

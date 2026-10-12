@@ -8,7 +8,7 @@
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
-//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch]
+//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch] [--no-batch]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -49,6 +49,7 @@ struct Args {
   bool checkpoint = true;  // false: restart replays the whole WAL
   u32 io_yield_us = 50;  // RuntimeConfig default
   bool prefetch = true;
+  bool batch = true;  // Engine::Config::batch_remote
   std::vector<int> io_cpus;
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
   int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
@@ -270,6 +271,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
     else if (k == "--no-prefetch") a.prefetch = false;
+    else if (k == "--no-batch") a.batch = false;
     else if (k == "--io-yield-us") a.io_yield_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--io-cpus") {
       for (const char* p = val(); *p;) {
@@ -316,6 +318,7 @@ int main(int argc, char** argv) {
   cfg.runtime.io_yield_us = args.io_yield_us;
   cfg.runtime.io_worker_cpus = args.io_cpus;
   cfg.prefetch = args.prefetch;
+  cfg.batch_remote = args.batch;
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;

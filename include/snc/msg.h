@@ -18,6 +18,12 @@ enum class MsgKind : u8 {
   // expected_version carry the emitting object's ID, status and aux the
   // fail_op (low, high 16 bits); args are always inline.
   EMIT = 9,
+  // Several EXEC requests from one shard to another (docs/CROSSCORE.md):
+  // len records in a buffer from the sender's heap (ext.ptr). The owner
+  // writes the responses over the records and returns the same buffer as
+  // MULTI_RESP; the sender frees it.
+  MULTI_REQ = 10,
+  MULTI_RESP = 11,
 };
 
 enum MsgFlags : u8 {
