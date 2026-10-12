@@ -247,6 +247,13 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
     c.applying_ = true;
     if (op->apply) op->apply(c, args);
     ObjectHeader* o = c.obj_;
+    if (op->unlogged) {
+      if (!emit_scratch_.empty() || c.peer_ != nullptr) contract_violation("unlogged op emitted or used local()", op);
+      out.r.durable = durable(o->last_lsn);
+      out.r.version = o->version;
+      finish_result(c, op, out.r);
+      return;
+    }
     ++o->version;
     ObjectHeader* peer = c.peer_;
 #ifndef NDEBUG
@@ -1077,12 +1084,12 @@ void Shard::route_emit(const Emit& e) {
 
 bool Shard::run_emits() {
   if (emits_paused_ || emit_ready_count_ == 0) return false;
-  std::vector<Emit> local;
-  local.swap(emit_local_);
-  emit_ready_count_ -= local.size();
-  for (const Emit& e : local) run_emit(e);
+  emit_running_.swap(emit_local_);  // runs may emit more into emit_local_
+  emit_ready_count_ -= emit_running_.size();
+  for (const Emit& e : emit_running_) run_emit(e);
+  emit_running_.clear();
   for (u16 dst = 0; dst < emit_remote_.size(); ++dst) {
-    std::deque<Emit>& q = emit_remote_[dst];
+    Fifo<Emit>& q = emit_remote_[dst];
     while (!q.empty()) {
       if (!send_emit(dst, q.front())) break;  // ring full: keep the rest in order
       q.pop_front();

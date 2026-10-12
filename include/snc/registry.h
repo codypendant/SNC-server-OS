@@ -30,6 +30,12 @@ struct OpDescriptor {
   // MUTATE only: apply never changes the type's indexed key, so the runtime
   // skips index maintenance for this op. Checked in debug builds.
   bool keeps_index_key = false;
+  // MUTATE only: the change may be lost in a crash, so it is not logged and
+  // does not bump the version; it reaches the WAL with the object's next
+  // logged change or checkpoint. Only for changes a type's resume hook
+  // redoes after recovery (docs/TRANSFERS.md: dropping a finished inbox
+  // entry). May not emit, use OpCtx::local, or change the indexed key.
+  bool unlogged = false;
 };
 
 // Secondary index (spec section 11): shard-local, non-unique, equality only.

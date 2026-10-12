@@ -198,7 +198,7 @@ void emit_credit(OpCtx& c, const OutEntry& e) {
   c.emit(e.to, kOpXferCredit, ByteView(&ca, sizeof(ca)), kOpXferBounced);
 }
 void emit_settle(OpCtx& c, const ObjectID& to, u64 seq, u8 code) {
-  SettleArgs s{seq, code, {}};
+  SettleArgs s{seq, code};
   c.emit(to, kOpXferSettle, ByteView(&s, sizeof(s)));
 }
 void emit_seq(OpCtx& c, const ObjectID& to, OpID op, u64 seq) {
@@ -352,9 +352,10 @@ void register_type() {
 
   auto op = [&](OpID id, const char* name, OpKind kind, u32 max_args, u32 max_result,
                 Status (*v)(OpCtx&, const ObjectHeader&, ByteView), void (*a)(OpCtx&, ByteView),
-                bool keeps_index_key = false) {
+                bool keeps_index_key = false, bool unlogged = false) {
     OpDescriptor d;
     d.keeps_index_key = keeps_index_key;
+    d.unlogged = unlogged;
     d.op_id = id;
     d.type_id = kTypeId;
     d.name = name;
@@ -384,7 +385,8 @@ void register_type() {
   op(kOpXferSettle, "Account.xfer_settle", OpKind::MUTATE, sizeof(SettleArgs), 0,
      followup_validate<SettleArgs>, settle_apply, /*keeps_index_key=*/true);
   op(kOpXferForget, "Account.xfer_forget", OpKind::MUTATE, sizeof(SeqArgs), 0,
-     followup_validate<SeqArgs>, forget_apply, /*keeps_index_key=*/true);
+     followup_validate<SeqArgs>, forget_apply, /*keeps_index_key=*/true,
+     /*unlogged=*/true);  // a lost forget is redone: resume queries the sender
   op(kOpXferQuery, "Account.xfer_query", OpKind::MUTATE, sizeof(SeqArgs), 0,
      followup_validate<SeqArgs>, query_apply, /*keeps_index_key=*/true);
   op(kOpXferBounced, "Account.xfer_bounced", OpKind::MUTATE, sizeof(CreditArgs), 0,

@@ -108,15 +108,20 @@ exchange a crash interrupted:
 An inbox entry is only removed after A's outbox entry is durably gone,
 so B can never see a resent credit it has forgotten.
 
+`forget` is not logged (`OpDescriptor::unlogged`): it changes neither
+the balance nor the version, and its effect reaches the WAL with B's
+next logged change or checkpoint. If a crash loses it, the inbox entry
+comes back and B's resume sends `query`, which ends in `forget` again.
+
 ### Limits
 
 - At most 64 outbound transfers in flight per account (`transfer`
   rejects with `kAppBusy` past that). Inbox entries are bounded by the
   senders' outboxes.
 - An account with entries cannot be deleted.
-- Four records and three messages per transfer when A and B are on
-  different shards (transfer, credit, settle, forget records; credit,
-  settle, forget messages). When they share a shard the transfer is
+- Three WAL records and three messages per transfer when A and B are on
+  different shards (transfer, credit and settle records; credit, settle
+  and forget messages). When they share a shard the transfer is
   one op with one atomic group of two records (below).
 - Duplicate messages arise only from `resume` after a restart; in normal
   running each follow-up is sent once.
@@ -152,11 +157,11 @@ pairs share a shard (in process); with 2 server shards, half (TCP).
 
 | Setup | SNC | Locked baseline | Redis | PostgreSQL |
 | --- | --- | --- | --- | --- |
-| In process, memory, 100% transfers | 3.44M/s | 6.07M/s | | |
-| In process, memory, 20% transfers + 40% reads + 40% deposits | 8.25M/s | 9.70M/s | | |
-| In process, durable | 444K/s | 520K/s (4 logs) | | |
-| TCP, 2 server cores, memory | 1.17M/s (p99 0.17 ms) | 1.66M/s | 129K/s | 33K/s (pipelined) |
-| TCP, 2 server cores, durable | 395K/s (p99 2.2 ms) | 500K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
+| In process, memory, 100% transfers | 3.64M/s | 6.27M/s | | |
+| In process, memory, 20% transfers + 40% reads + 40% deposits | 8.44M/s | 9.73M/s | | |
+| In process, durable | 527K/s | 569K/s (4 logs) | | |
+| TCP, 2 server cores, memory | 1.15M/s (p99 0.16 ms) | 1.65M/s | 129K/s | 33K/s (pipelined) |
+| TCP, 2 server cores, durable | 427K/s (p99 2.6 ms) | 504K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
 
 Placement decides it. `snc_bench --xfer-local P` sends P% of transfers
 to an account on the source's shard and the rest to other shards (in
@@ -164,8 +169,8 @@ process, 100% transfers; the baseline does not care where accounts live):
 
 | Same-shard pairs | 0% | 50% | 90% | 100% | Baseline |
 | --- | --- | --- | --- | --- | --- |
-| Memory | 2.68M/s | 4.20M/s | 7.26M/s | 9.58M/s | 6.07M/s |
-| Durable | 438K/s | 518K/s | 601K/s | 559K/s | 520K/s |
+| Memory | 2.76M/s | 4.28M/s | 7.03M/s | 9.50M/s | 6.27M/s |
+| Durable | 516K/s | 561K/s | 579K/s | 558K/s | 569K/s |
 
 Correctness: `test_transfer` passes in release, ASan/UBSan and TSan
 builds: exact balances after transfers settle in memory and durable,
@@ -177,17 +182,17 @@ rounds with up to a few hundred exchanges in flight at recovery.
 
 What this shows:
 
-- **Across shards, SNC loses to the locked baseline**: 2.3x slower in
-  memory when no pair shares a shard. The baseline does every transfer
+- **Across shards, SNC loses to the locked baseline in memory**: 2.3x
+  slower when no pair shares a shard. Durable, it is within 10%: both
+  are bound by writing the log. The baseline does every transfer
   as one step on one thread: lock two stripes, change both rows, append
   one log record per side. A cross-shard SNC transfer is four ops on two
-  cores, four WAL records and three ring messages. With uniform keys the
+  cores, three WAL records (full object images) and three ring messages. With uniform keys the
   baseline's stripe locks almost never contend (0.13% of ops), so its
   locks cost nothing and SNC's extra steps are pure overhead.
-- **Within a shard, SNC wins**: 9.58M against 6.07M in memory (1.6x),
-  and 1.1x durable (both write two records per transfer and are bound by
-  the disk). The break-even is around 70% same-shard pairs in memory and
-  50% durable.
+- **Within a shard, SNC wins in memory**: 9.50M against 6.27M (1.5x).
+  Durable it ties (both write two records per transfer and are bound by
+  the disk). The break-even in memory is around 75% same-shard pairs.
 - **So SNC's answer to multi-object work is placement**, as the handoff
   expects: objects that are changed together belong on one shard.
   `create_near(near, type, args)` mints an ID in the same slot as `near`
@@ -197,7 +202,7 @@ What this shows:
   transfer among themselves in one op; `test_transfer` checks this
   before and after a 4→3 shard change.
 - **Against real databases SNC stays far ahead** even with random
-  pairs: 9x Redis and 35x PostgreSQL in memory, 7x Redis and 14x
+  pairs: 9x Redis and 35x PostgreSQL in memory, 7x Redis and 15x
   PostgreSQL durable, on the same two server cores. The baseline is not
   a database: it has no recovery for its logs.
 - **The semantics differ across shards.** The baseline (and PostgreSQL,
@@ -209,10 +214,7 @@ What would cut the cross-shard cost further:
 
 1. **Placement** with `create_near` (above), where the application knows
    which objects belong together.
-2. **Drop `forget`.** It exists so B can discard its inbox entry. If B
-   kept only the highest settled `seq` per sender, A's settle would not
-   need to be acknowledged, saving a record and a message per transfer.
-3. **Batch follow-ups per destination.** Each follow-up is its own ring
+2. **Batch follow-ups per destination.** Each follow-up is its own ring
    message and exec; several credits to one shard could share one.
 
 ## Measurement plan

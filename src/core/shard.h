@@ -213,13 +213,39 @@ class Shard {
   std::unique_ptr<WalStream> wal_;
   std::deque<Waiter> waiters_;  // sorted by lsn
 
+  // FIFO over a vector that keeps its memory: std::deque allocates and
+  // frees a node every few entries, and follow-ups pass through at
+  // millions per second.
+  template <typename T>
+  class Fifo {
+   public:
+    bool empty() const { return head_ == buf_.size(); }
+    std::size_t size() const { return buf_.size() - head_; }
+    T& front() { return buf_[head_]; }
+    void push_back(const T& v) { buf_.push_back(v); }
+    void pop_front() {
+      if (++head_ == buf_.size()) {
+        buf_.clear();
+        head_ = 0;
+      } else if (head_ >= 4096 && head_ * 2 >= buf_.size()) {
+        buf_.erase(buf_.begin(), buf_.begin() + static_cast<std::ptrdiff_t>(head_));
+        head_ = 0;
+      }
+    }
+
+   private:
+    std::vector<T> buf_;
+    std::size_t head_ = 0;
+  };
+
   std::vector<Emit> emit_scratch_;  // emitted by the op now running
   // Durable source state: dispatch at the next poll.
   std::vector<Emit> emit_local_;
-  std::vector<std::deque<Emit>> emit_remote_;  // per destination shard
+  std::vector<Emit> emit_running_;  // emit_local_ being run (keeps its memory)
+  std::vector<Fifo<Emit>> emit_remote_;  // per destination shard
   u64 emit_ready_count_ = 0;
   ObjectID cur_source_;  // source of the follow-up now running (OpCtx::source)
-  std::deque<Emit> emit_wait_;      // sorted by lsn
+  Fifo<Emit> emit_wait_;  // sorted by lsn
   bool emits_paused_ = false;
   bool resuming_ = false;
   Checkpoint ckpt_;

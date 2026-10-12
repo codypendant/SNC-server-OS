@@ -98,8 +98,7 @@ struct CreditArgs {
 enum : u8 { kSettleRefused = 0, kSettleOk = 1, kSettleRetry = 2 };
 struct SettleArgs {
   u64 seq;
-  u8 code;
-  u8 pad[7];
+  u64 code;  // a whole word: emit copies args in 8-byte loads (store forwarding)
 };
 struct SeqArgs {
   u64 seq;
