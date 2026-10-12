@@ -37,3 +37,6 @@ endforeach()
 
 add_executable(snc_bench bench/snc_bench.cpp)
 target_link_libraries(snc_bench PRIVATE snc_core)
+
+add_executable(baseline_bench bench/baseline_bench.cpp)
+target_link_libraries(baseline_bench PRIVATE snc_core)

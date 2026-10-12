@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Runs the step 12 benchmark matrix: snc_bench and baseline_bench under the
+same workloads, each configuration REPS times, and writes every run to a CSV.
+
+Usage: bench/run_matrix.py [--build build] [--reps 3] [--seconds 4]
+                           [--data-dir /tmp/snc-matrix] [--out bench/results/matrix.csv]
+"""
+import argparse, csv, os, re, shutil, subprocess, sys
+
+def parse(out):
+    r = {}
+    m = re.search(r"load: (\d+) objects in ([\d.]+)s .*?RSS ([\d.]+) B/object", out)
+    if m: r.update(load_s=float(m[2]), rss_per_obj=float(m[3]))
+    m = re.search(r"ops/s (\d+)", out); r["ops_s"] = int(m[1])
+    m = re.search(r"p50 (\d+)\s+p95 (\d+)\s+p99 (\d+)\s+p99.9 (\d+)", out)
+    r.update(p50_ns=int(m[1]), p95_ns=int(m[2]), p99_ns=int(m[3]), p999_ns=int(m[4]))
+    m = re.search(r"cross-shard msgs/op ([\d.]+)", out)
+    if m: r["msgs_per_op"] = float(m[1])
+    m = re.search(r"contended stripe locks ([\d.]+)%", out)
+    if m: r["contended_pct"] = float(m[1])
+    m = re.search(r"recovery: \d+ objects .* in ([\d.]+)s: checkpoint load ([\d.]+)s, WAL replay ([\d.]+)s", out)
+    if m: r.update(recovery_s=float(m[1]), ckpt_load_s=float(m[2]), wal_replay_s=float(m[3]))
+    m = re.search(r"checkpoint: \d+ objects, ([\d.]+) MiB in ([\d.]+)s", out)
+    if m: r.update(checkpoint_s=float(m[2]))
+    return r
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--build", default="build")
+    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--seconds", type=float, default=4)
+    ap.add_argument("--data-dir", default="/tmp/snc-matrix")
+    ap.add_argument("--out", default="bench/results/matrix.csv")
+    a = ap.parse_args()
+
+    runs = []  # (group, engine, flags)
+    for engine in ("snc", "baseline"):
+        for remote in (0, 50, 100):
+            for reads in (50, 95):
+                runs.append(("memory", engine, f"--remote {remote} --reads {reads} --depth 32"))
+        for n in (1, 2):
+            runs.append(("scaling", engine, f"--{'shards' if engine == 'snc' else 'threads'} {n} --remote 50 --reads 50 --depth 32"))
+    for remote in (0, 50, 100):
+        runs.append(("durable", "snc", f"--remote {remote} --reads 50 --depth 256 --data-dir D"))
+        for logs in (1, 4):
+            runs.append(("durable", "baseline", f"--remote {remote} --reads 50 --depth 256 --data-dir D --logs {logs}"))
+    runs.append(("durable", "snc", "--remote 0 --reads 0 --depth 256 --data-dir D"))
+    runs.append(("durable", "baseline", "--remote 0 --reads 0 --depth 256 --data-dir D --logs 4"))
+    runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
+
+    os.makedirs(os.path.dirname(a.out), exist_ok=True)
+    fields = ["group", "engine", "flags", "rep", "ops_s", "p50_ns", "p95_ns", "p99_ns", "p999_ns",
+              "msgs_per_op", "contended_pct", "load_s", "rss_per_obj", "checkpoint_s",
+              "recovery_s", "ckpt_load_s", "wal_replay_s"]
+    with open(a.out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        for i, (group, engine, flags) in enumerate(runs):
+            for rep in range(a.reps):
+                shutil.rmtree(a.data_dir, ignore_errors=True)
+                binary = os.path.join(a.build, "snc_bench" if engine == "snc" else "baseline_bench")
+                argv = [binary, "--objects", "1000000", "--seconds", str(a.seconds)]
+                argv += [a.data_dir if x == "D" else x for x in flags.split()]
+                out = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+                if out.returncode != 0:
+                    sys.exit(f"failed: {' '.join(argv)}\n{out.stdout}\n{out.stderr}")
+                row = dict(group=group, engine=engine, flags=flags, rep=rep, **parse(out.stdout))
+                w.writerow(row)
+                f.flush()
+                print(f"[{i + 1}/{len(runs)}] {engine} {flags} rep {rep}: {row['ops_s']} ops/s", flush=True)
+    shutil.rmtree(a.data_dir, ignore_errors=True)
+
+if __name__ == "__main__":
+    main()

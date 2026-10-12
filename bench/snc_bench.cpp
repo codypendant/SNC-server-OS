@@ -23,6 +23,7 @@
 #include <thread>
 #include <vector>
 
+#include "bench_common.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
 
@@ -45,46 +46,6 @@ struct Args {
   bool direct = true;
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
-};
-
-// Log-linear latency histogram: 2^-5 relative precision, ns resolution.
-class Histogram {
- public:
-  Histogram() : counts_(64 * 32, 0) {}
-  void add(u64 ns) {
-    if (ns < 32) {
-      ++counts_[ns];
-    } else {
-      int msb = 63 - __builtin_clzll(ns);
-      u64 sub = (ns >> (msb - 5)) & 31;
-      ++counts_[(msb - 4) * 32 + sub];
-    }
-    ++n_;
-  }
-  void merge(const Histogram& o) {
-    for (std::size_t i = 0; i < counts_.size(); ++i) counts_[i] += o.counts_[i];
-    n_ += o.n_;
-  }
-  u64 count() const { return n_; }
-  double percentile(double p) const {
-    u64 target = static_cast<u64>(std::ceil(p / 100.0 * n_));
-    u64 acc = 0;
-    for (std::size_t i = 0; i < counts_.size(); ++i) {
-      acc += counts_[i];
-      if (acc >= target && counts_[i]) return bucket_value(i);
-    }
-    return 0;
-  }
-
- private:
-  static double bucket_value(std::size_t i) {
-    if (i < 32) return double(i);
-    int msb = int(i / 32) + 4;
-    u64 sub = i % 32;
-    return double((u64{32} + sub) << (msb - 5));
-  }
-  std::vector<u64> counts_;
-  u64 n_ = 0;
 };
 
 struct ShardDriver {
@@ -287,6 +248,7 @@ int main(int argc, char** argv) {
   cfg.wal_direct = args.direct;
   cfg.wal_sync = args.sync;
   const bool durable = !args.data_dir.empty();
+  u64 rss0 = rss_bytes();
   auto eng_ptr = std::make_unique<Engine>(cfg);
   Engine& eng = *eng_ptr;
   eng.start();
@@ -297,6 +259,7 @@ int main(int argc, char** argv) {
   loaded.wait();
   bench.phase.store(kIdle, std::memory_order_release);
   double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  u64 rss1 = rss_bytes();
   u64 load_errors = 0;
   for (auto& l : bench.loaders) load_errors += l.errors;
   if (load_errors) {
@@ -385,9 +348,10 @@ int main(int argc, char** argv) {
               pinned, args.shards,
               !durable ? "none (in memory)"
                        : (args.sync ? "DURABLE (WAL, RWF_DSYNC)" : "WAL without sync (dev only)"));
-  std::printf("load: %llu objects in %.2fs (%.0f creates/s), heap %.1f B/object, local maps %.1f MiB\n",
-              (unsigned long long)objects, load_s, objects / load_s, double(heap) / objects,
-              map_bytes / 1048576.0);
+  std::printf("load: %llu objects in %.2fs (%.0f creates/s), RSS %.1f B/object, heap %.1f B/object, "
+              "local maps %.1f MiB\n",
+              (unsigned long long)objects, load_s, objects / load_s,
+              double(rss1 - rss0) / objects, double(heap) / objects, map_bytes / 1048576.0);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);
   std::printf("  ops/s %.0f  (%.0f per shard)  errors %llu\n", ops / run_s, ops / run_s / args.shards,

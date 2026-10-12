@@ -19,18 +19,22 @@ and the handoff's development sequence (§24).
 | 9. Secondary index | Done: shard-local `Account.email`, broadcast lookup, durable-only results | `src/core/shard.cpp`, `include/snc/registry.h` |
 | 10. WAL/persistence | Done: per-shard streams, after-images, group commit over io_uring, durable acks | `include/snc/wal_format.h`, `src/core/storage.cpp` |
 | 11. Checkpoint/recovery | Done: fuzzy per-shard checkpoint, A/B superblock, replay, remap on shard-count change | `src/core/engine.cpp`, `src/core/shard.cpp` |
-| 12. Locality benchmarks | Micro-benchmark with and without the WAL | `bench/snc_bench.cpp` |
+| 12. Locality benchmarks | Done: SNC vs a thread-pool baseline, in memory and durable; report in `docs/BENCHMARKS.md` | `bench/`, `docs/BENCHMARKS.md` |
 
 ## Known deviations from the spec
 
-- **Recovery routes records on the control thread.** Checkpoint parts and
-  WAL streams are read one after another on the control thread and handed
-  to owners in batches, instead of each shard reading its own stream in
-  parallel. Replay is the slowest phase (see numbers below).
+- **Recovery after a remap routes records on the control thread.** With an
+  unchanged slot map, every shard reads its own checkpoint part and WAL
+  stream in parallel. After a shard-count change (or before the first
+  checkpoint exists) records are read on the control thread and routed to
+  their new owners; a checkpoint follows, so this happens once per remap.
 - **Recovery reads the whole segment that holds the checkpoint's start
   LSN**, CRC-checking records it then skips. There is no seek index.
-- **Segment creation and `fallocate` block the shard thread** at rollover.
-  The spec has the control thread create zeroed segments ahead of time.
+- **Segments are allocated ahead, not zeroed ahead.** A preparer thread
+  keeps one `fallocate`d, synced spare per stream; the shard renames it
+  into place at rollover and writes the header with its first flush. The
+  rename is not directory-synced on the shard; recovery adopts a spare
+  whose header is valid instead.
 - **A hole inside a segment ends it.** Anything after the first invalid or
   out-of-sequence record in a segment is treated as an unacknowledged tail,
   which is right for crashes (one flush in flight per stream) but cannot
