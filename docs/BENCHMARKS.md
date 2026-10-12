@@ -96,9 +96,11 @@ Other measurements (medians):
    Durable, SNC falls to 0.84M at 100% remote, below the 4-log baseline's
    0.92M.
 3. **Durable tails are worse in SNC.** p99 is 5–6 ms for SNC against about
-   3.5 ms for the baseline at the same throughput levels. Likely causes,
-   not yet confirmed: a shard's ops wait behind that shard's own flush
-   (one flush in flight per stream), and remote ops wait on two shards.
+   3.5 ms for the baseline at the same throughput levels. (Follow-up in
+   [ROUTING.md](ROUTING.md#durable-p99-the-cause): the cause is the
+   kernel's io_uring workers starving for CPU behind 4 spinning shards on
+   4 cores, not one flush in flight; with a free core p99 drops to about
+   1.2 ms.)
 4. **Scaling is near linear for both** from 1 to 4 cores (SNC 1.21M →
    4.06M at 50% remote, baseline 0.76M → 3.21M). SNC's 2-shard point
    (1.87M) shows the cost of the first remote messages.

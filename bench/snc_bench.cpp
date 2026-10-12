@@ -341,6 +341,10 @@ int main(int argc, char** argv) {
     wal.written_bytes += st.wal.written_bytes;
     wal.flushes += st.wal.flushes;
     wal.segments += st.wal.segments;
+    wal.segment_opens += st.wal.segment_opens;
+    for (int i = 0; i < 24; ++i) wal.flush_us_log2[i] += st.wal.flush_us_log2[i];
+    wal.flush_us_max = std::max(wal.flush_us_max, st.wal.flush_us_max);
+    wal.rollover_us_max = std::max(wal.rollover_us_max, st.wal.rollover_us_max);
     direct += st.wal_direct;
   }
 
@@ -368,6 +372,21 @@ int main(int argc, char** argv) {
                 100.0 * (wal.written_bytes - wal.record_bytes) / std::max<u64>(1, wal.written_bytes),
                 (unsigned long long)wal.flushes, double(wal.records) / std::max<u64>(1, wal.flushes),
                 (unsigned long long)wal.segments, direct, args.shards, args.group_commit_us);
+    // Flush latency percentiles, as the upper bound of the log2 bucket.
+    auto flush_pct = [&](double p) {
+      u64 total = 0, acc = 0;
+      for (u64 c : wal.flush_us_log2) total += c;
+      for (int i = 0; i < 24; ++i) {
+        acc += wal.flush_us_log2[i];
+        if (acc >= p / 100.0 * total) return u64{2} << i;
+      }
+      return u64{0};
+    };
+    std::printf("wal flush latency us (log2 bucket upper bound): p50 <%llu p99 <%llu max %llu; "
+                "segment opens on shard %llu, longest rollover %llu us\n",
+                (unsigned long long)flush_pct(50), (unsigned long long)flush_pct(99),
+                (unsigned long long)wal.flush_us_max, (unsigned long long)wal.segment_opens,
+                (unsigned long long)wal.rollover_us_max);
     if (args.checkpoint) std::printf("checkpoint: %llu objects, %.1f MiB in %.2fs, %llu WAL segments deleted\n",
                 (unsigned long long)cp.objects, cp.bytes / 1048576.0, cp.seconds,
                 (unsigned long long)cp.segments_deleted);

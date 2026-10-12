@@ -14,7 +14,7 @@ Progress against it and known deviations are in
 ## Build and test
 
 Requires Linux, a C++20 compiler, CMake ≥ 3.20, mimalloc and xxHash
-(`apt install libmimalloc-dev libxxhash-dev`; liburing will be needed for the WAL).
+and liburing (`apt install libmimalloc-dev libxxhash-dev liburing-dev`).
 
 ```sh
 cmake -S . -B build
@@ -49,6 +49,26 @@ O_DIRECT and `--no-sync` drops the sync (development only).
 ./build/snc_bench --objects 1000000 --seconds 5 --depth 256 --data-dir /tmp/snc-data
 ```
 
+## Server and routing benchmark
+
+`snc_server` runs the engine behind a TCP front end, one port per shard
+(`--port P` is shard 0, shard i listens on P + i). Clients fetch the slot
+map and send each request to the shard that owns its target; a request
+sent elsewhere is forwarded, so routing is an optimization, never a
+requirement. Design and numbers: [docs/ROUTING.md](docs/ROUTING.md).
+
+```sh
+./build/snc_server --cpus 0,1 --port 7400 &              # 2 shards on cores 0-1
+./build/net_bench --cpus 2,3 --threads 2 --port 7400 --route owner
+```
+
+`net_bench --route any` sends each request to a random shard instead
+(ownership-blind ingress), and `--misroute PCT` sends PCT% to a non-owner.
+`baseline_server` puts the thread-pool baseline behind the same front end.
+`bench/run_net_matrix.py` runs both under the same workloads and writes
+`bench/results/net_matrix.csv`; `bench/summarize.py bench/results/net_matrix.csv --markdown`
+summarizes it.
+
 ## Layout
 
 | Path | Contents |
@@ -56,6 +76,8 @@ O_DIRECT and `--no-sync` drops the sync (development only).
 | `include/snc/` | Public headers: ObjectID, object header, slot map, local map, registry, messages, runtime interface, application API |
 | `src/core/` | Shard execution, dispatch, allocator, registry |
 | `src/native/` | Native runtime backend (pinned threads, SPSC ring mesh) |
+| `src/net/` | TCP front end (per-shard listeners), wire protocol, owner-aware client |
+| `tools/` | `snc_server` |
 | `src/types/` | The `Account` benchmark type |
 | `tests/` | Unit and end-to-end tests |
 | `bench/` | Benchmarks |

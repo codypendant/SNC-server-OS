@@ -1,0 +1,52 @@
+group,engine,server_flags,client_flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,misrouted_pct,forwarded_pct,load_s,creates_s
+memory,snc,,--route owner --reads 50 --depth 64,0,1718334,58368,88064,151552,704512,0.0,0.0,0.93,1069725
+memory,snc,,--route owner --reads 50 --depth 64,1,1886895,53248,81920,126976,671744,0.0,0.0,0.97,1034785
+memory,snc,,--route owner --reads 50 --depth 64,2,1776763,56320,92160,147456,720896,0.0,0.0,0.91,1101529
+memory,snc,,--route any --reads 50 --depth 64,0,1355112,79872,167936,233472,966656,50.0,50.0,0.84,1194108
+memory,snc,,--route any --reads 50 --depth 64,1,1430111,75776,159744,204800,540672,50.0,50.0,0.91,1094422
+memory,snc,,--route any --reads 50 --depth 64,2,1300876,79872,176128,270336,1146880,50.0,50.0,0.86,1163514
+memory,baseline,,--route any --reads 50 --depth 64,0,1365287,73728,139264,212992,1048576,50.0,0.0,1.11,900649
+memory,baseline,,--route any --reads 50 --depth 64,1,1354101,75776,139264,217088,802816,50.0,0.0,1.08,923594
+memory,baseline,,--route any --reads 50 --depth 64,2,1434152,71680,120832,188416,851968,50.0,0.0,1.1,912436
+memory,snc,,--route owner --reads 95 --depth 64,0,1810867,55296,90112,135168,638976,0.0,0.0,0.9,1116940
+memory,snc,,--route owner --reads 95 --depth 64,1,1711589,59392,96256,155648,770048,0.0,0.0,0.93,1071012
+memory,snc,,--route owner --reads 95 --depth 64,2,1605945,63488,110592,163840,720896,0.0,0.0,1.09,918756
+memory,snc,,--route any --reads 95 --depth 64,0,1373389,75776,172032,241664,933888,50.0,50.0,1.01,987985
+memory,snc,,--route any --reads 95 --depth 64,1,1342703,79872,176128,241664,1343488,50.0,50.0,0.84,1191564
+memory,snc,,--route any --reads 95 --depth 64,2,1424398,77824,163840,217088,557056,50.0,50.0,0.9,1113421
+memory,baseline,,--route any --reads 95 --depth 64,0,1408497,71680,129024,200704,835584,50.0,0.0,1.07,935681
+memory,baseline,,--route any --reads 95 --depth 64,1,1451521,69632,120832,188416,950272,50.0,0.0,1.05,954878
+memory,baseline,,--route any --reads 95 --depth 64,2,1417887,71680,126976,192512,737280,50.0,0.0,1.24,804915
+memory,snc,,--route owner --misroute 100 --reads 50 --depth 64,0,1222561,88064,139264,225280,1032192,100.0,100.0,0.89,1118374
+memory,snc,,--route owner --misroute 100 --reads 50 --depth 64,1,1240556,86016,139264,225280,1048576,100.0,100.0,0.92,1088985
+memory,snc,,--route owner --misroute 100 --reads 50 --depth 64,2,1205649,88064,143360,233472,1507328,100.0,100.0,0.91,1100321
+memory,snc,--no-mint-local,--route owner --reads 50 --depth 64,0,1760330,56320,92160,139264,638976,0.0,0.0,1.49,672329
+memory,snc,--no-mint-local,--route owner --reads 50 --depth 64,1,1633902,60416,98304,151552,819200,0.0,0.0,1.61,620948
+memory,snc,--no-mint-local,--route owner --reads 50 --depth 64,2,1679083,60416,98304,151552,753664,0.0,0.0,1.44,692081
+durable,snc,--data-dir D,--route owner --reads 50 --depth 256,0,1071510,434176,999424,1376256,3801088,0.0,0.0,1.79,558422
+durable,snc,--data-dir D,--route owner --reads 50 --depth 256,1,1149483,409600,917504,1245184,3211264,0.0,0.0,1.7,587248
+durable,snc,--data-dir D,--route owner --reads 50 --depth 256,2,1116717,417792,950272,1277952,2686976,0.0,0.0,1.68,596978
+durable,snc,--data-dir D,--route any --reads 50 --depth 256,0,956726,516096,1048576,1605632,4325376,50.0,50.0,1.74,574003
+durable,snc,--data-dir D,--route any --reads 50 --depth 256,1,985976,491520,1032192,1507328,4325376,50.0,50.0,1.73,579614
+durable,snc,--data-dir D,--route any --reads 50 --depth 256,2,971251,516096,1048576,1441792,3145728,50.0,50.0,1.71,585376
+durable,baseline,--data-dir D --logs 1,--route any --reads 50 --depth 256,0,505647,884736,1835008,2424832,5373952,50.0,0.0,3.88,257452
+durable,baseline,--data-dir D --logs 1,--route any --reads 50 --depth 256,1,481440,884736,2031616,3735552,9175040,50.1,0.0,3.83,260933
+durable,baseline,--data-dir D --logs 1,--route any --reads 50 --depth 256,2,490679,901120,1867776,3080192,8257536,50.0,0.0,3.86,259017
+durable,baseline,--data-dir D --logs 2,--route any --reads 50 --depth 256,0,921705,458752,1179648,2228224,5505024,50.0,0.0,2.0,500593
+durable,baseline,--data-dir D --logs 2,--route any --reads 50 --depth 256,1,907997,458752,1245184,2293760,4980736,50.0,0.0,1.87,533799
+durable,baseline,--data-dir D --logs 2,--route any --reads 50 --depth 256,2,748313,499712,1441792,3211264,23592960,50.0,0.0,2.02,493921
+durable,snc,--data-dir D,--route owner --reads 0 --depth 256,0,675358,671744,983040,1572864,4325376,0.0,0.0,1.79,560096
+durable,snc,--data-dir D,--route owner --reads 0 --depth 256,1,631662,720896,1081344,1867776,4718592,0.0,0.0,1.65,605976
+durable,snc,--data-dir D,--route owner --reads 0 --depth 256,2,639657,704512,1146880,1900544,3342336,0.0,0.0,1.66,601486
+durable,snc,--data-dir D,--route any --reads 0 --depth 256,0,596823,737280,1376256,2752512,6553600,49.9,49.9,1.62,617699
+durable,snc,--data-dir D,--route any --reads 0 --depth 256,1,645608,704512,1114112,1998848,5898240,50.0,50.0,1.68,595706
+durable,snc,--data-dir D,--route any --reads 0 --depth 256,2,657574,704512,1081344,1671168,3997696,50.0,50.0,1.67,600176
+durable,baseline,--data-dir D --logs 1,--route any --reads 0 --depth 256,0,272673,1703936,3145728,3735552,5505024,49.9,0.0,3.92,255146
+durable,baseline,--data-dir D --logs 1,--route any --reads 0 --depth 256,1,272336,1703936,3145728,3866624,5898240,49.9,0.0,3.81,262382
+durable,baseline,--data-dir D --logs 1,--route any --reads 0 --depth 256,2,273174,1671168,3276800,4128768,6422528,50.0,0.0,3.98,251340
+durable,baseline,--data-dir D --logs 2,--route any --reads 0 --depth 256,0,559549,802816,1409024,2818048,8126464,50.0,0.0,2.04,490826
+durable,baseline,--data-dir D --logs 2,--route any --reads 0 --depth 256,1,580238,770048,1277952,3211264,6946816,50.0,0.0,1.85,540562
+durable,baseline,--data-dir D --logs 2,--route any --reads 0 --depth 256,2,620747,737280,1146880,1966080,7602176,50.1,0.0,1.85,541888
+durable,snc,--data-dir D,--route owner --misroute 100 --reads 50 --depth 256,0,825211,557056,1048576,1769472,11272192,100.0,100.0,1.8,555083
+durable,snc,--data-dir D,--route owner --misroute 100 --reads 50 --depth 256,1,837785,573440,1081344,1900544,4849664,100.0,100.0,1.56,640000
+durable,snc,--data-dir D,--route owner --misroute 100 --reads 50 --depth 256,2,845258,573440,1081344,1638400,3932160,100.0,100.0,1.71,584612

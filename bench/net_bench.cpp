@@ -1,0 +1,316 @@
+// Load generator for snc_server and baseline_server over TCP (docs/ROUTING.md).
+// Each client thread holds one connection per shard and keeps --depth
+// requests outstanding. It first creates its share of accounts, then runs
+// get_balance/deposit against targets drawn uniformly from all accounts.
+//
+// Routing (where each request is sent):
+//   --route owner     to the shard that owns the target (client-side routing)
+//   --route any       to a uniformly random shard (ownership-blind ingress)
+//   --misroute PCT    with --route owner: PCT% go to a random non-owner shard
+//
+// Usage: net_bench [--host H] [--port P] [--threads T] [--cpus 2,3]
+//                  [--objects N] [--seconds S] [--depth D] [--reads PCT]
+//                  [--route owner|any] [--misroute PCT]
+#include <pthread.h>
+#include <sched.h>
+
+#include <atomic>
+#include <barrier>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <random>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "bench_common.h"
+#include "snc/net.h"
+#include "snc/types/account.h"
+
+using namespace snc;
+using namespace snc::account;
+
+namespace {
+
+u64 now_ns() {
+  return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now().time_since_epoch())
+                              .count());
+}
+
+struct Args {
+  std::string host = "127.0.0.1";
+  u16 port = 7400;
+  u16 threads = 1;
+  std::vector<int> cpus;
+  u64 objects = 1000000;
+  double seconds = 4;
+  u32 depth = 64;
+  int reads_pct = 50;
+  bool route_owner = true;
+  int misroute_pct = 0;
+};
+
+enum Phase : int { kLoad, kRun, kDrain };
+
+struct Shared {
+  Args args;
+  std::atomic<int> phase{kLoad};
+  std::vector<ObjectID> ids;  // all accounts, filled between load and run
+};
+
+struct Thread {
+  u16 index = 0;
+  Shared* sh = nullptr;
+  net::Client client;
+  std::mt19937_64 rng;
+  std::vector<ObjectID> created;
+  Histogram hist;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0;
+  u32 outstanding = 0;
+  std::vector<u64> start;  // per slot
+  std::vector<u32> free_slots;
+  u64 load_target = 0, load_next = 0;
+  std::string error;
+};
+
+void pin(int cpu) {
+  cpu_set_t set;
+  CPU_ZERO(&set);
+  CPU_SET(cpu, &set);
+  pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
+}
+
+void on_load(void* ctx, const wire::RespHeader& h, ByteView) {
+  auto* t = static_cast<Thread*>(ctx);
+  --t->outstanding;
+  t->free_slots.push_back(static_cast<u32>(h.req_id));
+  if (h.status == static_cast<u16>(Status::OK)) {
+    t->created.push_back(h.id);
+  } else if (h.status == static_cast<u16>(Status::E_OVERLOADED)) {
+    ++t->overloaded;
+    --t->load_next;  // issue one more
+  } else {
+    ++t->errors;
+  }
+}
+
+void on_run(void* ctx, const wire::RespHeader& h, ByteView) {
+  auto* t = static_cast<Thread*>(ctx);
+  u32 slot = static_cast<u32>(h.req_id);
+  t->hist.add(now_ns() - t->start[slot]);
+  ++t->ops;
+  if (h.status == static_cast<u16>(Status::E_OVERLOADED)) ++t->overloaded;
+  else if (h.status != static_cast<u16>(Status::OK)) ++t->errors;
+  --t->outstanding;
+  t->free_slots.push_back(slot);
+}
+
+bool load(Thread& t) {
+  u16 n = t.client.shard_count();
+  u64 seq = 0;
+  while (t.load_next < t.load_target || t.outstanding > 0) {
+    while (t.load_next < t.load_target && !t.free_slots.empty()) {
+      u32 slot = t.free_slots.back();
+      t.free_slots.pop_back();
+      CreateArgs a{};
+      a.balance_cents = 1000;
+      a.created_ns = t.load_next;
+      int len = std::snprintf(a.email, sizeof(a.email), "user%u.%llu@example.com", t.index,
+                              (unsigned long long)t.load_next);
+      a.email_len = static_cast<u8>(len);
+      a.name_len = 8;
+      std::memcpy(a.name, "Customer", 8);
+      wire::ReqHeader q{};
+      q.kind = wire::Kind::CREATE;
+      q.op = kTypeId;
+      q.req_id = slot;
+      t.client.send(static_cast<u16>(seq++ % n), q, ByteView(&a, sizeof(a)));
+      ++t.load_next;
+      ++t.outstanding;
+    }
+    if (t.client.poll(on_load, &t, 10) < 0) {
+      t.error = t.client.error();
+      return false;
+    }
+  }
+  return true;
+}
+
+void run(Thread& t) {
+  Shared& sh = *t.sh;
+  const Args& a = sh.args;
+  u16 n = t.client.shard_count();
+  const u64 n_ids = sh.ids.size();
+  while (true) {
+    bool running = sh.phase.load(std::memory_order_acquire) == kRun;
+    if (!running && t.outstanding == 0) break;
+    while (running && !t.free_slots.empty()) {
+      u32 slot = t.free_slots.back();
+      t.free_slots.pop_back();
+      const ObjectID& id = sh.ids[t.rng() % n_ids];
+      u16 dst;
+      if (!a.route_owner) {
+        dst = static_cast<u16>(t.rng() % n);
+      } else {
+        dst = t.client.owner_of(id);
+        if (n > 1 && a.misroute_pct > 0 && static_cast<int>(t.rng() % 100) < a.misroute_pct) {
+          dst = static_cast<u16>((dst + 1 + t.rng() % (n - 1)) % n);
+        }
+      }
+      t.misrouted += dst != t.client.owner_of(id);
+      wire::ReqHeader q{};
+      q.kind = wire::Kind::EXEC;
+      q.req_id = slot;
+      q.target = id;
+      t.start[slot] = now_ns();
+      ++t.outstanding;
+      if (static_cast<int>(t.rng() % 100) < a.reads_pct) {
+        q.op = kOpGetBalance;
+        t.client.send(dst, q, {});
+      } else {
+        q.op = kOpDeposit;
+        AmountArgs d{1, t.start[slot]};
+        t.client.send(dst, q, ByteView(&d, sizeof(d)));
+      }
+    }
+    if (t.client.poll(on_run, &t, running ? 1 : 10) < 0) {
+      t.error = t.client.error();
+      return;
+    }
+  }
+}
+
+std::vector<int> parse_cpus(const char* s) {
+  std::vector<int> v;
+  for (const char* p = s; *p;) {
+    v.push_back(std::atoi(p));
+    while (*p && *p != ',') ++p;
+    if (*p == ',') ++p;
+  }
+  return v;
+}
+
+Args parse(int argc, char** argv) {
+  Args a;
+  for (int i = 1; i < argc; ++i) {
+    std::string k = argv[i];
+    auto val = [&] {
+      if (i + 1 >= argc) {
+        std::fprintf(stderr, "missing value for %s\n", k.c_str());
+        std::exit(2);
+      }
+      return argv[++i];
+    };
+    if (k == "--host") a.host = val();
+    else if (k == "--port") a.port = static_cast<u16>(std::atoi(val()));
+    else if (k == "--threads") a.threads = static_cast<u16>(std::atoi(val()));
+    else if (k == "--cpus") a.cpus = parse_cpus(val());
+    else if (k == "--objects") a.objects = std::strtoull(val(), nullptr, 10);
+    else if (k == "--seconds") a.seconds = std::atof(val());
+    else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
+    else if (k == "--reads") a.reads_pct = std::atoi(val());
+    else if (k == "--route") {
+      std::string r = val();
+      if (r != "owner" && r != "any") {
+        std::fprintf(stderr, "--route must be owner or any\n");
+        std::exit(2);
+      }
+      a.route_owner = r == "owner";
+    } else if (k == "--misroute") a.misroute_pct = std::atoi(val());
+    else {
+      std::fprintf(stderr, "unknown flag %s\n", k.c_str());
+      std::exit(2);
+    }
+  }
+  return a;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+  Shared sh;
+  sh.args = parse(argc, argv);
+  const Args& a = sh.args;
+  std::vector<Thread> threads(a.threads);
+  std::barrier<> loaded(a.threads + 1), ready(a.threads + 1);
+  std::vector<std::thread> ts;
+  std::atomic<bool> failed{false};
+  for (u16 i = 0; i < a.threads; ++i) {
+    Thread& t = threads[i];
+    t.index = i;
+    t.sh = &sh;
+    t.rng.seed(4321 + i);
+    t.start.resize(a.depth);
+    for (u32 s = 0; s < a.depth; ++s) t.free_slots.push_back(s);
+    t.load_target = a.objects / a.threads + (i < a.objects % a.threads);
+    ts.emplace_back([&, i] {
+      Thread& t = threads[i];
+      if (!a.cpus.empty()) pin(a.cpus[i % a.cpus.size()]);
+      bool ok = t.client.connect(a.host, a.port);
+      if (!ok) t.error = t.client.error();
+      if (ok) ok = load(t);
+      if (!ok) failed = true;
+      loaded.arrive_and_wait();
+      ready.arrive_and_wait();
+      if (!failed) run(t);
+    });
+  }
+  auto t0 = std::chrono::steady_clock::now();
+  loaded.arrive_and_wait();
+  double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+  u64 load_errors = 0;
+  for (auto& t : threads) {
+    sh.ids.insert(sh.ids.end(), t.created.begin(), t.created.end());
+    load_errors += t.errors;
+    t.errors = 0;
+    t.overloaded = 0;
+  }
+  if (failed || load_errors) {
+    sh.phase = kDrain;
+    ready.arrive_and_wait();
+    for (auto& th : ts) th.join();
+    for (auto& t : threads) {
+      if (!t.error.empty()) std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
+    }
+    std::fprintf(stderr, "load failed (%llu create errors)\n", (unsigned long long)load_errors);
+    return 1;
+  }
+  sh.phase.store(kRun, std::memory_order_release);
+  auto t1 = std::chrono::steady_clock::now();
+  ready.arrive_and_wait();
+  std::this_thread::sleep_for(std::chrono::duration<double>(a.seconds));
+  sh.phase.store(kDrain, std::memory_order_release);
+  for (auto& th : ts) th.join();
+  double run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
+
+  Histogram all;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0;
+  for (auto& t : threads) {
+    if (!t.error.empty()) {
+      std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
+      return 1;
+    }
+    all.merge(t.hist);
+    ops += t.ops;
+    errors += t.errors;
+    overloaded += t.overloaded;
+    misrouted += t.misrouted;
+    forwarded += t.client.forwarded();
+  }
+  u16 n = threads[0].client.shard_count();
+  std::printf("net_bench shards=%u threads=%u depth=%u/thread route=%s misroute=%d%%\n", n,
+              a.threads, a.depth, a.route_owner ? "owner" : "any", a.misroute_pct);
+  std::printf("load: %zu objects in %.2fs (%.0f creates/s)\n", sh.ids.size(), load_s,
+              sh.ids.size() / load_s);
+  std::printf("run: reads=%d%% seconds=%.2f\n", a.reads_pct, run_s);
+  std::printf("  ops/s %.0f  errors %llu  overloaded %llu\n", ops / run_s,
+              (unsigned long long)errors, (unsigned long long)overloaded);
+  std::printf("  latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", all.percentile(50),
+              all.percentile(95), all.percentile(99), all.percentile(99.9));
+  std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
+              100.0 * misrouted / std::max<u64>(1, ops), 100.0 * forwarded / std::max<u64>(1, ops));
+  return errors ? 1 : 0;
+}

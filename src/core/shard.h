@@ -21,6 +21,9 @@ class Shard {
 
   u16 id() const { return id_; }
   u16 owner_of(const ObjectID& id) const { return slots_.owner_of(id); }
+  const SlotMap& slots() const { return slots_; }
+  // Creates mint IDs that this shard owns (docs/ROUTING.md).
+  void set_mint_local(bool on) { mint_local_ = on; }
 
   // ---- Application API (entry shard) ----
   void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
@@ -163,6 +166,7 @@ class Shard {
   SlotMap slots_;
   LocalMap map_;
   Minter minter_;
+  bool mint_local_ = false;
   ShardAllocator& alloc_;
   ShardStats stats_;
   std::vector<Pending> pending_;

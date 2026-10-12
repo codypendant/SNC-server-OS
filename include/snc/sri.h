@@ -53,4 +53,10 @@ void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
 // Asynchronous fdatasync of everything written to `fd` so far.
 void sri_fdatasync(int fd, IoDone done, void* ctx);
 
+// Wake this shard from its idle wait when `fd` becomes readable (for example
+// an epoll fd holding the shard's sockets). The shard still discovers the
+// work in its poll hook; this only keeps an idle shard from sleeping through
+// it. Call on the shard's own thread.
+void sri_watch_fd(int fd);
+
 }  // namespace snc

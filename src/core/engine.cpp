@@ -28,6 +28,7 @@ void hook_init(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   u16 id = sri_shard_id();
   auto* s = new Shard(id, *h->slots, h->lease_base + id, h->cfg->expected_objects);
+  s->set_mint_local(h->cfg->mint_local);
   set_current_shard(s);
   (*h->shards)[id] = s;
 }

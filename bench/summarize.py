@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Reduces bench/results/matrix.csv to medians per configuration and prints
-them as JSON (for the report) or as Markdown tables (--markdown)."""
+"""Reduces bench/results/matrix.csv (or net_matrix.csv) to medians per
+configuration and prints them as JSON (for the report) or as Markdown tables
+(--markdown)."""
 import csv, json, statistics, sys, collections
 
 def load(path):
     groups = collections.OrderedDict()
     for r in csv.DictReader(open(path)):
+        if "flags" not in r:  # net_matrix.csv: server flags, then client flags
+            r["flags"] = " ".join(x for x in (r["server_flags"], r["client_flags"]) if x)
         groups.setdefault((r["group"], r["engine"], r["flags"]), []).append(r)
     out = []
     for (group, engine, flags), rs in groups.items():
         def med(k):
-            v = [float(r[k]) for r in rs if r[k] != ""]
+            v = [float(r[k]) for r in rs if r.get(k, "") != ""]
             return statistics.median(v) if v else None
         ops = [int(r["ops_s"]) for r in rs]
         out.append(dict(group=group, engine=engine, flags=flags, runs=len(rs),
@@ -19,7 +22,8 @@ def load(path):
                         rss=med("rss_per_obj"), recovery=med("recovery_s"),
                         ckpt_load=med("ckpt_load_s"), wal_replay=med("wal_replay_s"),
                         checkpoint=med("checkpoint_s"), msgs=med("msgs_per_op"),
-                        contended=med("contended_pct")))
+                        contended=med("contended_pct"), forwarded=med("forwarded_pct"),
+                        creates=med("creates_s")))
     return out
 
 def us(ns):

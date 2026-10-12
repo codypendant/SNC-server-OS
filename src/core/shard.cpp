@@ -60,6 +60,9 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx) {
   ObjectID id = minter_.next();
+  // Skipping sequence numbers keeps IDs unique and never reused (C12); with
+  // N shards this takes N hashes per create on average.
+  while (mint_local_ && owner_of(id) != id_) id = minter_.next();
   u16 owner = owner_of(id);
   if (owner == id_) {
     ++stats_.ops_local;
@@ -943,5 +946,6 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 }
 
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
+const SlotMap& slot_map() { return tl_shard->slots(); }
 
 }  // namespace snc
