@@ -35,6 +35,12 @@ using Completion = void (*)(void* ctx, const ExecResult& r);
 void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
              void* ctx);
 void create(u32 type_id, ByteView init_args, const ExecOptions& opts, Completion done, void* ctx);
+// Placement (docs/TRANSFERS.md): like create, but the new ID falls in the
+// same slot as `near`, so the two objects share an owner under every slot
+// map, including after a shard-count change. Objects changed together
+// (OpCtx::local) belong together. Mints about 4096 IDs per call to find one.
+void create_near(const ObjectID& near, u32 type_id, ByteView init_args, const ExecOptions& opts,
+                 Completion done, void* ctx);
 void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
 
 // Secondary index lookup (spec section 11): asks every shard, merges, and
@@ -60,6 +66,8 @@ class OpCtx {
   ObjectHeader* obj() { return obj_; }
   const TypeDescriptor& type() const { return *type_; }
 
+  // Payload length apply may resize to (at least the current capacity).
+  u32 reserved_len() const { return reserved_len_; }
   // validate only: reserve payload size for apply. Checks max_size and the
   // shard memory limit, so apply's resize cannot fail.
   Status reserve(u32 new_len);
@@ -70,6 +78,30 @@ class OpCtx {
     app_code_ = app_code;
     return Status::E_APP;
   }
+  // Durable follow-up (docs/TRANSFERS.md): run `op` with `args` on `target`
+  // once this op's WAL record is durable. If the target is missing or not
+  // the op's type, run `fail_op` (if nonzero) on this object instead, with
+  // the same args and the target as OpCtx::source(). Results are discarded
+  // and follow-ups are not logged:
+  // anything that must survive a crash belongs in the object, and the
+  // type's resume hook re-emits it after recovery. MUTATE ops (apply only)
+  // and resume hooks may emit; args are at most kMaxEmitArgs bytes so a
+  // follow-up to another shard fits in one ring message.
+  static constexpr u32 kMaxEmitArgs = 16;
+  void emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op = 0);
+  // The object whose emit is running this op; null for a client's op. Ops
+  // meant only as follow-ups should reject a null source.
+  const ObjectID& source() const { return source_; }
+
+  // Another object this shard owns, for a MUTATE op that changes two
+  // objects at once (docs/TRANSFERS.md). Null unless `id` is a live object
+  // of type `type_id` owned by this shard, other than obj(). validate may
+  // read it. When apply calls it, the engine treats the object as changed:
+  // apply may modify its payload in place (not its length or index key),
+  // and the engine bumps its version and logs it in one atomic WAL group
+  // with this op's record. At most one such object per op.
+  ObjectHeader* local(const ObjectID& id, u32 type_id);
+
   // Write the op result (at most the op's max_result). Inline: it runs on
   // nearly every op and its results are a few bytes.
   void set_result(const void* data, u32 len) {
@@ -88,6 +120,9 @@ class OpCtx {
   const OpDescriptor* op_ = nullptr;
   u32 reserved_len_ = 0;
   u16 app_code_ = 0;
+  ObjectID source_;
+  ObjectHeader* peer_ = nullptr;  // set when apply calls local()
+  bool applying_ = false;
   u8* result_buf_ = nullptr;
   u32 result_len_ = 0;
   u32 max_result_ = 0;
@@ -107,6 +142,11 @@ struct ShardStats {
   u64 heap_live_bytes = 0;
   u64 index_lookups_served = 0;
   u64 deferred_completions = 0;  // completions that waited for durability
+  u64 emits = 0;                 // follow-ups emitted (OpCtx::emit)
+  u64 emits_sent = 0;            // ... sent to another shard
+  u64 emits_received = 0;        // ... received from another shard
+  u64 emits_failed_over = 0;     // follow-ups that ran their fail_op instead
+  u64 emits_in_flight = 0;       // queued here or waiting for durability
   WalStream::Stats wal;
   u64 wal_durable_lsn = 0;
   bool wal_direct = false;
@@ -164,7 +204,12 @@ class Engine {
   // rebuild, new mint leases) before returning. Aborts on corruption.
   void start();
   // Flushes every WAL stream and waits for pending durability, then stops.
+  // Follow-ups still queued are not run; their objects' resume hooks re-emit
+  // them at the next start (in memory mode they are lost with the state).
   void stop();
+  // Blocks until no shard has a follow-up queued or in flight, e.g. until
+  // every transfer has settled. Control path; returns false on timeout.
+  bool wait_emits(double timeout_s = 30);
 
   // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
   CheckpointReport checkpoint();

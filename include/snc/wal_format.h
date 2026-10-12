@@ -39,6 +39,11 @@ static_assert(sizeof(FileHeader) == 48);
 
 enum class RecType : u16 { CREATE = 1, UPDATE = 2, DELETE = 3, IMAGE = 5 };
 
+// WalRecord::flags. A record with kRecGroupNext belongs to one atomic group
+// with the records after it, up to and including the first record without
+// the flag: recovery installs the whole group or none of it.
+inline constexpr u16 kRecGroupNext = 1;
+
 struct WalRecord {
   u32 crc32c;        //  0  over bytes [4, total_len)
   u32 total_len;     //  4  header + payload, rounded up to 8
@@ -62,7 +67,7 @@ inline u32 record_size(u32 payload_len) {
 // Writes a record (header + payload + zero padding) to `dst`, which must have
 // record_size(payload_len) bytes. Returns that size.
 u32 encode_record(u8* dst, RecType type, u64 lsn, u32 type_id, const ObjectID& id, u64 version,
-                  u16 schema_ver, const u8* payload, u32 payload_len);
+                  u16 schema_ver, const u8* payload, u32 payload_len, u16 flags = 0);
 
 // Validates the record at `p` with `avail` bytes readable. Returns its total
 // length, or 0 if it is not a valid record (zeros, torn, or corrupt).

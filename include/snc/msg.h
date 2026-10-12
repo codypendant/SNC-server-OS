@@ -14,6 +14,10 @@ enum class MsgKind : u8 {
   INDEX_RESP = 6,   // reserved for step 9
   BUF_RETURN = 7,
   CTRL = 8,
+  // One-way follow-up (OpCtx::emit): no response. req_id and
+  // expected_version carry the emitting object's ID, status and aux the
+  // fail_op (low, high 16 bits); args are always inline.
+  EMIT = 9,
 };
 
 enum MsgFlags : u8 {

@@ -322,6 +322,43 @@ inline Wait execute_op(Map& map, Logs& logs, u16 log_hint, const ObjectID& id, b
   return Wait{o->last_log, o->last_lsn, true, o->version, o->a.balance_cents, o->a.op_count};
 }
 
+// Moves `amount` from one account to another as one atomic step, the way a
+// locked store does it (docs/TRANSFERS.md): both stripes locked in address
+// order, both objects updated, both records appended to one log back to
+// back. Returns the source's state; found=false if either is missing,
+// version=0 if the source lacks funds.
+inline Wait transfer_op(Map& map, Logs& logs, u16 log_hint, const ObjectID& from,
+                        const ObjectID& to, i64 amount, u64 now) {
+  u64 hf = snc_hash64(from), ht = snc_hash64(to);
+  Stripe& sf = map.stripe_of(hf);
+  Stripe& st = map.stripe_of(ht);
+  Stripe* first = &sf < &st ? &sf : &st;
+  Stripe* second = &sf < &st ? &st : &sf;
+  auto g1 = map.lock(*first);
+  std::unique_lock<std::mutex> g2;
+  if (second != first) g2 = map.lock(*second);
+  Obj* a = sf.map.find(from, hf);
+  Obj* b = st.map.find(to, ht);
+  if (a == nullptr || b == nullptr) return Wait{0, 0, false};
+  if (a->a.balance_cents < amount) return Wait{0, 0, true};
+  a->a.balance_cents -= amount;
+  a->a.op_count += 1;
+  a->a.updated_ns = now;
+  ++a->version;
+  b->a.balance_cents += amount;
+  b->a.op_count += 1;
+  b->a.updated_ns = now;
+  ++b->version;
+  if (!logs.empty()) {
+    u16 l = static_cast<u16>(log_hint % logs.size());
+    a->last_log = b->last_log = l;
+    a->last_lsn = logs[l]->append(RecType::UPDATE, *a);
+    b->last_lsn = logs[l]->append(RecType::UPDATE, *b);
+    return Wait{l, b->last_lsn, true, a->version, a->a.balance_cents, a->a.op_count};
+  }
+  return Wait{0, 0, true, a->version, a->a.balance_cents, a->a.op_count};
+}
+
 // Inserts a new object and its email index entry; logs the create.
 inline void insert_object(Map& map, Logs& logs, u16 log_hint, Obj* o) {
   Stripe& s = map.stripe(o->id);

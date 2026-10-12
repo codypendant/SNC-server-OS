@@ -1,0 +1,19 @@
+engine,mode,config,rep,ops_s,latency_us
+postgres,memory,pg_transfer.sql -c 16,0,29465,543.0
+postgres,memory,pg_transfer.sql -c 16,1,27661,578.0
+postgres,memory,pg_transfer.sql -c 16,2,27916,573.0
+postgres,memory,pg_transfer_pipeline16.sql -c 8,0,33137,3863.0
+postgres,memory,pg_transfer_pipeline16.sql -c 8,1,33864,3780.0
+postgres,memory,pg_transfer_pipeline16.sql -c 8,2,31952,4006.0
+postgres,durable,pg_transfer.sql -c 16,0,14819,1080.0
+postgres,durable,pg_transfer.sql -c 16,1,15021,1065.0
+postgres,durable,pg_transfer.sql -c 16,2,15257,1049.0
+postgres,durable,pg_transfer_pipeline16.sql -c 8,0,28143,4548.0
+postgres,durable,pg_transfer_pipeline16.sql -c 8,1,28143,4548.0
+postgres,durable,pg_transfer_pipeline16.sql -c 8,2,28650,4468.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",0,130230,7583.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",1,128026,7767.0
+redis,memory,"-c 32 -P 16 per generator, io-threads 2",2,128140,7759.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",0,59097,13023.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",1,59964,12739.0
+redis,durable,"-c 32 -P 16 per generator, io-threads 2",2,59485,13095.0

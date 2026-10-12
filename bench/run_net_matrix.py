@@ -72,6 +72,12 @@ def main():
     runs.append(("skew-durable", "snc", "--data-dir D", "--route owner --zipf 1.2 --reads 50 --depth 256"))
     runs.append(("skew-durable", "baseline", f"--data-dir D --logs {n_srv}",
                  "--route any --zipf 1.2 --reads 50 --depth 256"))
+    # Transfers between two random accounts (docs/TRANSFERS.md).
+    runs.append(("transfer", "snc", "", "--route owner --transfer 100 --depth 64"))
+    runs.append(("transfer", "baseline", "", "--route any --transfer 100 --depth 64"))
+    runs.append(("transfer-durable", "snc", "--data-dir D", "--route owner --transfer 100 --depth 256"))
+    runs.append(("transfer-durable", "baseline", f"--data-dir D --logs {n_srv}",
+                 "--route any --transfer 100 --depth 256"))
     if a.groups:
         runs = [r for r in runs if r[0] in a.groups.split(",")]
 

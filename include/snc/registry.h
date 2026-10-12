@@ -30,6 +30,12 @@ struct OpDescriptor {
   // MUTATE only: apply never changes the type's indexed key, so the runtime
   // skips index maintenance for this op. Checked in debug builds.
   bool keeps_index_key = false;
+  // MUTATE only: the change may be lost in a crash, so it is not logged and
+  // does not bump the version; it reaches the WAL with the object's next
+  // logged change or checkpoint. Only for changes a type's resume hook
+  // redoes after recovery (docs/TRANSFERS.md: dropping a finished inbox
+  // entry). May not emit, use OpCtx::local, or change the indexed key.
+  bool unlogged = false;
 };
 
 // Secondary index (spec section 11): shard-local, non-unique, equality only.
@@ -53,6 +59,9 @@ struct TypeDescriptor {
   OpID create_op = 0;  // OpKind::CREATE descriptor, required
   OpID delete_op = 0;  // OpKind::DELETE descriptor, optional
   u32 index_id = 0;    // v0.1: at most one secondary index per type, 0 = none
+  // Runs on every object of the type once recovery finishes, so it can
+  // re-emit follow-ups its state says are pending (OpCtx::emit). Optional.
+  void (*resume)(OpCtx& ctx) = nullptr;
 };
 
 inline constexpr u32 kFirstUserTypeId = 256;

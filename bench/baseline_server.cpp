@@ -112,6 +112,26 @@ void on_request(void* user, net::ConnSet::Conn* c, const wire::ReqHeader& q, Byt
       return;
     }
     case wire::Kind::EXEC: {
+      if (q.op == kOpTransfer) {
+        if (args.len != sizeof(TransferArgs)) {
+          respond(w, c, header(q, Status::E_BAD_ARGS, q.target), nullptr);
+          return;
+        }
+        TransferArgs x;
+        std::memcpy(&x, args.data, sizeof(x));
+        Wait wt = transfer_op(s.map, s.logs, w.id, q.target, x.to, x.amount, now_ns());
+        if (!wt.found || wt.version == 0) {
+          wire::RespHeader h = header(q, wt.found ? Status::E_APP : Status::E_NOT_FOUND, q.target);
+          if (wt.found) h.app_code = kAppInsufficientFunds;
+          respond(w, c, h, nullptr);
+          return;
+        }
+        wire::RespHeader h = header(q, Status::OK, q.target);
+        h.version = wt.version;
+        BalanceResult r{wt.balance, wt.op_count};
+        finish(w, c, h, &r, wt.log, wt.lsn);
+        return;
+      }
       bool read = q.op == kOpGetBalance;
       if (!read && (q.op != kOpDeposit || args.len != sizeof(AmountArgs))) {
         respond(w, c, header(q, Status::E_BAD_ARGS, q.target), nullptr);

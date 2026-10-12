@@ -366,6 +366,7 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
   std::vector<u64> segs = list_segments(d, stream);
   u64 expected = 0;  // next LSN the stream must continue with; 0 = not started
   std::vector<u8> buf;
+  std::vector<std::size_t> group;  // offsets of an atomic group's records read so far
   for (std::size_t si = 0; si < segs.size(); ++si) {
     // Covered entirely by the checkpoint (the next segment starts at or
     // before from_lsn): not read. Deleted after the next checkpoint anyway.
@@ -412,13 +413,24 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
       expected = r.lsn + 1;
       out.last_lsn = r.lsn;
       if (r.lsn >= from_lsn) {
-        if (out.first_lsn == 0) out.first_lsn = r.lsn;
-        ++out.records;
-        out.bytes += len;
-        fn(r, buf.data() + off + sizeof(WalRecord));
+        // One op's records are flushed together, so a group never spans
+        // segments: hold its records until the last one is read.
+        group.push_back(off);
+        if (!(r.flags & kRecGroupNext)) {
+          for (std::size_t at : group) {
+            WalRecord g;
+            std::memcpy(&g, buf.data() + at, sizeof(g));
+            if (out.first_lsn == 0) out.first_lsn = g.lsn;
+            ++out.records;
+            out.bytes += g.total_len;
+            fn(g, buf.data() + at + sizeof(WalRecord));
+          }
+          group.clear();
+        }
       }
       off += len;
     }
+    group.clear();  // cut off by a torn tail or the end of the stream
   }
   return out;
 }
@@ -518,12 +530,12 @@ void WalStream::ensure_capacity(u32 extra) {
 }
 
 u64 WalStream::append(RecType type, u32 type_id, const ObjectID& id, u64 version, u16 schema_ver,
-                      const u8* payload, u32 payload_len) {
+                      const u8* payload, u32 payload_len, u16 flags) {
   u32 size = record_size(payload_len);
   ensure_capacity(size);
   u64 lsn = next_lsn_++;
   encode_record(active_ + active_len_, type, lsn, type_id, id, version, schema_ver, payload,
-                payload_len);
+                payload_len, flags);
   if (active_len_ == 0) {
     active_first_lsn_ = lsn;
     active_since_ns_ = sri_now_ns();

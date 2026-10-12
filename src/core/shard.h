@@ -28,7 +28,8 @@ class Shard {
   // ---- Application API (entry shard) ----
   void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
                void* ctx);
-  void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx);
+  void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx,
+              const ObjectID* near = nullptr);
   void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
   void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
   void prefetch(const ObjectID* ids, u32 n);
@@ -58,6 +59,14 @@ class Shard {
       if (!h->deleted()) fn(*h);
     });
   }
+
+  // Follow-ups (OpCtx::emit). Paused shards queue but do not dispatch.
+  void pause_emits(bool on) { emits_paused_ = on; }
+  // Queued here; follow-ups in rings are sent minus received, summed over
+  // all shards (Engine::wait_emits).
+  u64 emits_in_flight() const { return emit_ready_count_ + emit_wait_.size(); }
+  u64 emits_sent() const { return stats_.emits_sent; }
+  u64 emits_received() const { return stats_.emits_received; }
 
   LocalMap& map() { return map_; }
   ShardAllocator& alloc() { return alloc_; }
@@ -104,6 +113,22 @@ class Shard {
     ObjectID id;
   };
 
+  struct Emit {
+    ObjectID source, target;
+    OpID op = 0, fail_op = 0;
+    alignas(8) u8 args[OpCtx::kMaxEmitArgs];
+    u64 lsn = 0;  // dispatch once durable
+    u8 len = 0;
+  };
+  static constexpr u64 kEmitBacklog = 1024;
+  void route_emit(const Emit& e);
+  bool send_emit(u16 dst, const Emit& e);
+  void run_emit(const Emit& e);
+  void serve_emit(const Msg& m);
+  void emit_result(const Emit& e, Status s);
+  bool run_emits();
+  void queue_emits(u64 lsn);
+
   struct Checkpoint {
     bool active = false;
     std::vector<ObjectID> ids;  // snapshot at begin; objects found later are skipped
@@ -131,10 +156,15 @@ class Shard {
   void prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t, const OpDescriptor* op);
   Status validate_checked(OpCtx& c, const OpDescriptor* op, ByteView args);
   void finish_result(OpCtx& c, const OpDescriptor* op, ExecResult& out);
-  u64 log(RecType type, const ObjectHeader& obj);
+  u64 log(RecType type, const ObjectHeader& obj, u16 flags = 0);
 
   // Index partition.
   u32 extract_key(const TypeDescriptor& t, const ObjectHeader& obj, u8* key) const;
+#ifndef NDEBUG
+  // OpCtx::local's object before apply, to check apply kept its shape.
+  u32 peer_len_ = 0, peer_key_len_ = 0;
+  u8 peer_key_[kMaxIndexKey];
+#endif
   void index_insert(u32 index_id, const u8* key, u32 len, const ObjectID& id);
   void index_erase(u32 index_id, const u8* key, u32 len, const ObjectID& id);
   void index_find(u32 index_id, ByteView key, u32 max_results, std::vector<ObjectID>& out) const;
@@ -182,6 +212,42 @@ class Shard {
 
   std::unique_ptr<WalStream> wal_;
   std::deque<Waiter> waiters_;  // sorted by lsn
+
+  // FIFO over a vector that keeps its memory: std::deque allocates and
+  // frees a node every few entries, and follow-ups pass through at
+  // millions per second.
+  template <typename T>
+  class Fifo {
+   public:
+    bool empty() const { return head_ == buf_.size(); }
+    std::size_t size() const { return buf_.size() - head_; }
+    T& front() { return buf_[head_]; }
+    void push_back(const T& v) { buf_.push_back(v); }
+    void pop_front() {
+      if (++head_ == buf_.size()) {
+        buf_.clear();
+        head_ = 0;
+      } else if (head_ >= 4096 && head_ * 2 >= buf_.size()) {
+        buf_.erase(buf_.begin(), buf_.begin() + static_cast<std::ptrdiff_t>(head_));
+        head_ = 0;
+      }
+    }
+
+   private:
+    std::vector<T> buf_;
+    std::size_t head_ = 0;
+  };
+
+  std::vector<Emit> emit_scratch_;  // emitted by the op now running
+  // Durable source state: dispatch at the next poll.
+  std::vector<Emit> emit_local_;
+  std::vector<Emit> emit_running_;  // emit_local_ being run (keeps its memory)
+  std::vector<Fifo<Emit>> emit_remote_;  // per destination shard
+  u64 emit_ready_count_ = 0;
+  ObjectID cur_source_;  // source of the follow-up now running (OpCtx::source)
+  Fifo<Emit> emit_wait_;  // sorted by lsn
+  bool emits_paused_ = false;
+  bool resuming_ = false;
   Checkpoint ckpt_;
 };
 

@@ -51,13 +51,15 @@ struct Args {
   bool prefetch = true;
   std::vector<int> io_cpus;
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
+  int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
+  int xfer_local = -1;   // % of transfers to an account on the source's shard (-1: uniform)
 };
 
 struct ShardDriver {
   u16 shard = 0;
   Engine* eng = nullptr;
   const std::vector<std::vector<ObjectID>>* by_owner = nullptr;
-  int remote_pct = 0, reads_pct = 0;
+  int remote_pct = 0, reads_pct = 0, transfer_pct = 0, xfer_local = -1;
   std::mt19937_64 rng;
   u32 outstanding = 0;
   u64 ops = 0, errors = 0;
@@ -71,6 +73,9 @@ struct ShardDriver {
   std::vector<u32> free_slots;
   bool prefetch = true;
   std::vector<ObjectID> next;  // targets chosen ahead, for prefetch
+  std::vector<ObjectID> next_to;  // transfer destinations (null: not a transfer)
+  std::vector<ObjectID> prefetch_to;
+  u64 rejected = 0, overloaded = 0;
   const bench::Zipf* zipf = nullptr;
   const std::vector<ObjectID>* ranked = nullptr;
 };
@@ -79,17 +84,25 @@ void on_op_done(void* ctx, const ExecResult& r) {
   auto* slot = static_cast<ShardDriver::Slot*>(ctx);
   ShardDriver& d = *slot->d;
   d.hist.add(sri_now_ns() - slot->start_ns);
-  ++d.ops;
-  if (r.status != Status::OK) ++d.errors;
+  if (r.status == Status::E_OVERLOADED) {
+    ++d.overloaded;  // turned away (full ring or follow-up backlog): not counted as done
+  } else {
+    ++d.ops;
+    if (r.status == Status::E_APP) {
+      ++d.rejected;  // transfer without funds or with a full outbox
+    } else if (r.status != Status::OK) {
+      ++d.errors;
+    }
+  }
   --d.outstanding;
   d.free_slots.push_back(static_cast<u32>(slot - d.slots.data()));
 }
 
-ObjectID pick(ShardDriver& d) {
-  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];
+ObjectID pick(ShardDriver& d, u16& owner) {
+  owner = d.shard;
+  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];  // owner unknown: transfers stay uniform
   const auto& by = *d.by_owner;
   u16 n = static_cast<u16>(by.size());
-  u16 owner = d.shard;
   if (n > 1 && static_cast<int>(d.rng() % 100) < d.remote_pct) {
     owner = static_cast<u16>((d.shard + 1 + d.rng() % (n - 1)) % n);
   }
@@ -104,8 +117,37 @@ bool issue(ShardDriver& d) {
   // Choose the batch's targets first and prefetch them, as an ingress path
   // that reads many requests at once can.
   d.next.clear();
-  for (std::size_t i = 0; i < d.free_slots.size(); ++i) d.next.push_back(pick(d));
-  if (d.prefetch && !d.next.empty()) prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+  d.next_to.clear();
+  for (std::size_t i = 0; i < d.free_slots.size(); ++i) {
+    u16 owner;
+    d.next.push_back(pick(d, owner));
+    ObjectID to;
+    if (d.transfer_pct && static_cast<int>(d.rng() % 100) < d.transfer_pct) {
+      bool same = !d.zipf && d.xfer_local >= 0 && static_cast<int>(d.rng() % 100) < d.xfer_local;
+      bool other = !d.zipf && d.xfer_local >= 0 && !same && d.by_owner->size() > 1;
+      u16 n = static_cast<u16>(d.by_owner->size());
+      u16 dest = same    ? owner
+                 : other ? static_cast<u16>((owner + 1 + d.rng() % (n - 1)) % n)
+                         : static_cast<u16>(d.rng() % n);
+      const auto& v = (*d.by_owner)[dest];
+      std::size_t j = d.rng() % v.size();
+      if (v[j] == d.next.back()) j = (j + 1) % v.size();
+      to = v[j];
+    }
+    d.next_to.push_back(to);
+  }
+  if (d.prefetch && !d.next.empty()) {
+    prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+    // Transfer destinations this shard owns are touched by the same op
+    // (OpCtx::local); the baseline prefetches its destinations too.
+    if (d.transfer_pct) {
+      d.prefetch_to.clear();
+      for (const ObjectID& to : d.next_to) {
+        if (!to.is_null()) d.prefetch_to.push_back(to);
+      }
+      if (!d.prefetch_to.empty()) prefetch(d.prefetch_to.data(), static_cast<u32>(d.prefetch_to.size()));
+    }
+  }
   std::size_t k = 0;
   // Local ops complete inline and return their slot at once, so bound the
   // batch per poll to keep the loop (and the phase check) moving.
@@ -116,8 +158,12 @@ bool issue(ShardDriver& d) {
     did = true;
     ShardDriver::Slot& s = d.slots[i];
     s.start_ns = sri_now_ns();
+    ObjectID to = d.next_to[k];
     ObjectID target = d.next[k++];
-    if (static_cast<int>(d.rng() % 100) < d.reads_pct) {
+    if (!to.is_null()) {
+      TransferArgs t{to, 1, s.start_ns};
+      execute(target, kOpTransfer, ByteView(&t, sizeof(t)), {}, on_op_done, &s);
+    } else if (static_cast<int>(d.rng() % 100) < d.reads_pct) {
       execute(target, kOpGetBalance, {}, {}, on_op_done, &s);
     } else {
       AmountArgs a{1, s.start_ns};
@@ -213,6 +259,8 @@ Args parse(int argc, char** argv) {
     else if (k == "--remote") a.remote_pct = std::atoi(val());
     else if (k == "--reads") a.reads_pct = std::atoi(val());
     else if (k == "--zipf") a.zipf = std::atof(val());
+    else if (k == "--transfer") a.transfer_pct = std::atoi(val());
+    else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--spin") a.spin = true;
@@ -323,6 +371,8 @@ int main(int argc, char** argv) {
     d.by_owner = &by_owner;
     d.remote_pct = args.remote_pct;
     d.reads_pct = args.reads_pct;
+    d.transfer_pct = args.transfer_pct;
+    d.xfer_local = args.xfer_local;
     d.prefetch = args.prefetch;
     if (args.zipf > 0) {
       d.zipf = &zipf;
@@ -341,14 +391,24 @@ int main(int argc, char** argv) {
   bench.phase.store(kDrain, std::memory_order_release);
   finished.wait();
   double run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
+  // Transfers commit at the source; their credits may still be landing.
+  double settle_s = 0;
+  if (args.transfer_pct) {
+    auto ts = std::chrono::steady_clock::now();
+    if (!eng.wait_emits()) std::fprintf(stderr, "transfers did not settle\n");
+    settle_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - ts).count();
+  }
 
   Histogram all;
-  u64 ops = 0, errors = 0;
+  u64 ops = 0, errors = 0, rejected = 0, overloaded = 0, emits = 0;
   for (auto& d : bench.drivers) {
     all.merge(d.hist);
     ops += d.ops;
     errors += d.errors;
+    rejected += d.rejected;
+    overloaded += d.overloaded;
   }
+  for (u16 s = 0; s < args.shards; ++s) emits += eng.stats(s).emits - before[s].emits;
   u64 local = 0, remote = 0, msgs = 0, bytes = 0, full = 0;
   for (u16 s = 0; s < args.shards; ++s) {
     ShardStats st = eng.stats(s);
@@ -398,6 +458,12 @@ int main(int argc, char** argv) {
               "local maps %.1f MiB\n",
               (unsigned long long)objects, load_s, objects / load_s,
               double(rss1 - rss0) / objects, double(heap) / objects, map_bytes / 1048576.0);
+  if (args.transfer_pct) {
+    std::printf("transfers: %d%% of ops, rejected %llu, turned away %llu, follow-ups/op %.2f, "
+                "settled %.1f ms after the run\n",
+                args.transfer_pct, (unsigned long long)rejected, (unsigned long long)overloaded,
+                double(emits) / std::max<u64>(1, ops), settle_s * 1000);
+  }
   if (args.zipf > 0) std::printf("keys: zipf theta=%.2f (hottest key %.2f%% of ops)\n", args.zipf, 100 * zipf_top);
   std::printf("run: remote_target=%d%% reads=%d%% depth=%u seconds=%.2f\n", args.remote_pct,
               args.reads_pct, args.depth, run_s);

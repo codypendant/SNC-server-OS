@@ -29,6 +29,7 @@ and the handoff's development sequence (§24).
 | Durable tail latency | Done: shards yield every 50 µs while disk I/O is in flight so io_uring workers can complete WAL writes (`RuntimeConfig::io_yield_us`) | `src/native/runtime.cpp`, [ROUTING.md](ROUTING.md#durable-p99-the-cause) |
 | Hot-key (Zipf) workloads | Done: `--zipf THETA` in all benchmarks; SNC overtakes the baseline at high skew (θ 1.5), and over TCP at θ 0.99 too; leads durable at every skew | `bench/zipf.h`, [SKEW.md](SKEW.md) |
 | Comparison with a conventional stack | Done: same workload on PostgreSQL 16 and Redis 7, same cores; SNC about 10× Redis and 35-50× PostgreSQL | `bench/conventional/`, [CONVENTIONAL.md](CONVENTIONAL.md) |
+| Two-object ops (transfers) | Done: durable follow-ups (`OpCtx::emit`, `resume`) across shards, one op with an atomic WAL group (`OpCtx::local`) within a shard; `create_near` places related objects in one slot; conserved across restart, remap, torn groups and SIGKILL. Random pairs: 1.7x slower than the locked baseline in memory, within 10% durable; all pairs on one shard: 1.5x faster in memory, tied durable. 7-9x Redis, 15-35x PostgreSQL | [TRANSFERS.md](TRANSFERS.md) |
 | Request routing to the owning shard | Done: per-shard TCP listeners, wire protocol v0, owner-aware client, owner-local minting for creates; measured against the baseline behind the same front end | `src/net/`, `include/snc/wire.h`, `tools/snc_server.cpp`, [ROUTING.md](ROUTING.md) |
 
 ## Known deviations from the spec

@@ -1,0 +1,13 @@
+group,engine,server_flags,client_flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,misrouted_pct,forwarded_pct,load_s,creates_s
+transfer,snc,,--route owner --transfer 100 --depth 64,0,1118608,62464,118784,159744,638976,0.0,0.0,0.84,1185442
+transfer,snc,,--route owner --transfer 100 --depth 64,1,1164526,61440,108544,143360,417792,0.0,0.0,0.92,1083875
+transfer,snc,,--route owner --transfer 100 --depth 64,2,1157460,60416,110592,163840,442368,0.0,0.0,0.87,1152855
+transfer,baseline,,--route any --transfer 100 --depth 64,0,1626706,62464,100352,155648,557056,50.0,0.0,1.06,939907
+transfer,baseline,,--route any --transfer 100 --depth 64,1,1663276,60416,94208,135168,720896,50.0,0.0,1.0,999517
+transfer,baseline,,--route any --transfer 100 --depth 64,2,1657555,61440,96256,135168,483328,50.0,0.0,1.0,1001225
+transfer-durable,snc,--data-dir D,--route owner --transfer 100 --depth 256,0,414655,933888,1572864,2064384,4194304,0.0,0.0,1.62,618041
+transfer-durable,snc,--data-dir D,--route owner --transfer 100 --depth 256,1,450301,983040,1671168,3014656,5767168,0.0,0.0,1.58,631623
+transfer-durable,snc,--data-dir D,--route owner --transfer 100 --depth 256,2,417467,966656,1802240,2818048,4849664,0.0,0.0,1.85,539996
+transfer-durable,baseline,--data-dir D --logs 2,--route any --transfer 100 --depth 256,0,473754,966656,1572864,2883584,6029312,50.0,0.0,1.95,513331
+transfer-durable,baseline,--data-dir D --logs 2,--route any --transfer 100 --depth 256,1,515700,901120,1409024,2949120,6422528,50.1,0.0,1.85,539468
+transfer-durable,baseline,--data-dir D --logs 2,--route any --transfer 100 --depth 256,2,523593,868352,1441792,3014656,6291456,50.0,0.0,1.7,586970

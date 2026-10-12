@@ -39,7 +39,8 @@ void hook_batch(void*, const Msg* const* msgs, u32 n) {
   ObjectID ids[64];
   u32 k = 0;
   for (u32 i = 0; i < n && k < 64; ++i) {
-    if (msgs[i]->kind == MsgKind::EXEC_REQ || msgs[i]->kind == MsgKind::DELETE_REQ) {
+    MsgKind kind = msgs[i]->kind;
+    if (kind == MsgKind::EXEC_REQ || kind == MsgKind::DELETE_REQ || kind == MsgKind::EMIT) {
       ids[k++] = msgs[i]->target;
     }
   }
@@ -124,8 +125,52 @@ void Engine::start() {
   recover();
 }
 
+// Follow-ups queued on any shard or still in a ring, and emitted so far.
+static void emit_totals(NativeRuntime& rt, u64& in_flight, u64& emitted) {
+  std::atomic<u64> queued{0}, sent{0}, received{0}, e{0};
+  rt.run_on_all([&](u16) {
+    Shard* s = current_shard();
+    queued += s->emits_in_flight();
+    sent += s->emits_sent();
+    received += s->emits_received();
+    e += s->stats().emits;
+  });
+  in_flight = queued + (sent - received);
+  emitted = e;
+}
+
+bool Engine::wait_emits(double timeout_s) {
+  const auto t0 = std::chrono::steady_clock::now();
+  u64 last = ~u64{0};
+  while (since(t0) < timeout_s) {
+    // The shards are sampled one at a time, so a follow-up can move between
+    // two of them unseen; two idle rounds with nothing emitted between them
+    // cannot both miss it.
+    u64 in_flight, emitted;
+    emit_totals(*rt_, in_flight, emitted);
+    if (in_flight == 0 && emitted == last) return true;
+    last = in_flight == 0 ? emitted : ~u64{0};
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return false;
+}
+
 void Engine::stop() {
   if (!running_) return;
+  // Stop dispatching follow-ups and let the ones already sent to another
+  // shard come back, so no shard waits on a response from a stopped one.
+  // Paused shards still run follow-ups that arrive; wait until every one
+  // sent has arrived, so none is left in a ring.
+  rt_->run_on_all([](u16) { current_shard()->pause_emits(true); });
+  while (true) {
+    std::atomic<u64> sent{0}, received{0};
+    rt_->run_on_all([&](u16) {
+      sent += current_shard()->emits_sent();
+      received += current_shard()->emits_received();
+    });
+    if (sent == received) break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
   rt_->stop();  // shards quiesce first: WAL flushed, waiters released
   running_ = false;
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it

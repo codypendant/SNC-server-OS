@@ -27,9 +27,10 @@ u32 crc32c(const void* data, std::size_t len, u32 seed) {
 }
 
 u32 encode_record(u8* dst, RecType type, u64 lsn, u32 type_id, const ObjectID& id, u64 version,
-                  u16 schema_ver, const u8* payload, u32 payload_len) {
+                  u16 schema_ver, const u8* payload, u32 payload_len, u16 flags) {
   u32 total = record_size(payload_len);
   WalRecord h{};
+  h.flags = flags;
   h.total_len = total;
   h.lsn = lsn;
   h.rec_type = static_cast<u16>(type);
