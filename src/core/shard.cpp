@@ -70,11 +70,17 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
 }
 
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
-                   void* ctx) {
+                   void* ctx, const ObjectID* near) {
   ObjectID id = minter_.next();
   // Skipping sequence numbers keeps IDs unique and never reused (C12); with
-  // N shards this takes N hashes per create on average.
-  while (mint_local_ && owner_of(id) != id_) id = minter_.next();
+  // N shards this takes N hashes per create on average, and kSlots to land
+  // in a given slot.
+  if (near != nullptr) {
+    const u16 slot = slot_of(*near);
+    while (slot_of(id) != slot) id = minter_.next();
+  } else {
+    while (mint_local_ && owner_of(id) != id_) id = minter_.next();
+  }
   u16 owner = owner_of(id);
   if (owner == id_) {
     ++stats_.ops_local;
@@ -1158,6 +1164,11 @@ void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, C
 
 void create(u32 type_id, ByteView init_args, const ExecOptions& opts, Completion done, void* ctx) {
   tl_shard->create(type_id, init_args, opts, done, ctx);
+}
+
+void create_near(const ObjectID& near, u32 type_id, ByteView init_args, const ExecOptions& opts,
+                 Completion done, void* ctx) {
+  tl_shard->create(type_id, init_args, opts, done, ctx, &near);
 }
 
 void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {

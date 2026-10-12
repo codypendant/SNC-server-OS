@@ -35,6 +35,12 @@ using Completion = void (*)(void* ctx, const ExecResult& r);
 void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
              void* ctx);
 void create(u32 type_id, ByteView init_args, const ExecOptions& opts, Completion done, void* ctx);
+// Placement (docs/TRANSFERS.md): like create, but the new ID falls in the
+// same slot as `near`, so the two objects share an owner under every slot
+// map, including after a shard-count change. Objects changed together
+// (OpCtx::local) belong together. Mints about 4096 IDs per call to find one.
+void create_near(const ObjectID& near, u32 type_id, ByteView init_args, const ExecOptions& opts,
+                 Completion done, void* ctx);
 void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
 
 // Secondary index lookup (spec section 11): asks every shard, merges, and

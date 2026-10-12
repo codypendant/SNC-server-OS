@@ -28,7 +28,8 @@ class Shard {
   // ---- Application API (entry shard) ----
   void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
                void* ctx);
-  void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx);
+  void create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done, void* ctx,
+              const ObjectID* near = nullptr);
   void remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx);
   void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done, void* ctx);
   void prefetch(const ObjectID* ids, u32 n);

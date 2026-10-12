@@ -13,6 +13,7 @@
 #include <string>
 
 #include "harness.h"
+#include "snc/slot_map.h"
 #include "snc/storage.h"
 #include "snc/types/account.h"
 #include "snc/wal_format.h"
@@ -296,6 +297,82 @@ void test_local() {
               (unsigned long long)rejected);
 }
 
+// create_near puts accounts in their group's slot, so transfers inside a
+// group stay one op, under 4 shards and after a change to 3.
+void test_placement() {
+  char tmpl[] = "/tmp/snc-xfer-place-XXXXXX";
+  std::string dir = mkdtemp(tmpl);
+  constexpr u32 kGroups = 20, kPer = 4;
+  std::vector<std::vector<ObjectID>> groups(kGroups);
+  std::map<ObjectID, i64> net;
+  auto emits = [](Engine& eng) {
+    u64 n = 0;
+    for (u16 s = 0; s < eng.shard_count(); ++s) n += eng.stats(s).emits;
+    return n;
+  };
+  auto run = [&](Engine& eng, u32 seed) {
+    std::mt19937_64 rng(seed);
+    u64 before = emits(eng);
+    for (u32 i = 0; i < 400; ++i) {
+      const auto& g = groups[rng() % kGroups];
+      u32 a = rng() % kPer, b = (a + 1 + rng() % (kPer - 1)) % kPer;
+      i64 amount = 1 + static_cast<i64>(rng() % 20);
+      OneResult r = one(eng, static_cast<u16>(i % eng.shard_count()), [&](Completion c, void* ctx) {
+        TransferArgs t{g[b], amount, 7};
+        execute(g[a], kOpTransfer, ByteView(&t, sizeof(t)), {}, c, ctx);
+      });
+      if (r.r.status == Status::OK) {
+        net[g[a]] -= amount;
+        net[g[b]] += amount;
+      } else {
+        CHECK_EQ(r.r.status, Status::E_APP);
+        CHECK_EQ(r.r.app_code, kAppInsufficientFunds);
+      }
+    }
+    CHECK_EQ(emits(eng), before);  // every transfer was one op
+  };
+  std::vector<ObjectID> all;
+  {
+    Engine eng(config(4, dir, true));
+    eng.start();
+    for (u32 gi = 0; gi < kGroups; ++gi) {
+      for (u32 k = 0; k < kPer; ++k) {
+        OneResult r = one(eng, static_cast<u16>((gi + k) % 4), [&](Completion c, void* ctx) {
+          CreateArgs a{};
+          a.balance_cents = kStart;
+          a.created_ns = 1;
+          a.email_len = 1;
+          a.email[0] = 'p';
+          a.name_len = 1;
+          a.name[0] = 'n';
+          if (k == 0) {
+            create(kTypeId, ByteView(&a, sizeof(a)), {}, c, ctx);
+          } else {
+            create_near(groups[gi][0], kTypeId, ByteView(&a, sizeof(a)), {}, c, ctx);
+          }
+        });
+        CHECK_EQ(r.r.status, Status::OK);
+        if (k > 0) CHECK_EQ(slot_of(r.r.id), slot_of(groups[gi][0]));
+        groups[gi].push_back(r.r.id);
+        all.push_back(r.r.id);
+      }
+    }
+    run(eng, 11);
+    verify(eng, all, net);
+    eng.stop();
+  }
+  {
+    Engine eng(config(3, dir, false));
+    eng.start();
+    CHECK(eng.recovery().remapped);
+    verify(eng, all, net);
+    run(eng, 12);
+    verify(eng, all, net);
+    eng.stop();
+  }
+  std::printf("placement: %u groups of %u, transfers inside groups stayed local\n", kGroups, kPer);
+}
+
 // The child runs transfers until killed. Without the acks we cannot know
 // which in-flight transfers committed, so the parent checks conservation
 // and that every exchange finishes; test_crash covers acknowledged
@@ -362,6 +439,7 @@ int main() {
   test_memory();
   test_durable();
   test_local();
+  test_placement();
   test_crash();
   std::printf("test_transfer: ok\n");
   return 0;

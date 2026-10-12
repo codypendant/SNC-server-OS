@@ -185,10 +185,13 @@ What this shows:
   by the disk). The break-even is around 95% same-shard pairs in memory
   and 50-90% durable.
 - **So SNC's answer to multi-object work is placement**, as the handoff
-  expects: objects that are changed together belong on one shard. A
-  type that groups related accounts (a customer's accounts, a ledger's
-  entries) under shared slot bits would make most transfers local.
-  Choosing IDs for placement is not in v0.1.
+  expects: objects that are changed together belong on one shard.
+  `create_near(near, type, args)` mints an ID in the same slot as `near`
+  (by skipping IDs until one hashes there, about 4096 per create), so
+  the two share an owner under every slot map, including after a
+  shard-count change. A customer's accounts created near each other
+  transfer among themselves in one op; `test_transfer` checks this
+  before and after a 4→3 shard change.
 - **Against real databases SNC stays far ahead** even with random
   pairs: 7.8x Redis and 30x PostgreSQL in memory, 6x Redis and 13x
   PostgreSQL durable, on the same two server cores. The baseline is not
@@ -200,7 +203,8 @@ What this shows:
 
 What would cut the cross-shard cost further:
 
-1. **Placement**: IDs that put related objects on one shard (above).
+1. **Placement** with `create_near` (above), where the application knows
+   which objects belong together.
 2. **Drop `forget`.** It exists so B can discard its inbox entry. If B
    kept only the highest settled `seq` per sender, A's settle would not
    need to be acknowledged, saving a record and a message per transfer.
