@@ -1,43 +1,43 @@
 group,engine,flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,msgs_per_op,contended_pct,load_s,rss_per_obj,checkpoint_s,recovery_s,ckpt_load_s,wal_replay_s
-transfer,snc,--transfer 100 --reads 50 --depth 32,0,2919107,376,640,784,4480,2.25,,0.62,498.5,,,,
-transfer,snc,--transfer 100 --reads 50 --depth 32,1,2899719,384,656,800,4608,2.25,,0.45,498.6,,,,
-transfer,snc,--transfer 100 --reads 50 --depth 32,2,2946622,376,640,800,4608,2.25,,0.39,498.5,,,,
-transfer,snc,--transfer 20 --reads 50 --depth 32,0,7831617,132,544,704,1120,0.45,,0.39,498.5,,,,
-transfer,snc,--transfer 20 --reads 50 --depth 32,1,7916896,128,544,704,1024,0.45,,0.43,498.5,,,,
-transfer,snc,--transfer 20 --reads 50 --depth 32,2,7633092,132,544,720,3264,0.45,,0.45,498.6,,,,
-transfer,baseline,--transfer 100 --reads 50 --depth 32,0,6150691,328,560,704,4096,,0.131,0.37,452.5,,,,
-transfer,baseline,--transfer 100 --reads 50 --depth 32,1,5847597,328,560,720,4224,,0.126,0.38,452.4,,,,
-transfer,baseline,--transfer 100 --reads 50 --depth 32,2,6173070,328,560,704,3776,,0.131,0.37,452.5,,,,
-transfer,baseline,--transfer 20 --reads 50 --depth 32,0,9607392,188,464,624,1120,,0.049,0.37,452.5,,,,
-transfer,baseline,--transfer 20 --reads 50 --depth 32,1,10053861,184,464,608,1056,,0.052,0.38,452.4,,,,
-transfer,baseline,--transfer 20 --reads 50 --depth 32,2,9774905,184,464,608,1056,,0.051,0.38,452.5,,,,
-transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,0,386918,2097152,3604480,5636096,32505856,2.25,,0.74,502.2,1.77,1.05,0.37,0.52
-transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,1,466453,1802240,2752512,3801088,7864320,2.25,,1.07,501.9,1.66,1.04,0.27,0.61
-transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,2,465094,1769472,2818048,4128768,12058624,2.25,,0.99,501.8,1.64,1.04,0.28,0.5
-transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,0,515770,1605632,2686976,4063232,14155776,,0.109,0.72,459.9,,,,
-transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,1,504768,1671168,2752512,4456448,15990784,,0.103,0.76,460.1,,,,
-transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,2,538361,1638400,2424832,3801088,8257536,,0.165,0.71,458.8,,,,
-transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,0,2089798,336,640,800,3712,3.0,,0.42,498.5,,,,
-transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,1,2153105,344,640,784,3584,3.0,,0.45,498.6,,,,
-transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,2,2131771,328,624,784,1312,3.0,,0.44,498.5,,,,
-transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,0,438560,1966080,3080192,4128768,8388608,3.0,,0.84,501.8,2.01,1.32,0.53,0.6
-transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,1,399886,2162688,3276800,4718592,7995392,3.0,,1.18,501.6,1.67,1.29,0.45,0.53
-transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,2,417864,2064384,3211264,4325376,8388608,3.0,,1.05,502.5,1.6,1.02,0.28,0.59
-transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,0,3770156,384,640,784,4608,1.5,,0.45,498.5,,,,
-transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,1,3977469,376,624,768,4480,1.5,,0.38,498.6,,,,
-transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,2,3660469,384,656,800,4736,1.5,,0.39,498.6,,,,
-transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,0,500691,1638400,2555904,3473408,6029312,1.5,,1.0,502.0,1.73,1.05,0.34,0.55
-transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,1,471076,1703936,2752512,4194304,8650752,1.5,,0.88,501.6,1.6,1.14,0.39,0.61
-transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,2,511609,1572864,2555904,3473408,9699328,1.5,,1.08,501.8,1.65,1.01,0.38,0.5
-transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,0,5950861,352,608,752,4224,0.3,,0.41,498.6,,,,
-transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,1,5808733,360,608,768,4352,0.3,,0.39,498.5,,,,
-transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,2,5918180,352,608,768,4352,0.3,,0.37,498.6,,,,
-transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,0,548041,1376256,2228224,3538944,7077888,0.3,,0.72,501.8,1.48,1.11,0.33,0.53
-transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,1,585595,1277952,2097152,3342336,7864320,0.3,,0.95,502.0,1.43,1.0,0.42,0.41
-transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,2,552109,1343488,2162688,3342336,20971520,0.3,,0.86,501.5,1.55,0.99,0.33,0.52
-transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,0,7145288,344,576,720,4096,0.0,,0.43,498.5,,,,
-transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,1,7253248,344,576,720,4032,0.0,,0.43,498.5,,,,
-transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,2,7476927,328,560,688,3968,0.0,,0.37,498.6,,,,
-transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,0,588300,1343488,1998848,2686976,5767168,0.0,,0.82,501.7,1.54,1.22,0.45,0.43
-transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,1,536012,1441792,2293760,3538944,7733248,0.0,,1.05,501.2,1.62,0.99,0.4,0.43
-transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,2,516081,1441792,2293760,3342336,22544384,0.0,,0.93,501.5,1.35,1.23,0.39,0.53
+transfer,snc,--transfer 100 --reads 50 --depth 32,0,3509473,320,592,752,3328,2.25,,0.66,498.6,,,,
+transfer,snc,--transfer 100 --reads 50 --depth 32,1,3578256,328,592,752,3712,2.25,,0.42,498.5,,,,
+transfer,snc,--transfer 100 --reads 50 --depth 32,2,3241033,328,608,784,4096,2.25,,0.42,498.5,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,0,8086275,128,504,656,960,0.45,,0.44,498.6,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,1,8290935,140,496,640,944,0.45,,0.37,498.6,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,2,8381463,126,496,656,928,0.45,,0.36,498.6,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,0,5963233,328,560,720,3776,,0.128,0.42,452.5,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,1,6214796,320,560,704,4032,,0.131,0.36,452.4,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,2,6043219,328,560,704,3904,,0.127,0.43,452.4,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,0,9550924,188,464,624,1120,,0.049,0.39,452.5,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,1,9665905,188,464,624,1280,,0.049,0.37,452.4,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,2,9872145,184,464,608,1008,,0.051,0.4,452.5,,,,
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,0,426767,1966080,3276800,4587520,7995392,2.25,,0.84,502.0,2.05,1.11,0.35,0.54
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,1,428226,1900544,2883584,4128768,73400320,2.25,,0.86,501.8,1.86,1.01,0.41,0.47
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,2,477928,1802240,2621440,3670016,7733248,2.25,,1.0,501.9,1.68,0.9,0.28,0.49
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,0,557811,1540096,2359296,3604480,6422528,,0.081,0.86,459.5,,,,
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,1,454821,1671168,3080192,14155776,18350080,,0.138,0.67,458.8,,,,
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,2,547647,1540096,2621440,3801088,7733248,,0.121,0.77,457.8,,,,
+transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,0,2713646,312,576,736,1184,3.0,,0.45,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,1,2771189,320,592,736,3456,3.0,,0.46,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 0 --depth 32,2,2567184,296,576,736,1056,3.0,,0.42,498.6,,,,
+transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,0,453920,1900544,2949120,3997696,7208960,3.0,,0.94,501.8,2.17,1.11,0.3,0.67
+transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,1,433874,1966080,3080192,3932160,12845056,3.0,,0.92,502.3,2.11,1.08,0.38,0.45
+transfer-local-durable,snc,--transfer 100 --xfer-local 0 --depth 256 --data-dir D,2,426922,1998848,3014656,4325376,58720256,3.0,,0.95,501.6,1.85,1.16,0.45,0.55
+transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,0,4123785,328,608,768,3712,1.5,,0.47,498.5,,,,
+transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,1,4371613,320,608,752,3648,1.5,,0.36,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 50 --depth 32,2,4092417,328,608,784,4096,1.5,,0.37,498.6,,,,
+transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,0,518830,1540096,2490368,4325376,9961472,1.5,,0.83,501.9,2.26,1.07,0.32,0.58
+transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,1,529552,1507328,2359296,3407872,7208960,1.5,,1.15,502.1,1.64,1.22,0.36,0.64
+transfer-local-durable,snc,--transfer 100 --xfer-local 50 --depth 256 --data-dir D,2,506608,1572864,2490368,3670016,8650752,1.5,,0.95,502.0,1.77,1.05,0.46,0.45
+transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,0,7493796,208,512,656,1728,0.3,,0.37,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,1,7176869,200,504,656,992,0.3,,0.37,498.5,,,,
+transfer-local,snc,--transfer 100 --xfer-local 90 --depth 32,2,7122605,212,512,672,3136,0.3,,0.43,498.6,,,,
+transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,0,616998,1245184,1966080,3342336,5111808,0.3,,0.91,501.8,1.77,1.09,0.3,0.6
+transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,1,574671,1277952,2228224,3407872,6946816,0.3,,0.95,501.8,1.55,1.18,0.36,0.66
+transfer-local-durable,snc,--transfer 100 --xfer-local 90 --depth 256 --data-dir D,2,612885,1245184,1998848,2949120,6815744,0.3,,0.93,501.8,1.5,0.85,0.35,0.36
+transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,0,9217517,184,456,592,2944,0.0,,0.39,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,1,9718708,180,448,592,2688,0.0,,0.42,498.6,,,,
+transfer-local,snc,--transfer 100 --xfer-local 100 --depth 32,2,9805374,180,448,592,976,0.0,,0.44,498.5,,,,
+transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,0,555491,1441792,2228224,3145728,5111808,0.0,,0.86,501.7,1.7,1.17,0.55,0.48
+transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,1,579329,1376256,1966080,2686976,4718592,0.0,,0.91,502.4,1.41,1.11,0.48,0.48
+transfer-local-durable,snc,--transfer 100 --xfer-local 100 --depth 256 --data-dir D,2,541429,1376256,2162688,3670016,30932992,0.0,,0.84,501.5,1.34,1.01,0.43,0.45

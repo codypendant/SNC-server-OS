@@ -134,6 +134,10 @@ when the closing record is durable, and B's `last_lsn` points at it, so
 reads of B wait for the whole group too. Groups never span WAL segments
 because one op's records are flushed together.
 
+Follow-up targets arriving in a ring batch are prefetched like client
+requests, and `local()` checks the slot map before probing the map, so a
+destination on another shard costs no cache miss here.
+
 The op may change the second object's payload in place but not its
 length or index key (checked in debug builds), so it needs no
 reservation or index work. A destination that would overflow is
@@ -148,11 +152,11 @@ pairs share a shard (in process); with 2 server shards, half (TCP).
 
 | Setup | SNC | Locked baseline | Redis | PostgreSQL |
 | --- | --- | --- | --- | --- |
-| In process, memory, 100% transfers | 2.92M/s | 6.06M/s | | |
-| In process, memory, 20% transfers + 40% reads + 40% deposits | 7.79M/s | 9.81M/s | | |
-| In process, durable | 439K/s | 520K/s (4 logs) | | |
-| TCP, 2 server cores, memory | 1.00M/s (p99 0.18 ms) | 1.61M/s | 129K/s | 33K/s (pipelined) |
-| TCP, 2 server cores, durable | 364K/s (p99 2.6 ms) | 480K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
+| In process, memory, 100% transfers | 3.44M/s | 6.07M/s | | |
+| In process, memory, 20% transfers + 40% reads + 40% deposits | 8.25M/s | 9.70M/s | | |
+| In process, durable | 444K/s | 520K/s (4 logs) | | |
+| TCP, 2 server cores, memory | 1.17M/s (p99 0.17 ms) | 1.66M/s | 129K/s | 33K/s (pipelined) |
+| TCP, 2 server cores, durable | 395K/s (p99 2.2 ms) | 500K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
 
 Placement decides it. `snc_bench --xfer-local P` sends P% of transfers
 to an account on the source's shard and the rest to other shards (in
@@ -160,8 +164,8 @@ process, 100% transfers; the baseline does not care where accounts live):
 
 | Same-shard pairs | 0% | 50% | 90% | 100% | Baseline |
 | --- | --- | --- | --- | --- | --- |
-| Memory | 2.12M/s | 3.80M/s | 5.89M/s | 7.29M/s | 6.06M/s |
-| Durable | 419K/s | 494K/s | 562K/s | 547K/s | 520K/s |
+| Memory | 2.68M/s | 4.20M/s | 7.26M/s | 9.58M/s | 6.07M/s |
+| Durable | 438K/s | 518K/s | 601K/s | 559K/s | 520K/s |
 
 Correctness: `test_transfer` passes in release, ASan/UBSan and TSan
 builds: exact balances after transfers settle in memory and durable,
@@ -173,17 +177,17 @@ rounds with up to a few hundred exchanges in flight at recovery.
 
 What this shows:
 
-- **Across shards, SNC loses to the locked baseline**: 2.9x slower in
+- **Across shards, SNC loses to the locked baseline**: 2.3x slower in
   memory when no pair shares a shard. The baseline does every transfer
   as one step on one thread: lock two stripes, change both rows, append
   one log record per side. A cross-shard SNC transfer is four ops on two
   cores, four WAL records and three ring messages. With uniform keys the
   baseline's stripe locks almost never contend (0.13% of ops), so its
   locks cost nothing and SNC's extra steps are pure overhead.
-- **Within a shard, SNC wins**: 7.29M against 6.06M in memory, about
-  the same durable (both write two records per transfer and are bound
-  by the disk). The break-even is around 95% same-shard pairs in memory
-  and 50-90% durable.
+- **Within a shard, SNC wins**: 9.58M against 6.07M in memory (1.6x),
+  and 1.1x durable (both write two records per transfer and are bound by
+  the disk). The break-even is around 70% same-shard pairs in memory and
+  50% durable.
 - **So SNC's answer to multi-object work is placement**, as the handoff
   expects: objects that are changed together belong on one shard.
   `create_near(near, type, args)` mints an ID in the same slot as `near`
@@ -193,7 +197,7 @@ What this shows:
   transfer among themselves in one op; `test_transfer` checks this
   before and after a 4→3 shard change.
 - **Against real databases SNC stays far ahead** even with random
-  pairs: 7.8x Redis and 30x PostgreSQL in memory, 6x Redis and 13x
+  pairs: 9x Redis and 35x PostgreSQL in memory, 7x Redis and 14x
   PostgreSQL durable, on the same two server cores. The baseline is not
   a database: it has no recovery for its logs.
 - **The semantics differ across shards.** The baseline (and PostgreSQL,

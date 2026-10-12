@@ -116,9 +116,9 @@ class Shard {
   struct Emit {
     ObjectID source, target;
     OpID op = 0, fail_op = 0;
-    u8 len = 0;
-    u8 args[OpCtx::kMaxEmitArgs];
+    alignas(8) u8 args[OpCtx::kMaxEmitArgs];
     u64 lsn = 0;  // dispatch once durable
+    u8 len = 0;
   };
   static constexpr u64 kEmitBacklog = 1024;
   void route_emit(const Emit& e);

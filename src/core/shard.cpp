@@ -1014,7 +1014,9 @@ ObjectHeader* OpCtx::local(const ObjectID& id, u32 type_id) {
     if (peer_->id == id) return peer_;
     contract_violation("local() on a second object", op_);
   }
-  ObjectHeader* o = s->map_.find(id, snc_hash64(id));
+  u64 h = snc_hash64(id);
+  if (s->slots_.owner[h >> 52] != s->id_) return nullptr;  // another shard's: no map probe
+  ObjectHeader* o = s->map_.find(id, h);
   if (o == nullptr || o->deleted() || o->type_id != type_id) return nullptr;
   if (applying_) {
     peer_ = o;
@@ -1035,14 +1037,13 @@ void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
     contract_violation("emit from a non-MUTATE op", op_);
   }
   if (args.len > kMaxEmitArgs) contract_violation("emit args too large", op_);
-  Shard::Emit e;
+  Shard::Emit& e = s->emit_scratch_.emplace_back();
   e.source = obj_->id;
   e.target = target;
   e.op = op;
   e.fail_op = fail_op;
   e.len = static_cast<u8>(args.len);
   if (args.len) std::memcpy(e.args, args.data, args.len);
-  s->emit_scratch_.push_back(e);
 }
 
 void Shard::queue_emits(u64 lsn) {

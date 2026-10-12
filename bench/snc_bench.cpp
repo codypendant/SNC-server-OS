@@ -74,6 +74,7 @@ struct ShardDriver {
   bool prefetch = true;
   std::vector<ObjectID> next;  // targets chosen ahead, for prefetch
   std::vector<ObjectID> next_to;  // transfer destinations (null: not a transfer)
+  std::vector<ObjectID> prefetch_to;
   u64 rejected = 0, overloaded = 0;
   const bench::Zipf* zipf = nullptr;
   const std::vector<ObjectID>* ranked = nullptr;
@@ -135,7 +136,18 @@ bool issue(ShardDriver& d) {
     }
     d.next_to.push_back(to);
   }
-  if (d.prefetch && !d.next.empty()) prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+  if (d.prefetch && !d.next.empty()) {
+    prefetch(d.next.data(), static_cast<u32>(d.next.size()));
+    // Transfer destinations this shard owns are touched by the same op
+    // (OpCtx::local); the baseline prefetches its destinations too.
+    if (d.transfer_pct) {
+      d.prefetch_to.clear();
+      for (const ObjectID& to : d.next_to) {
+        if (!to.is_null()) d.prefetch_to.push_back(to);
+      }
+      if (!d.prefetch_to.empty()) prefetch(d.prefetch_to.data(), static_cast<u32>(d.prefetch_to.size()));
+    }
+  }
   std::size_t k = 0;
   // Local ops complete inline and return their slot at once, so bound the
   // batch per poll to keep the loop (and the phase check) moving.

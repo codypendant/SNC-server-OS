@@ -39,7 +39,8 @@ void hook_batch(void*, const Msg* const* msgs, u32 n) {
   ObjectID ids[64];
   u32 k = 0;
   for (u32 i = 0; i < n && k < 64; ++i) {
-    if (msgs[i]->kind == MsgKind::EXEC_REQ || msgs[i]->kind == MsgKind::DELETE_REQ) {
+    MsgKind kind = msgs[i]->kind;
+    if (kind == MsgKind::EXEC_REQ || kind == MsgKind::DELETE_REQ || kind == MsgKind::EMIT) {
       ids[k++] = msgs[i]->target;
     }
   }
