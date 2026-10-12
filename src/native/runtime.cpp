@@ -43,6 +43,7 @@ struct Ring {
   // Producer-private.
   alignas(64) u32 p_tail = 0;
   u32 p_published = 0;
+  bool p_unwoken = false;  // published early (sri_publish): wake check still due
   u32 p_head_cache = 0;
   RingStats stats;
   // Consumer-private.
@@ -161,6 +162,12 @@ Msg* sri_claim(u16 dst, bool must_deliver) {
     return nullptr;
   }
   return &ov.emplace_back();
+}
+
+void sri_publish(u16 dst) {
+  Worker& w = *tl_worker;
+  Ring& r = *w.outbound[dst];
+  if (r.publish()) r.p_unwoken = true;  // the loop's publish_all does the wake check
 }
 
 void sri_commit(u16 dst, Msg* msg) {
@@ -301,7 +308,9 @@ void NativeRuntime::Impl::publish_all(Worker& w) {
     Ring& r = *w.outbound[dst];
     auto& ov = w.overflow[dst];
     while (!ov.empty() && r.try_push(ov.front())) ov.pop_front();
-    if (r.publish()) {
+    bool due = r.publish() || r.p_unwoken;
+    r.p_unwoken = false;
+    if (due) {
       if (n_published < 64) {
         published[n_published++] = dst;
       } else {

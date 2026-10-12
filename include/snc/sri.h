@@ -50,6 +50,9 @@ bool sri_send(u16 dst, const Msg& msg, bool must_deliver = false);
 // else may send to `dst` in between.
 Msg* sri_claim(u16 dst, bool must_deliver = false);
 void sri_commit(u16 dst, Msg* msg);
+// Make what was sent to `dst` visible now rather than at the end of this
+// loop iteration (the wake-up of a sleeping consumer still happens there).
+void sri_publish(u16 dst);
 
 u64 sri_now_ns();
 

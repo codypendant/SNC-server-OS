@@ -835,6 +835,7 @@ void Shard::serve_multi(const Msg& m) {
   resp->len = n;
   resp->ext.ptr = m.ext.ptr;
   sri_commit(m.src_shard, resp);
+  sri_publish(m.src_shard);  // the sender is waiting on these; don't hold them for the rest of the loop
 }
 
 void Shard::complete_multi(const Msg& m) {
