@@ -213,6 +213,7 @@ int main() {
     ShardStats st = eng.stats(0);
     CHECK(st.wal.records > 0);
     CHECK(st.wal.segments >= 1);
+    CHECK(st.wal.spares_used >= 1);  // rollovers took preallocated segments
     std::printf("A: wal records(shard0) %llu flushes %llu written %llu B direct=%d\n",
                 (unsigned long long)st.wal.records, (unsigned long long)st.wal.flushes,
                 (unsigned long long)st.wal.written_bytes, st.wal_direct);
@@ -316,6 +317,27 @@ int main() {
     eng.stop();
   }
   {
+    Engine eng(config(4, false));
+    eng.start();
+    verify(eng);
+    eng.stop();
+  }
+
+  // F. A rename lost in a crash: the newest segment of stream 1, holding
+  // acknowledged deposits, is back under its spare name. Recovery finds it
+  // by its header.
+  {
+    Engine eng(config(4, false));
+    eng.start();
+    std::vector<ObjectID> some(g_ids.begin() + 2000, g_ids.begin() + 6000);
+    deposit_all(eng, some, 3);
+    for (const ObjectID& id : some) g_expect.at(id).balance += 3;
+    eng.stop();
+  }
+  {
+    std::vector<u64> segs = list_segments(g_dir, 1);
+    CHECK(!segs.empty());
+    CHECK_EQ(::rename(segment_path(g_dir, 1, segs.back()).c_str(), spare_path(g_dir, 1).c_str()), 0);
     Engine eng(config(4, false));
     eng.start();
     verify(eng);

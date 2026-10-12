@@ -115,6 +115,7 @@ void Engine::stop() {
   if (!running_) return;
   rt_->stop();  // shards quiesce first: WAL flushed, waiters released
   running_ = false;
+  spares_.reset();  // after the shards: their WAL streams hold a pointer to it
 }
 
 void Engine::recover() {
@@ -176,71 +177,112 @@ void Engine::recover() {
   rt_->start();
   running_ = true;
 
-  // Routing: records are batched per owner and installed on the owner's thread.
-  struct Batch {
-    std::vector<u8> bytes;
-    u32 count = 0;
-  };
-  std::vector<Batch> batches(n);
-  auto flush_batch = [&](u16 owner) {
-    if (batches[owner].count == 0) return;
-    auto data = std::make_shared<std::vector<u8>>(std::move(batches[owner].bytes));
-    batches[owner] = Batch{};
-    rt_->submit(owner, [data] {
-      Shard* s = current_shard();
-      std::size_t off = 0;
-      while (off < data->size()) {
-        WalRecord r;
-        std::memcpy(&r, data->data() + off, sizeof(r));
-        s->install(r, data->data() + off + sizeof(r));
-        off += r.total_len;
-      }
-    });
-  };
-  auto route = [&](const WalRecord& r, const u8* payload) {
-    u16 owner = slots_.owner_of(r.id);
-    Batch& b = batches[owner];
-    std::size_t at = b.bytes.size();
-    b.bytes.resize(at + r.total_len);
-    std::memcpy(b.bytes.data() + at, &r, sizeof(r));
-    std::memcpy(b.bytes.data() + at + sizeof(r), payload, r.total_len - sizeof(r));
-    if (++b.count >= 4096) flush_batch(owner);
-  };
-  auto barrier = [&] {
-    for (u16 s = 0; s < n; ++s) flush_batch(s);
-    rt_->run_on_all([](u16) {});  // submit queues are FIFO: everything before is installed
-  };
-
-  // 5a. Checkpoint images.
-  auto t1 = std::chrono::steady_clock::now();
-  if (m) {
-    for (const auto& p : m->parts) {
-      u64 got = scan_part(dir, m->seq, p.stream, uuid_, route);
-      if (got != p.objects) storage_fatal("checkpoint part object count mismatch");
-      recovery_.images_loaded += got;
-    }
-  }
-  barrier();
-  recovery_.checkpoint_load_s = since(t1);
-
-  // 5b. WAL replay from each stream's start_lsn.
-  auto t2 = std::chrono::steady_clock::now();
   std::vector<u16> streams = list_streams(dir);
+  for (u16 s : streams) adopt_spare(dir, s, uuid_);
   std::vector<u64> next_lsn(n, 1);
   bool orphans = false;
-  for (u16 s : streams) {
-    u64 from = (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1;
-    StreamScan sc = scan_stream(dir, s, from, uuid_, route);
-    recovery_.wal_records_replayed += sc.records;
-    recovery_.torn_tails += sc.torn_tails;
-    if (s < n) {
-      next_lsn[s] = std::max(sc.last_lsn + 1, from);
-    } else if (sc.last_lsn > 0) {
-      orphans = true;  // shard count shrank: this stream has no writer any more
+  auto from_lsn = [&](u16 s) -> u64 { return (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1; };
+
+  if (m && !recovery_.remapped) {
+    // Same slot map as when the files were written: part s and stream s hold
+    // only objects shard s owns, so every shard reads its own files on its
+    // own thread and installs directly, all shards in parallel.
+    auto own = [&](u16 s) {
+      return [this, s](const WalRecord& r, const u8* payload) {
+        if (slots_.owner_of(r.id) != s) storage_fatal("record in the wrong shard's stream");
+        current_shard()->install(r, payload);
+      };
+    };
+    std::vector<u64> images(n, 0);
+    auto t1 = std::chrono::steady_clock::now();
+    {
+      rt_->run_on_all([&](u16 s) {
+        for (const auto& p : m->parts) {
+          if (p.stream != s) continue;
+          images[s] = scan_part(dir, m->seq, s, uuid_, own(s));
+          if (images[s] != p.objects) storage_fatal("checkpoint part object count mismatch");
+        }
+      });
     }
+    for (u64 i : images) recovery_.images_loaded += i;
+    recovery_.checkpoint_load_s = since(t1);
+
+    auto t2 = std::chrono::steady_clock::now();
+    std::vector<StreamScan> scans(n);
+    rt_->run_on_all([&](u16 s) { scans[s] = scan_stream(dir, s, from_lsn(s), uuid_, own(s)); });
+    for (u16 s = 0; s < n; ++s) {
+      recovery_.wal_records_replayed += scans[s].records;
+      recovery_.torn_tails += scans[s].torn_tails;
+      next_lsn[s] = std::max(scans[s].last_lsn + 1, from_lsn(s));
+    }
+    for (u16 s : streams) {
+      if (s >= n) storage_fatal("WAL stream without a shard under an unchanged slot map");
+    }
+    recovery_.wal_replay_s = since(t2);
+  } else {
+    // Shard count changed, or no checkpoint yet (so the slot map the files
+    // were written under is unknown): records are read on the control thread
+    // and routed to their owners in batches. A remap is followed by a
+    // checkpoint before READY (step 8), so this path is rare.
+    struct Batch {
+      std::vector<u8> bytes;
+      u32 count = 0;
+    };
+    std::vector<Batch> batches(n);
+    auto flush_batch = [&](u16 owner) {
+      if (batches[owner].count == 0) return;
+      auto data = std::make_shared<std::vector<u8>>(std::move(batches[owner].bytes));
+      batches[owner] = Batch{};
+      rt_->submit(owner, [data] {
+        Shard* s = current_shard();
+        std::size_t off = 0;
+        while (off < data->size()) {
+          WalRecord r;
+          std::memcpy(&r, data->data() + off, sizeof(r));
+          s->install(r, data->data() + off + sizeof(r));
+          off += r.total_len;
+        }
+      });
+    };
+    auto route = [&](const WalRecord& r, const u8* payload) {
+      u16 owner = slots_.owner_of(r.id);
+      Batch& b = batches[owner];
+      std::size_t at = b.bytes.size();
+      b.bytes.resize(at + r.total_len);
+      std::memcpy(b.bytes.data() + at, &r, sizeof(r));
+      std::memcpy(b.bytes.data() + at + sizeof(r), payload, r.total_len - sizeof(r));
+      if (++b.count >= 4096) flush_batch(owner);
+    };
+    auto barrier = [&] {
+      for (u16 s = 0; s < n; ++s) flush_batch(s);
+      rt_->run_on_all([](u16) {});  // submit queues are FIFO: everything before is installed
+    };
+
+    auto t1 = std::chrono::steady_clock::now();
+    if (m) {
+      for (const auto& p : m->parts) {
+        u64 got = scan_part(dir, m->seq, p.stream, uuid_, route);
+        if (got != p.objects) storage_fatal("checkpoint part object count mismatch");
+        recovery_.images_loaded += got;
+      }
+    }
+    barrier();
+    recovery_.checkpoint_load_s = since(t1);
+
+    auto t2 = std::chrono::steady_clock::now();
+    for (u16 s : streams) {
+      StreamScan sc = scan_stream(dir, s, from_lsn(s), uuid_, route);
+      recovery_.wal_records_replayed += sc.records;
+      recovery_.torn_tails += sc.torn_tails;
+      if (s < n) {
+        next_lsn[s] = std::max(sc.last_lsn + 1, from_lsn(s));
+      } else if (sc.last_lsn > 0) {
+        orphans = true;  // shard count shrank: this stream has no writer any more
+      }
+    }
+    barrier();
+    recovery_.wal_replay_s = since(t2);
   }
-  barrier();
-  recovery_.wal_replay_s = since(t2);
 
   // 6. Index rebuild and new WAL segments (never append to a possibly torn one).
   auto t3 = std::chrono::steady_clock::now();
@@ -251,6 +293,8 @@ void Engine::recover() {
   wc.group_commit_us = cfg_.group_commit_us;
   wc.sync = cfg_.wal_sync;
   wc.direct = cfg_.wal_direct;
+  spares_ = std::make_unique<SegmentPreparer>(dir, n, cfg_.wal_segment_bytes, cfg_.wal_direct);
+  wc.spares = spares_.get();
   rt_->run_on_all([&](u16 s) { current_shard()->finish_recovery(wc, next_lsn[s]); });
   recovery_.index_rebuild_s = since(t3);
 
@@ -314,6 +358,7 @@ CheckpointReport Engine::checkpoint() {
   for (u16 s : list_streams(dir)) {
     if (s >= n) {
       for (u64 first : list_segments(dir, s)) ::unlink(segment_path(dir, s, first).c_str());
+      ::unlink(spare_path(dir, s).c_str());
       ::rmdir(stream_dir(dir, s).c_str());
       ++rep.segments_deleted;
       continue;

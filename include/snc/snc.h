@@ -169,6 +169,7 @@ class Engine {
   Superblock sb_{};
   Uuid uuid_{};
   SlotMap slots_;
+  std::unique_ptr<SegmentPreparer> spares_;
   RecoveryReport recovery_;
 };
 

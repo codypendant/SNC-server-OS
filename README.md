@@ -7,8 +7,9 @@ on minimal Linux.
 
 The design lives in the
 [SNC v0.1 Object & Execution Specification](https://claude.ai/code/artifact/8a25e96e-09ae-43ef-9e42-d6763e1eebd9).
-Progress against it, known deviations and first numbers are in
-[docs/STATUS.md](docs/STATUS.md).
+Progress against it and known deviations are in
+[docs/STATUS.md](docs/STATUS.md); the v0.1 benchmark comparison is in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## Build and test
 
@@ -58,3 +59,16 @@ O_DIRECT and `--no-sync` drops the sync (development only).
 | `src/types/` | The `Account` benchmark type |
 | `tests/` | Unit and end-to-end tests |
 | `bench/` | Benchmarks |
+
+## Baseline and benchmark matrix
+
+`baseline_bench` runs the same workload on a conventional design (thread
+pool, shared striped hash map, shared or partitioned WAL). It takes the
+same flags as `snc_bench`, with `--threads` instead of `--shards` and
+`--logs K` for the number of WAL partitions.
+
+```sh
+bench/run_matrix.py --reps 3 --seconds 4   # writes bench/results/matrix.csv
+bench/summarize.py --markdown              # medians per configuration
+```
+
