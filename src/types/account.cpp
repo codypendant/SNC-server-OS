@@ -1,5 +1,6 @@
 #include "snc/types/account.h"
 
+#include <algorithm>
 #include <limits>
 
 #include "snc/snc.h"
@@ -114,6 +115,14 @@ void set_email_apply(OpCtx& c, ByteView args) {
   p->updated_ns = a.now_ns;
 }
 
+u32 email_key(const u8* payload, u32 len, u8* key_out) {
+  if (len != sizeof(AccountV1)) return 0;
+  const auto* a = reinterpret_cast<const AccountV1*>(payload);
+  u32 n = std::min<u32>(a->email_len, sizeof(a->email));
+  std::memcpy(key_out, a->email, n);
+  return n;
+}
+
 // delete: only empty accounts
 Status delete_validate(OpCtx& c, const ObjectHeader& h, ByteView) {
   return acct(h)->balance_cents == 0 ? Status::OK : c.reject(kAppNotEmpty);
@@ -161,6 +170,13 @@ void register_type() {
   op(kOpGetBalance, "Account.get_balance", OpKind::READ, 0, sizeof(BalanceResult),
      read_validate, get_balance_apply);
   op(kOpDelete, "Account.delete", OpKind::DELETE, 0, 0, delete_validate, nullptr);
+
+  IndexDescriptor idx;
+  idx.index_id = kEmailIndex;
+  idx.type_id = kTypeId;
+  idx.name = "Account.email";
+  idx.extract = email_key;
+  r.add_index(idx);
 }
 
 }  // namespace snc::account

@@ -38,6 +38,16 @@ cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=
 Other flags: `--reads PCT`, `--depth N` (outstanding ops per shard),
 `--no-pin`, `--spin` (never sleep).
 
+With `--data-dir DIR` (a new or empty directory) every op is durable: the
+WAL is on, and after the run the benchmark takes a checkpoint and restarts
+the engine to time recovery. `--no-checkpoint` restarts from the WAL alone,
+`--group-commit-us N` sets the group-commit window, `--no-direct` turns off
+O_DIRECT and `--no-sync` drops the sync (development only).
+
+```sh
+./build/snc_bench --objects 1000000 --seconds 5 --depth 256 --data-dir /tmp/snc-data
+```
+
 ## Layout
 
 | Path | Contents |

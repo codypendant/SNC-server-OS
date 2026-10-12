@@ -11,6 +11,7 @@ endif()
 find_package(Threads REQUIRED)
 find_library(MIMALLOC_LIB mimalloc REQUIRED)
 find_library(XXHASH_LIB xxhash REQUIRED)
+find_library(URING_LIB uring REQUIRED)
 
 add_compile_options(-Wall -Wextra -Wno-missing-field-initializers)
 
@@ -19,13 +20,16 @@ add_library(snc_core
   src/core/allocator.cpp
   src/core/registry.cpp
   src/core/shard.cpp
+  src/core/engine.cpp
+  src/core/storage.cpp
+  src/core/wal_format.cpp
   src/native/runtime.cpp
   src/types/account.cpp)
 target_include_directories(snc_core PUBLIC include)
-target_link_libraries(snc_core PUBLIC Threads::Threads ${MIMALLOC_LIB} ${XXHASH_LIB})
+target_link_libraries(snc_core PUBLIC Threads::Threads ${MIMALLOC_LIB} ${XXHASH_LIB} ${URING_LIB})
 
 enable_testing()
-foreach(t test_object_id test_local_map test_runtime test_execute)
+foreach(t test_object_id test_local_map test_runtime test_execute test_persistence test_crash)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})

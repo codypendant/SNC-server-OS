@@ -1,0 +1,359 @@
+// Engine: wires the core into the runtime and owns the control-thread side
+// of persistence: superblock, recovery and checkpoint orchestration (spec
+// section 12, recovery steps 1 to 9).
+#include <dirent.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <cstdio>
+#include <latch>
+#include <mutex>
+#include <stdexcept>
+
+#include "shard.h"
+
+namespace snc {
+
+namespace {
+
+struct EngineHooks {
+  Engine::Config* cfg;
+  std::vector<Shard*>* shards;
+  std::vector<ShardStats>* final_stats;
+  const SlotMap* slots;
+  u64 lease_base;
+};
+
+void hook_init(void* user) {
+  auto* h = static_cast<EngineHooks*>(user);
+  u16 id = sri_shard_id();
+  auto* s = new Shard(id, *h->slots, h->lease_base + id, h->cfg->expected_objects);
+  set_current_shard(s);
+  (*h->shards)[id] = s;
+}
+
+void hook_message(void*, const Msg& m) { current_shard()->on_message(m); }
+
+bool hook_poll(void* user) {
+  auto* h = static_cast<EngineHooks*>(user);
+  bool busy = current_shard()->poll();
+  if (h->cfg->app_poll) busy |= h->cfg->app_poll(h->cfg->app_user, sri_shard_id());
+  return busy;
+}
+
+bool hook_quiesced(void*) { return current_shard()->quiesced(); }
+
+void hook_fini(void* user) {
+  auto* h = static_cast<EngineHooks*>(user);
+  u16 id = sri_shard_id();
+  (*h->final_stats)[id] = current_shard()->stats();
+  (*h->shards)[id] = nullptr;
+  delete current_shard();
+  set_current_shard(nullptr);
+}
+
+double since(std::chrono::steady_clock::time_point t) {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
+}
+
+void remove_tree(const std::string& path) {
+  // Only used on flat directories this engine created (checkpoints).
+  if (DIR* d = ::opendir(path.c_str())) {
+    while (dirent* e = ::readdir(d)) {
+      std::string n = e->d_name;
+      if (n != "." && n != "..") ::unlink((path + "/" + n).c_str());
+    }
+    ::closedir(d);
+  }
+  ::rmdir(path.c_str());
+}
+
+}  // namespace
+
+struct EngineState {
+  EngineHooks hooks;
+  std::vector<ShardStats> final_stats;
+};
+
+static std::unique_ptr<EngineState> g_state;
+
+Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  shards_.assign(cfg.runtime.n_shards, nullptr);
+  slots_ = SlotMap::make_default(cfg.runtime.n_shards);
+  g_state = std::make_unique<EngineState>();
+  g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
+  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1};
+  ShardHooks h;
+  h.init = hook_init;
+  h.on_message = hook_message;
+  h.poll = hook_poll;
+  h.quiesced = hook_quiesced;
+  h.fini = hook_fini;
+  h.user = &g_state->hooks;
+  rt_ = std::make_unique<NativeRuntime>(cfg.runtime, h);
+}
+
+Engine::~Engine() {
+  stop();
+  rt_.reset();
+  g_state.reset();
+}
+
+void Engine::start() {
+  if (running_) return;
+  if (cfg_.data_dir.empty()) {
+    // In-memory mode: no WAL, every state is durable at once. Leases repeat
+    // across processes, which is harmless because nothing persists.
+    rt_->start();
+    running_ = true;
+    return;
+  }
+  recover();
+}
+
+void Engine::stop() {
+  if (!running_) return;
+  rt_->stop();  // shards quiesce first: WAL flushed, waiters released
+  running_ = false;
+}
+
+void Engine::recover() {
+  const auto t0 = std::chrono::steady_clock::now();
+  const std::string& dir = cfg_.data_dir;
+  const u16 n = cfg_.runtime.n_shards;
+  recovery_ = RecoveryReport{};
+
+  // 1. Superblock.
+  std::optional<Superblock> sb = read_superblock(dir);
+  if (!sb) {
+    bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
+    if (!cfg_.init || has_data) {
+      throw std::runtime_error("no valid SNC superblock in " + dir +
+                               (has_data ? " (data present: refusing to initialize, spec C13)"
+                                         : " (start with init to create it)"));
+    }
+    make_dirs(dir);
+    sb = new_superblock(random_uuid());
+    recovery_.fresh = true;
+  }
+  sb_ = *sb;
+  std::memcpy(uuid_.data(), sb_.space_uuid, 16);
+
+  // 2. Manifest and type catalog.
+  std::optional<Manifest> m;
+  if (sb_.active_ckpt != 0) {
+    m = read_manifest(dir, sb_.active_ckpt);
+    if (!m || std::memcmp(m->space_uuid.data(), uuid_.data(), 16) != 0) {
+      storage_fatal("superblock names a checkpoint with no valid manifest");
+    }
+    for (const auto& t : m->types) {
+      const TypeDescriptor* reg = registry().type(t.type_id);
+      if (reg == nullptr || reg->schema_ver != t.schema_ver || t.name != reg->name) {
+        throw std::runtime_error("type catalog mismatch for type " + std::to_string(t.type_id) +
+                                 " (" + t.name + "): refusing to start");
+      }
+    }
+    recovery_.checkpoint_seq = m->seq;
+  }
+
+  // 3. Slot map.
+  if (m && m->n_shards == n) {
+    slots_ = m->slots;
+  } else {
+    slots_ = SlotMap::make_default(n, m ? m->slots.epoch + 1 : 1);
+    recovery_.remapped = m.has_value();
+  }
+
+  // 7 (done early, spec C12): reserve one mint lease per shard before any
+  // shard can mint.
+  g_state->hooks.lease_base = sb_.next_lease;
+  sb_.next_lease += n;
+  ++sb_.generation;
+  write_superblock(dir, sb_);
+  recovery_.superblock_s = since(t0);
+
+  // 4. Start workers; they hold no WAL until replay finishes.
+  rt_->start();
+  running_ = true;
+
+  // Routing: records are batched per owner and installed on the owner's thread.
+  struct Batch {
+    std::vector<u8> bytes;
+    u32 count = 0;
+  };
+  std::vector<Batch> batches(n);
+  auto flush_batch = [&](u16 owner) {
+    if (batches[owner].count == 0) return;
+    auto data = std::make_shared<std::vector<u8>>(std::move(batches[owner].bytes));
+    batches[owner] = Batch{};
+    rt_->submit(owner, [data] {
+      Shard* s = current_shard();
+      std::size_t off = 0;
+      while (off < data->size()) {
+        WalRecord r;
+        std::memcpy(&r, data->data() + off, sizeof(r));
+        s->install(r, data->data() + off + sizeof(r));
+        off += r.total_len;
+      }
+    });
+  };
+  auto route = [&](const WalRecord& r, const u8* payload) {
+    u16 owner = slots_.owner_of(r.id);
+    Batch& b = batches[owner];
+    std::size_t at = b.bytes.size();
+    b.bytes.resize(at + r.total_len);
+    std::memcpy(b.bytes.data() + at, &r, sizeof(r));
+    std::memcpy(b.bytes.data() + at + sizeof(r), payload, r.total_len - sizeof(r));
+    if (++b.count >= 4096) flush_batch(owner);
+  };
+  auto barrier = [&] {
+    for (u16 s = 0; s < n; ++s) flush_batch(s);
+    rt_->run_on_all([](u16) {});  // submit queues are FIFO: everything before is installed
+  };
+
+  // 5a. Checkpoint images.
+  auto t1 = std::chrono::steady_clock::now();
+  if (m) {
+    for (const auto& p : m->parts) {
+      u64 got = scan_part(dir, m->seq, p.stream, uuid_, route);
+      if (got != p.objects) storage_fatal("checkpoint part object count mismatch");
+      recovery_.images_loaded += got;
+    }
+  }
+  barrier();
+  recovery_.checkpoint_load_s = since(t1);
+
+  // 5b. WAL replay from each stream's start_lsn.
+  auto t2 = std::chrono::steady_clock::now();
+  std::vector<u16> streams = list_streams(dir);
+  std::vector<u64> next_lsn(n, 1);
+  bool orphans = false;
+  for (u16 s : streams) {
+    u64 from = (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1;
+    StreamScan sc = scan_stream(dir, s, from, uuid_, route);
+    recovery_.wal_records_replayed += sc.records;
+    recovery_.torn_tails += sc.torn_tails;
+    if (s < n) {
+      next_lsn[s] = std::max(sc.last_lsn + 1, from);
+    } else if (sc.last_lsn > 0) {
+      orphans = true;  // shard count shrank: this stream has no writer any more
+    }
+  }
+  barrier();
+  recovery_.wal_replay_s = since(t2);
+
+  // 6. Index rebuild and new WAL segments (never append to a possibly torn one).
+  auto t3 = std::chrono::steady_clock::now();
+  WalConfig wc;
+  wc.data_dir = dir;
+  wc.uuid = uuid_;
+  wc.segment_bytes = cfg_.wal_segment_bytes;
+  wc.group_commit_us = cfg_.group_commit_us;
+  wc.sync = cfg_.wal_sync;
+  wc.direct = cfg_.wal_direct;
+  rt_->run_on_all([&](u16 s) { current_shard()->finish_recovery(wc, next_lsn[s]); });
+  recovery_.index_rebuild_s = since(t3);
+
+  // 8. A changed slot map or orphaned streams need a checkpoint before READY
+  // (spec C9) so no object's history spans two streams.
+  if (recovery_.remapped || orphans || recovery_.fresh) {
+    auto t4 = std::chrono::steady_clock::now();
+    checkpoint();
+    recovery_.final_checkpoint_s = since(t4);
+  }
+  for (u16 s = 0; s < n; ++s) recovery_.objects += stats(s).objects;
+  recovery_.total_s = since(t0);
+}
+
+CheckpointReport Engine::checkpoint() {
+  CheckpointReport rep;
+  if (cfg_.data_dir.empty() || !running_) return rep;
+  const auto t0 = std::chrono::steady_clock::now();
+  const std::string& dir = cfg_.data_dir;
+  const u16 n = cfg_.runtime.n_shards;
+  u64 seq = sb_.active_ckpt + 1;
+  rep.seq = seq;
+  make_dirs(ckpt_dir(dir, seq));
+
+  // Steps 1 to 3: every shard writes and syncs its part.
+  std::vector<Shard::CheckpointResult> results(n);
+  std::latch done(n);
+  for (u16 s = 0; s < n; ++s) {
+    rt_->submit(s, [&, s] {
+      current_shard()->begin_checkpoint(dir, uuid_, seq, [&, s](const Shard::CheckpointResult& r) {
+        results[s] = r;
+        done.count_down();
+      });
+    });
+  }
+  done.wait();
+  fsync_dir(ckpt_dir(dir, seq));
+
+  // Step 4: manifest, then the superblock switch (spec C6).
+  Manifest m;
+  m.seq = seq;
+  m.space_uuid = uuid_;
+  m.n_shards = n;
+  m.slots = slots_;
+  m.start_lsn.resize(n);
+  for (u16 s = 0; s < n; ++s) {
+    m.start_lsn[s] = results[s].start_lsn;
+    m.parts.push_back(Manifest::Part{s, results[s].objects, results[s].bytes});
+    rep.objects += results[s].objects;
+    rep.bytes += results[s].bytes;
+  }
+  for (const auto& t : registry().types()) m.types.push_back({t.type_id, t.schema_ver, t.name});
+  write_manifest(dir, m);
+  u64 old = sb_.active_ckpt;
+  sb_.active_ckpt = seq;
+  ++sb_.generation;
+  write_superblock(dir, sb_);
+
+  // Step 5: only now delete what the new checkpoint covers (spec C10).
+  if (old != 0) remove_tree(ckpt_dir(dir, old));
+  for (u16 s : list_streams(dir)) {
+    if (s >= n) {
+      for (u64 first : list_segments(dir, s)) ::unlink(segment_path(dir, s, first).c_str());
+      ::rmdir(stream_dir(dir, s).c_str());
+      ++rep.segments_deleted;
+      continue;
+    }
+    std::vector<u64> segs = list_segments(dir, s);
+    for (std::size_t i = 0; i + 1 < segs.size(); ++i) {
+      // Segment i holds LSNs below segs[i+1]; drop it if all are below start_lsn.
+      if (segs[i + 1] <= m.start_lsn[s]) {
+        ::unlink(segment_path(dir, s, segs[i]).c_str());
+        ++rep.segments_deleted;
+      }
+    }
+    fsync_dir(stream_dir(dir, s));
+  }
+  fsync_dir(dir + "/ckpt");
+  fsync_dir(dir + "/wal");
+  rep.seconds = since(t0);
+  return rep;
+}
+
+ShardStats Engine::stats(u16 shard) const {
+  if (!running_) return g_state->final_stats.at(shard);
+  // Read on the owning thread: shard state is single-writer.
+  ShardStats out;
+  std::latch done(1);
+  rt_->submit(shard, [&] {
+    out = current_shard()->stats();
+    done.count_down();
+  });
+  done.wait();
+  return out;
+}
+
+void Engine::for_each_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn) {
+  std::latch done(1);
+  rt_->submit(shard, [&] {
+    current_shard()->for_each_object(fn);
+    done.count_down();
+  });
+  done.wait();
+}
+
+}  // namespace snc
