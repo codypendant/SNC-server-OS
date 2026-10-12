@@ -87,6 +87,15 @@ class OpCtx {
   // meant only as follow-ups should reject a null source.
   const ObjectID& source() const { return source_; }
 
+  // Another object this shard owns, for a MUTATE op that changes two
+  // objects at once (docs/TRANSFERS.md). Null unless `id` is a live object
+  // of type `type_id` owned by this shard, other than obj(). validate may
+  // read it. When apply calls it, the engine treats the object as changed:
+  // apply may modify its payload in place (not its length or index key),
+  // and the engine bumps its version and logs it in one atomic WAL group
+  // with this op's record. At most one such object per op.
+  ObjectHeader* local(const ObjectID& id, u32 type_id);
+
   // Write the op result (at most the op's max_result). Inline: it runs on
   // nearly every op and its results are a few bytes.
   void set_result(const void* data, u32 len) {
@@ -106,6 +115,8 @@ class OpCtx {
   u32 reserved_len_ = 0;
   u16 app_code_ = 0;
   ObjectID source_;
+  ObjectHeader* peer_ = nullptr;  // set when apply calls local()
+  bool applying_ = false;
   u8* result_buf_ = nullptr;
   u32 result_len_ = 0;
   u32 max_result_ = 0;

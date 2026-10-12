@@ -214,24 +214,40 @@ Status followup_validate(OpCtx& c, const ObjectHeader&, ByteView args) {
   return args_are<T>(args) ? Status::OK : Status::E_BAD_ARGS;
 }
 
-// transfer: debit here, record the outbox entry, credit the destination.
+// transfer: debit here and credit the destination. When this shard owns
+// the destination too, both change in one op (one atomic WAL group);
+// otherwise record an outbox entry and credit it with a follow-up.
 Status transfer_validate(OpCtx& c, const ObjectHeader& h, ByteView args) {
   if (!args_are<TransferArgs>(args)) return Status::E_BAD_ARGS;
   auto t = args_as<TransferArgs>(args);
   if (t.amount <= 0 || t.to == h.id || t.to.is_null()) return Status::E_BAD_ARGS;
   const AccountV1* a = acct(h);
   if (a->balance_cents < t.amount) return c.reject(kAppInsufficientFunds);
+  if (const ObjectHeader* to = c.local(t.to, kTypeId)) {
+    if (acct(*to)->balance_cents > std::numeric_limits<i64>::max() - t.amount) {
+      return c.reject(kAppOverflow);
+    }
+    return Status::OK;
+  }
   if (a->n_out >= kMaxOutbox) return c.reject(kAppBusy);
   return c.reserve(h.length + sizeof(OutEntry));
 }
 void transfer_apply(OpCtx& c, ByteView args) {
   auto t = args_as<TransferArgs>(args);
-  OutEntry e{c.obj()->version + 1, t.amount, t.to};  // the version this op produces
-  AccountV1* a = add_out(c, e);
+  AccountV1* a;
+  if (ObjectHeader* to = c.local(t.to, kTypeId)) {
+    AccountV1* b = reinterpret_cast<AccountV1*>(to->payload());
+    b->balance_cents += t.amount;
+    b->op_count += 1;
+    a = acct(c);
+  } else {
+    OutEntry e{c.obj()->version + 1, t.amount, t.to};  // the version this op produces
+    a = add_out(c, e);
+    emit_credit(c, e);
+  }
   a->balance_cents -= t.amount;
   a->op_count += 1;
   a->updated_ns = t.now_ns;
-  emit_credit(c, e);
   BalanceResult r{a->balance_cents, a->op_count};
   c.set_result(&r, sizeof(r));
 }

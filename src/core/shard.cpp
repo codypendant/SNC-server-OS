@@ -156,6 +156,8 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.result_len_ = 0;
   c.max_result_ = op->max_result;
   c.source_ = cur_source_;
+  c.peer_ = nullptr;
+  c.applying_ = false;
   c.result_overflow_ = false;
 }
 
@@ -178,10 +180,11 @@ void Shard::finish_result(OpCtx& c, const OpDescriptor* op, ExecResult& out) {
   out.result = ByteView(c.result_buf_, c.result_len_);
 }
 
-u64 Shard::log(RecType type, const ObjectHeader& obj) {
+u64 Shard::log(RecType type, const ObjectHeader& obj, u16 flags) {
   if (!wal_) return 0;
   u32 len = type == RecType::DELETE ? 0 : obj.length;
-  return wal_->append(type, obj.type_id, obj.id, obj.version, obj.schema_ver, obj.payload(), len);
+  return wal_->append(type, obj.type_id, obj.id, obj.version, obj.schema_ver, obj.payload(), len,
+                      flags);
 }
 
 void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
@@ -235,9 +238,28 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
 #endif
     u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
     u32 old_len = track ? extract_key(*t, *obj, old_key) : 0;
+    c.applying_ = true;
     if (op->apply) op->apply(c, args);
     ObjectHeader* o = c.obj_;
     ++o->version;
+    ObjectHeader* peer = c.peer_;
+#ifndef NDEBUG
+    if (peer != nullptr) {
+      const TypeDescriptor* pt = registry().type(peer->type_id);
+      u8 key[kMaxIndexKey];
+      u32 key_len = pt->index_id ? extract_key(*pt, *peer, key) : 0;
+      if (peer->length != peer_len_ || key_len != peer_key_len_ ||
+          std::memcmp(key, peer_key_, key_len) != 0) {
+        contract_violation("op changed the length or index key of its local() object", op);
+      }
+    }
+#endif
+    if (peer != nullptr) {
+      // Logged first, flagged as continuing into this op's record, so
+      // recovery installs both or neither.
+      ++peer->version;
+      log(RecType::UPDATE, *peer, kRecGroupNext);
+    }
     if (track) {
       u32 new_len = extract_key(*t, *o, new_key);
       if (new_len != old_len || std::memcmp(old_key, new_key, new_len) != 0) {
@@ -247,6 +269,7 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
       }
     }
     o->last_lsn = log(RecType::UPDATE, *o);
+    if (peer != nullptr) peer->last_lsn = o->last_lsn;  // durable with the group
     if (!emit_scratch_.empty()) queue_emits(o->last_lsn);
     out.r.durable = durable(o->last_lsn);
     if (opts.durability == Durability::DURABLE) out.wait_lsn = o->last_lsn;
@@ -973,6 +996,29 @@ u8* OpCtx::resize(u32 new_len) {
   if (new_len > old_len) std::memset(obj_->payload() + old_len, 0, new_len - old_len);
   obj_->length = new_len;
   return obj_->payload();
+}
+
+// ---- Two objects in one op (docs/TRANSFERS.md) --------------------------------------
+
+ObjectHeader* OpCtx::local(const ObjectID& id, u32 type_id) {
+  Shard* s = tl_shard;
+  if (op_ == nullptr || op_->kind != OpKind::MUTATE) contract_violation("local() from a non-MUTATE op", op_);
+  if (id == obj_->id) return nullptr;
+  if (peer_ != nullptr) {
+    if (peer_->id == id) return peer_;
+    contract_violation("local() on a second object", op_);
+  }
+  ObjectHeader* o = s->map_.find(id, snc_hash64(id));
+  if (o == nullptr || o->deleted() || o->type_id != type_id) return nullptr;
+  if (applying_) {
+    peer_ = o;
+#ifndef NDEBUG
+    const TypeDescriptor* t = registry().type(type_id);
+    s->peer_len_ = o->length;
+    s->peer_key_len_ = t->index_id ? s->extract_key(*t, *o, s->peer_key_) : 0;
+#endif
+  }
+  return o;
 }
 
 // ---- Follow-ups (docs/TRANSFERS.md) ------------------------------------------------

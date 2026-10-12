@@ -52,13 +52,14 @@ struct Args {
   std::vector<int> io_cpus;
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
   int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
+  int xfer_local = -1;   // % of transfers to an account on the source's shard (-1: uniform)
 };
 
 struct ShardDriver {
   u16 shard = 0;
   Engine* eng = nullptr;
   const std::vector<std::vector<ObjectID>>* by_owner = nullptr;
-  int remote_pct = 0, reads_pct = 0, transfer_pct = 0;
+  int remote_pct = 0, reads_pct = 0, transfer_pct = 0, xfer_local = -1;
   std::mt19937_64 rng;
   u32 outstanding = 0;
   u64 ops = 0, errors = 0;
@@ -96,11 +97,11 @@ void on_op_done(void* ctx, const ExecResult& r) {
   d.free_slots.push_back(static_cast<u32>(slot - d.slots.data()));
 }
 
-ObjectID pick(ShardDriver& d) {
-  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];
+ObjectID pick(ShardDriver& d, u16& owner) {
+  owner = d.shard;
+  if (d.zipf) return (*d.ranked)[d.zipf->next(d.rng)];  // owner unknown: transfers stay uniform
   const auto& by = *d.by_owner;
   u16 n = static_cast<u16>(by.size());
-  u16 owner = d.shard;
   if (n > 1 && static_cast<int>(d.rng() % 100) < d.remote_pct) {
     owner = static_cast<u16>((d.shard + 1 + d.rng() % (n - 1)) % n);
   }
@@ -117,10 +118,17 @@ bool issue(ShardDriver& d) {
   d.next.clear();
   d.next_to.clear();
   for (std::size_t i = 0; i < d.free_slots.size(); ++i) {
-    d.next.push_back(pick(d));
+    u16 owner;
+    d.next.push_back(pick(d, owner));
     ObjectID to;
     if (d.transfer_pct && static_cast<int>(d.rng() % 100) < d.transfer_pct) {
-      const auto& v = (*d.by_owner)[d.rng() % d.by_owner->size()];
+      bool same = !d.zipf && d.xfer_local >= 0 && static_cast<int>(d.rng() % 100) < d.xfer_local;
+      bool other = !d.zipf && d.xfer_local >= 0 && !same && d.by_owner->size() > 1;
+      u16 n = static_cast<u16>(d.by_owner->size());
+      u16 dest = same    ? owner
+                 : other ? static_cast<u16>((owner + 1 + d.rng() % (n - 1)) % n)
+                         : static_cast<u16>(d.rng() % n);
+      const auto& v = (*d.by_owner)[dest];
       std::size_t j = d.rng() % v.size();
       if (v[j] == d.next.back()) j = (j + 1) % v.size();
       to = v[j];
@@ -240,6 +248,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--reads") a.reads_pct = std::atoi(val());
     else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
+    else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
     else if (k == "--depth") a.depth = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-pin") a.pin = false;
     else if (k == "--spin") a.spin = true;
@@ -351,6 +360,7 @@ int main(int argc, char** argv) {
     d.remote_pct = args.remote_pct;
     d.reads_pct = args.reads_pct;
     d.transfer_pct = args.transfer_pct;
+    d.xfer_local = args.xfer_local;
     d.prefetch = args.prefetch;
     if (args.zipf > 0) {
       d.zipf = &zipf;

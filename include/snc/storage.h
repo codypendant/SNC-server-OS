@@ -86,7 +86,9 @@ struct StreamScan {
 };
 
 // Delivers every valid record with lsn >= from_lsn, in order. Stops a segment
-// at its first invalid record (torn tail). Aborts if a later segment does not
+// at its first invalid record (torn tail). Records of an atomic group
+// (kRecGroupNext) are delivered only once the group's last record is read;
+// a group cut off by a torn tail is dropped whole. Aborts if a later segment does not
 // continue the LSN sequence (corruption, spec C4).
 StreamScan scan_stream(const std::string& data_dir, u16 stream, u64 from_lsn, const Uuid& uuid,
                        const RecordFn& fn);
@@ -170,8 +172,10 @@ class WalStream {
   WalStream& operator=(const WalStream&) = delete;
 
   // Buffers a record and returns its LSN.
+  // Records appended by one op are flushed together; flags may mark an
+  // atomic group (kRecGroupNext).
   u64 append(RecType type, u32 type_id, const ObjectID& id, u64 version, u16 schema_ver,
-             const u8* payload, u32 payload_len);
+             const u8* payload, u32 payload_len, u16 flags = 0);
 
   // Call once per loop iteration. Starts a flush when due. Returns true while
   // unflushed records exist, so the loop keeps polling instead of sleeping.

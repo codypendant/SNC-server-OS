@@ -13,7 +13,9 @@
 #include <string>
 
 #include "harness.h"
+#include "snc/storage.h"
 #include "snc/types/account.h"
+#include "snc/wal_format.h"
 
 using namespace snc;
 using namespace snc::account;
@@ -224,6 +226,76 @@ void test_durable() {
               (unsigned long long)rejected);
 }
 
+// One shard owns everything, so every transfer is one op changing both
+// accounts (OpCtx::local), logged as one atomic WAL group.
+void test_local() {
+  char tmpl[] = "/tmp/snc-xfer-local-XXXXXX";
+  std::string dir = mkdtemp(tmpl);
+  std::vector<ObjectID> ids;
+  std::map<ObjectID, i64> net;
+  u64 ok = 0, rejected = 0;
+  {
+    Engine eng(config(1, dir, true));
+    eng.start();
+    ids = create_accounts(eng, 100);
+    transfers(eng, ids, 20000, 6, net, ok, rejected);
+    verify(eng, ids, net);
+    CHECK_EQ(eng.stats(0).emits, 0u);  // no follow-ups: both sides in one op
+    eng.stop();
+  }
+  {
+    Engine eng(config(1, dir, false));
+    eng.start();
+    verify(eng, ids, net);
+    // A transfer whose WAL group is cut before its last record is lost
+    // whole: neither the credit (logged first) nor the debit survives.
+    OneResult r = one(eng, 0, [&](Completion c, void* ctx) {
+      TransferArgs t{ids[1], 5, 7};
+      execute(ids[0], kOpTransfer, ByteView(&t, sizeof(t)), {}, c, ctx);
+    });
+    CHECK_EQ(r.r.status, Status::OK);
+    eng.stop();
+  }
+  {
+    // Tear the last record (the debit closing the group).
+    std::vector<u64> segs = list_segments(dir, 0);
+    std::string path = segment_path(dir, 0, segs.back());
+    FILE* f = std::fopen(path.c_str(), "r+b");
+    CHECK(f != nullptr);
+    std::vector<u8> buf(1u << 20);
+    std::size_t n = std::fread(buf.data(), 1, buf.size(), f);
+    std::size_t off = kBlock, group_at = 0, last_at = 0;
+    while (off + sizeof(WalRecord) <= n) {
+      u32 len = check_record(buf.data() + off, n - off);
+      if (len == 0) {
+        std::size_t next = (off / kBlock + 1) * kBlock;
+        if (off % kBlock == 0) break;
+        off = next;
+        continue;
+      }
+      WalRecord rec;
+      std::memcpy(&rec, buf.data() + off, sizeof(rec));
+      if (rec.flags & kRecGroupNext) group_at = off;
+      last_at = off;
+      off += len;
+    }
+    CHECK(group_at != 0 && last_at > group_at);
+    u32 bad = 0xdeadbeef;
+    std::fseek(f, static_cast<long>(last_at), SEEK_SET);
+    CHECK_EQ(std::fwrite(&bad, 4, 1, f), 1u);
+    std::fclose(f);
+  }
+  {
+    Engine eng(config(1, dir, false));
+    eng.start();
+    verify(eng, ids, net);  // the torn transfer is absent from both accounts
+    CHECK(eng.recovery().torn_tails >= 1);
+    eng.stop();
+  }
+  std::printf("local: %llu transfers ok, %llu rejected\n", (unsigned long long)ok,
+              (unsigned long long)rejected);
+}
+
 // The child runs transfers until killed. Without the acks we cannot know
 // which in-flight transfers committed, so the parent checks conservation
 // and that every exchange finishes; test_crash covers acknowledged
@@ -289,6 +361,7 @@ int main() {
   register_type();
   test_memory();
   test_durable();
+  test_local();
   test_crash();
   std::printf("test_transfer: ok\n");
   return 0;

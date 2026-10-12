@@ -116,63 +116,96 @@ so B can never see a resent credit it has forgotten.
 - An account with entries cannot be deleted.
 - Four records and three messages per transfer when A and B are on
   different shards (transfer, credit, settle, forget records; credit,
-  settle, forget messages). When they share a shard the follow-ups skip
-  the rings and the durability wait but still take their own records;
-  doing both sides in one step is a later optimization.
+  settle, forget messages). When they share a shard the transfer is
+  one op with one atomic group of two records (below).
 - Duplicate messages arise only from `resume` after a restart; in normal
   running each follow-up is sent once.
 
+## Same-shard transfers: one op, one atomic WAL group
+
+When the shard that owns A also owns B, `transfer` changes both in one
+op and emits nothing. `OpCtx::local(id, type)` hands an op a second
+object its shard owns; when apply uses it, the engine bumps that object's
+version and logs its image just before the op's own record, flagged
+`kRecGroupNext`. Recovery installs the records of a group only once it
+reads the record that closes it, so a group cut off by a torn tail is
+dropped whole: never a credit without its debit. The client is answered
+when the closing record is durable, and B's `last_lsn` points at it, so
+reads of B wait for the whole group too. Groups never span WAL segments
+because one op's records are flushed together.
+
+The op may change the second object's payload in place but not its
+length or index key (checked in debug builds), so it needs no
+reservation or index work. A destination that would overflow is
+rejected up front (`kAppOverflow`) instead of refunded.
+
 ## Results
 
-4-vCPU VM, 1M accounts, random source and destination (uniform), 1-cent
-transfers, mean of 3 runs. Raw numbers: `bench/results/matrix_transfer.csv`,
-`net_matrix_transfer.csv`, `conventional_transfer.csv`.
+4-vCPU VM, 1M accounts, 1-cent transfers, mean of 3 runs. Raw numbers:
+`bench/results/matrix_transfer.csv`, `net_matrix_transfer.csv`,
+`conventional_transfer.csv`. Random pairs: with 4 shards a quarter of
+pairs share a shard (in process); with 2 server shards, half (TCP).
 
 | Setup | SNC | Locked baseline | Redis | PostgreSQL |
 | --- | --- | --- | --- | --- |
-| In process, memory, 100% transfers | 2.81M/s | 6.22M/s | | |
-| In process, memory, 20% transfers + 40% reads + 40% deposits | 7.78M/s | 9.61M/s | | |
-| In process, durable | 418K/s (p99 4.6 ms) | 518K/s (4 logs) | | |
-| TCP, 2 server cores, memory | 771K/s (p99 0.21 ms) | 1.65M/s | 129K/s | 33K/s (pipelined) |
-| TCP, 2 server cores, durable | 246K/s (p99 3.4 ms) | 453K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
+| In process, memory, 100% transfers | 2.92M/s | 6.06M/s | | |
+| In process, memory, 20% transfers + 40% reads + 40% deposits | 7.79M/s | 9.81M/s | | |
+| In process, durable | 439K/s | 520K/s (4 logs) | | |
+| TCP, 2 server cores, memory | 1.00M/s (p99 0.18 ms) | 1.61M/s | 129K/s | 33K/s (pipelined) |
+| TCP, 2 server cores, durable | 364K/s (p99 2.6 ms) | 480K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
+
+Placement decides it. `snc_bench --xfer-local P` sends P% of transfers
+to an account on the source's shard and the rest to other shards (in
+process, 100% transfers; the baseline does not care where accounts live):
+
+| Same-shard pairs | 0% | 50% | 90% | 100% | Baseline |
+| --- | --- | --- | --- | --- | --- |
+| Memory | 2.12M/s | 3.80M/s | 5.89M/s | 7.29M/s | 6.06M/s |
+| Durable | 419K/s | 494K/s | 562K/s | 547K/s | 520K/s |
 
 Correctness: `test_transfer` passes in release, ASan/UBSan and TSan
 builds: exact balances after transfers settle in memory and durable,
 across a clean stop with transfers in flight, a 4→3→4 shard-count change,
-a refund for a missing destination, and conservation after 4 SIGKILL
+a refund for a missing destination, all-local transfers on one shard
+(including a restart after the closing record of the last group is
+corrupted, which must drop both sides), and conservation after 4 SIGKILL
 rounds with up to a few hundred exchanges in flight at recovery.
 
 What this shows:
 
-- **SNC loses to the locked baseline on transfers**, by 2.2x in memory
-  and 1.2-1.8x durable. The baseline does a transfer as one step on one
-  thread: lock two stripes, change both rows, append one log record per
-  side. SNC does four ops on two cores, writes four WAL records and sends
-  three ring messages. With uniform keys the baseline's stripe locks
-  almost never contend (0.13% of ops), so its locks cost nothing and
-  SNC's extra steps are pure overhead.
-- **The gap shrinks when transfers are a minority**: at 20% transfers
-  SNC reaches 0.81x the baseline in process, against 0.45x at 100%.
-- **Against real databases SNC stays far ahead**: 6x Redis and 23x
-  PostgreSQL in memory, 4x Redis and 9x PostgreSQL durable, on the same
-  two server cores. The baseline is not a database: it has no recovery
-  for its logs and no network protocol beyond the benchmark's.
-- **The semantics differ.** The baseline (and PostgreSQL, Redis) make
-  both sides visible at once. SNC's credit lands later; a reader of B can
-  briefly see the old balance.
+- **Across shards, SNC loses to the locked baseline**: 2.9x slower in
+  memory when no pair shares a shard. The baseline does every transfer
+  as one step on one thread: lock two stripes, change both rows, append
+  one log record per side. A cross-shard SNC transfer is four ops on two
+  cores, four WAL records and three ring messages. With uniform keys the
+  baseline's stripe locks almost never contend (0.13% of ops), so its
+  locks cost nothing and SNC's extra steps are pure overhead.
+- **Within a shard, SNC wins**: 7.29M against 6.06M in memory, about
+  the same durable (both write two records per transfer and are bound
+  by the disk). The break-even is around 95% same-shard pairs in memory
+  and 50-90% durable.
+- **So SNC's answer to multi-object work is placement**, as the handoff
+  expects: objects that are changed together belong on one shard. A
+  type that groups related accounts (a customer's accounts, a ledger's
+  entries) under shared slot bits would make most transfers local.
+  Choosing IDs for placement is not in v0.1.
+- **Against real databases SNC stays far ahead** even with random
+  pairs: 7.8x Redis and 30x PostgreSQL in memory, 6x Redis and 13x
+  PostgreSQL durable, on the same two server cores. The baseline is not
+  a database: it has no recovery for its logs.
+- **The semantics differ across shards.** The baseline (and PostgreSQL,
+  Redis) make both sides visible at once. A cross-shard SNC credit lands
+  later; a reader of B can briefly see the old balance. Same-shard
+  transfers are atomic.
 
-Where the cost is, and what would cut it:
+What would cut the cross-shard cost further:
 
-1. **Same-shard pairs in one op.** With 4 shards, a quarter of random
-   pairs share an owner; doing debit and credit in one apply would make
-   those as cheap as a deposit. Placing related accounts together (same
-   slot) makes it most of them.
+1. **Placement**: IDs that put related objects on one shard (above).
 2. **Drop `forget`.** It exists so B can discard its inbox entry. If B
    kept only the highest settled `seq` per sender, A's settle would not
    need to be acknowledged, saving a record and a message per transfer.
 3. **Batch follow-ups per destination.** Each follow-up is its own ring
-   message and its own exec; several credits to one shard could share
-   one message and one WAL group.
+   message and exec; several credits to one shard could share one.
 
 ## Measurement plan
 

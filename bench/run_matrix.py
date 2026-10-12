@@ -61,6 +61,12 @@ def main():
             runs.append(("transfer", engine, f"--transfer {pct} --reads 50 --depth 32"))
     runs.append(("transfer-durable", "snc", "--transfer 100 --depth 256 --data-dir D"))
     runs.append(("transfer-durable", "baseline", "--transfer 100 --depth 256 --data-dir D --logs 4"))
+    # Share of transfers whose destination is on the source's shard (one op,
+    # no follow-ups); the baseline has no notion of placement.
+    for local in (0, 50, 90, 100):
+        runs.append(("transfer-local", "snc", f"--transfer 100 --xfer-local {local} --depth 32"))
+        runs.append(("transfer-local-durable", "snc",
+                     f"--transfer 100 --xfer-local {local} --depth 256 --data-dir D"))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
 
     if a.groups:

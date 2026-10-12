@@ -155,10 +155,15 @@ class Shard {
   void prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t, const OpDescriptor* op);
   Status validate_checked(OpCtx& c, const OpDescriptor* op, ByteView args);
   void finish_result(OpCtx& c, const OpDescriptor* op, ExecResult& out);
-  u64 log(RecType type, const ObjectHeader& obj);
+  u64 log(RecType type, const ObjectHeader& obj, u16 flags = 0);
 
   // Index partition.
   u32 extract_key(const TypeDescriptor& t, const ObjectHeader& obj, u8* key) const;
+#ifndef NDEBUG
+  // OpCtx::local's object before apply, to check apply kept its shape.
+  u32 peer_len_ = 0, peer_key_len_ = 0;
+  u8 peer_key_[kMaxIndexKey];
+#endif
   void index_insert(u32 index_id, const u8* key, u32 len, const ObjectID& id);
   void index_erase(u32 index_id, const u8* key, u32 len, const ObjectID& id);
   void index_find(u32 index_id, ByteView key, u32 max_results, std::vector<ObjectID>& out) const;
