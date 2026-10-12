@@ -1,0 +1,35 @@
+cmake_minimum_required(VERSION 3.20)
+project(snc VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
+
+find_package(Threads REQUIRED)
+find_library(MIMALLOC_LIB mimalloc REQUIRED)
+find_library(XXHASH_LIB xxhash REQUIRED)
+
+add_compile_options(-Wall -Wextra -Wno-missing-field-initializers)
+
+add_library(snc_core
+  src/core/object_id.cpp
+  src/core/allocator.cpp
+  src/core/registry.cpp
+  src/core/shard.cpp
+  src/native/runtime.cpp
+  src/types/account.cpp)
+target_include_directories(snc_core PUBLIC include)
+target_link_libraries(snc_core PUBLIC Threads::Threads ${MIMALLOC_LIB} ${XXHASH_LIB})
+
+enable_testing()
+foreach(t test_object_id test_local_map test_runtime test_execute)
+  add_executable(${t} tests/${t}.cpp)
+  target_link_libraries(${t} PRIVATE snc_core)
+  add_test(NAME ${t} COMMAND ${t})
+endforeach()
+
+add_executable(snc_bench bench/snc_bench.cpp)
+target_link_libraries(snc_bench PRIVATE snc_core)
