@@ -1,0 +1,19 @@
+group,engine,flags,rep,ops_s,p50_ns,p95_ns,p99_ns,p999_ns,msgs_per_op,contended_pct,load_s,rss_per_obj,checkpoint_s,recovery_s,ckpt_load_s,wal_replay_s
+transfer,snc,--transfer 100 --reads 50 --depth 32,0,2716132,320,592,736,3776,2.25,,0.41,498.6,,,,
+transfer,snc,--transfer 100 --reads 50 --depth 32,1,2762393,336,592,752,4096,2.25,,0.43,498.5,,,,
+transfer,snc,--transfer 100 --reads 50 --depth 32,2,2962315,336,592,736,3968,2.25,,0.4,498.6,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,0,7790785,128,512,656,976,0.45,,0.35,498.6,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,1,7503324,128,512,672,1056,0.45,,0.4,498.6,,,,
+transfer,snc,--transfer 20 --reads 50 --depth 32,2,8051768,126,504,656,960,0.45,,0.37,498.5,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,0,6379373,328,560,688,3904,,0.133,0.37,452.4,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,1,6256594,328,560,720,3840,,0.133,0.37,452.5,,,,
+transfer,baseline,--transfer 100 --reads 50 --depth 32,2,6021747,328,576,736,4352,,0.132,0.39,452.4,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,0,9618805,192,472,624,3072,,0.05,0.38,452.4,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,1,9439582,188,472,624,3136,,0.05,0.43,452.4,,,,
+transfer,baseline,--transfer 20 --reads 50 --depth 32,2,9771708,188,464,608,2752,,0.05,0.41,452.4,,,,
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,0,385805,1343488,3145728,4718592,9437184,2.25,,0.77,501.8,1.93,0.93,0.39,0.4
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,1,424534,1966080,3080192,5242880,33554432,2.25,,0.96,502.3,1.71,0.96,0.29,0.51
+transfer-durable,snc,--transfer 100 --depth 256 --data-dir D,2,444254,1835008,2818048,3997696,34603008,2.25,,0.74,501.5,1.83,0.86,0.27,0.46
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,0,533091,1507328,2359296,6029312,39845888,,0.076,0.71,458.3,,,,
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,1,554034,1474560,2424832,4128768,12582912,,0.079,0.77,458.8,,,,
+transfer-durable,baseline,--transfer 100 --depth 256 --data-dir D --logs 4,2,466308,1835008,3080192,4980736,11272192,,0.101,0.77,461.9,,,,

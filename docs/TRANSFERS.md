@@ -122,6 +122,58 @@ so B can never see a resent credit it has forgotten.
 - Duplicate messages arise only from `resume` after a restart; in normal
   running each follow-up is sent once.
 
+## Results
+
+4-vCPU VM, 1M accounts, random source and destination (uniform), 1-cent
+transfers, mean of 3 runs. Raw numbers: `bench/results/matrix_transfer.csv`,
+`net_matrix_transfer.csv`, `conventional_transfer.csv`.
+
+| Setup | SNC | Locked baseline | Redis | PostgreSQL |
+| --- | --- | --- | --- | --- |
+| In process, memory, 100% transfers | 2.81M/s | 6.22M/s | | |
+| In process, memory, 20% transfers + 40% reads + 40% deposits | 7.78M/s | 9.61M/s | | |
+| In process, durable | 418K/s (p99 4.6 ms) | 518K/s (4 logs) | | |
+| TCP, 2 server cores, memory | 771K/s (p99 0.21 ms) | 1.65M/s | 129K/s | 33K/s (pipelined) |
+| TCP, 2 server cores, durable | 246K/s (p99 3.4 ms) | 453K/s (2 logs) | 59K/s | 28K/s (pipelined), 15K/s (1 per round trip) |
+
+Correctness: `test_transfer` passes in release, ASan/UBSan and TSan
+builds: exact balances after transfers settle in memory and durable,
+across a clean stop with transfers in flight, a 4→3→4 shard-count change,
+a refund for a missing destination, and conservation after 4 SIGKILL
+rounds with up to a few hundred exchanges in flight at recovery.
+
+What this shows:
+
+- **SNC loses to the locked baseline on transfers**, by 2.2x in memory
+  and 1.2-1.8x durable. The baseline does a transfer as one step on one
+  thread: lock two stripes, change both rows, append one log record per
+  side. SNC does four ops on two cores, writes four WAL records and sends
+  three ring messages. With uniform keys the baseline's stripe locks
+  almost never contend (0.13% of ops), so its locks cost nothing and
+  SNC's extra steps are pure overhead.
+- **The gap shrinks when transfers are a minority**: at 20% transfers
+  SNC reaches 0.81x the baseline in process, against 0.45x at 100%.
+- **Against real databases SNC stays far ahead**: 6x Redis and 23x
+  PostgreSQL in memory, 4x Redis and 9x PostgreSQL durable, on the same
+  two server cores. The baseline is not a database: it has no recovery
+  for its logs and no network protocol beyond the benchmark's.
+- **The semantics differ.** The baseline (and PostgreSQL, Redis) make
+  both sides visible at once. SNC's credit lands later; a reader of B can
+  briefly see the old balance.
+
+Where the cost is, and what would cut it:
+
+1. **Same-shard pairs in one op.** With 4 shards, a quarter of random
+   pairs share an owner; doing debit and credit in one apply would make
+   those as cheap as a deposit. Placing related accounts together (same
+   slot) makes it most of them.
+2. **Drop `forget`.** It exists so B can discard its inbox entry. If B
+   kept only the highest settled `seq` per sender, A's settle would not
+   need to be acknowledged, saving a record and a message per transfer.
+3. **Batch follow-ups per destination.** Each follow-up is its own ring
+   message and its own exec; several credits to one shard could share
+   one message and one WAL group.
+
 ## Measurement plan
 
 - Correctness: balance sums conserved after transfers settle, in memory
