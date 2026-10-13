@@ -8,7 +8,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -71,6 +73,30 @@ inline std::string init(const Members& ms, const Placement& p) {
     last = reply;
   }
   return last;
+}
+
+// A block of mint leases from the control plane (the `leases` machine):
+// [lo, hi), at least `want` and normally kLeaseBlock, given to no one else.
+// Tries the members in turn for up to wait_ms.
+inline constexpr u64 kLeaseBlock = u64{1} << 16;
+
+inline bool take_leases(const Members& ms, u64 want, u64& lo, u64& hi, int wait_ms = 5000) {
+  const u64 count = std::max(want, kLeaseBlock);
+  const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(wait_ms);
+  do {
+    for (const auto& [h, p] : ms) {
+      std::string reply;
+      if (!ha::ask(h, p, "LEASES TAKE " + std::to_string(count), reply, 4000)) continue;
+      unsigned long long a = 0, b = 0;
+      if (std::sscanf(reply.c_str(), "BLOCK %llu %llu", &a, &b) == 2 && b >= a + want) {
+        lo = a;
+        hi = b;
+        return true;
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  } while (std::chrono::steady_clock::now() < end);
+  return false;
 }
 
 // ---- A node's start ---------------------------------------------------------------------
@@ -172,14 +198,16 @@ inline bool resolve(const Members& ms, const std::string& data_dir, u32 node_id,
 }
 
 // The engine's cluster settings from a resolved placement. A new data
-// directory is initialised with the group's space UUID.
-inline void apply(const NodeSetup& s, Engine::Config& c) {
+// directory is initialised with the group's space UUID; mint leases come in
+// cluster-wide blocks from the control members.
+inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   c.cluster = s.placement.cluster_groups();
   c.cluster_slots.assign(s.placement.slots.begin(), s.placement.slots.end());
   c.cluster_epoch = s.placement.epoch;
   c.group_id = s.group;
   c.member = s.member;
   c.init_uuid = s.placement.groups[s.group].space;
+  c.lease_blocks = [ms](u64 want, u64& lo, u64& hi) { return take_leases(ms, want, lo, hi); };
 }
 
 }  // namespace snc::control

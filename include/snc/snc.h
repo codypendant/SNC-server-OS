@@ -295,6 +295,15 @@ class Engine {
     // Empty: ClusterMap::make's ranges at epoch 1.
     std::vector<u8> cluster_slots;
     u64 cluster_epoch = 1;
+    // Cluster-wide mint leases (docs/CONTROL_PLANE.md section 11): returns
+    // a block [lo, hi) of at least `want` leases that no other node holds
+    // or will be given (from the control plane's `leases` machine). Set, a
+    // primary mints only from blocks: it takes one when its superblock's
+    // is used up, and a promotion always takes a fresh one, recorded in
+    // the superblock before anything is minted. A block it still holds
+    // needs no control plane. Unset: leases from the space's own counter,
+    // unique only within the space.
+    std::function<bool(u64 want, u64& lo, u64& hi)> lease_blocks;
 
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.
@@ -328,6 +337,8 @@ class Engine {
   // Returns the seconds it took. Control path; blocks.
   double promote();
   u64 term() const { return sb_.term; }
+  // The mint lease block this node holds, [lo, hi); 0, 0 without blocks.
+  std::pair<u64, u64> lease_block() const { return {sb_.lease_lo, sb_.lease_hi}; }
   // With replica_degrade_gated: let sync shards continue without their
   // standby (true), or stop letting them (false; a shard already degraded
   // stays so until its standby catches up).
@@ -383,6 +394,7 @@ class Engine {
   Superblock sb_{};
   Uuid uuid_{};
   SlotMap slots_;
+  void take_lease_block(u16 n);
   ClusterMap cluster_;
   std::unique_ptr<SegmentPreparer> spares_;
   RecoveryReport recovery_;

@@ -337,7 +337,14 @@ void Engine::recover() {
   }
 
   // 7 (done early, spec C12): reserve one mint lease per shard before any
-  // shard can mint.
+  // shard can mint. Clustered with lease blocks, from the block this node
+  // holds, or a new one (a standby mints nothing until it is promoted,
+  // which takes a fresh block).
+  if (cfg_.lease_blocks && !cfg_.standby) {
+    if (sb_.lease_hi == 0 || sb_.next_lease < sb_.lease_lo || sb_.next_lease + n > sb_.lease_hi) {
+      take_lease_block(n);
+    }
+  }
   g_state->hooks.lease_base = sb_.next_lease;
   sb_.next_lease += n;
   ++sb_.generation;
@@ -478,7 +485,9 @@ void Engine::recover() {
       u64 cur = max_seen.load();
       while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
     });
-    if (max_seen.load() >= g_state->hooks.lease_base) {
+    // A block is disjoint from every lease anyone else was given: nothing
+    // minted elsewhere can be in it.
+    if (max_seen.load() >= g_state->hooks.lease_base && sb_.lease_hi == 0) {
       u64 base = max_seen.load() + 1;
       sb_.next_lease = base + n;
       ++sb_.generation;
@@ -530,6 +539,12 @@ double Engine::promote() {
   }
   const auto t0 = std::chrono::steady_clock::now();
   const u16 n = cfg_.runtime.n_shards;
+  // 0. With lease blocks, a fresh one first: if the control plane does not
+  // give one, nothing has changed yet.
+  u64 block_lo = 0, block_hi = 0;
+  if (cfg_.lease_blocks && (!cfg_.lease_blocks(n, block_lo, block_hi) || block_hi < block_lo + n)) {
+    throw std::runtime_error("promote: no mint lease block from the control plane");
+  }
   // 1. Take no more records, and wait until all installed are durable: the
   // follow-ups resumed below act on them.
   // The listeners stay, refusing the old primary's term (sb_.term + 1 is
@@ -552,10 +567,14 @@ double Engine::promote() {
     u64 cur = max_seen.load();
     while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
   });
-  const u64 base = std::max(sb_.next_lease, max_seen.load() + 1);
+  const u64 base = block_hi != 0 ? block_lo : std::max(sb_.next_lease, max_seen.load() + 1);
   {
     std::unique_lock<std::mutex> g;
     if (seed_) g = std::unique_lock<std::mutex>(seed_->mu);
+    if (block_hi != 0) {
+      sb_.lease_lo = block_lo;
+      sb_.lease_hi = block_hi;
+    }
     sb_.next_lease = base + n;
     ++sb_.term;
     ++sb_.generation;
@@ -646,7 +665,7 @@ CheckpointReport Engine::checkpoint() {
       u64 cur = max_seen.load();
       while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
     });
-    sb_.next_lease = std::max(sb_.next_lease, max_seen.load() + 1);
+    if (sb_.lease_hi == 0) sb_.next_lease = std::max(sb_.next_lease, max_seen.load() + 1);
   }
   ++sb_.generation;
   write_superblock(dir, sb_);
@@ -696,6 +715,16 @@ CheckpointReport Engine::checkpoint() {
   fsync_dir(dir + "/wal");
   rep.seconds = since(t0);
   return rep;
+}
+
+void Engine::take_lease_block(u16 n) {
+  u64 lo = 0, hi = 0;
+  if (!cfg_.lease_blocks(n, lo, hi) || hi < lo + n) {
+    throw std::runtime_error("no mint lease block from the control plane, and the one held is used up");
+  }
+  sb_.lease_lo = lo;
+  sb_.lease_hi = hi;
+  sb_.next_lease = lo;
 }
 
 void Engine::withdraw() {

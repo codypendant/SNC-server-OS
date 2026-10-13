@@ -68,7 +68,15 @@ snc_server --control H0:9000,H1:9000,H2:9000 --node-id 1 --data-dir d1 ...
   while slots never move, to be proved or replaced at the slot-move
   milestone.
 - Which member is primary is not in the map; `--standby` and
-  `--replica-of` still decide it, and the witnesses after that.
+  `--replica-of` still decide it, and the witnesses after that. One
+  witness quorum can watch every group (`snc_witness --group
+  G=PRIMARY:ADMIN,STANDBY:ADMIN`, repeated), each on its own `ha/G`
+  machine; `tests/test_control.py` runs two groups this way and fails one
+  over.
+- Mint leases come in cluster-wide blocks from the same quorum
+  (docs/CONTROL_PLANE.md section 11), so an ObjectID minted by one group
+  can never be minted by another, which slot moves will rely on. Admin
+  `STATUS` reports the block held (`leases=LO-HI`) and the epoch.
 
 ## Ops
 

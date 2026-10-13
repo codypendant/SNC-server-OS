@@ -1359,7 +1359,10 @@ void test_retries_failover() {
 int main() {
   register_type();
   std::setvbuf(stdout, nullptr, _IOLBF, 0);  // nothing buffered across fork
-  g_port = static_cast<u16>(21000 + (::getpid() % 2000) * 8);
+  // Shards listen on g_port + s, seeds on g_port + 100 and a second standby
+  // on g_port + 200 + s: a free run of ports below the ephemeral range
+  // (32768 up), where outgoing connections would also take them.
+  g_port = free_ports(20000, 32000, 208);
   test_identical();
   test_failover();
   test_late(Late::LATE);
