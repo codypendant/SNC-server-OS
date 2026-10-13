@@ -33,6 +33,8 @@
 // standby started with --seed-from on an empty --data-dir fetches it first,
 // then catches up from the primary's WAL. --report-ms prints a line of
 // replication state every N ms (lag = durable records not yet acked).
+// Slot moves (docs/MIGRATION.md): with --control, --admin-port also answers
+// the MOVE requests of snc_ctl move (tools/migrate.h).
 // Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
 // lines (STATUS role p primary, n no replication, s standby, f fenced: a
 // newer primary exists, and this node has left the data plane); with --witness, a sync primary past --replica-timeout-ms continues
@@ -62,6 +64,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <mutex>
+#include <memory>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -71,6 +76,7 @@
 
 #include "control.h"
 #include "ha.h"
+#include "migrate.h"
 #include "snc/net.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
@@ -229,6 +235,7 @@ int main(int argc, char** argv) {
   // Control plane (docs/CONTROL_PLANE.md): the placement map, this node's
   // group and member, and the group's space, from the control members (or
   // the map stored in --data-dir if they do not answer).
+  u16 my_group = 0;
   if (!control_members.empty() || node_id >= 0) {
     if (control_members.empty() || node_id < 0 || node_id > 0xffffffffLL || cfg.data_dir.empty() ||
         !cfg.cluster.empty()) {
@@ -242,6 +249,7 @@ int main(int argc, char** argv) {
       return 1;
     }
     control::apply(setup, control_members, cfg);
+    my_group = setup.group;
     // Clients reach it where the map says (if it says).
     const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
     if (me.client_port != 0) ncfg.base_port = me.client_port;
@@ -362,6 +370,17 @@ int main(int argc, char** argv) {
   std::atomic<u64> term{eng.term()};
   // The mint lease block held (0-0 without blocks), for STATUS.
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
+  // Slot moves (docs/MIGRATION.md): MOVE requests, each on its own thread
+  // (a seal or a stage waits for durability; STATUS must not wait behind it).
+  std::unique_ptr<migrate::NodeHandler> mover;
+  if (!control_members.empty()) {
+    mover = std::make_unique<migrate::NodeHandler>(eng, control_members, my_group, [&] {
+      return is_standby.load() ? 's' : eng.fenced() ? 'f' : 'p';
+    });
+  }
+  std::mutex move_mu;
+  std::condition_variable move_cv;
+  int moving = 0;
   std::thread admin;
   if (admin_port != 0) {
     int lfd = ha::listen_on(admin_port);
@@ -376,6 +395,20 @@ int main(int argc, char** argv) {
         if (fd < 0) continue;
         std::string line, reply;
         if (ha::read_line(fd, line, 500)) {
+          if (line.rfind("MOVE ", 0) == 0 && mover) {
+            {
+              std::lock_guard<std::mutex> g(move_mu);
+              ++moving;
+            }
+            std::thread([&, fd, line] {
+              ha::write_all(fd, mover->handle(line) + "\n");
+              ::close(fd);
+              std::lock_guard<std::mutex> g(move_mu);
+              --moving;
+              move_cv.notify_all();
+            }).detach();
+            continue;
+          }
           if (line == "STATUS") {
             Engine::ReplStatus st = eng.replication_status();
             char b[256];
@@ -527,6 +560,10 @@ int main(int argc, char** argv) {
   }
   admin_stop.store(true);
   if (admin.joinable()) admin.join();
+  {
+    std::unique_lock<std::mutex> g(move_mu);
+    move_cv.wait(g, [&] { return moving == 0; });
+  }
   eng.stop();
 
   u64 req = 0, fwd = 0, recvs = 0, sends = 0, frames = 0, ring = 0;

@@ -9,6 +9,8 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
+#include <memory>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -135,8 +137,8 @@ struct NodeSetup {
 // Node `node_id` with data in `data_dir`: fetches the placement (trying for
 // up to wait_ms), checks it names this node, and keeps it and the NodeID in
 // the data directory. Unreachable control plane: the stored map, if any.
-// That is provisional (docs/CONTROL_PLANE.md section 9) and safe only while
-// slots never move. False, with `why`, if the node may not start.
+// Safe with slot moves: seals, not the map alone, decide what a node serves
+// (docs/MIGRATION.md). False, with `why`, if the node may not start.
 inline bool resolve(const Members& ms, const std::string& data_dir, u32 node_id, int wait_ms, NodeSetup& out,
                     std::string& why) {
   ::mkdir(data_dir.c_str(), 0755);
@@ -199,7 +201,9 @@ inline bool resolve(const Members& ms, const std::string& data_dir, u32 node_id,
 
 // The engine's cluster settings from a resolved placement. A new data
 // directory is initialised with the group's space UUID; mint leases come in
-// cluster-wide blocks from the control members.
+// cluster-wide blocks from the control members; newer placements (a slot
+// moved, docs/MIGRATION.md) are fetched from them and kept in the data
+// directory, newest only.
 inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   c.cluster = s.placement.cluster_groups();
   c.cluster_slots.assign(s.placement.slots.begin(), s.placement.slots.end());
@@ -208,6 +212,20 @@ inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   c.member = s.member;
   c.init_uuid = s.placement.groups[s.group].space;
   c.lease_blocks = [ms](u64 want, u64& lo, u64& hi) { return take_leases(ms, want, lo, hi); };
+  auto stored = std::make_shared<std::atomic<u64>>(s.placement.epoch);
+  const std::string path = c.data_dir + "/placement";
+  const Uuid cluster = s.placement.cluster_id;
+  c.placement_fetch = [ms, stored, path, cluster](std::array<u8, kSlots>& slots, u64& epoch) {
+    Placement p;
+    std::string why;
+    if (get(ms, p, why) != Got::MAP || p.cluster_id != cluster) return false;
+    // A majority read may be behind one this node had: keep only newer.
+    u64 cur = stored->load();
+    if (p.epoch > cur && write_synced(path, p.encode())) stored->compare_exchange_strong(cur, p.epoch);
+    slots = p.slots;
+    epoch = p.epoch;
+    return true;
+  };
 }
 
 }  // namespace snc::control

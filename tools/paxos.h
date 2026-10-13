@@ -190,6 +190,81 @@ class Node {
     return true;
   }
 
+  // The latest value of m, linearizably: every value chosen before the
+  // call began is this one or older. read_latest alone is not enough: a
+  // value accepted by a majority whose COMMIT nobody received yet is chosen
+  // but reported by no one. Phase 1 on the next instance finds it (some
+  // acceptor of any majority accepted it, or has learned it: LATE), and
+  // phase 2 finishes it before the read is answered. Costs a promise (one
+  // synced write) per acceptor; for decisions that must not act on a stale
+  // value (docs/MIGRATION.md), not for polling.
+  bool read_linear(const std::string& m, Value& out, int deadline_ms = 3000) {
+    std::lock_guard<std::mutex> serial(one_at_a_time_);
+    thread_local std::mt19937 rng(std::random_device{}());
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
+    auto backoff = [&] { std::this_thread::sleep_for(std::chrono::milliseconds(2 + rng() % 20)); };
+    while (std::chrono::steady_clock::now() < end) {
+      Value base;
+      if (!read_latest(m, base)) {
+        backoff();
+        continue;
+      }
+      const u64 b = next_ballot();
+      const std::string vb = " " + m + " " + std::to_string(base.version + 1) + " " + std::to_string(b) + " ";
+      std::size_t promises = 0;
+      u64 best = 0;
+      Value value;
+      bool late = false;
+      for (const Reply& r : broadcast("PREPARE" + vb + base.str(), 300)) {
+        if (!r.ok) continue;
+        std::istringstream in(r.line);
+        std::string tag;
+        in >> tag;
+        if (tag == "PROMISE") {
+          u64 ab = 0;
+          Value av;
+          in >> ab;
+          av.parse(in);
+          ++promises;
+          if (ab > best) {
+            best = ab;
+            value = av;
+          }
+        } else if (tag == "NACK") {
+          u64 p = 0;
+          in >> p;
+          saw_ballot(p);
+        } else if (tag == "LATE") {
+          late = true;
+        }
+      }
+      if (late || promises < majority()) {
+        backoff();
+        continue;
+      }
+      if (best == 0) {
+        out = base;  // nothing newer is chosen, or can be without a later ballot
+        return true;
+      }
+      std::size_t accepted = 0;
+      for (const Reply& r : broadcast("ACCEPT" + vb + value.str(), 300)) {
+        if (r.ok && r.line == "ACCEPTED") ++accepted;
+      }
+      if (accepted >= majority()) {
+        broadcast("COMMIT " + m + " " + value.str(), 300);
+        std::lock_guard<std::mutex> g(mu_);
+        Acceptor& a = acc_[m];
+        if (value.version > a.chosen.version) {
+          learn(a, value);
+          save();
+        }
+      } else {
+        backoff();
+      }
+    }
+    return false;
+  }
+
   // Changes machine m with `change(base, want_body)`, which returns "" and
   // sets the wanted body, or returns why the change is refused. Retries
   // while other proposals win. Returns "OK" once the wanted body is chosen

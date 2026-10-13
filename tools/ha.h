@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cstring>
+
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
@@ -50,19 +52,24 @@ inline bool wait_fd(int fd, short events, int timeout_ms) {
   return r > 0;
 }
 
-// Reads one line (without the newline) within timeout_ms.
+// Reads one line (without the newline) within timeout_ms. One request or
+// reply per connection, so whatever follows the line is not kept. Lines
+// carry a placement map (a few KiB) or a slot's objects (docs/MIGRATION.md).
 inline bool read_line(int fd, std::string& out, int timeout_ms) {
   out.clear();
   auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-  char c;
-  while (out.size() < (std::size_t{1} << 18)) {  // a placement map is a few KiB
+  char buf[65536];
+  while (out.size() < (std::size_t{1} << 28)) {
     int left = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                     end - std::chrono::steady_clock::now()).count());
     if (left <= 0 || !wait_fd(fd, POLLIN, left)) return false;
-    ssize_t r = ::recv(fd, &c, 1, 0);
+    ssize_t r = ::recv(fd, buf, sizeof(buf), 0);
     if (r <= 0) return false;
-    if (c == '\n') return true;
-    out += c;
+    if (const void* nl = std::memchr(buf, '\n', static_cast<std::size_t>(r))) {
+      out.append(buf, static_cast<std::size_t>(static_cast<const char*>(nl) - buf));
+      return true;
+    }
+    out.append(buf, static_cast<std::size_t>(r));
   }
   return false;
 }

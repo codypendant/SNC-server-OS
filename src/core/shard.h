@@ -33,11 +33,51 @@ class Shard {
     cluster_ = map;
     group_ = group;
     member_ = member;
+    // Without a record of earlier maps, every slot may have moved up to now.
+    moved_at_.assign(kSlots, map ? static_cast<u32>(map->epoch) : 0);
   }
   const ClusterMap* cluster() const { return cluster_; }
   u16 group() const { return group_; }
   bool foreign_slot(u16 slot) const { return cluster_ != nullptr && cluster_->group_of[slot] != group_; }
   bool foreign(const ObjectID& id) const { return cluster_ != nullptr && foreign_slot(slot_of(id)); }
+
+  // ---- Slot moves (docs/MIGRATION.md) ----
+  // This group's map gives it the slot and the slot is neither sealed nor
+  // staged here: ops on its objects may run (on the shard that owns it).
+  bool serving(u16 slot) const {
+    if (cluster_ == nullptr) return true;
+    const u8 p = phases_ ? phases_[slot].load(std::memory_order_relaxed) : 0;
+    return cluster_->group_of[slot] == group_ && p <= 1;  // NONE or ACTIVE
+  }
+  // Every shard's slot phases (SlotPhase), shared: each slot's is written
+  // only by the shard that owns it; others read it to mint.
+  void set_phases(std::atomic<u8>* phases) { phases_ = phases; }
+  // Placement changed (Engine::update_placement), in two passes over every
+  // shard. set_map: route by `map` from now on, activate slots staged here
+  // that it gives this group, and re-route the follow-ups held.
+  // map_changed, once every shard has it: re-send everything unsettled.
+  void set_map(const ClusterMap* map);
+  void map_changed();
+  // After recovery, promotion or a replicated state change: phases from the
+  // state objects, then serving, then (a primary) activation.
+  void refresh_slots();
+  SlotReport slot_report(u16 slot);
+  // The slot's application objects, with payloads if asked.
+  void slot_objects(u16 slot, bool payloads, std::vector<SlotObject>& out);
+  // Control-path steps of a move, on the shard owning the slot. Each sets
+  // `lsn` to the record that must be durable before it counts (0: none).
+  Status seal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn);
+  Status unseal_slot(u16 slot, u64 move, u64& lsn);
+  Status export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
+                     std::vector<SlotObject>& out, u64& count, u64& digest);
+  Status stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
+                    u64 count, u64 digest, u64& lsn);
+  // Activates every slot staged here that the map now gives this group.
+  void activate_staged();
+  bool lsn_durable(u64 lsn) const { return durable(lsn); }
+  bool is_standby() const { return repl_cfg_.standby; }
+  // A placement epoch newer than this shard's was seen (a node link frame).
+  void set_epoch_hint(std::atomic<u64>* hint) { epoch_hint_ = hint; }
   // Opens this shard's node links, once its state is recovered (or it is
   // promoted: a standby has none).
   void start_links();
@@ -224,6 +264,8 @@ class Shard {
     alignas(8) u8 args[OpCtx::kMaxEmitArgs];
     u64 lsn = 0;  // dispatch once durable
     u8 len = 0;
+    bool remote = false;  // came over a node link: its source is another group's
+    u32 epoch = 0;        // the placement epoch (low 32 bits) its source's owner emitted it at
   };
   static constexpr u64 kEmitBacklog = 1024;
   void route_emit(const Emit& e);
@@ -233,6 +275,19 @@ class Shard {
   void emit_result(const Emit& e, Status s);
   bool run_emits();
   void queue_emits(u64 lsn);
+  // Its target's slot is this group's by the map but not served (sealed or
+  // staged): kept here until the slot or the map changes.
+  bool stale(const Emit& e) const;
+  void hold_emit(const Emit& e);
+  void release_held();
+  // Slot states.
+  ObjectHeader* slot_state(u16 slot);
+  u64 write_slot_state(u16 slot, const struct SlotStateV1& st);
+  void resume_slot(u16 slot);
+  // Puts an object image (a staged copy) in the map, indexed and logged.
+  ObjectHeader* put_image(const SlotObject& so, u64& lsn);
+  void drop_object(ObjectHeader* o, u64& lsn);
+  Status refuse_unserved(u16 slot, RunOut& out);
 
   struct Checkpoint {
     bool active = false;
@@ -401,8 +456,16 @@ class Shard {
   Checkpoint ckpt_;
 
   const ClusterMap* cluster_ = nullptr;
+  // Per slot: the placement epoch at which it last changed group (low 32
+  // bits), as far as this shard knows (docs/MIGRATION.md, follow-ups).
+  std::vector<u32> moved_at_;
   u16 group_ = 0, member_ = 0;
   std::unique_ptr<NodeLinks> links_;
+  // Slot moves (docs/MIGRATION.md).
+  std::atomic<u8>* phases_ = nullptr;
+  std::vector<Emit> emit_held_;
+  std::atomic<u64>* epoch_hint_ = nullptr;
+  MovedResult moved_buf_{};
 };
 
 // The Shard running on the current worker thread.

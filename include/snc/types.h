@@ -43,6 +43,9 @@ enum class Status : u16 {
   E_MOVED,          // clustered: another group owns the target; the result is a MovedResult
   E_FENCED,         // this primary was replaced before the op was acknowledged: it may or
                     // may not have committed; the new primary knows (a session resend is safe)
+  E_MIGRATING,      // clustered: the target's slot is between groups (sealed here, or staged and
+                    // not yet active); retry shortly. The result is a MovedResult (owner by this
+                    // node's map, or the seal's destination)
 };
 
 const char* status_name(Status s);

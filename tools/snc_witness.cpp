@@ -141,8 +141,12 @@ std::string propose(unsigned group, F change) {
 }
 
 // Placement requests (snc_ctl, nodes):
-//   PLACEMENT GET          -> MAP <body> | NONE | NO <why>
+//   PLACEMENT GET          -> MAP <body> | NONE | NO <why>   (a majority read: may be behind)
+//   PLACEMENT SYNC         -> STATE <version> <body>         (linearizable, docs/MIGRATION.md)
 //   PLACEMENT INIT <body>  -> OK | NO <why>   (only once; the same body again is OK)
+//   PLACEMENT CAS V <body> -> OK | NO version <current> | NO <why>
+//       the body becomes version V+1 if V is the latest (slot moves; the
+//       body is opaque here, its rules are the mover's)
 std::string placement(std::istream& in) {
   std::string what;
   in >> what;
@@ -150,6 +154,28 @@ std::string placement(std::istream& in) {
     paxos::Value v;
     if (!px.read_latest(kPlacement, v)) return "NO no quorum";
     return v.body.empty() ? "NONE" : "MAP " + v.body;
+  }
+  if (what == "SYNC") {
+    paxos::Value v;
+    if (!px.read_linear(kPlacement, v)) return "NO no quorum";
+    return "STATE " + v.str();
+  }
+  if (what == "CAS") {
+    u64 at = 0;
+    std::string body;
+    if (!(in >> at)) return "NO bad request";
+    std::getline(in, body);
+    const auto b = body.find_first_not_of(' ');
+    body = b == std::string::npos ? "" : body.substr(b);
+    if (body.empty() || at == 0) return "NO bad request";
+    return px.propose(
+        kPlacement,
+        [&](const paxos::Value& base, std::string& want) -> std::string {
+          if (base.version != at) return "version " + std::to_string(base.version);
+          want = body;
+          return "";
+        },
+        [](const std::string& a, const std::string& b) { return a == b; }, 3000);
   }
   if (what == "INIT") {
     std::string body;

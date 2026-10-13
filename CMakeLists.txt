@@ -26,6 +26,7 @@ set(SNC_CORE_SOURCES
   src/core/replication.cpp
   src/core/seed.cpp
   src/core/session.cpp
+  src/core/slot_state.cpp
   src/core/cluster.cpp
   src/core/placement.cpp
   src/core/node_link.cpp
@@ -56,7 +57,7 @@ if(SNC_SEASTAR)
 endif()
 
 enable_testing()
-foreach(t test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster)
+foreach(t test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster test_migrate)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdio>
 #include <latch>
+#include <optional>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
@@ -17,6 +18,7 @@
 #include "seed.h"
 #include "session.h"
 #include "shard.h"
+#include "slot_state.h"
 
 namespace snc {
 
@@ -31,6 +33,8 @@ struct EngineHooks {
   const ClusterMap* cluster;
   const std::atomic<bool>* serving;
   std::atomic<bool>* fenced;
+  std::atomic<u8>* phases;
+  std::atomic<u64>* epoch_hint;
 };
 
 void hook_init(void* user) {
@@ -44,6 +48,8 @@ void hook_init(void* user) {
   // Engine::recover, step 7).
   s->pause_emits(h->cfg->hold_emits || !h->cfg->data_dir.empty());
   s->set_withdraw_flag(h->fenced);
+  s->set_phases(h->phases);
+  s->set_epoch_hint(h->epoch_hint);
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -113,12 +119,17 @@ struct EngineState {
   // A newer primary of this group exists: every shard withdraws from the
   // data plane (Shard::withdraw).
   std::atomic<bool> fenced{false};
+  // Slot moves (docs/MIGRATION.md): each slot's phase here, and the newest
+  // placement epoch seen on a node link.
+  std::array<std::atomic<u8>, kSlots> phases{};
+  std::atomic<u64> epoch_hint{0};
 };
 
 static std::unique_ptr<EngineState> g_state;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
   register_session_type();
+  register_slot_state_type();
   RuntimeConfig& rc = cfg_.runtime;
   if (rc.pages != PageMode::SMALL && rc.heap_reserve_bytes == 0) {
     // Room for the expected objects at 512 B each (docs/HUGEPAGES.md);
@@ -146,7 +157,8 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
-  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced};
+  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced,
+                               g_state->phases.data(), &g_state->epoch_hint};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -180,6 +192,10 @@ void Engine::start() {
   // be acted on as durable though never logged (a lost credit).
   if (!cfg_.hold_emits) release_emits();
   g_state->serving = true;
+  if (cfg_.placement_fetch && !cfg_.cluster.empty()) {
+    watcher_stop_ = false;
+    watcher_ = std::thread([this] { watch_placement(); });
+  }
 }
 
 // Follow-ups queued on any shard or still in a ring, and emitted so far.
@@ -218,6 +234,10 @@ bool Engine::wait_emits(double timeout_s) {
 
 void Engine::stop() {
   if (!running_) return;
+  if (watcher_.joinable()) {
+    watcher_stop_ = true;
+    watcher_.join();
+  }
   if (seed_ && seed_->thread.joinable()) {
     seed_->stop = true;
     seed_->thread.join();
@@ -715,6 +735,138 @@ CheckpointReport Engine::checkpoint() {
   fsync_dir(dir + "/wal");
   rep.seconds = since(t0);
   return rep;
+}
+
+// ---- Slot moves (docs/MIGRATION.md) ------------------------------------------------
+
+template <class F>
+auto Engine::on_shard(u16 shard, F fn) -> decltype(fn()) {
+  using R = decltype(fn());
+  std::optional<R> out;
+  std::latch done(1);
+  rt_->submit(shard, [&] {
+    out.emplace(fn());
+    done.count_down();
+  });
+  done.wait();
+  return std::move(*out);
+}
+
+bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch) {
+  if (!running_ || cfg_.cluster.empty()) return false;
+  std::lock_guard<std::mutex> g(map_mu_);
+  const ClusterMap* cur = map_.load();
+  if (epoch <= cur->epoch) return false;
+  auto next = std::make_unique<ClusterMap>(ClusterMap::assign(cur->groups, slots, epoch));
+  const ClusterMap* p = next.get();
+  maps_.push_back(std::move(next));
+  map_.store(p);
+  std::fprintf(stderr, "snc: placement epoch %llu adopted (was %llu)\n", (unsigned long long)epoch,
+               (unsigned long long)cur->epoch);
+  rt_->run_on_all([&](u16) { current_shard()->set_map(p); });
+  rt_->run_on_all([&](u16) { current_shard()->map_changed(); });
+  return true;
+}
+
+u64 Engine::epoch_seen() const {
+  const u64 h = g_state ? g_state->epoch_hint.load() : 0;
+  return h > map_.load()->epoch ? h : 0;
+}
+
+// Asks the control plane every placement_poll_ms, and at once when a node
+// link shows a newer epoch: invariant 14, the hot path only reads the map
+// it caches; this thread is what refreshes it.
+void Engine::watch_placement() {
+  using clock = std::chrono::steady_clock;
+  auto last = clock::now() - std::chrono::hours(1);
+  while (!watcher_stop_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    const auto since_last = clock::now() - last;
+    const bool due = since_last >= std::chrono::milliseconds(cfg_.placement_poll_ms);
+    const bool hinted = epoch_seen() != 0 && since_last >= std::chrono::milliseconds(50);
+    if (!due && !hinted) continue;
+    last = clock::now();
+    refresh_placement();
+  }
+}
+
+bool Engine::refresh_placement() {
+  if (!cfg_.placement_fetch) return false;
+  std::array<u8, kSlots> slots{};
+  u64 epoch = 0;
+  return cfg_.placement_fetch(slots, epoch) && update_placement(slots, epoch);
+}
+
+Status Engine::wait_lsn(u16 shard, u64 lsn, double timeout_s) {
+  const auto t0 = std::chrono::steady_clock::now();
+  while (true) {
+    const int r = on_shard(shard, [&] {
+      Shard* s = current_shard();
+      if (s->withdrawn()) return 2;
+      return s->lsn_durable(lsn) ? 1 : 0;
+    });
+    if (r == 1) return Status::OK;
+    if (r == 2) return Status::E_FENCED;  // will never be acknowledged here
+    if (since(t0) > timeout_s) return Status::E_OVERLOADED;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+SlotReport Engine::slot_report(u16 slot) {
+  if (!running_) return SlotReport{};
+  return on_shard(slots_.owner[slot], [&] { return current_shard()->slot_report(slot); });
+}
+
+Status Engine::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out, double timeout_s) {
+  const u16 sh = slots_.owner[slot];
+  u64 lsn = 0;
+  Status st = on_shard(sh, [&] { return current_shard()->seal_slot(slot, move, to, epoch, lsn); });
+  if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
+  out = slot_report(slot);
+  return st;
+}
+
+Status Engine::unseal_slot(u16 slot, u64 move, SlotReport& out, double timeout_s) {
+  const u16 sh = slots_.owner[slot];
+  u64 lsn = 0;
+  Status st = on_shard(sh, [&] { return current_shard()->unseal_slot(slot, move, lsn); });
+  if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
+  out = slot_report(slot);
+  return st;
+}
+
+Status Engine::export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
+                           std::vector<SlotObject>& out, u64& count, u64& digest) {
+  const u16 sh = slots_.owner[slot];
+  if (final) {
+    // The seal is durable before its state is shown to anyone.
+    const SlotReport r = slot_report(slot);
+    if (r.phase == static_cast<u8>(SlotPhase::SEALED) && r.move_id == move && !r.durable) {
+      u64 lsn = 0;
+      on_shard(sh, [&] { return current_shard()->seal_slot(slot, move, r.group, r.epoch, lsn); });
+      if (const Status w = wait_lsn(sh, lsn, 10); w != Status::OK) return w;
+    }
+  }
+  return on_shard(sh, [&] { return current_shard()->export_slot(slot, move, final, have, out, count, digest); });
+}
+
+Status Engine::slot_objects(u16 slot, std::vector<SlotObject>& out) {
+  on_shard(slots_.owner[slot], [&] {
+    current_shard()->slot_objects(slot, false, out);
+    return 0;
+  });
+  return Status::OK;
+}
+
+Status Engine::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
+                          u64 count, u64 digest, SlotReport& out, double timeout_s) {
+  const u16 sh = slots_.owner[slot];
+  u64 lsn = 0;
+  Status st =
+      on_shard(sh, [&] { return current_shard()->stage_slot(slot, move, from, epoch, final, objs, count, digest, lsn); });
+  if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
+  out = slot_report(slot);
+  return st;
 }
 
 void Engine::take_lease_block(u16 n) {

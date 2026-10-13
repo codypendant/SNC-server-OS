@@ -8,6 +8,7 @@
 
 #include <cstring>
 
+#include "snc/cluster.h"
 #include "snc/net.h"
 
 namespace snc::net {
@@ -29,26 +30,25 @@ ClusterClient::~ClusterClient() {
   if (epfd_ >= 0) ::close(epfd_);
 }
 
-bool ClusterClient::connect(const std::string& host, u16 base_port) {
-  auto fail = [&](const std::string& what) {
-    error_ = what;
-    return false;
-  };
-  // The map, from shard 0 of the node given.
+namespace {
+// The CLUSTER body of host:port (any shard of any member answers).
+bool fetch_map(const std::string& host, u16 port, wire::ClusterBody& b, std::vector<u8>& body, std::string& why) {
   const int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
   sockaddr_in a{};
   a.sin_family = AF_INET;
-  a.sin_port = htons(base_port);
+  a.sin_port = htons(port);
   if (fd < 0 || ::inet_pton(AF_INET, host.c_str(), &a.sin_addr) != 1 ||
       ::connect(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0) {
     if (fd >= 0) ::close(fd);
-    return fail("connect: " + std::string(std::strerror(errno)));
+    why = "connect: " + std::string(std::strerror(errno));
+    return false;
   }
+  timeval tv{2, 0};
+  ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   wire::ReqHeader q{};
   q.len = sizeof(q);
   q.kind = wire::Kind::CLUSTER;
   wire::RespHeader h{};
-  std::vector<u8> body;
   bool ok = io_all(fd, &q, sizeof(q), true) && io_all(fd, &h, sizeof(h), false) &&
             h.kind == wire::Kind::RESP && h.len >= sizeof(h) + sizeof(wire::ClusterBody);
   if (ok) {
@@ -56,12 +56,32 @@ bool ClusterClient::connect(const std::string& host, u16 base_port) {
     ok = io_all(fd, body.data(), body.size(), false);
   }
   ::close(fd);
-  if (!ok) return fail("cluster map: no valid answer");
-  wire::ClusterBody b;
+  if (!ok) {
+    why = "cluster map: no valid answer";
+    return false;
+  }
   std::memcpy(&b, body.data(), sizeof(b));
-  if (body.size() != sizeof(b) + b.n_members * sizeof(wire::ClusterEntry)) return fail("cluster map: bad length");
+  if (body.size() != sizeof(b) + b.n_members * sizeof(wire::ClusterEntry)) {
+    why = "cluster map: bad length";
+    return false;
+  }
+  return true;
+}
+}  // namespace
+
+bool ClusterClient::connect(const std::string& host, u16 base_port) {
+  auto fail = [&](const std::string& what) {
+    error_ = what;
+    return false;
+  };
+  // The map, from shard 0 of the node given.
+  wire::ClusterBody b;
+  std::vector<u8> body;
+  std::string why;
+  if (!fetch_map(host, base_port, b, body, why)) return fail(why);
 
   groups_.clear();
+  members_.clear();
   auto make_client = [&] {
     auto c = std::make_unique<Client>();
     if (client_id_ != 0) c->enable_session(client_id_, failover_ms_, request_timeout_ms_);
@@ -88,6 +108,7 @@ bool ClusterClient::connect(const std::string& host, u16 base_port) {
         return fail("group " + std::to_string(e.group) + ": a member with no client port in the cluster map");
       }
       members[e.group].emplace_back(e.host, e.client_port);
+      members_.emplace_back(e.host, e.client_port);
     }
     for (u16 g = 0; g < b.n_groups; ++g) {
       // Its primary is whichever member answers as one (with a session; a
@@ -117,6 +138,30 @@ bool ClusterClient::connect(const std::string& host, u16 base_port) {
     ::epoll_ctl(epfd_, EPOLL_CTL_ADD, groups_[g]->wait_fd(), &ev);
   }
   return true;
+}
+
+bool ClusterClient::refresh() {
+  for (const auto& [host, port] : members_) {
+    wire::ClusterBody b;
+    std::vector<u8> body;
+    std::string why;
+    if (!fetch_map(host, port, b, body, why)) continue;
+    // Placement moves slots between the same groups; members do not change
+    // under a refresh (a new group would need a new connect).
+    if (b.n_groups != groups_.size() || b.epoch <= epoch_) continue;
+    std::memcpy(group_of_.data(), b.group_of, kSlots);
+    crc_ = b.crc;
+    epoch_ = b.epoch;
+    ++refreshes_;
+    return true;
+  }
+  return false;
+}
+
+bool ClusterClient::on_moved(ByteView result) {
+  MovedResult m{};
+  if (result.len >= sizeof(m)) std::memcpy(&m, result.data, sizeof(m));
+  return m.epoch > epoch_ && refresh();
 }
 
 void ClusterClient::enable_sessions(u64 client_id, int failover_ms, int request_timeout_ms) {
