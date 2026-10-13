@@ -20,10 +20,11 @@ Primary snc_server on cores 0-1 (sync, --replica-timeout-ms 500,
              witness refuses to let it continue alone).
   rearm:     two failovers in a row. The primary is killed and the standby
              promoted; it runs alone under a grant and creates accounts.
-             The old primary rejoins on an empty directory as its standby
-             (seeded from it); once it is back in sync the new primary is
-             killed, the witnesses promote the old one again, and every
-             account created in between must be there.
+             The old primary is restarted with its original command line
+             (--rejoin): it moves its data aside and rejoins as the new
+             primary's standby, seeded from it. Once it is back in sync the
+             new primary is killed, the witnesses promote the old one again,
+             and every account created in between must be there.
 
 --witnesses 3 runs three replicated witnesses (Paxos among them) instead of
 one; --down 1 also kills that many of them (witness 0 first, which the
@@ -155,6 +156,10 @@ def node_args(port, node, rearm):
               "--witness", witness_list(port)]
     if rearm:
         a += ["--seed-port", str(seed)]
+        if node == 0:
+            # Restarted with this same command line, it rejoins as node 1's
+            # standby if node 1 has been promoted.
+            a += ["--rejoin", f"{repl},127.0.0.1:{port + 50},127.0.0.1:{port + 80}"]
     return a, repl, adm
 
 
@@ -274,7 +279,8 @@ def bench_ids(port, ids, objects, seconds):
 def case_rearm(port):
     """Two failovers in a row. The primary (node 0) is killed and node 1
     promoted; node 1 runs alone (granted) and creates accounts. Node 0 is
-    restarted on an empty directory as node 1's standby, seeded from it.
+    restarted with its original command line: it finds node 1 primary,
+    moves its data aside and rejoins as node 1's standby, seeded from it.
     Once it is back in sync, node 1 is killed: the witnesses promote node 0
     again, and every account node 1 created is there."""
     prim, sb, w, p_cli, s_cli = start(port, rearm=True)
@@ -287,13 +293,14 @@ def case_rearm(port):
     ops, err = bench_ids(s_cli, ids, 20000, 2)
     assert ops and err == 0, f"node 1 alone: {ops} ops/s, {err} errors\n" + sb.text()
     assert sb.wait_for(r"witness: granted", 1)[0] is not None, "node 1 ran without a grant"
-    # Node 0 rejoins as a standby, seeded from node 1.
-    shutil.rmtree(f"{WORK}/p", ignore_errors=True)
-    a, repl, adm = node_args(port, 0, True)
-    a += ["--seed-from", f"127.0.0.1:{port + 80}"]
+    # Node 0 restarts as it first started, and rejoins as a standby.
+    a, _, adm = node_args(port, 0, True)
     t_join = time.time()
-    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1", "--standby", str(repl)] + a)
+    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1"] + a)
     wait_port(adm, proc=prim)
+    assert prim.wait_for(r"rejoin: starting as its standby", 5)[0] is not None, \
+        "node 0 did not rejoin\n" + prim.text()
+    assert any(d.startswith("p.stale-") for d in os.listdir(WORK)), "old data not kept aside"
     t_sync, _ = sb.wait_for(r"witness: standby back in sync", 60)
     assert t_sync is not None, "node 0 never back in sync\n" + sb.text() + prim.text()
     # The second failover.

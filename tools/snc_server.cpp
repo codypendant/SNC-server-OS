@@ -10,6 +10,7 @@
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
+//                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -31,6 +32,11 @@
 // list of replicated witnesses; each request goes to the first that
 // answers. --standby-reads lets a standby
 // serve reads under leases from its sync primary (E_STALE without one).
+// --rejoin (with --space-uuid): a node started as primary first asks the
+// other node of its pair; if that one is now the primary, the node moves
+// its data directory aside (DIR.stale-TIME) and starts as that primary's
+// standby, listening on STANDBY_PORT and seeded from PEER_HOST:SEED. So a
+// supervisor can restart a failed primary with its usual command line.
 #include <signal.h>
 
 #include <atomic>
@@ -85,6 +91,11 @@ int main(int argc, char** argv) {
   unsigned admin_port = 0;
   std::vector<std::pair<std::string, unsigned>> witnesses;
   double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
+  // Rejoin (see the header): the other node's admin and seed ports, and the
+  // port to listen on as its standby.
+  std::string peer_admin_host, peer_seed;
+  unsigned peer_admin_port = 0;
+  u16 rejoin_port = 0;
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -138,6 +149,18 @@ int main(int argc, char** argv) {
       }
       cfg.replica_degrade_gated = true;
     }
+    else if (k == "--rejoin") {
+      // --rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED
+      std::istringstream in(val());
+      std::string port, admin;
+      if (!std::getline(in, port, ',') || !std::getline(in, admin, ',') ||
+          !std::getline(in, peer_seed) ||
+          !ha::parse_hostport(admin, peer_admin_host, peer_admin_port) || peer_seed.empty()) {
+        std::fprintf(stderr, "--rejoin takes STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED\n");
+        return 2;
+      }
+      rejoin_port = static_cast<u16>(std::atoi(port.c_str()));
+    }
     else if (k == "--checkpoint-s") checkpoint_s = std::atof(val());
     else if (k == "--catchup-mib-s") cfg.replica_catchup_bytes_per_s = static_cast<u64>(std::atof(val()) * (1 << 20));
     else if (k == "--replica-retain-mib") cfg.replica_retain_bytes = std::strtoull(val(), nullptr, 10) << 20;
@@ -168,6 +191,51 @@ int main(int argc, char** argv) {
                                : static_cast<u16>(cfg.runtime.cpus.size());
   }
   account::register_type();
+
+  // Rejoin: a node starting as primary first asks the other node. If that
+  // one serves as primary of the same space, the witnesses promoted it
+  // while this node was away: this node's data has fallen behind or
+  // diverged, so it is moved aside and the node starts as the other's
+  // standby, seeded from it.
+  if (rejoin_port != 0 && !cfg.standby) {
+    std::string reply;
+    bool asked = false;
+    for (int i = 0; i < 5 && !asked; ++i) {
+      asked = ha::ask(peer_admin_host, peer_admin_port, "STATUS", reply, 500);
+      if (!asked) ::usleep(100000);
+    }
+    std::string role, uuid;
+    std::istringstream in(reply);
+    for (std::string kv; in >> kv;) {
+      if (kv.rfind("role=", 0) == 0) role = kv.substr(5);
+      else if (kv.rfind("uuid=", 0) == 0) uuid = kv.substr(5);
+    }
+    std::string my_uuid;
+    for (u8 b : cfg.init_uuid) {
+      char h[3];
+      std::snprintf(h, sizeof(h), "%02x", b);
+      my_uuid += h;
+    }
+    if (asked && (role == "p" || role == "n") && uuid == my_uuid) {
+      if (!cfg.data_dir.empty() && ::access(cfg.data_dir.c_str(), F_OK) == 0) {
+        std::string aside = cfg.data_dir + ".stale-" + std::to_string(::time(nullptr));
+        if (::rename(cfg.data_dir.c_str(), aside.c_str()) != 0) {
+          std::perror("rejoin: cannot move the data directory aside");
+          return 1;
+        }
+        std::printf("rejoin: the other node is primary; old data moved to %s\n", aside.c_str());
+      }
+      cfg.standby = true;
+      cfg.standby_port = rejoin_port;
+      cfg.seed_from = peer_seed;
+      std::printf("rejoin: starting as its standby, seeded from %s\n", peer_seed.c_str());
+    } else {
+      std::printf("rejoin: the other node is %s; starting as primary\n",
+                  asked ? (role.empty() ? "unknown" : role == "s" ? "a standby" : "not primary")
+                        : "unreachable");
+    }
+    std::fflush(stdout);
+  }
 
   // Workers inherit this mask, so only the main thread takes the signal.
   sigset_t set;
