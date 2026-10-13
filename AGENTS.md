@@ -495,3 +495,33 @@ or source comments.
 -   **Next:** cody to provide hosts (3 minimum) and a way to drive them;
     Claude builds the lab harness (`bench/lab/`) meanwhile, against
     loopback, so phase P0 can start as soon as hosts exist.
+
+### 2026-10-13 18:50 UTC --- Claude (Claude Code): real-machine lab harness
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 18:22
+    direction). Classified **REFINE**: test tooling plus two operator
+    knobs; no protocol change.
+-   **What changed:** `bench/lab/lab.py` runs the plan's phases (P0-P5,
+    soak) on an inventory of hosts over SSH, or on loopback
+    (`bench/lab/loopback.toml`) with the same code; `snc_load` (create,
+    transfer load with per-interval latency, and `test_migrate`'s balance
+    check); `snc_server` admin `AUDIT [PATH]`; `snc_ctl move --stop-after
+    STEP --chunk N`; timestamped driver logs. A node started with
+    `--control` now listens for clients on every interface (it listened on
+    loopback only, though the map advertises its host).
+-   **Evidence (loopback, `bench/results/lab-20261013/`):** failover under
+    load, kill and SIGSTOP: promoted ~1.0 s, hung old primary withdrew in
+    0.12 s after SIGCONT, every acknowledged transfer present. Slot move
+    of 2,012 objects under load and back: never two serving groups, 0.18 s
+    with none serving, epoch 3 on every node, check OK. `test_migrate`,
+    `test_control`, `test_cluster` pass.
+-   **Found (changes an assumption):** a move's duration is dominated by
+    the copy ahead of the seal, 8 objects per durable round trip: 5.7 of
+    6.0 s for 2,012 objects; 0.56 s total with 256 per request. The client
+    window (seal to activation, ~0.25 s) does not depend on it. On real
+    hosts each round trip adds RTT, so this is the first number P5 should
+    measure; it supports the chunked stream.
+-   **Next:** cody brings up 3+ hosts (Ubuntu Server 24.04; setup in
+    `docs/REAL_MACHINES.md`) and a Claude Code session on one of them runs
+    P0-P6. Codex to review the plan and harness meanwhile.
+

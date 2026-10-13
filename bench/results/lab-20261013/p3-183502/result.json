@@ -1,0 +1,104 @@
+{
+  "scenario": "p3",
+  "args": {
+    "inventory": "bench/lab/loopback.toml",
+    "scenario": "p3",
+    "seconds": 15.0,
+    "accounts": 20000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "127.0.0.1"
+  },
+  "ok": true,
+  "check": "OK: 20000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt",
+  "promote_s": 0.9981875419616699,
+  "withdraw_s": null,
+  "client_gap_s": 0.5,
+  "load": {
+    "seconds": "15.0255",
+    "acked": "207001",
+    "ops_s": "13776.6",
+    "p50_us": "1920",
+    "p99_us": "5120",
+    "p999_us": "22528",
+    "max_us": "983040",
+    "unknown": "0",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "212",
+    "refreshes": "0",
+    "failovers": "2",
+    "epoch": "1",
+    "error": "-"
+  },
+  "status_samples": 1288,
+  "events": [
+    {
+      "t": 0.834,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 1.159,
+      "event": "created",
+      "out": "created 20000 accounts over 2 groups"
+    },
+    {
+      "t": 1.171,
+      "event": "load started",
+      "name": "load",
+      "seconds": 15.0
+    },
+    {
+      "t": 6.172,
+      "event": "fault",
+      "kind": "kill",
+      "node": 1,
+      "peer": null
+    },
+    {
+      "t": 7.17,
+      "event": "promoted",
+      "node": 2,
+      "seconds": 0.998,
+      "term": "1"
+    },
+    {
+      "t": 18.266,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "13776.6",
+      "p99_us": "5120",
+      "error": "-"
+    },
+    {
+      "t": 18.278,
+      "event": "settled",
+      "seconds": 0.01
+    },
+    {
+      "t": 18.359,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 20000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"
+    }
+  ]
+}

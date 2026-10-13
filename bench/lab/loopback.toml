@@ -1,0 +1,17 @@
+# Every role on this machine over loopback: the reference numbers, and a
+# check of the harness itself. Only kill and stop faults work here.
+[lab]
+build = "build"          # relative to the repository
+dir = "/tmp/snc-lab"
+shards = 2
+objects = 200000
+base_port = 21000
+
+[hosts.a]
+addr = "127.0.0.1"
+ssh = "local"
+
+[layout]
+witnesses = ["a", "a", "a"]
+groups = [["a", "a"], ["a", "a"]]   # [primary, standby] per group
+client = "a"

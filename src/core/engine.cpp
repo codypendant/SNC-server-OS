@@ -930,4 +930,18 @@ void Engine::for_each_object(u16 shard, const std::function<void(const ObjectHea
   done.wait();
 }
 
+void Engine::for_each_served_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn) {
+  std::latch done(1);
+  rt_->submit(shard, [&] {
+    Shard* sh = current_shard();
+    if (!sh->is_standby() && !sh->withdrawn()) {
+      sh->for_each_object([&](const ObjectHeader& h) {
+        if (sh->serving(slot_of(h.id))) fn(h);
+      });
+    }
+    done.count_down();
+  });
+  done.wait();
+}
+
 }  // namespace snc

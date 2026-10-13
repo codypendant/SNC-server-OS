@@ -1,0 +1,16 @@
+seconds 20.034
+acked 132050
+ops_s 6591.26
+p50_us 2560
+p99_us 27648
+p999_us 40960
+max_us 53248
+unknown 0
+rejected 0
+moved 0
+migrating 693
+overloaded 0
+refreshes 2
+failovers 0
+epoch 2
+error -

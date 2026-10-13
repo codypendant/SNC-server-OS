@@ -457,7 +457,13 @@ class Driver {
     return b;
   }
   bool stop(const std::string& step) { return stop_at && stop_at(step); }
-  void note(const std::string& s) { log += s + "\n"; }
+  void note(const std::string& s) {
+    char t[32];
+    std::snprintf(t, sizeof(t), "[%8.3f] ",
+                  std::chrono::duration<double>(std::chrono::steady_clock::now() - t0_).count());
+    log += t + s + "\n";
+  }
+  const std::chrono::steady_clock::time_point t0_ = std::chrono::steady_clock::now();
   static void pause() { std::this_thread::sleep_for(std::chrono::milliseconds(50)); }
 
   std::string ask_node(const Node& n, const std::string& line) {

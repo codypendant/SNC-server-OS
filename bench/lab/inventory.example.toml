@@ -1,0 +1,31 @@
+# Three hosts, two groups (docs/REAL_MACHINES.md, "Hardware"). Run lab.py on
+# host c; it reaches a and b over SSH with keys, and needs root there for
+# the network faults.
+[lab]
+build = "build"          # binaries on this host, copied by `lab.py ... deploy`
+dir = "/var/tmp/snc-lab" # on every host: binaries, data dirs, logs
+shards = 2
+objects = 1000000
+base_port = 21000        # below 32768; witness w at base+w, node k at base+100+40k
+
+[hosts.a]
+addr = "10.0.0.11"       # IPv4 literal (clients and the control path do not resolve names)
+ssh = "root@10.0.0.11"
+iface = "eth1"           # the data NIC, for link and delay faults
+cpus = "2,3"             # shard cores for snc_server
+
+[hosts.b]
+addr = "10.0.0.12"
+ssh = "root@10.0.0.12"
+iface = "eth1"
+cpus = "2,3"
+
+[hosts.c]
+addr = "10.0.0.13"
+ssh = "local"            # the host lab.py runs on
+iface = "eth1"
+
+[layout]
+witnesses = ["a", "b", "c"]
+groups = [["a", "b"], ["b", "a"]]   # [primary, standby]; never on one host
+client = "c"
