@@ -39,7 +39,8 @@ enum class Status : u16 {
   E_STALE,          // a standby serving reads has no current lease from its primary
   E_REPLAYED_OLD,   // sequenced: an older request, already decided; its outcome is not kept
   E_NOT_OWNER,      // sequenced: sent to a shard that does not own the target
-  E_WRONG_NODE,     // clustered: another node owns the target (docs/CLUSTER.md)
+  E_WRONG_NODE,     // clustered, no map yet; with one, E_MOVED (docs/CONTROL_PLANE.md section 8)
+  E_MOVED,          // clustered: another group owns the target; the result is a MovedResult
   E_FENCED,         // this primary was replaced before the op was acknowledged: it may or
                     // may not have committed; the new primary knows (a session resend is safe)
 };

@@ -27,6 +27,7 @@ set(SNC_CORE_SOURCES
   src/core/seed.cpp
   src/core/session.cpp
   src/core/cluster.cpp
+  src/core/placement.cpp
   src/core/node_link.cpp
   src/core/wal_format.cpp
   src/net/conn_set.cpp
@@ -69,6 +70,8 @@ target_link_libraries(baseline_bench PRIVATE snc_core)
 
 add_executable(snc_server tools/snc_server.cpp)
 target_link_libraries(snc_server PRIVATE snc_core)
+add_executable(snc_ctl tools/snc_ctl.cpp)
+target_link_libraries(snc_ctl PRIVATE snc_core)
 add_executable(snc_witness tools/snc_witness.cpp)
 target_link_libraries(snc_witness PRIVATE Threads::Threads)
 find_program(PYTHON3 python3)

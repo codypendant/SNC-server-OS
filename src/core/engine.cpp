@@ -134,7 +134,15 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
       throw std::invalid_argument(
           "cluster: group_id or member out of range, or the group's shard count is not runtime.n_shards");
     }
-    cluster_ = ClusterMap::make(cfg.cluster);
+    if (cfg.cluster_slots.empty()) {
+      cluster_ = ClusterMap::make(cfg.cluster);
+      cluster_.epoch = cfg.cluster_epoch;
+    } else {
+      if (cfg.cluster_slots.size() != kSlots) throw std::invalid_argument("cluster: cluster_slots needs every slot");
+      std::array<u8, kSlots> a;
+      std::copy(cfg.cluster_slots.begin(), cfg.cluster_slots.end(), a.begin());
+      cluster_ = ClusterMap::assign(cfg.cluster, a, cfg.cluster_epoch);
+    }
   }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});

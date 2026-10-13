@@ -37,15 +37,50 @@ peer whose crc or epoch differs. Which member is primary is not in the map
 at all: it is the group's HA state (its term, its witnesses), and links
 and clients find it by asking the members.
 
+## Starting from the control plane
+
+Instead of `--cluster` on every node, the map can be written once to the
+control plane and fetched (docs/CONTROL_PLANE.md, step 2):
+
+```
+snc_witness --port 9000 --state w0 --id 0 --peers H0:9000,H1:9000,H2:9000   # x3
+snc_ctl --control H0:9000,H1:9000,H2:9000 init \
+    --nodes 1@HA:7100,2@HB:7100,3@HC:7100 \
+    --groups 4:1/7200/7000+2/7200/7000,4:3/7200/7000
+snc_server --control H0:9000,H1:9000,H2:9000 --node-id 1 --data-dir d1 ...
+```
+
+- `snc_ctl init` writes placement epoch 1: a random cluster ID, the nodes
+  (`NodeID@host:admin`), one group per list entry (`SHARDS:` then members
+  `NODE/LINK/CLIENT` joined by `+`, each group with a random space UUID)
+  and the slots in contiguous ranges. It is chosen once by the witnesses'
+  `placement` machine; another map is refused, the same one is accepted.
+  `snc_ctl get` prints it.
+- `snc_server --control ... --node-id N` asks the control members for the
+  map (one answers after reading what a majority holds), finds its group
+  and member by NodeID, takes its client port and the group's space UUID
+  from the map, and keeps the map and its NodeID in its data directory
+  (`placement`, `node`). It refuses to start in a data directory of
+  another node or another space, if the map does not name it, or if the
+  control plane has no map yet.
+- **Control plane down at start:** the node starts from its stored map
+  and says so. That is provisional (docs/CONTROL_PLANE.md section 9): safe
+  while slots never move, to be proved or replaced at the slot-move
+  milestone.
+- Which member is primary is not in the map; `--standby` and
+  `--replica-of` still decide it, and the witnesses after that.
+
 ## Ops
 
 - **Creates stay local.** A group mints IDs only in its own slots, so a
   create never crosses the network. `create_near` an object of another
   group is refused.
-- **Ops on another group's object** are refused with `E_WRONG_NODE`. The
-  client must send them to the owner. `E_MOVED` and forwarding reads for
-  out-of-date clients come with the placement state machine, when the map
-  can change.
+- **Ops on another group's object** are refused with `E_MOVED`, whose
+  result (`MovedResult`) carries the refusing node's placement epoch and
+  the owning group by its map (docs/CONTROL_PLANE.md section 8). The
+  client must send them to the owner. A refusal does not depend on load
+  (it comes before the follow-up backlog check). Forwarding reads for
+  out-of-date clients comes with slot moves, when a map can be stale.
 - **Clients route by the map.** A `CLUSTER` request (wire kind 5) returns
   the map, its crc and epoch, and every member's address and client port.
   `net::ClusterClient` fetches it from any node and keeps one `Client` per
@@ -192,7 +227,12 @@ others keep sending to it, and restarted. Once nothing is in flight:
   which its log (written after each ack) can miss;
 - a `ClusterClient` connected to one node reads all 360 accounts, each
   from its owner (none refused, none forwarded between shards), and a
-  read sent to the wrong node gets `E_WRONG_NODE`.
+  read sent to the wrong node gets `E_MOVED` with epoch 1 and the right
+  group.
+
+The same test runs again with the map from the control plane
+(`test_kill_restart(true)`, next section): three witnesses hold it,
+nodes start by NodeID, and node 1 restarts while every witness is down.
 
 A typical run: about 20,000 transfers acknowledged, 30,000 follow-ups
 sent between nodes per node, several thousand dropped while node 1 was

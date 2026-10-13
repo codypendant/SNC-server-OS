@@ -26,6 +26,7 @@
 #include <string>
 #include <thread>
 
+#include "../tools/control.h"
 #include "harness.h"
 #include "snc/cluster.h"
 #include "snc/net.h"
@@ -125,7 +126,11 @@ struct Node {
   std::string dir;
   u32 id;
   u16 port_base;
+  // Non-empty: the node takes its map from these control members as
+  // NodeID kNodeIdBase + id (docs/CONTROL_PLANE.md), not from cluster().
+  std::string control;
 };
+constexpr u32 kNodeIdBase = 10;
 
 std::vector<ObjectID> read_ids(const std::string& dir, u32 node) {
   std::vector<ObjectID> ids;
@@ -164,8 +169,24 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   c.data_dir = nd.dir + "/node" + std::to_string(nd.id);
   c.init = init;
   c.wal_segment_bytes = 1u << 20;
-  c.cluster = cluster(nd.port_base);
-  c.group_id = static_cast<u16>(nd.id);
+  if (nd.control.empty()) {
+    c.cluster = cluster(nd.port_base);
+    c.group_id = static_cast<u16>(nd.id);
+  } else {
+    control::Members ms;
+    CHECK(control::parse_members(nd.control, ms));
+    control::NodeSetup setup;
+    std::string why;
+    if (!control::resolve(ms, c.data_dir, kNodeIdBase + nd.id, 2000, setup, why)) {
+      std::fprintf(stderr, "node %u: %s\n", nd.id, why.c_str());
+      _exit(3);
+    }
+    control::apply(setup, c);
+    CHECK_EQ(setup.group, nd.id);
+    CHECK_EQ(setup.member, 0u);
+    write_file(nd.dir + "/setup." + std::to_string(nd.id) + (init ? "" : ".restart"),
+               std::to_string(setup.stored) + " " + std::to_string(setup.placement.epoch));
+  }
   ::mkdir(c.data_dir.c_str(), 0755);
   net::NetServer::Config nc;
   nc.base_port = c.cluster[nd.id].members[0].client_port;
@@ -175,6 +196,7 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   Engine eng(c);
   eng.start();
   const std::string me = std::to_string(nd.id);
+  if (!nd.control.empty()) CHECK(eng.space_uuid() == c.init_uuid);  // the group's space, from the map
 
   if (init) {
     std::vector<ObjectID> ids(kAccounts);
@@ -215,7 +237,10 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   OneResult wrong = one(eng, 0, [&](Completion done, void* ctx) {
     execute(ids[(nd.id + 1) % kNodes][0], kOpGetBalance, ByteView(), {}, done, ctx);
   });
-  CHECK_EQ(wrong.r.status, Status::E_WRONG_NODE);
+  CHECK_EQ(wrong.r.status, Status::E_MOVED);
+  const MovedResult moved = wrong.as<MovedResult>();
+  CHECK_EQ(moved.epoch, eng.cluster().epoch);
+  CHECK_EQ(moved.group, (nd.id + 1) % kNodes);
 
   // Transfers from this node's accounts to any account. Each acknowledged
   // one is appended to this node's log (sources here, destinations anywhere).
@@ -346,7 +371,10 @@ void check_routing(const std::string& dir, u16 port_base, u32 members = 1, u32 v
   CHECK_EQ(cc.epoch(), 1u);
   struct Seen {
     u64 ok = 0, forwarded = 0, wrong = 0;
+    u64 epoch;
+    u16 owner;
   } seen;
+  seen.epoch = cc.epoch();
   for (u64 i = 0; i < ids.size(); ++i) {
     wire::ReqHeader h{};
     h.kind = wire::Kind::EXEC;
@@ -361,15 +389,20 @@ void check_routing(const std::string& dir, u16 port_base, u32 members = 1, u32 v
   wrong.op = kOpGetBalance;
   wrong.req_id = ~u64{0};
   wrong.target = ids[0];
+  seen.owner = cc.group_of(ids[0]);
   if (members == 1) cc.group(static_cast<u16>((cc.group_of(ids[0]) + 1) % kNodes)).send(0, wrong, ByteView());
   const u64 want = ids.size() + (members == 1 ? 1 : 0);
   u64 got = 0;
   while (got < want) {
     int r = cc.poll(
-        [](void* ctx, const wire::RespHeader& h, ByteView) {
+        [](void* ctx, const wire::RespHeader& h, ByteView body) {
           auto* s = static_cast<Seen*>(ctx);
           if (h.req_id == ~u64{0}) {
-            s->wrong += static_cast<Status>(h.status) == Status::E_WRONG_NODE;
+            MovedResult m{};
+            if (static_cast<Status>(h.status) == Status::E_MOVED && body.len == sizeof(m)) {
+              std::memcpy(&m, body.data, sizeof(m));
+              s->wrong += m.epoch == s->epoch && m.group == s->owner;
+            }
             return;
           }
           s->ok += static_cast<Status>(h.status) == Status::OK;
@@ -383,15 +416,117 @@ void check_routing(const std::string& dir, u16 port_base, u32 members = 1, u32 v
   CHECK_EQ(seen.forwarded, 0u);
   CHECK_EQ(seen.wrong, members == 1 ? 1u : 0u);
   std::printf("routing: %zu reads, each sent to its owner's primary by the cluster map (epoch %llu)%s\n",
-              ids.size(), (unsigned long long)cc.epoch(), members == 1 ? "; a misrouted one refused" : "");
+              ids.size(), (unsigned long long)cc.epoch(), members == 1 ? "; a misrouted one refused with E_MOVED (its epoch and owner)" : "");
 }
 
-void test_kill_restart() {
+// ---- Control plane (docs/CONTROL_PLANE.md, step 2) ------------------------------------
+
+std::string build_dir() {
+  char b[4096];
+  const ssize_t n = ::readlink("/proc/self/exe", b, sizeof(b) - 1);
+  CHECK(n > 0);
+  std::string p(b, static_cast<std::size_t>(n));
+  return p.substr(0, p.rfind('/'));
+}
+
+// Three witnesses holding placement only (no pair to watch).
+std::vector<pid_t> start_control(const std::string& dir, u16 port0, std::string& members) {
+  members.clear();
+  for (u32 i = 0; i < 3; ++i) members += (i ? "," : "") + std::string("127.0.0.1:") + std::to_string(port0 + i);
+  const std::string exe = build_dir() + "/snc_witness";
+  std::vector<pid_t> pids;
+  for (u32 i = 0; i < 3; ++i) {
+    std::fflush(stdout);
+    pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      const int null = ::open("/dev/null", O_WRONLY);
+      ::dup2(null, 1);
+      const std::string port = std::to_string(port0 + i), state = dir + "/witness" + std::to_string(i),
+                        id = std::to_string(i);
+      ::execl(exe.c_str(), exe.c_str(), "--port", port.c_str(), "--state", state.c_str(), "--id", id.c_str(),
+              "--peers", members.c_str(), static_cast<char*>(nullptr));
+      _exit(127);
+    }
+    pids.push_back(pid);
+  }
+  return pids;
+}
+
+// The placement chosen once, read back by any member; what may not start.
+Placement init_control(const std::string& dir, const control::Members& ms, u16 port_base) {
+  std::vector<PlacementNode> nodes;
+  std::vector<PlacementGroup> groups;
+  const std::vector<ClusterGroup> cg = cluster(port_base);
+  for (u32 g = 0; g < kNodes; ++g) {
+    nodes.push_back({kNodeIdBase + g, "127.0.0.1", 0});
+    PlacementGroup pg;
+    pg.n_shards = kShards;
+    pg.space = random_uuid();
+    pg.members.push_back({kNodeIdBase + g, cg[g].members[0].link_port, cg[g].members[0].client_port});
+    groups.push_back(pg);
+  }
+  const Placement p = Placement::initial(random_uuid(), nodes, groups);
+  CHECK(Placement::decode(p.encode()).has_value());
+  CHECK_EQ(Placement::decode(p.encode())->encode(), p.encode());
+  CHECK_EQ(p.map().crc(), ClusterMap::make(cg).crc());
+  // Nothing yet: a node may not start.
+  Placement got;
+  std::string why;
+  {
+    const auto t0 = std::chrono::steady_clock::now();
+    control::Got g;
+    while ((g = control::get(ms, got, why)) == control::Got::UNREACHABLE) {
+      CHECK(std::chrono::steady_clock::now() - t0 < std::chrono::seconds(10));
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    CHECK(g == control::Got::NONE);
+  }
+  control::NodeSetup setup;
+  CHECK(!control::resolve(ms, dir + "/early", kNodeIdBase, 0, setup, why));
+  // Chosen once: the same map again is accepted, another is refused.
+  CHECK_EQ(control::init(ms, p), "OK");
+  CHECK_EQ(control::init(ms, p), "OK");
+  Placement other = Placement::initial(random_uuid(), nodes, groups);
+  CHECK(control::init(ms, other).rfind("NO already", 0) == 0);
+  // Every member serves the same map, the first version of the machine.
+  for (const auto& [h, port] : ms) {
+    CHECK(control::get({{h, port}}, got, why) == control::Got::MAP);
+    CHECK_EQ(got.encode(), p.encode());
+    std::string reply;
+    CHECK(ha::ask(h, port, "READ placement", reply, 1000));
+    CHECK_EQ(reply, "STATE 1 " + p.encode());
+  }
+  // A node the map does not name may not start, nor one on another node's
+  // data directory.
+  CHECK(!control::resolve(ms, dir + "/stranger", 99, 1000, setup, why));
+  CHECK(why.find("in no group") != std::string::npos);
+  ::mkdir((dir + "/taken").c_str(), 0755);
+  write_file(dir + "/taken/node", std::to_string(kNodeIdBase + 1));
+  CHECK(!control::resolve(ms, dir + "/taken", kNodeIdBase, 1000, setup, why));
+  CHECK(why.find("belongs to node") != std::string::npos);
+  std::printf("control plane: placement epoch 1 chosen by 3 witnesses (once; a second map refused), the same on "
+              "each; unknown nodes and foreign data directories refused\n");
+  return p;
+}
+
+// use_control: the nodes take the map from the control plane by NodeID,
+// and node 1 restarts while every control member is down: from the map it
+// stored at its first start (provisional, docs/CONTROL_PLANE.md section 9).
+void test_kill_restart(bool use_control) {
   char tmpl[] = "/tmp/snc-cluster-XXXXXX";
   const std::string dir = mkdtemp(tmpl);
-  const u16 port_base = free_ports(26000, 32000, kNodes * 40);
+  const u16 port_base = free_ports(26000, 32000, kNodes * 40 + 3);
+  std::string control_list;
+  std::vector<pid_t> witnesses;
+  if (use_control) {
+    witnesses = start_control(dir, static_cast<u16>(port_base + kNodes * 40), control_list);
+    control::Members ms;
+    CHECK(control::parse_members(control_list, ms));
+    init_control(dir, ms, port_base);
+  }
   std::vector<Node> nodes;
-  for (u32 n = 0; n < kNodes; ++n) nodes.push_back({dir, n, port_base});
+  for (u32 n = 0; n < kNodes; ++n) nodes.push_back({dir, n, port_base, control_list});
   std::vector<pid_t> pids;
   for (u32 n = 0; n < kNodes; ++n) pids.push_back(spawn(nodes[n], true, 25));
 
@@ -404,9 +539,21 @@ void test_kill_restart() {
   CHECK(WIFSIGNALED(st));
   ::unlink((dir + "/done.1").c_str());
   ::usleep(100000);  // the others carry on, their follow-ups to it dropped
+  if (use_control) {
+    for (u32 n = 0; n < kNodes; ++n) CHECK_EQ(read_file(dir + "/setup." + std::to_string(n)), "0 1");
+    for (pid_t w : witnesses) {
+      ::kill(w, SIGKILL);
+      ::waitpid(w, &st, 0);
+    }
+    witnesses.clear();
+  }
   pids[1] = spawn(nodes[1], false, 5);
 
   for (u32 n = 0; n < kNodes; ++n) wait_for(dir + "/done." + std::to_string(n), 60);
+  if (use_control) {
+    CHECK_EQ(read_file(dir + "/setup.1.restart"), "1 1");  // stored map, epoch 1
+    std::printf("control plane down: node 1 restarted from its stored map (placement epoch 1)\n");
+  }
   // Settled: no entries anywhere, twice in a row.
   const auto t0 = std::chrono::steady_clock::now();
   u32 settled = 0;
@@ -471,8 +618,9 @@ void test_kill_restart() {
   for (auto& [id, bal] : got) {
     if (bal != kStart + expect[id]) ++off;
   }
-  std::printf("kill and restart: %llu transfers acknowledged, %u accounts, %llu off the log\n",
-              (unsigned long long)acked, kNodes * kAccounts, (unsigned long long)off);
+  std::printf("kill and restart%s: %llu transfers acknowledged, %u accounts, %llu off the log\n",
+              use_control ? " (map from the control plane)" : "", (unsigned long long)acked, kNodes * kAccounts,
+              (unsigned long long)off);
   CHECK(off <= 2u * 64 * kShards);
   std::string cmd = "rm -rf '" + dir + "'";
   CHECK_EQ(std::system(cmd.c_str()), 0);
@@ -1013,7 +1161,8 @@ void test_group_failover(bool live_fence) {
 int main() {
   register_type();
   test_map();
-  test_kill_restart();
+  test_kill_restart(false);
+  test_kill_restart(true);
   test_group_failover(false);
   test_group_failover(true);
   std::printf("test_cluster: ok\n");

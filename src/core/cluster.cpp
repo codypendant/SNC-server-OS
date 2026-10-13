@@ -26,6 +26,17 @@ ClusterMap ClusterMap::make(const std::vector<ClusterGroup>& groups) {
   return m;
 }
 
+ClusterMap ClusterMap::assign(const std::vector<ClusterGroup>& groups, const std::array<u8, kSlots>& group_of,
+                              u64 epoch) {
+  ClusterMap m = make(groups);  // checks the groups
+  for (u8 g : group_of) {
+    if (g >= groups.size()) throw std::invalid_argument("cluster: a slot assigned to no group");
+  }
+  m.group_of = group_of;
+  m.epoch = epoch;
+  return m;
+}
+
 u32 ClusterMap::crc() const {
   XXH64_state_t* st = XXH64_createState();
   XXH64_reset(st, 0);
