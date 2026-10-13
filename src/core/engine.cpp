@@ -212,6 +212,7 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
     rc.receiver.n_shards = n;
     rc.receiver.slot_crc = crc;
     rc.receiver.term = term;
+    rc.receiver.lease_ns = u64{cfg_.standby_read_lease_ms} * 1'000'000;
   } else if (!cfg_.replica_host.empty() && (!cfg_.standby || cfg_.standby_port != 0)) {
     rc.primary = true;
     rc.sender.host = cfg_.replica_host;

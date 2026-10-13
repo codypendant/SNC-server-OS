@@ -60,7 +60,8 @@ void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
-  if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
+  // A standby with reads on serves READ ops (checked where they run).
+  if (repl_cfg_.standby && repl_cfg_.receiver.lease_ns == 0) return refuse_standby(target, done, ctx);
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -212,7 +213,22 @@ u64 Shard::log(RecType type, const ObjectHeader& obj, u16 flags) {
 }
 
 void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
-                     const ExecOptions& opts, RunOut& out) {
+                     const ExecOptions& opts, RunOut& out, bool client) {
+  if (client && repl_cfg_.standby) {
+    // Reads on the standby (docs/REPLICATION.md): READ ops only, and only
+    // under a lease, during which the primary acks no write this standby
+    // lacks.
+    const OpDescriptor* op = registry().op(op_id);
+    if (op == nullptr || op->kind != OpKind::READ || repl_cfg_.receiver.lease_ns == 0) {
+      out.r.status = Status::E_STANDBY;
+      return;
+    }
+    if (!receiver_ || !receiver_->lease_valid(sri_now_ns())) {
+      ++stats_.stale_reads;
+      out.r.status = Status::E_STALE;
+      return;
+    }
+  }
   ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
@@ -1154,11 +1170,12 @@ bool Shard::poll_replication() {
     // wait to become durable here: the primary is waiting for their ack,
     // and an idle sleep would add up to a millisecond to it.
     const u64 next = wal_->next_lsn();
-    bool did = receiver_->poll(next, wal_->durable_lsn(), tail_lsn_ + 1 == next ? tail_crc_ : 0);
+    bool did = receiver_->poll(next, wal_->durable_lsn(), tail_lsn_ + 1 == next ? tail_crc_ : 0, now);
     return did || wal_->durable_lsn() + 1 < wal_->next_lsn();
   }
   if (!sender_) return false;
   bool busy = false;
+  sender_->set_in_sync(repl_cfg_.sync && repl_hold_ && !repl_degraded_);
   if (sender_->poll(now)) {
     busy = true;
     if (repl_hold_) release_waiters();
@@ -1167,7 +1184,10 @@ bool Shard::poll_replication() {
     const bool overdue = repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 &&
                          sender_->down_since_ns() != 0 &&
                          now - sender_->down_since_ns() >= repl_cfg_.timeout_ns;
-    repl_blocked_ = overdue && repl_cfg_.degrade_gate && !repl_cfg_.degrade_gate->load();
+    // Not before a read lease granted to the standby runs out, nor without
+    // a witness's leave when one decides.
+    repl_blocked_ = overdue && ((repl_cfg_.degrade_gate && !repl_cfg_.degrade_gate->load()) ||
+                                now < sender_->lease_until_ns());
     if (overdue && !repl_blocked_) {
       // The standby has been gone too long: keep serving on local
       // durability alone and say so (docs/REPLICATION.md).
@@ -1456,7 +1476,8 @@ void Shard::run_emit(const Emit& e) {
   RunOut out;
   out.r.id = e.target;
   cur_source_ = e.source;
-  run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out);
+  run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out,
+           /*client=*/false);
   cur_source_ = ObjectID{};
   emit_result(e, out.r.status);
 }

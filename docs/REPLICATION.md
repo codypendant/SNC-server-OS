@@ -152,6 +152,31 @@ Limits of this first version:
 - Reads that skip the durability wait can still be served by a fenced
   primary.
 
+## Reads on the standby
+
+A standby started with `standby_read_lease_ms` (`snc_server
+--standby-reads MS`) serves READ ops; writes, creates, deletes and index
+lookups stay refused (`E_STANDBY`). It serves them only under a **read
+lease** from a sync primary, and answers `E_STALE` without one.
+
+- Each shard's standby asks for a lease with its acks, at least four times
+  per lease, stamping the request with its own clock. A primary that holds
+  client acks for this standby (sync, not degraded) grants it: it echoes
+  the stamp, and it will not continue without the standby until a lease
+  length after it received the request. The standby counts from its stamp
+  (earlier than the primary's receipt) and keeps a 10% margin for the two
+  clocks' rates. Clocks need not agree, only run at about the same rate.
+- **The guarantee:** a read on the standby sees every write the primary
+  acknowledged before the read began. In sync mode the primary acks a
+  write only after the standby has it durably; the lease keeps the primary
+  from degrading (acking writes the standby lacks) while the standby may
+  still be serving reads.
+- **The cost:** a sync primary that loses a leasing standby waits for the
+  later of its `replica_timeout_ms` and the lease before continuing alone.
+  An async primary grants no leases, so its standby serves no reads.
+- Leases are per shard, so a standby shard whose link is down refuses
+  reads while its other shards serve.
+
 ## What v1 will deliver
 
 1. Engine config: `replica_listen` (standby) and `replica_of`
@@ -400,13 +425,38 @@ accounts. Each case is checked, 3 runs each, all passed.
   steadier runs above; the shared disk was noisy during this set, and
   these runs measure correctness and timing, not throughput.
 
+### Reads on the standby
+
+`bench/run_standby_reads.py`, `bench/results/standby_reads.csv`: primary on
+cores 0-1, sync replication to a standby with 200 ms leases whose two shards
+share core 2; 1M accounts. A writer (deposits) and a reader (get_balance),
+one `net_bench` thread each on core 3, 512 in flight, 8 s, 3 runs (medians).
+
+| Reader on | Writer ops/s | Reader ops/s | Stale answers |
+| --- | --- | --- | --- |
+| Primary (2 cores) | 264K | 1.63M | |
+| Standby (1 core) | 250K | 1.13M | 0 |
+
+- **The standby serves 1.13M reads/s on one core** while applying the
+  primary's 250K writes/s, with no stale answers: leases were renewed
+  throughout.
+- On this 4-vCPU VM the standby has half the primary's cores, so moving the
+  reads there lowers the total. Where the standby has its own machine, its
+  reads add to the primary's capacity instead of sharing it.
+- Moving the reads off the primary barely changes the writer (264K vs
+  250K, within run-to-run spread).
+- `tests/test_replication.cpp` checks the guarantee: 3000 deposits, each
+  read on the standby right after the primary acknowledged it, all seen;
+  the primary stopped, reads turn `E_STALE` within 0.2 s; and a 100 ms
+  timeout waits out a 1.5 s lease before the primary continues alone.
+
 ## Open questions for later rounds
 
 - The witness is one process and one failover per configuration. A
   replicated witness (or three nodes with a consensus log) belongs with
   the distributed directory, as does redirecting clients.
-- Serving reads from the standby (with bounded staleness) is cheap to add
-  once apply is live, but it changes the read API's promises.
+- Index lookups on the standby (they gather across shards, each of which
+  would need its lease).
 - Standbys with a different shard count (records routed by slot rather
   than by stream).
 - Choosing the catch-up limit automatically from the WAL write rate and

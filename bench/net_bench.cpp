@@ -10,7 +10,11 @@
 //
 // Usage: net_bench [--host H] [--port P] [--threads T] [--cpus 2,3]
 //                  [--objects N] [--seconds S] [--depth D] [--reads PCT]
-//                  [--route owner|any] [--misroute PCT]
+//                  [--route owner|any] [--misroute PCT] [--ids FILE]
+//
+// --ids FILE: if FILE exists, use the accounts listed in it instead of
+// creating any (for example on a standby serving reads); otherwise create
+// them and write their IDs there.
 #include <pthread.h>
 #include <sched.h>
 
@@ -20,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <random>
 #include <string>
 #include <thread>
@@ -55,6 +60,7 @@ struct Args {
   double zipf = 0;  // > 0: Zipf key choice over all objects
   int transfer_pct = 0;  // ops that move 1 cent to a random account
   int xfer_local = -1;   // % of transfers to an account the source's owner also owns (-1: uniform)
+  std::string ids_file;
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -74,7 +80,7 @@ struct Thread {
   std::mt19937_64 rng;
   std::vector<ObjectID> created;
   Histogram hist;
-  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, stale = 0;
   u32 outstanding = 0;
   std::vector<u64> start;  // per slot
   std::vector<u32> free_slots;
@@ -111,6 +117,8 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView) {
   auto st = static_cast<Status>(h.status);
   if (st == Status::E_OVERLOADED) {
     ++t->overloaded;
+  } else if (st == Status::E_STALE) {
+    ++t->stale;  // a standby without a lease: not served
   } else {
     ++t->ops;
     if (st != Status::OK && st != Status::E_APP) ++t->errors;  // E_APP: no funds
@@ -254,6 +262,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--zipf") a.zipf = std::atof(val());
     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
     else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
+    else if (k == "--ids") a.ids_file = val();
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -268,6 +277,12 @@ int main(int argc, char** argv) {
   Shared sh;
   sh.args = parse(argc, argv);
   const Args& a = sh.args;
+  std::vector<ObjectID> given;
+  if (!a.ids_file.empty()) {
+    std::ifstream f(a.ids_file, std::ios::binary);
+    ObjectID id;
+    while (f.read(reinterpret_cast<char*>(&id), sizeof(id))) given.push_back(id);
+  }
   std::vector<Thread> threads(a.threads);
   std::barrier<> loaded(a.threads + 1), ready(a.threads + 1);
   std::vector<std::thread> ts;
@@ -279,7 +294,7 @@ int main(int argc, char** argv) {
     t.rng.seed(4321 + i);
     t.start.resize(a.depth);
     for (u32 s = 0; s < a.depth; ++s) t.free_slots.push_back(s);
-    t.load_target = a.objects / a.threads + (i < a.objects % a.threads);
+    t.load_target = given.empty() ? a.objects / a.threads + (i < a.objects % a.threads) : 0;
     ts.emplace_back([&, i] {
       Thread& t = threads[i];
       if (!a.cpus.empty()) pin(a.cpus[i % a.cpus.size()]);
@@ -296,6 +311,7 @@ int main(int argc, char** argv) {
   loaded.arrive_and_wait();
   double load_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
   u64 load_errors = 0;
+  sh.ids = given;
   for (auto& t : threads) {
     sh.ids.insert(sh.ids.end(), t.created.begin(), t.created.end());
     load_errors += t.errors;
@@ -311,6 +327,11 @@ int main(int argc, char** argv) {
     }
     std::fprintf(stderr, "load failed (%llu create errors)\n", (unsigned long long)load_errors);
     return 1;
+  }
+  if (given.empty() && !a.ids_file.empty()) {
+    std::ofstream f(a.ids_file, std::ios::binary);
+    f.write(reinterpret_cast<const char*>(sh.ids.data()),
+            static_cast<std::streamsize>(sh.ids.size() * sizeof(ObjectID)));
   }
   if (a.zipf > 0) {
     sh.ids = bench::zipf_order({sh.ids});
@@ -330,7 +351,7 @@ int main(int argc, char** argv) {
   double run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
 
   Histogram all;
-  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0;
   for (auto& t : threads) {
     if (!t.error.empty()) {
       std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
@@ -340,6 +361,7 @@ int main(int argc, char** argv) {
     ops += t.ops;
     errors += t.errors;
     overloaded += t.overloaded;
+    stale += t.stale;
     misrouted += t.misrouted;
     forwarded += t.client.forwarded();
   }
@@ -349,8 +371,8 @@ int main(int argc, char** argv) {
   std::printf("load: %zu objects in %.2fs (%.0f creates/s)\n", sh.ids.size(), load_s,
               sh.ids.size() / load_s);
   std::printf("run: reads=%d%% seconds=%.2f\n", a.reads_pct, run_s);
-  std::printf("  ops/s %.0f  errors %llu  overloaded %llu\n", ops / run_s,
-              (unsigned long long)errors, (unsigned long long)overloaded);
+  std::printf("  ops/s %.0f  errors %llu  overloaded %llu  stale %llu\n", ops / run_s,
+              (unsigned long long)errors, (unsigned long long)overloaded, (unsigned long long)stale);
   std::printf("  latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", all.percentile(50),
               all.percentile(95), all.percentile(99), all.percentile(99.9));
   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",

@@ -40,12 +40,21 @@ struct HelloAck {
 };
 struct RecordsHeader {
   u32 len;          // bytes of records that follow
-  u32 pad;
+  u32 kind;         // kFrameRecords, or kFrameLease (len 0, first_lsn = echoed lease_ts)
   u64 first_lsn;
   u64 last_lsn;
 };
+inline constexpr u32 kFrameRecords = 0;
+inline constexpr u32 kFrameLease = 1;
+// Standby to primary. With lease_ns set, the standby asks for a read lease
+// (docs/REPLICATION.md, "Reads on the standby"): a sync primary that
+// receives it echoes lease_ts and does not continue without this standby
+// for lease_ns from receipt. The standby, counting from lease_ts (its own
+// clock, before the primary's receipt), may serve reads until then.
 struct Ack {
   u64 durable_lsn;  // the standby's WAL is durable up to here
+  u64 lease_ts;     // the standby's clock when sent (0: no lease asked)
+  u64 lease_ns;
 };
 inline constexpr u32 kRefusedSpace = 1;   // other space, shard count or slot map
 inline constexpr u32 kRefusedTerm = 3;    // a primary from an older term (fenced)
@@ -98,6 +107,11 @@ class Sender {
   // Checkpoints keep the WAL segments from here on.
   u64 retain_from() const { return lost_ ? 0 : std::max<u64>(acked_, 1); }
   bool catching_up() const { return disk_ != nullptr; }
+  // Whether this primary currently holds client acks for the standby (sync,
+  // not degraded): only then does it grant read leases.
+  void set_in_sync(bool on) { in_sync_ = on; }
+  // A sync primary must not continue without the standby before this.
+  u64 lease_until_ns() const { return lease_until_; }
   int fd() const { return fd_; }
 
   struct Stats {
@@ -144,6 +158,12 @@ class Sender {
   u64 retry_at_ = 0;
   u64 down_since_ = 0;
   u64 progress_ns_ = 0;    // live: last time acks advanced or nothing waited
+  // Read leases: the latest lease_ts to echo, and the echo frame being sent.
+  bool in_sync_ = false;
+  u64 lease_until_ = 0;
+  u64 echo_ts_ = 0;
+  std::vector<u8> echo_;
+  std::size_t echo_off_ = 0;
   bool lost_ = false;
   u64 acked_ = 0;
   std::deque<Chunk> chunks_;
@@ -181,6 +201,7 @@ class Receiver {
     u32 slot_crc = 0;
     u64 term = 0;            // primaries from an older term are refused
     int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
+    u64 lease_ns = 0;        // ask for read leases this long (0: none)
   };
   // `apply` runs for each record of a whole frame, in order; it returns
   // false if the record cannot follow the WAL (an LSN gap), which drops the
@@ -195,8 +216,10 @@ class Receiver {
   // moved. `next_lsn` is the first LSN this shard lacks (for the
   // handshake). Returns true if it did work.
   // `tail_crc` is the crc32c of record next_lsn - 1 (0 = unknown).
-  bool poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc);
+  bool poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns);
   bool connected() const { return conn_ >= 0; }
+  // Reads may be served: the primary granted a lease that has not expired.
+  bool lease_valid(u64 now_ns) const { return conn_ >= 0 && now_ns < lease_until_; }
   int listen_fd() const { return listen_; }
   int conn_fd() const { return conn_; }
 
@@ -222,6 +245,8 @@ class Receiver {
   std::size_t in_len_ = 0;
   std::vector<u8> out_;  // pending HelloAck / Ack bytes
   u64 acked_ = 0;
+  u64 lease_until_ = 0;
+  u64 lease_sent_ = 0;     // when the last lease request went out
   Stats stats_;
 };
 

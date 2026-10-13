@@ -230,8 +230,10 @@ class Shard {
 
   void run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args, const ExecOptions& opts,
            RunOut& out);
+  // `client`: a client's op, which a standby refuses or serves as a read;
+  // follow-ups run regardless (they arrive only once shards are promoted).
   void run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args, const ExecOptions& opts,
-                RunOut& out);
+                RunOut& out, bool client = true);
   void run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out);
   void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out);
 

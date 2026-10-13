@@ -293,6 +293,9 @@ void Sender::close_link(u64 now_ns) {
   in_len_ = 0;
   partial_.clear();
   partial_off_ = 0;
+  echo_.clear();
+  echo_off_ = 0;
+  echo_ts_ = 0;
 }
 
 void Sender::start_connect(u64 now_ns) {
@@ -431,6 +434,10 @@ bool Sender::read_acks(u64 now_ns) {
         acked_ = k.durable_lsn;
         advanced = true;
       }
+      if (k.lease_ts != 0 && in_sync_) {
+        lease_until_ = std::max(lease_until_, now_ns + k.lease_ns);
+        echo_ts_ = std::max(echo_ts_, k.lease_ts);
+      }
     }
   }
 }
@@ -476,6 +483,22 @@ bool Sender::poll(u64 now_ns) {
   // Catch-up from disk first, then the resumed partial frame, then whole
   // chunks in order.
   if (disk_ && !send_disk(now_ns, advanced)) return advanced;
+  // A lease echo goes between frames.
+  if (echo_off_ < echo_.size() || (echo_ts_ != 0 && partial_off_ >= partial_.size() && send_off_ == 0)) {
+    if (echo_off_ >= echo_.size()) {
+      RecordsHeader h{0, kFrameLease, echo_ts_, 0};
+      echo_.assign(reinterpret_cast<const u8*>(&h), reinterpret_cast<const u8*>(&h) + sizeof(h));
+      echo_off_ = 0;
+      echo_ts_ = 0;
+    }
+    long w = write_some(fd_, echo_.data() + echo_off_, echo_.size() - echo_off_);
+    if (w < 0) {
+      close_link(now_ns);
+      return advanced;
+    }
+    echo_off_ += static_cast<std::size_t>(w);
+    if (echo_off_ < echo_.size()) return advanced;  // socket full
+  }
   while (partial_off_ < partial_.size()) {
     long w = write_some(fd_, partial_.data() + partial_off_, partial_.size() - partial_off_);
     if (w < 0) {
@@ -536,6 +559,8 @@ void Receiver::drop() {
   greeted_ = false;
   in_len_ = 0;
   out_.clear();
+  lease_until_ = 0;
+  lease_sent_ = 0;
 }
 
 bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
@@ -562,7 +587,7 @@ bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
   return greeted_;
 }
 
-bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc) {
+bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
   bool did = false;
   {
     // Accept a primary. A new connection replaces the old one: it is a
@@ -605,6 +630,13 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc) {
     RecordsHeader h;
     std::memcpy(&h, in_.data() + off, sizeof(h));
     if (in_len_ - off < sizeof(h) + h.len) break;
+    if (h.kind == kFrameLease) {
+      // Our request sent at first_lsn was granted; keep a 10% margin for
+      // the two clocks' rates.
+      if (cfg_.lease_ns) lease_until_ = std::max(lease_until_, h.first_lsn + cfg_.lease_ns / 10 * 9);
+      off += sizeof(h) + h.len;
+      continue;
+    }
     const u8* p = in_.data() + off + sizeof(h);
     std::size_t at = 0;
     while (at < h.len) {
@@ -625,12 +657,18 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc) {
     std::memmove(in_.data(), in_.data() + off, in_len_ - off);
     in_len_ -= off;
   }
-  // Ack what is durable here.
-  if (durable_lsn > acked_) {
-    Ack k{durable_lsn};
+  // Ack what is durable here; ask for a lease at least 4 times per lease.
+  const bool ask = cfg_.lease_ns != 0 && greeted_ && now_ns - lease_sent_ >= cfg_.lease_ns / 4;
+  if (durable_lsn > acked_ || ask) {
+    Ack k{std::max(durable_lsn, acked_), 0, 0};
+    if (cfg_.lease_ns != 0 && greeted_) {
+      k.lease_ts = now_ns;
+      k.lease_ns = cfg_.lease_ns;
+      lease_sent_ = now_ns;
+    }
     const u8* p = reinterpret_cast<const u8*>(&k);
     out_.insert(out_.end(), p, p + sizeof(k));
-    acked_ = durable_lsn;
+    acked_ = k.durable_lsn;
   }
   if (!out_.empty()) {
     long w = write_some(conn_, out_.data(), out_.size());

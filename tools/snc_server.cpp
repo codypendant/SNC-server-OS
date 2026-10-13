@@ -9,7 +9,7 @@
 //                   [--standby PORT [--standby-host H] [--space-uuid HEX]
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
-//                   [--admin-port P] [--witness HOST:PORT]
+//                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -27,7 +27,8 @@
 // Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
 // lines; with --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
-// witness when its standby is back in sync.
+// witness when its standby is back in sync. --standby-reads lets a standby
+// serve reads under leases from its sync primary (E_STALE without one).
 #include <signal.h>
 
 #include <atomic>
@@ -119,6 +120,7 @@ int main(int argc, char** argv) {
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--seed-from") cfg.seed_from = val();
     else if (k == "--report-ms") report_ms = std::atoi(val());
+    else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--witness") {
       if (!ha::parse_hostport(val(), witness_host, witness_port)) {

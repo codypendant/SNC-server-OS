@@ -36,6 +36,7 @@ enum class Status : u16 {
   E_OVERLOADED,
   E_SHUTTING_DOWN,
   E_STANDBY,        // this engine is a replication standby and serves no ops
+  E_STALE,          // a standby serving reads has no current lease from its primary
 };
 
 const char* status_name(Status s);

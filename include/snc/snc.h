@@ -158,6 +158,7 @@ struct ShardStats {
   bool repl_live = false;      // link to the other side is up
   bool repl_degraded = false;  // primary, sync: continuing without the standby
   bool repl_blocked = false;   // primary, sync: past the timeout, waiting for leave to degrade
+  u64 stale_reads = 0;         // standby: reads refused for want of a lease (E_STALE)
   bool repl_lost = false;      // primary: the standby must be reseeded
   u64 repl_acked_lsn = 0;      // primary: the standby is durable up to here
   u64 repl_bytes = 0;          // primary: bytes shipped
@@ -251,6 +252,10 @@ class Engine {
     // only once allow_degrade(true) is called (by whoever holds the
     // failover decision, e.g. a witness). Until then durable writes wait.
     bool replica_degrade_gated = false;
+    // Standby: serve READ ops under read leases of this length from a sync
+    // primary (0 = serve no ops). Must not exceed the primary's
+    // replica_timeout_ms, which a lease can stretch.
+    u32 standby_read_lease_ms = 0;
   };
 
   explicit Engine(const Config& cfg);

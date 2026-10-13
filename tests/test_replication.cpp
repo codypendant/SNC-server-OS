@@ -78,7 +78,7 @@ sigset_t block_term() {
 // A standby in a child process; stops cleanly on SIGTERM. Writes one byte
 // to ready_fd once listening.
 pid_t start_standby(const std::string& dir, bool init, const std::string& seed_from = "",
-                    u16 port = 0) {
+                    u16 port = 0, u32 lease_ms = 0) {
   int fds[2];
   CHECK_EQ(::pipe(fds), 0);
   pid_t pid = ::fork();
@@ -91,13 +91,14 @@ pid_t start_standby(const std::string& dir, bool init, const std::string& seed_f
     c.standby_host = "127.0.0.1";
     c.replica_port = port ? port : g_port;
     c.seed_from = seed_from;
+    c.standby_read_lease_ms = lease_ms;
     Engine eng(c);
     eng.start();
-    // It serves nothing.
+    // It serves nothing (without reads on).
     OneResult r = one(eng, 0, [&](Completion d, void* ctx) {
       execute(ObjectID{}, kOpGetBalance, {}, {}, d, ctx);
     });
-    if (r.r.status != Status::E_STANDBY) _exit(6);
+    if (r.r.status != (lease_ms ? Status::E_STALE : Status::E_STANDBY)) _exit(6);
     char b = 1;
     if (::write(fds[1], &b, 1) != 1) _exit(3);
     int sig = 0;
@@ -928,6 +929,137 @@ void test_hung() {
   rm_rf(pd + " " + sd);
 }
 
+// 10. Reads on the standby: under a lease from its sync primary, a read on
+// the standby sees every deposit the primary acknowledged before it; with
+// the primary stopped the lease runs out and reads answer E_STALE.
+void test_standby_reads() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  int ready[2], chk[2];
+  CHECK_EQ(::pipe(ready), 0);
+  CHECK_EQ(::pipe(chk), 0);
+  pid_t sb = ::fork();
+  CHECK(sb >= 0);
+  if (sb == 0) {
+    ::close(ready[0]);
+    ::close(chk[1]);
+    Engine::Config c = config(sd, true);
+    c.standby = true;
+    c.standby_host = "127.0.0.1";
+    c.replica_port = g_port;
+    c.standby_read_lease_ms = 200;
+    Engine eng(c);
+    eng.start();
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    auto read = [&](const ObjectID& id, u16 shard) {
+      return one(eng, shard, [&](Completion cb, void* ctx) {
+        execute(id, kOpGetBalance, {}, {}, cb, ctx);
+      });
+    };
+    // Writes stay refused.
+    Ack a;
+    u64 n = 0, retried = 0;
+    while (::read(chk[0], &a, sizeof(a)) == sizeof(a)) {
+      if (a.version == 0) break;
+      auto r = read(a.id, static_cast<u16>(n++ % kShards));
+      for (int i = 0; r.r.status == Status::E_STALE && i < 500; ++i) {  // the first lease
+        ++retried;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        r = read(a.id, 0);
+      }
+      if (r.r.status != Status::OK) _exit(40);
+      if (r.r.version < a.version) _exit(41);  // missed an acknowledged write
+    }
+    auto w = one(eng, 0, [&](Completion cb, void* ctx) {
+      AmountArgs d{1, 0};
+      execute(a.id, kOpDeposit, ByteView(&d, sizeof(d)), {}, cb, ctx);
+    });
+    if (w.r.status != Status::E_STANDBY) _exit(42);
+    // The primary is stopped: within a lease, reads turn stale.
+    auto t0 = std::chrono::steady_clock::now();
+    while (read(a.id, 1).r.status != Status::E_STALE) {
+      if (std::chrono::steady_clock::now() - t0 > std::chrono::seconds(2)) _exit(43);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    std::printf("standby reads: %llu reads saw every acked deposit (%llu retries before the first "
+                "lease); stale %.2fs after the primary stopped\n",
+                (unsigned long long)n, (unsigned long long)retried, s);
+    eng.stop();
+    _exit(0);
+  }
+  ::close(ready[1]);
+  ::close(chk[0]);
+  char b;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  int acks[2];
+  CHECK_EQ(::pipe(acks), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ::close(acks[0]);
+    ::close(chk[1]);
+    Engine eng(primary_config(pd, true, true, 1000));
+    eng.start();
+    auto dep = create_accounts(eng, 64);
+    for (u32 i = 0; i < 3000; ++i) {
+      auto r = one(eng, static_cast<u16>(i % kShards), [&](Completion cb, void* ctx) {
+        AmountArgs d{1, 0};
+        execute(dep[i % dep.size()], kOpDeposit, ByteView(&d, sizeof(d)), {}, cb, ctx);
+      });
+      if (r.r.status != Status::OK || !r.r.durable) _exit(4);
+      Ack a{r.r.id, r.r.version};
+      if (::write(acks[1], &a, sizeof(a)) != sizeof(a)) _exit(3);
+    }
+    Ack end{dep[0], 0};
+    if (::write(acks[1], &end, sizeof(end)) != sizeof(end)) _exit(3);
+    ::pause();
+    _exit(0);
+  }
+  ::close(acks[1]);
+  Ack a;
+  while (::read(acks[0], &a, sizeof(a)) == sizeof(a)) {
+    if (a.version == 0) ::kill(pid, SIGSTOP);
+    CHECK_EQ(::write(chk[1], &a, sizeof(a)), static_cast<ssize_t>(sizeof(a)));
+    if (a.version == 0) break;
+  }
+  ::close(chk[1]);
+  wait_ok(sb);
+  ::kill(pid, SIGKILL);
+  int st = 0;
+  ::waitpid(pid, &st, 0);
+  ::close(acks[0]);
+  rm_rf(pd + " " + sd);
+}
+
+// 11. A sync primary does not continue without a standby that holds a read
+// lease until the lease runs out, even past its own timeout.
+void test_lease_hold() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  pid_t sb = start_standby(sd, true, "", 0, /*lease_ms=*/1500);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine eng(primary_config(pd, true, true, 100));
+    eng.start();
+    create_accounts(eng, 8);
+    wait_replicated(eng);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));  // leases renewed while idle
+    ::kill(sb, SIGSTOP);
+    auto t0 = std::chrono::steady_clock::now();
+    create_accounts(eng, 8);
+    double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    std::printf("lease hold: a 100 ms timeout waited %.2fs for a 1.5 s read lease to run out\n", s);
+    ::kill(sb, SIGCONT);
+    if (s < 1.0) _exit(34);
+    _exit(0);
+  }
+  wait_ok(pid);
+  ::kill(sb, SIGCONT);
+  stop_child(sb);
+  rm_rf(pd + " " + sd);
+}
+
 }  // namespace
 
 int main() {
@@ -946,6 +1078,8 @@ int main() {
   test_promote();
   test_gated();
   test_hung();
+  test_standby_reads();
+  test_lease_hold();
   test_degrade();
   std::printf("test_replication: ok\n");
   return 0;
