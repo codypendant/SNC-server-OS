@@ -67,6 +67,9 @@ class Sender {
     // memory are read back from here (catch-up from disk).
     std::string data_dir;
     u64 start_lsn = 1;       // the WAL stream's next LSN when the Sender starts
+    // Catch-up from disk sends at most this many bytes a second (0: no
+    // limit), so a joining standby costs this shard's clients less.
+    u64 catchup_bytes_per_s = 0;
   };
   explicit Sender(const Config& cfg);
   ~Sender();
@@ -151,6 +154,9 @@ class Sender {
   u64 verify_ack_ = 0;  // the standby's tail, acked once the disk reader has checked it
   std::vector<u8> disk_frame_;
   std::size_t disk_off_ = 0;
+  // Token bucket for catchup_bytes_per_s.
+  u64 disk_tokens_ = 0;
+  u64 disk_refill_ns_ = 0;
   u8 in_[64];
   std::size_t in_len_ = 0;
   Hello hello_{};

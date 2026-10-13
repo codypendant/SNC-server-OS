@@ -13,6 +13,8 @@ core 2, started on an empty directory.
   loaded:   the standby starts 2 s into the client's run. Measures the
             client's throughput against a run with no standby, and the
             catch-up time under load.
+  loaded-N: the same with catch-up from disk limited to N MiB/s per shard
+            (--catchup-mib-s).
 
 Prints CSV rows; usage: run_seeding.py [--reps N] [--out FILE].
 """
@@ -57,6 +59,7 @@ class Reader(threading.Thread):
 
 
 def run(mode, port, seconds):
+    limit = mode.split("-")[1] if "-" in mode else None
     shutil.rmtree(WORK, ignore_errors=True)
     os.makedirs(WORK)
     pport, sport, seedport = port, port + 100, port + 200
@@ -64,7 +67,7 @@ def run(mode, port, seconds):
         [f"{BUILD}/snc_server", "--cpus", "0,1", "--port", str(pport), "--objects", "1000000",
          "--data-dir", f"{WORK}/p", "--replica-of", f"127.0.0.1:{sport}", "--async-replica",
          "--seed-port", str(seedport), "--checkpoint-s", "4", "--replica-retain-mib", "64",
-         "--report-ms", "100"],
+         "--report-ms", "100"] + (["--catchup-mib-s", limit] if limit else []),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     pr = Reader(prim)
     wait_port(pport)
@@ -80,7 +83,7 @@ def run(mode, port, seconds):
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     timer = None
-    if mode == "loaded":
+    if mode.startswith("loaded"):
         # The client loads 1M accounts first (about 3 s), then runs.
         timer = threading.Timer(5.0, start_standby)
         timer.start()
@@ -124,10 +127,11 @@ def main():
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--seconds", type=int, default=12)
     ap.add_argument("--out", default="bench/results/seeding.csv")
+    ap.add_argument("--modes", default="none,loaded,idle")
     a = ap.parse_args()
     rows, port = [], 31000
     for rep in range(a.reps):
-        for mode in ("none", "loaded", "idle"):
+        for mode in a.modes.split(","):
             port += 10
             r = run(mode, port, a.seconds)
             r["rep"] = rep

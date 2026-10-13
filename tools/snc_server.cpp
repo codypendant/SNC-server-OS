@@ -8,7 +8,7 @@
 //                   [--replica-of HOST:PORT [--async-replica] [--replica-timeout-ms N]]
 //                   [--standby PORT [--standby-host H] [--space-uuid HEX]
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
-//                   [--checkpoint-s N] [--replica-retain-mib N]
+//                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -110,6 +110,7 @@ int main(int argc, char** argv) {
     else if (k == "--seed-from") cfg.seed_from = val();
     else if (k == "--report-ms") report_ms = std::atoi(val());
     else if (k == "--checkpoint-s") checkpoint_s = std::atof(val());
+    else if (k == "--catchup-mib-s") cfg.replica_catchup_bytes_per_s = static_cast<u64>(std::atof(val()) * (1 << 20));
     else if (k == "--replica-retain-mib") cfg.replica_retain_bytes = std::strtoull(val(), nullptr, 10) << 20;
     else if (k == "--space-uuid") {
       if (!parse_uuid(val(), cfg.init_uuid)) {

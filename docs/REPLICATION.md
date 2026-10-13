@@ -284,8 +284,32 @@ standby on core 2 seeding from the primary. 3 runs, medians.
   primary's shards send it all over loopback TCP (the kernel charges that
   to their cores), and the reader shares the one disk with both WALs.
   Where the run's latest checkpoint was still the initial empty one, the
-  seed was empty and everything came from WAL files. Rate-limiting
-  catch-up would trade a longer join for a smaller hit; it is not built.
+  seed was empty and everything came from WAL files.
+
+**Rate-limited catch-up** (`replica_catchup_bytes_per_s`, `snc_server
+--catchup-mib-s`): a token bucket on what each shard sends from WAL files
+(at most 10 ms of burst). `bench/results/seeding_rate.csv`, same setup,
+5 runs alternating with a no-standby run; client throughput as a ratio
+to the no-standby run next to it.
+
+| Catch-up limit per shard | Client ops/s vs none (median, range) | Caught up after (median) |
+| --- | --- | --- |
+| none | 0.55× (0.47-0.81) | 11.9 s |
+| 30 MiB/s | 0.63× (0.30-1.32) | 13.2 s |
+| 15 MiB/s | 0.80× (0.36-1.16) | 23.7 s |
+
+- **15 MiB/s per shard halves the clients' loss for twice the join
+  time.** 30 MiB/s barely limits anything: unlimited catch-up already
+  ran at about 30 MiB/s per shard here.
+- **These runs are noisy.** The no-standby runs alone ranged from 317K to
+  631K ops/s in this set, from the shared virtual disk, so the ratios
+  carry wide ranges; the medians are the claim, and only roughly.
+- The limit applies to WAL files only. Catch-up from memory is not
+  limited: it is at most `replica_retain_bytes` and is what the standby
+  needs next to go live.
+- The limit must exceed the shard's WAL write rate, or the standby never
+  catches up. A test checks the rate holds and catch-up completes
+  (`test_late(SLOW)`).
 
 ### Promotion
 
@@ -322,5 +346,5 @@ for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
   once apply is live, but it changes the read API's promises.
 - Standbys with a different shard count (records routed by slot rather
   than by stream).
-- Rate-limiting catch-up so a joining standby costs the primary's clients
-  less (see the seeding results).
+- Choosing the catch-up limit automatically from the WAL write rate and
+  the clients' load.

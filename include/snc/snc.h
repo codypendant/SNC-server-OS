@@ -227,6 +227,7 @@ class Engine {
     bool replica_sync = true;           // durable acks wait for the standby
     u32 replica_timeout_ms = 2000;      // sync: continue without it after this (0 = never)
     u64 replica_retain_bytes = 1ull << 30;  // per shard, unacked records kept for catch-up
+    u64 replica_catchup_bytes_per_s = 0;    // per shard, catch-up from disk (0: no limit)
     // Standby: listen on standby_host, shard i on port replica_port + i;
     // install and log what the primary sends; serve no ops (E_STANDBY).
     // Promote by stopping it and starting a primary on the same data_dir.

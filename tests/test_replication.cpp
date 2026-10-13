@@ -400,7 +400,7 @@ void test_failover() {
 // memory (LATE), from WAL files after a checkpoint (DISK), or from a seed of
 // the primary's checkpoint when the WAL it needs is gone (SEED); without a
 // seed it is reported lost (LOST).
-enum class Late { LATE, DISK, LOST, SEED };
+enum class Late { LATE, DISK, LOST, SEED, SLOW };  // SLOW: DISK, rate-limited
 
 void test_late(Late mode) {
   std::string pd = temp_dir("p"), sd = temp_dir("s");
@@ -417,6 +417,8 @@ void test_late(Late mode) {
     if (mode != Late::LATE) c.replica_retain_bytes = 64u << 10;  // memory holds almost nothing
     if (mode == Late::LOST || mode == Late::SEED) c.replica_retain_disk_bytes = 0;
     if (mode == Late::SEED) c.seed_port = seed_port;
+    const u64 rate = 1u << 20;
+    if (mode == Late::SLOW) c.replica_catchup_bytes_per_s = rate;
     Engine eng(c);
     eng.start();
     auto ids = create_accounts(eng, 200);
@@ -431,6 +433,7 @@ void test_late(Late mode) {
     char b = 1;
     if (::write(ready[1], &b, 1) != 1) _exit(3);
     if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby is up
+    const auto t0 = std::chrono::steady_clock::now();
     if (mode == Late::LOST) {
       for (int i = 0; i < 5000; ++i) {
         bool all = true;
@@ -445,10 +448,21 @@ void test_late(Late mode) {
       workload(eng, ids, dep, 500, 2, [](const ExecResult&) {});  // live on top of catch-up
       if (!eng.wait_emits()) _exit(8);
       wait_replicated(eng);
-      if (mode == Late::DISK || mode == Late::SEED) {
-        u64 disk = 0;
-        for (u16 s = 0; s < kShards; ++s) disk += eng.stats(s).repl_disk_bytes;
+      if (mode != Late::LATE) {
+        u64 disk = 0, most = 0;
+        for (u16 s = 0; s < kShards; ++s) {
+          disk += eng.stats(s).repl_disk_bytes;
+          most = std::max(most, eng.stats(s).repl_disk_bytes);
+        }
         if (disk == 0) _exit(13);  // it did read WAL files
+        if (mode == Late::SLOW) {
+          // Each shard sent at no more than the rate (less a 64 KiB burst).
+          double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+          double floor = static_cast<double>(most - (64u << 10)) / rate;
+          std::printf("late slow: %.1f MiB from disk on the busiest shard in %.2fs (at least %.2fs)\n",
+                      most / 1048576.0, secs, floor);
+          if (secs < floor) _exit(14);
+        }
       }
     }
     eng.stop();
@@ -464,7 +478,7 @@ void test_late(Late mode) {
   CHECK_EQ(::write(go[1], &b, 1), 1);
   wait_ok(pid);
   stop_child(sb);
-  const char* name[] = {"late", "disk", "lost", "seed"};
+  const char* name[] = {"late", "disk", "lost", "seed", "slow"};
   if (mode == Late::LOST) {
     CHECK_EQ(total_records(log_of(sd)), 0u);
     std::printf("lost: a standby needing WAL that is gone is refused on every shard\n");
@@ -864,6 +878,7 @@ int main() {
   test_late(Late::DISK);
   test_late(Late::LOST);
   test_late(Late::SEED);
+  test_late(Late::SLOW);
   test_outage();
   test_diverged();
   test_promote();

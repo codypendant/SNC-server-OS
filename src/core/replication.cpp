@@ -167,9 +167,25 @@ void Sender::apply_verified(bool& advanced) {
 }
 
 bool Sender::send_disk(u64 now_ns, bool& advanced) {
+  const u64 rate = cfg_.catchup_bytes_per_s;
+  if (rate) {
+    // Refill, holding at most 10 ms worth.
+    if (disk_refill_ns_ == 0) disk_refill_ns_ = now_ns;
+    u64 dt = now_ns - disk_refill_ns_;
+    u64 add = dt * rate / 1000000000ull;
+    if (add) {
+      disk_tokens_ = std::min(disk_tokens_ + add, std::max<u64>(rate / 100, 64u << 10));
+      disk_refill_ns_ += add * 1000000000ull / rate;
+    }
+  }
   while (true) {
     if (disk_off_ < disk_frame_.size()) {
-      long w = write_some(fd_, disk_frame_.data() + disk_off_, disk_frame_.size() - disk_off_);
+      std::size_t n = disk_frame_.size() - disk_off_;
+      if (rate) {
+        if (disk_tokens_ == 0) return false;  // over the rate: wait for tokens
+        n = std::min<std::size_t>(n, disk_tokens_);
+      }
+      long w = write_some(fd_, disk_frame_.data() + disk_off_, n);
       if (w < 0) {
         close_link(now_ns);
         return false;
@@ -177,7 +193,8 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
       disk_off_ += static_cast<std::size_t>(w);
       stats_.bytes_sent += static_cast<u64>(w);
       stats_.disk_bytes += static_cast<u64>(w);
-      if (disk_off_ < disk_frame_.size()) return false;  // socket full
+      if (rate) disk_tokens_ -= static_cast<u64>(w);
+      if (disk_off_ < disk_frame_.size()) return false;  // socket full or out of tokens
       ++stats_.frames_sent;
     }
     bool done, ok, div;

@@ -220,6 +220,7 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
     rc.sender.n_shards = n;
     rc.sender.slot_crc = crc;
     rc.sender.retain_bytes = cfg_.replica_retain_bytes;
+    rc.sender.catchup_bytes_per_s = cfg_.replica_catchup_bytes_per_s;
     rc.sender.term = term;
     rc.sync = cfg_.replica_sync;
     rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
