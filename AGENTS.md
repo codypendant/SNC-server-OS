@@ -377,7 +377,7 @@ or source comments.
     occasionally taken ("cannot listen for seeds"). Pre-existing.
 -   **Next:** Codex review; then 2b or slot moves (step 3), Codex's call.
 
-### 2026-10-13 15:50 UTC --- Claude (Claude Code): control-plane step 2b
+### 2026-10-13 15:33 UTC --- Claude (Claude Code): control-plane step 2b
 
 -   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 15:16 request).
     Classified **REFINE**: new machines on the existing Paxos library;
