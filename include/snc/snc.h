@@ -232,6 +232,10 @@ class Engine {
     // Promote by stopping it and starting a primary on the same data_dir.
     bool standby = false;
     std::string standby_host = "0.0.0.0";
+    // Standby: listen here instead (0 = replica_port). A standby may then
+    // also set replica_host/replica_port: where it ships its WAL once
+    // promoted (Engine::promote).
+    u16 standby_port = 0;
     // Primary: keep WAL segments a checkpoint covers while the standby may
     // still need them, up to this much per shard beyond the checkpoint.
     u64 replica_retain_disk_bytes = 16ull << 30;
@@ -259,6 +263,15 @@ class Engine {
 
   // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
   CheckpointReport checkpoint();
+
+  // A standby becomes the primary in place (docs/REPLICATION.md): it stops
+  // taking records, waits until what it has is durable, starts a new term
+  // (written to the superblock before anything is served: a primary of an
+  // older term is refused by any standby that knows the new one), rebuilds
+  // its index, resumes follow-ups, and ships its WAL to replica_host if set.
+  // Returns the seconds it took. Control path; blocks.
+  double promote();
+  u64 term() const { return sb_.term; }
   const RecoveryReport& recovery() const { return recovery_; }
   // The space's UUID (after start, with a data_dir).
   const Uuid& space_uuid() const { return uuid_; }

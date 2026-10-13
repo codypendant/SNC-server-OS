@@ -30,6 +30,7 @@ struct Hello {
   u16 shard;
   u16 n_shards;
   u32 slot_crc;     // crc32c of the slot map's owner table
+  u64 term;         // the primary's term: a standby refuses an older one
 };
 struct HelloAck {
   char magic[8];
@@ -47,6 +48,7 @@ struct Ack {
   u64 durable_lsn;  // the standby's WAL is durable up to here
 };
 inline constexpr u32 kRefusedSpace = 1;   // other space, shard count or slot map
+inline constexpr u32 kRefusedTerm = 3;    // a primary from an older term (fenced)
 
 // Primary side, one per shard.
 class Sender {
@@ -59,6 +61,7 @@ class Sender {
     u16 n_shards = 0;
     u32 slot_crc = 0;
     u64 retain_bytes = 1ull << 30;  // unacked records kept for catch-up
+    u64 term = 0;
     int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
     // This shard's WAL: records the standby lacks that are no longer in
     // memory are read back from here (catch-up from disk).
@@ -165,6 +168,7 @@ class Receiver {
     u16 shard = 0;
     u16 n_shards = 0;
     u32 slot_crc = 0;
+    u64 term = 0;            // primaries from an older term are refused
     int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
   };
   // `apply` runs for each record of a whole frame, in order; it returns

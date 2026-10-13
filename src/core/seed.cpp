@@ -129,6 +129,7 @@ void Engine::serve_seed() {
       seq = sb_.active_ckpt;
       h.seq = seq;
       h.next_lease = sb_.next_lease;
+      h.term = sb_.term;
       if (std::memcmp(req.space_uuid, zero, 16) != 0 &&
           std::memcmp(req.space_uuid, uuid_.data(), 16) != 0) {
         h.status = 1;
@@ -254,6 +255,7 @@ void Engine::seed_fetch() {
   Superblock sb = new_superblock(uuid);
   sb.next_lease = h.next_lease;
   sb.active_ckpt = h.seq;
+  sb.term = h.term;
   sb.generation = 1;
   write_superblock(dir, sb);
   u8 done = 1;

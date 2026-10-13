@@ -91,15 +91,22 @@ primary shard i                              standby shard i
   default 2 s) it continues in async mode, keeps WAL for catch-up, and
   says so in its stats and log. A deployment that prefers to stall forever
   sets the timeout to 0. Either way the choice is explicit, not silent.
-- **Primary lost.** Promotion is manual in v1. Stop the standby and start
-  it as a primary on its data directory; recovery runs as after a crash.
-  Every write acknowledged in sync mode is in its WAL. Follow-ups in
-  flight (transfers' credits and settles) resume from the objects' resume
-  hooks, as after any crash (docs/TRANSFERS.md).
-- **No fencing in v1.** Nothing stops an old primary that comes back from
-  serving clients next to the promoted standby. Until a fencing token or
-  lease exists, promotion assumes the old primary is down. The doc and
-  `snc_server` say so.
+- **Primary lost.** An operator (or, later, an arbiter) promotes the
+  standby: in place with `Engine::promote()` (`snc_server`: SIGUSR1), or by
+  stopping it and starting it as a primary on its data directory. Every
+  write acknowledged in sync mode is in its WAL. Follow-ups in flight
+  (transfers' credits and settles) resume from the objects' resume hooks,
+  as after any crash (docs/TRANSFERS.md). Choosing *when* to promote is
+  not automated: that needs an outside arbiter (see open questions).
+- **Fencing by term.** Each superblock carries a term; promotion bumps it,
+  the handshake carries it, and a standby refuses a primary of an older
+  term. An old primary that comes back therefore cannot get its writes
+  acknowledged by any standby of the new primary. With sync replication
+  and `replica_timeout_ms = 0` it then acknowledges no durable write at
+  all; with a nonzero timeout it would degrade and carry on alone, so a
+  deployment that may restart a replaced primary sets the timeout to 0
+  (or keeps it down). Reads that do not wait for durability can still be
+  served by such a primary; it is fenced for writes, not isolated.
 
 ## What v1 will deliver
 
@@ -171,6 +178,14 @@ primary shard i                              standby shard i
 - **Mint leases.** A promoted standby holds IDs minted under its primary's
   leases, which its own superblock never handed out. Recovery tracks the
   highest lease it installs and mints above it; checkpoints persist it.
+- **Promotion in place** (`Engine::promote()`): each shard stops taking
+  records and waits until every installed record is durable; the engine
+  then takes leases above every ID the old primary minted, bumps the term
+  and the generation in a durable superblock, rebuilds the secondary
+  index, resumes follow-ups, and starts shipping to `replica_host` if one
+  is configured (`standby_port` keeps the port it listened on apart from
+  the one it ships to). Seeds carry the term, so a standby seeded from the
+  new primary starts in its term.
 - **Standby checkpoints** may truncate records it received, as on any
   engine; the two logs then agree where both have a record.
 - **Tests** (`tests/test_replication.cpp`): equal logs and objects after a
@@ -182,7 +197,11 @@ primary shard i                              standby shard i
   primary writes and checkpoints catching up from WAL files on its return;
   a standby ahead of, or different from, a primary restored from an older
   copy refused; a sync primary with no standby degrading after its
-  timeout.
+  timeout; a standby promoted in place after its sync primary is SIGKILLed
+  under transfers and deposits (every acked deposit kept, transfers
+  conserved, term 1, new IDs unique), then the old primary restarted with
+  timeout 0: its deposit is not acknowledged and a standby seeded from the
+  promoted node refuses it.
 
 ## Results
 

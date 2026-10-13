@@ -30,6 +30,7 @@ struct SeedHeader {
   u8 space_uuid[16];
   u64 seq;            // the checkpoint's sequence number
   u64 next_lease;
+  u64 term;           // the standby starts in the primary's term
 };
 struct SeedFile {
   u32 name_len;       // relative to the checkpoint's directory

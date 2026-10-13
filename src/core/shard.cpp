@@ -1048,8 +1048,19 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     receiver_ = std::make_unique<repl::Receiver>(repl_cfg_.receiver, &Shard::apply_replicated, this);
     return;
   }
+  start_serving();
+  if (!wal_cfg.data_dir.empty()) {
+    wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
+    wal_->on_durable = &Shard::on_wal_durable;
+    wal_->on_durable_ctx = this;
+    if (repl_cfg_.primary) start_sender(wal_cfg.data_dir, next_lsn);
+  }
+}
+
+// Index, then follow-ups the objects' resume hooks re-emit. The state must
+// be durable: what they emit is ready at once.
+void Shard::start_serving() {
   rebuild_index();
-  // Recovered state is durable, so whatever resume hooks emit is ready now.
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted()) return;
@@ -1062,22 +1073,37 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   });
   resuming_ = false;
   queue_emits(0);
-  if (!wal_cfg.data_dir.empty()) {
-    wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
-    wal_->on_durable = &Shard::on_wal_durable;
-    wal_->on_durable_ctx = this;
-    if (repl_cfg_.primary) {
-      repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
-      sri_watch_fd(repl_epfd_);
-      repl_cfg_.sender.epoll_fd = repl_epfd_;
-      repl_cfg_.sender.data_dir = wal_cfg.data_dir;
-      repl_cfg_.sender.start_lsn = next_lsn;
-      sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
-      wal_->on_flush = &Shard::on_wal_flush;
-      wal_->on_flush_ctx = this;
-      repl_hold_ = repl_cfg_.sync;
-    }
+}
+
+void Shard::start_sender(const std::string& data_dir, u64 next_lsn) {
+  if (repl_epfd_ < 0) {
+    repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
+    sri_watch_fd(repl_epfd_);
   }
+  repl_cfg_.sender.epoll_fd = repl_epfd_;
+  repl_cfg_.sender.data_dir = data_dir;
+  repl_cfg_.sender.start_lsn = next_lsn;
+  sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
+  wal_->on_flush = &Shard::on_wal_flush;
+  wal_->on_flush_ctx = this;
+  repl_hold_ = repl_cfg_.sync;
+}
+
+// ---- Promotion (docs/REPLICATION.md) ------------------------------------------------
+
+void Shard::stop_standby() {
+  receiver_.reset();  // closes its sockets: nothing more is installed
+  if (wal_) wal_->poll(sri_now_ns(), /*force=*/true);
+}
+
+bool Shard::standby_settled() const {
+  return !wal_ || (wal_->idle() && wal_->durable_lsn() + 1 >= wal_->next_lsn());
+}
+
+void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
+  repl_cfg_ = rc;
+  start_serving();
+  if (wal_ && rc.primary) start_sender(data_dir, wal_->next_lsn());
 }
 
 // ---- Replication (docs/REPLICATION.md) -------------------------------------------------

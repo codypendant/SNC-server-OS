@@ -12,6 +12,7 @@
 #include <latch>
 #include <mutex>
 #include <stdexcept>
+#include <thread>
 
 #include "seed.h"
 #include "shard.h"
@@ -193,6 +194,37 @@ void Engine::stop() {
   rt_->stop();  // shards quiesce first: WAL flushed, waiters released
   running_ = false;
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it
+}
+
+// Shard s's replication settings, as standby or as primary.
+static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const SlotMap& slots,
+                                           const Uuid& uuid_, u64 term, u16 s, bool standby) {
+  const u16 n = cfg_.runtime.n_shards;
+  const u32 crc = repl::slot_map_crc(slots);
+  Shard::ReplicaConfig rc;
+  if (standby) {
+    rc.standby = true;
+    rc.receiver.host = cfg_.standby_host;
+    rc.receiver.port = static_cast<u16>((cfg_.standby_port ? cfg_.standby_port : cfg_.replica_port) + s);
+    rc.receiver.uuid = uuid_;
+    rc.receiver.shard = s;
+    rc.receiver.n_shards = n;
+    rc.receiver.slot_crc = crc;
+    rc.receiver.term = term;
+  } else if (!cfg_.replica_host.empty() && (!cfg_.standby || cfg_.standby_port != 0)) {
+    rc.primary = true;
+    rc.sender.host = cfg_.replica_host;
+    rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
+    rc.sender.uuid = uuid_;
+    rc.sender.shard = s;
+    rc.sender.n_shards = n;
+    rc.sender.slot_crc = crc;
+    rc.sender.retain_bytes = cfg_.replica_retain_bytes;
+    rc.sender.term = term;
+    rc.sync = cfg_.replica_sync;
+    rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
+  }
+  return rc;
 }
 
 void Engine::recover() {
@@ -405,31 +437,7 @@ void Engine::recover() {
   }
 
   if (!cfg_.replica_host.empty() || cfg_.standby) {
-    const u32 crc = repl::slot_map_crc(slots_);
-    rt_->run_on_all([&](u16 s) {
-      Shard::ReplicaConfig rc;
-      if (cfg_.standby) {
-        rc.standby = true;
-        rc.receiver.host = cfg_.standby_host;
-        rc.receiver.port = static_cast<u16>(cfg_.replica_port + s);
-        rc.receiver.uuid = uuid_;
-        rc.receiver.shard = s;
-        rc.receiver.n_shards = n;
-        rc.receiver.slot_crc = crc;
-      } else {
-        rc.primary = true;
-        rc.sender.host = cfg_.replica_host;
-        rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
-        rc.sender.uuid = uuid_;
-        rc.sender.shard = s;
-        rc.sender.n_shards = n;
-        rc.sender.slot_crc = crc;
-        rc.sender.retain_bytes = cfg_.replica_retain_bytes;
-        rc.sync = cfg_.replica_sync;
-        rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
-      }
-      current_shard()->set_replication(rc);
-    });
+    rt_->run_on_all([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby)); });
   }
   rt_->run_on_all([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
@@ -463,6 +471,50 @@ void Engine::recover() {
     seed_->listen_fd = fd;
     seed_->thread = std::thread([this] { serve_seed(); });
   }
+}
+
+double Engine::promote() {
+  if (!running_ || !cfg_.standby || cfg_.data_dir.empty()) {
+    throw std::logic_error("promote: not a running standby");
+  }
+  const auto t0 = std::chrono::steady_clock::now();
+  const u16 n = cfg_.runtime.n_shards;
+  // 1. Take no more records, and wait until all installed are durable: the
+  // follow-ups resumed below act on them.
+  rt_->run_on_all([](u16) { current_shard()->stop_standby(); });
+  while (true) {
+    std::atomic<bool> settled{true};
+    rt_->run_on_all([&](u16) {
+      if (!current_shard()->standby_settled()) settled = false;
+    });
+    if (settled) break;
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+  }
+  // 2. The new term, and leases above every ID the old primary minted,
+  // durable before anything is served.
+  std::atomic<u64> max_seen{0};
+  rt_->run_on_all([&](u16) {
+    u64 m = current_shard()->max_lease_seen();
+    u64 cur = max_seen.load();
+    while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
+  });
+  const u64 base = std::max(sb_.next_lease, max_seen.load() + 1);
+  {
+    std::unique_lock<std::mutex> g;
+    if (seed_) g = std::unique_lock<std::mutex>(seed_->mu);
+    sb_.next_lease = base + n;
+    ++sb_.term;
+    ++sb_.generation;
+    write_superblock(cfg_.data_dir, sb_);
+  }
+  // 3. Serve.
+  cfg_.standby = false;
+  rt_->run_on_all([&](u16 s) {
+    Shard* sh = current_shard();
+    sh->set_lease(base + s);
+    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false), cfg_.data_dir);
+  });
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 
 CheckpointReport Engine::checkpoint() {

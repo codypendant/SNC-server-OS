@@ -14,8 +14,11 @@
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
 // listens on PORT+i, keeps a copy and serves no ops. A new standby is
 // created with its primary's space UUID (printed at start). Promote a
-// standby by stopping it and starting it without --standby on the same
-// --data-dir. Nothing fences the old primary: make sure it is down.
+// standby with SIGUSR1 (in place; it then ships to --replica-of if given,
+// and --standby takes the port to listen on), or by stopping it and starting
+// it without --standby on the same --data-dir. Promotion starts a new term:
+// standbys refuse a primary of an older term, so an old primary that comes
+// back with --replica-timeout-ms 0 can acknowledge no durable write.
 // A primary started with --seed-port serves its latest checkpoint; a
 // standby started with --seed-from on an empty --data-dir fetches it first,
 // then catches up from the primary's WAL. --report-ms prints a line of
@@ -100,7 +103,7 @@ int main(int argc, char** argv) {
     else if (k == "--replica-timeout-ms") cfg.replica_timeout_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--standby") {
       cfg.standby = true;
-      cfg.replica_port = static_cast<u16>(std::atoi(val()));
+      cfg.standby_port = static_cast<u16>(std::atoi(val()));
     }
     else if (k == "--standby-host") cfg.standby_host = val();
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
@@ -141,6 +144,7 @@ int main(int argc, char** argv) {
   sigemptyset(&set);
   sigaddset(&set, SIGINT);
   sigaddset(&set, SIGTERM);
+  sigaddset(&set, SIGUSR1);  // a standby: promote to primary
   pthread_sigmask(SIG_BLOCK, &set, nullptr);
 
   net::NetServer server(ncfg, cfg.runtime.n_shards);
@@ -155,8 +159,8 @@ int main(int argc, char** argv) {
   if (!cfg.data_dir.empty()) {
     std::printf("space uuid ");
     for (u8 b : eng.space_uuid()) std::printf("%02x", b);
-    if (cfg.standby) std::printf("  standby, listening on %u-%u", cfg.replica_port,
-                                 cfg.replica_port + cfg.runtime.n_shards - 1);
+    if (cfg.standby) std::printf("  standby, listening on %u-%u", cfg.standby_port,
+                                 cfg.standby_port + cfg.runtime.n_shards - 1);
     else if (!cfg.replica_host.empty())
       std::printf("  replicating to %s:%u (%s)", cfg.replica_host.c_str(), cfg.replica_port,
                   cfg.replica_sync ? "sync" : "async");
@@ -179,7 +183,17 @@ int main(int argc, char** argv) {
       if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
       auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::max(wake - now, clock::duration::zero())).count();
       timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
-      if ((sig = sigtimedwait(&set, nullptr, &ts)) > 0) break;
+      if ((sig = sigtimedwait(&set, nullptr, &ts)) == SIGUSR1) {
+        if (cfg.standby) {
+          double s = eng.promote();
+          cfg.standby = false;
+          std::printf("promoted to primary: term %llu, in %.3fs\n",
+                      (unsigned long long)eng.term(), s);
+        }
+        std::fflush(stdout);
+        continue;
+      }
+      if (sig > 0) break;
       now = clock::now();
       if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
         CheckpointReport r = eng.checkpoint();

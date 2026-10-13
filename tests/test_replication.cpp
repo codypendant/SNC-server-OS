@@ -77,7 +77,8 @@ sigset_t block_term() {
 
 // A standby in a child process; stops cleanly on SIGTERM. Writes one byte
 // to ready_fd once listening.
-pid_t start_standby(const std::string& dir, bool init, const std::string& seed_from = "") {
+pid_t start_standby(const std::string& dir, bool init, const std::string& seed_from = "",
+                    u16 port = 0) {
   int fds[2];
   CHECK_EQ(::pipe(fds), 0);
   pid_t pid = ::fork();
@@ -88,7 +89,7 @@ pid_t start_standby(const std::string& dir, bool init, const std::string& seed_f
     Engine::Config c = config(dir, init);
     c.standby = true;
     c.standby_host = "127.0.0.1";
-    c.replica_port = g_port;
+    c.replica_port = port ? port : g_port;
     c.seed_from = seed_from;
     Engine eng(c);
     eng.start();
@@ -642,6 +643,172 @@ void test_diverged() {
   rm_rf(pd + " " + sd + " " + old);
 }
 
+// 7. Online promotion and fencing. A sync primary is SIGKILLed under
+// transfers and deposits; its standby is promoted in place (SIGUSR1), keeps
+// every acknowledged deposit, conserves transfers, mints unique IDs, and
+// serves. The old primary, restarted, can acknowledge nothing: its standby
+// is gone, and a new standby seeded from the promoted one refuses its older
+// term.
+struct Row {
+  ObjectID id;
+  u64 version;
+  i64 balance;
+  u64 entries;
+};
+
+// The old primary, restarted on its directory: checks that a deposit is not
+// acknowledged within a second and that its link never comes up.
+void check_fenced(const std::string& pd, u16 port, const ObjectID& target) {
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine::Config c = primary_config(pd, false, /*sync=*/true, /*timeout_ms=*/0);
+    c.replica_port = port;
+    Engine eng(c);
+    eng.start();
+    std::atomic<bool> done{false};
+    eng.runtime().submit(0, [&] {
+      AmountArgs a{1, 0};
+      execute(target, kOpDeposit, ByteView(&a, sizeof(a)), {},
+              [](void* ctx, const ExecResult&) { static_cast<std::atomic<bool>*>(ctx)->store(true); },
+              &done);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+    if (done.load()) _exit(20);
+    for (u16 s = 0; s < kShards; ++s) {
+      if (eng.stats(s).repl_live) _exit(21);
+    }
+    _exit(0);  // not stop(): it would wait for the deposit forever
+  }
+  wait_ok(pid);
+}
+
+void test_promote() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s"), s2d = temp_dir("s2");
+  const u16 seed_port = static_cast<u16>(g_port + 100), s2_port = static_cast<u16>(g_port + 200);
+  // The standby: promoted on SIGUSR1, then reports and serves until SIGTERM.
+  int ready[2], rows[2];
+  CHECK_EQ(::pipe(ready), 0);
+  CHECK_EQ(::pipe(rows), 0);
+  pid_t sb = ::fork();
+  CHECK(sb >= 0);
+  if (sb == 0) {
+    ::close(ready[0]);
+    ::close(rows[0]);
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGTERM);
+    sigaddset(&set, SIGUSR1);
+    pthread_sigmask(SIG_BLOCK, &set, nullptr);
+    Engine::Config c = config(sd, true);
+    c.standby = true;
+    c.standby_host = "127.0.0.1";
+    c.replica_port = g_port;
+    c.seed_port = seed_port;
+    Engine eng(c);
+    eng.start();
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    int sig = 0;
+    sigwait(&set, &sig);
+    if (sig != SIGUSR1) _exit(22);
+    double secs = eng.promote();
+    if (eng.term() != 1) _exit(23);
+    if (!eng.wait_emits()) _exit(8);
+    std::set<ObjectID> seen;
+    for (u16 s = 0; s < kShards; ++s) {
+      eng.for_each_object(s, [&](const ObjectHeader& h) {
+        const auto* acc = reinterpret_cast<const AccountV1*>(h.payload());
+        Row r{h.id, h.version, acc->balance_cents, u64{acc->n_out} + acc->n_in};
+        seen.insert(h.id);
+        if (::write(rows[1], &r, sizeof(r)) != sizeof(r)) _exit(3);
+      });
+    }
+    ::close(rows[1]);
+    auto fresh = create_accounts(eng, 400);  // serves, and mints new IDs
+    for (const ObjectID& id : fresh) {
+      if (seen.count(id)) _exit(24);
+    }
+    std::printf("promote: in place in %.3fs, term 1\n", secs);
+    sigwait(&set, &sig);
+    eng.stop();
+    _exit(0);
+  }
+  ::close(ready[1]);
+  ::close(rows[1]);
+  char b;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+
+  int acks[2];
+  CHECK_EQ(::pipe(acks), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ::close(acks[0]);
+    ::close(rows[0]);
+    Engine eng(primary_config(pd, true, true, 0));
+    eng.start();
+    auto ids = create_accounts(eng, 200);
+    auto dep = create_accounts(eng, 64);
+    for (u32 i = 0;; ++i) {
+      workload(eng, ids, dep, 1000, 50 + i, [&](const ExecResult& r) {
+        Ack a{r.id, r.version};
+        if (::write(acks[1], &a, sizeof(a)) != sizeof(a)) _exit(3);
+      });
+    }
+  }
+  ::close(acks[1]);
+  std::map<ObjectID, u64> acked;
+  u64 got = 0;
+  bool killed = false;
+  Ack a;
+  while (::read(acks[0], &a, sizeof(a)) == sizeof(a)) {
+    acked[a.id] = std::max(acked[a.id], a.version);
+    if (!killed && ++got >= 5000) {
+      ::kill(pid, SIGKILL);
+      killed = true;
+    }
+  }
+  ::close(acks[0]);
+  int st = 0;
+  CHECK_EQ(::waitpid(pid, &st, 0), pid);
+
+  ::kill(sb, SIGUSR1);
+  std::map<ObjectID, Row> seen;
+  Row r;
+  while (::read(rows[0], &r, sizeof(r)) == sizeof(r)) seen[r.id] = r;
+  ::close(rows[0]);
+  i64 total = 0;
+  u64 entries = 0, xfer = 0;
+  for (const auto& [id, row] : seen) {
+    entries += row.entries;
+    if (!acked.count(id)) {
+      total += row.balance;
+      ++xfer;
+    }
+  }
+  for (const auto& [id, v] : acked) {
+    auto it = seen.find(id);
+    CHECK(it != seen.end());
+    CHECK(it->second.version >= v);
+    CHECK_EQ(it->second.balance, kStart + static_cast<i64>(it->second.version - 1));
+  }
+  CHECK_EQ(entries, 0u);
+  CHECK_EQ(xfer, 200u);
+  CHECK_EQ(total, kStart * 200);
+
+  // Fenced: the old primary's standby is gone...
+  check_fenced(pd, g_port, acked.begin()->first);
+  // ...and a standby seeded from the new primary refuses its older term.
+  pid_t s2 = start_standby(s2d, false, "127.0.0.1:" + std::to_string(seed_port), s2_port);
+  check_fenced(pd, s2_port, acked.begin()->first);
+  stop_child(s2);
+  stop_child(sb);
+  std::printf("promote: %zu acked deposit accounts kept, transfers conserved; old primary fenced\n",
+              acked.size());
+  rm_rf(pd + " " + sd + " " + s2d);
+}
+
 // 6. Sync with no standby: durable acks wait for the timeout, then the
 // primary continues and reports itself degraded.
 void test_degrade() {
@@ -686,6 +853,7 @@ int main() {
   test_late(Late::SEED);
   test_outage();
   test_diverged();
+  test_promote();
   test_degrade();
   std::printf("test_replication: ok\n");
   return 0;

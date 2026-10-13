@@ -66,6 +66,11 @@ class Shard {
     repl::Receiver::Config receiver;
   };
   void set_replication(const ReplicaConfig& c) { repl_cfg_ = c; }
+  // Promotion, on the shard's thread: stop_standby, then once every shard
+  // is standby_settled (all it installed is durable), promote.
+  void stop_standby();
+  bool standby_settled() const;
+  void promote(const ReplicaConfig& rc, const std::string& data_dir);
   // The WAL's last record after replay, so a standby can prove its log
   // matches its primary's when it reconnects.
   void set_wal_tail(u64 lsn, u32 crc) {
@@ -248,6 +253,8 @@ class Shard {
   static void on_wal_flush(void* ctx, const u8* recs, u32 len, u64 first_lsn, u64 last_lsn);
   static bool apply_replicated(void* ctx, const u8* rec);
   bool poll_replication();
+  void start_serving();
+  void start_sender(const std::string& data_dir, u64 next_lsn);
 
   // Dispatch.
   void send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type, ByteView args,

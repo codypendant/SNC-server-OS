@@ -73,6 +73,7 @@ Sender::Sender(const Config& cfg) : cfg_(cfg), next_expected_(cfg.start_lsn) {
   hello_.shard = cfg_.shard;
   hello_.n_shards = cfg_.n_shards;
   hello_.slot_crc = cfg_.slot_crc;
+  hello_.term = cfg_.term;
 }
 
 Sender::~Sender() {
@@ -386,7 +387,9 @@ bool Sender::read_acks(u64 now_ns) {
       std::memmove(in_, in_ + sizeof(a), in_len_ - sizeof(a));
       in_len_ -= sizeof(a);
       if (std::memcmp(a.magic, kMagic, 8) != 0 || a.status != 0) {
-        std::fprintf(stderr, "snc: standby refused shard %u (status %u)\n", cfg_.shard, a.status);
+        std::fprintf(stderr, "snc: standby refused shard %u (%s)\n", cfg_.shard,
+                     a.status == kRefusedTerm ? "this primary's term is older: it was replaced"
+                                              : "another space, shard count or slot map");
         close_link(now_ns);
         retry_at_ = now_ns + 10 * kRetryNs;
         return advanced;
@@ -520,6 +523,9 @@ bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
   if (std::memcmp(h.magic, kMagic, 8) != 0 || std::memcmp(h.space_uuid, cfg_.uuid.data(), 16) != 0 ||
       h.shard != cfg_.shard || h.n_shards != cfg_.n_shards || h.slot_crc != cfg_.slot_crc) {
     a.status = kRefusedSpace;
+    ++stats_.refused;
+  } else if (h.term < cfg_.term) {
+    a.status = kRefusedTerm;
     ++stats_.refused;
   }
   const u8* p = reinterpret_cast<const u8*>(&a);
