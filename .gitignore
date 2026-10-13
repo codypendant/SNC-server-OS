@@ -3,3 +3,5 @@ build*/
 .cache/
 compile_commands.json
 __pycache__/
+bench/results/lab-*/*/*.log
+bench/results/lab-*/*/bal.*

@@ -34,7 +34,9 @@
 // then catches up from the primary's WAL. --report-ms prints a line of
 // replication state every N ms (lag = durable records not yet acked).
 // Slot moves (docs/MIGRATION.md): with --control, --admin-port also answers
-// the MOVE requests of snc_ctl move (tools/migrate.h).
+// the MOVE requests of snc_ctl move (tools/migrate.h). --admin-port also
+// answers AUDIT [PATH] (the accounts served here; docs/REAL_MACHINES.md).
+// With --control, clients are served on every interface unless --host is set.
 // Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
 // lines (STATUS role p primary, n no replication, s standby, f fenced: a
 // newer primary exists, and this node has left the data plane); with --witness, a sync primary past --replica-timeout-ms continues
@@ -85,6 +87,41 @@ using namespace snc;
 
 namespace {
 
+// AUDIT [PATH] (docs/REAL_MACHINES.md): the accounts this node serves now.
+// "AUDIT accounts total pending epoch held misrouted", pending being
+// unsettled transfer entries (outbox plus inbox). With PATH, also writes
+// "ID BALANCE" for each of those accounts to PATH on this host.
+std::string audit(Engine& eng, const std::string& path) {
+  u64 accounts = 0, pending = 0, held = 0, misrouted = 0;
+  i64 total = 0;
+  std::string bal;
+  for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
+    eng.for_each_served_object(sh, [&](const ObjectHeader& h) {
+      if (h.type_id != account::kTypeId) return;
+      const auto* a = reinterpret_cast<const account::AccountV1*>(h.payload());
+      ++accounts;
+      total += a->balance_cents;
+      pending += a->n_out + a->n_in;
+      if (!path.empty()) bal += h.id.to_string() + " " + std::to_string(a->balance_cents) + "\n";
+    });
+    const ShardStats st = eng.stats(sh);
+    held += st.emits_held;
+    misrouted += st.node_emits_misrouted;
+  }
+  if (!path.empty()) {
+    FILE* f = std::fopen(path.c_str(), "w");
+    if (f == nullptr || std::fwrite(bal.data(), 1, bal.size(), f) != bal.size() || std::fclose(f) != 0) {
+      return "NO cannot write " + path;
+    }
+  }
+  return "AUDIT " + std::to_string(accounts) + " " + std::to_string(total) + " " + std::to_string(pending) + " " +
+         std::to_string(eng.cluster().epoch) + " " + std::to_string(held) + " " + std::to_string(misrouted);
+}
+
+}  // namespace
+
+namespace {
+
 std::vector<int> parse_cpus(const char* s) {
   std::vector<int> v;
   for (const char* p = s; *p;) {
@@ -117,6 +154,7 @@ int main(int argc, char** argv) {
   net::NetServer::Config ncfg;
   int report_ms = 0;
   unsigned admin_port = 0;
+  bool host_given = false;
   std::vector<std::pair<std::string, unsigned>> witnesses;
   double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
   // Rejoin (see the header): the other node's admin and seed ports, and the
@@ -137,7 +175,10 @@ int main(int argc, char** argv) {
     };
     if (k == "--shards") cfg.runtime.n_shards = static_cast<u16>(std::atoi(val()));
     else if (k == "--cpus") cfg.runtime.cpus = parse_cpus(val());
-    else if (k == "--host") ncfg.host = val();
+    else if (k == "--host") {
+      ncfg.host = val();
+      host_given = true;
+    }
     else if (k == "--port") ncfg.base_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--objects") cfg.expected_objects = std::strtoull(val(), nullptr, 10);
     else if (k == "--data-dir") cfg.data_dir = val();
@@ -253,6 +294,9 @@ int main(int argc, char** argv) {
     // Clients reach it where the map says (if it says).
     const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
     if (me.client_port != 0) ncfg.base_port = me.client_port;
+    // The map names this node's host for other hosts' clients: listen on
+    // every interface, not only loopback, unless --host says otherwise.
+    if (!host_given) ncfg.host = "0.0.0.0";
     std::printf("control: node %lld, group %u member %u, placement epoch %llu%s\n", node_id, setup.group,
                 setup.member, (unsigned long long)setup.placement.epoch,
                 setup.stored ? " (stored map: the control plane did not answer; provisional)" : "");
@@ -418,6 +462,8 @@ int main(int argc, char** argv) {
                           st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
                           (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load());
             reply = b;
+          } else if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) {
+            reply = audit(eng, line.size() > 6 ? line.substr(6) : "");
           } else if (line == "PROMOTE") {
             reply = is_standby.load() ? "OK" : "NO not a standby";
             if (is_standby.load()) ::kill(::getpid(), SIGUSR1);

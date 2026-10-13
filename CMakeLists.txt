@@ -86,3 +86,7 @@ target_link_libraries(baseline_server PRIVATE snc_core)
 
 add_executable(net_bench bench/net_bench.cpp)
 target_link_libraries(net_bench PRIVATE snc_core)
+
+# The lab's load and checker (docs/REAL_MACHINES.md).
+add_executable(snc_load bench/snc_load.cpp)
+target_link_libraries(snc_load PRIVATE snc_core)

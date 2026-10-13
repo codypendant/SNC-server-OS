@@ -21,6 +21,7 @@
 //
 // --control lists the control members (the witnesses). Nodes are then
 // started with snc_server --control ... --node-id ID.
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <string>
@@ -45,7 +46,9 @@ int usage() {
                "usage: snc_ctl --control HOST:PORT,... get\n"
                "       snc_ctl --control HOST:PORT,... init --nodes ID@HOST:ADMIN,... "
                "--groups SHARDS:NODE/LINK/CLIENT+...,...\n"
-               "       snc_ctl --control HOST:PORT,... move SLOT GROUP | move --abort SLOT\n");
+               "       snc_ctl --control HOST:PORT,... move [--stop-after STEP] [--chunk N] SLOT GROUP | move --abort SLOT\n"
+               "STEP (for crash tests): prepared copying copied sealed staged committed activated\n"
+               "N: objects per request when copying ahead of the seal (default 8)\n");
   return 2;
 }
 
@@ -93,6 +96,12 @@ int main(int argc, char** argv) {
   if (cmd == "move") {
     migrate::Driver d(ms);
     d.deadline_ms = 60000;
+    while (move_args.size() >= 4 && (move_args[0] == "--stop-after" || move_args[0] == "--chunk")) {
+      const std::string v = move_args[1];
+      if (move_args[0] == "--chunk") d.chunk = std::max(1, std::atoi(v.c_str()));
+      else d.stop_at = [v](const std::string& step) { return step == v; };
+      move_args.erase(move_args.begin(), move_args.begin() + 2);
+    }
     std::string r;
     if (move_args.size() == 2 && move_args[0] == "--abort") {
       r = d.abort(static_cast<u16>(std::stoul(move_args[1])));
@@ -105,7 +114,7 @@ int main(int argc, char** argv) {
     }
     std::fputs(d.log.c_str(), stderr);
     std::printf("%s\n", r.c_str());
-    return r == "DONE" || r == "ABORTED" || r == "NONE" ? 0 : 1;
+    return r == "DONE" || r == "ABORTED" || r == "NONE" || r.rfind("STOPPED", 0) == 0 ? 0 : 1;
   }
 
   // init

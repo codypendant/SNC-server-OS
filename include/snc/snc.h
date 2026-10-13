@@ -450,6 +450,10 @@ class Engine {
   // Control path: visit every live object owned by `shard` on its thread.
   // Intended for tests and checks, not the hot path.
   void for_each_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn);
+  // The same, for the objects whose slot this node serves at that moment
+  // (its group's by the map, not sealed or staged; none on a standby or a
+  // withdrawn primary). For audits (snc_server's AUDIT).
+  void for_each_served_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn);
 
  private:
   Config cfg_;
