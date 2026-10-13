@@ -303,7 +303,7 @@ or source comments.
     step 2 (the `placement` state machine).
 
 
-### 2026-10-13 15:10 UTC --- Claude (Claude Code): a fenced primary withdraws from the data plane
+### 2026-10-13 14:45 UTC --- Claude (Claude Code): a fenced primary withdraws from the data plane
 
 -   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 14:27 request,
     before control-plane step 2). Classified **REFINE**: lifecycle only,
