@@ -287,6 +287,10 @@ class Engine {
     // them travel over node links. Not combined with replication yet.
     std::vector<ClusterNode> cluster;
     u16 node_id = 0;
+
+    // Start with follow-ups held (queued, not run) until release_emits(),
+    // so a test can inspect exactly the recovered state.
+    bool hold_emits = false;
   };
 
   explicit Engine(const Config& cfg);
@@ -302,6 +306,8 @@ class Engine {
   // Blocks until no shard has a follow-up queued or in flight, e.g. until
   // every transfer has settled. Control path; returns false on timeout.
   bool wait_emits(double timeout_s = 30);
+  // With Config::hold_emits: start running follow-ups.
+  void release_emits();
 
   // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
   CheckpointReport checkpoint();

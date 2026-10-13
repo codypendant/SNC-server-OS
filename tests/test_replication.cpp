@@ -247,7 +247,9 @@ std::map<ObjectID, std::pair<u64, i64>> state_of(const std::string& dir) {
   CHECK(pid >= 0);
   if (pid == 0) {
     ::close(fds[0]);
-    Engine eng(config(dir, false));
+    Engine::Config c = config(dir, false);
+    c.hold_emits = true;  // the state as recovered, before resumed follow-ups change it
+    Engine eng(c);
     eng.start();
     for (u16 s = 0; s < kShards; ++s) {
       eng.for_each_object(s, [&](const ObjectHeader& h) {
