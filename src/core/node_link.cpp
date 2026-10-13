@@ -28,11 +28,12 @@ enum : u32 { kTagListen = 1, kTagIn = 2, kTagOut = 3 };
 
 struct Hello {
   u32 magic;
-  u16 node, shard;
+  u16 group, shard;
   u32 crc;
   u32 pad;
+  u64 epoch;  // placement epoch: a failover never changes it
 };
-static_assert(sizeof(Hello) == 16);
+static_assert(sizeof(Hello) == 24);
 
 u64 tag(u32 kind, u32 i) { return (u64{kind} << 32) | i; }
 
@@ -51,9 +52,10 @@ void nodelay(int fd) {
 
 struct NodeLinks::Out {
   enum class State : u8 { DOWN, CONNECTING, UP } state = State::DOWN;
-  std::string host;
-  u16 port = 0;
-  u16 node = 0;
+  // The group's members, at this shard's port on each; `at` is the one
+  // tried now. Whichever accepts is the primary: a standby does not listen.
+  std::vector<std::pair<std::string, u16>> members;
+  std::size_t at = 0;
   int fd = -1;
   u64 retry_ns = 0, since_ns = 0;
   std::vector<u8> buf;
@@ -63,28 +65,28 @@ struct NodeLinks::Out {
 struct NodeLinks::In {
   int fd = -1;
   bool hello = false;
-  u16 node = 0, shard = 0;
+  u16 group = 0, shard = 0;
   std::vector<u8> buf = std::vector<u8>(kInBuf);
   std::size_t have = 0;
 };
 
-NodeLinks::NodeLinks(const ClusterMap& map, u16 node, u16 shard)
-    : node_(node), shard_(shard), crc_(map.crc()) {
+NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
+    : group_(group), shard_(shard), crc_(map.crc()), epoch_(map.epoch) {
   epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
   sri_watch_fd(epfd_);
-  base_.assign(map.nodes.size(), 0);
-  for (u16 n = 0; n < map.nodes.size(); ++n) {
-    base_[n] = static_cast<u32>(out_.size());
-    if (n == node) continue;  // no links to itself: link_of is never asked for it
-    for (u16 s = 0; s < map.nodes[n].n_shards; ++s) {
+  base_.assign(map.groups.size(), 0);
+  for (u16 g = 0; g < map.groups.size(); ++g) {
+    base_[g] = static_cast<u32>(out_.size());
+    if (g == group) continue;  // its own group: replication, not links; link_of is never asked for it
+    for (u16 s = 0; s < map.groups[g].n_shards; ++s) {
       auto o = std::make_unique<Out>();
-      o->host = map.nodes[n].host;
-      o->port = static_cast<u16>(map.nodes[n].link_port + s);
-      o->node = n;
+      for (const ClusterMember& m : map.groups[g].members) {
+        o->members.emplace_back(m.host, static_cast<u16>(m.link_port + s));
+      }
       out_.push_back(std::move(o));
     }
   }
-  listen_port_ = static_cast<u16>(map.nodes[node].link_port + shard);
+  listen_port_ = static_cast<u16>(map.groups[group].members[member].link_port + shard);
   try_listen(sri_now_ns());
 }
 
@@ -139,9 +141,13 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   addrinfo* res = nullptr;
-  const std::string port = std::to_string(o.port);
+  const auto& [host, p] = o.members[o.at];
+  const std::string port = std::to_string(p);
   o.retry_ns = now_ns + kRetryNs;
-  if (::getaddrinfo(o.host.c_str(), port.c_str(), &hints, &res) != 0 || res == nullptr) return;
+  if (::getaddrinfo(host.c_str(), port.c_str(), &hints, &res) != 0 || res == nullptr) {
+    o.at = (o.at + 1) % o.members.size();
+    return;
+  }
   o.fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   nodelay(o.fd);
   const int r = ::connect(o.fd, res->ai_addr, res->ai_addrlen);
@@ -149,6 +155,7 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
   if (r != 0 && errno != EINPROGRESS) {
     ::close(o.fd);
     o.fd = -1;
+    o.at = (o.at + 1) % o.members.size();
     return;
   }
   o.state = Out::State::CONNECTING;
@@ -156,8 +163,11 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
   watch(epfd_, o.fd, EPOLLOUT | EPOLLIN | EPOLLRDHUP, tag(kTagOut, i));
 }
 
+// Down, by failure or refusal: the next attempt tries the group's next
+// member (the primary may have moved within the group).
 void NodeLinks::drop_out(u32 i, u64 now_ns) {
   Out& o = *out_[i];
+  o.at = (o.at + 1) % o.members.size();
   if (o.fd >= 0) {
     ::epoll_ctl(epfd_, EPOLL_CTL_DEL, o.fd, nullptr);
     ::close(o.fd);
@@ -221,11 +231,12 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
       if (in.have < sizeof(Hello)) continue;
       Hello h;
       std::memcpy(&h, in.buf.data(), sizeof(h));
-      if (h.magic != kMagic || h.crc != crc_) {
+      if (h.magic != kMagic || h.crc != crc_ || h.epoch != epoch_) {
         std::fprintf(stderr,
-                     "snc: node link: refused node %u shard %u: %s (its cluster map crc %08x, ours %08x)\n",
-                     h.node, h.shard, h.magic != kMagic ? "not a node link" : "another cluster map", h.crc,
-                     crc_);
+                     "snc: node link: refused group %u shard %u: %s (its cluster map crc %08x epoch %llu, "
+                     "ours %08x epoch %llu)\n",
+                     h.group, h.shard, h.magic != kMagic ? "not a node link" : "another cluster map", h.crc,
+                     (unsigned long long)h.epoch, crc_, (unsigned long long)epoch_);
         return false;
       }
       in.hello = true;
@@ -233,7 +244,7 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
       // here meanwhile is lost. Resume here too, so this shard's objects
       // ask again for what they were owed (a settle, a forget).
       connected_ = true;
-      in.node = h.node;
+      in.group = h.group;
       in.shard = h.shard;
       at = sizeof(Hello);
       // Its earlier connection, if still open, goes with whatever it has not
@@ -241,7 +252,7 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
       // sent them in (a credit overtaking its own forget would credit twice,
       // docs/TRANSFERS.md), and the sender re-emits what was lost.
       for (u32 j = 0; j < in_.size(); ++j) {
-        if (j != i && in_[j] && in_[j]->hello && in_[j]->node == h.node && in_[j]->shard == h.shard) close_in(j);
+        if (j != i && in_[j] && in_[j]->hello && in_[j]->group == h.group && in_[j]->shard == h.shard) close_in(j);
       }
     }
     for (; in.have - at >= sizeof(Frame); at += sizeof(Frame)) {
@@ -288,7 +299,7 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx) {
         if (!(e & EPOLLOUT)) continue;
         o.state = Out::State::UP;
         watch(epfd_, o.fd, EPOLLIN | EPOLLRDHUP, tag(kTagOut, i), EPOLL_CTL_MOD);
-        Hello h{kMagic, node_, shard_, crc_, 0};
+        Hello h{kMagic, group_, shard_, crc_, 0, epoch_};
         const u8* p = reinterpret_cast<const u8*>(&h);
         o.buf.assign(p, p + sizeof(h));
         o.off = 0;

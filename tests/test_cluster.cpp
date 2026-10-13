@@ -1,9 +1,11 @@
-// Cluster (docs/CLUSTER.md): a fixed slot map across nodes. Three node
-// processes on one machine, each owning a third of the slots, run random
-// transfers between all their accounts; one node is SIGKILLed mid-run and
-// restarted. Once everything settles, money is conserved, no transfer is
-// left half done, and every account matches the transfers acknowledged
-// (the killed node's from its WAL: what it acknowledged was durable).
+// Cluster (docs/CLUSTER.md): a fixed slot map across replication groups.
+// test_kill_restart: three single-member groups on one machine run random
+// transfers between all their accounts; one is SIGKILLed mid-run and
+// restarted. test_group_failover: three groups of a primary and a sync
+// standby; one primary is SIGKILLed mid-run and its standby promoted
+// (failover is not migration: the placement epoch never changes). Each
+// checks that money is conserved, nothing is left half done, and every
+// account matches the transfers acknowledged.
 #include <signal.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -16,6 +18,7 @@
 #include <map>
 #include <mutex>
 #include <random>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -53,45 +56,63 @@ std::string read_file(const std::string& path) {
   return ss.str();
 }
 
-std::vector<ClusterNode> cluster(u16 port_base) {
-  std::vector<ClusterNode> c;
-  // Node n: node links on base + 10n + shard, clients on base + 10n + 5 + shard.
-  for (u32 n = 0; n < kNodes; ++n) {
-    c.push_back({"127.0.0.1", static_cast<u16>(port_base + n * 10), kShards, static_cast<u16>(port_base + n * 10 + 5)});
+// Group g, member m: node links on base + 40g + 10m + shard, clients on
+// base + 40g + 10m + 5 + shard; the group's replication on base + 40g + 20.
+std::vector<ClusterGroup> cluster(u16 port_base, u32 members = 1) {
+  std::vector<ClusterGroup> c;
+  for (u32 g = 0; g < kNodes; ++g) {
+    ClusterGroup grp;
+    grp.n_shards = kShards;
+    for (u32 m = 0; m < members; ++m) {
+      const u16 at = static_cast<u16>(port_base + g * 40 + m * 10);
+      grp.members.push_back({"127.0.0.1", at, static_cast<u16>(at + 5)});
+    }
+    c.push_back(grp);
   }
   return c;
 }
+u16 repl_port(u16 port_base, u32 g) { return static_cast<u16>(port_base + g * 40 + 20); }
 
 void test_map() {
-  std::vector<ClusterNode> nodes = {{"a", 1000, 4}, {"b", 2000, 4}, {"c", 3000, 8}};
-  ClusterMap m = ClusterMap::make(nodes);
+  std::vector<ClusterGroup> groups = {{4, {{"a", 1000}}}, {4, {{"b", 2000}, {"b2", 2100}}}, {8, {{"c", 3000}}}};
+  ClusterMap m = ClusterMap::make(groups);
   u32 count[3] = {};
-  for (u32 s = 0; s < kSlots; ++s) ++count[m.node_of[s]];
+  for (u32 s = 0; s < kSlots; ++s) ++count[m.group_of[s]];
   CHECK_EQ(count[0], 1024u);
   CHECK_EQ(count[1], 1024u);
   CHECK_EQ(count[2], 2048u);
-  CHECK_EQ(m.node_of[0], 0);
-  CHECK_EQ(m.node_of[kSlots - 1], 2);
-  // Addresses do not change the crc; the assignment does.
-  std::vector<ClusterNode> moved = nodes;
-  moved[0].host = "elsewhere";
+  CHECK_EQ(m.group_of[0], 0);
+  CHECK_EQ(m.group_of[kSlots - 1], 2);
+  CHECK_EQ(m.epoch, 1u);
+  // Members and addresses do not change the crc (a failover, or a standby
+  // added, is not a placement change); the assignment does.
+  std::vector<ClusterGroup> moved = groups;
+  moved[0].members[0].host = "elsewhere";
+  moved[1].members.pop_back();
+  moved[2].members.push_back({"c2", 3100});
   CHECK_EQ(ClusterMap::make(moved).crc(), m.crc());
   moved[2].n_shards = 4;
   CHECK(ClusterMap::make(moved).crc() != m.crc());
-  std::vector<ClusterNode> parsed = parse_cluster("10.0.0.1:7000:4,host-b:7100:8:7400");
+  std::vector<ClusterGroup> parsed = parse_cluster("10.0.0.1:7000:4,host-b:7100:8:7400|host-c:7100:8:7500");
   CHECK_EQ(parsed.size(), 2u);
-  CHECK_EQ(parsed[0].client_port, 0);
-  CHECK_EQ(parsed[1].client_port, 7400);
-  CHECK(parsed[1].host == "host-b");
-  CHECK_EQ(parsed[1].link_port, 7100);
+  CHECK_EQ(parsed[0].members.size(), 1u);
+  CHECK_EQ(parsed[0].members[0].client_port, 0);
+  CHECK_EQ(parsed[1].members.size(), 2u);
+  CHECK_EQ(parsed[1].members[0].client_port, 7400);
+  CHECK(parsed[1].members[0].host == "host-b");
+  CHECK(parsed[1].members[1].host == "host-c");
+  CHECK_EQ(parsed[1].members[1].link_port, 7100);
+  CHECK_EQ(parsed[1].members[1].client_port, 7500);
   CHECK_EQ(parsed[1].n_shards, 8);
-  bool threw = false;
-  try {
-    parse_cluster("10.0.0.1:7000");
-  } catch (const std::invalid_argument&) {
-    threw = true;
+  for (const char* bad : {"10.0.0.1:7000", "a:1:4|b:1:8", "a:1:4,"}) {
+    bool threw = false;
+    try {
+      parse_cluster(bad);
+    } catch (const std::invalid_argument&) {
+      threw = true;
+    }
+    CHECK(threw);
   }
-  CHECK(threw);
   std::printf("map: ok\n");
 }
 
@@ -141,10 +162,10 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   c.init = init;
   c.wal_segment_bytes = 1u << 20;
   c.cluster = cluster(nd.port_base);
-  c.node_id = static_cast<u16>(nd.id);
+  c.group_id = static_cast<u16>(nd.id);
   ::mkdir(c.data_dir.c_str(), 0755);
   net::NetServer::Config nc;
-  nc.base_port = c.cluster[nd.id].client_port;
+  nc.base_port = c.cluster[nd.id].members[0].client_port;
   net::NetServer server(nc, kShards);
   c.app_poll = net::NetServer::poll_hook;
   c.app_user = &server;
@@ -173,7 +194,7 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
     const ClusterMap& m = eng.cluster();
     std::string text;
     for (const ObjectID& id : ids) {
-      CHECK_EQ(m.node_of_id(id), nd.id);  // minted only in this node's slots
+      CHECK_EQ(m.group_of_id(id), nd.id);  // minted only in this group's slots
       text += id.to_string() + "\n";
     }
     write_file(nd.dir + "/ids." + me, text);
@@ -269,10 +290,10 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
         const auto* in = reinterpret_cast<const InEntry*>(out + a->n_out);
         for (u16 i = 0; i < a->n_out; ++i)
           d += "out " + h.id.to_string() + " seq " + std::to_string(out[i].seq) + " to node " +
-               std::to_string(m.node_of_id(out[i].to)) + "\n";
+               std::to_string(m.group_of_id(out[i].to)) + "\n";
         for (u16 i = 0; i < a->n_in; ++i)
           d += "in " + h.id.to_string() + " seq " + std::to_string(in[i].seq) + " from node " +
-               std::to_string(m.node_of_id(in[i].from)) + "\n";
+               std::to_string(m.group_of_id(in[i].from)) + "\n";
       });
     }
     write_file(nd.dir + "/entries." + me, d);
@@ -304,18 +325,22 @@ void wait_for(const std::string& path, double timeout_s) {
 }
 
 // A client that fetches the cluster map from one node reads every account
-// from its owner: never refused, never forwarded within the node.
-void check_routing(const std::string& dir, u16 port_base) {
+// from its owner: never refused, never forwarded within the group. With
+// `members` > 1 it connects with sessions, so each group's client finds the
+// member that is primary now. The map it gets is placement epoch 1.
+void check_routing(const std::string& dir, u16 port_base, u32 members = 1, u32 via_group = 2) {
   std::vector<ObjectID> ids;
   for (u32 n = 0; n < kNodes; ++n) {
     std::vector<ObjectID> v = read_ids(dir, n);
     ids.insert(ids.end(), v.begin(), v.end());
   }
   net::ClusterClient cc;
-  const std::vector<ClusterNode> nodes = cluster(port_base);
-  CHECK(cc.connect("127.0.0.1", nodes[2].client_port));
-  CHECK_EQ(cc.node_count(), kNodes);
-  CHECK_EQ(cc.map_crc(), ClusterMap::make(nodes).crc());
+  if (members > 1) cc.enable_sessions(0xC1u, 10000, 2000);
+  const std::vector<ClusterGroup> groups = cluster(port_base, members);
+  CHECK(cc.connect("127.0.0.1", groups[via_group].members[0].client_port));
+  CHECK_EQ(cc.group_count(), kNodes);
+  CHECK_EQ(cc.map_crc(), ClusterMap::make(groups).crc());
+  CHECK_EQ(cc.epoch(), 1u);
   struct Seen {
     u64 ok = 0, forwarded = 0, wrong = 0;
   } seen;
@@ -327,15 +352,16 @@ void check_routing(const std::string& dir, u16 port_base) {
     h.target = ids[i];
     cc.send(h, ByteView());
   }
-  // And one to a node that does not own its target.
+  // And one to a group that does not own its target.
   wire::ReqHeader wrong{};
   wrong.kind = wire::Kind::EXEC;
   wrong.op = kOpGetBalance;
   wrong.req_id = ~u64{0};
   wrong.target = ids[0];
-  cc.node(static_cast<u16>((cc.node_of(ids[0]) + 1) % kNodes)).send(0, wrong, ByteView());
+  if (members == 1) cc.group(static_cast<u16>((cc.group_of(ids[0]) + 1) % kNodes)).send(0, wrong, ByteView());
+  const u64 want = ids.size() + (members == 1 ? 1 : 0);
   u64 got = 0;
-  while (got < ids.size() + 1) {
+  while (got < want) {
     int r = cc.poll(
         [](void* ctx, const wire::RespHeader& h, ByteView) {
           auto* s = static_cast<Seen*>(ctx);
@@ -352,15 +378,15 @@ void check_routing(const std::string& dir, u16 port_base) {
   }
   CHECK_EQ(seen.ok, ids.size());
   CHECK_EQ(seen.forwarded, 0u);
-  CHECK_EQ(seen.wrong, 1u);
-  std::printf("routing: %zu reads, each sent to its owner by the cluster map; a misrouted one refused\n",
-              ids.size());
+  CHECK_EQ(seen.wrong, members == 1 ? 1u : 0u);
+  std::printf("routing: %zu reads, each sent to its owner's primary by the cluster map (epoch %llu)%s\n",
+              ids.size(), (unsigned long long)cc.epoch(), members == 1 ? "; a misrouted one refused" : "");
 }
 
 void test_kill_restart() {
   char tmpl[] = "/tmp/snc-cluster-XXXXXX";
   const std::string dir = mkdtemp(tmpl);
-  const u16 port_base = free_ports(26000, 32000, kNodes * 10);
+  const u16 port_base = free_ports(26000, 32000, kNodes * 40);
   std::vector<Node> nodes;
   for (u32 n = 0; n < kNodes; ++n) nodes.push_back({dir, n, port_base});
   std::vector<pid_t> pids;
@@ -449,12 +475,453 @@ void test_kill_restart() {
   CHECK_EQ(std::system(cmd.c_str()), 0);
 }
 
+// ---- Replication groups: a group's primary fails over -----------------------------------
+//
+// Three groups of two members each (docs/CONTROL_PLANE.md section 12, step
+// 1). Member 0 starts as primary, member 1 as its sync standby (acks wait
+// for it, and it never degrades). Every primary runs transfers from its
+// accounts to accounts in all groups until told to finish. Group 1's
+// primary is SIGKILLed mid-run; its standby is promoted (here by the test,
+// in a deployment by that group's witnesses) and runs transfers of its own.
+// Failover is not migration: the placement map and its epoch never change.
+
+struct Member {
+  std::string dir;
+  u32 group, member;
+  u16 port_base;
+};
+
+std::string tag(u32 g, u32 m) { return std::to_string(g) + "." + std::to_string(m); }
+
+// Every count a primary reports, written as one line to status.G.M.
+struct Report {
+  Totals t;
+  ShardStats st;
+  u64 acked;
+  u64 epoch;
+  u32 crc;
+};
+
+void write_report(const std::string& path, Engine& eng, u64 acked) {
+  Report r{};
+  r.t = totals(eng);
+  for (u16 s = 0; s < kShards; ++s) {
+    ShardStats x = eng.stats(s);
+    r.st.node_emits_sent += x.node_emits_sent;
+    r.st.node_emits_received += x.node_emits_received;
+    r.st.node_emits_dropped += x.node_emits_dropped;
+    r.st.node_resumes += x.node_resumes;
+    r.st.node_connects += x.node_connects;
+  }
+  std::ostringstream o;
+  o << r.t.total << " " << r.t.entries << " " << r.t.accounts << " " << r.st.node_emits_sent << " "
+    << r.st.node_emits_received << " " << r.st.node_emits_dropped << " " << r.st.node_resumes << " "
+    << r.st.node_connects << " " << acked << " " << eng.cluster().epoch << " " << eng.cluster().crc();
+  write_file(path, o.str());
+}
+
+std::vector<long long> read_report(const std::string& path) {
+  std::istringstream in(read_file(path));
+  std::vector<long long> v(11, -1);
+  for (auto& x : v) in >> x;
+  return v;
+}
+
+std::string transfer_line(const ObjectID& from, const ObjectID& to, i64 amount) {
+  return from.to_string() + " " + to.to_string() + " " + std::to_string(amount) + "\n";
+}
+
+// Transfers from `mine` to any account, in rounds, until `finish` exists
+// (and at least min_rounds). Each round's transfers are written to
+// round.G.M before it starts; each acknowledged one is appended to `log`,
+// each refused one to rejected.G.M. So after a kill, the transfers whose
+// outcome is unknown are the last round's, less those in either file;
+// `per` (per shard) bounds how many that can be.
+u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& mine,
+                    const std::vector<ObjectID>& all, int log, u32 min_rounds, u64 per,
+                    const std::string& progress) {
+  const std::string t = tag(me.group, me.member);
+  const int rejected = ::open((me.dir + "/rejected." + t).c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+  CHECK(rejected >= 0);
+  std::mt19937_64 rng(me.group * 7919 + me.member * 31 + 1);
+  u64 acked = 0;
+  for (u32 round = 0; round < min_rounds || !exists(me.dir + "/finish"); ++round) {
+    struct Pick {
+      ObjectID from, to;
+      i64 amount;
+    };
+    std::vector<std::vector<Pick>> picks(kShards);
+    for (u16 s = 0; s < kShards; ++s) {
+      for (u64 i = 0; i < per; ++i) {
+        Pick p;
+        p.from = mine[rng() % mine.size()];
+        do p.to = all[rng() % all.size()];
+        while (p.to == p.from);
+        p.amount = 1 + static_cast<i64>(rng() % 50);
+        picks[s].push_back(p);
+      }
+    }
+    std::string round_text;
+    for (auto& v : picks) {
+      for (const Pick& p : v) round_text += transfer_line(p.from, p.to, p.amount);
+    }
+    write_file(me.dir + "/round." + t, round_text);
+    run_all(
+        eng, per,
+        [&](u16 s, u64 i, Completion done, void* ctx) {
+          const Pick& p = picks[s][i];
+          TransferArgs t{p.to, p.amount, 7};
+          execute(p.from, kOpTransfer, ByteView(&t, sizeof(t)), {}, done, ctx);
+        },
+        [&](u16 s, u64 i, const ExecResult& r) {
+          const Pick& p = picks[s][i];
+          const std::string line = transfer_line(p.from, p.to, p.amount);
+          if (r.status == Status::OK) {
+            CHECK_EQ(::write(log, line.data(), line.size()), static_cast<ssize_t>(line.size()));
+            ++acked;
+            return;
+          }
+          if (r.status != Status::E_OVERLOADED) {
+            CHECK_EQ(r.status, Status::E_APP);
+            CHECK(r.app_code == kAppInsufficientFunds || r.app_code == kAppBusy);
+          }
+          CHECK_EQ(::write(rejected, line.data(), line.size()), static_cast<ssize_t>(line.size()));
+        });
+    write_file(progress, std::to_string(acked));
+  }
+  ::close(rejected);
+  return acked;
+}
+
+struct Xfer {
+  ObjectID from, to;
+  i64 amount;
+};
+
+std::vector<Xfer> read_transfers(const std::string& path) {
+  std::vector<Xfer> v;
+  std::istringstream in(read_file(path));
+  std::string from, to;
+  i64 amount;
+  while (in >> from >> to >> amount) v.push_back({*ObjectID::parse(from), *ObjectID::parse(to), amount});
+  return v;
+}
+
+// Every account must equal its start plus every acknowledged transfer, plus
+// some subset of the `unknown` ones (in flight when a primary was killed:
+// each either committed or not, unacknowledged either way). Solved per
+// set of unknown transfers that share accounts, by trying every subset.
+// Returns how many unknown transfers committed; fails the test if no
+// subset explains the balances (an acknowledged transfer lost, or money
+// from nowhere).
+u64 check_balances(const std::map<ObjectID, i64>& got, const std::vector<Xfer>& acked,
+                   const std::vector<Xfer>& unknown) {
+  std::map<ObjectID, i64> residual;
+  for (auto& [id, bal] : got) residual[id] = bal - kStart;
+  for (const Xfer& x : acked) {
+    residual[x.from] += x.amount;
+    residual[x.to] -= x.amount;
+  }
+  std::vector<u32> comp(unknown.size());
+  for (u32 i = 0; i < unknown.size(); ++i) comp[i] = i;
+  auto find = [&](u32 i) {
+    while (comp[i] != i) i = comp[i] = comp[comp[i]];
+    return i;
+  };
+  std::map<ObjectID, u32> first;
+  for (u32 i = 0; i < unknown.size(); ++i) {
+    for (const ObjectID& id : {unknown[i].from, unknown[i].to}) {
+      auto [it, fresh] = first.emplace(id, i);
+      if (!fresh) comp[find(i)] = find(it->second);
+    }
+  }
+  std::map<u32, std::vector<u32>> parts;
+  for (u32 i = 0; i < unknown.size(); ++i) parts[find(i)].push_back(i);
+  u64 committed = 0;
+  for (auto& [root, members] : parts) {
+    CHECK(members.size() <= 16);
+    std::set<ObjectID> touched;
+    for (u32 i : members) {
+      touched.insert(unknown[i].from);
+      touched.insert(unknown[i].to);
+    }
+    bool found = false;
+    for (u32 mask = 0; mask < (1u << members.size()) && !found; ++mask) {
+      std::map<ObjectID, i64> d;
+      for (u32 k = 0; k < members.size(); ++k) {
+        if (!(mask >> k & 1)) continue;
+        d[unknown[members[k]].from] -= unknown[members[k]].amount;
+        d[unknown[members[k]].to] += unknown[members[k]].amount;
+      }
+      found = true;
+      for (const ObjectID& id : touched) found = found && residual[id] == d[id];
+      if (found) committed += static_cast<u64>(__builtin_popcount(mask));
+    }
+    CHECK(found);
+    for (const ObjectID& id : touched) residual[id] = 0;
+  }
+  for (auto& [id, r] : residual) CHECK_EQ(r, 0);
+  return committed;
+}
+
+[[noreturn]] void member_main(const Member& me) {
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGUSR1);  // a standby: promote
+  pthread_sigmask(SIG_BLOCK, &set, nullptr);
+  const bool standby = me.member != 0;
+  const std::string t = tag(me.group, me.member);
+  Engine::Config c;
+  c.runtime.n_shards = kShards;
+  c.expected_objects = 4096;
+  c.data_dir = me.dir + "/m" + t;
+  c.init = true;
+  c.init_uuid = Uuid{static_cast<u8>(0xA0 + me.group), 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  c.wal_segment_bytes = 1u << 20;
+  c.cluster = cluster(me.port_base, 2);
+  c.group_id = static_cast<u16>(me.group);
+  c.member = static_cast<u16>(me.member);
+  if (standby) {
+    c.standby = true;
+    c.standby_host = "127.0.0.1";
+    c.replica_port = repl_port(me.port_base, me.group);
+  } else {
+    c.replica_host = "127.0.0.1";
+    c.replica_port = repl_port(me.port_base, me.group);
+    c.replica_sync = true;
+    c.replica_timeout_ms = 0;  // acks always wait for the standby: never degraded
+  }
+  ::mkdir(c.data_dir.c_str(), 0755);
+  net::NetServer::Config nc;
+  nc.base_port = c.cluster[me.group].members[me.member].client_port;
+  net::NetServer server(nc, kShards);
+  c.app_poll = net::NetServer::poll_hook;
+  c.app_user = &server;
+  Engine eng(c);
+  eng.start();
+  const u64 epoch0 = eng.cluster().epoch;
+  const u32 crc0 = eng.cluster().crc();
+  write_file(me.dir + "/up." + t, "");
+
+  if (standby) {
+    // Wait to be promoted, or to be stopped as a standby.
+    timespec tick{0, 20'000'000};
+    while (sigtimedwait(&set, nullptr, &tick) != SIGUSR1) {
+      if (exists(me.dir + "/stop")) {
+        eng.stop();
+        _exit(0);
+      }
+    }
+    const double s = eng.promote();
+    write_file(me.dir + "/promoted." + t, std::to_string(s));
+  } else {
+    std::vector<ObjectID> ids(kAccounts);
+    run_all(
+        eng, kAccounts / kShards,
+        [&](u16, u64, Completion done, void* ctx) {
+          CreateArgs a{};
+          a.balance_cents = kStart;
+          a.created_ns = 1;
+          a.email_len = 1;
+          a.email[0] = 'e';
+          a.name_len = 1;
+          a.name[0] = 'n';
+          create(kTypeId, ByteView(&a, sizeof(a)), {}, done, ctx);
+        },
+        [&](u16 s, u64 i, const ExecResult& r) {
+          CHECK_EQ(r.status, Status::OK);
+          ids[s * (kAccounts / kShards) + i] = r.id;
+        });
+    std::string text;
+    for (const ObjectID& id : ids) {
+      CHECK_EQ(eng.cluster().group_of_id(id), me.group);
+      text += id.to_string() + "\n";
+    }
+    write_file(me.dir + "/ids." + std::to_string(me.group), text);
+  }
+
+  std::vector<std::vector<ObjectID>> ids(kNodes);
+  for (u32 n = 0; n < kNodes; ++n) {
+    while (!exists(me.dir + "/ids." + std::to_string(n))) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    ids[n] = read_ids(me.dir, n);
+    CHECK_EQ(ids[n].size(), kAccounts);
+  }
+  std::vector<ObjectID> all;
+  for (auto& v : ids) all.insert(all.end(), v.begin(), v.end());
+
+  const int log = ::open((me.dir + "/acked." + t).c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+  CHECK(log >= 0);
+  write_file(me.dir + "/busy." + t, "");
+  // Group 1's first primary, the one killed, keeps few transfers in flight,
+  // so the check below can try every outcome of those it never reported.
+  const u64 per = me.group == 1 && me.member == 0 ? 6 : 100;
+  const u64 acked =
+      transfer_rounds(eng, me, ids[me.group], all, log, standby ? 10 : 20, per, me.dir + "/progress." + t);
+  ::close(log);
+  write_file(me.dir + "/done." + t, "");
+  while (!exists(me.dir + "/stop")) {
+    write_report(me.dir + "/status." + t, eng, acked);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  write_report(me.dir + "/status." + t, eng, acked);
+  // The placement never moved under this node, failover or not.
+  CHECK_EQ(eng.cluster().epoch, epoch0);
+  CHECK_EQ(eng.cluster().crc(), crc0);
+  std::map<ObjectID, i64> balance;
+  totals(eng, &balance);
+  std::string b;
+  for (auto& [id, v] : balance) b += id.to_string() + " " + std::to_string(v) + "\n";
+  write_file(me.dir + "/balances." + t, b);
+  eng.stop();
+  _exit(0);
+}
+
+pid_t spawn_member(const Member& me) {
+  std::fflush(stdout);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) member_main(me);
+  return pid;
+}
+
+u64 progress_of(const std::string& dir, u32 g, u32 m) {
+  const std::string text = read_file(dir + "/progress." + tag(g, m));
+  return text.empty() ? 0 : std::stoull(text);
+}
+
+void test_group_failover() {
+  char tmpl[] = "/tmp/snc-groups-XXXXXX";
+  const std::string dir = mkdtemp(tmpl);
+  const u16 port_base = free_ports(26000, 32000, kNodes * 40);
+  const ClusterMap map = ClusterMap::make(cluster(port_base, 2));
+  // pids[g][m]; standbys first, so every primary's first ack has one.
+  std::vector<std::vector<pid_t>> pids(kNodes, std::vector<pid_t>(2, -1));
+  for (u32 g = 0; g < kNodes; ++g) {
+    pids[g][1] = spawn_member({dir, g, 1, port_base});
+    wait_for(dir + "/up." + tag(g, 1), 30);
+  }
+  for (u32 g = 0; g < kNodes; ++g) pids[g][0] = spawn_member({dir, g, 0, port_base});
+
+  // Group 1's primary dies in the middle of its transfers, and of the
+  // others' transfers to it.
+  wait_for(dir + "/busy.1.0", 30);
+  for (u32 g = 0; g < kNodes; ++g) wait_for(dir + "/progress." + tag(g, 0), 30);
+  ::kill(pids[1][0], SIGKILL);
+  int st = 0;
+  ::waitpid(pids[1][0], &st, 0);
+  CHECK(WIFSIGNALED(st));
+  pids[1][0] = -1;
+  // The other groups carry on without it, and without its slots' owner.
+  const u64 before0 = progress_of(dir, 0, 0), before2 = progress_of(dir, 2, 0);
+  ::usleep(400000);
+  const u64 during0 = progress_of(dir, 0, 0), during2 = progress_of(dir, 2, 0);
+  std::printf("group 1's primary killed: groups 0 and 2 acknowledged %llu and %llu more transfers while it was down\n",
+              (unsigned long long)(during0 - before0), (unsigned long long)(during2 - before2));
+  CHECK(during0 > before0);
+  CHECK(during2 > before2);
+
+  ::kill(pids[1][1], SIGUSR1);
+  wait_for(dir + "/promoted.1.1", 30);
+  std::printf("group 1's standby promoted in %s s\n", read_file(dir + "/promoted.1.1").c_str());
+  // Its new primary runs transfers of its own, then everyone finishes.
+  wait_for(dir + "/progress.1.1", 60);
+  write_file(dir + "/finish", "");
+  const std::vector<std::pair<u32, u32>> primaries = {{0, 0}, {1, 1}, {2, 0}};
+  for (auto [g, m] : primaries) wait_for(dir + "/done." + tag(g, m), 120);
+
+  // Settled: no transfer half done anywhere, twice in a row.
+  const auto t0 = std::chrono::steady_clock::now();
+  u32 settled = 0;
+  std::vector<std::vector<long long>> rep(kNodes);
+  while (settled < 2) {
+    if (std::chrono::steady_clock::now() - t0 > std::chrono::seconds(60)) {
+      write_file(dir + "/stop", "");
+      std::fprintf(stderr, "never settled; see %s\n", dir.c_str());
+      CHECK(false);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    u64 entries = 0;
+    for (auto [g, m] : primaries) {
+      rep[g] = read_report(dir + "/status." + tag(g, m));
+      entries += rep[g][1] < 0 ? 1 : static_cast<u64>(rep[g][1]);
+    }
+    settled = entries == 0 ? settled + 1 : 0;
+  }
+  // A client that knew nothing of the failover reads every account from
+  // the primary of its group now, by the same map.
+  check_routing(dir, port_base, 2, 0);
+  write_file(dir + "/stop", "");
+  for (auto& v : pids) {
+    for (pid_t p : v) {
+      if (p < 0) continue;
+      ::waitpid(p, &st, 0);
+      CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 0);
+    }
+  }
+  i64 total = 0;
+  u64 accounts = 0;
+  for (auto [g, m] : primaries) {
+    rep[g] = read_report(dir + "/status." + tag(g, m));
+    total += rep[g][0];
+    accounts += static_cast<u64>(rep[g][2]);
+    std::printf("group %u (member %u): %lld transfers acknowledged, %lld follow-ups sent to other groups, %lld "
+                "received, %lld dropped, %lld resumes, %lld connects\n",
+                g, m, rep[g][8], rep[g][3], rep[g][4], rep[g][5], rep[g][6], rep[g][7]);
+    // Placement epoch 1 and the same map throughout, on every primary.
+    CHECK_EQ(rep[g][9], 1);
+    CHECK_EQ(static_cast<u32>(rep[g][10]), map.crc());
+  }
+  // The promoted member took follow-ups from the other groups' links and
+  // ran transfers of its own.
+  CHECK(rep[1][4] > 0);
+  CHECK(rep[1][8] > 0);
+  CHECK_EQ(accounts, u64{kNodes} * kAccounts);
+  CHECK_EQ(total, kStart * static_cast<i64>(kNodes * kAccounts));
+
+  // Every account: its start plus every transfer acknowledged, by any
+  // primary of any group, the killed one included (what it acknowledged was
+  // on its sync standby). The only freedom is the killed primary's
+  // transfers whose outcome it never reported: each committed or not.
+  std::vector<Xfer> acked;
+  for (u32 g = 0; g < kNodes; ++g) {
+    for (u32 m = 0; m < 2; ++m) {
+      std::vector<Xfer> v = read_transfers(dir + "/acked." + tag(g, m));
+      acked.insert(acked.end(), v.begin(), v.end());
+    }
+  }
+  std::map<std::string, i64> reported;
+  for (const char* f : {"/acked.1.0", "/rejected.1.0"}) {
+    for (const Xfer& x : read_transfers(dir + f)) ++reported[transfer_line(x.from, x.to, x.amount)];
+  }
+  std::vector<Xfer> unknown;
+  for (const Xfer& x : read_transfers(dir + "/round.1.0")) {
+    i64& n = reported[transfer_line(x.from, x.to, x.amount)];
+    if (n > 0) --n;
+    else unknown.push_back(x);
+  }
+  std::map<ObjectID, i64> got;
+  for (auto [g, m] : primaries) {
+    std::istringstream b(read_file(dir + "/balances." + tag(g, m)));
+    std::string id;
+    i64 bal;
+    while (b >> id >> bal) got[*ObjectID::parse(id)] = bal;
+  }
+  CHECK_EQ(got.size(), u64{kNodes} * kAccounts);
+  const u64 committed = check_balances(got, acked, unknown);
+  std::printf("group failover: %zu transfers acknowledged, every one present; %zu in flight at the kill, %llu "
+              "of them committed; money conserved; placement epoch 1 throughout\n",
+              acked.size(), unknown.size(), (unsigned long long)committed);
+  std::string cmd = "rm -rf '" + dir + "'";
+  CHECK_EQ(std::system(cmd.c_str()), 0);
+}
+
 }  // namespace
 
 int main() {
   register_type();
   test_map();
   test_kill_restart();
+  test_group_failover();
   std::printf("test_cluster: ok\n");
   return 0;
 }

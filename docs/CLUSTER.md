@@ -1,60 +1,80 @@
-# Cluster: one space across nodes
+# Cluster: one keyspace across replication groups
 
-Milestone 1 of the multi-machine design: a fixed slot map across nodes,
-with transfers between accounts on different nodes. Every node is the same
-shard-per-core engine; what is new is that an object's owner may be on
-another machine.
+A fixed slot map across **replication groups**, with transfers between
+accounts in different groups, and failover inside a group
+(`docs/CONTROL_PLANE.md`, section 12 step 1; milestone 1 had one node per
+group). Every node is the same shard-per-core engine; what is new is that
+an object's owner may be another group, on another machine.
 
 ## The map
 
-The 4,096 slots are split across the nodes in contiguous ranges, each
-node's share proportional to its shard count (`ClusterMap::make`,
-`include/snc/cluster.h`). Within a node the local slot map is unchanged:
+The 4,096 slots are split across the groups in contiguous ranges, each
+group's share proportional to its shard count (`ClusterMap::make`,
+`include/snc/cluster.h`). A group is one space (one UUID, one WAL
+lineage, one term) held by its members: one primary and its standbys,
+replicating exactly as a lone pair does (docs/REPLICATION.md), all with the
+group's shard count. Within the group the local slot map is unchanged:
 slot `s` belongs to shard `s % n_shards`. Every node is started with the
-same node list:
+same group list:
 
 ```
-snc_server --shards 4 --port 7000 --data-dir /d0 \
-  --cluster 10.0.0.1:7100:4:7000,10.0.0.2:7100:4:7000,10.0.0.3:7100:8:7000 --node 0
+snc_server --shards 4 --port 7000 --data-dir /d0 --replica-of 10.0.0.2:7300 --space-uuid U0 \
+  --cluster 10.0.0.1:7100:4:7000|10.0.0.2:7100:4:7000,10.0.0.3:7100:4:7000|10.0.0.4:7100:4:7000 \
+  --group 0 --member 0
 ```
 
-Each entry is `host:link_port:shards:client_port`; the client port may be
-left out, but then clients cannot be routed to that node.
+Groups are separated by `,`, a group's members by `|`, each member
+`host:link_port:shards:client_port`; the client port may be left out, but
+then clients cannot be routed to that member. The node above is member 0
+(primary) of group 0; member 1 is started with `--standby 7300 --member 1`
+and the same list.
 
-(`Engine::Config::cluster` and `node_id` in the library.) The map is fixed
-while running. Its crc covers the assignment and shard counts, not the
-addresses; a node refuses follow-ups from a peer whose crc differs.
+(`Engine::Config::cluster`, `group_id` and `member` in the library.) The
+map is fixed while running: **placement epoch 1**. Its crc covers the
+assignment and shard counts, not the members or addresses, so adding a
+standby or failing over changes neither. A node refuses follow-ups from a
+peer whose crc or epoch differs. Which member is primary is not in the map
+at all: it is the group's HA state (its term, its witnesses), and links
+and clients find it by asking the members.
 
 ## Ops
 
-- **Creates stay local.** A node mints IDs only in its own slots, so a
+- **Creates stay local.** A group mints IDs only in its own slots, so a
   create never crosses the network. `create_near` an object of another
-  node is refused.
-- **Ops on another node's object** are refused with `E_WRONG_NODE`. The
-  client must send them to the owner. Forwarding reads for out-of-date
-  clients comes with the directory (milestone 2), when the map can change.
+  group is refused.
+- **Ops on another group's object** are refused with `E_WRONG_NODE`. The
+  client must send them to the owner. `E_MOVED` and forwarding reads for
+  out-of-date clients come with the placement state machine, when the map
+  can change.
 - **Clients route by the map.** A `CLUSTER` request (wire kind 5) returns
-  the map, its crc and every node's address and client port.
-  `net::ClusterClient` fetches it from any node, keeps one `Client` per
-  node, and sends each request to the owning node and, on it, the owning
-  shard.
-- **Index lookups** search only the node they are sent to.
+  the map, its crc and epoch, and every member's address and client port.
+  `net::ClusterClient` fetches it from any node and keeps one `Client` per
+  group, connected to whichever member answers as primary. With sessions
+  (`enable_sessions`) each group's client also follows that group's
+  failovers and resends safely (docs/RETRIES.md); the map it holds stays
+  valid throughout.
+- **Index lookups** search only the group they are sent to.
 
 ## Follow-ups between nodes
 
-A transfer to an account on another node works as one between shards
+A transfer to an account in another group works as one between shards
 (docs/TRANSFERS.md): the debit commits on the source, and the credit,
-settle and forget are follow-ups. Follow-ups for another node's objects
+settle and forget are follow-ups. Follow-ups for another group's objects
 travel over **node links** (`src/core/node_link.{h,cpp}`):
 
-- Shard `i` of each node listens on `link_port + i` and keeps one TCP
-  connection to every shard of every other node. A follow-up goes straight
+- Shard `i` of a group's primary listens on its member's `link_port + i`
+  and keeps one TCP connection to every shard of every other group. A
+  standby does not listen and opens no links. A follow-up goes straight
   to the shard that owns its target. Frames are 64 bytes (source, target,
-  op, fail op, up to 16 bytes of args) after a 16-byte hello naming the
-  sender and its map crc.
-- **A follow-up to another node waits until its source's record is
-  durable**, even when this node is otherwise free to run it earlier, so
-  no node acts on a debit that could still be lost.
+  op, fail op, up to 16 bytes of args) after a 24-byte hello naming the
+  sender's group and shard, its map crc and placement epoch.
+- **An outbound link tries the group's members in turn** until one
+  accepts: the primary, since standbys do not listen. After a failover it
+  finds the promoted member by itself, without any change to the map.
+- **A follow-up to another group waits until its source's record is
+  durable**, which for a sync primary means on its standby too, even when
+  this node is otherwise free to run it earlier, so no group acts on a
+  debit that could still be lost, by a crash or by a failover.
 - **No acks, no log.** A follow-up whose link is down is dropped, and so is
   whatever a connection held when it dropped. Every time a connection comes
   up, in either direction, the shard runs its objects' resume hooks again:
@@ -69,10 +89,54 @@ travel over **node links** (`src/core/node_link.{h,cpp}`):
   the older one first, discarding what it has not read, so a reconnect
   cannot reorder frames.
 
+## Failover inside a group
+
+A group's primary fails over as a lone pair does (docs/REPLICATION.md):
+its witnesses (one `snc_witness` set per group, the group's `ha/<g>`
+state) or an operator promote its standby. What the cluster adds:
+
+- **The promoted member opens the group's links** once every shard is
+  primary (follow-ups are held until then, as after recovery). The other
+  groups' links, which kept trying the members in turn, connect to it;
+  every link coming up runs the resume pass on both ends, so the credits,
+  settles and forgets lost with the old primary's links are sent again.
+- **Nothing about placement changes.** The map, its crc and its epoch are
+  the same before, during and after; a client holding the map routes by
+  it throughout and only its group's connection moves.
+- **The other groups keep working.** Their transfers to the failed
+  group's accounts still commit (the debit is local); the credits wait in
+  their outboxes until the group has a primary again.
+
 ## What is checked
 
-`tests/test_cluster.cpp` runs three node processes (2 shards each) with
-120 accounts per node. Each runs random transfers from its accounts to any
+`tests/test_cluster.cpp`, failover (`test_group_failover`): three groups
+of two members (2 shards each, sync replication that never degrades), 120
+accounts per group, each primary running transfers to accounts in all
+groups. Group 1's primary is SIGKILLed mid-run and its standby promoted;
+it then runs transfers of its own. Checked:
+
+- every transfer any primary acknowledged, the killed one's included, is
+  in the final balances, and nothing else is: each account equals its
+  start plus the acknowledged transfers plus some subset of the killed
+  primary's few transfers still in flight (each committed or not, never
+  acknowledged); the test tries every subset and fails if none fits;
+- money is conserved over all 360 accounts, and no outbox or inbox entry
+  is left (every cross-group transfer settled);
+- groups 0 and 2 kept acknowledging transfers while group 1 had no
+  primary;
+- the promoted member received follow-ups from the other groups and
+  acknowledged transfers of its own;
+- the placement epoch is 1 and the map crc unchanged on every primary at
+  the end, and a `ClusterClient` with sessions, given the same map, reads
+  all 360 accounts from each group's current primary.
+
+A typical run: about 10,000 transfers acknowledged, 3,000 to 5,000 of
+them by groups 0 and 2 in the 0.4 s group 1 had no primary, promotion in
+about 3 ms, 0 to 12 transfers in flight at the kill. 15 runs of three in
+parallel passed, and one under ASan.
+
+Without replication (`test_kill_restart`, milestone 1): three
+single-member groups (2 shards each) with 120 accounts per group. Each runs random transfers from its accounts to any
 account in the cluster. Node 1 is SIGKILLed partway through, while the
 others keep sending to it, and restarted. Once nothing is in flight:
 
@@ -94,9 +158,15 @@ down and recovered by the resume passes.
 - The map is fixed: no slot moves, and every node must be given the same
   list (nothing persists it yet; a node restarted with another map is
   refused by its peers' crc check, not by its own data).
-- Not combined with replication: a cluster node has no standby yet
-  (milestone 2 makes each node a replication group; see
-  `docs/ARCHITECTURE_AUDIT.md`).
+- **A primary that is cut off rather than dead keeps its links.** The
+  other groups stay connected to it and send it follow-ups it can no
+  longer make durable (its standby, promoted, refuses its term), so those
+  transfers wait until its connections drop or it is restarted. Safe, but
+  a stall: the fix is for a primary to drop its links when it is fenced
+  or blocked, or for the hello to carry the group's term.
+- The cluster test promotes the standby itself; witnesses per group are
+  the same `snc_witness` as for a pair, not yet exercised in a cluster
+  test, and neither is `--rejoin` of the old primary as a standby.
 - A resume pass walks every object on the shard. Cheap at this scale; at
   millions of objects per shard it should walk only objects with entries.
 - A peer that vanishes without closing its connections (power loss, a

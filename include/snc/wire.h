@@ -15,7 +15,7 @@ enum class Kind : u8 {
   CREATE = 2,    // create(type = op, args); a non-null target asks for create_near(target)
   DELETE = 3,    // remove(target)
   TOPOLOGY = 4,  // returns a TopologyBody: slot map and shard count
-  CLUSTER = 5,   // returns a ClusterBody (docs/CLUSTER.md); n_nodes 0 when not clustered
+  CLUSTER = 5,   // returns a ClusterBody (docs/CLUSTER.md); n_groups 0 when not clustered
   RESP = 16,
 };
 
@@ -72,18 +72,24 @@ struct TopologyBody {
   u16 owner[kSlots];
 };
 
-// Body of a CLUSTER response: the header, then n_nodes ClusterEntry.
+// Body of a CLUSTER response: the header, then n_members ClusterEntry, every
+// group's members in group order. Which member is primary is not in it
+// (HA state, not placement): a client finds it by asking the members.
 struct ClusterBody {
   u32 crc;
-  u16 n_nodes;
-  u16 node_id;  // the node answering
-  u8 node_of[kSlots];
+  u16 n_groups;
+  u16 group_id;  // the group of the node answering
+  u64 epoch;     // placement epoch
+  u16 n_members;
+  u16 reserved[3];
+  u8 group_of[kSlots];
 };
 struct ClusterEntry {
   char host[64];  // NUL-terminated
   u16 client_port;
   u16 n_shards;
-  u32 reserved;
+  u16 group;
+  u16 reserved;
 };
 static_assert(sizeof(ClusterEntry) == 72);
 

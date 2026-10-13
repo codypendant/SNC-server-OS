@@ -43,8 +43,9 @@ Two version domains, two kinds of state machine, one consensus mechanism
 - A node refuses to start in a group whose directory entry does not list
   its `NodeID`.
 
-Today `--node I` is an index into the command-line list (`u8`). That index
-becomes the initial `NodeID` when a milestone 1 cluster is converted.
+Today (step 1) a node is named by its place in the command-line list,
+`--group G --member M`; there is no `NodeID` yet. Step 2 assigns NodeIDs,
+and a converted cluster numbers its members in list order.
 
 ## 2. ReplicationGroupID
 
@@ -241,6 +242,8 @@ the block it holds.
    The map is still fixed at epoch 1. Clients and node links route to the
    group's primary and follow failovers. Test: three groups, kill a
    primary mid-transfer, money conserved, placement epoch unchanged.
+   **Done** (docs/CLUSTER.md): the hello already carries the epoch (fixed
+   at 1), and links find the primary by trying the members in turn.
 2. **Placement in the control plane.** The `placement` state machine,
    `snc_ctl init`, epochs in the hello, `E_MOVED`, maps stored on nodes,
    cluster-wide leases. Still no slot moves.

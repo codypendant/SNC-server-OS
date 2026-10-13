@@ -257,3 +257,48 @@ or source comments.
     groups with HA under static placement first.
 -   **Next:** Replication groups with HA under the static
     map (spec section 12, step 1).
+
+### 2026-10-13 12:30 UTC --- Claude (Claude Code): replication groups with HA, static placement
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (control-plane spec
+    section 12, step 1). Classified **REFINE**: the milestone 1 cluster and
+    the existing pair replication, joined; no new consensus.
+-   **What changed:** The cluster map is now slots → groups
+    (`ClusterGroup {n_shards, members[]}`, `group_of`, `epoch` fixed at 1);
+    `--cluster` takes members per group (`|`), nodes take `--group` and
+    `--member`. A group's members replicate exactly as a pair does. Node
+    links: only a primary listens; an outbound link tries the target
+    group's members in turn, so it finds a promoted standby by itself; the
+    hello carries crc and placement epoch. `Shard::promote` opens the
+    links. `CLUSTER` lists members per group and the epoch; no primary is
+    in it. `ClusterClient` keeps one client per group and, with
+    `enable_sessions`, follows that group's failovers.
+-   **Evidence/tests:** `test_cluster` `test_group_failover`: three groups
+    of primary + sync standby, group 1's primary SIGKILLed mid-run and
+    promoted over. Every acknowledged transfer is in the final balances
+    (checked exactly: the only freedom is the killed primary's 0 to 12
+    unreported in-flight transfers, every subset tried; the check fails
+    if one acked transfer is dropped from the log), money conserved, all
+    cross-group transfers settled, groups 0 and 2 acknowledged ~2,000 to
+    3,000 transfers each while group 1 had no primary, the promoted member
+    received follow-ups and ran its own, placement epoch 1 and the crc
+    unchanged on every primary, and a session `ClusterClient` reads all
+    accounts from the current primaries. 15/15 runs (3 in parallel), ASan
+    clean; full ctest passes; the milestone 1 kill/restart test still
+    passes.
+-   **Found (changes an assumption):** "links find the primary because
+    standbys do not listen" holds for a dead primary, not a cut-off one. A
+    fenced old primary keeps listening and its inbound links stay up, so
+    other groups keep sending it follow-ups it cannot make durable;
+    transfers stall (never unsafe) until its connections drop. Options for
+    the next step: a fenced or blocked primary closes its links, or the
+    hello carries the group's HA term and receivers of a newer term win.
+    The second puts HA state in a data-plane handshake (not in placement),
+    which seems consistent with "one authority per fact" but is Codex's
+    call.
+-   **Not yet covered:** witnesses per group and `--rejoin` inside a
+    cluster are unchanged code but not exercised by a cluster test; the
+    test promotes the standby itself.
+-   **Next:** Codex to review. Then the fenced-primary link question, or
+    step 2 (the `placement` state machine).
+
