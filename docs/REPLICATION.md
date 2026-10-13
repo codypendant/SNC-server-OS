@@ -137,14 +137,70 @@ everything) is fenced twice: its standby, once promoted, refuses its
 term; and the witness refuses to let it continue alone. It acknowledges
 nothing durable.
 
-Limits of this first version:
+### Replicated witnesses
 
-- **One failover per configuration.** After promoting, the witness
-  serves the new primary's requests but watches nothing until it is
-  restarted with that primary and a new standby (seeded from it).
-- **The witness is a single process.** If it is down, failover waits, and
-  a primary past its timeout waits for it too: availability needs the
-  witness up, safety does not. Its state file survives restarts.
+One witness is a single point of failure for availability: while it is
+down, failover waits, and so does a primary past its timeout. Started with
+`--id I --peers H:P,H:P,H:P` (every witness, this one at index I), N
+witnesses (3 or 5) keep one decision state between them, and any minority
+of them may be down.
+
+- **One state, changed by Paxos.** The state (space, term, grant, failed
+  over) has a version. Every change (learning the primary, a grant, the
+  standby back in sync, a promotion) is the value of one single-decree
+  Paxos instance, the one for the next version: a majority of witnesses
+  promises a ballot, then accepts the value. A proposer that finds a value
+  already accepted in that instance proposes that value instead, then
+  retries its own change on the newer state. Promises and accepts are
+  synced to each witness's state file before they are answered.
+- **A grant and a promotion exclude each other.** Each is a change to the
+  same version of the state, checked against it (a promotion needs no
+  grant out; a grant needs the term not replaced). Only one value is chosen
+  per version, so a primary can never be granted while the standby is
+  promoted over it, whichever witnesses each request reached.
+- **Any witness serves.** The primary sends `DEGRADE` and `SYNCED` to the
+  first witness on its `--witness` list that answers; that witness runs the
+  Paxos round and answers `OK` only once the change is chosen. Every
+  witness watches the nodes and may propose the promotion; whichever
+  witnesses learn it promote the standby (`PROMOTE` is idempotent).
+- **A lost answer is safe.** A grant chosen without the primary hearing
+  `OK` only makes the witnesses more careful (they will not promote); the
+  primary asks again and gets `OK` for the grant already chosen. After
+  running alone, the primary closes its gate before telling the witnesses
+  its standby is back, and keeps telling them until one confirms.
+
+### Failing over again
+
+The witnesses watch two nodes, not two roles: `--primary` and `--standby`
+name them as they start, and the decision state records which node holds
+the current term. After a failover:
+
+1. The promoted node runs alone. Started with `--replica-of` the other
+   node and `--witness` (flags a standby ignores until it is promoted), it
+   is a sync primary without a standby, so it asks the witnesses to run
+   alone and they grant it for its new term. While the grant is out they
+   promote nothing.
+2. The old primary is restarted as its standby on an empty directory,
+   seeded from it (`--standby`, `--seed-from`). The seed carries the new
+   term, so the new primary's records are accepted.
+3. Once that standby is back in sync, the primary reports `SYNCED`, the
+   grant is closed, and the witnesses will promote the old primary if the
+   new one fails.
+
+No witness is restarted and no configuration changes; the only manual step
+is restarting the failed node as a standby.
+
+Limits of this version:
+
+- **Two nodes.** The witnesses watch one pair; a third node (a second
+  standby) is not supported.
+- **A majority of witnesses must be up** for failover or for a primary
+  past its timeout to continue alone: availability needs them, safety does
+  not. With three, one may be down. A single witness (no `--peers`) runs
+  the same protocol with itself as the majority. Their state files survive
+  restarts.
+- **Membership is fixed** by the command line; changing it needs all
+  witnesses restarted with the new list and the same state.
 - **Failure detection is the witness's view.** A primary the witness
   cannot reach but clients can is promoted over; the fencing above makes
   that safe for durable writes, at the cost of those clients' availability
@@ -410,21 +466,50 @@ for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
 ### Automatic failover
 
 `bench/run_failover.py`, `bench/results/failover.csv`: primary on cores
-0-1 (sync, 500 ms timeout, `--witness`), standby on core 2, witness with
+0-1 (sync, 500 ms timeout, `--witness`), standby on core 2, witnesses with
 `--failover-ms 500 --poll-ms 50`, one `net_bench` thread on core 3, 100K
-accounts. Each case is checked, 3 runs each, all passed.
+accounts. Each case is checked, 3 runs of each case in each witness
+configuration (one witness; three; three with one killed once the primary
+is up, the one the primary lists first). All 36 passed.
 
-| Case | Checked | Measured (median) |
-| --- | --- | --- |
-| Primary SIGKILLed | the witness promotes; the new primary serves | kill to promoted 0.52 s (promotion itself 16 ms) |
-| Standby stopped under load | the primary is granted and continues; resumed, it reports in sync; stopped again, a second grant; then the primary is killed and the witness does not promote the stale standby | clients stall 0.51 s, then continue |
-| Primary stopped (cut off) | the witness promotes; the old primary, resumed, acknowledges no create from a new client and is refused by the witness; the new primary serves | stop to promoted 0.57 s |
+| Case | Checked |
+| --- | --- |
+| Primary SIGKILLed | the witnesses promote; the new primary serves |
+| Standby stopped under load | the primary is granted and continues; resumed, it reports in sync; stopped again, a second grant; then the primary is killed and the witnesses do not promote the stale standby |
+| Primary stopped (cut off) | the witnesses promote; the old primary, resumed, acknowledges no create from a new client and is refused; the new primary serves |
+| Two failovers in a row | the primary is killed and the standby promoted; it runs alone under a grant and creates 20K accounts; the old primary rejoins on an empty directory, seeded from it; once in sync, the new primary is killed and the old one promoted again; all 20K accounts are there |
+
+Medians, in seconds:
+
+| Witnesses | Kill to promoted | Decision and promotion | Client stall before a grant | Stop to promoted | Rejoin to in sync | Second failover |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0.51 | 0.016 | 0.54 | 0.55 | 0.84 | 0.54 |
+| 3 | 0.49 | 0.015 | 0.53 | 0.54 | 0.78 | 0.54 |
+| 3, one down | 0.48 | 0.017 | 0.54 | 0.54 | 0.77 | 0.53 |
 
 - **Failover takes about half a second, almost all of it detection**
-  (`--failover-ms`); the promotion itself is 13-19 ms for 100K accounts.
-- Client throughput in these runs (120K-470K ops/s) is far below the
-  steadier runs above; the shared disk was noisy during this set, and
-  these runs measure correctness and timing, not throughput.
+  (`--failover-ms`). Deciding by Paxos among three witnesses and promoting
+  takes 15-30 ms. That includes each witness syncing its state file twice
+  per decision.
+- **The second failover is as fast as the first.** A failed primary
+  rejoins as a standby and is back in sync in under a second (seeded from
+  the new primary's checkpoint, then its WAL); from then on it can take
+  over again, with no witness restarted.
+- **With one of three witnesses down, nothing changes but a few
+  milliseconds**: the primary's requests skip the dead witness (connection
+  refused), and the other two are a majority.
+- With two of three down there is no majority. The primary is not
+  promoted over, and a primary past its timeout waits (checked by hand
+  with `--down 2 --cases kill`: no failover).
+- `tests/test_witness.py` (in ctest) races the two decisions against
+  three witnesses with fake nodes. Each trial cuts the primary off from
+  the witnesses' polling while it asks one witness, picked at random, to
+  run alone. In 100 trials there were 68 grants and 32 promotions, and
+  never both. Every live witness ended on the same state, including one
+  trial with a witness down. Run as three independent witnesses (each its
+  own majority), the same test finds a grant and a promotion together.
+- Client throughput in these runs (130K-440K ops/s) varies with the
+  shared disk; these runs measure correctness and timing, not throughput.
 
 ### Reads on the standby
 
@@ -453,9 +538,8 @@ one `net_bench` thread each on core 3, 512 in flight, 8 s, 3 runs (medians).
 
 ## Open questions for later rounds
 
-- The witness is one process and one failover per configuration. A
-  replicated witness (or three nodes with a consensus log) belongs with
-  the distributed directory.
+- Restarting a failed node as a standby is manual (a supervisor could do
+  it). Fixed witness membership; one standby per primary.
 - Index lookups on the standby (they gather across shards, each of which
   would need its lease).
 - Standbys with a different shard count (records routed by slot rather
