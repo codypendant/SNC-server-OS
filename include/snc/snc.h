@@ -285,11 +285,16 @@ class Engine {
     // every slot. This node is member `member` of cluster[group_id], whose
     // shard count must be runtime.n_shards. Its replication (replica_*,
     // standby) is configured as for any space, toward the other members.
-    // Ops on another group's objects are refused (E_WRONG_NODE); follow-ups
+    // Ops on another group's objects are refused (E_MOVED); follow-ups
     // to them travel over node links, which a standby opens on promotion.
     std::vector<ClusterGroup> cluster;
     u16 group_id = 0;
     u16 member = 0;
+    // From the control plane (docs/CONTROL_PLANE.md, Placement::map): the
+    // slot -> group assignment (kSlots entries) and its placement epoch.
+    // Empty: ClusterMap::make's ranges at epoch 1.
+    std::vector<u8> cluster_slots;
+    u64 cluster_epoch = 1;
 
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.

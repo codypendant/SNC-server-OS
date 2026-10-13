@@ -55,7 +55,7 @@ inline bool read_line(int fd, std::string& out, int timeout_ms) {
   out.clear();
   auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
   char c;
-  while (out.size() < 1024) {
+  while (out.size() < (std::size_t{1} << 18)) {  // a placement map is a few KiB
     int left = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                     end - std::chrono::steady_clock::now()).count());
     if (left <= 0 || !wait_fd(fd, POLLIN, left)) return false;

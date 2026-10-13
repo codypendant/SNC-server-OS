@@ -336,3 +336,43 @@ or source comments.
     its links. Option if wanted: withdraw while blocked past a bound.
 -   **Next:** per Codex, control-plane step 2 (the `placement` state
     machine).
+
+### 2026-10-13 15:10 UTC --- Claude (Claude Code): control-plane step 2a, placement in consensus
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (spec section 12,
+    step 2, first part). Classified **REFINE**: the witnesses' Paxos,
+    generalised; no change to the data plane beyond `E_MOVED`.
+-   **What changed:** `tools/paxos.h`: the single-decree-per-version Paxos
+    from `snc_witness`, now running independent named machines (own
+    versions, one state file; old state files load as `ha/0`). Each
+    witness holds `ha/0` (its pair, unchanged) and `placement` (opaque to
+    it: `PLACEMENT INIT` once, `PLACEMENT GET` after a majority read).
+    `include/snc/placement.h`: the schema of section 3 as one line (cluster
+    ID, epoch, `NodeID@host:admin`, groups with space UUID, shards and
+    members `node:link:client`, slot runs); one membership per node is
+    enforced as milestone 2's operational rule. `snc_ctl init|get`.
+    `snc_server --control ... --node-id N`: fetches the map, finds its group
+    and member, takes its client port and the group's space UUID, stores
+    map and NodeID in the data dir; refuses a foreign data dir, another
+    space, an unnamed node, or no map; with the control plane down starts
+    from the stored map (provisional, section 9). `E_MOVED` (result
+    `MovedResult {epoch, group}`) replaces `E_WRONG_NODE` for clustered
+    nodes, and is checked before the overload check (found: a restarted
+    node with a follow-up backlog answered a misrouted op `E_OVERLOADED`).
+-   **Evidence/tests:** `test_cluster` `test_kill_restart(true)`: three
+    witnesses; before init a node may not start; init chosen once (same
+    map accepted, another refused), `STATE 1 <map>` on every witness;
+    unknown NodeID and another node's data dir refused; three nodes start
+    by NodeID (space UUID from the map), node 1 SIGKILLed and restarted
+    with all witnesses killed, from its stored map; money conserved,
+    settled, routing by the map, `E_MOVED` with epoch 1 and the right group.
+    `test_witness.py` unchanged in substance (passes). 12/12 runs (3 in
+    parallel), ASan clean, full ctest passes. Manual: `snc_ctl init` then
+    two `snc_server --control` nodes start, admin `STATUS` shows `epoch=1`.
+-   **Left for 2b (CONTROL_PLANE.md section 12):** cluster-wide mint lease
+    blocks; one witness set running `ha/<g>` for several groups; map
+    refresh on a newer epoch (untestable until slots can move).
+-   **Found (not fixed):** `test_replication` picks ports up to ~37000,
+    inside the ephemeral range, so under `ctest -j4` a seed port is
+    occasionally taken ("cannot listen for seeds"). Pre-existing.
+-   **Next:** Codex review; then 2b or slot moves (step 3), Codex's call.

@@ -12,6 +12,13 @@
 //                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
+//                   [--control HOST:PORT,... --node-id N]
+//
+// --control (docs/CLUSTER.md, "Starting from the control plane"): instead
+// of --cluster/--group/--member, fetch the placement map from the control
+// members (the witnesses; written once by snc_ctl init), find this node's
+// group by --node-id, and keep the map in --data-dir; if no control member
+// answers within 10 s, start from the stored map (provisional).
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -43,7 +50,7 @@
 // same list on each node; a GROUP is its members separated by '|', each
 // HOST:LINK_PORT:SHARDS[:CLIENT_PORT]. --group and --member say which this
 // node is (member defaults to 0). The group owns a fixed share of the
-// slots, refuses ops on the others' objects (E_WRONG_NODE), and sends
+// slots, refuses ops on the others' objects (E_MOVED), and sends
 // follow-ups for them over node links (shard i of its primary listens on
 // LINK_PORT + i). Members of a group replicate as any primary and standby
 // (--replica-of, --standby, --witness ...); a promoted standby opens the
@@ -62,6 +69,7 @@
 #include <thread>
 #include <vector>
 
+#include "control.h"
 #include "ha.h"
 #include "snc/net.h"
 #include "snc/snc.h"
@@ -110,6 +118,8 @@ int main(int argc, char** argv) {
   std::string peer_admin_host, peer_seed;
   unsigned peer_admin_port = 0;
   u16 rejoin_port = 0;
+  control::Members control_members;
+  long long node_id = -1;
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -150,6 +160,13 @@ int main(int argc, char** argv) {
     else if (k == "--cluster") cfg.cluster = parse_cluster(val());
     else if (k == "--group") cfg.group_id = static_cast<u16>(std::atoi(val()));
     else if (k == "--member") cfg.member = static_cast<u16>(std::atoi(val()));
+    else if (k == "--control") {
+      if (!control::parse_members(val(), control_members)) {
+        std::fprintf(stderr, "--control takes HOST:PORT[,HOST:PORT...]\n");
+        return 2;
+      }
+    }
+    else if (k == "--node-id") node_id = std::atoll(val());
     else if (k == "--report-ms") report_ms = std::atoi(val());
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
@@ -208,6 +225,31 @@ int main(int argc, char** argv) {
                                : static_cast<u16>(cfg.runtime.cpus.size());
   }
   account::register_type();
+
+  // Control plane (docs/CONTROL_PLANE.md): the placement map, this node's
+  // group and member, and the group's space, from the control members (or
+  // the map stored in --data-dir if they do not answer).
+  if (!control_members.empty() || node_id >= 0) {
+    if (control_members.empty() || node_id < 0 || node_id > 0xffffffffLL || cfg.data_dir.empty() ||
+        !cfg.cluster.empty()) {
+      std::fprintf(stderr, "--control needs --node-id and --data-dir, and replaces --cluster\n");
+      return 2;
+    }
+    control::NodeSetup setup;
+    std::string why;
+    if (!control::resolve(control_members, cfg.data_dir, static_cast<u32>(node_id), 10000, setup, why)) {
+      std::fprintf(stderr, "control: %s\n", why.c_str());
+      return 1;
+    }
+    control::apply(setup, cfg);
+    // Clients reach it where the map says (if it says).
+    const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
+    if (me.client_port != 0) ncfg.base_port = me.client_port;
+    std::printf("control: node %lld, group %u member %u, placement epoch %llu%s\n", node_id, setup.group,
+                setup.member, (unsigned long long)setup.placement.epoch,
+                setup.stored ? " (stored map: the control plane did not answer; provisional)" : "");
+    std::fflush(stdout);
+  }
 
   // Rejoin: a node starting as primary first asks the other node. If that
   // one serves as primary of the same space, the witnesses promoted it
@@ -273,6 +315,11 @@ int main(int argc, char** argv) {
   }
   Engine eng(cfg);
   eng.start();
+  if (!control_members.empty() && eng.space_uuid() != cfg.init_uuid) {
+    std::fprintf(stderr, "control: this data directory holds another space than its group's\n");
+    eng.stop();
+    return 1;
+  }
   std::printf("snc_server shards=%u ports %u-%u durability=%s mint_local=%d\n",
               cfg.runtime.n_shards, ncfg.base_port, ncfg.base_port + cfg.runtime.n_shards - 1,
               cfg.data_dir.empty() ? "none (in memory)" : "DURABLE (WAL, RWF_DSYNC)",
@@ -330,10 +377,10 @@ int main(int argc, char** argv) {
           if (line == "STATUS") {
             Engine::ReplStatus st = eng.replication_status();
             char b[256];
-            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u",
+            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu",
                           is_standby.load() ? 's' : eng.fenced() ? 'f' : (st.role == 1 ? 'p' : 'n'),
                           (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
-                          st.degraded, st.blocked);
+                          st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch);
             reply = b;
           } else if (line == "PROMOTE") {
             reply = is_standby.load() ? "OK" : "NO not a standby";

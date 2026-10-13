@@ -247,6 +247,21 @@ the block it holds.
 2. **Placement in the control plane.** The `placement` state machine,
    `snc_ctl init`, epochs in the hello, `E_MOVED`, maps stored on nodes,
    cluster-wide leases. Still no slot moves.
+   **Done in part (2a):** the witnesses' Paxos is a library
+   (`tools/paxos.h`) running independent named machines; each witness set
+   holds `ha/0` (its pair) and `placement`, which a failover never touches.
+   `snc_ctl init` / `get`; NodeIDs (persisted in the data directory);
+   nodes start from the control plane by NodeID, or from their stored map
+   when it is down (provisional, section 9); `E_MOVED {epoch, group}`;
+   the hello already carries the epoch (step 1). Encoding:
+   `include/snc/placement.h`. Checked by `test_cluster`
+   (`test_kill_restart(true)`, docs/CLUSTER.md).
+   **Left for 2b:** cluster-wide mint lease blocks (a `leases` machine,
+   section 11; required before the first slot move); one witness set
+   running `ha/<g>` for several groups (today a set watches one pair,
+   `ha/0`); refreshing the map on a newer epoch seen in a hello or an
+   `E_MOVED` (nothing can raise the epoch until slot moves, so there is no
+   way to test it yet).
 3. **Slot moves.** Seal, copy, cutover, with the `slot_state` values
    above; reads forwarded for stale clients.
 4. Real machines (unchanged).

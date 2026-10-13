@@ -103,8 +103,8 @@ def free_ports(n):
 def state_of(path):
     with open(path) as f:
         for line in f:
-            if line.startswith("chosen "):
-                return line.split()[1:]
+            if line.startswith("chosen ha/0 "):
+                return line.split()[2:]  # version uuid term degraded primary
     return None
 
 

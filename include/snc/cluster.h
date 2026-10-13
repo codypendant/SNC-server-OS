@@ -40,12 +40,27 @@ struct ClusterMap {
 
   // Contiguous ranges of slots, each group's in proportion to its shards.
   static ClusterMap make(const std::vector<ClusterGroup>& groups);
+  // An explicit assignment (from the control plane, docs/CONTROL_PLANE.md):
+  // every slot's group must exist. Throws std::invalid_argument otherwise.
+  static ClusterMap assign(const std::vector<ClusterGroup>& groups, const std::array<u8, kSlots>& group_of,
+                           u64 epoch);
   // Over the assignment and shard counts, not the members or addresses.
   u32 crc() const;
   // The shard, in the owning group, that owns `slot` (its local slot map).
   u16 shard_of(u16 slot) const { return slot % groups[group_of[slot]].n_shards; }
   u16 group_of_id(const ObjectID& id) const { return group_of[slot_of(id)]; }
 };
+
+// The result of an op refused with E_MOVED (docs/CONTROL_PLANE.md section
+// 8): the refusing node's placement epoch and the group that owns the
+// target by its map. A client whose map is older refreshes it; one whose
+// map is newer keeps it (the node is behind) and retries.
+struct MovedResult {
+  u64 epoch;
+  u16 group;
+  u16 reserved[3];
+};
+static_assert(sizeof(MovedResult) == 16);
 
 // Groups separated by ',', a group's members by '|', each member
 // "host:link_port:shards[:client_port]" (its group's shard count, repeated

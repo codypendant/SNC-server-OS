@@ -58,11 +58,14 @@ void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
   r.id = id;
   done(ctx, r);
 }
-// Another replication group owns it (docs/CLUSTER.md).
-void refuse_wrong_node(const ObjectID& id, Completion done, void* ctx) {
+// Another replication group owns it (docs/CONTROL_PLANE.md section 8): say
+// which, by this node's map, and under which placement epoch.
+void refuse_moved(const ClusterMap& map, const ObjectID& id, Completion done, void* ctx) {
+  MovedResult m{map.epoch, map.group_of_id(id), {}};
   ExecResult r;
-  r.status = Status::E_WRONG_NODE;
+  r.status = Status::E_MOVED;
   r.id = id;
+  r.result = ByteView(&m, sizeof(m));
   done(ctx, r);
 }
 }  // namespace
@@ -72,6 +75,9 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   // A standby with reads on serves READ ops (checked where they run).
   if (repl_cfg_.standby && repl_cfg_.receiver.lease_ns == 0) return refuse_standby(target, done, ctx);
   if (withdrawn_) return refuse_standby(target, done, ctx);
+  u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
+  // Not ours whatever the load: the client must go elsewhere either way.
+  if (cluster_ && foreign_slot(static_cast<u16>(h >> 52))) return refuse_moved(*cluster_, target, done, ctx);
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -82,8 +88,6 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
     done(ctx, r);
     return;
   }
-  u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
-  if (cluster_ && foreign_slot(static_cast<u16>(h >> 52))) return refuse_wrong_node(target, done, ctx);
   u16 owner = slots_.owner[h >> 52];
   if (opts.client_id && owner != id_) {
     // A sequence is per shard and connection: forwarding could reorder it.
@@ -114,7 +118,7 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
   // in a given slot.
   if (near != nullptr) {
     const u16 slot = slot_of(*near);
-    if (foreign_slot(slot)) return refuse_wrong_node(*near, done, ctx);
+    if (foreign_slot(slot)) return refuse_moved(*cluster_, *near, done, ctx);
     while (slot_of(id) != slot) id = minter_.next();
   } else {
     // A sequenced create runs here, where its sequence is kept. Clustered,
@@ -141,7 +145,7 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(target, done, ctx);
-  if (foreign(target)) return refuse_wrong_node(target, done, ctx);
+  if (foreign(target)) return refuse_moved(*cluster_, target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
     ++stats_.ops_local;

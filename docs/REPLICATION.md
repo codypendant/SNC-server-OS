@@ -148,6 +148,13 @@ standby may hold them (a session client's resend is safe, and
 `net::Client` fails over on either). Its admin port stays up and reports
 `role=f`; only a restart (e.g. `--rejoin`) brings it back, as a standby.
 
+The witnesses also hold the cluster's placement map (docs/CLUSTER.md,
+"Starting from the control plane"): a second state machine (`placement`)
+on the same Paxos library (`tools/paxos.h`), next to the pair's (`ha/0`).
+Each machine has its own versions; neither ever changes the other. A
+witness started without `--primary`/`--standby` serves placement only.
+State files from before the split are read as `ha/0`.
+
 ### Replicated witnesses
 
 One witness is a single point of failure for availability: while it is
