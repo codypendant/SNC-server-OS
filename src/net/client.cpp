@@ -269,8 +269,9 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
     }
     if (l.in_len - pos < h.len) break;
     if (client_id_ != 0) {
-      if (static_cast<Status>(h.status) == Status::E_STANDBY) {
-        error_ = "the node became a standby";
+      if (static_cast<Status>(h.status) == Status::E_STANDBY ||
+          static_cast<Status>(h.status) == Status::E_FENCED) {
+        error_ = "the node is no longer the primary";
         return -1;  // fail over; the request is resent
       }
       auto it = l.order.find(h.req_id);

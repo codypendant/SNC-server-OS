@@ -3,6 +3,8 @@
 // (spec sections 3 to 12). Only this shard's worker thread touches a Shard.
 #pragma once
 
+#include <atomic>
+
 #include <deque>
 #include <functional>
 #include <memory>
@@ -93,9 +95,18 @@ class Shard {
   ReplSummary repl_summary() const;
   // Promotion, on the shard's thread: stop_standby, then once every shard
   // is standby_settled (all it installed is durable), promote.
-  void stop_standby();
+  // `new_term` is the term the promotion starts; the replication listener
+  // stays up, refusing primaries of older terms.
+  void stop_standby(u64 new_term);
   bool standby_settled() const;
   void promote(const ReplicaConfig& rc, const std::string& data_dir);
+  // Fenced: close the node links, run no follow-ups, refuse clients with
+  // E_STANDBY. Happens by itself when a member of the group refuses this
+  // primary's term; `flag` (engine-wide) spreads it to every shard, and
+  // setting it from outside (a witness said so) does the same.
+  void set_withdraw_flag(std::atomic<bool>* flag) { withdraw_flag_ = flag; }
+  void withdraw();
+  bool withdrawn() const { return withdrawn_; }
   // The WAL's last record after replay, so a standby can prove its log
   // matches its primary's when it reconnects.
   void set_wal_tail(u64 lsn, u32 crc) {
@@ -340,6 +351,9 @@ class Shard {
   ReplicaConfig repl_cfg_;
   std::unique_ptr<repl::Sender> sender_;
   std::unique_ptr<repl::Receiver> receiver_;
+  std::unique_ptr<repl::Receiver> fence_listener_;  // promoted: refuses the old term
+  std::atomic<bool>* withdraw_flag_ = nullptr;
+  bool withdrawn_ = false;
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby
   bool repl_blocked_ = false;  // overdue, but the degrade gate is closed

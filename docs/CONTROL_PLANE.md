@@ -120,9 +120,9 @@ node and client can hold all of it.
 - Two groups' terms are unrelated numbers; a term is only ever compared
   with another term of the same group (same space UUID).
 - A failover changes the group's HA state only. Clients and peers that
-  hit the old primary are told so (`E_STANDBY` from a demoted or
-  rejoined member, or a refused
-  connection), and ask the group's members or the HA state for the new
+  hit the old primary are told so (`E_STANDBY` from a demoted, rejoined
+  or fenced member, or a refused
+  connection; a fenced primary closes its node links, docs/CLUSTER.md), and ask the group's members or the HA state for the new
   one. The placement epoch does not move (invariant 11, 12).
 
 ## 7. Caching on nodes and clients

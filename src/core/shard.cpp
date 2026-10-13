@@ -71,6 +71,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
                     Completion done, void* ctx) {
   // A standby with reads on serves READ ops (checked where they run).
   if (repl_cfg_.standby && repl_cfg_.receiver.lease_ns == 0) return refuse_standby(target, done, ctx);
+  if (withdrawn_) return refuse_standby(target, done, ctx);
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -106,7 +107,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
 
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx, const ObjectID* near) {
-  if (repl_cfg_.standby) return refuse_standby(ObjectID{}, done, ctx);
+  if (repl_cfg_.standby || withdrawn_) return refuse_standby(ObjectID{}, done, ctx);
   ObjectID id = minter_.next();
   // Skipping sequence numbers keeps IDs unique and never reused (C12); with
   // N shards this takes N hashes per create on average, and kSlots to land
@@ -139,7 +140,7 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 }
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
-  if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
+  if (repl_cfg_.standby || withdrawn_) return refuse_standby(target, done, ctx);
   if (foreign(target)) return refuse_wrong_node(target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
@@ -242,6 +243,10 @@ u64 Shard::log(RecType type, const ObjectHeader& obj, u16 flags) {
 
 void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
                      const ExecOptions& opts, RunOut& out, bool client) {
+  if (client && withdrawn_) {
+    out.r.status = Status::E_STANDBY;  // fenced: no longer this group's primary
+    return;
+  }
   if (client && repl_cfg_.standby) {
     // Reads on the standby (docs/REPLICATION.md): READ ops only, and only
     // under a lease, during which the primary acks no write this standby
@@ -534,10 +539,14 @@ void Shard::release_waiters() {
 }
 
 bool Shard::poll() {
+  if (!withdrawn_ && ((sender_ && sender_->fenced()) || (withdraw_flag_ && withdraw_flag_->load(std::memory_order_relaxed)))) {
+    withdraw();
+  }
   bool busy = run_emits();
   if (links_) busy |= poll_links();
   if (wal_) busy |= wal_->poll(sri_now_ns(), /*force=*/false);
   if (sender_ || receiver_) busy |= poll_replication();
+  if (fence_listener_) busy |= fence_listener_->poll(0, 0, 0, sri_now_ns());
   if (ckpt_.active) {
     checkpoint_step();
     busy = true;
@@ -683,7 +692,7 @@ void Shard::rebuild_index() {
 
 void Shard::index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done,
                          void* ctx) {
-  if (repl_cfg_.standby) {
+  if (repl_cfg_.standby || withdrawn_) {
     done(ctx, Status::E_STANDBY, nullptr, 0);
     return;
   }
@@ -1275,8 +1284,12 @@ void Shard::start_sender(const std::string& data_dir, u64 next_lsn) {
 
 // ---- Promotion (docs/REPLICATION.md) ------------------------------------------------
 
-void Shard::stop_standby() {
-  receiver_.reset();  // closes its sockets: nothing more is installed
+void Shard::stop_standby(u64 new_term) {
+  // Nothing more is installed. The listener stays, refusing the old term:
+  // an old primary still running learns there that it was replaced.
+  if (!receiver_) return;
+  receiver_->fence(new_term);
+  fence_listener_ = std::move(receiver_);
   if (wal_) wal_->poll(sri_now_ns(), /*force=*/true);
 }
 
@@ -1292,6 +1305,39 @@ void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
   // every link coming up re-runs the resume pass, which re-sends what the
   // old primary's links lost.
   start_links();
+}
+
+// A primary that learns it was replaced leaves the data plane for good
+// (docs/CLUSTER.md, "A fenced primary withdraws"): it can never again make
+// a write durable, so it must not hold other groups' links, run follow-ups
+// or answer clients as if it could. Its admin side is the application's.
+void Shard::withdraw() {
+  if (withdrawn_) return;
+  withdrawn_ = true;
+  if (withdraw_flag_) withdraw_flag_->store(true);
+  std::fprintf(stderr, "snc: shard %u: fenced (a newer primary exists), leaving the data plane\n", id_);
+  links_.reset();         // the listener and every link, in and out
+  emits_paused_ = true;   // queued follow-ups stay queued; the new primary resumes them
+  // What waits for the standby's ack will never get it here. Whether it
+  // committed is up to what the new primary received: E_FENCED, in doubt.
+  while (!waiters_.empty()) {
+    Waiter w = std::move(waiters_.front());
+    waiters_.pop_front();
+    switch (w.kind) {
+      case Waiter::Kind::LOCAL:
+        w.r.status = Status::E_FENCED;
+        w.r.result = ByteView();
+        w.done(w.ctx, w.r);
+        break;
+      case Waiter::Kind::REMOTE:
+        w.resp.status = static_cast<u16>(Status::E_FENCED);
+        sri_send(w.dst, w.resp, /*must_deliver=*/true);
+        if (w.return_args) return_buffer(w.dst, w.return_args);
+        break;
+      case Waiter::Kind::ERASE:
+        break;  // the tombstone stays in memory
+    }
+  }
 }
 
 // ---- Replication (docs/REPLICATION.md) -------------------------------------------------
@@ -1682,6 +1728,9 @@ bool Shard::run_emits() {
 }
 
 void Shard::run_emit(const Emit& e) {
+  // Fenced: nothing runs here any more. Follow-ups are recoverable: their
+  // sources re-send them to the new primary (docs/TRANSFERS.md).
+  if (withdrawn_) return;
   ExecOptions opts;
   opts.durability = Durability::APPLIED;  // the follow-up's own emits wait for its record
   opts.allow_undurable = true;

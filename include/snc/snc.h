@@ -327,6 +327,15 @@ class Engine {
   // standby (true), or stop letting them (false; a shard already degraded
   // stays so until its standby catches up).
   void allow_degrade(bool on) { degrade_ok_.store(on); }
+  // A primary that learns a newer primary of its group exists withdraws
+  // from the data plane for good (docs/CLUSTER.md): node links closed,
+  // follow-ups stopped, clients answered E_STANDBY. It happens by itself
+  // when the promoted member refuses this primary's term on the replication
+  // port; withdraw() does the same when the news comes another way (a
+  // witness says the term was replaced). Only a restart (e.g. --rejoin)
+  // brings the node back. Control path.
+  void withdraw();
+  bool fenced() const;
 
   // Replication state summed over shards, cheap enough to poll.
   struct ReplStatus {

@@ -410,6 +410,7 @@ bool Sender::read_acks(u64 now_ns) {
         std::fprintf(stderr, "snc: standby refused shard %u (%s)\n", cfg_.shard,
                      a.status == kRefusedTerm ? "this primary's term is older: it was replaced"
                                               : "another space, shard count or slot map");
+        if (a.status == kRefusedTerm) fenced_ = true;
         close_link(now_ns);
         retry_at_ = now_ns + 10 * kRetryNs;
         return advanced;
@@ -443,6 +444,7 @@ bool Sender::read_acks(u64 now_ns) {
 }
 
 bool Sender::poll(u64 now_ns) {
+  if (fenced_) return false;
   if (lost_) {
     if (fd_ >= 0) close_link(now_ns);  // so a sync primary times out and degrades
     return false;
@@ -563,6 +565,12 @@ void Receiver::drop() {
   lease_sent_ = 0;
 }
 
+void Receiver::fence(u64 new_term) {
+  drop();
+  cfg_.term = new_term;
+  fencing_ = true;
+}
+
 bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
   Hello h;
   std::memcpy(&h, in_.data(), sizeof(h));
@@ -578,6 +586,9 @@ bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
     ++stats_.refused;
   } else if (h.term < cfg_.term) {
     a.status = kRefusedTerm;
+    ++stats_.refused;
+  } else if (fencing_) {
+    a.status = kRefusedSpace;  // not a standby any more
     ++stats_.refused;
   }
   const u8* p = reinterpret_cast<const u8*>(&a);

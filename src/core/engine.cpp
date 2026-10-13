@@ -30,6 +30,7 @@ struct EngineHooks {
   u64 lease_base;
   const ClusterMap* cluster;
   const std::atomic<bool>* serving;
+  std::atomic<bool>* fenced;
 };
 
 void hook_init(void* user) {
@@ -42,6 +43,7 @@ void hook_init(void* user) {
   // Recovering: no follow-ups run until every shard has finished (see
   // Engine::recover, step 7).
   s->pause_emits(h->cfg->hold_emits || !h->cfg->data_dir.empty());
+  s->set_withdraw_flag(h->fenced);
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -108,6 +110,9 @@ struct EngineState {
   // The application's poll hook (a network front end) runs only once every
   // shard has recovered.
   std::atomic<bool> serving{false};
+  // A newer primary of this group exists: every shard withdraws from the
+  // data plane (Shard::withdraw).
+  std::atomic<bool> fenced{false};
 };
 
 static std::unique_ptr<EngineState> g_state;
@@ -133,7 +138,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
-  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving};
+  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -519,7 +524,10 @@ double Engine::promote() {
   const u16 n = cfg_.runtime.n_shards;
   // 1. Take no more records, and wait until all installed are durable: the
   // follow-ups resumed below act on them.
-  rt_->run_on_all([](u16) { current_shard()->stop_standby(); });
+  // The listeners stay, refusing the old primary's term (sb_.term + 1 is
+  // the term this promotion starts, below).
+  const u64 new_term = sb_.term + 1;
+  rt_->run_on_all([&](u16) { current_shard()->stop_standby(new_term); });
   while (true) {
     std::atomic<bool> settled{true};
     rt_->run_on_all([&](u16) {
@@ -681,6 +689,12 @@ CheckpointReport Engine::checkpoint() {
   rep.seconds = since(t0);
   return rep;
 }
+
+void Engine::withdraw() {
+  if (g_state && running_) g_state->fenced.store(true);
+}
+
+bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
 
 Engine::ReplStatus Engine::replication_status() const {
   ReplStatus st;

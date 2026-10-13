@@ -137,6 +137,17 @@ everything) is fenced twice: its standby, once promoted, refuses its
 term; and the witness refuses to let it continue alone. It acknowledges
 nothing durable.
 
+**A fenced primary withdraws.** A promoted node keeps its replication
+listeners, which from then on refuse every primary, with "term replaced"
+for an older one. An old primary still running that reconnects there (or
+that a witness answers `NO term ... was replaced`) knows it is fenced for
+good and leaves the data plane: it closes its node links (docs/CLUSTER.md),
+runs no more follow-ups, answers new ops `E_STANDBY`, and answers ops that
+were waiting for its standby's ack `E_FENCED`: in doubt, since the promoted
+standby may hold them (a session client's resend is safe, and
+`net::Client` fails over on either). Its admin port stays up and reports
+`role=f`; only a restart (e.g. `--rejoin`) brings it back, as a standby.
+
 ### Replicated witnesses
 
 One witness is a single point of failure for availability: while it is

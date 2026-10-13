@@ -676,7 +676,9 @@ struct Row {
 };
 
 // The old primary, restarted on its directory: checks that a deposit is not
-// acknowledged within a second and that its link never comes up.
+// acknowledged within a second and that its link never comes up. The new
+// standby refuses its term, so it learns it was replaced and withdraws:
+// the deposit is answered E_FENCED (in doubt) or E_STANDBY, never OK.
 void check_fenced(const std::string& pd, u16 port, const ObjectID& target) {
   pid_t pid = ::fork();
   CHECK(pid >= 0);
@@ -685,15 +687,25 @@ void check_fenced(const std::string& pd, u16 port, const ObjectID& target) {
     c.replica_port = port;
     Engine eng(c);
     eng.start();
-    std::atomic<bool> done{false};
+    std::atomic<int> status{-1};
     eng.runtime().submit(0, [&] {
       AmountArgs a{1, 0};
       execute(target, kOpDeposit, ByteView(&a, sizeof(a)), {},
-              [](void* ctx, const ExecResult&) { static_cast<std::atomic<bool>*>(ctx)->store(true); },
-              &done);
+              [](void* ctx, const ExecResult& r) {
+                static_cast<std::atomic<int>*>(ctx)->store(static_cast<int>(r.status));
+              },
+              &status);
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-    if (done.load()) _exit(20);
+    if (status.load() == static_cast<int>(Status::OK)) _exit(20);
+    if (!eng.fenced()) _exit(22);
+    // Or refused outright (E_STANDBY), if it reached its shard after the
+    // withdrawal.
+    const int st = status.load();
+    if (st != -1 && st != static_cast<int>(Status::E_FENCED) && st != static_cast<int>(Status::E_STANDBY)) {
+      std::fprintf(stderr, "fenced primary answered %s\n", status_name(static_cast<Status>(st)));
+      _exit(23);
+    }
     for (u16 s = 0; s < kShards; ++s) {
       if (eng.stats(s).repl_live) _exit(21);
     }

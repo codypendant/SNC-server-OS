@@ -6,7 +6,10 @@
 // (failover is not migration: the placement epoch never changes). Each
 // checks that money is conserved, nothing is left half done, and every
 // account matches the transfers acknowledged.
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <signal.h>
+#include <sys/socket.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -489,6 +492,7 @@ struct Member {
   std::string dir;
   u32 group, member;
   u16 port_base;
+  bool live_fence = false;  // group 1's primary stays alive and is fenced
 };
 
 std::string tag(u32 g, u32 m) { return std::to_string(g) + "." + std::to_string(m); }
@@ -516,13 +520,16 @@ void write_report(const std::string& path, Engine& eng, u64 acked) {
   std::ostringstream o;
   o << r.t.total << " " << r.t.entries << " " << r.t.accounts << " " << r.st.node_emits_sent << " "
     << r.st.node_emits_received << " " << r.st.node_emits_dropped << " " << r.st.node_resumes << " "
-    << r.st.node_connects << " " << acked << " " << eng.cluster().epoch << " " << eng.cluster().crc();
+    << r.st.node_connects << " " << acked << " " << eng.cluster().epoch << " " << eng.cluster().crc() << " "
+    << eng.fenced();
   write_file(path, o.str());
 }
 
+// total, entries, accounts, sent, received, dropped, resumes, connects,
+// acked, epoch, crc, fenced
 std::vector<long long> read_report(const std::string& path) {
   std::istringstream in(read_file(path));
-  std::vector<long long> v(11, -1);
+  std::vector<long long> v(12, -1);
   for (auto& x : v) in >> x;
   return v;
 }
@@ -536,7 +543,9 @@ std::string transfer_line(const ObjectID& from, const ObjectID& to, i64 amount) 
 // round.G.M before it starts; each acknowledged one is appended to `log`,
 // each refused one to rejected.G.M. So after a kill, the transfers whose
 // outcome is unknown are the last round's, less those in either file;
-// `per` (per shard) bounds how many that can be.
+// `per` (per shard) bounds how many that can be. A primary that is fenced
+// stops after the round it learns it in: what it had not acknowledged
+// then is in doubt (E_FENCED), and stays among the unknown.
 u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& mine,
                     const std::vector<ObjectID>& all, int log, u32 min_rounds, u64 per,
                     const std::string& progress) {
@@ -545,7 +554,7 @@ u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& 
   CHECK(rejected >= 0);
   std::mt19937_64 rng(me.group * 7919 + me.member * 31 + 1);
   u64 acked = 0;
-  for (u32 round = 0; round < min_rounds || !exists(me.dir + "/finish"); ++round) {
+  for (u32 round = 0; !eng.fenced() && (round < min_rounds || !exists(me.dir + "/finish")); ++round) {
     struct Pick {
       ObjectID from, to;
       i64 amount;
@@ -581,7 +590,8 @@ u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& 
             ++acked;
             return;
           }
-          if (r.status != Status::E_OVERLOADED) {
+          if (r.status == Status::E_FENCED) return;  // in doubt: unknown
+          if (r.status != Status::E_OVERLOADED && r.status != Status::E_STANDBY) {
             CHECK_EQ(r.status, Status::E_APP);
             CHECK(r.app_code == kAppInsufficientFunds || r.app_code == kAppBusy);
           }
@@ -758,6 +768,26 @@ u64 check_balances(const std::map<ObjectID, i64>& got, const std::vector<Xfer>& 
   const u64 acked =
       transfer_rounds(eng, me, ids[me.group], all, log, standby ? 10 : 20, per, me.dir + "/progress." + t);
   ::close(log);
+  if (me.live_fence && me.group == 1 && me.member == 0) {
+    // Still running, but replaced: it must have left the data plane, and
+    // it refuses work of any kind from here on.
+    CHECK(eng.fenced());
+    std::atomic<u32> refused{0};
+    run_all(
+        eng, 4,
+        [&](u16, u64 i, Completion done, void* ctx) {
+          if (i % 2) {
+            execute(ids[1][i], kOpGetBalance, ByteView(), {}, done, ctx);
+          } else {
+            CreateArgs a{};
+            a.balance_cents = 1;
+            create(kTypeId, ByteView(&a, sizeof(a)), {}, done, ctx);
+          }
+        },
+        [&](u16, u64, const ExecResult& r) { refused += r.status == Status::E_STANDBY; });
+    CHECK_EQ(refused.load(), 4u * kShards);
+    write_file(me.dir + "/fenced." + t, std::to_string(acked));
+  }
   write_file(me.dir + "/done." + t, "");
   while (!exists(me.dir + "/stop")) {
     write_report(me.dir + "/status." + t, eng, acked);
@@ -789,7 +819,24 @@ u64 progress_of(const std::string& dir, u32 g, u32 m) {
   return text.empty() ? 0 : std::stoull(text);
 }
 
-void test_group_failover() {
+// live_fence: group 1's primary is not killed. Its standby is promoted
+// while it runs; the promoted member refuses its term on the replication
+// port, and it withdraws from the data plane (docs/CLUSTER.md, "A fenced
+// primary withdraws"). The other groups' links must then find the new
+// primary by themselves, as after a crash.
+bool can_connect(u16 port) {
+  int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+  CHECK(fd >= 0);
+  sockaddr_in a{};
+  a.sin_family = AF_INET;
+  a.sin_port = htons(port);
+  a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  const bool ok = ::connect(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) == 0;
+  ::close(fd);
+  return ok;
+}
+
+void test_group_failover(bool live_fence) {
   char tmpl[] = "/tmp/snc-groups-XXXXXX";
   const std::string dir = mkdtemp(tmpl);
   const u16 port_base = free_ports(26000, 32000, kNodes * 40);
@@ -797,32 +844,49 @@ void test_group_failover() {
   // pids[g][m]; standbys first, so every primary's first ack has one.
   std::vector<std::vector<pid_t>> pids(kNodes, std::vector<pid_t>(2, -1));
   for (u32 g = 0; g < kNodes; ++g) {
-    pids[g][1] = spawn_member({dir, g, 1, port_base});
+    pids[g][1] = spawn_member({dir, g, 1, port_base, live_fence});
     wait_for(dir + "/up." + tag(g, 1), 30);
   }
-  for (u32 g = 0; g < kNodes; ++g) pids[g][0] = spawn_member({dir, g, 0, port_base});
+  for (u32 g = 0; g < kNodes; ++g) pids[g][0] = spawn_member({dir, g, 0, port_base, live_fence});
 
   // Group 1's primary dies in the middle of its transfers, and of the
   // others' transfers to it.
   wait_for(dir + "/busy.1.0", 30);
   for (u32 g = 0; g < kNodes; ++g) wait_for(dir + "/progress." + tag(g, 0), 30);
-  ::kill(pids[1][0], SIGKILL);
   int st = 0;
-  ::waitpid(pids[1][0], &st, 0);
-  CHECK(WIFSIGNALED(st));
-  pids[1][0] = -1;
-  // The other groups carry on without it, and without its slots' owner.
-  const u64 before0 = progress_of(dir, 0, 0), before2 = progress_of(dir, 2, 0);
-  ::usleep(400000);
-  const u64 during0 = progress_of(dir, 0, 0), during2 = progress_of(dir, 2, 0);
-  std::printf("group 1's primary killed: groups 0 and 2 acknowledged %llu and %llu more transfers while it was down\n",
-              (unsigned long long)(during0 - before0), (unsigned long long)(during2 - before2));
-  CHECK(during0 > before0);
-  CHECK(during2 > before2);
+  if (!live_fence) {
+    ::kill(pids[1][0], SIGKILL);
+    ::waitpid(pids[1][0], &st, 0);
+    CHECK(WIFSIGNALED(st));
+    pids[1][0] = -1;
+    // The other groups carry on without it, and without its slots' owner.
+    const u64 before0 = progress_of(dir, 0, 0), before2 = progress_of(dir, 2, 0);
+    ::usleep(400000);
+    const u64 during0 = progress_of(dir, 0, 0), during2 = progress_of(dir, 2, 0);
+    std::printf("group 1's primary killed: groups 0 and 2 acknowledged %llu and %llu more transfers while it was down\n",
+                (unsigned long long)(during0 - before0), (unsigned long long)(during2 - before2));
+    CHECK(during0 > before0);
+    CHECK(during2 > before2);
+  }
 
+  const auto t_promote = std::chrono::steady_clock::now();
   ::kill(pids[1][1], SIGUSR1);
   wait_for(dir + "/promoted.1.1", 30);
-  std::printf("group 1's standby promoted in %s s\n", read_file(dir + "/promoted.1.1").c_str());
+  std::printf("group 1's standby promoted in %s s%s\n", read_file(dir + "/promoted.1.1").c_str(),
+              live_fence ? ", its old primary still running" : "");
+  if (live_fence) {
+    wait_for(dir + "/fenced.1.0", 30);
+    std::printf("old primary fenced and withdrawn %.3f s after the promotion signal, having acknowledged %s transfers\n",
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - t_promote).count(),
+                read_file(dir + "/fenced.1.0").c_str());
+    // Its node-link listeners are closed (the others' links can only find
+    // the new primary), while the groups that never failed keep working.
+    for (u16 s = 0; s < kShards; ++s) CHECK(!can_connect(static_cast<u16>(map.groups[1].members[0].link_port + s)));
+    const u64 before0 = progress_of(dir, 0, 0), before2 = progress_of(dir, 2, 0);
+    ::usleep(300000);
+    CHECK(progress_of(dir, 0, 0) > before0);
+    CHECK(progress_of(dir, 2, 0) > before2);
+  }
   // Its new primary runs transfers of its own, then everyone finishes.
   wait_for(dir + "/progress.1.1", 60);
   write_file(dir + "/finish", "");
@@ -850,6 +914,34 @@ void test_group_failover() {
   // A client that knew nothing of the failover reads every account from
   // the primary of its group now, by the same map.
   check_routing(dir, port_base, 2, 0);
+  if (live_fence) {
+    // The old primary is still running and still fenced: links closed,
+    // clients refused with E_STANDBY (a session client moves on to the new
+    // primary), placement untouched.
+    std::vector<long long> old = read_report(dir + "/status.1.0");
+    CHECK_EQ(old[11], 1);
+    CHECK_EQ(old[9], 1);
+    CHECK_EQ(static_cast<u32>(old[10]), map.crc());
+    for (u16 s = 0; s < kShards; ++s) CHECK(!can_connect(static_cast<u16>(map.groups[1].members[0].link_port + s)));
+    net::Client c;
+    CHECK(c.connect("127.0.0.1", map.groups[1].members[0].client_port));
+    const ObjectID target = read_ids(dir, 1)[0];
+    wire::ReqHeader h{};
+    h.kind = wire::Kind::EXEC;
+    h.op = kOpGetBalance;
+    h.req_id = 1;
+    h.target = target;
+    c.send(c.owner_of(target), h, ByteView());
+    Status got = Status::OK;
+    int r = 0;
+    for (int i = 0; i < 50 && r == 0; ++i) {
+      r = c.poll([](void* ctx, const wire::RespHeader& rh, ByteView) { *static_cast<Status*>(ctx) = static_cast<Status>(rh.status); },
+                 &got, 100);
+    }
+    CHECK_EQ(r, 1);
+    CHECK_EQ(got, Status::E_STANDBY);
+    std::printf("old primary still running: fenced, node links closed, clients answered E_STANDBY\n");
+  }
   write_file(dir + "/stop", "");
   for (auto& v : pids) {
     for (pid_t p : v) {
@@ -908,9 +1000,10 @@ void test_group_failover() {
   }
   CHECK_EQ(got.size(), u64{kNodes} * kAccounts);
   const u64 committed = check_balances(got, acked, unknown);
-  std::printf("group failover: %zu transfers acknowledged, every one present; %zu in flight at the kill, %llu "
+  std::printf("group failover (%s): %zu transfers acknowledged, every one present; %zu in flight at the %s, %llu "
               "of them committed; money conserved; placement epoch 1 throughout\n",
-              acked.size(), unknown.size(), (unsigned long long)committed);
+              live_fence ? "old primary alive, fenced" : "old primary killed", acked.size(), unknown.size(),
+              live_fence ? "fence" : "kill", (unsigned long long)committed);
   std::string cmd = "rm -rf '" + dir + "'";
   CHECK_EQ(std::system(cmd.c_str()), 0);
 }
@@ -921,7 +1014,8 @@ int main() {
   register_type();
   test_map();
   test_kill_restart();
-  test_group_failover();
+  test_group_failover(false);
+  test_group_failover(true);
   std::printf("test_cluster: ok\n");
   return 0;
 }
