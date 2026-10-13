@@ -534,6 +534,13 @@ CheckpointReport Engine::checkpoint() {
   rep.seq = seq;
   make_dirs(ckpt_dir(dir, seq));
 
+  // Expired client sessions go first (a standby gets the deletes from its
+  // primary).
+  if (cfg_.session_ttl_s != 0 && !cfg_.standby) {
+    const u32 now_s = static_cast<u32>(::time(nullptr));
+    rt_->run_on_all([&](u16) { current_shard()->expire_sessions(now_s, cfg_.session_ttl_s); });
+  }
+
   // Steps 1 to 3: every shard writes and syncs its part.
   std::vector<Shard::CheckpointResult> results(n);
   std::latch done(n);

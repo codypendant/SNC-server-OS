@@ -1137,6 +1137,43 @@ void test_retries_local() {
   rm_rf(d);
 }
 
+// 12b. Sessions idle past their TTL are deleted at a checkpoint; the
+// client's old sequences are then forgotten.
+void test_session_ttl() {
+  std::string d = temp_dir("t");
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine::Config c = config(d, true);
+    c.session_ttl_s = 1;
+    Engine eng(c);
+    eng.start();
+    ObjectID acc = create_accounts(eng, 1)[0];
+    u16 own = test_owner(acc);
+    auto dep = [&] {
+      return one(eng, own, [&](Completion cb, void* ctx) {
+        ExecOptions o;
+        o.client_id = 9;
+        o.seq = 1;
+        AmountArgs a{1, 0};
+        execute(acc, kOpDeposit, ByteView(&a, sizeof(a)), o, cb, ctx);
+      });
+    };
+    if (dep().r.replayed || !dep().r.replayed) _exit(80);
+    eng.checkpoint();  // not idle long enough yet
+    if (eng.stats(own).sessions_expired != 0 || !dep().r.replayed) _exit(81);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+    eng.checkpoint();
+    if (eng.stats(own).sessions_expired != 1) _exit(82);
+    if (dep().r.replayed) _exit(83);  // forgotten: runs again
+    std::printf("session ttl: an idle session expires at the checkpoint after its TTL\n");
+    eng.stop();
+    _exit(0);
+  }
+  wait_ok(pid);
+  rm_rf(d);
+}
+
 // 13. Safe retries across a failover: a sync primary runs sequenced
 // deposits, pipelined, and is SIGKILLed; its standby is promoted and the
 // client resends every request it sent, with the same sequences. Each
@@ -1324,6 +1361,7 @@ int main() {
   test_standby_reads();
   test_lease_hold();
   test_retries_local();
+  test_session_ttl();
   test_retries_failover();
   test_degrade();
   std::printf("test_replication: ok\n");

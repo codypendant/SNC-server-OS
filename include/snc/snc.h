@@ -165,7 +165,8 @@ struct ShardStats {
   bool repl_degraded = false;  // primary, sync: continuing without the standby
   bool repl_blocked = false;   // primary, sync: past the timeout, waiting for leave to degrade
   u64 stale_reads = 0;
-  u64 replayed = 0;            // sequenced requests answered from a client session         // standby: reads refused for want of a lease (E_STALE)
+  u64 replayed = 0;            // sequenced requests answered from a client session
+  u64 sessions_expired = 0;         // standby: reads refused for want of a lease (E_STALE)
   bool repl_lost = false;      // primary: the standby must be reseeded
   u64 repl_acked_lsn = 0;      // primary: the standby is durable up to here
   u64 repl_bytes = 0;          // primary: bytes shipped
@@ -263,6 +264,10 @@ class Engine {
     // primary (0 = serve no ops). Must not exceed the primary's
     // replica_timeout_ms, which a lease can stretch.
     u32 standby_read_lease_ms = 0;
+    // Client sessions (docs/RETRIES.md) untouched this long are deleted at
+    // the next checkpoint (0 = keep forever). A client returning later must
+    // use a new client_id.
+    u32 session_ttl_s = 3600;
   };
 
   explicit Engine(const Config& cfg);

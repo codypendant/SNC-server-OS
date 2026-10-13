@@ -21,7 +21,7 @@ struct SessionV1 {
   u64 last_version;   // the target's version after it
   u16 last_status;
   u16 last_app_code;
-  u32 pad;
+  u32 touched_s;      // wall clock, seconds: sessions idle past a TTL expire
 };
 static_assert(sizeof(SessionV1) == 48);
 

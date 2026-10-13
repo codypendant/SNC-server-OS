@@ -125,8 +125,15 @@ class Client {
   // per-shard sequence, so the new primary answers one already applied from
   // its session (kRespReplayed) instead of running it twice. Without a
   // session, a failure still ends poll() with -1.
+  //
+  // request_timeout_ms (sessions only; 0 = off): a node that leaves a request
+  // unanswered that long counts as failed, as a broken connection does. It
+  // catches a primary that is alive but cut off (fenced, it acknowledges
+  // nothing) or hung. It also bounds each step of reconnecting. A false
+  // timeout costs a reconnect and a resend, never a double apply.
   void add_endpoint(const std::string& host, u16 base_port);
-  void enable_session(u64 client_id, int failover_ms = 30000);
+  void enable_session(u64 client_id, int failover_ms = 30000, int request_timeout_ms = 5000);
+  u64 timeouts() const { return timeouts_; }
   u64 failovers() const { return failovers_; }
 
   u16 shard_count() const { return map_.n_shards; }
@@ -168,7 +175,11 @@ class Client {
   std::size_t current_ = 0;
   u64 client_id_ = 0;
   int failover_ms_ = 30000;
+  int request_timeout_ms_ = 0;
   u64 failovers_ = 0;
+  u64 timeouts_ = 0;
+  // Last answer, or when the client last had nothing unanswered (steady ns).
+  i64 progress_ns_ = 0;
 
   SlotMap map_;
   std::vector<Link> links_;

@@ -12,6 +12,11 @@ the deposits sent to it.
   failover:  sequenced, with the standby as a second endpoint; the primary
              is SIGKILLed 3 s into the run. The client fails over, resends
              what was unanswered, and --verify must find no account off.
+  partition: as failover, but the primary is stopped (SIGSTOP) 3 s in and
+             resumed once the witness has promoted the standby: alive but
+             fenced, it acknowledges nothing and keeps the connections open.
+             The client's request timeout (1 s here) must move it to the
+             new primary.
 
 Prints CSV rows; usage: run_retries.py [--reps N] [--out FILE].
 """
@@ -29,12 +34,13 @@ sys.path.insert(0, "bench")
 import run_failover as fo  # noqa: E402
 
 
-def client(port, standby_port, session, seconds=8):
+def client(port, standby_port, session, seconds=8, timeout_ms=1000):
     args = [f"{fo.BUILD}/net_bench", "--port", str(port), "--threads", "1", "--cpus", "3",
             "--objects", "100000", "--seconds", str(seconds), "--route", "owner", "--reads", "0",
             "--depth", "256", "--verify"]
     if session:
-        args += ["--session", "1000", "--endpoint", f"127.0.0.1:{standby_port}"]
+        args += ["--session", "1000", "--endpoint", f"127.0.0.1:{standby_port}",
+                 "--request-timeout-ms", str(timeout_ms)]
     return subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
 
@@ -47,15 +53,21 @@ def run(case, port):
         time.sleep(3.5)
         t_kill = time.time()
         prim.kill()
+    elif case == "partition":
+        time.sleep(3.5)
+        t_kill = time.time()
+        prim.kill(signal.SIGSTOP)
+        if w.wait_for(r"failover:", 15)[0] is not None:
+            prim.kill(signal.SIGCONT)
     out = c.communicate(timeout=300)[0]
     ok = c.returncode == 0
     m = re.search(r"ops/s (\d+)", out)
     v = re.search(r"verify: (\d+) accounts, (\d+) deposits, (\d+) mismatches", out)
-    f = re.search(r"failovers (\d+)\s+replayed (\d+)", out)
+    f = re.search(r"failovers (\d+)\s+replayed (\d+)\s+timeouts (\d+)", out)
     row = dict(case=case, ok=int(ok and v is not None and int(v[3]) == 0),
                ops_s=int(m[1]) if m else None, deposits=int(v[2]) if v else None,
                mismatches=int(v[3]) if v else None, failovers=int(f[1]) if f else 0,
-               replayed=int(f[2]) if f else 0)
+               replayed=int(f[2]) if f else 0, timeouts=int(f[3]) if f else 0)
     if t_kill:
         t, _ = w.wait_for(r"failover:", 1)
         row["kill_to_promoted_s"] = round(t - t_kill, 3) if t else None
@@ -68,17 +80,18 @@ def run(case, port):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--cases", default="plain,session,failover,partition")
     ap.add_argument("--out", default="bench/results/retries.csv")
     a = ap.parse_args()
     rows, port = [], 35000
     for rep in range(a.reps):
-        for case in ("plain", "session", "failover"):
+        for case in a.cases.split(","):
             port += 100
             r = run(case, port)
             r["rep"] = rep
             rows.append(r)
             print(r, flush=True)
-    fields = ["case", "rep", "ok", "ops_s", "deposits", "mismatches", "failovers", "replayed",
+    fields = ["case", "rep", "ok", "ops_s", "deposits", "mismatches", "failovers", "replayed", "timeouts",
               "kill_to_promoted_s"]
     with open(a.out, "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=fields)

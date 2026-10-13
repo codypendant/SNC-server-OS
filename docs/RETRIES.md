@@ -1,7 +1,7 @@
 # Safe client retries across a failover
 
-Status: built (engine sessions, wire flag, failover-aware `net::Client`),
-except session expiry; see "As built". It follows automatic failover
+Status: built (engine sessions, wire flag, failover-aware `net::Client`,
+session expiry); see "As built". It follows automatic failover
 (docs/REPLICATION.md), which promotes a standby but leaves clients pointed
 at the dead primary, and leaves them unsure what happened to the requests
 they had in flight.
@@ -84,11 +84,17 @@ the answer came from a session record.
   one answers as primary (a probe that a standby answers `E_STANDBY`), then
   resends every unanswered request in order. `net_bench --session ID
   --endpoint H:P --verify`.
-- Not built: session expiry (`session_ttl_s`). Sessions stay until the
-  shard is rebuilt.
-- The client fails over on a broken connection, not on a hung one: a
-  primary cut off but alive keeps the client waiting (it is fenced, so it
-  acknowledges nothing). A request timeout would cover it.
+- Session expiry: `Engine::Config::session_ttl_s` (default 3600). A
+  primary deletes sessions untouched that long just before each checkpoint;
+  the deletes replicate like any other. Tested with a 1 s TTL.
+- Request timeout: `enable_session(id, failover_ms, request_timeout_ms)`
+  (default 5000 ms; `net_bench --request-timeout-ms`). A node that leaves a
+  request unanswered that long counts as failed, like a broken connection.
+  This covers a primary that is alive but cut off: fenced, it acknowledges
+  nothing and keeps its connections open. The same timeout bounds each
+  blocking step of reconnecting, so a hung node cannot stall the client's
+  search for the new primary. A false timeout (a slow but healthy primary)
+  costs a reconnect and a resend, never a double apply.
 
 ## Results
 
@@ -100,15 +106,22 @@ accounts, 256 in flight, 8 s, `--verify` reading every account at the end.
 
 | Case | Deposits/s (median) | Checked |
 | --- | --- | --- |
-| No session | 230K | every account exact |
-| Session (sequenced) | 220K (0.93× of the run before it) | every account exact |
-| Session, primary SIGKILLed 3 s in | 268K | 1 failover; 298-396 requests answered from sessions or as already applied; every account exact |
+| No session | 227K | every account exact |
+| Session (sequenced) | 193K (0.85×) | every account exact |
+| Session, primary SIGKILLed 3 s in | 266K | 1 failover; 154-370 requests answered from sessions or as already applied; every account exact |
+| Session, primary SIGSTOPped 3 s in, resumed after promotion | 223K | 1 request timeout (1 s), 1 failover; every account exact |
 
-- **No deposit was lost or applied twice** across the three failovers:
-  about 2.1M deposits each, every account at its start plus exactly what
+- **No deposit was lost or applied twice** across the six failovers:
+  1.8-2.1M deposits each, every account at its start plus exactly what
   the client sent it.
-- **Sequencing costs about 7%** here: one 64-byte session record logged
-  with each deposit, and a session lookup.
+- **Sequencing costs 7-15%** here (0.93× in an earlier run of the same
+  script, 0.85× in this one; the shared disk is noisy): one 64-byte
+  session record logged with each deposit, and a session lookup.
+- **Partition:** the stopped primary, resumed once the witness had
+  promoted the standby, is fenced: it holds the client's connections open
+  and answers nothing. The client gives up on it after its 1 s request
+  timeout and moves to the new primary. Without the timeout
+  (`--request-timeout-ms 0`) the same run hangs until killed.
 - The failover runs are faster because after the kill the promoted node
   runs without a standby. The witness promoted it about 0.52 s after the
   kill; the client was back as soon as the probe saw a primary.
@@ -126,7 +139,7 @@ accounts, 256 in flight, 8 s, `--verify` reading every account at the end.
   pay nothing.
 - **Memory.** There is one session object per (client, shard) the client
   wrote to. Sessions idle for longer than a configured time
-  (`session_ttl_s`, default one hour) are deleted at checkpoint. A client
+  (`session_ttl_s`, default one hour) are deleted before a checkpoint. A client
   returning after that has its old sequences forgotten, and must start a new
   `client_id`.
 - **Replayed results are status and version only.** An op whose result
