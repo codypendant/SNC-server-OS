@@ -33,6 +33,8 @@ def main():
     ap.add_argument("--seconds", type=float, default=4)
     ap.add_argument("--data-dir", default="/tmp/snc-matrix")
     ap.add_argument("--out", default="bench/results/matrix.csv")
+    ap.add_argument("--seastar-build", default="build-seastar",
+                    help="build dir with snc_bench_seastar (-DSNC_SEASTAR=ON), for the seastar group")
     ap.add_argument("--groups", default="", help="comma-separated groups to run (default: all)")
     a = ap.parse_args()
 
@@ -86,6 +88,16 @@ def main():
         for thp in ("madvise", "always"):
             logs = " --logs 4" if "--data-dir" in load else ""
             runs.append(("pages", "baseline", f"{load}{logs} THP={thp}"))
+    # The same SNC core on the Seastar backend (docs/SEASTAR.md). One runtime
+    # per process there, so durable runs skip the timed restart on both.
+    ss_loads = ["--remote 0 --reads 50 --depth 256", "--remote 100 --reads 50 --depth 32",
+                "--remote 100 --reads 50 --depth 128", "--remote 100 --reads 50 --depth 512",
+                "--transfer 100 --reads 50 --depth 32",
+                "--remote 0 --reads 50 --depth 256 --data-dir D --no-restart",
+                "--remote 100 --reads 50 --depth 256 --data-dir D --no-restart"]
+    for load in ss_loads:
+        for engine in ("snc", "snc-seastar", "snc-seastar-rings"):
+            runs.append(("seastar", engine, load))
     runs.append(("recovery", "snc", "--remote 0 --reads 50 --depth 256 --data-dir D --no-checkpoint"))
 
     if a.groups:
@@ -101,12 +113,16 @@ def main():
         for i, (group, engine, flags) in enumerate(runs):
             for rep in range(a.reps):
                 shutil.rmtree(a.data_dir, ignore_errors=True)
-                binary = os.path.join(a.build, "snc_bench" if engine == "snc" else "baseline_bench")
+                binary = {"snc": os.path.join(a.build, "snc_bench"),
+                          "baseline": os.path.join(a.build, "baseline_bench"),
+                          "snc-seastar": os.path.join(a.seastar_build, "snc_bench_seastar"),
+                          "snc-seastar-rings": os.path.join(a.seastar_build, "snc_bench_seastar")}[engine]
+                env = dict(os.environ, SNC_SEASTAR_MSG="rings" if engine == "snc-seastar-rings" else "smp")
                 argv = [binary, "--objects", "1000000", "--seconds", str(a.seconds)]
                 argv += [a.data_dir if x == "D" else x for x in flags.split() if not x.startswith("THP=")]
                 set_thp(re.search(r"THP=(\w+)", flags)[1] if "THP=" in flags else "madvise")
                 if "hugetlb" in flags: set_hugepages(1100)
-                out = subprocess.run(argv, capture_output=True, text=True, timeout=600)
+                out = subprocess.run(argv, capture_output=True, text=True, timeout=600, env=env)
                 if out.returncode != 0:
                     sys.exit(f"failed: {' '.join(argv)}\n{out.stdout}\n{out.stderr}")
                 row = dict(group=group, engine=engine, flags=flags, rep=rep, **parse(out.stdout))

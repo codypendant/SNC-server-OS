@@ -9,7 +9,7 @@ and the handoff's development sequence (§24).
 | Step | State | Where |
 | --- | --- | --- |
 | 1. Development Linux | Done: Ubuntu 24.04, GCC 13, CMake | `CMakeLists.txt` |
-| 2. Runtime abstraction | Done for the native backend; Seastar adapter not started | `include/snc/sri.h`, `src/native/runtime.cpp` |
+| 2. Runtime abstraction | Done: native backend, plus a Seastar backend behind the same interface (`-DSNC_SEASTAR=ON`). Seastar is 0.45-0.92x of native in memory; native stays ([SEASTAR.md](SEASTAR.md)) | `include/snc/sri.h`, `src/native/runtime.cpp`, `src/seastar/runtime.cc` |
 | 3. Dedicated per-core workers | Done: pinned threads, run-to-completion loop, eventfd idle | `src/native/runtime.cpp` |
 | 4. Stable ObjectID | Done | `include/snc/object_id.h` |
 | 5. In-memory object directory | Done: slot map + per-shard local map | `include/snc/slot_map.h`, `include/snc/local_map.h` |

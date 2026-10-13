@@ -9,6 +9,7 @@
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
 //                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch] [--no-batch]
+//                  [--pages 4k|thp|hugetlb] [--no-restart]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -47,6 +48,7 @@ struct Args {
   bool direct = true;
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
+  bool restart = true;     // false: skip the timed restart (one runtime per process)
   u32 io_yield_us = 50;  // RuntimeConfig default
   bool prefetch = true;
   bool batch = true;  // Engine::Config::batch_remote
@@ -271,6 +273,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-direct") a.direct = false;
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
+    else if (k == "--no-restart") a.restart = false;
     else if (k == "--no-prefetch") a.prefetch = false;
     else if (k == "--no-batch") a.batch = false;
     else if (k == "--pages") {
@@ -466,7 +469,7 @@ int main(int argc, char** argv) {
     direct += st.wal_direct;
   }
 
-  std::printf("snc_bench backend=native shards=%u pinned=%d/%u durability=%s\n", args.shards,
+  std::printf("snc_bench backend=%s shards=%u pinned=%d/%u durability=%s\n", sri_backend(), args.shards,
               pinned, args.shards,
               !durable ? "none (in memory)"
                        : (args.sync ? "DURABLE (WAL, RWF_DSYNC)" : "WAL without sync (dev only)"));
@@ -524,6 +527,7 @@ int main(int argc, char** argv) {
                 (unsigned long long)cp.segments_deleted);
     // Restart: recover the space from the checkpoint plus the WAL written since.
     eng_ptr.reset();
+    if (!args.restart) return errors ? 1 : 0;
     Engine::Config rc;
     rc.runtime.n_shards = args.shards;
     rc.runtime.pin = args.pin;

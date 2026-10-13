@@ -55,6 +55,8 @@ void sri_commit(u16 dst, Msg* msg);
 void sri_publish(u16 dst);
 
 u64 sri_now_ns();
+// Backend name for reports: "native" or "seastar". Valid on any thread.
+const char* sri_backend();
 
 // Asynchronous positional file write, completed on this shard's loop.
 // `result` is bytes written or -errno. With `dsync` the data is on stable
