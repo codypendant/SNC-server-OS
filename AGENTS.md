@@ -239,3 +239,21 @@ or source comments.
     section 10 (where placement consensus runs), section 9 (seals instead
     of leases) and the open questions at the end. No code until agreed;
     proposed first code step is groups with HA under a static map.
+
+### 2026-10-13 11:35 UTC --- Codex review of `docs/CONTROL_PLANE.md` (relayed by cody, applied by Claude)
+
+-   **Area:** cluster control plane
+-   **Decision:** approved directionally, with three changes now in the
+    spec: (1) one group per node is not a schema rule (`NodeID →
+    memberships[]`; milestone 2 may restrict it operationally); (2) seals
+    are kept, but serving from a stored map at startup is provisional
+    until the crash orderings of `seal durable → epoch commit →
+    destination activation` are proved at the slot-move milestone;
+    (3) placement never copies a group's primary or term: one authority
+    per fact, primaries cached only as ephemeral routing state.
+-   **Accepted as proposed:** cluster-wide lease blocks, `E_MOVED`, no
+    write forwarding, persisted maps, epoch in the link hello, shared
+    Paxos library with separate `placement` and `ha/<group>` machines,
+    groups with HA under static placement first.
+-   **Next:** Replication groups with HA under the static
+    map (spec section 12, step 1).
