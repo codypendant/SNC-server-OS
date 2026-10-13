@@ -68,6 +68,27 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
     ps->cs.respond(c, resp_header(h.req_id, Status::OK, kNullId, sizeof(b)), ByteView(&b, sizeof(b)));
     return;
   }
+  if (h.kind == wire::Kind::CLUSTER) {
+    const ClusterMap* m = cluster_map();
+    const u16 n = m ? static_cast<u16>(m->nodes.size()) : 0;
+    std::vector<u8> body(sizeof(wire::ClusterBody) + n * sizeof(wire::ClusterEntry));
+    auto* b = reinterpret_cast<wire::ClusterBody*>(body.data());
+    b->n_nodes = n;
+    if (m) {
+      b->crc = m->crc();
+      b->node_id = node_id();
+      std::memcpy(b->node_of, m->node_of.data(), kSlots);
+      auto* e = reinterpret_cast<wire::ClusterEntry*>(b + 1);
+      for (u16 i = 0; i < n; ++i) {
+        std::strncpy(e[i].host, m->nodes[i].host.c_str(), sizeof(e[i].host) - 1);
+        e[i].client_port = m->nodes[i].client_port;
+        e[i].n_shards = m->nodes[i].n_shards;
+      }
+    }
+    ps->cs.respond(c, resp_header(h.req_id, Status::OK, kNullId, static_cast<u32>(body.size())),
+                   ByteView(body.data(), static_cast<u32>(body.size())));
+    return;
+  }
   ExecOptions opts;
   opts.expected_version = h.expected_version;
   opts.allow_undurable = h.flags & wire::kReqAllowUndurable;

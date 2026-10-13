@@ -6,6 +6,7 @@
 #pragma once
 
 #include "snc/native_runtime.h"
+#include "snc/cluster.h"
 #include "snc/local_map.h"
 #include "snc/registry.h"
 #include "snc/slot_map.h"
@@ -64,6 +65,10 @@ void prefetch(const ObjectID* ids, u32 n);
 u16 owner_of(const ObjectID& id);
 // The slot map this shard routes with. Valid on a worker thread.
 const SlotMap& slot_map();
+// Clustered (docs/CLUSTER.md): the cluster map and this node's id; null
+// when the engine is a single node.
+const ClusterMap* cluster_map();
+u16 node_id();
 
 // Handler-facing context (spec section 6, "What apply may do").
 class OpCtx {
@@ -157,6 +162,12 @@ struct ShardStats {
   u64 emits_received = 0;        // ... received from another shard
   u64 emits_failed_over = 0;     // follow-ups that ran their fail_op instead
   u64 emits_in_flight = 0;       // queued here or waiting for durability
+  // Cluster (docs/CLUSTER.md).
+  u64 node_emits_sent = 0;       // follow-ups sent to another node
+  u64 node_emits_received = 0;   // ... received from another node
+  u64 node_emits_dropped = 0;    // ... dropped, their link down (resume re-emits them)
+  u64 node_connects = 0;         // outbound node links that came up
+  u64 node_resumes = 0;          // resume passes run because a link came up
   WalStream::Stats wal;
   u64 wal_durable_lsn = 0;
   // Replication (docs/REPLICATION.md).
@@ -268,6 +279,14 @@ class Engine {
     // the next checkpoint (0 = keep forever). A client returning later must
     // use a new client_id.
     u32 session_ttl_s = 3600;
+
+    // Cluster (docs/CLUSTER.md): every node of a cluster, in node-id order,
+    // the same list on each; empty = a single node owning every slot. This
+    // node is cluster[node_id] and must have runtime.n_shards shards. Ops
+    // on another node's objects are refused (E_WRONG_NODE); follow-ups to
+    // them travel over node links. Not combined with replication yet.
+    std::vector<ClusterNode> cluster;
+    u16 node_id = 0;
   };
 
   explicit Engine(const Config& cfg);
@@ -310,6 +329,8 @@ class Engine {
   };
   ReplStatus replication_status() const;
   const RecoveryReport& recovery() const { return recovery_; }
+  // Empty unless clustered.
+  const ClusterMap& cluster() const { return cluster_; }
   // The space's UUID (after start, with a data_dir).
   const Uuid& space_uuid() const { return uuid_; }
 
@@ -339,6 +360,7 @@ class Engine {
   Superblock sb_{};
   Uuid uuid_{};
   SlotMap slots_;
+  ClusterMap cluster_;
   std::unique_ptr<SegmentPreparer> spares_;
   RecoveryReport recovery_;
 };

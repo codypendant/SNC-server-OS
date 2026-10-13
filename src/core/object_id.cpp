@@ -62,6 +62,7 @@ const char* status_name(Status s) {
     case Status::E_STALE: return "E_STALE";
     case Status::E_REPLAYED_OLD: return "E_REPLAYED_OLD";
     case Status::E_NOT_OWNER: return "E_NOT_OWNER";
+    case Status::E_WRONG_NODE: return "E_WRONG_NODE";
   }
   return "E_UNKNOWN_STATUS";
 }

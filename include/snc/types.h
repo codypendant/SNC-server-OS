@@ -39,6 +39,7 @@ enum class Status : u16 {
   E_STALE,          // a standby serving reads has no current lease from its primary
   E_REPLAYED_OLD,   // sequenced: an older request, already decided; its outcome is not kept
   E_NOT_OWNER,      // sequenced: sent to a shard that does not own the target
+  E_WRONG_NODE,     // clustered: another node owns the target (docs/CLUSTER.md)
 };
 
 const char* status_name(Status s);

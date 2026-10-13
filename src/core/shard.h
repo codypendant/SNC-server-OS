@@ -10,7 +10,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "node_link.h"
 #include "replication.h"
+#include "snc/cluster.h"
 #include "snc/snc.h"
 
 namespace snc {
@@ -23,6 +25,17 @@ class Shard {
 
   u16 id() const { return id_; }
   u16 owner_of(const ObjectID& id) const { return slots_.owner_of(id); }
+  // Cluster (docs/CLUSTER.md): slots another node owns are foreign here.
+  void set_cluster(const ClusterMap* map, u16 node) {
+    cluster_ = map;
+    node_ = node;
+  }
+  const ClusterMap* cluster() const { return cluster_; }
+  u16 node() const { return node_; }
+  bool foreign_slot(u16 slot) const { return cluster_ != nullptr && cluster_->node_of[slot] != node_; }
+  bool foreign(const ObjectID& id) const { return cluster_ != nullptr && foreign_slot(slot_of(id)); }
+  // Opens this shard's node links, once its state is recovered.
+  void start_links();
   const SlotMap& slots() const { return slots_; }
   // Creates mint IDs that this shard owns (docs/ROUTING.md).
   void set_mint_local(bool on) { mint_local_ = on; }
@@ -275,6 +288,10 @@ class Shard {
   static bool apply_replicated(void* ctx, const u8* rec);
   bool poll_replication();
   void start_serving();
+  // Runs every object's resume hook; what they emit waits for `lsn`.
+  void resume_all(u64 lsn);
+  bool poll_links();
+  static void on_link_frame(void* ctx, const NodeLinks::Frame& f);
   void start_sender(const std::string& data_dir, u64 next_lsn);
 
   // Dispatch.
@@ -358,12 +375,17 @@ class Shard {
   std::vector<Emit> emit_local_;
   std::vector<Emit> emit_running_;  // emit_local_ being run (keeps its memory)
   std::vector<Fifo<Emit>> emit_remote_;  // per destination shard
+  std::vector<Fifo<Emit>> emit_node_;    // per node link
   u64 emit_ready_count_ = 0;
   ObjectID cur_source_;  // source of the follow-up now running (OpCtx::source)
   Fifo<Emit> emit_wait_;  // sorted by lsn
   bool emits_paused_ = false;
   bool resuming_ = false;
   Checkpoint ckpt_;
+
+  const ClusterMap* cluster_ = nullptr;
+  u16 node_ = 0;
+  std::unique_ptr<NodeLinks> links_;
 };
 
 // The Shard running on the current worker thread.

@@ -11,6 +11,7 @@
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
+//                   [--cluster HOST:LINK_PORT:SHARDS[:CLIENT_PORT],... --node I]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -37,8 +38,15 @@
 // its data directory aside (DIR.stale-TIME) and starts as that primary's
 // standby, listening on STANDBY_PORT and seeded from PEER_HOST:SEED. So a
 // supervisor can restart a failed primary with its usual command line.
+// Cluster (docs/CLUSTER.md): --cluster lists every node, the same list on
+// each, and --node says which one this is; it owns a fixed share of the
+// slots, refuses ops on the others' objects (E_WRONG_NODE), and sends
+// follow-ups for them over node links (shard i listens on LINK_PORT + i).
+// A CLUSTER request returns the map with each node's CLIENT_PORT, so that
+// net::ClusterClient sends each request to its owner.
 #include <signal.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -133,6 +141,8 @@ int main(int argc, char** argv) {
     else if (k == "--standby-host") cfg.standby_host = val();
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--seed-from") cfg.seed_from = val();
+    else if (k == "--cluster") cfg.cluster = parse_cluster(val());
+    else if (k == "--node") cfg.node_id = static_cast<u16>(std::atoi(val()));
     else if (k == "--report-ms") report_ms = std::atoi(val());
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
@@ -248,12 +258,28 @@ int main(int argc, char** argv) {
   net::NetServer server(ncfg, cfg.runtime.n_shards);
   cfg.app_poll = net::NetServer::poll_hook;
   cfg.app_user = &server;
+  // Its own client port is --port unless the list says otherwise.
+  if (!cfg.cluster.empty() && cfg.node_id < cfg.cluster.size() && cfg.cluster[cfg.node_id].client_port == 0) {
+    cfg.cluster[cfg.node_id].client_port = ncfg.base_port;
+  }
   Engine eng(cfg);
   eng.start();
   std::printf("snc_server shards=%u ports %u-%u durability=%s mint_local=%d\n",
               cfg.runtime.n_shards, ncfg.base_port, ncfg.base_port + cfg.runtime.n_shards - 1,
               cfg.data_dir.empty() ? "none (in memory)" : "DURABLE (WAL, RWF_DSYNC)",
               cfg.mint_local);
+  if (!cfg.cluster.empty()) {
+    const ClusterMap& m = eng.cluster();
+    u32 lo = kSlots, hi = 0;
+    for (u32 s = 0; s < kSlots; ++s) {
+      if (m.node_of[s] != cfg.node_id) continue;
+      lo = std::min(lo, s);
+      hi = s;
+    }
+    std::printf("cluster: node %u of %zu, slots %u-%u, node links on ports %u-%u (map crc %08x)\n",
+                cfg.node_id, m.nodes.size(), lo, hi, m.nodes[cfg.node_id].link_port,
+                m.nodes[cfg.node_id].link_port + cfg.runtime.n_shards - 1, m.crc());
+  }
   if (!cfg.data_dir.empty()) {
     std::printf("space uuid ");
     for (u8 b : eng.space_uuid()) std::printf("%02x", b);

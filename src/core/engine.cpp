@@ -28,6 +28,7 @@ struct EngineHooks {
   std::vector<ShardStats>* final_stats;
   const SlotMap* slots;
   u64 lease_base;
+  const ClusterMap* cluster;
 };
 
 void hook_init(void* user) {
@@ -37,8 +38,11 @@ void hook_init(void* user) {
                       h->cfg->runtime.pages);
   s->set_mint_local(h->cfg->mint_local);
   s->set_batch_remote(h->cfg->batch_remote);
+  if (!h->cluster->nodes.empty()) s->set_cluster(h->cluster, h->cfg->node_id);
   set_current_shard(s);
   (*h->shards)[id] = s;
+  // In memory there is nothing to recover: links open at once.
+  if (h->cfg->data_dir.empty()) s->start_links();
 }
 
 void hook_message(void*, const Msg& m) { current_shard()->on_message(m); }
@@ -110,9 +114,18 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
+  if (!cfg.cluster.empty()) {
+    if (cfg.node_id >= cfg.cluster.size() || cfg.cluster[cfg.node_id].n_shards != cfg.runtime.n_shards) {
+      throw std::invalid_argument("cluster: node_id out of range, or its shard count is not runtime.n_shards");
+    }
+    if (!cfg.replica_host.empty() || cfg.standby) {
+      throw std::invalid_argument("cluster: not combined with replication yet");
+    }
+    cluster_ = ClusterMap::make(cfg.cluster);
+  }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
-  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1};
+  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;

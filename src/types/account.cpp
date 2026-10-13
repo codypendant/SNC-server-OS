@@ -320,9 +320,16 @@ void forget_apply(OpCtx& c, ByteView args) {
 }
 
 // query: after a restart, the destination asks whether to keep its entry.
+// Still in the outbox: the settle was lost (with a node link, while only
+// the destination restarted), so ask for it again with the credit.
 void query_apply(OpCtx& c, ByteView args) {
   auto p = args_as<SeqArgs>(args);
-  if (find_out(acct(c), p.seq) < 0) emit_seq(c, c.source(), kOpXferForget, p.seq);
+  const int i = find_out(acct(c), p.seq);
+  if (i < 0) {
+    emit_seq(c, c.source(), kOpXferForget, p.seq);
+  } else if (outbox(acct(c))[i].to == c.source()) {
+    emit_credit(c, outbox(acct(c))[i]);
+  }
 }
 
 // After recovery: finish whatever a crash interrupted.

@@ -58,6 +58,13 @@ void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
   r.id = id;
   done(ctx, r);
 }
+// Another node owns it (docs/CLUSTER.md).
+void refuse_wrong_node(const ObjectID& id, Completion done, void* ctx) {
+  ExecResult r;
+  r.status = Status::E_WRONG_NODE;
+  r.id = id;
+  done(ctx, r);
+}
 }  // namespace
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
@@ -75,6 +82,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
     return;
   }
   u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
+  if (cluster_ && foreign_slot(static_cast<u16>(h >> 52))) return refuse_wrong_node(target, done, ctx);
   u16 owner = slots_.owner[h >> 52];
   if (opts.client_id && owner != id_) {
     // A sequence is per shard and connection: forwarding could reorder it.
@@ -105,10 +113,12 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
   // in a given slot.
   if (near != nullptr) {
     const u16 slot = slot_of(*near);
+    if (foreign_slot(slot)) return refuse_wrong_node(*near, done, ctx);
     while (slot_of(id) != slot) id = minter_.next();
   } else {
-    // A sequenced create runs here, where its sequence is kept.
-    while ((mint_local_ || opts.client_id) && owner_of(id) != id_) id = minter_.next();
+    // A sequenced create runs here, where its sequence is kept. Clustered,
+    // only IDs in this node's slots (docs/CLUSTER.md).
+    while (((mint_local_ || opts.client_id) && owner_of(id) != id_) || foreign(id)) id = minter_.next();
   }
   u16 owner = owner_of(id);
   if (opts.client_id && owner != id_) {
@@ -130,6 +140,7 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
   if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
+  if (foreign(target)) return refuse_wrong_node(target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
     ++stats_.ops_local;
@@ -524,6 +535,7 @@ void Shard::release_waiters() {
 
 bool Shard::poll() {
   bool busy = run_emits();
+  if (links_) busy |= poll_links();
   if (wal_) busy |= wal_->poll(sri_now_ns(), /*force=*/false);
   if (sender_ || receiver_) busy |= poll_replication();
   if (ckpt_.active) {
@@ -580,7 +592,7 @@ ObjectHeader* Shard::record_session(const ExecOptions& opts, const ObjectID& id,
   if (s == nullptr) {
     const TypeDescriptor* t = registry().type(kSessionTypeId);
     ObjectID sid = minter_.next();
-    while (owner_of(sid) != id_) sid = minter_.next();
+    while (owner_of(sid) != id_ || foreign(sid)) sid = minter_.next();
     std::size_t bytes = sizeof(ObjectHeader) + sizeof(SessionV1);
     s = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
     if (s == nullptr) {
@@ -1186,11 +1198,14 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     wal_->on_durable_ctx = this;
     if (repl_cfg_.primary) start_sender(wal_cfg.data_dir, next_lsn);
   }
+  start_links();
 }
 
 // Follow-ups the objects' resume hooks re-emit. The state must be durable:
 // what they emit is ready at once.
-void Shard::start_serving() {
+void Shard::start_serving() { resume_all(0); }
+
+void Shard::resume_all(u64 lsn) {
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted()) return;
@@ -1200,9 +1215,48 @@ void Shard::start_serving() {
     c.obj_ = const_cast<ObjectHeader*>(o);
     c.type_ = t;
     t->resume(c);
+    // Resume hooks emit a handful each: hand them on per object.
+    if (emit_scratch_.size() >= 4096) queue_emits(lsn);
   });
   resuming_ = false;
-  queue_emits(0);
+  queue_emits(lsn);
+}
+
+// ---- Node links (docs/CLUSTER.md) ------------------------------------------------------
+
+void Shard::start_links() {
+  if (cluster_ == nullptr || links_) return;
+  links_ = std::make_unique<NodeLinks>(*cluster_, node_, id_);
+  emit_node_.resize(links_->size());
+}
+
+void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
+  auto* s = static_cast<Shard*>(ctx);
+  ++s->stats_.node_emits_received;
+  if (s->foreign(f.target)) return;  // cannot happen with matching maps (checked by crc)
+  Emit e;
+  e.source = f.source;
+  e.target = f.target;
+  e.op = f.op;
+  e.fail_op = f.fail_op;
+  e.len = f.len <= sizeof(e.args) ? f.len : sizeof(e.args);
+  std::memcpy(e.args, f.args, e.len);
+  e.lsn = 0;
+  s->route_emit(e);
+}
+
+bool Shard::poll_links() {
+  bool busy = links_->poll(sri_now_ns(), &Shard::on_link_frame, this);
+  if (links_->take_connected()) {
+    // Whatever was sent on a link before it dropped, or dropped while it
+    // was down, may be lost: re-emit everything unsettled. What the hooks
+    // emit to other nodes waits until every record so far is durable, as
+    // the state it reflects may not be yet.
+    ++stats_.node_resumes;
+    resume_all(wal_ ? wal_->next_lsn() - 1 : 0);
+    busy = true;
+  }
+  return busy;
 }
 
 void Shard::start_sender(const std::string& data_dir, u64 next_lsn) {
@@ -1433,6 +1487,7 @@ ShardStats Shard::stats() const {
   s.objects = 0;
   map_.for_each([&](const ObjectHeader* o) { s.objects += !o->deleted(); });
   s.emits_in_flight = emits_in_flight();
+  if (links_) s.node_connects = links_->connects();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
   if (sender_) {
@@ -1542,7 +1597,8 @@ void Shard::queue_emits(u64 lsn) {
     // A local follow-up's record lands later in this shard's WAL stream, and
     // recovery replays a prefix of the stream, so it cannot outlive the
     // record that emitted it: no need to wait.
-    if (durable(lsn) || owner_of(e.target) == id_) {
+    // Never so for another node's object: the follow-up waits.
+    if (durable(lsn) || (owner_of(e.target) == id_ && !foreign(e.target))) {
       route_emit(e);
     } else {
       emit_wait_.push_back(e);  // this shard's LSNs only grow, so stays sorted
@@ -1555,6 +1611,21 @@ void Shard::queue_emits(u64 lsn) {
 // remote ones go out in order until that destination's ring is full.
 void Shard::route_emit(const Emit& e) {
   ++emit_ready_count_;
+  if (cluster_) {
+    const u16 slot = slot_of(e.target);
+    const u16 node = cluster_->node_of[slot];
+    if (node != node_) {
+      if (!links_) {
+        // Recovery's resume pass, before the links open: re-emitted once
+        // they come up.
+        --emit_ready_count_;
+        ++stats_.node_emits_dropped;
+        return;
+      }
+      emit_node_[links_->link_of(node, cluster_->shard_of(slot))].push_back(e);
+      return;
+    }
+  }
   u16 owner = owner_of(e.target);
   if (owner == id_) {
     emit_local_.push_back(e);
@@ -1576,6 +1647,31 @@ bool Shard::run_emits() {
       if (!send_emit(dst, q.front())) break;  // ring full: keep the rest in order
       q.pop_front();
       --emit_ready_count_;
+    }
+  }
+  for (u32 i = 0; i < emit_node_.size(); ++i) {
+    Fifo<Emit>& q = emit_node_[i];
+    if (q.empty()) continue;
+    if (!links_->up(i)) {
+      // Lost with the link: re-emitted when it comes back up.
+      stats_.node_emits_dropped += q.size();
+      emit_ready_count_ -= q.size();
+      while (!q.empty()) q.pop_front();
+      continue;
+    }
+    while (!q.empty() && links_->room(i)) {
+      const Emit& e = q.front();
+      NodeLinks::Frame f{};
+      f.source = e.source;
+      f.target = e.target;
+      f.op = e.op;
+      f.fail_op = e.fail_op;
+      f.len = e.len;
+      std::memcpy(f.args, e.args, e.len);
+      links_->push(i, f);
+      q.pop_front();
+      --emit_ready_count_;
+      ++stats_.node_emits_sent;
     }
   }
   return true;
@@ -1673,6 +1769,8 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
 const SlotMap& slot_map() { return tl_shard->slots(); }
+const ClusterMap* cluster_map() { return tl_shard->cluster(); }
+u16 node_id() { return tl_shard->node(); }
 void prefetch(const ObjectID* ids, u32 n) { tl_shard->prefetch(ids, n); }
 
 }  // namespace snc
