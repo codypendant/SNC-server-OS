@@ -219,6 +219,23 @@ built the way (c) describes.
 
 ## 11. Mint leases (found while writing this)
 
+**Implemented (step 2b).** The control quorum runs a `leases` machine
+(body `next N`, from 2^32 up, above any lease a space minted from its own
+counter). `LEASES TAKE count` chooses `next N+count` in one Paxos round and
+returns `[N, N+count)`; each value carries a random tag, so two takes from
+the same base can never both win. A node (`Engine::Config::lease_blocks`)
+holds one block of 2^16 in its superblock (`lease_lo`, `lease_hi`, written
+before anything is minted from it), takes a new one when it is used up,
+and a promotion always takes a fresh one before it changes anything (a
+standby's superblock knows nothing of its primary's block). A node that
+cannot reach the control plane mints from the block it holds; one whose
+block is used up refuses to start, and a promotion without a block is
+refused (the standby stays a standby; the witnesses ask again). Without
+`lease_blocks` (no control plane) leases come from the space's own
+counter, as before.
+
+The original analysis:
+
 An ObjectID carries a 56-bit mint lease, and today each space allocates
 leases from its own superblock counter (`next_lease`). In milestone 1 two
 nodes can therefore mint the same `(lease, seq)` pair. It is harmless only
@@ -256,12 +273,18 @@ the block it holds.
    the hello already carries the epoch (step 1). Encoding:
    `include/snc/placement.h`. Checked by `test_cluster`
    (`test_kill_restart(true)`, docs/CLUSTER.md).
-   **Left for 2b:** cluster-wide mint lease blocks (a `leases` machine,
-   section 11; required before the first slot move); one witness set
-   running `ha/<g>` for several groups (today a set watches one pair,
-   `ha/0`); refreshing the map on a newer epoch seen in a hello or an
-   `E_MOVED` (nothing can raise the epoch until slot moves, so there is no
-   way to test it yet).
+   **Done (2b):** cluster-wide mint lease blocks (section 11) from a
+   `leases` machine; one witness quorum running `ha/<g>` for every group
+   (`snc_witness --group G=...`), next to `placement` and `leases`.
+   Checked by `tests/test_witness.py` (three groups on one quorum: one
+   fails over, one runs alone under a grant, nothing else moves) and
+   `tests/test_control.py` (real nodes: a group's primary killed, the
+   quorum promotes its standby; the other group's machine, placement and
+   epoch untouched; every lease block disjoint, the promoted member's
+   fresh).
+   **Left for step 3:** refreshing the map on a newer epoch seen in a
+   hello or an `E_MOVED` (nothing can raise the epoch until slots move,
+   so there is no way to test it before then).
 3. **Slot moves.** Seal, copy, cutover, with the `slot_state` values
    above; reads forwarded for stale clients.
 4. Real machines (unchanged).

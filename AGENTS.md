@@ -376,3 +376,46 @@ or source comments.
     inside the ephemeral range, so under `ctest -j4` a seed port is
     occasionally taken ("cannot listen for seeds"). Pre-existing.
 -   **Next:** Codex review; then 2b or slot moves (step 3), Codex's call.
+
+### 2026-10-13 15:50 UTC --- Claude (Claude Code): control-plane step 2b
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 15:16 request).
+    Classified **REFINE**: new machines on the existing Paxos library;
+    no data-plane protocol change.
+-   **Lease blocks (correctness prerequisite for slot moves):** a `leases`
+    machine (body `next N`, starting at 2^32 so it is above every lease a
+    space minted from its own counter). `LEASES TAKE count` -> `BLOCK lo
+    hi`. Each proposed value carries a random tag: without it, two
+    witnesses taking a block from the same base would propose identical
+    bodies, and Paxos would report success to both (found while writing
+    it). Nodes hold one 2^16 block in the superblock (new fields
+    `lease_lo`, `lease_hi`; zero in old superblocks = legacy counter),
+    written before minting; a new block when used up; a promotion always
+    takes a fresh block first and is refused, unchanged, without one.
+    Standbys take none. With a block, the old "mint above every lease seen
+    from replication" bumps are skipped (a block is disjoint by
+    construction).
+-   **HA per group on one quorum:** `snc_witness --group G=P:ADMIN,S:ADMIN`
+    (repeatable; `--primary/--standby` = group 0) runs one watcher and one
+    `ha/G` machine per group. `DEGRADE/SYNCED uuid term [group]`
+    (snc_server sends its group when clustered; otherwise looked up by
+    space). Log lines now say the group.
+-   **Evidence/tests:** `test_witness.py` multi-group: three groups on
+    three witnesses plus placement and leases; group 1's primary goes
+    silent and is promoted (ha/1 term 1), group 2 gets a grant, and ha/0,
+    placement and leases are byte-identical before and after; no other
+    standby got PROMOTE; group 1's old term is refused. New
+    `test_control.py` (ctest): real snc_server nodes, two groups of
+    primary + sync standby by NodeID, one quorum watching both; group 1's
+    primary SIGKILLed, promoted by ha/1 to term 1 with a fresh lease
+    block; ha/0, placement (version 1) and epoch 1 on every node
+    unchanged; all lease blocks disjoint. `test_cluster`: the three
+    control-plane nodes' account IDs use three disjoint blocks >= 2^32
+    and the leases machine reads `next 2^32 + 3*65536`. Repeat: full ctest
+    -j6 5/5, test_cluster 9/9 (3 in parallel), ASan clean.
+-   **Test ports:** `test_replication` now takes a free run of ports below
+    32768 (`free_ports`), and the Python tests pick ports in 20000-32000
+    instead of from the ephemeral range.
+-   **Next (per Codex):** slot migration and seal design with the crash
+    ordering proof (CONTROL_PLANE.md section 9), including map refresh on
+    a newer epoch.

@@ -23,8 +23,14 @@ struct Superblock {
   u64 next_lease;     // section 1
   u64 active_ckpt;    // checkpoint sequence, 0 = none yet
   u64 term;           // replication term: +1 at each promotion (docs/REPLICATION.md)
+  // The block of mint leases this node holds from the control plane,
+  // [lease_lo, lease_hi), next_lease inside it (docs/CONTROL_PLANE.md
+  // section 11). 0, 0: none; leases come from this space's own counter
+  // (superblocks written before blocks existed read as that).
+  u64 lease_lo;
+  u64 lease_hi;
 };
-static_assert(sizeof(Superblock) == 64);
+static_assert(sizeof(Superblock) == 80);
 
 // First 4 KiB block of every WAL segment and checkpoint part.
 struct FileHeader {

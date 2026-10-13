@@ -241,7 +241,7 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "control: %s\n", why.c_str());
       return 1;
     }
-    control::apply(setup, cfg);
+    control::apply(setup, control_members, cfg);
     // Clients reach it where the map says (if it says).
     const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
     if (me.client_port != 0) ncfg.base_port = me.client_port;
@@ -360,6 +360,8 @@ int main(int argc, char** argv) {
   }
   std::atomic<bool> is_standby{cfg.standby}, admin_stop{false};
   std::atomic<u64> term{eng.term()};
+  // The mint lease block held (0-0 without blocks), for STATUS.
+  std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
   std::thread admin;
   if (admin_port != 0) {
     int lfd = ha::listen_on(admin_port);
@@ -377,10 +379,11 @@ int main(int argc, char** argv) {
           if (line == "STATUS") {
             Engine::ReplStatus st = eng.replication_status();
             char b[256];
-            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu",
+            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu",
                           is_standby.load() ? 's' : eng.fenced() ? 'f' : (st.role == 1 ? 'p' : 'n'),
                           (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
-                          st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch);
+                          st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
+                          (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load());
             reply = b;
           } else if (line == "PROMOTE") {
             reply = is_standby.load() ? "OK" : "NO not a standby";
@@ -427,9 +430,20 @@ int main(int argc, char** argv) {
       timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
       if ((sig = sigtimedwait(&set, nullptr, &ts)) == SIGUSR1) {
         if (cfg.standby) {
-          double s = eng.promote();
+          double s = 0;
+          try {
+            s = eng.promote();
+          } catch (const std::exception& e) {
+            // Nothing changed (no lease block): still a standby; the
+            // witnesses ask again.
+            std::printf("promote refused: %s\n", e.what());
+            std::fflush(stdout);
+            continue;
+          }
           cfg.standby = false;
           term.store(eng.term());
+          lease_lo.store(eng.lease_block().first);
+          lease_hi.store(eng.lease_block().second);
           is_standby.store(false);
           std::printf("promoted to primary: term %llu, in %.3fs\n",
                       (unsigned long long)eng.term(), s);
@@ -441,7 +455,9 @@ int main(int argc, char** argv) {
       now = clock::now();
       if (!witnesses.empty() && !cfg.standby) {
         Engine::ReplStatus st = eng.replication_status();
-        const std::string tail = " " + uuid_hex + " " + std::to_string(eng.term());
+        // Clustered, the witnesses keep one HA machine per group: say which.
+        const std::string tail = " " + uuid_hex + " " + std::to_string(eng.term()) +
+                                 (cfg.cluster.empty() ? "" : " " + std::to_string(cfg.group_id));
         const bool healthy = st.degraded == 0 && st.blocked == 0 && st.live == st.shards;
         std::string reply;
         if (!granted && st.blocked > 0) {

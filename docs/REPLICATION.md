@@ -155,6 +155,13 @@ Each machine has its own versions; neither ever changes the other. A
 witness started without `--primary`/`--standby` serves placement only.
 State files from before the split are read as `ha/0`.
 
+One quorum can serve every group of a cluster: `--group G=PRIMARY:ADMIN,
+STANDBY:ADMIN` (repeated) watches each group's pair on its own machine,
+`ha/G`, with its own terms and grants; `--primary`/`--standby` are group 0.
+A clustered primary names its group in `DEGRADE` and `SYNCED`. The quorum
+also hands out cluster-wide mint lease blocks (`leases`,
+docs/CONTROL_PLANE.md section 11).
+
 ### Replicated witnesses
 
 One witness is a single point of failure for availability: while it is

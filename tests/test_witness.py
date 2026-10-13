@@ -32,8 +32,9 @@ UUID = "ab" * 16
 class FakeNode:
     """An admin port: STATUS (when answering), PROMOTE."""
 
-    def __init__(self, role):
+    def __init__(self, role, uuid=UUID):
         self.role = role
+        self.uuid = uuid
         self.term = 0
         self.answering = True
         self.promotes = 0
@@ -65,7 +66,7 @@ class FakeNode:
                 if not self.answering:
                     time.sleep(2)  # silent: the caller times out
                     return
-                reply = f"role={self.role} term={self.term} uuid={UUID} shards=4 live=4 degraded=0 blocked=0"
+                reply = f"role={self.role} term={self.term} uuid={self.uuid} shards=4 live=4 degraded=0 blocked=0"
             elif line == "PROMOTE":
                 self.promotes += 1
                 if self.role == "s":
@@ -91,21 +92,102 @@ def ask(port, line, timeout=3):
 
 
 def free_ports(n):
-    socks = [socket.socket() for _ in range(n)]
-    for s in socks:
-        s.bind(("127.0.0.1", 0))
-    ports = [s.getsockname()[1] for s in socks]
-    for s in socks:
-        s.close()
+    """n ports free to bind now, below the ephemeral range (32768 up), where
+    the kernel would also hand them to outgoing connections."""
+    ports = []
+    rnd = random.Random(os.getpid() * 7919 + time.time_ns())
+    while len(ports) < n:
+        p = rnd.randrange(20000, 32000)
+        if p in ports:
+            continue
+        s = socket.socket()
+        try:
+            s.bind(("127.0.0.1", p))
+            ports.append(p)
+        except OSError:
+            pass
+        finally:
+            s.close()
     return ports
 
 
-def state_of(path):
+def state_of(path, machine="ha/0"):
     with open(path) as f:
         for line in f:
-            if line.startswith("chosen ha/0 "):
-                return line.split()[2:]  # version uuid term degraded primary
+            if line.startswith(f"chosen {machine} "):
+                return line.split()[2:]  # version, then the body (ha: uuid term degraded primary)
     return None
+
+
+def multi_group(build, work):
+    """Three groups' HA on one witness quorum (docs/CONTROL_PLANE.md section
+    10), next to placement and leases: one group fails over, another runs
+    alone under a grant, and nothing else moves."""
+    uuids = [f"{g:02x}" * 16 for g in range(3)]
+    pairs = [(FakeNode("p", uuids[g]), FakeNode("s", uuids[g])) for g in range(3)]
+    ports = free_ports(3)
+    peers = ",".join(f"127.0.0.1:{p}" for p in ports)
+    ws = []
+    for i, p in enumerate(ports):
+        args = [f"{build}/snc_witness", "--port", str(p), "--state", f"{work}/w{i}.state",
+                "--failover-ms", "200", "--poll-ms", "20", "--id", str(i), "--peers", peers]
+        for g, (pr, sb) in enumerate(pairs):
+            args += ["--group", f"{g}=127.0.0.1:{pr.port},127.0.0.1:{sb.port}"]
+        ws.append(subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+
+    def chosen(machine):
+        """The machine's chosen value on a majority (READ on every witness)."""
+        vals = [ask(p, f"READ {machine}") for p in ports]
+        vals = [v.split(" ", 2)[1:] for v in vals if v and v.startswith("STATE ")]
+        if not vals:
+            return 0, ""
+        best = max(vals, key=lambda v: int(v[0]))
+        return int(best[0]), best[1] if len(best) > 1 else ""
+
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if all(chosen(f"ha/{g}")[1].startswith(uuids[g]) for g in range(3)):
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError("the witnesses never learned every group's primary")
+        assert ask(ports[0], "PLACEMENT INIT v1 test-map epoch=1") == "OK"
+        block = ask(ports[1], "LEASES TAKE 65536")
+        assert block.startswith("BLOCK "), block
+        before = {m: chosen(m) for m in ["ha/0", "ha/1", "ha/2", "placement", "leases"]}
+        # Group 2's primary runs alone under a grant (its own machine).
+        assert ask(ports[2], f"DEGRADE {uuids[2]} 0 2") == "OK"
+        # Group 1's primary goes silent: its standby is promoted.
+        pairs[1][0].answering = False
+        deadline = time.time() + 10
+        while time.time() < deadline and pairs[1][1].role != "p":
+            time.sleep(0.02)
+        assert pairs[1][1].role == "p" and pairs[1][1].term == 1, "group 1's standby was not promoted"
+        time.sleep(0.5)  # anything else the witnesses would do, they do now
+        after = {m: chosen(m) for m in before}
+        # Group 1: a new term, its standby now primary.
+        v1, b1 = after["ha/1"]
+        assert b1.split() == [uuids[1], "1", "0", "1"], b1
+        # Group 2: degraded, nothing else. Group 0, placement, leases: unchanged.
+        assert after["ha/2"][1].split() == [uuids[2], "0", "1", "0"], after["ha/2"]
+        assert after["ha/2"][0] == before["ha/2"][0] + 1
+        for m in ["ha/0", "placement", "leases"]:
+            assert after[m] == before[m], f"{m} moved: {before[m]} -> {after[m]}"
+        assert pairs[0][1].promotes == 0 and pairs[2][1].promotes == 0, "another group's standby promoted"
+        # The old term of group 1 is refused; group 0's primary is not.
+        assert ask(ports[0], f"DEGRADE {uuids[1]} 0 1").startswith("NO term 0 was replaced")
+        assert ask(ports[0], f"SYNCED {uuids[0]} 0 0") == "OK"
+        print(f"multi-group: 3 groups on one witness quorum; group 1 failed over to term 1, group 2 "
+              f"granted to run alone, group 0, placement (version {after['placement'][0]}) and leases "
+              f"unchanged")
+    finally:
+        for w in ws:
+            if w.poll() is None:
+                w.kill()
+            w.wait()
+        for pr, sb in pairs:
+            pr.stop = sb.stop = True
 
 
 def trial(build, work, n_down=0, seed=0):
@@ -179,6 +261,11 @@ def main():
         shutil.rmtree(work, ignore_errors=True)
     print(f"witness race: {trials} trials, {counts['granted']} granted, {counts['promoted']} "
           f"promoted, never both; with one witness down: {down}")
+    work = tempfile.mkdtemp(prefix="snc-witness-")
+    try:
+        multi_group(build, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
     print("test_witness: ok")
 
 

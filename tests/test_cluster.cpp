@@ -181,7 +181,7 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
       std::fprintf(stderr, "node %u: %s\n", nd.id, why.c_str());
       _exit(3);
     }
-    control::apply(setup, c);
+    control::apply(setup, ms, c);
     CHECK_EQ(setup.group, nd.id);
     CHECK_EQ(setup.member, 0u);
     write_file(nd.dir + "/setup." + std::to_string(nd.id) + (init ? "" : ".restart"),
@@ -541,6 +541,27 @@ void test_kill_restart(bool use_control) {
   ::usleep(100000);  // the others carry on, their follow-ups to it dropped
   if (use_control) {
     for (u32 n = 0; n < kNodes; ++n) CHECK_EQ(read_file(dir + "/setup." + std::to_string(n)), "0 1");
+    // Mint leases are cluster-wide (docs/CONTROL_PLANE.md section 11): each
+    // node took its own block from the control plane, at or above 2^32, and
+    // no lease appears in two groups' IDs.
+    std::map<u64, u32> lease_group;
+    for (u32 n = 0; n < kNodes; ++n) {
+      for (const ObjectID& id : read_ids(dir, n)) {
+        CHECK(id.lease() >= (u64{1} << 32));
+        auto [it, fresh] = lease_group.emplace(id.lease(), n);
+        CHECK(fresh || it->second == n);
+      }
+    }
+    std::set<u64> blocks;
+    for (auto& [lease, g] : lease_group) blocks.insert((lease - (u64{1} << 32)) >> 16);
+    CHECK_EQ(blocks.size(), u64{kNodes});
+    control::Members ms;
+    CHECK(control::parse_members(control_list, ms));
+    std::string reply;
+    CHECK(ha::ask(ms[0].first, ms[0].second, "READ leases", reply, 1000));
+    CHECK(reply.rfind("STATE " + std::to_string(kNodes) + " next " + std::to_string((u64{1} << 32) + kNodes * 65536), 0) == 0);
+    std::printf("mint leases: %zu leases in use, from %zu disjoint blocks taken from the control plane (%s)\n",
+                lease_group.size(), blocks.size(), reply.c_str());
     for (pid_t w : witnesses) {
       ::kill(w, SIGKILL);
       ::waitpid(w, &st, 0);
