@@ -10,6 +10,7 @@
 #include <map>
 #include <mutex>
 #include <random>
+#include <set>
 #include <string>
 
 #include "harness.h"
@@ -417,9 +418,45 @@ void test_crash() {
     ::waitpid(pid, &st, 0);
     CHECK(WIFSIGNALED(st));
 
-    Engine eng(config(4, dir, false));
+    Engine::Config rc = config(4, dir, false);
+    rc.hold_emits = true;
+    Engine eng(rc);
     eng.start();
     u64 pending = snapshot(eng).entries;
+    // The recovered state already conserves money: balances plus what is
+    // in flight (outbox entries the destination has not credited).
+    {
+      std::map<ObjectID, std::vector<u8>> objs;
+      for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
+        eng.for_each_object(sh, [&](const ObjectHeader& h) {
+          objs[h.id].assign(h.payload(), h.payload() + h.length);
+        });
+      }
+      std::set<std::pair<ObjectID, u64>> credited;  // (from, seq) per destination, below
+      std::map<ObjectID, std::set<std::pair<ObjectID, u64>>> inbox_of;
+      i64 total = 0, flying = 0;
+      for (auto& [id, p] : objs) {
+        const auto* a = reinterpret_cast<const AccountV1*>(p.data());
+        const auto* in = reinterpret_cast<const InEntry*>(reinterpret_cast<const OutEntry*>(a + 1) + a->n_out);
+        for (u16 i = 0; i < a->n_in; ++i) {
+          if (in[i].ok) inbox_of[id].insert({in[i].from, in[i].seq});
+        }
+        total += a->balance_cents;
+      }
+      for (auto& [id, p] : objs) {
+        const auto* a = reinterpret_cast<const AccountV1*>(p.data());
+        const auto* out = reinterpret_cast<const OutEntry*>(a + 1);
+        for (u16 i = 0; i < a->n_out; ++i) {
+          if (!inbox_of[out[i].to].count({id, out[i].seq})) flying += out[i].amount;
+        }
+      }
+      if (total + flying != kStart * 200) {
+        std::fprintf(stderr, "round %u: recovered state: balances %lld + in flight %lld != %lld\n", round,
+                     (long long)total, (long long)flying, (long long)(kStart * 200));
+      }
+      CHECK_EQ(total + flying, kStart * 200);
+    }
+    eng.release_emits();
     CHECK(eng.wait_emits());
     Snapshot s = snapshot(eng);
     std::printf("crash round %u: %llu entries in flight at recovery\n", round,

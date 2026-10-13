@@ -29,6 +29,7 @@ struct EngineHooks {
   const SlotMap* slots;
   u64 lease_base;
   const ClusterMap* cluster;
+  const std::atomic<bool>* serving;
 };
 
 void hook_init(void* user) {
@@ -38,6 +39,9 @@ void hook_init(void* user) {
                       h->cfg->runtime.pages);
   s->set_mint_local(h->cfg->mint_local);
   s->set_batch_remote(h->cfg->batch_remote);
+  // Recovering: no follow-ups run until every shard has finished (see
+  // Engine::recover, step 7).
+  s->pause_emits(h->cfg->hold_emits || !h->cfg->data_dir.empty());
   if (!h->cluster->nodes.empty()) s->set_cluster(h->cluster, h->cfg->node_id);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -62,7 +66,9 @@ void hook_batch(void*, const Msg* const* msgs, u32 n) {
 bool hook_poll(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   bool busy = current_shard()->poll();
-  if (h->cfg->app_poll) busy |= h->cfg->app_poll(h->cfg->app_user, sri_shard_id());
+  if (h->cfg->app_poll && h->serving->load(std::memory_order_acquire)) {
+    busy |= h->cfg->app_poll(h->cfg->app_user, sri_shard_id());
+  }
   current_shard()->flush_batches();  // after the app issued this iteration's requests
   return busy;
 }
@@ -99,6 +105,9 @@ void remove_tree(const std::string& path) {
 struct EngineState {
   EngineHooks hooks;
   std::vector<ShardStats> final_stats;
+  // The application's poll hook (a network front end) runs only once every
+  // shard has recovered.
+  std::atomic<bool> serving{false};
 };
 
 static std::unique_ptr<EngineState> g_state;
@@ -125,7 +134,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
-  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_};
+  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -150,9 +159,15 @@ void Engine::start() {
     // across processes, which is harmless because nothing persists.
     rt_->start();
     running_ = true;
+    g_state->serving = true;
     return;
   }
   recover();
+  // Follow-ups were held while shards recovered: one shard's would otherwise
+  // reach another still recovering, run there before its WAL is open, and
+  // be acted on as durable though never logged (a lost credit).
+  if (!cfg_.hold_emits) release_emits();
+  g_state->serving = true;
 }
 
 // Follow-ups queued on any shard or still in a ring, and emitted so far.
@@ -167,6 +182,10 @@ static void emit_totals(NativeRuntime& rt, u64& in_flight, u64& emitted) {
   });
   in_flight = queued + (sent - received);
   emitted = e;
+}
+
+void Engine::release_emits() {
+  rt_->run_on_all([](u16) { current_shard()->pause_emits(false); });
 }
 
 bool Engine::wait_emits(double timeout_s) {
@@ -527,13 +546,16 @@ double Engine::promote() {
     ++sb_.generation;
     write_superblock(cfg_.data_dir, sb_);
   }
-  // 3. Serve.
+  // 3. Serve. Follow-ups wait until every shard is a primary (as after
+  // recovery): one sent to a shard still a standby would run outside its log.
   cfg_.standby = false;
   rt_->run_on_all([&](u16 s) {
     Shard* sh = current_shard();
+    sh->pause_emits(true);
     sh->set_lease(base + s);
     sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_), cfg_.data_dir);
   });
+  release_emits();
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 

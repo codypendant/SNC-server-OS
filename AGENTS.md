@@ -157,12 +157,19 @@ or source comments.
     holds the entry (a settle lost on a link). Classified **REFINE**:
     built on the existing follow-up and resume mechanism; the map is
     static and nodes have no standby yet.
--   **Found:** `test_transfer`'s SIGKILL rounds lose money under CPU
-    load (about 1 run in 4 with four copies in parallel), on `main`
-    too. Not yet root-caused.
+-   **Found and fixed:** `test_transfer`'s SIGKILL rounds lost money
+    under CPU load (7 of 24 runs with four copies in parallel, on
+    `main` too). Cause: during recovery (and promotion) one shard could
+    start running follow-ups while another was still finishing; a
+    credit then ran on a shard whose WAL was not open yet, was treated
+    as durable without being logged, and its settle removed the
+    sender's outbox entry. Now follow-ups are held until every shard has
+    recovered or been promoted, and the network front end serves only
+    after recovery. 0 of 40 parallel runs fail since. The crash test
+    also checks that the recovered state conserves money before
+    anything resumes (`Config::hold_emits`).
 -   **Evidence/tests:** `tests/test_cluster.cpp` (three node processes,
     one SIGKILLed and restarted mid-run: money conserved, nothing in
     flight); full ctest passes.
--   **Next:** Root-cause the transfer crash loss. Then the KEEP / REFINE
-    / RECONSIDER audit as `docs/ARCHITECTURE_AUDIT.md`, folding in the
+-   **Next:** The KEEP / REFINE / RECONSIDER audit as `docs/ARCHITECTURE_AUDIT.md`, folding in the
     multi-node design, before milestone 2 (directory in the witnesses).
