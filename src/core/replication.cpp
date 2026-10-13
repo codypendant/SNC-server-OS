@@ -5,6 +5,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -40,6 +41,16 @@ long write_some(int fd, const u8* p, std::size_t n) {
     return -1;
   }
   return static_cast<long>(done);
+}
+
+// Wakes the shard from its idle sleep when `fd` is readable. A closed fd
+// leaves the set by itself.
+void watch(int epfd, int fd) {
+  if (epfd < 0 || fd < 0) return;
+  epoll_event ev{};
+  ev.events = EPOLLIN;
+  ev.data.fd = fd;
+  ::epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev);
 }
 
 }  // namespace
@@ -126,6 +137,7 @@ void Sender::start_connect(u64 now_ns) {
     return;
   }
   state_ = State::CONNECTING;
+  watch(cfg_.epoll_fd, fd_);
   hello_off_ = 0;
   ++stats_.connects;
 }
@@ -284,6 +296,7 @@ Receiver::Receiver(const Config& cfg, Apply apply, void* ctx)
     std::abort();
   }
   set_nonblock(listen_);
+  watch(cfg_.epoll_fd, listen_);
   in_.resize(4u << 20);
 }
 
@@ -331,6 +344,7 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn) {
       set_nodelay(c);
       if (conn_ >= 0) drop();
       conn_ = c;
+      watch(cfg_.epoll_fd, conn_);
       ++stats_.connects;
       did = true;
     }

@@ -286,6 +286,7 @@ class Shard {
   std::unique_ptr<repl::Receiver> receiver_;
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby
+  int repl_epfd_ = -1;          // the replication sockets, for idle wake-ups
   std::deque<Waiter> waiters_;  // sorted by lsn
 
   // FIFO over a vector that keeps its memory: std::deque allocates and

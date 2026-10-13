@@ -154,6 +154,64 @@ primary shard i                              standby shard i
   a standby past the retention budget reported lost; a sync primary with
   no standby degrading after its timeout.
 
+## Results
+
+4-vCPU VM, one disk, loopback TCP, 1M accounts, every ack durable. The
+standby writes its own WAL with fsync on the same disk.
+
+**In process** (`bench/run_replication.sh`, `bench/results/replication.csv`;
+`snc_bench`, 2 shards on cores 0-1, depth 256; the standby on cores 2-3;
+3 runs, medians):
+
+| Workload | No standby | Async standby | Sync standby |
+| --- | --- | --- | --- |
+| 50% reads | 1.49M ops/s, p99 1.0 ms | 0.93M, p99 1.8 ms | 0.81M, p99 2.1 ms |
+| Deposits only | 557K, p99 1.6 ms | 484K, p99 2.0 ms | 327K, p99 2.6 ms |
+
+**Against Redis and PostgreSQL** (`bench/conventional/run_replication.py`,
+`bench/results/replication_stack.csv`; servers on cores 0-1, replica on
+core 2, the same 50/50 workload as docs/CONVENTIONAL.md; SNC through
+`snc_server` and one `net_bench` thread on core 3):
+
+| System | No replica | Async replica | Sync replica |
+| --- | --- | --- | --- |
+| SNC | 1.06M ops/s | 868K (0.82×) | 640K (0.60×) |
+| Redis, AOF always on both | 129K | 104K (0.80×) | not available |
+| PostgreSQL, pipelined | 34K | 38K (1.10×) | 29K (0.84×) |
+
+With a synchronous standby SNC does about 22× PostgreSQL with synchronous
+streaming replication, and about 6× Redis with its (asynchronous)
+replica.
+
+What the numbers say:
+
+1. **Sync costs 40-46% here, and most of it is not waiting.** Sync adds
+   the standby's fsync and a loopback round trip to each group commit;
+   p50 moves from 0.2 to 0.4 ms. But async, which waits for nothing,
+   already costs 13-38%. On loopback the kernel charges TCP receive work
+   to the sending core, the standby's shards take cores that the
+   primary's io_uring workers used, and both WALs share one disk. A
+   standby on its own machine with its own disk removes all three. This VM
+   cannot show that, so these costs are an upper bound.
+2. **The faster the primary, the more the standby costs in relative
+   terms.** The 50/50 mix keeps 0.54× in process with sync, deposits-only
+   keeps 0.59×: the fixed per-record costs above weigh more at 1.5M ops/s
+   than at 557K.
+3. **PostgreSQL's async replica is faster than none**: repeatable over 3
+   runs, likely the restart that enabling `wal_level = replica` needs
+   (fresh shared buffers and a checkpoint) rather than replication itself.
+   Its sync cost (0.84× of none) is smaller in relative terms because
+   each commit already waits on its own fsync with 8 connections; SNC's
+   group commit is far shorter, so a round trip weighs more.
+4. **Redis has no synchronous mode** for a script: `WAIT` cannot run
+   inside `EVALSHA`. A Redis deposit acked with a replica can still be
+   lost with the primary.
+5. **A standby must not share cores with a spinning process.** A first
+   run put the standby on the load generator's cores: sync throughput
+   swung between 0.3K and 350K ops/s, with stalls of several seconds,
+   because the standby's io_uring workers starved. The standby needs its
+   cores (or a machine) to itself, like a primary.
+
 ## Open questions for later rounds
 
 - Automatic failover needs an outside arbiter (or three nodes) to avoid

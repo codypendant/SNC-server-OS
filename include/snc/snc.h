@@ -162,6 +162,7 @@ struct ShardStats {
   u64 repl_bytes = 0;          // primary: bytes shipped
   u64 repl_retained_bytes = 0; // primary: unacked records kept in memory
   u64 repl_records = 0;        // standby: records applied
+  u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
   bool wal_direct = false;
 };
 

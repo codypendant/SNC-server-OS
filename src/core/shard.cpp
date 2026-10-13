@@ -1,6 +1,9 @@
 #include "shard.h"
 
+#include "snc/sri.h"
+
 #include <fcntl.h>
+#include <sys/epoll.h>
 #include <unistd.h>
 #include <xxhash.h>
 
@@ -39,6 +42,7 @@ Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, Page
 
 Shard::~Shard() {
   if (ckpt_.fd >= 0) ::close(ckpt_.fd);
+  if (repl_epfd_ >= 0) ::close(repl_epfd_);
   // Objects live in the shard heap, which the backend destroys with the worker.
 }
 
@@ -1038,6 +1042,9 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
       wal_->on_durable = &Shard::on_wal_durable;
       wal_->on_durable_ctx = this;
     }
+    repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
+    sri_watch_fd(repl_epfd_);
+    repl_cfg_.receiver.epoll_fd = repl_epfd_;
     receiver_ = std::make_unique<repl::Receiver>(repl_cfg_.receiver, &Shard::apply_replicated, this);
     return;
   }
@@ -1060,6 +1067,9 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     wal_->on_durable = &Shard::on_wal_durable;
     wal_->on_durable_ctx = this;
     if (repl_cfg_.primary) {
+      repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
+      sri_watch_fd(repl_epfd_);
+      repl_cfg_.sender.epoll_fd = repl_epfd_;
       sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
       wal_->on_flush = &Shard::on_wal_flush;
       wal_->on_flush_ctx = this;
@@ -1086,8 +1096,11 @@ bool Shard::apply_replicated(void* ctx, const u8* rec) {
 bool Shard::poll_replication() {
   const u64 now = sri_now_ns();
   if (receiver_) {
+    // Idle sleeps wake on the sockets (repl_epfd_). Stay awake while records
+    // wait to become durable here: the primary is waiting for their ack,
+    // and an idle sleep would add up to a millisecond to it.
     bool did = receiver_->poll(wal_->next_lsn(), wal_->durable_lsn());
-    return did || receiver_->connected();
+    return did || wal_->durable_lsn() + 1 < wal_->next_lsn();
   }
   if (!sender_) return false;
   bool busy = false;
@@ -1111,8 +1124,9 @@ bool Shard::poll_replication() {
       repl_degraded_ = false;
     }
   }
-  // Keep polling while records are unacked or the link is not up.
-  return busy || !sender_->live() || sender_->acked_lsn() + 1 < wal_->next_lsn();
+  // Acks wake an idle shard through repl_epfd_; reconnects and the timeout
+  // run on the idle loop's 1 ms tick.
+  return busy;
 }
 
 // ---- Checkpoint (spec section 12) ------------------------------------------------------
@@ -1233,10 +1247,12 @@ ShardStats Shard::stats() const {
     s.repl_acked_lsn = sender_->acked_lsn();
     s.repl_bytes = sender_->stats().bytes_sent;
     s.repl_retained_bytes = sender_->stats().retained_bytes;
+    s.repl_connects = sender_->stats().connects;
   } else if (receiver_) {
     s.repl_role = 2;
     s.repl_live = receiver_->connected();
     s.repl_records = receiver_->stats().records;
+    s.repl_connects = receiver_->stats().connects;
   }
   s.map_pages = map_.page_mode();
   s.heap_pages = alloc_.stats().arena_pages;

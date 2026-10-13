@@ -170,6 +170,19 @@ int main(int argc, char** argv) {
     frames += st.conn.frames_in;
     for (u16 d = 0; d < cfg.runtime.n_shards; ++d) ring += eng.runtime().ring_stats(s, d).msgs;
   }
+  for (u16 s = 0; s < cfg.runtime.n_shards; ++s) {
+    ShardStats ss = eng.stats(s);
+    if (ss.repl_role == 1) {
+      std::printf("shard %u: replication primary, %s%s%s, acked LSN %llu, %.1f MiB shipped, "
+                  "%llu connects\n", s, ss.repl_live ? "live" : "down",
+                  ss.repl_degraded ? ", degraded" : "", ss.repl_lost ? ", LOST" : "",
+                  (unsigned long long)ss.repl_acked_lsn, ss.repl_bytes / 1048576.0,
+                  (unsigned long long)ss.repl_connects);
+    } else if (ss.repl_role == 2) {
+      std::printf("shard %u: standby, %llu records applied, %llu connects\n", s,
+                  (unsigned long long)ss.repl_records, (unsigned long long)ss.repl_connects);
+    }
+  }
   std::printf("total: requests %llu forwarded %.1f%% frames/recv %.1f frames/send %.1f "
               "ring msgs/request %.2f\n",
               (unsigned long long)req, 100.0 * fwd / std::max<u64>(1, req),

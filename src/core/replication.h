@@ -56,6 +56,7 @@ class Sender {
     u16 n_shards = 0;
     u32 slot_crc = 0;
     u64 retain_bytes = 1ull << 30;  // unacked records kept for catch-up
+    int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
   };
   explicit Sender(const Config& cfg);
   ~Sender();
@@ -128,6 +129,7 @@ class Receiver {
     u16 shard = 0;
     u16 n_shards = 0;
     u32 slot_crc = 0;
+    int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
   };
   // `apply` runs for each record of a whole frame, in order; it returns
   // false if the record cannot follow the WAL (an LSN gap), which drops the
