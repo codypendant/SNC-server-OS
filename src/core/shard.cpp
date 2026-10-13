@@ -44,8 +44,19 @@ Shard::~Shard() {
 
 // ---- Entry-shard API -----------------------------------------------------------
 
+namespace {
+// A standby only installs what its primary sends (docs/REPLICATION.md).
+void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
+  ExecResult r;
+  r.status = Status::E_STANDBY;
+  r.id = id;
+  done(ctx, r);
+}
+}  // namespace
+
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
+  if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -72,6 +83,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
 
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx, const ObjectID* near) {
+  if (repl_cfg_.standby) return refuse_standby(ObjectID{}, done, ctx);
   ObjectID id = minter_.next();
   // Skipping sequence numbers keeps IDs unique and never reused (C12); with
   // N shards this takes N hashes per create on average, and kSlots to land
@@ -95,6 +107,7 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 }
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
+  if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
     ++stats_.ops_local;
@@ -462,6 +475,7 @@ void Shard::release_waiters() {
 bool Shard::poll() {
   bool busy = run_emits();
   if (wal_) busy |= wal_->poll(sri_now_ns(), /*force=*/false);
+  if (sender_ || receiver_) busy |= poll_replication();
   if (ckpt_.active) {
     checkpoint_step();
     busy = true;
@@ -470,6 +484,8 @@ bool Shard::poll() {
 }
 
 bool Shard::quiesced() const {
+  // A primary stops only once a connected standby has everything.
+  if (sender_ && sender_->live() && sender_->acked_lsn() + 1 < wal_->next_lsn()) return false;
   return (!wal_ || wal_->idle()) && waiters_.empty() && !ckpt_.active &&
          free_pending_.size() == pending_.size() && free_gathers_.size() == gathers_.size();
 }
@@ -523,6 +539,10 @@ void Shard::rebuild_index() {
 
 void Shard::index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion done,
                          void* ctx) {
+  if (repl_cfg_.standby) {
+    done(ctx, Status::E_STANDBY, nullptr, 0);
+    return;
+  }
   if (registry().index(index_id) == nullptr || key.len > kMaxIndexKey) {
     done(ctx, Status::E_BAD_ARGS, nullptr, 0);
     return;
@@ -969,6 +989,7 @@ void Shard::return_buffer(u16 owner, u8* ptr) {
 // ---- Recovery (spec section 12) -------------------------------------------------------
 
 void Shard::install(const WalRecord& r, const u8* payload) {
+  max_lease_seen_ = std::max(max_lease_seen_, r.id.lease());
   ObjectHeader* o = map_.find(r.id);
   auto type = static_cast<RecType>(r.rec_type);
   if (type == RecType::DELETE) {
@@ -1009,6 +1030,17 @@ void Shard::install(const WalRecord& r, const u8* payload) {
 }
 
 void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
+  if (repl_cfg_.standby) {
+    // A standby runs no follow-ups and serves no lookups: it only installs
+    // and logs. Promotion restarts it as a primary, which runs both.
+    if (!wal_cfg.data_dir.empty()) {
+      wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
+      wal_->on_durable = &Shard::on_wal_durable;
+      wal_->on_durable_ctx = this;
+    }
+    receiver_ = std::make_unique<repl::Receiver>(repl_cfg_.receiver, &Shard::apply_replicated, this);
+    return;
+  }
   rebuild_index();
   // Recovered state is durable, so whatever resume hooks emit is ready now.
   resuming_ = true;
@@ -1027,7 +1059,60 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
     wal_->on_durable = &Shard::on_wal_durable;
     wal_->on_durable_ctx = this;
+    if (repl_cfg_.primary) {
+      sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
+      wal_->on_flush = &Shard::on_wal_flush;
+      wal_->on_flush_ctx = this;
+      repl_hold_ = repl_cfg_.sync;
+    }
   }
+}
+
+// ---- Replication (docs/REPLICATION.md) -------------------------------------------------
+
+void Shard::on_wal_flush(void* ctx, const u8* recs, u32 len, u64 first_lsn, u64 last_lsn) {
+  static_cast<Shard*>(ctx)->sender_->on_flush(recs, len, first_lsn, last_lsn);
+}
+
+bool Shard::apply_replicated(void* ctx, const u8* rec) {
+  auto* s = static_cast<Shard*>(ctx);
+  WalRecord r;
+  std::memcpy(&r, rec, sizeof(r));
+  if (!s->wal_->append_raw(rec)) return false;  // not the next LSN
+  s->install(r, rec + sizeof(r));
+  return true;
+}
+
+bool Shard::poll_replication() {
+  const u64 now = sri_now_ns();
+  if (receiver_) {
+    bool did = receiver_->poll(wal_->next_lsn(), wal_->durable_lsn());
+    return did || receiver_->connected();
+  }
+  if (!sender_) return false;
+  bool busy = false;
+  if (sender_->poll(now)) {
+    busy = true;
+    if (repl_hold_) release_waiters();
+  }
+  if (repl_cfg_.sync) {
+    if (repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 && sender_->down_since_ns() != 0 &&
+        now - sender_->down_since_ns() >= repl_cfg_.timeout_ns) {
+      // The standby has been gone too long: keep serving on local
+      // durability alone and say so (docs/REPLICATION.md).
+      std::fprintf(stderr, "snc: shard %u: standby unreachable, continuing without it\n", id_);
+      repl_hold_ = false;
+      repl_degraded_ = true;
+      release_waiters();
+    } else if (repl_degraded_ && sender_->live() && sender_->acked_lsn() >= wal_->durable_lsn()) {
+      std::fprintf(stderr, "snc: shard %u: standby caught up, replication is synchronous again\n",
+                   id_);
+      repl_hold_ = true;
+      repl_degraded_ = false;
+    }
+  }
+  // Keep polling while records are unacked or the link is not up.
+  return busy || !sender_->live() || sender_->acked_lsn() + 1 < wal_->next_lsn();
 }
 
 // ---- Checkpoint (spec section 12) ------------------------------------------------------
@@ -1140,6 +1225,19 @@ ShardStats Shard::stats() const {
   s.emits_in_flight = emits_in_flight();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
+  if (sender_) {
+    s.repl_role = 1;
+    s.repl_live = sender_->live();
+    s.repl_degraded = repl_degraded_;
+    s.repl_lost = sender_->lost();
+    s.repl_acked_lsn = sender_->acked_lsn();
+    s.repl_bytes = sender_->stats().bytes_sent;
+    s.repl_retained_bytes = sender_->stats().retained_bytes;
+  } else if (receiver_) {
+    s.repl_role = 2;
+    s.repl_live = receiver_->connected();
+    s.repl_records = receiver_->stats().records;
+  }
   s.map_pages = map_.page_mode();
   s.heap_pages = alloc_.stats().arena_pages;
   s.heap_arena_bytes = alloc_.stats().arena_bytes;

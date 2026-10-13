@@ -1,11 +1,12 @@
-# Replication (design)
+# Replication
 
 cody picked replication as the step after cross-core batching (2026-10-13).
 The goal is that losing the machine a space runs on loses no acknowledged
 write. Today a durable acknowledgement means the write is on the local disk
 (spec C2), and nothing survives that disk.
 
-This note fixes the design before the code. It follows the handoff's
+This note was written before the code; "As built" at the end says where
+v1 differs. It follows the handoff's
 "Later" list, where replication comes before a distributed directory and a
 cluster object space. So this round is one primary and one standby, not a
 cluster.
@@ -116,6 +117,42 @@ primary shard i                              standby shard i
    async, and without a standby, over loopback. Then the same against
    Redis with a replica and PostgreSQL with synchronous streaming
    replication.
+
+## As built (v1)
+
+- **Code.** `src/core/replication.{h,cpp}` (Sender and Receiver, framing,
+  non-blocking sockets polled from each shard's loop), the hooks in
+  `Shard` (`on_wal_flush`, `apply_replicated`, `poll_replication`, the
+  `durable()` rule) and `WalStream::append_raw` plus an `on_flush` hook.
+  `Engine::Config` gains `replica_host/port/sync/timeout_ms/retain_bytes`,
+  `standby`, `standby_host` and `init_uuid`; `snc_server` gains
+  `--replica-of`, `--async-replica`, `--replica-timeout-ms`, `--standby`,
+  `--standby-host` and `--space-uuid`, and prints the space UUID.
+- **Catch-up is from memory, not disk.** Each primary shard keeps the
+  records it has flushed and the standby has not acked, up to
+  `replica_retain_bytes` (1 GiB by default). On reconnect the standby's
+  `next_lsn` picks the resume point, mid-flush if need be. A standby that
+  needs records already dropped is reported `repl_lost` and must be
+  reseeded; the primary never connects to it again. Reading the gap from
+  WAL files is the follow-up that lifts the memory bound. Checkpoints do
+  not wait for the standby.
+- **Seeding** is a new space on both sides: create the standby first with
+  the primary's UUID (`--space-uuid`, or `init_uuid`), or copy a stopped
+  primary's directory. The handshake refuses another space, shard count or
+  slot map.
+- **Stop** waits for a connected standby to ack everything, so a clean
+  stop leaves the two logs equal.
+- **Mint leases.** A promoted standby holds IDs minted under its primary's
+  leases, which its own superblock never handed out. Recovery tracks the
+  highest lease it installs and mints above it; checkpoints persist it.
+- **Standby checkpoints** may truncate records it received, as on any
+  engine; the two logs then agree where both have a record.
+- **Tests** (`tests/test_replication.cpp`): equal logs and objects after a
+  clean run; SIGKILL of a sync primary under transfers and deposits, then
+  promotion, three rounds (every acked deposit present, transfers
+  conserved, new IDs unique); a late standby catching up under live load;
+  a standby past the retention budget reported lost; a sync primary with
+  no standby degrading after its timeout.
 
 ## Open questions for later rounds
 
