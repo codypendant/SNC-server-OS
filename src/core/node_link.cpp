@@ -31,7 +31,7 @@ struct Hello {
   u16 group, shard;
   u32 crc;
   u32 pad;
-  u64 epoch;  // placement epoch: a failover never changes it
+  u64 epoch;  // the sender's placement epoch when it connected (informational)
 };
 static_assert(sizeof(Hello) == 24);
 
@@ -71,7 +71,7 @@ struct NodeLinks::In {
 };
 
 NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
-    : group_(group), shard_(shard), crc_(map.crc()), epoch_(map.epoch) {
+    : group_(group), shard_(shard), crc_(map.shape_crc()), epoch_(map.epoch) {
   epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
   sri_watch_fd(epfd_);
   base_.assign(map.groups.size(), 0);
@@ -231,12 +231,14 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
       if (in.have < sizeof(Hello)) continue;
       Hello h;
       std::memcpy(&h, in.buf.data(), sizeof(h));
-      if (h.magic != kMagic || h.crc != crc_ || h.epoch != epoch_) {
+      // Placement epochs may differ (a slot moved and one side has not
+      // refreshed yet): each frame carries its sender's, and the receiver
+      // deals with a difference (Shard::on_link_frame). The groups and
+      // their shard counts must match.
+      if (h.magic != kMagic || h.crc != crc_) {
         std::fprintf(stderr,
-                     "snc: node link: refused group %u shard %u: %s (its cluster map crc %08x epoch %llu, "
-                     "ours %08x epoch %llu)\n",
-                     h.group, h.shard, h.magic != kMagic ? "not a node link" : "another cluster map", h.crc,
-                     (unsigned long long)h.epoch, crc_, (unsigned long long)epoch_);
+                     "snc: node link: refused group %u shard %u: %s (its cluster shape crc %08x, ours %08x)\n",
+                     h.group, h.shard, h.magic != kMagic ? "not a node link" : "another cluster", h.crc, crc_);
         return false;
       }
       in.hello = true;

@@ -1,6 +1,7 @@
 #include "snc/placement.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -98,7 +99,24 @@ std::string Placement::encode() const {
     o << (s ? "," : "") << unsigned(slots[s]) << '*' << (e - s);
     s = e;
   }
+  if (move.state != PlacementMove::State::NONE) {
+    char id[17];
+    std::snprintf(id, sizeof(id), "%016llx", (unsigned long long)move.id);
+    o << " move=" << id << ':' << move.slot << ':' << move.from << ':' << move.to << ':' << move.epoch << ':'
+      << PlacementMove::name(move.state);
+  }
   return o.str();
+}
+
+const char* PlacementMove::name(State s) {
+  switch (s) {
+    case State::NONE: return "none";
+    case State::PREPARED: return "prepared";
+    case State::SEALED: return "sealed";
+    case State::STAGED: return "staged";
+    case State::COMMITTED: return "committed";
+  }
+  return "?";
 }
 
 std::optional<Placement> Placement::decode(const std::string& text) {
@@ -147,6 +165,24 @@ std::optional<Placement> Placement::decode(const std::string& text) {
         p.groups.push_back(std::move(g));
       }
       have[3] = true;
+    } else if (k == "move") {
+      const auto f = split(v, ':');
+      u64 slot = 0, from = 0, to = 0, ep = 0;
+      if (f.size() != 6 || f[0].size() != 16 || !num(f[1], kSlots - 1, slot) || !num(f[2], kMaxGroups - 1, from) ||
+          !num(f[3], kMaxGroups - 1, to) || !num(f[4], ~u64{0}, ep) || from == to) {
+        return std::nullopt;
+      }
+      p.move.id = std::strtoull(f[0].c_str(), nullptr, 16);
+      p.move.slot = static_cast<u16>(slot);
+      p.move.from = static_cast<u16>(from);
+      p.move.to = static_cast<u16>(to);
+      p.move.epoch = ep;
+      p.move.state = PlacementMove::State::NONE;
+      for (auto st : {PlacementMove::State::PREPARED, PlacementMove::State::SEALED, PlacementMove::State::STAGED,
+                      PlacementMove::State::COMMITTED}) {
+        if (f[5] == PlacementMove::name(st)) p.move.state = st;
+      }
+      if (p.move.state == PlacementMove::State::NONE || p.move.id == 0) return std::nullopt;
     } else if (k == "slots") {
       u32 at = 0;
       for (const std::string& e : split(v, ',')) {
@@ -181,6 +217,10 @@ std::optional<Placement> Placement::decode(const std::string& text) {
   }
   for (u8 g : p.slots) {
     if (g >= p.groups.size()) return std::nullopt;
+  }
+  if (p.move.state != PlacementMove::State::NONE &&
+      (p.move.from >= p.groups.size() || p.move.to >= p.groups.size())) {
+    return std::nullopt;
   }
   return p;
 }

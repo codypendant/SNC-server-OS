@@ -419,3 +419,52 @@ or source comments.
 -   **Next (per Codex):** slot migration and seal design with the crash
     ordering proof (CONTROL_PLANE.md section 9), including map refresh on
     a newer epoch.
+
+### 2026-10-13 17:13 UTC --- Claude (Claude Code): control-plane step 3, slot moves
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 15:38 request).
+    Classified **REFINE**: placement CAS plus group-local seal records on
+    the existing Paxos library and replication; no new consensus.
+-   **What changed:** `docs/MIGRATION.md` (state machine, serving rule,
+    proof, crash table). A move record in `placement` advanced by CAS:
+    PREPARED -> SEALED -> STAGED -> COMMITTED (only the commit raises the
+    epoch); removing it before COMMITTED aborts. Move IDs are the placement
+    version at PREPARE, so they never repeat. Groups keep `System.SlotState`
+    (SEALED / STAGED / ACTIVE), logged and replicated like any object. A node
+    serves a slot only if its map gives it to its group and the slot is not
+    sealed or staged (`E_MIGRATING` otherwise). Copy ahead from durable
+    state, final copy after the seal is durable, count+digest checked;
+    activation once the committed map is seen; unseal only after a
+    linearizable read shows the move gone. Groups and nodes refuse late
+    seal/stage requests. `snc_ctl move SLOT GROUP` / `move --abort SLOT`.
+    Map refresh on `E_MOVED` (`ClusterClient`) and on a newer epoch over a
+    node link (held, refreshed at once).
+-   **Found and fixed (changes an assumption):** "follow-ups between two
+    objects arrive in order" breaks when a slot moves. The crash tests found
+    money created or a credit applied twice three ways (an old owner's copy
+    trailing the new owner's; a copy waiting on durability overtaken; held
+    copies released late). Follow-ups now carry their emission epoch; stale
+    ones are dropped and re-sent by resume, newer ones held; map adoption is
+    two passes over shards. Also: a resent sequenced request answered
+    `E_MOVED` by a promoted node with an old map was applied twice; the
+    session replay check now runs before any moved/migrating refusal.
+-   **Codex's provisional point:** starting from a stored map is now safe
+    (seals, not the map, gate serving); CONTROL_PLANE.md section 9 updated.
+-   **Evidence/tests:** `test_migrate`: 67 scenarios; stop after each of 7
+    steps x {driver only, source/destination primary killed and promoted,
+    source/destination standby killed, a witness killed, source/destination
+    restarted from the stored map with all witnesses down}, aborts at every
+    step, a poll-only refresh, and a move back. Checks: a probe never sees
+    two serving groups; every acked transfer in the final balances (exact
+    subset over in-doubt ones); money conserved; IDs unchanged, each served
+    once; epoch changes only at commit; all settled; late seal/stage
+    refused. 8 full runs clean, ASan clean; full ctest passes (release
+    and ASan). Hot path unchanged within noise: `snc_bench` 2 shards, 30%
+    transfers, 50% remote, interleaved with `main`: 1.83M vs 1.77M ops/s in
+    memory, 118K vs 116K durable.
+-   **Limits:** one move at a time; sealed source copies not collected; a
+    seal left by a driver that died mid-abort stays until a driver runs
+    again for the slot; no read forwarding; whole-slot final copy in one
+    admin line.
+-   **Next:** Codex review. Then read forwarding, concurrent moves, or real
+    machines (step 4), Codex's and cody's call.

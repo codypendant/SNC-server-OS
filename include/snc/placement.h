@@ -5,9 +5,13 @@
 // directories. It never names a group's primary or term: that is HA state.
 //
 // Encoded as one line of text, the form the control plane stores:
-//   v1 cluster=HEX32 epoch=E nodes=ID@HOST:ADMIN,... \
+//   v1 cluster=HEX32 epoch=E nodes=ID@HOST:ADMIN,...
 //      groups=SHARDS/UUIDHEX/NODE:LINK:CLIENT+NODE:LINK:CLIENT,... slots=G*N,G*N,...
+//      [move=IDHEX:SLOT:FROM:TO:EPOCH:STATE]
 // Groups are numbered by their place in the list; slots are runs from 0.
+// The move, when present, is the one slot move in progress
+// (docs/MIGRATION.md); it changes the machine's version, never the epoch,
+// until it commits.
 #pragma once
 
 #include <optional>
@@ -37,12 +41,32 @@ struct PlacementGroup {
   std::vector<PlacementMember> members;
 };
 
+// A slot move in progress (docs/MIGRATION.md). Its states only advance,
+// each by a compare-and-set on the placement machine: PREPARED -> SEALED
+// (the source's seal is durable) -> STAGED (the destination holds the
+// sealed state, durably) -> COMMITTED (in the same change: the slot is
+// the destination's and the epoch is `epoch`). Removing it before COMMITTED
+// aborts the move; after, finishes it.
+struct PlacementMove {
+  enum class State : u8 { NONE = 0, PREPARED, SEALED, STAGED, COMMITTED };
+  // The placement machine's version that records the PREPARED move: grows
+  // with every move, so groups refuse a late request from an older one.
+  u64 id = 0;
+  u16 slot = 0;
+  u16 from = 0, to = 0;
+  u64 epoch = 0;  // the epoch the move commits at: the placement's at PREPARED, plus 1
+  State state = State::NONE;
+
+  static const char* name(State s);
+};
+
 struct Placement {
   Uuid cluster_id{};
   u64 epoch = 0;
   std::vector<PlacementNode> nodes;
   std::vector<PlacementGroup> groups;
   std::array<u8, kSlots> slots{};
+  PlacementMove move;
 
   // A first placement: epoch 1, slots in ClusterMap::make's contiguous
   // ranges. Throws std::invalid_argument on an unknown or repeated node.

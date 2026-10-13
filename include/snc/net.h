@@ -217,6 +217,14 @@ class ClusterClient {
   u64 epoch() const { return epoch_; }
   Client& group(u16 g) { return *groups_[g]; }
 
+  // Slot moves (docs/MIGRATION.md): asks the members for the map again and
+  // adopts it if its placement epoch is newer. True if it did.
+  bool refresh();
+  // An E_MOVED (or E_MIGRATING) result: refreshes if it names a newer
+  // epoch than this client's. True if the map changed: resend the request.
+  bool on_moved(ByteView result);
+  u64 refreshes() const { return refreshes_; }
+
   // Queues a request on the owner of h.target (a create with a null target
   // goes to `create_group`).
   void send(const wire::ReqHeader& h, ByteView args, u16 create_group = 0);
@@ -227,6 +235,8 @@ class ClusterClient {
  private:
   std::vector<std::unique_ptr<Client>> groups_;
   std::array<u8, kSlots> group_of_{};
+  std::vector<std::pair<std::string, u16>> members_;  // client endpoints of every group
+  u64 refreshes_ = 0;
   u32 crc_ = 0;
   u64 epoch_ = 0;
   u64 client_id_ = 0;

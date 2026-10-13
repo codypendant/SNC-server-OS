@@ -152,6 +152,12 @@ node and client can hold all of it.
   `E_MOVED`.
 - A client that sees an `E_MOVED` with an epoch older than its own keeps
   its map (the node is behind) and retries once.
+- **Done with slot moves** (docs/MIGRATION.md): `E_MOVED` with a newer
+  epoch makes `net::ClusterClient` fetch the map from the members and
+  resend; a node that sees a newer epoch on a node link holds that
+  follow-up, refreshes its map at once and runs it after. A slot this group
+  owns but does not serve (sealed, or staged and not yet activated)
+  answers `E_MIGRATING {epoch, group}`. Reads are not forwarded yet.
 
 ## 9. Bootstrap and persistence
 
@@ -163,14 +169,14 @@ node and client can hold all of it.
 - **Persistence**: the placement state lives in the control members' state
   files (as the witnesses' state does today); each node also keeps its last
   map in its data directory.
-- **Starting from a stored map is provisional.** The intent is that a node
-  that cannot reach the control plane at restart may serve from its stored
-  map, relying on seals (next point). That is **not yet a guarantee**: it
-  holds only once the slot-move crash protocol is proved safe (below).
-  Until then, while slots never move (steps 1 and 2 of section 12), the stored
-  map cannot be stale and the question does not arise; the first
-  slot-move milestone must either prove it or make nodes wait for the
-  control plane at start.
+- **Starting from a stored map is safe** (settled at step 3,
+  docs/MIGRATION.md, "Proof"). A node that cannot reach the control plane
+  at restart serves from its stored map: a sealed source never serves
+  whatever its map says, and a destination serves only once it holds an
+  activated copy, which needs a map at the move's committed epoch. A stale
+  map can make a node refuse a slot it owns, never serve one it does not.
+  The crash matrix restarts a source and a destination at every step with
+  all witnesses down.
 - **Ownership is fenced by data, not by the map.** When a slot moves
   (later milestone), the source group writes a durable, replicated
   *seal* record for the slot before the new epoch is chosen; a sealed
@@ -178,7 +184,7 @@ node and client can hold all of it.
   only send a request to the wrong place, never let two groups both
   accept writes for one slot. This is the placement analogue of term
   fencing, and why no node needs a lease from the control plane to serve.
-- **Unresolved safety proof (slot-move milestone).** The ordering
+- **Safety proof (done, docs/MIGRATION.md).** It was stated as: The ordering
   `source seal durable → placement epoch commit → destination activation`
   must be shown safe under a crash and restart of the source primary, the
   source standby (and a failover between them), the destination primary
@@ -187,7 +193,11 @@ node and client can hold all of it.
   source must be able to unseal, or the move must be driven forward), and
   a destination that restarts after the epoch commit but before it has
   activated. The proof, and a crash test that kills each party at each
-  step, are part of that milestone's definition of done.
+  step, are part of that milestone's definition of done. Both cases are
+  settled there: an uncommitted seal is undone only after a linearizable
+  read shows the move removed (move IDs never repeat), and a destination
+  activates its staged copy whenever it sees the committed map, at start or
+  later.
 
 ## 10. Placement consensus vs witness consensus
 
@@ -282,11 +292,17 @@ the block it holds.
    quorum promotes its standby; the other group's machine, placement and
    epoch untouched; every lease block disjoint, the promoted member's
    fresh).
-   **Left for step 3:** refreshing the map on a newer epoch seen in a
-   hello or an `E_MOVED` (nothing can raise the epoch until slots move,
-   so there is no way to test it before then).
+   Map refresh on a newer epoch was left for step 3 (done there).
 3. **Slot moves.** Seal, copy, cutover, with the `slot_state` values
    above; reads forwarded for stale clients.
+   **Done** (docs/MIGRATION.md) except read forwarding: a move record in
+   `placement` driven by compare-and-set (PREPARED, SEALED, STAGED,
+   COMMITTED), a durable seal at the source and a staged, digest-checked
+   copy at the destination, activation once the committed map is seen,
+   abort with a linearized unseal; `snc_ctl move SLOT GROUP` and
+   `move --abort SLOT`; map refresh on `E_MOVED` and on a newer epoch over
+   a node link; follow-ups carry their emission epoch. Checked by
+   `test_migrate`: 67 crash scenarios, each party killed at each step.
 4. Real machines (unchanged).
 
 Steps 1 and 2 are independent and could go in either order; step 1 first
@@ -310,4 +326,6 @@ first step.
 
 ## Still open
 
+- More than one move at a time; collecting a source's sealed copies;
+  chunked final copies for large slots (docs/MIGRATION.md, "Limits").
 - Lease block size, and whether leases are pre-split per shard.

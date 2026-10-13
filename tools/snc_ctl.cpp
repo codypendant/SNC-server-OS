@@ -11,6 +11,14 @@
 //       Slots are split in contiguous ranges by shard count. Refused once a
 //       map exists (the same map again is accepted).
 //
+//   snc_ctl --control HOST:PORT,... move SLOT GROUP
+//       moves SLOT to replication group GROUP (docs/MIGRATION.md), or
+//       carries on the move of SLOT in progress; prints DONE, ABORTED,
+//       BUSY ..., or STUCK <why> (then run it again: every step resumes).
+//   snc_ctl --control HOST:PORT,... move --abort SLOT
+//       aborts the move of SLOT if it has not committed (ABORTED, NONE,
+//       or "NO committed": then only finishing it with move is possible).
+//
 // --control lists the control members (the witnesses). Nodes are then
 // started with snc_server --control ... --node-id ID.
 #include <cstdio>
@@ -19,6 +27,7 @@
 #include <vector>
 
 #include "control.h"
+#include "migrate.h"
 
 using namespace snc;
 
@@ -35,7 +44,8 @@ int usage() {
   std::fprintf(stderr,
                "usage: snc_ctl --control HOST:PORT,... get\n"
                "       snc_ctl --control HOST:PORT,... init --nodes ID@HOST:ADMIN,... "
-               "--groups SHARDS:NODE/LINK/CLIENT+...,...\n");
+               "--groups SHARDS:NODE/LINK/CLIENT+...,...\n"
+               "       snc_ctl --control HOST:PORT,... move SLOT GROUP | move --abort SLOT\n");
   return 2;
 }
 
@@ -44,11 +54,17 @@ int usage() {
 int main(int argc, char** argv) {
   control::Members ms;
   std::string cmd, nodes_arg, groups_arg;
+  std::vector<std::string> move_args;
   for (int i = 1; i < argc; ++i) {
     const std::string k = argv[i];
     if (k == "get" || k == "init") {
       cmd = k;
       continue;
+    }
+    if (k == "move") {
+      cmd = k;
+      for (++i; i < argc; ++i) move_args.push_back(argv[i]);
+      break;
     }
     if (i + 1 >= argc) return usage();
     const std::string v = argv[++i];
@@ -72,6 +88,24 @@ int main(int argc, char** argv) {
       case control::Got::NONE: std::printf("none\n"); return 0;
       case control::Got::UNREACHABLE: std::fprintf(stderr, "snc_ctl: %s\n", why.c_str()); return 1;
     }
+  }
+
+  if (cmd == "move") {
+    migrate::Driver d(ms);
+    d.deadline_ms = 60000;
+    std::string r;
+    if (move_args.size() == 2 && move_args[0] == "--abort") {
+      r = d.abort(static_cast<u16>(std::stoul(move_args[1])));
+    } else if (move_args.size() == 2) {
+      const unsigned long slot = std::stoul(move_args[0]);
+      if (slot >= kSlots) return usage();
+      r = d.move(static_cast<u16>(slot), static_cast<u16>(std::stoul(move_args[1])));
+    } else {
+      return usage();
+    }
+    std::fputs(d.log.c_str(), stderr);
+    std::printf("%s\n", r.c_str());
+    return r == "DONE" || r == "ABORTED" || r == "NONE" ? 0 : 1;
   }
 
   // init

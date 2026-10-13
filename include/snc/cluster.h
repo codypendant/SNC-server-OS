@@ -34,8 +34,8 @@ struct ClusterMap {
   std::vector<ClusterGroup> groups;
   std::array<u8, kSlots> group_of{};
   // Placement epoch (docs/CONTROL_PLANE.md section 5). Changes only when
-  // placement does; a failover inside a group never changes it. The map is
-  // static for now, so it is always 1.
+  // placement does (a slot move, docs/MIGRATION.md); a failover inside a
+  // group never changes it.
   u64 epoch = 1;
 
   // Contiguous ranges of slots, each group's in proportion to its shards.
@@ -46,6 +46,9 @@ struct ClusterMap {
                            u64 epoch);
   // Over the assignment and shard counts, not the members or addresses.
   u32 crc() const;
+  // Over the groups' shard counts only: what two nodes must agree on to
+  // link, whatever their placement epochs (docs/MIGRATION.md).
+  u32 shape_crc() const;
   // The shard, in the owning group, that owns `slot` (its local slot map).
   u16 shard_of(u16 slot) const { return slot % groups[group_of[slot]].n_shards; }
   u16 group_of_id(const ObjectID& id) const { return group_of[slot_of(id)]; }

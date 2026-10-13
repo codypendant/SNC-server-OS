@@ -65,6 +65,7 @@ const char* status_name(Status s) {
     case Status::E_WRONG_NODE: return "E_WRONG_NODE";
     case Status::E_MOVED: return "E_MOVED";
     case Status::E_FENCED: return "E_FENCED";
+    case Status::E_MIGRATING: return "E_MIGRATING";
   }
   return "E_UNKNOWN_STATUS";
 }

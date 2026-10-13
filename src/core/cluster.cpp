@@ -47,6 +47,17 @@ u32 ClusterMap::crc() const {
   return static_cast<u32>(h ^ (h >> 32));
 }
 
+u32 ClusterMap::shape_crc() const {
+  XXH64_state_t* st = XXH64_createState();
+  XXH64_reset(st, 0x5e1f);
+  const u32 n = static_cast<u32>(groups.size());
+  XXH64_update(st, &n, sizeof(n));
+  for (const ClusterGroup& g : groups) XXH64_update(st, &g.n_shards, sizeof(g.n_shards));
+  const u64 h = XXH64_digest(st);
+  XXH64_freeState(st);
+  return static_cast<u32>(h ^ (h >> 32));
+}
+
 namespace {
 std::vector<std::string> split(const std::string& s, char sep) {
   std::vector<std::string> out;

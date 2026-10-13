@@ -64,9 +64,12 @@ snc_server --control H0:9000,H1:9000,H2:9000 --node-id 1 --data-dir d1 ...
   another node or another space, if the map does not name it, or if the
   control plane has no map yet.
 - **Control plane down at start:** the node starts from its stored map
-  and says so. That is provisional (docs/CONTROL_PLANE.md section 9): safe
-  while slots never move, to be proved or replaced at the slot-move
-  milestone.
+  and says so. Safe with slot moves too: seals decide what a node serves,
+  not its map alone (docs/MIGRATION.md).
+- **Slots move** between groups (`snc_ctl move SLOT GROUP`), which raises
+  the epoch; nodes adopt newer maps from the control plane (polled, or at
+  once when a node link or a client shows a newer epoch). The protocol, its
+  proof and its tests are in docs/MIGRATION.md.
 - Which member is primary is not in the map; `--standby` and
   `--replica-of` still decide it, and the witnesses after that. One
   witness quorum can watch every group (`snc_witness --group
@@ -131,6 +134,12 @@ travel over **node links** (`src/core/node_link.{h,cpp}`):
   own forget). A receiver that gets a new connection from a shard closes
   the older one first, discarding what it has not read, so a reconnect
   cannot reorder frames.
+- **Every follow-up carries the epoch it was emitted at.** One newer than
+  the receiver's map is held until the receiver adopts that map; one
+  emitted before its source's or target's slot last moved is dropped (the
+  sender re-sends what is unsettled when it adopts the new map). Without
+  this a move let an old copy of a credit arrive after its exchange was
+  forgotten (docs/MIGRATION.md, "Follow-ups across a move").
 
 ## Failover inside a group
 
@@ -248,9 +257,9 @@ down and recovered by the resume passes.
 
 ## Limits (this milestone)
 
-- The map is fixed: no slot moves, and every node must be given the same
-  list (nothing persists it yet; a node restarted with another map is
-  refused by its peers' crc check, not by its own data).
+- With `--cluster` (no control plane) the map is fixed and every node must
+  be given the same list. Slots move only under `--control`, one move at a
+  time (docs/MIGRATION.md, "Limits").
 - **A fenced primary withdraws only once it hears so** (above): from the
   promoted member or a witness. One cut off from both, while the other
   groups still reach it, blocks (acknowledges nothing, as before) but

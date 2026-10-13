@@ -12,6 +12,10 @@
 #include "snc/slot_map.h"
 #include "snc/storage.h"
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+
 namespace snc {
 
 enum class Durability : u8 { DURABLE = 0, APPLIED = 1 };
@@ -166,6 +170,11 @@ struct ShardStats {
   u64 node_emits_sent = 0;       // follow-ups sent to another group's node
   u64 node_emits_received = 0;   // ... received from another group's node
   u64 node_emits_dropped = 0;    // ... dropped, their link down (resume re-emits them)
+  u64 node_emits_misrouted = 0;  // ... received for a slot not ours, from a node behind ours
+  // Slot moves (docs/MIGRATION.md).
+  u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
+  u64 emits_held_now = 0;        // ... held at this moment
+  u64 emits_stale = 0;           // dropped: sent by their source's owner before the source's slot moved
   u64 node_connects = 0;         // outbound node links that came up
   u64 node_resumes = 0;          // resume passes run because a link came up
   WalStream::Stats wal;
@@ -186,6 +195,34 @@ struct ShardStats {
   u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
   u64 repl_disk_bytes = 0;     // primary: shipped from WAL files (catch-up)
   bool wal_direct = false;
+};
+
+// Slot moves (docs/MIGRATION.md): one object of a slot, as the source
+// exports it and the destination stages it. `crc` covers the type, schema
+// and payload, so (version, crc) names the object's state exactly.
+struct SlotObject {
+  ObjectID id;
+  u64 version = 0;
+  u32 type_id = 0;
+  u16 schema_ver = 0;
+  u32 crc = 0;
+  bool has_payload = false;  // false: the receiver holds this state already
+  std::vector<u8> payload;
+};
+// Order-independent digest of a slot's objects: the sum of this over them.
+u64 slot_object_digest(const ObjectID& id, u64 version, u32 crc);
+
+// A slot's state in this group (docs/MIGRATION.md).
+struct SlotReport {
+  u16 slot = 0;
+  u8 phase = 0;  // SlotPhase: 0 none, 1 active, 2 sealed, 3 staged
+  u16 group = 0;
+  u64 move_id = 0, epoch = 0, count = 0, digest = 0;  // as recorded
+  bool durable = true;   // the state record is durable
+  bool serving = false;  // ops on the slot run here
+  u16 map_group = 0;     // owner by this node's map
+  u64 map_epoch = 0;
+  u64 live_count = 0, live_digest = 0;  // the slot's objects now
 };
 
 struct RecoveryReport {
@@ -305,6 +342,13 @@ class Engine {
     // unique only within the space.
     std::function<bool(u64 want, u64& lo, u64& hi)> lease_blocks;
 
+    // Placement refresh (docs/MIGRATION.md): returns the control plane's
+    // latest slot assignment and epoch (and keeps it where the node starts
+    // from next time). Asked every placement_poll_ms, and at once when a
+    // newer epoch is seen on a node link. Unset: the map never changes.
+    std::function<bool(std::array<u8, kSlots>& slots, u64& epoch)> placement_fetch;
+    u32 placement_poll_ms = 1000;
+
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.
     bool hold_emits = false;
@@ -353,6 +397,36 @@ class Engine {
   void withdraw();
   bool fenced() const;
 
+  // ---- Slot moves (docs/MIGRATION.md). Control path; each blocks. ----
+  // A newer placement: adopt it (false if `epoch` is not newer than the
+  // current map's). Slots staged here that it gives this group activate.
+  bool update_placement(const std::array<u8, kSlots>& slots, u64 epoch);
+  // Asks Config::placement_fetch now and adopts what it returns if newer.
+  bool refresh_placement();
+  // The newest placement epoch seen from another node (0: none newer).
+  u64 epoch_seen() const;
+  SlotReport slot_report(u16 slot);
+  // Source: seal `slot` for move `move` (to `to`, committing at `epoch`).
+  // OK once the seal is durable; from then on no op on the slot runs here.
+  // Idempotent for the same move.
+  Status seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out, double timeout_s = 10);
+  // Source: undo a seal whose move was aborted (the caller has checked
+  // with the control plane). OK once durable.
+  Status unseal_slot(u16 slot, u64 move, SlotReport& out, double timeout_s = 10);
+  // Source: the slot's objects; those `have` lists at the same version and
+  // crc go without payload. Not final: durable state only, sealed or not.
+  // Final: only once `move`'s seal is durable, then every object.
+  Status export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
+                     std::vector<SlotObject>& out, u64& count, u64& digest);
+  // Destination: the objects it holds for a slot it does not serve.
+  Status slot_objects(u16 slot, std::vector<SlotObject>& out);
+  // Destination: stage objects of a slot this group does not serve. Not
+  // final: add or replace them. Final: `objs` lists every object of the
+  // sealed source; the staged copy is made equal to it (others deleted),
+  // checked against count and digest, and recorded STAGED, durably.
+  Status stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
+                    u64 count, u64 digest, SlotReport& out, double timeout_s = 10);
+
   // Replication state summed over shards, cheap enough to poll.
   struct ReplStatus {
     u8 role = 0;           // 0 none, 1 primary, 2 standby
@@ -363,8 +437,8 @@ class Engine {
   };
   ReplStatus replication_status() const;
   const RecoveryReport& recovery() const { return recovery_; }
-  // Empty unless clustered.
-  const ClusterMap& cluster() const { return cluster_; }
+  // Empty unless clustered. The current placement map.
+  const ClusterMap& cluster() const { return *map_.load(); }
   // The space's UUID (after start, with a data_dir).
   const Uuid& space_uuid() const { return uuid_; }
 
@@ -396,6 +470,17 @@ class Engine {
   SlotMap slots_;
   void take_lease_block(u16 n);
   ClusterMap cluster_;
+  // Every map adopted so far (shards may still hold an older one's
+  // address while they switch); the current one.
+  std::vector<std::unique_ptr<ClusterMap>> maps_;
+  std::atomic<const ClusterMap*> map_{&cluster_};
+  std::mutex map_mu_;
+  std::thread watcher_;
+  std::atomic<bool> watcher_stop_{false};
+  void watch_placement();
+  Status wait_lsn(u16 shard, u64 lsn, double timeout_s);
+  template <class F>
+  auto on_shard(u16 shard, F fn) -> decltype(fn());
   std::unique_ptr<SegmentPreparer> spares_;
   RecoveryReport recovery_;
 };

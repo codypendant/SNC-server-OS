@@ -26,7 +26,8 @@ class NodeLinks {
     ObjectID source, target;
     u32 op, fail_op;
     u8 len;
-    u8 pad[7];
+    u8 pad[3];
+    u32 epoch;  // the sender's placement epoch (low 32 bits) when it routed this
     u8 args[16];
   };
   static_assert(sizeof(Frame) == 64);
@@ -53,6 +54,8 @@ class NodeLinks {
     return r;
   }
   u64 connects() const { return connects_; }
+  // The placement epoch announced on connections made from now on.
+  void set_epoch(u64 e) { epoch_ = e; }
 
  private:
   struct Out;

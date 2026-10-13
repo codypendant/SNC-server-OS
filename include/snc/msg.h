@@ -31,6 +31,7 @@ enum MsgFlags : u8 {
   kMsgArgsExternal = 1u << 1,
   kMsgAllowUndurable = 1u << 2,
   kMsgDurApplied = 1u << 3,
+  kMsgEmitRemote = 1u << 4,  // EMIT: arrived over a node link (docs/MIGRATION.md)
 };
 
 inline constexpr u32 kMsgInlineBytes = 16;

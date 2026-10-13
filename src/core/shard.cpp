@@ -1,6 +1,7 @@
 #include "shard.h"
 
 #include "session.h"
+#include "slot_state.h"
 
 #include "snc/sri.h"
 
@@ -70,6 +71,25 @@ void refuse_moved(const ClusterMap& map, const ObjectID& id, Completion done, vo
 }
 }  // namespace
 
+// A slot this shard owns but does not serve (docs/MIGRATION.md): another
+// group's by this node's map (E_MOVED), or sealed or staged here
+// (E_MIGRATING, with the seal's destination when sealed).
+Status Shard::refuse_unserved(u16 slot, RunOut& out) {
+  const bool moved = foreign_slot(slot);
+  u16 group = cluster_->group_of[slot];
+  if (!moved && phases_[slot].load(std::memory_order_relaxed) == static_cast<u8>(SlotPhase::SEALED)) {
+    if (ObjectHeader* o = slot_state(slot)) {
+      SlotStateV1 st;
+      std::memcpy(&st, o->payload(), sizeof(st));
+      group = st.group;
+    }
+  }
+  moved_buf_ = MovedResult{cluster_->epoch, group, {}};
+  out.r.status = moved ? Status::E_MOVED : Status::E_MIGRATING;
+  out.r.result = ByteView(&moved_buf_, sizeof(moved_buf_));
+  return out.r.status;
+}
+
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
   // A standby with reads on serves READ ops (checked where they run).
@@ -77,7 +97,13 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   if (withdrawn_) return refuse_standby(target, done, ctx);
   u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
   // Not ours whatever the load: the client must go elsewhere either way.
-  if (cluster_ && foreign_slot(static_cast<u16>(h >> 52))) return refuse_moved(*cluster_, target, done, ctx);
+  // Except a sequenced request: it may be a resend of one applied here
+  // before the slot moved, and must get that answer, not E_MOVED (a client
+  // told E_MOVED sends it again to the new owner, as a new request). Its
+  // owner shard checks the session first, then refuses (run_exec).
+  if (cluster_ && !opts.client_id && foreign_slot(static_cast<u16>(h >> 52))) {
+    return refuse_moved(*cluster_, target, done, ctx);
+  }
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -118,12 +144,18 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
   // in a given slot.
   if (near != nullptr) {
     const u16 slot = slot_of(*near);
+    if (opts.client_id && owner_of(*near) == id_) {
+      // A resend of a create applied here before the slot moved gets its
+      // answer, not E_MOVED (see execute).
+      RunOut out;
+      if (replay_if_seen(opts, out)) return complete_local(out, done, ctx);
+    }
     if (foreign_slot(slot)) return refuse_moved(*cluster_, *near, done, ctx);
     while (slot_of(id) != slot) id = minter_.next();
   } else {
     // A sequenced create runs here, where its sequence is kept. Clustered,
-    // only IDs in this node's slots (docs/CLUSTER.md).
-    while (((mint_local_ || opts.client_id) && owner_of(id) != id_) || foreign(id)) id = minter_.next();
+    // only IDs in slots this node serves (docs/CLUSTER.md, docs/MIGRATION.md).
+    while (((mint_local_ || opts.client_id) && owner_of(id) != id_) || !serving(slot_of(id))) id = minter_.next();
   }
   u16 owner = owner_of(id);
   if (opts.client_id && owner != id_) {
@@ -271,6 +303,12 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
     const OpDescriptor* op = registry().op(op_id);
     if (op != nullptr && op->kind == OpKind::MUTATE && replay_if_seen(opts, out)) return;
   }
+  // Checked here, on the owner, in the same thread as a seal: an op either
+  // runs before the seal's record or is refused (docs/MIGRATION.md).
+  if (cluster_ && !serving(static_cast<u16>(hash >> 52))) {
+    refuse_unserved(static_cast<u16>(hash >> 52), out);
+    return;
+  }
   ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
@@ -374,6 +412,10 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
 void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts,
                        RunOut& out) {
   if (opts.client_id && replay_if_seen(opts, out)) return;
+  if (cluster_ && !serving(slot_of(id))) {
+    refuse_unserved(slot_of(id), out);
+    return;
+  }
   const TypeDescriptor* t = registry().type(type_id);
   if (t == nullptr) {
     out.r.status = Status::E_TYPE_MISMATCH;
@@ -433,6 +475,10 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
 }
 
 void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
+  if (cluster_ && !serving(slot_of(target))) {
+    refuse_unserved(slot_of(target), out);
+    return;
+  }
   ObjectHeader* obj = map_.find(target);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
@@ -678,7 +724,8 @@ void Shard::index_find(u32 index_id, ByteView key, u32 max_results,
     if (out.size() >= max_results) break;
     const ObjectHeader* o = map_.find(id);
     // Only durable state is visible (D7); a racing update may hide an entry.
-    if (o && !o->deleted() && durable(o->last_lsn)) out.push_back(id);
+    // A slot sealed or staged here is not this group's to show.
+    if (o && !o->deleted() && durable(o->last_lsn) && serving(slot_of(id))) out.push_back(id);
   }
 }
 
@@ -1192,6 +1239,7 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     // logs and keeps its index. Promotion makes it a primary, which runs
     // follow-ups and serves.
     rebuild_index();
+    refresh_slots();
     if (!wal_cfg.data_dir.empty()) {
       wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
       wal_->on_durable = &Shard::on_wal_durable;
@@ -1204,6 +1252,7 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     return;
   }
   rebuild_index();
+  refresh_slots();  // before the resume pass: it skips slots not served
   start_serving();
   if (!wal_cfg.data_dir.empty()) {
     wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
@@ -1211,6 +1260,7 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     wal_->on_durable_ctx = this;
     if (repl_cfg_.primary) start_sender(wal_cfg.data_dir, next_lsn);
   }
+  activate_staged();  // a move committed while this node was down
   start_links();
 }
 
@@ -1221,7 +1271,7 @@ void Shard::start_serving() { resume_all(0); }
 void Shard::resume_all(u64 lsn) {
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
-    if (o->deleted()) return;
+    if (o->deleted() || !serving(slot_of(o->id))) return;
     const TypeDescriptor* t = registry().type(o->type_id);
     if (t == nullptr || t->resume == nullptr) return;
     OpCtx c;
@@ -1243,10 +1293,25 @@ void Shard::start_links() {
   emit_node_.resize(links_->size());
 }
 
+// A follow-up from another group's node, stamped with the placement epoch
+// its source's owner emitted it at (docs/MIGRATION.md, follow-ups). If that
+// is newer than our map, we are behind: hold it, and refresh. Otherwise, if
+// the target is not ours, the sender is behind: drop it; the sender
+// refreshes too (it polls), and its resume pass after the refresh sends it
+// to the owner. route_emit drops it if it is stale (Shard::stale).
 void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
   auto* s = static_cast<Shard*>(ctx);
   ++s->stats_.node_emits_received;
-  if (s->foreign(f.target)) return;  // cannot happen with matching maps (checked by crc)
+  const u32 mine = static_cast<u32>(s->cluster_->epoch);
+  const bool newer = f.epoch > mine;
+  if (newer && s->epoch_hint_) {
+    u64 cur = s->epoch_hint_->load();
+    while (f.epoch > cur && !s->epoch_hint_->compare_exchange_weak(cur, f.epoch)) {}
+  }
+  if (!newer && s->foreign(f.target)) {
+    ++s->stats_.node_emits_misrouted;
+    return;
+  }
   Emit e;
   e.source = f.source;
   e.target = f.target;
@@ -1255,6 +1320,14 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
   e.len = f.len <= sizeof(e.args) ? f.len : sizeof(e.args);
   std::memcpy(e.args, f.args, e.len);
   e.lsn = 0;
+  e.remote = true;
+  e.epoch = f.epoch;
+  if (newer) {
+    // Whatever we still run from older maps must run first: a follow-up
+    // its source's new owner sent cannot overtake one its old owner did.
+    s->hold_emit(e);
+    return;
+  }
   s->route_emit(e);
 }
 
@@ -1303,8 +1376,10 @@ bool Shard::standby_settled() const {
 
 void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
   repl_cfg_ = rc;
+  refresh_slots();
   start_serving();
   if (wal_ && rc.primary) start_sender(data_dir, wal_->next_lsn());
+  activate_staged();  // the old primary may have died between a commit and its activation
   // Clustered: other groups' links find this member once it listens, and
   // every link coming up re-runs the resume pass, which re-sends what the
   // old primary's links lost.
@@ -1364,6 +1439,15 @@ bool Shard::apply_replicated(void* ctx, const u8* rec) {
 // A standby keeps its index live as it installs, so promotion need not
 // rebuild it.
 void Shard::install_indexed(const WalRecord& r, const u8* payload) {
+  if (r.type_id == kSlotStateTypeId && static_cast<RecType>(r.rec_type) != RecType::DELETE &&
+      r.payload_len == sizeof(SlotStateV1) && phases_ != nullptr) {
+    // A seal or activation from the primary: a standby serving reads must
+    // stop (or start) serving the slot with it.
+    SlotStateV1 st;
+    std::memcpy(&st, payload, sizeof(st));
+    const ObjectHeader* cur = map_.find(r.id);
+    if (cur == nullptr || cur->version < r.version) phases_[st.slot].store(st.phase, std::memory_order_relaxed);
+  }
   const ObjectHeader* o = map_.find(r.id);
   const TypeDescriptor* t = registry().type(r.type_id);
   if (t == nullptr || !t->index_id) return install(r, payload);
@@ -1541,6 +1625,7 @@ ShardStats Shard::stats() const {
   s.objects = 0;
   map_.for_each([&](const ObjectHeader* o) { s.objects += !o->deleted(); });
   s.emits_in_flight = emits_in_flight();
+  s.emits_held_now = emit_held_.size();
   if (links_) s.node_connects = links_->connects();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
@@ -1614,6 +1699,7 @@ ObjectHeader* OpCtx::local(const ObjectID& id, u32 type_id) {
   }
   u64 h = snc_hash64(id);
   if (s->slots_.owner[h >> 52] != s->id_) return nullptr;  // another shard's: no map probe
+  if (!s->serving(static_cast<u16>(h >> 52))) return nullptr;  // sealed or staged here: not this group's
   ObjectHeader* o = s->map_.find(id, h);
   if (o == nullptr || o->deleted() || o->type_id != type_id) return nullptr;
   if (applying_) {
@@ -1641,6 +1727,7 @@ void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
   e.op = op;
   e.fail_op = fail_op;
   e.len = static_cast<u8>(args.len);
+  e.epoch = s->cluster_ ? static_cast<u32>(s->cluster_->epoch) : 0;
   if (args.len) std::memcpy(e.args, args.data, args.len);
 }
 
@@ -1666,8 +1753,29 @@ void Shard::queue_emits(u64 lsn) {
 void Shard::route_emit(const Emit& e) {
   ++emit_ready_count_;
   if (cluster_) {
+    if (e.epoch > static_cast<u32>(cluster_->epoch)) {
+      // Emitted under a newer map than this shard's (another shard of this
+      // node adopted it first): never routed by an older one. Held until
+      // this shard adopts it too.
+      --emit_ready_count_;
+      hold_emit(e);
+      return;
+    }
     const u16 slot = slot_of(e.target);
     const u16 group = cluster_->group_of[slot];
+    if (stale(e)) {
+      --emit_ready_count_;
+      ++stats_.emits_stale;
+      return;
+    }
+    if (group != group_ && e.remote) {
+      // Not ours by our map, and its source is another node's: only the
+      // node holding the source sends it (that node re-sends it after its
+      // own map is refreshed). Nothing is forwarded twice.
+      --emit_ready_count_;
+      ++stats_.node_emits_misrouted;
+      return;
+    }
     if (group != group_) {
       if (!links_) {
         // Recovery's resume pass, before the links open: re-emitted once
@@ -1721,6 +1829,7 @@ bool Shard::run_emits() {
       f.op = e.op;
       f.fail_op = e.fail_op;
       f.len = e.len;
+      f.epoch = e.epoch;
       std::memcpy(f.args, e.args, e.len);
       links_->push(i, f);
       q.pop_front();
@@ -1735,6 +1844,22 @@ void Shard::run_emit(const Emit& e) {
   // Fenced: nothing runs here any more. Follow-ups are recoverable: their
   // sources re-send them to the new primary (docs/TRANSFERS.md).
   if (withdrawn_) return;
+  if (cluster_ && e.epoch > static_cast<u32>(cluster_->epoch)) {
+    hold_emit(e);  // from a shard of this node that adopted a newer map first (route_emit)
+    return;
+  }
+  if (stale(e)) {
+    ++stats_.emits_stale;
+    return;
+  }
+  if (cluster_ && !serving(slot_of(e.target))) {
+    // Ours by the map but sealed or staged here: held until the slot is
+    // activated, unsealed, or the map moves it (docs/MIGRATION.md). Not
+    // ours any more (the map changed since it was routed): routed again.
+    if (foreign(e.target)) route_emit(e);
+    else hold_emit(e);
+    return;
+  }
   ExecOptions opts;
   opts.durability = Durability::APPLIED;  // the follow-up's own emits wait for its record
   opts.allow_undurable = true;
@@ -1752,7 +1877,7 @@ bool Shard::send_emit(u16 dst, const Emit& e) {
   if (m == nullptr) return false;
   zero_header(*m);
   m->kind = MsgKind::EMIT;
-  m->flags = kMsgArgsInline;
+  m->flags = kMsgArgsInline | (e.remote ? kMsgEmitRemote : 0);
   m->src_shard = id_;
   m->op_id = e.op;
   m->req_id = e.source.hi;
@@ -1760,7 +1885,9 @@ bool Shard::send_emit(u16 dst, const Emit& e) {
   m->status = static_cast<u16>(e.fail_op);
   m->aux = static_cast<u16>(e.fail_op >> 16);
   m->target = e.target;
-  m->len = e.len;
+  // EMIT: args length (at most 16) in the low byte, the emission epoch's
+  // low 24 bits above it (rebuilt against the receiver's, never far off).
+  m->len = e.len | (e.epoch << 8);
   if (e.len) std::memcpy(m->inline_data, e.args, e.len);
   sri_commit(dst, m);
   ++stats_.emits_sent;
@@ -1774,9 +1901,52 @@ void Shard::serve_emit(const Msg& m) {
   e.target = m.target;
   e.op = m.op_id;
   e.fail_op = OpID{m.status} | (OpID{m.aux} << 16);
-  e.len = static_cast<u8>(m.len);
-  if (m.len) std::memcpy(e.args, m.inline_data, m.len);
+  e.len = static_cast<u8>(m.len & 0xff);
+  e.remote = (m.flags & kMsgEmitRemote) != 0;
+  if (cluster_) {
+    // Both shards' maps are this node's: the sender's epoch is within a
+    // few of ours, so the nearest value with these low 24 bits is it.
+    const u32 cur = static_cast<u32>(cluster_->epoch), low = m.len >> 8;
+    u32 e32 = (cur & ~0xffffffu) | low;
+    if (e32 > cur + 0x800000u) e32 -= 0x1000000u;
+    else if (e32 + 0x800000u < cur) e32 += 0x1000000u;
+    e.epoch = e32;
+  }
+  if (e.len) std::memcpy(e.args, m.inline_data, e.len);
+  if (!emit_local_.empty()) {
+    // Behind what this shard has queued to run (released when a slot was
+    // activated or the map changed): in order, never ahead of it.
+    ++emit_ready_count_;
+    emit_local_.push_back(e);
+    return;
+  }
   run_emit(e);
+}
+
+// Emitted under a map older than a move of its source's slot or its
+// target's: dropped (docs/MIGRATION.md, follow-ups). A copy from before a
+// move can be overtaken by one sent after it (the source's new owner, or
+// a target that became local and so no longer waits for durability), and
+// if it then runs after its exchange has finished and been forgotten, it
+// runs twice. Nothing is lost: every node re-sends all it has unsettled,
+// stamped with the new epoch, once it adopts a map (map_changed).
+bool Shard::stale(const Emit& e) const {
+  if (cluster_ == nullptr) return false;
+  if (e.epoch < moved_at_[slot_of(e.target)]) return true;
+  return !e.source.is_null() && e.epoch < moved_at_[slot_of(e.source)];
+}
+
+void Shard::hold_emit(const Emit& e) {
+  emit_held_.push_back(e);
+  ++stats_.emits_held;
+}
+
+// The slot's state or the map changed: everything held goes round again.
+void Shard::release_held() {
+  if (emit_held_.empty()) return;
+  std::vector<Emit> held;
+  held.swap(emit_held_);
+  for (const Emit& e : held) route_emit(e);
 }
 
 void Shard::emit_result(const Emit& e, Status s) {
@@ -1792,12 +1962,433 @@ void Shard::emit_result(const Emit& e, Status s) {
         f.op = e.fail_op;
         f.fail_op = 0;
         f.lsn = 0;
+        f.remote = false;  // from here, on behalf of the missing target (a slot of ours)
+        f.epoch = cluster_ ? static_cast<u32>(cluster_->epoch) : 0;
         route_emit(f);
       }
       break;
     default:
       break;
   }
+}
+
+
+// ---- Slot moves (docs/MIGRATION.md) ------------------------------------------------
+
+u64 slot_object_digest(const ObjectID& id, u64 version, u32 crc) {
+  u64 x = snc_hash64(id) ^ (version * 0x9E3779B97F4A7C15ull) ^ (u64{crc} << 17);
+  x ^= x >> 30;
+  x *= 0xbf58476d1ce4e5b9ull;
+  x ^= x >> 27;
+  x *= 0x94d049bb133111ebull;
+  x ^= x >> 31;
+  return x;
+}
+
+namespace {
+// Application objects move with their slot; the runtime's own (sessions,
+// slot states) are per shard and stay.
+bool moves_with_slot(u32 type_id) { return type_id >= 256; }
+struct ObjectIdHash {
+  std::size_t operator()(const ObjectID& id) const { return snc_hash64(id); }
+};
+u32 image_crc(u32 type_id, u16 schema_ver, const u8* payload, u32 len) {
+  u8 head[6];
+  std::memcpy(head, &type_id, 4);
+  std::memcpy(head + 4, &schema_ver, 2);
+  return crc32c(payload, len, crc32c(head, sizeof(head)));
+}
+u32 image_crc(const ObjectHeader& o) { return image_crc(o.type_id, o.schema_ver, o.payload(), o.length); }
+}  // namespace
+
+ObjectHeader* Shard::slot_state(u16 slot) {
+  auto mi = indexes_.find(kSlotStateIndexId);
+  if (mi == indexes_.end()) return nullptr;
+  auto it = mi->second.find(std::string(reinterpret_cast<const char*>(&slot), sizeof(slot)));
+  if (it == mi->second.end()) return nullptr;
+  for (const ObjectID& id : it->second) {
+    ObjectHeader* o = map_.find(id);
+    if (o && !o->deleted()) return o;
+  }
+  return nullptr;
+}
+
+// One state object per slot, created the first time; logged like any write,
+// so it is durable (and on the standby) exactly when an ack would be.
+u64 Shard::write_slot_state(u16 slot, const SlotStateV1& st) {
+  ObjectHeader* o = slot_state(slot);
+  RecType type = RecType::UPDATE;
+  if (o == nullptr) {
+    const TypeDescriptor* t = registry().type(kSlotStateTypeId);
+    ObjectID sid = minter_.next();
+    while (owner_of(sid) != id_ || foreign(sid)) sid = minter_.next();
+    const std::size_t bytes = sizeof(ObjectHeader) + sizeof(SlotStateV1);
+    o = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
+    if (o == nullptr) {
+      std::fprintf(stderr, "snc: out of memory for a slot state on shard %u\n", id_);
+      std::abort();
+    }
+    std::memset(static_cast<void*>(o), 0, bytes);
+    o->id = sid;
+    o->type_id = kSlotStateTypeId;
+    o->schema_ver = t->schema_ver;
+    o->length = sizeof(SlotStateV1);
+    o->capacity = static_cast<u32>(alloc_.usable(o) - sizeof(ObjectHeader));
+    map_.upsert(o);
+    index_insert(kSlotStateIndexId, reinterpret_cast<const u8*>(&slot), sizeof(slot), sid);
+    type = RecType::CREATE;
+  }
+  std::memcpy(o->payload(), &st, sizeof(st));
+  ++o->version;
+  o->last_lsn = log(type, *o);
+  phases_[slot].store(st.phase, std::memory_order_relaxed);
+  return o->last_lsn;
+}
+
+void Shard::refresh_slots() {
+  if (phases_ == nullptr) return;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || o->type_id != kSlotStateTypeId) return;
+    SlotStateV1 st;
+    std::memcpy(&st, o->payload(), sizeof(st));
+    phases_[st.slot].store(st.phase, std::memory_order_relaxed);
+  });
+}
+
+void Shard::set_map(const ClusterMap* map) {
+  for (u32 s = 0; s < kSlots; ++s) {
+    if (cluster_->group_of[s] != map->group_of[s]) moved_at_[s] = static_cast<u32>(map->epoch);
+  }
+  cluster_ = map;
+  if (links_) links_->set_epoch(map->epoch);
+  // At once, before anything else runs under the new map: what was held
+  // for it goes ahead of whatever arrives from now on.
+  activate_staged();
+  release_held();
+}
+
+void Shard::map_changed() {
+  // What this node sent by its old map may have gone to a node that no
+  // longer owns the target, and been dropped there: send it all again,
+  // stamped with the new epoch. Only now: every shard of this node routes
+  // by the new map, so nothing re-sent here is routed by an older one.
+  if (!repl_cfg_.standby && !withdrawn_) resume_all(wal_ ? wal_->next_lsn() - 1 : 0);
+}
+
+// A staged slot the map now gives this group (at or past the epoch its move
+// commits at) becomes this group's: only a committed move can make the map
+// say so while the slot is staged here for it (docs/MIGRATION.md, proof).
+void Shard::activate_staged() {
+  if (cluster_ == nullptr || phases_ == nullptr || repl_cfg_.standby || withdrawn_) return;
+  std::vector<SlotStateV1> ready;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || o->type_id != kSlotStateTypeId) return;
+    SlotStateV1 st;
+    std::memcpy(&st, o->payload(), sizeof(st));
+    if (st.phase == static_cast<u8>(SlotPhase::STAGED) && cluster_->group_of[st.slot] == group_ &&
+        cluster_->epoch >= st.epoch) {
+      ready.push_back(st);
+    }
+  });
+  for (SlotStateV1 st : ready) {
+    st.phase = static_cast<u8>(SlotPhase::ACTIVE);
+    write_slot_state(st.slot, st);
+    std::fprintf(stderr, "snc: shard %u: slot %u active here (move %llx, epoch %llu)\n", id_, st.slot,
+                 (unsigned long long)st.move_id, (unsigned long long)st.epoch);
+    resume_slot(st.slot);
+  }
+  if (!ready.empty()) release_held();
+}
+
+void Shard::resume_slot(u16 slot) {
+  resuming_ = true;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || slot_of(o->id) != slot) return;
+    const TypeDescriptor* t = registry().type(o->type_id);
+    if (t == nullptr || t->resume == nullptr) return;
+    OpCtx c;
+    c.obj_ = const_cast<ObjectHeader*>(o);
+    c.type_ = t;
+    t->resume(c);
+  });
+  resuming_ = false;
+  queue_emits(wal_ ? wal_->next_lsn() - 1 : 0);
+}
+
+SlotReport Shard::slot_report(u16 slot) {
+  SlotReport r;
+  r.slot = slot;
+  if (ObjectHeader* o = slot_state(slot)) {
+    SlotStateV1 st;
+    std::memcpy(&st, o->payload(), sizeof(st));
+    r.phase = st.phase;
+    r.group = st.group;
+    r.move_id = st.move_id;
+    r.epoch = st.epoch;
+    r.count = st.count;
+    r.digest = st.digest;
+    r.durable = durable(o->last_lsn);
+  }
+  r.serving = serving(slot) && !repl_cfg_.standby && !withdrawn_;
+  if (cluster_) {
+    r.map_group = cluster_->group_of[slot];
+    r.map_epoch = cluster_->epoch;
+  }
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
+    ++r.live_count;
+    r.live_digest += slot_object_digest(o->id, o->version, image_crc(*o));
+  });
+  return r;
+}
+
+void Shard::slot_objects(u16 slot, bool payloads, std::vector<SlotObject>& out) {
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
+    SlotObject so;
+    so.id = o->id;
+    so.version = o->version;
+    so.type_id = o->type_id;
+    so.schema_ver = o->schema_ver;
+    so.crc = image_crc(*o);
+    if (payloads) {
+      so.has_payload = true;
+      so.payload.assign(o->payload(), o->payload() + o->length);
+    }
+    out.push_back(std::move(so));
+  });
+}
+
+Status Shard::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn) {
+  lsn = 0;
+  if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
+  ObjectHeader* o = slot_state(slot);
+  SlotStateV1 cur{};
+  if (o) std::memcpy(&cur, o->payload(), sizeof(cur));
+  const auto ph = static_cast<SlotPhase>(o ? cur.phase : 0);
+  // Move IDs grow with every move: a request for an older one is late, as
+  // is one for a move whose seal was undone (aborted: it never returns).
+  if (o && (cur.move_id > move || (cur.move_id == move && (cur.flags & kSlotUnsealed)))) {
+    return Status::E_MIGRATING;
+  }
+  if (ph == SlotPhase::SEALED) {
+    if (cur.move_id != move) return Status::E_MIGRATING;  // sealed for another move
+    lsn = o->last_lsn;  // again: the same seal
+    return Status::OK;
+  }
+  if (ph == SlotPhase::STAGED) return Status::E_MIGRATING;
+  if (foreign_slot(slot)) return Status::E_MOVED;
+  // Every op on the slot runs on this thread: those before this point are
+  // in the log before the seal, and none runs after it.
+  SlotStateV1 st{};
+  st.slot = slot;
+  st.phase = static_cast<u8>(SlotPhase::SEALED);
+  st.prior = static_cast<u8>(ph);
+  st.group = to;
+  st.move_id = move;
+  st.epoch = epoch;
+  map_.for_each([&](const ObjectHeader* x) {
+    if (x->deleted() || !moves_with_slot(x->type_id) || slot_of(x->id) != slot) return;
+    ++st.count;
+    st.digest += slot_object_digest(x->id, x->version, image_crc(*x));
+  });
+  lsn = write_slot_state(slot, st);
+  std::fprintf(stderr, "snc: shard %u: slot %u sealed for move %llx (%llu objects)\n", id_, slot,
+               (unsigned long long)move, (unsigned long long)st.count);
+  return Status::OK;
+}
+
+Status Shard::unseal_slot(u16 slot, u64 move, u64& lsn) {
+  lsn = 0;
+  if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
+  ObjectHeader* o = slot_state(slot);
+  SlotStateV1 st{};
+  if (o) std::memcpy(&st, o->payload(), sizeof(st));
+  const auto ph = static_cast<SlotPhase>(o ? st.phase : 0);
+  if (ph == SlotPhase::NONE || ph == SlotPhase::ACTIVE) {
+    lsn = o ? o->last_lsn : 0;  // not sealed (or unsealed already)
+    return Status::OK;
+  }
+  if (ph != SlotPhase::SEALED || st.move_id != move) return Status::E_MIGRATING;
+  st.phase = st.prior;
+  st.flags |= kSlotUnsealed;
+  lsn = write_slot_state(slot, st);
+  std::fprintf(stderr, "snc: shard %u: slot %u unsealed (move %llx aborted)\n", id_, slot, (unsigned long long)move);
+  release_held();
+  resume_slot(slot);  // its objects were skipped by resume passes while sealed
+  return Status::OK;
+}
+
+Status Shard::export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
+                          std::vector<SlotObject>& out, u64& count, u64& digest) {
+  count = digest = 0;
+  if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
+  ObjectHeader* o = slot_state(slot);
+  SlotStateV1 st{};
+  if (o) std::memcpy(&st, o->payload(), sizeof(st));
+  const auto ph = static_cast<SlotPhase>(o ? st.phase : 0);
+  const bool sealed_here = ph == SlotPhase::SEALED && st.move_id == move;
+  if (final) {
+    // Only the sealed state, once durable: nothing on the slot changes after it.
+    if (!sealed_here || !durable(o->last_lsn)) return Status::E_MIGRATING;
+  } else if (!sealed_here) {
+    if (ph == SlotPhase::SEALED || ph == SlotPhase::STAGED) return Status::E_MIGRATING;
+    if (foreign_slot(slot)) return Status::E_MOVED;
+  }
+  std::unordered_map<ObjectID, std::pair<u64, u32>, ObjectIdHash> known;
+  for (const SlotObject& h : have) known[h.id] = {h.version, h.crc};
+  map_.for_each([&](const ObjectHeader* x) {
+    if (x->deleted() || !moves_with_slot(x->type_id) || slot_of(x->id) != slot) return;
+    // A copy ahead of the seal takes durable state only: a version lost in
+    // a crash before it was durable must never be staged anywhere.
+    if (!final && !durable(x->last_lsn)) return;
+    SlotObject so;
+    so.id = x->id;
+    so.version = x->version;
+    so.type_id = x->type_id;
+    so.schema_ver = x->schema_ver;
+    so.crc = image_crc(*x);
+    auto k = known.find(x->id);
+    so.has_payload = k == known.end() || k->second.first != so.version || k->second.second != so.crc;
+    if (so.has_payload) so.payload.assign(x->payload(), x->payload() + x->length);
+    ++count;
+    digest += slot_object_digest(so.id, so.version, so.crc);
+    out.push_back(std::move(so));
+  });
+  return Status::OK;
+}
+
+ObjectHeader* Shard::put_image(const SlotObject& so, u64& lsn) {
+  const TypeDescriptor* t = registry().type(so.type_id);
+  ObjectHeader* o = map_.find(so.id);
+  u8 old_key[kMaxIndexKey];
+  const u32 old_len = o && !o->deleted() && t->index_id ? extract_key(*t, *o, old_key) : 0;
+  const u32 len = static_cast<u32>(so.payload.size());
+  const RecType type = o == nullptr ? RecType::CREATE : RecType::UPDATE;
+  if (o == nullptr || o->capacity < len) {
+    ObjectHeader** at = o ? map_.slot(o->id) : nullptr;
+    void* p = o ? alloc_.resize(o, sizeof(ObjectHeader) + len, kObjectAlign)
+                : alloc_.alloc(sizeof(ObjectHeader) + len, kObjectAlign);
+    if (p == nullptr) return nullptr;
+    o = static_cast<ObjectHeader*>(p);
+    if (at) *at = o;
+  }
+  o->id = so.id;
+  o->version = so.version;
+  o->type_id = so.type_id;
+  o->length = len;
+  o->capacity = static_cast<u32>(alloc_.usable(o) - sizeof(ObjectHeader));
+  o->flags = 0;
+  o->schema_ver = so.schema_ver;
+  std::memcpy(o->payload(), so.payload.data(), len);
+  map_.upsert(o);
+  if (t->index_id) {
+    u8 key[kMaxIndexKey];
+    const u32 new_len = extract_key(*t, *o, key);
+    if (old_len) index_erase(t->index_id, old_key, old_len, o->id);
+    if (new_len) index_insert(t->index_id, key, new_len, o->id);
+  }
+  o->last_lsn = lsn = log(type, *o);
+  return o;
+}
+
+void Shard::drop_object(ObjectHeader* o, u64& lsn) {
+  const TypeDescriptor* t = registry().type(o->type_id);
+  if (t->index_id) {
+    u8 key[kMaxIndexKey];
+    const u32 len = extract_key(*t, *o, key);
+    if (len) index_erase(t->index_id, key, len, o->id);
+  }
+  ++o->version;
+  lsn = log(RecType::DELETE, *o);
+  map_.erase(o->id);
+  alloc_.free(o);
+}
+
+Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
+                         u64 count, u64 digest, u64& lsn) {
+  lsn = 0;
+  if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
+  ObjectHeader* so = slot_state(slot);
+  SlotStateV1 cur{};
+  if (so) std::memcpy(&cur, so->payload(), sizeof(cur));
+  const auto ph = static_cast<SlotPhase>(so ? cur.phase : 0);
+  // Move IDs grow with every move: a request for an older one is late (a
+  // driver that stalled across an abort and a newer move), and must not
+  // replace what a newer move staged here.
+  if (so && cur.move_id > move) return Status::E_MIGRATING;
+  if (ph == SlotPhase::STAGED && cur.move_id == move) {
+    // Final already: the staged copy is the sealed state and stays so. A
+    // late copy from before the seal must not change it.
+    if (!final) return Status::E_MIGRATING;
+    if (cur.count != count || cur.digest != digest) return Status::E_VERSION_CONFLICT;
+    lsn = so->last_lsn;
+    return Status::OK;
+  }
+  // A slot this node's map gives this group is never staged over: here it
+  // is the source (serving or sealed), never the destination. A
+  // destination's map names the source until the move commits.
+  if (!foreign_slot(slot)) return Status::E_MOVED;
+  std::unordered_map<ObjectID, const SlotObject*, ObjectIdHash> listed;
+  for (const SlotObject& x : objs) {
+    if (slot_of(x.id) != slot || !moves_with_slot(x.type_id)) return Status::E_BAD_ARGS;
+    ObjectHeader* o = map_.find(x.id);
+    if (!x.has_payload) {
+      // Already here at this state (the destination said so).
+      if (o == nullptr || o->deleted() || o->version != x.version || image_crc(*o) != x.crc) {
+        return Status::E_VERSION_CONFLICT;
+      }
+    } else {
+      const TypeDescriptor* t = registry().type(x.type_id);
+      if (t == nullptr || t->schema_ver != x.schema_ver || x.payload.size() > t->max_size ||
+          image_crc(x.type_id, x.schema_ver, x.payload.data(), static_cast<u32>(x.payload.size())) != x.crc ||
+          (t->check && !t->check(x.payload.data(), static_cast<u32>(x.payload.size())))) {
+        return Status::E_BAD_ARGS;
+      }
+      // A source's state only moves forward (staged copies are durable states of it).
+      if (o != nullptr && !o->deleted() && o->version > x.version) return Status::E_VERSION_CONFLICT;
+    }
+    listed[x.id] = &x;
+  }
+  u64 at = 0;
+  for (const SlotObject& x : objs) {
+    if (!x.has_payload) continue;
+    ObjectHeader* o = map_.find(x.id);
+    if (o && !o->deleted() && o->version == x.version && image_crc(*o) == x.crc) continue;
+    if (put_image(x, at) == nullptr) return Status::E_NO_MEMORY;
+    lsn = std::max(lsn, at);
+  }
+  if (!final) return Status::OK;
+  // Final: exactly the source's objects. Anything else staged here for
+  // the slot is gone at the source (IDs are never reused).
+  std::vector<ObjectHeader*> gone;
+  u64 n = 0, d = 0;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
+    if (!listed.count(o->id)) {
+      gone.push_back(const_cast<ObjectHeader*>(o));
+      return;
+    }
+    ++n;
+    d += slot_object_digest(o->id, o->version, image_crc(*o));
+  });
+  if (n != count || d != digest) return Status::E_VERSION_CONFLICT;  // nothing recorded as staged
+  for (ObjectHeader* o : gone) {
+    drop_object(o, at);
+    lsn = std::max(lsn, at);
+  }
+  SlotStateV1 st{};
+  st.slot = slot;
+  st.phase = static_cast<u8>(SlotPhase::STAGED);
+  st.group = from;
+  st.move_id = move;
+  st.epoch = epoch;
+  st.count = count;
+  st.digest = digest;
+  lsn = write_slot_state(slot, st);  // after every staged record in this stream
+  std::fprintf(stderr, "snc: shard %u: slot %u staged for move %llx (%llu objects)\n", id_, slot,
+               (unsigned long long)move, (unsigned long long)count);
+  return Status::OK;
 }
 
 // ---- Public API -------------------------------------------------------------------------
