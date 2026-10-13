@@ -715,6 +715,11 @@ void test_promote() {
     double secs = eng.promote();
     if (eng.term() != 1) _exit(23);
     if (!eng.wait_emits()) _exit(8);
+    // The index came over live: 244 accounts keep "e", 20 moved.
+    if (lookup(eng, 0, kEmailIndex, "e").size() != 244) _exit(25);
+    for (char c = 'a'; c < 'a' + 20; ++c) {
+      if (lookup(eng, 1, kEmailIndex, std::string("x") + c).size() != 1) _exit(26);
+    }
     std::set<ObjectID> seen;
     for (u16 s = 0; s < kShards; ++s) {
       eng.for_each_object(s, [&](const ObjectHeader& h) {
@@ -750,6 +755,14 @@ void test_promote() {
     eng.start();
     auto ids = create_accounts(eng, 200);
     auto dep = create_accounts(eng, 64);
+    // New index keys the standby must carry into promotion.
+    for (u32 i = 0; i < 20; ++i) {
+      SetEmailArgs a{1, 2, {'x', static_cast<char>('a' + i)}};
+      auto res = one(eng, 0, [&](Completion c, void* ctx) {
+        execute(ids[i], kOpSetEmail, ByteView(&a, sizeof(a)), {}, c, ctx);
+      });
+      if (res.r.status != Status::OK) _exit(5);
+    }
     for (u32 i = 0;; ++i) {
       workload(eng, ids, dep, 1000, 50 + i, [&](const ExecResult& r) {
         Ack a{r.id, r.version};

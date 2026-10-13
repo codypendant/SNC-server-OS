@@ -1035,8 +1035,10 @@ void Shard::install(const WalRecord& r, const u8* payload) {
 
 void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   if (repl_cfg_.standby) {
-    // A standby runs no follow-ups and serves no lookups: it only installs
-    // and logs. Promotion restarts it as a primary, which runs both.
+    // A standby runs no follow-ups and serves no lookups: it installs,
+    // logs and keeps its index. Promotion makes it a primary, which runs
+    // follow-ups and serves.
+    rebuild_index();
     if (!wal_cfg.data_dir.empty()) {
       wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
       wal_->on_durable = &Shard::on_wal_durable;
@@ -1048,6 +1050,7 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     receiver_ = std::make_unique<repl::Receiver>(repl_cfg_.receiver, &Shard::apply_replicated, this);
     return;
   }
+  rebuild_index();
   start_serving();
   if (!wal_cfg.data_dir.empty()) {
     wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
@@ -1057,10 +1060,9 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   }
 }
 
-// Index, then follow-ups the objects' resume hooks re-emit. The state must
-// be durable: what they emit is ready at once.
+// Follow-ups the objects' resume hooks re-emit. The state must be durable:
+// what they emit is ready at once.
 void Shard::start_serving() {
-  rebuild_index();
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted()) return;
@@ -1119,8 +1121,30 @@ bool Shard::apply_replicated(void* ctx, const u8* rec) {
   if (!s->wal_->append_raw(rec)) return false;  // not the next LSN
   s->tail_lsn_ = r.lsn;
   s->tail_crc_ = r.crc32c;
-  s->install(r, rec + sizeof(r));
+  s->install_indexed(r, rec + sizeof(r));
   return true;
+}
+
+// A standby keeps its index live as it installs, so promotion need not
+// rebuild it.
+void Shard::install_indexed(const WalRecord& r, const u8* payload) {
+  const ObjectHeader* o = map_.find(r.id);
+  const TypeDescriptor* t = registry().type(r.type_id);
+  if (t == nullptr || !t->index_id) return install(r, payload);
+  u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
+  u32 old_len = o && !o->deleted() ? extract_key(*t, *o, old_key) : 0;
+  const u64 old_version = o ? o->version : 0;
+  install(r, payload);
+  o = map_.find(r.id);
+  if (o == nullptr) {
+    if (old_len) index_erase(t->index_id, old_key, old_len, r.id);
+    return;
+  }
+  if (o->version == old_version) return;  // not applied (version rule)
+  u32 new_len = o->deleted() ? 0 : extract_key(*t, *o, new_key);
+  if (new_len == old_len && std::memcmp(old_key, new_key, new_len) == 0) return;
+  if (old_len) index_erase(t->index_id, old_key, old_len, r.id);
+  if (new_len) index_insert(t->index_id, new_key, new_len, r.id);
 }
 
 bool Shard::poll_replication() {

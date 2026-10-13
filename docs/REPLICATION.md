@@ -181,11 +181,12 @@ primary shard i                              standby shard i
 - **Promotion in place** (`Engine::promote()`): each shard stops taking
   records and waits until every installed record is durable; the engine
   then takes leases above every ID the old primary minted, bumps the term
-  and the generation in a durable superblock, rebuilds the secondary
-  index, resumes follow-ups, and starts shipping to `replica_host` if one
-  is configured (`standby_port` keeps the port it listened on apart from
-  the one it ships to). Seeds carry the term, so a standby seeded from the
-  new primary starts in its term.
+  and the generation in a durable superblock, resumes follow-ups, and
+  starts shipping to `replica_host` if one is configured (`standby_port`
+  keeps the port it listened on apart from the one it ships to). The
+  secondary index is already current: a standby maintains it as it
+  installs. Seeds carry the term, so a standby seeded from the new primary
+  starts in its term.
 - **Standby checkpoints** may truncate records it received, as on any
   engine; the two logs then agree where both have a record.
 - **Tests** (`tests/test_replication.cpp`): equal logs and objects after a
@@ -199,7 +200,8 @@ primary shard i                              standby shard i
   copy refused; a sync primary with no standby degrading after its
   timeout; a standby promoted in place after its sync primary is SIGKILLed
   under transfers and deposits (every acked deposit kept, transfers
-  conserved, term 1, new IDs unique), then the old primary restarted with
+  conserved, term 1, new IDs unique, index keys changed on the primary
+  found on the promoted node), then the old primary restarted with
   timeout 0: its deposit is not acknowledged and a standby seeded from the
   promoted node refuses it.
 
@@ -295,17 +297,20 @@ for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
 
 | | Median | Range |
 | --- | --- | --- |
-| Client ops/s on the primary before | 663K | 640-711K |
-| Promotion (signal to serving) | 0.63 s | 0.55-0.64 s |
-| Client ops/s on the promoted node, no standby | 1.01M | 0.98-1.10M |
+| Client ops/s on the primary before | 632K | 621-660K |
+| Promotion (signal to serving) | 0.052 s | 0.050-0.072 s |
+| Client ops/s on the promoted node, no standby | 957K | 921K-1.01M |
 
-- **Promotion takes about 0.6 s for 1M accounts**, measured inside the
+- **Promotion takes about 50 ms for 1M accounts**, measured inside the
   engine and from outside (signal to the "promoted" line; the two agree
-  within a millisecond). Most of it is rebuilding the secondary index,
-  which a standby does not keep; both of its shards share one core here,
-  so on its own cores it would take about half. Keeping the index live on
-  the standby would make promotion near-instant at a cost to apply.
-- With 100K accounts it takes 0.04 s.
+  within a millisecond). Most of it is the resume-hook pass over every
+  object.
+- **The standby keeps its index live** as it installs records (old key
+  out, new key in, only when the key changes), so promotion does not
+  rebuild it. Rebuilding took about 0.6 s here (0.55-0.64 s in the first
+  version of this benchmark), 92% of the promotion. The primary's
+  throughput with the live index, 632K, is within this VM's run-to-run
+  spread of the 663K measured with it rebuilt at promotion.
 - The promoted node runs without a standby until one is seeded from it.
 
 ## Open questions for later rounds

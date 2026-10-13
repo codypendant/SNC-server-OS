@@ -47,6 +47,7 @@ class Shard {
   // ---- Persistence (control path, on this shard's thread) ----
   // Recovery: install one record under the version rule (spec section 12).
   void install(const WalRecord& r, const u8* payload);
+  void install_indexed(const WalRecord& r, const u8* payload);
   // After replay: rebuild the index and open this shard's WAL stream.
   void finish_recovery(const WalConfig& wal_cfg, u64 next_lsn);
   // Highest mint lease among the IDs installed so far (0 = none).
