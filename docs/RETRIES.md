@@ -1,7 +1,7 @@
 # Safe client retries across a failover
 
-Status: built (engine sessions, wire flag, failover-aware `net::Client`),
-except session expiry; see "As built". It follows automatic failover
+Status: built (engine sessions, wire flag, failover-aware `net::Client`,
+session expiry); see "As built". It follows automatic failover
 (docs/REPLICATION.md), which promotes a standby but leaves clients pointed
 at the dead primary, and leaves them unsure what happened to the requests
 they had in flight.
@@ -84,8 +84,9 @@ the answer came from a session record.
   one answers as primary (a probe that a standby answers `E_STANDBY`), then
   resends every unanswered request in order. `net_bench --session ID
   --endpoint H:P --verify`.
-- Not built: session expiry (`session_ttl_s`). Sessions stay until the
-  shard is rebuilt.
+- Session expiry: `Engine::Config::session_ttl_s` (default 3600). A
+  primary deletes sessions untouched that long just before each checkpoint;
+  the deletes replicate like any other. Tested with a 1 s TTL.
 - The client fails over on a broken connection, not on a hung one: a
   primary cut off but alive keeps the client waiting (it is fenced, so it
   acknowledges nothing). A request timeout would cover it.
@@ -126,7 +127,7 @@ accounts, 256 in flight, 8 s, `--verify` reading every account at the end.
   pay nothing.
 - **Memory.** There is one session object per (client, shard) the client
   wrote to. Sessions idle for longer than a configured time
-  (`session_ttl_s`, default one hour) are deleted at checkpoint. A client
+  (`session_ttl_s`, default one hour) are deleted before a checkpoint. A client
   returning after that has its old sequences forgotten, and must start a new
   `client_id`.
 - **Replayed results are status and version only.** An op whose result

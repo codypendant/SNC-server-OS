@@ -598,11 +598,28 @@ ObjectHeader* Shard::record_session(const ExecOptions& opts, const ObjectID& id,
                  sizeof(opts.client_id), sid);
     type = RecType::CREATE;
   }
-  SessionV1 v{opts.client_id, opts.seq, id, version, static_cast<u16>(Status::OK), 0, 0};
+  SessionV1 v{opts.client_id, opts.seq, id, version, static_cast<u16>(Status::OK), 0,
+              static_cast<u32>(::time(nullptr))};
   std::memcpy(s->payload(), &v, sizeof(v));
   ++s->version;
   log(type, *s, kRecGroupNext);
   return s;
+}
+
+u64 Shard::expire_sessions(u32 now_s, u32 ttl_s) {
+  std::vector<ObjectID> old;
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->type_id != kSessionTypeId || o->deleted()) return;
+    SessionV1 v;
+    std::memcpy(&v, o->payload(), sizeof(v));
+    if (v.touched_s + static_cast<u64>(ttl_s) < now_s) old.push_back(o->id);
+  });
+  for (const ObjectID& id : old) {
+    RunOut out;
+    run_delete(id, ExecOptions{}, out);
+  }
+  stats_.sessions_expired += old.size();
+  return old.size();
 }
 
 // ---- Index partition (spec section 11) ----------------------------------------------

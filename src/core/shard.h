@@ -237,6 +237,10 @@ class Shard {
   void run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts, RunOut& out);
   // Client sessions (docs/RETRIES.md).
   ObjectHeader* find_session(u64 client_id);
+ public:
+  // Deletes sessions untouched for ttl_s (primary, before a checkpoint).
+  u64 expire_sessions(u32 now_s, u32 ttl_s);
+ private:
   bool replay_if_seen(const ExecOptions& opts, RunOut& out);
   // Logs the op's session record, first in its atomic group; returns the
   // session so the caller can set its last_lsn with the group's.
