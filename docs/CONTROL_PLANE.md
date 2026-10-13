@@ -303,7 +303,8 @@ the block it holds.
    `move --abort SLOT`; map refresh on `E_MOVED` and on a newer epoch over
    a node link; follow-ups carry their emission epoch. Checked by
    `test_migrate`: 67 crash scenarios, each party killed at each step.
-4. Real machines (unchanged).
+4. **Real machines.** Plan in [REAL_MACHINES.md](REAL_MACHINES.md); next
+   per Codex (2026-10-13), before concurrent moves.
 
 Steps 1 and 2 are independent and could go in either order; step 1 first
 proves invariant 11 with the least new machinery.
@@ -326,6 +327,7 @@ first step.
 
 ## Still open
 
-- More than one move at a time; collecting a source's sealed copies;
-  chunked final copies for large slots (docs/MIGRATION.md, "Limits").
+- More than one move at a time (not before real machines); collecting a
+  source's sealed copies; the chunked migration stream and seal
+  reconciliation (designs in docs/MIGRATION.md, "Next").
 - Lease block size, and whether leases are pre-split per shard.

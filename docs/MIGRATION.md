@@ -292,6 +292,54 @@ Checked in each:
 
 Result: all 67 pass, run 8 times in a row (536 runs), and under ASan.
 
+## Next (accepted by Codex, 2026-10-13; not built)
+
+### Chunked migration stream
+
+The protocol stays as it is; only the transport of a copy changes. Today
+the driver reads a slot from the source and writes it to the destination
+as one admin line each way. The replacement is a stream per copy:
+
+```text
+BEGIN(move, slot, kind = ahead | final)
+CHUNK(seq, objects...)*          bounded size, resumable from the last seq
+VERIFY(count, digest)            the values the source recorded
+STAGE                            unchanged: all or nothing, as above
+```
+
+- The destination keeps chunks in a scratch area keyed by `(move, kind)`;
+  nothing in it is served or counted until `STAGE`, and a new `BEGIN` for
+  another move discards it, so a stalled driver's chunks are as inert as
+  its late stage request is now.
+- `VERIFY` is the same count and digest check; a mismatch records nothing.
+- The stream is an interface over a byte transport (TCP today), not part
+  of the admin line protocol, so it can later run over the
+  networking-OS/DPDK transport (invariant 10). Source to destination
+  directly, with the driver only starting it, keeps the copy off the
+  driver's host.
+
+### Reconciling an abandoned seal
+
+Today a seal left by a driver that died mid-abort stays until a driver runs
+again for the slot (see "Limits"): unavailable, never unsafe. The future
+rule lets the source group clear it by itself, under exactly the condition
+the driver's unseal already uses, and nothing weaker:
+
+A sealed source may unseal slot S, sealed for move M, only after a
+linearizable placement read (a majority read, as `PLACEMENT SYNC`) shows
+both that no move record for M exists and that the committed map still
+gives S to this group.
+
+- Both halves are needed. "M is gone" alone also holds after M committed,
+  when S belongs to the destination; unsealing then would make two
+  serving groups. "S is still ours" alone also holds while M is PREPARED
+  or SEALED.
+- Move IDs never repeat, so a later move of S cannot be mistaken for M.
+- The unseal is logged and replicated like any `SlotState` change; a
+  failover between the read and the unseal repeats the read.
+- If the control plane cannot be read, the seal stays. Availability never
+  overrides the proof.
+
 ## Limits
 
 - One move at a time across the cluster (the placement holds one record).
@@ -302,7 +350,8 @@ Result: all 67 pass, run 8 times in a row (536 runs), and under ASan.
   later move to it replaces it.
 - A seal sent just before its move was aborted can stay; the slot is then
   unavailable, never unsafe, until a driver runs again for it (`move` or
-  `move --abort`). Nothing notices it by itself.
+  `move --abort`). Nothing notices it by itself (see "Reconciling an
+  abandoned seal").
 - Follow-ups held for a newer map are in memory: a node that can never
   refresh keeps holding them (their sources re-send them later anyway).
 - Reads are not forwarded to the new owner; clients get `E_MOVED` and
@@ -310,4 +359,4 @@ Result: all 67 pass, run 8 times in a row (536 runs), and under ASan.
 - The driver is an operator tool: `PLACEMENT CAS` accepts any well-formed
   placement from anyone who can reach the witnesses.
 - Copy requests carry whole slots in one admin line; fine for a test-sized
-  slot, not for a production one (chunked final copies would be needed).
+  slot, not for a production one (see "Chunked migration stream").

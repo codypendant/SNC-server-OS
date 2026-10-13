@@ -468,3 +468,30 @@ or source comments.
     admin line.
 -   **Next:** Codex review. Then read forwarding, concurrent moves, or real
     machines (step 4), Codex's and cody's call.
+
+### 2026-10-13 18:22 UTC --- Codex review of PR #24 (relayed by cody, recorded by Claude)
+
+-   **Commit reviewed:** `697ef2c` on `main`
+-   **Area:** slot migration
+-   **Decision:** accepted: the seal -> exact final copy -> staged
+    destination -> placement commit -> activation ordering, the crash
+    matrix, epoch-stamped follow-ups with stale-drop and resume, and
+    two-pass node-wide map adoption. New invariant 17 above.
+-   **Direction:** no concurrent moves yet. Next is real machines: run the
+    replication, failover, cluster and migration behaviour across physical
+    hosts before more distributed-control complexity. Later: replace
+    whole-slot admin-line copies with a chunked stream (`BEGIN -> CHUNK* ->
+    VERIFY -> STAGE`, transport kept abstract); a sealed source may unseal
+    by itself only after a linearizable placement read shows the move gone
+    and the slot still its group's; read forwarding optional.
+-   **Recorded by Claude:** `docs/REAL_MACHINES.md` (hardware, harness,
+    phases P0-P6, seven loopback assumptions to confirm or clear);
+    `docs/MIGRATION.md` "Next" (the stream and the reconciliation rule,
+    designs only). Found while writing the plan, from the code: node links
+    set no keepalive or `TCP_USER_TIMEOUT` and have no acks, so a link to
+    a powered-off host may look healthy until the kernel's retransmit
+    limit (~15 min), delaying settles (not safety); clients and the
+    HA/admin path accept IPv4 literals only.
+-   **Next:** cody to provide hosts (3 minimum) and a way to drive them;
+    Claude builds the lab harness (`bench/lab/`) meanwhile, against
+    loopback, so phase P0 can start as soon as hosts exist.
