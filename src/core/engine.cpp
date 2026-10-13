@@ -2,6 +2,8 @@
 // of persistence: superblock, recovery and checkpoint orchestration (spec
 // section 12, recovery steps 1 to 9).
 #include <dirent.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -11,6 +13,7 @@
 #include <mutex>
 #include <stdexcept>
 
+#include "seed.h"
 #include "shard.h"
 
 namespace snc {
@@ -168,6 +171,11 @@ bool Engine::wait_emits(double timeout_s) {
 
 void Engine::stop() {
   if (!running_) return;
+  if (seed_ && seed_->thread.joinable()) {
+    seed_->stop = true;
+    seed_->thread.join();
+    ::close(seed_->listen_fd);
+  }
   // Stop dispatching follow-ups and let the ones already sent to another
   // shard come back, so no shard waits on a response from a stopped one.
   // Paused shards still run follow-ups that arrive; wait until every one
@@ -193,8 +201,18 @@ void Engine::recover() {
   const u16 n = cfg_.runtime.n_shards;
   recovery_ = RecoveryReport{};
 
-  // 1. Superblock.
+  // 1. Superblock. A new standby may first fetch a seed from its primary.
   std::optional<Superblock> sb = read_superblock(dir);
+  if (!sb && !cfg_.seed_from.empty()) {
+    bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
+    if (has_data) {
+      throw std::runtime_error("seed_from: " + dir + " has data but no superblock; clear it first");
+    }
+    make_dirs(dir);
+    seed_fetch();
+    sb = read_superblock(dir);
+    if (!sb) storage_fatal("seed: superblock not readable after seeding");
+  }
   if (!sb) {
     bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
     if (!cfg_.init || has_data) {
@@ -250,6 +268,7 @@ void Engine::recover() {
   std::vector<u16> streams = list_streams(dir);
   for (u16 s : streams) adopt_spare(dir, s, uuid_);
   std::vector<u64> next_lsn(n, 1);
+  std::vector<u32> tail_crc(n, 0);  // crc of each stream's last record, for replication
   bool orphans = false;
   auto from_lsn = [&](u16 s) -> u64 { return (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1; };
 
@@ -284,6 +303,7 @@ void Engine::recover() {
       recovery_.wal_records_replayed += scans[s].records;
       recovery_.torn_tails += scans[s].torn_tails;
       next_lsn[s] = std::max(scans[s].last_lsn + 1, from_lsn(s));
+      if (scans[s].last_lsn + 1 == next_lsn[s]) tail_crc[s] = scans[s].last_crc;
     }
     for (u16 s : streams) {
       if (s >= n) storage_fatal("WAL stream without a shard under an unchanged slot map");
@@ -411,7 +431,10 @@ void Engine::recover() {
       current_shard()->set_replication(rc);
     });
   }
-  rt_->run_on_all([&](u16 s) { current_shard()->finish_recovery(wc, next_lsn[s]); });
+  rt_->run_on_all([&](u16 s) {
+    if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
+    current_shard()->finish_recovery(wc, next_lsn[s]);
+  });
   recovery_.index_rebuild_s = since(t3);
 
   // 8. A changed slot map or orphaned streams need a checkpoint before READY
@@ -423,6 +446,23 @@ void Engine::recover() {
   }
   for (u16 s = 0; s < n; ++s) recovery_.objects += stats(s).objects;
   recovery_.total_s = since(t0);
+
+  seed_ = std::make_unique<Seeding>();
+  seed_->wal_pin.assign(n, 0);
+  if (cfg_.seed_port != 0) {
+    int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    int one = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(cfg_.seed_port);
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 4) != 0) {
+      throw std::runtime_error("cannot listen for seeds on port " + std::to_string(cfg_.seed_port));
+    }
+    seed_->listen_fd = fd;
+    seed_->thread = std::thread([this] { serve_seed(); });
+  }
 }
 
 CheckpointReport Engine::checkpoint() {
@@ -464,6 +504,21 @@ CheckpointReport Engine::checkpoint() {
   }
   for (const auto& t : registry().types()) m.types.push_back({t.type_id, t.schema_ver, t.name});
   write_manifest(dir, m);
+  // Replication: the first LSN each shard's standby may still need, and
+  // seeds in progress (docs/REPLICATION.md). WAL from there is kept.
+  std::vector<u64> keep_from(n, 0);
+  rt_->run_on_all([&](u16 s) { keep_from[s] = current_shard()->repl_retain_from(); });
+  std::unique_lock<std::mutex> seed_lock;
+  if (seed_) {
+    seed_lock = std::unique_lock<std::mutex>(seed_->mu);
+    const bool expired = std::chrono::steady_clock::now() > seed_->wal_pin_until;
+    for (u16 s = 0; s < n; ++s) {
+      u64& pin = seed_->wal_pin[s];
+      // Released once the standby is past it.
+      if (pin != 0 && (expired || keep_from[s] > pin)) pin = 0;
+      if (pin != 0 && (keep_from[s] == 0 || pin < keep_from[s])) keep_from[s] = pin;
+    }
+  }
   u64 old = sb_.active_ckpt;
   sb_.active_ckpt = seq;
   // A standby has installed IDs minted under its primary's leases; once the
@@ -480,8 +535,13 @@ CheckpointReport Engine::checkpoint() {
   ++sb_.generation;
   write_superblock(dir, sb_);
 
-  // Step 5: only now delete what the new checkpoint covers (spec C10).
-  if (old != 0) remove_tree(ckpt_dir(dir, old));
+  // Step 5: only now delete what the new checkpoint covers (spec C10),
+  // except a checkpoint a seed is still sending.
+  if (old != 0) {
+    if (seed_ && seed_->ckpt_pins.count(old)) seed_->deferred.push_back(old);
+    else remove_tree(ckpt_dir(dir, old));
+  }
+  if (seed_lock.owns_lock()) seed_lock.unlock();
   for (u16 s : list_streams(dir)) {
     if (s >= n) {
       for (u64 first : list_segments(dir, s)) ::unlink(segment_path(dir, s, first).c_str());
@@ -491,9 +551,25 @@ CheckpointReport Engine::checkpoint() {
       continue;
     }
     std::vector<u64> segs = list_segments(dir, s);
+    // Segments the checkpoint covers but a standby may still need, kept up
+    // to a budget; beyond it the oldest go and that standby needs a seed.
+    u64 keep = m.start_lsn[s];
+    if (keep_from[s] != 0) keep = std::min(keep, keep_from[s]);
+    std::size_t held = 0;
+    for (std::size_t i = 0; i + 1 < segs.size(); ++i) {
+      if (segs[i + 1] <= m.start_lsn[s] && segs[i + 1] > keep) ++held;
+    }
+    const std::size_t budget =
+        static_cast<std::size_t>(cfg_.replica_retain_disk_bytes / cfg_.wal_segment_bytes);
     for (std::size_t i = 0; i + 1 < segs.size(); ++i) {
       // Segment i holds LSNs below segs[i+1]; drop it if all are below start_lsn.
-      if (segs[i + 1] <= m.start_lsn[s]) {
+      if (segs[i + 1] > m.start_lsn[s]) continue;
+      bool needed = segs[i + 1] > keep;
+      if (needed && held > budget) {
+        needed = false;
+        --held;
+      }
+      if (!needed) {
         ::unlink(segment_path(dir, s, segs[i]).c_str());
         ++rep.segments_deleted;
       }

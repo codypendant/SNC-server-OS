@@ -163,6 +163,7 @@ struct ShardStats {
   u64 repl_retained_bytes = 0; // primary: unacked records kept in memory
   u64 repl_records = 0;        // standby: records applied
   u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
+  u64 repl_disk_bytes = 0;     // primary: shipped from WAL files (catch-up)
   bool wal_direct = false;
 };
 
@@ -231,6 +232,15 @@ class Engine {
     // Promote by stopping it and starting a primary on the same data_dir.
     bool standby = false;
     std::string standby_host = "0.0.0.0";
+    // Primary: keep WAL segments a checkpoint covers while the standby may
+    // still need them, up to this much per shard beyond the checkpoint.
+    u64 replica_retain_disk_bytes = 16ull << 30;
+    // Primary: serve seeds on this port (0 = off). A seed is the active
+    // checkpoint's files; the standby then catches up from the WAL.
+    u16 seed_port = 0;
+    // Standby: with no superblock in data_dir, first fetch a seed from this
+    // primary ("host:port") instead of starting empty.
+    std::string seed_from;
   };
 
   explicit Engine(const Config& cfg);
@@ -270,6 +280,11 @@ class Engine {
 
   // Persistence state (control thread only).
   void recover();
+  // Seeding standbys (src/core/seed.cpp).
+  struct Seeding;
+  std::unique_ptr<Seeding> seed_;
+  void seed_fetch();
+  void serve_seed();
   Superblock sb_{};
   Uuid uuid_{};
   SlotMap slots_;

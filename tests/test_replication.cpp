@@ -77,7 +77,7 @@ sigset_t block_term() {
 
 // A standby in a child process; stops cleanly on SIGTERM. Writes one byte
 // to ready_fd once listening.
-pid_t start_standby(const std::string& dir, bool init) {
+pid_t start_standby(const std::string& dir, bool init, const std::string& seed_from = "") {
   int fds[2];
   CHECK_EQ(::pipe(fds), 0);
   pid_t pid = ::fork();
@@ -89,6 +89,7 @@ pid_t start_standby(const std::string& dir, bool init) {
     c.standby = true;
     c.standby_host = "127.0.0.1";
     c.replica_port = g_port;
+    c.seed_from = seed_from;
     Engine eng(c);
     eng.start();
     // It serves nothing.
@@ -394,10 +395,15 @@ void test_failover() {
   }
 }
 
-// 3. A standby that starts after the primary has written catches up, and
-// 4. one that needs records past the retention budget is reported lost.
-void test_catch_up(bool lose) {
+// 3. A standby that starts after the primary has written catches up: from
+// memory (LATE), from WAL files after a checkpoint (DISK), or from a seed of
+// the primary's checkpoint when the WAL it needs is gone (SEED); without a
+// seed it is reported lost (LOST).
+enum class Late { LATE, DISK, LOST, SEED };
+
+void test_late(Late mode) {
   std::string pd = temp_dir("p"), sd = temp_dir("s");
+  const u16 seed_port = static_cast<u16>(g_port + 100);
   int go[2], ready[2];
   CHECK_EQ(::pipe(go), 0);
   CHECK_EQ(::pipe(ready), 0);
@@ -407,17 +413,24 @@ void test_catch_up(bool lose) {
     ::close(go[1]);
     ::close(ready[0]);
     Engine::Config c = primary_config(pd, true, /*sync=*/false, 0);
-    if (lose) c.replica_retain_bytes = 64u << 10;
+    if (mode != Late::LATE) c.replica_retain_bytes = 64u << 10;  // memory holds almost nothing
+    if (mode == Late::LOST || mode == Late::SEED) c.replica_retain_disk_bytes = 0;
+    if (mode == Late::SEED) c.seed_port = seed_port;
     Engine eng(c);
     eng.start();
     auto ids = create_accounts(eng, 200);
     auto dep = create_accounts(eng, 64);
     workload(eng, ids, dep, 2000, 1, [](const ExecResult&) {});
     if (!eng.wait_emits()) _exit(8);
+    if (mode != Late::LATE) {
+      eng.checkpoint();  // covers what was written so far
+      workload(eng, ids, dep, 1000, 3, [](const ExecResult&) {});
+      if (!eng.wait_emits()) _exit(8);
+    }
     char b = 1;
     if (::write(ready[1], &b, 1) != 1) _exit(3);
     if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby is up
-    if (lose) {
+    if (mode == Late::LOST) {
       for (int i = 0; i < 5000; ++i) {
         bool all = true;
         for (u16 s = 0; s < kShards; ++s) all &= eng.stats(s).repl_lost;
@@ -431,6 +444,11 @@ void test_catch_up(bool lose) {
       workload(eng, ids, dep, 500, 2, [](const ExecResult&) {});  // live on top of catch-up
       if (!eng.wait_emits()) _exit(8);
       wait_replicated(eng);
+      if (mode == Late::DISK || mode == Late::SEED) {
+        u64 disk = 0;
+        for (u16 s = 0; s < kShards; ++s) disk += eng.stats(s).repl_disk_bytes;
+        if (disk == 0) _exit(13);  // it did read WAL files
+      }
     }
     eng.stop();
     _exit(0);
@@ -439,24 +457,192 @@ void test_catch_up(bool lose) {
   ::close(ready[1]);
   char b;
   CHECK_EQ(::read(ready[0], &b, 1), 1);
-  pid_t sb = start_standby(sd, true);
+  pid_t sb = mode == Late::SEED
+                 ? start_standby(sd, false, "127.0.0.1:" + std::to_string(seed_port))
+                 : start_standby(sd, true);
   CHECK_EQ(::write(go[1], &b, 1), 1);
   wait_ok(pid);
   stop_child(sb);
-  auto a = log_of(pd), s = log_of(sd);
-  if (lose) {
-    CHECK_EQ(total_records(s), 0u);
-    std::printf("lost: standby needing dropped records refused on every shard\n");
+  const char* name[] = {"late", "disk", "lost", "seed"};
+  if (mode == Late::LOST) {
+    CHECK_EQ(total_records(log_of(sd)), 0u);
+    std::printf("lost: a standby needing WAL that is gone is refused on every shard\n");
   } else {
+    auto a = log_of(pd), s = log_of(sd);
     for (u16 i = 0; i < kShards; ++i) CHECK(same_log(a[i], s[i]));
     CHECK(state_of(pd) == state_of(sd));
-    std::printf("catch-up: late standby matches the primary (%llu records)\n",
-                (unsigned long long)total_records(a));
+    std::printf("%s: the standby matches the primary (%llu records on the standby)\n",
+                name[static_cast<int>(mode)], (unsigned long long)total_records(s));
   }
   rm_rf(pd + " " + sd);
 }
 
-// 5. Sync with no standby: durable acks wait for the timeout, then the
+// 4. A standby down while its primary writes and checkpoints past what
+// memory holds catches up from the primary's WAL files when it returns.
+void test_outage() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  pid_t sb = start_standby(sd, true);
+  int go[2], ready[2];
+  CHECK_EQ(::pipe(go), 0);
+  CHECK_EQ(::pipe(ready), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ::close(go[1]);
+    ::close(ready[0]);
+    Engine::Config c = primary_config(pd, true, /*sync=*/false, 0);
+    c.replica_retain_bytes = 64u << 10;
+    Engine eng(c);
+    eng.start();
+    auto ids = create_accounts(eng, 200);
+    auto dep = create_accounts(eng, 64);
+    workload(eng, ids, dep, 1000, 1, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    wait_replicated(eng);
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby was killed
+    workload(eng, ids, dep, 1500, 2, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    eng.checkpoint();  // must keep the segments the standby lacks
+    workload(eng, ids, dep, 500, 3, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby is back
+    wait_replicated(eng);
+    eng.stop();
+    _exit(0);
+  }
+  ::close(go[0]);
+  ::close(ready[1]);
+  char b = 1;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  ::kill(sb, SIGKILL);
+  int st = 0;
+  CHECK_EQ(::waitpid(sb, &st, 0), sb);
+  CHECK_EQ(::write(go[1], &b, 1), 1);
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  sb = start_standby(sd, false);
+  CHECK_EQ(::write(go[1], &b, 1), 1);
+  wait_ok(pid);
+  stop_child(sb);
+  auto a = log_of(pd), s = log_of(sd);
+  for (u16 i = 0; i < kShards; ++i) CHECK(same_log(a[i], s[i]));
+  CHECK(state_of(pd) == state_of(sd));
+  std::printf("outage: standby killed, primary checkpointed, standby caught up from WAL files\n");
+  rm_rf(pd + " " + sd);
+}
+
+// Every account, as 64 to deposit into and the rest to transfer between.
+void split_accounts(Engine& eng, std::vector<ObjectID>& ids, std::vector<ObjectID>& dep) {
+  std::vector<ObjectID> all;
+  for (u16 s = 0; s < kShards; ++s) {
+    eng.for_each_object(s, [&](const ObjectHeader& h) { all.push_back(h.id); });
+  }
+  dep.assign(all.end() - 64, all.end());
+  ids.assign(all.begin(), all.end() - 64);
+}
+
+// Runs a primary on `pd` in a child: `per_shard` ops of workload, then
+// either waits until its standby is replicated (expect_lost false) or until
+// every shard reports it lost.
+void run_primary(const std::string& pd, bool init, u64 per_shard, u32 seed, bool expect_lost) {
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine eng(primary_config(pd, init, /*sync=*/false, 0));
+    eng.start();
+    std::vector<ObjectID> ids, dep;
+    if (init) {
+      ids = create_accounts(eng, 200);
+      dep = create_accounts(eng, 64);
+    } else {
+      split_accounts(eng, ids, dep);
+    }
+    if (per_shard) workload(eng, ids, dep, per_shard, seed, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    if (expect_lost) {
+      for (int i = 0; i < 10000; ++i) {
+        bool all = true;
+        for (u16 s = 0; s < kShards; ++s) all &= eng.stats(s).repl_lost;
+        if (all) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      for (u16 s = 0; s < kShards; ++s) {
+        if (!eng.stats(s).repl_lost) _exit(9);
+      }
+    } else {
+      wait_replicated(eng);
+    }
+    eng.stop();
+    _exit(0);
+  }
+  wait_ok(pid);
+}
+
+// 5. A primary restarted from an older copy of its directory (as after a
+// crash that lost records it had already shipped) refuses a standby whose
+// log went further, whether the standby is ahead of it or the two wrote
+// different records at the same LSNs.
+void test_diverged() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s"), old = temp_dir("old");
+  pid_t sb = start_standby(sd, true);
+  run_primary(pd, true, 1000, 1, false);
+  rm_rf(old);
+  CHECK_EQ(std::system(("cp -a " + pd + " " + old).c_str()), 0);
+  run_primary(pd, false, 300, 2, false);  // the standby gets these; the copy does not
+  // Ahead: the old primary has written nothing since.
+  rm_rf(pd);
+  CHECK_EQ(std::system(("cp -a " + old + " " + pd).c_str()), 0);
+  run_primary(pd, false, 0, 0, true);
+  // Same LSNs, other records: the old primary writes more than the standby
+  // got before the standby reconnects.
+  stop_child(sb);
+  rm_rf(pd);
+  CHECK_EQ(std::system(("cp -a " + old + " " + pd).c_str()), 0);
+  int go[2], ready[2];
+  CHECK_EQ(::pipe(go), 0);
+  CHECK_EQ(::pipe(ready), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    // Writes first with no standby, then lets it in.
+    ::close(go[1]);
+    ::close(ready[0]);
+    Engine eng(primary_config(pd, false, false, 0));
+    eng.start();
+    std::vector<ObjectID> ids, dep;
+    split_accounts(eng, ids, dep);
+    workload(eng, ids, dep, 1000, 9, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby is up
+    for (int i = 0; i < 10000; ++i) {
+      bool lost = true;
+      for (u16 s = 0; s < kShards; ++s) lost &= eng.stats(s).repl_lost;
+      if (lost) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    for (u16 s = 0; s < kShards; ++s) {
+      if (!eng.stats(s).repl_lost) _exit(9);
+    }
+    eng.stop();
+    _exit(0);
+  }
+  ::close(go[0]);
+  ::close(ready[1]);
+  char b;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  sb = start_standby(sd, false);
+  CHECK_EQ(::write(go[1], &b, 1), 1);
+  wait_ok(pid);
+  stop_child(sb);
+  std::printf("diverged: standby ahead of, or different from, its primary is refused\n");
+  rm_rf(pd + " " + sd + " " + old);
+}
+
+// 6. Sync with no standby: durable acks wait for the timeout, then the
 // primary continues and reports itself degraded.
 void test_degrade() {
   std::string pd = temp_dir("p");
@@ -494,8 +680,12 @@ int main() {
   g_port = static_cast<u16>(21000 + (::getpid() % 2000) * 8);
   test_identical();
   test_failover();
-  test_catch_up(false);
-  test_catch_up(true);
+  test_late(Late::LATE);
+  test_late(Late::DISK);
+  test_late(Late::LOST);
+  test_late(Late::SEED);
+  test_outage();
+  test_diverged();
   test_degrade();
   std::printf("test_replication: ok\n");
   return 0;

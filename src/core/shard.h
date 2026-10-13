@@ -66,6 +66,14 @@ class Shard {
     repl::Receiver::Config receiver;
   };
   void set_replication(const ReplicaConfig& c) { repl_cfg_ = c; }
+  // The WAL's last record after replay, so a standby can prove its log
+  // matches its primary's when it reconnects.
+  void set_wal_tail(u64 lsn, u32 crc) {
+    tail_lsn_ = lsn;
+    tail_crc_ = crc;
+  }
+  // Primary: first LSN its standby may still need from WAL files (0: none).
+  u64 repl_retain_from() const { return sender_ ? sender_->retain_from() : 0; }
 
   struct CheckpointResult {
     u64 start_lsn = 0, objects = 0, bytes = 0;
@@ -287,6 +295,8 @@ class Shard {
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby
   int repl_epfd_ = -1;          // the replication sockets, for idle wake-ups
+  u64 tail_lsn_ = 0;            // standby: last record in its WAL, and its crc
+  u32 tail_crc_ = 0;
   std::deque<Waiter> waiters_;  // sorted by lsn
 
   // FIFO over a vector that keeps its memory: std::deque allocates and

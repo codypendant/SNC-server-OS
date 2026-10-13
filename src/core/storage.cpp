@@ -412,6 +412,7 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
       }
       expected = r.lsn + 1;
       out.last_lsn = r.lsn;
+      out.last_crc = r.crc32c;
       if (r.lsn >= from_lsn) {
         // One op's records are flushed together, so a group never spans
         // segments: hold its records until the last one is read.
@@ -433,6 +434,45 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
     group.clear();  // cut off by a torn tail or the end of the stream
   }
   return out;
+}
+
+bool read_stream_range(const std::string& d, u16 stream, u64 from_lsn, u64 to_lsn,
+                       const Uuid& uuid, const std::function<void(const u8*, u32)>& fn) {
+  if (from_lsn >= to_lsn) return true;
+  std::vector<u64> segs = list_segments(d, stream);
+  u64 next = from_lsn;
+  std::vector<u8> buf;
+  for (std::size_t si = 0; si < segs.size() && next < to_lsn; ++si) {
+    if (si + 1 < segs.size() && segs[si + 1] <= next) continue;  // all before `next`
+    if (segs[si] > next) return false;  // the segment holding `next` is gone
+    if (!read_file(segment_path(d, stream, segs[si]), buf)) return false;  // deleted meanwhile
+    FileHeader h{};
+    if (buf.size() < kBlock) return false;
+    std::memcpy(&h, buf.data(), sizeof(h));
+    if (!header_ok(h, kWalMagic, stream, uuid)) return false;
+    std::size_t off = kBlock;
+    while (off + sizeof(WalRecord) <= buf.size() && next < to_lsn) {
+      u32 len = check_record(buf.data() + off, buf.size() - off);
+      if (len == 0) {
+        // Block padding after a flush; anything else ends what is written.
+        std::size_t block_end = (off / kBlock + 1) * kBlock;
+        if (off % kBlock != 0 && all_zero(buf.data() + off, std::min(block_end, buf.size()) - off)) {
+          off = block_end;
+          continue;
+        }
+        break;
+      }
+      WalRecord r;
+      std::memcpy(&r, buf.data() + off, sizeof(r));
+      if (r.lsn > next) return false;  // a hole
+      if (r.lsn == next) {
+        fn(buf.data() + off, len);
+        ++next;
+      }
+      off += len;
+    }
+  }
+  return next >= to_lsn;
 }
 
 u64 scan_part(const std::string& d, u64 seq, u16 stream, const Uuid& uuid, const RecordFn& fn) {

@@ -1070,6 +1070,8 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
       repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
       sri_watch_fd(repl_epfd_);
       repl_cfg_.sender.epoll_fd = repl_epfd_;
+      repl_cfg_.sender.data_dir = wal_cfg.data_dir;
+      repl_cfg_.sender.start_lsn = next_lsn;
       sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
       wal_->on_flush = &Shard::on_wal_flush;
       wal_->on_flush_ctx = this;
@@ -1089,6 +1091,8 @@ bool Shard::apply_replicated(void* ctx, const u8* rec) {
   WalRecord r;
   std::memcpy(&r, rec, sizeof(r));
   if (!s->wal_->append_raw(rec)) return false;  // not the next LSN
+  s->tail_lsn_ = r.lsn;
+  s->tail_crc_ = r.crc32c;
   s->install(r, rec + sizeof(r));
   return true;
 }
@@ -1099,7 +1103,8 @@ bool Shard::poll_replication() {
     // Idle sleeps wake on the sockets (repl_epfd_). Stay awake while records
     // wait to become durable here: the primary is waiting for their ack,
     // and an idle sleep would add up to a millisecond to it.
-    bool did = receiver_->poll(wal_->next_lsn(), wal_->durable_lsn());
+    const u64 next = wal_->next_lsn();
+    bool did = receiver_->poll(next, wal_->durable_lsn(), tail_lsn_ + 1 == next ? tail_crc_ : 0);
     return did || wal_->durable_lsn() + 1 < wal_->next_lsn();
   }
   if (!sender_) return false;
@@ -1248,6 +1253,7 @@ ShardStats Shard::stats() const {
     s.repl_bytes = sender_->stats().bytes_sent;
     s.repl_retained_bytes = sender_->stats().retained_bytes;
     s.repl_connects = sender_->stats().connects;
+    s.repl_disk_bytes = sender_->stats().disk_bytes;
   } else if (receiver_) {
     s.repl_role = 2;
     s.repl_live = receiver_->connected();

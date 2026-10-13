@@ -9,7 +9,10 @@
 // non-blocking sockets; neither blocks the shard.
 #pragma once
 
+#include <condition_variable>
 #include <deque>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -31,7 +34,7 @@ struct Hello {
 struct HelloAck {
   char magic[8];
   u32 status;       // 0 = accepted; otherwise why not (kRefused*)
-  u32 pad;
+  u32 last_crc;     // crc32c of record next_lsn - 1 (0 = unknown): detects divergence
   u64 next_lsn;     // first LSN the standby does not have
 };
 struct RecordsHeader {
@@ -57,6 +60,10 @@ class Sender {
     u32 slot_crc = 0;
     u64 retain_bytes = 1ull << 30;  // unacked records kept for catch-up
     int epoll_fd = -1;       // if set, sockets are added here for idle wake-ups
+    // This shard's WAL: records the standby lacks that are no longer in
+    // memory are read back from here (catch-up from disk).
+    std::string data_dir;
+    u64 start_lsn = 1;       // the WAL stream's next LSN when the Sender starts
   };
   explicit Sender(const Config& cfg);
   ~Sender();
@@ -73,9 +80,14 @@ class Sender {
   bool live() const { return state_ == State::LIVE; }
   // Nanoseconds since the link was last live (0 while live).
   u64 down_since_ns() const { return down_since_; }
-  // The standby needs records already dropped from memory: it must be
-  // reseeded. The link stays down until then.
+  // The standby needs records that are neither in memory nor on disk: it
+  // must be reseeded. The link stays down until then.
   bool lost() const { return lost_; }
+  // First LSN the standby may still need from disk (0: none, it is lost):
+  // its next record, and the one before it, which proves its log is ours.
+  // Checkpoints keep the WAL segments from here on.
+  u64 retain_from() const { return lost_ ? 0 : std::max<u64>(acked_, 1); }
+  bool catching_up() const { return disk_ != nullptr; }
   int fd() const { return fd_; }
 
   struct Stats {
@@ -83,10 +95,28 @@ class Sender {
     u64 frames_sent = 0;
     u64 connects = 0;
     u64 retained_bytes = 0;
+    u64 disk_bytes = 0;      // sent from WAL files rather than memory
   };
   const Stats& stats() const { return stats_; }
 
  private:
+  // Catch-up from WAL files on a helper thread, which fills frames that
+  // the shard thread sends. Shared so a cancelled reader can finish alone.
+  struct DiskRead {
+    std::mutex mu;
+    std::condition_variable cv;
+    std::deque<std::vector<u8>> frames;
+    std::size_t bytes = 0;
+    bool done = false, ok = true, cancel = false, diverged = false;
+  };
+  // Reads [from, to). With verify_crc, first checks that record from - 1
+  // has that crc (the standby's last record matches ours).
+  void start_disk(u64 from, u64 to, u32 verify_crc = 0);
+  void diverged(u64 now_ns, u64 lsn);
+  void stop_disk();
+  u64 mem_first() const { return chunks_.empty() ? next_expected_ : chunks_.front().first_lsn; }
+  bool send_disk(u64 now_ns, bool& advanced);
+  void apply_verified(bool& advanced);
   enum class State { DOWN, CONNECTING, HELLO, LIVE };
   struct Chunk {
     u64 first_lsn, last_lsn;
@@ -95,7 +125,7 @@ class Sender {
   void close_link(u64 now_ns);
   void start_connect(u64 now_ns);
   bool read_acks(u64 now_ns);
-  void position_at(u64 next_lsn);
+  void position_at(u64 next_lsn, u32 tail_crc, u64 now_ns);
   void trim();
 
   Config cfg_;
@@ -112,6 +142,12 @@ class Sender {
   std::size_t send_chunk_ = 0, send_off_ = 0;
   std::vector<u8> partial_;  // a resumed chunk's header + tail, sent first
   std::size_t partial_off_ = 0;
+  u64 next_expected_ = 1;  // LSN after the last record queued by on_flush
+  std::shared_ptr<DiskRead> disk_;
+  u64 disk_to_ = 0;
+  u64 verify_ack_ = 0;  // the standby's tail, acked once the disk reader has checked it
+  std::vector<u8> disk_frame_;
+  std::size_t disk_off_ = 0;
   u8 in_[64];
   std::size_t in_len_ = 0;
   Hello hello_{};
@@ -143,7 +179,8 @@ class Receiver {
   // Accepts, reads frames, applies them, and acks `durable_lsn` when it
   // moved. `next_lsn` is the first LSN this shard lacks (for the
   // handshake). Returns true if it did work.
-  bool poll(u64 next_lsn, u64 durable_lsn);
+  // `tail_crc` is the crc32c of record next_lsn - 1 (0 = unknown).
+  bool poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc);
   bool connected() const { return conn_ >= 0; }
   int listen_fd() const { return listen_; }
   int conn_fd() const { return conn_; }
@@ -158,7 +195,7 @@ class Receiver {
 
  private:
   void drop();
-  bool handshake(u64 next_lsn);
+  bool handshake(u64 next_lsn, u32 tail_crc);
 
   Config cfg_;
   Apply apply_;

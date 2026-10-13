@@ -24,6 +24,7 @@ set(SNC_CORE_SOURCES
   src/core/engine.cpp
   src/core/storage.cpp
   src/core/replication.cpp
+  src/core/seed.cpp
   src/core/wal_format.cpp
   src/net/conn_set.cpp
   src/net/server.cpp

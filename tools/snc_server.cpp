@@ -6,7 +6,9 @@
 //                   [--objects N] [--data-dir DIR] [--group-commit-us N]
 //                   [--no-mint-local] [--spin] [--pages 4k|thp|hugetlb]
 //                   [--replica-of HOST:PORT [--async-replica] [--replica-timeout-ms N]]
-//                   [--standby PORT [--standby-host H] [--space-uuid HEX]]
+//                   [--standby PORT [--standby-host H] [--space-uuid HEX]
+//                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
+//                   [--checkpoint-s N] [--replica-retain-mib N]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -14,8 +16,13 @@
 // created with its primary's space UUID (printed at start). Promote a
 // standby by stopping it and starting it without --standby on the same
 // --data-dir. Nothing fences the old primary: make sure it is down.
+// A primary started with --seed-port serves its latest checkpoint; a
+// standby started with --seed-from on an empty --data-dir fetches it first,
+// then catches up from the primary's WAL. --report-ms prints a line of
+// replication state every N ms (lag = durable records not yet acked).
 #include <signal.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -59,6 +66,8 @@ int main(int argc, char** argv) {
   cfg.mint_local = true;
   cfg.init = true;
   net::NetServer::Config ncfg;
+  int report_ms = 0;
+  double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -94,6 +103,11 @@ int main(int argc, char** argv) {
       cfg.replica_port = static_cast<u16>(std::atoi(val()));
     }
     else if (k == "--standby-host") cfg.standby_host = val();
+    else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
+    else if (k == "--seed-from") cfg.seed_from = val();
+    else if (k == "--report-ms") report_ms = std::atoi(val());
+    else if (k == "--checkpoint-s") checkpoint_s = std::atof(val());
+    else if (k == "--replica-retain-mib") cfg.replica_retain_bytes = std::strtoull(val(), nullptr, 10) << 20;
     else if (k == "--space-uuid") {
       if (!parse_uuid(val(), cfg.init_uuid)) {
         std::fprintf(stderr, "--space-uuid takes 32 hex digits\n");
@@ -151,7 +165,55 @@ int main(int argc, char** argv) {
   std::fflush(stdout);
 
   int sig = 0;
-  sigwait(&set, &sig);
+  // Wait for a signal, reporting and checkpointing on the way.
+  {
+    using clock = std::chrono::steady_clock;
+    const auto t0 = clock::now();
+    auto next_report = t0 + std::chrono::milliseconds(report_ms);
+    auto next_ckpt = t0 + std::chrono::duration_cast<clock::duration>(
+                              std::chrono::duration<double>(checkpoint_s));
+    while (true) {
+      auto now = clock::now();
+      auto wake = now + std::chrono::hours(24);
+      if (report_ms > 0) wake = std::min(wake, next_report);
+      if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::max(wake - now, clock::duration::zero())).count();
+      timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
+      if ((sig = sigtimedwait(&set, nullptr, &ts)) > 0) break;
+      now = clock::now();
+      if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
+        CheckpointReport r = eng.checkpoint();
+        std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
+                    (unsigned long long)r.objects, r.seconds,
+                    (unsigned long long)r.segments_deleted);
+        next_ckpt = clock::now() + std::chrono::duration_cast<clock::duration>(
+                                       std::chrono::duration<double>(checkpoint_s));
+      }
+      if (report_ms > 0 && now >= next_report) {
+        next_report += std::chrono::milliseconds(report_ms);
+        u64 lag = 0, disk = 0, records = 0, bytes = 0;
+        bool live = true, lost = false;
+        for (u16 s = 0; s < cfg.runtime.n_shards; ++s) {
+          ShardStats ss = eng.stats(s);
+          if (ss.wal_durable_lsn > ss.repl_acked_lsn) lag += ss.wal_durable_lsn - ss.repl_acked_lsn;
+          disk += ss.repl_disk_bytes;
+          bytes += ss.repl_bytes;
+          records += ss.repl_records;
+          live &= ss.repl_live;
+          lost |= ss.repl_lost;
+        }
+        double t = std::chrono::duration<double>(now - t0).count();
+        if (cfg.standby) {
+          std::printf("report t=%.2f standby live=%d records=%llu\n", t, live,
+                      (unsigned long long)records);
+        } else {
+          std::printf("report t=%.2f live=%d lost=%d lag=%llu shipped_mib=%.1f from_disk_mib=%.1f\n",
+                      t, live, lost, (unsigned long long)lag, bytes / 1048576.0, disk / 1048576.0);
+        }
+      }
+      std::fflush(stdout);
+    }
+  }
   eng.stop();
 
   u64 req = 0, fwd = 0, recvs = 0, sends = 0, frames = 0, ring = 0;
