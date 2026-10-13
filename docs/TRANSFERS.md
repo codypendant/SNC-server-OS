@@ -89,7 +89,7 @@ no recovery code of their own.
 | `settle` | A | only from the entry's `to`. ok: remove entry; refused: refund, remove entry; retry: resend `credit` | `forget` to B (not on retry) |
 | `bounced` | A | B does not exist or is not an account: refund, remove entry | none |
 | `forget` | B | remove inbox entry (A, seq) | none |
-| `query` | A | if outbox lacks seq | `forget` to B |
+| `query` | A | outbox lacks seq: nothing to keep; has it: the settle was lost | `forget` to B; or `credit` to B again |
 
 Each step is idempotent, so any message can be repeated. Each emit
 waits for its own record to be durable, so no step's effect is visible
@@ -103,7 +103,10 @@ exchange a crash interrupted:
 - crash after the credit but before A settled: B sees the duplicate
   `credit` in its inbox and re-sends `settle`;
 - crash after A settled but before B forgot: B's `query` finds no
-  outbox entry, so A sends `forget`.
+  outbox entry, so A sends `forget`;
+- B's `settle` lost on its way (a node link dropped, docs/CLUSTER.md)
+  while A did not restart: B's `query` finds the entry, A re-sends
+  `credit`, and B answers it with `settle` again.
 
 An inbox entry is only removed after A's outbox entry is durably gone,
 so B can never see a resent credit it has forgotten.
