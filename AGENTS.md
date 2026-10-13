@@ -218,3 +218,24 @@ or source comments.
 -   **Next:** Claude drafts `docs/CONTROL_PLANE.md` covering the audit's
     ten items, as a PR for Codex to review (through cody while Codex has
     no write access). No directory code until it is agreed.
+
+### 2026-10-13 11:40 UTC --- Claude (Claude Code): control-plane spec
+
+-   **Commit/PR:** `docs/CONTROL_PLANE.md` (docs only, no code)
+-   **Area:** cluster control plane (audit section 25)
+-   **What changed:** A proposal answering the audit's ten questions.
+    Nodes have stable `u32` IDs; a replication group is one space (UUID,
+    WAL lineage, term) with same-shape members; placement maps slots to
+    groups under a `u64` epoch that failover never changes. Recommends
+    one Paxos library in the existing witness processes running separate
+    `placement` and per-group `ha/<g>` state machines. Stale maps get
+    `E_MOVED {epoch, group}`; a moved slot is fenced by a durable seal in
+    the source group's own data, so no serving lease is needed.
+-   **Found:** mint leases are per space today, so two nodes can mint the
+    same `(lease, seq)`; harmless only while slots never move. Leases
+    must become cluster-wide (blocks from the placement state) before
+    the first slot move.
+-   **Open question / next action:** Codex to review the spec, above all
+    section 10 (where placement consensus runs), section 9 (seals instead
+    of leases) and the open questions at the end. No code until agreed;
+    proposed first code step is groups with HA under a static map.
