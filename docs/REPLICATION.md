@@ -105,8 +105,8 @@ primary shard i                              standby shard i
   and `replica_timeout_ms = 0` it then acknowledges no durable write at
   all; with a nonzero timeout it would degrade and carry on alone, so a
   deployment that may restart a replaced primary sets the timeout to 0
-  (or keeps it down). Reads that do not wait for durability can still be
-  served by such a primary; it is fenced for writes, not isolated.
+  (or keeps it down). Reads wait for durability by default and stall the same way; a read
+  that skips that wait can still be served by such a primary.
 
 ## What v1 will deliver
 
@@ -285,10 +285,34 @@ standby on core 2 seeding from the primary. 3 runs, medians.
   seed was empty and everything came from WAL files. Rate-limiting
   catch-up would trade a longer join for a smaller hit; it is not built.
 
+### Promotion
+
+`bench/run_promotion.py`, `bench/results/promotion.csv`. Primary on cores
+0-1, sync replication (timeout 0) to a standby whose two shards share core
+2; one `net_bench` thread on core 3 creates 1M accounts and runs 50% reads
+for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
+3 runs.
+
+| | Median | Range |
+| --- | --- | --- |
+| Client ops/s on the primary before | 663K | 640-711K |
+| Promotion (signal to serving) | 0.63 s | 0.55-0.64 s |
+| Client ops/s on the promoted node, no standby | 1.01M | 0.98-1.10M |
+
+- **Promotion takes about 0.6 s for 1M accounts**, measured inside the
+  engine and from outside (signal to the "promoted" line; the two agree
+  within a millisecond). Most of it is rebuilding the secondary index,
+  which a standby does not keep; both of its shards share one core here,
+  so on its own cores it would take about half. Keeping the index live on
+  the standby would make promotion near-instant at a cost to apply.
+- With 100K accounts it takes 0.04 s.
+- The promoted node runs without a standby until one is seeded from it.
+
 ## Open questions for later rounds
 
-- Automatic failover needs an outside arbiter (or three nodes) to avoid
-  split brain. That belongs with the distributed directory.
+- Automatic failover needs an outside arbiter (or three nodes) to decide
+  when to promote; terms make a wrong call safe for durable writes and
+  default reads. That belongs with the distributed directory.
 - Serving reads from the standby (with bounded staleness) is cheap to add
   once apply is live, but it changes the read API's promises.
 - Standbys with a different shard count (records routed by slot rather
