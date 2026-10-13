@@ -107,6 +107,31 @@ state) or an operator promote its standby. What the cluster adds:
   group's accounts still commit (the debit is local); the credits wait in
   their outboxes until the group has a primary again.
 
+## A fenced primary withdraws
+
+A failed-over primary that is still running (cut off from its standby,
+or simply replaced while alive) used to keep its node links: the other
+groups stayed connected to it and sent it follow-ups it could never make
+durable, so cross-group transfers stalled until its connections dropped.
+Now a primary that learns it was replaced leaves the data plane
+(`Shard::withdraw`, `Engine::withdraw`):
+
+- **How it learns.** The promoted member keeps its replication listeners
+  and refuses the old term there (`kRefusedTerm`); the old primary's
+  sender reconnects within 100 ms of the promotion and is refused. A
+  witness answering `NO term ... was replaced` does the same through
+  `snc_server`. Either is final: one shard learning it withdraws every
+  shard.
+- **What it does.** Closes its link listener and every node link, in and
+  out; runs no follow-ups (they are recoverable: their sources re-send them
+  to the new primary); answers new client ops `E_STANDBY` and ops that were
+  waiting for its standby's ack `E_FENCED` (in doubt: the promoted standby
+  may hold them). Its admin port stays and reports `role=f`.
+- **What the others do.** Nothing new: their links lose the old primary,
+  try the next member, find the promoted one and run the resume pass, as
+  after a crash. The HA term is not added to the link hello (one
+  authority per fact: it stays in replication and the witnesses).
+
 ## What is checked
 
 `tests/test_cluster.cpp`, failover (`test_group_failover`): three groups
@@ -129,6 +154,26 @@ it then runs transfers of its own. Checked:
 - the placement epoch is 1 and the map crc unchanged on every primary at
   the end, and a `ClusterClient` with sessions, given the same map, reads
   all 360 accounts from each group's current primary.
+
+The same test runs a second time with group 1's primary **left running**
+(`test_group_failover(true)`): its standby is promoted under it. Checked
+in addition:
+
+- the old primary learns it was fenced (about 0.1 s after the promotion)
+  and withdraws: its link ports refuse connections, in-process ops and a
+  network client get `E_STANDBY`, and it still reports itself fenced at
+  the end;
+- groups 0 and 2 keep acknowledging transfers after the fence, the other
+  groups' links reach the promoted member, and everything settles;
+- every transfer either primary of group 1 acknowledged is in the final
+  balances; the old primary's unacknowledged ones (`E_FENCED` or never
+  answered, up to 12) each committed or not, and runs have seen both, which
+  is why `E_FENCED` means in doubt rather than refused;
+- the placement epoch and map crc are unchanged on all four live nodes,
+  the fenced one included.
+
+With withdrawal disabled (links left open) the same test never settles.
+12 runs, four in parallel, passed; one under ASan.
 
 A typical run: about 10,000 transfers acknowledged, 3,000 to 5,000 of
 them by groups 0 and 2 in the 0.4 s group 1 had no primary, promotion in
@@ -158,12 +203,13 @@ down and recovered by the resume passes.
 - The map is fixed: no slot moves, and every node must be given the same
   list (nothing persists it yet; a node restarted with another map is
   refused by its peers' crc check, not by its own data).
-- **A primary that is cut off rather than dead keeps its links.** The
-  other groups stay connected to it and send it follow-ups it can no
-  longer make durable (its standby, promoted, refuses its term), so those
-  transfers wait until its connections drop or it is restarted. Safe, but
-  a stall: the fix is for a primary to drop its links when it is fenced
-  or blocked, or for the hello to carry the group's term.
+- **A fenced primary withdraws only once it hears so** (above): from the
+  promoted member or a witness. One cut off from both, while the other
+  groups still reach it, blocks (acknowledges nothing, as before) but
+  keeps its links, and their follow-ups to its group wait until its
+  connections drop. Safe, a stall. If it matters, the next step is
+  withdrawing while blocked (sync, standby gone past a bound), which needs
+  no new protocol.
 - The cluster test promotes the standby itself; witnesses per group are
   the same `snc_witness` as for a pair, not yet exercised in a cluster
   test, and neither is `--rejoin` of the old primary as a standby.

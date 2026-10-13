@@ -102,6 +102,9 @@ class Sender {
   // The standby needs records that are neither in memory nor on disk: it
   // must be reseeded. The link stays down until then.
   bool lost() const { return lost_; }
+  // A member of this group refused our term: it was promoted over this
+  // primary, which is fenced for good (it stops reconnecting).
+  bool fenced() const { return fenced_; }
   // First LSN the standby may still need from disk (0: none, it is lost):
   // its next record, and the one before it, which proves its log is ours.
   // Checkpoints keep the WAL segments from here on.
@@ -165,6 +168,7 @@ class Sender {
   std::vector<u8> echo_;
   std::size_t echo_off_ = 0;
   bool lost_ = false;
+  bool fenced_ = false;
   u64 acked_ = 0;
   std::deque<Chunk> chunks_;
   u64 retained_ = 0;
@@ -222,6 +226,11 @@ class Receiver {
   bool lease_valid(u64 now_ns) const { return conn_ >= 0 && now_ns < lease_until_; }
   int listen_fd() const { return listen_; }
   int conn_fd() const { return conn_; }
+  // Promotion: install nothing more, and from now on answer every primary
+  // that connects with a refusal, kRefusedTerm if its term is below
+  // `new_term`. The old primary, if it is alive and reaches this listener,
+  // learns that it was replaced and withdraws (docs/CLUSTER.md).
+  void fence(u64 new_term);
 
   struct Stats {
     u64 records = 0;
@@ -234,6 +243,7 @@ class Receiver {
  private:
   void drop();
   bool handshake(u64 next_lsn, u32 tail_crc);
+  bool fencing_ = false;
 
   Config cfg_;
   Apply apply_;

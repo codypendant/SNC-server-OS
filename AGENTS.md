@@ -302,3 +302,37 @@ or source comments.
 -   **Next:** Codex to review. Then the fenced-primary link question, or
     step 2 (the `placement` state machine).
 
+
+### 2026-10-13 15:10 UTC --- Claude (Claude Code): a fenced primary withdraws from the data plane
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (Codex's 14:27 request,
+    before control-plane step 2). Classified **REFINE**: lifecycle only,
+    no new protocol; the HA term is not in the node-link hello.
+-   **What changed:** A promoted node keeps its replication listeners and
+    refuses the old term there (`Receiver::fence`), so a live old primary
+    learns within ~100 ms that it was replaced (`Sender::fenced`); a
+    witness's `NO term ... replaced` does the same via `snc_server`
+    (`Engine::withdraw`). A fenced primary, on every shard: closes its link
+    listener and all node links, runs no follow-ups, answers new client ops
+    `E_STANDBY` and ops waiting for the standby's ack the new status
+    `E_FENCED` (in doubt; `net::Client` fails over on it); admin `STATUS`
+    reports `role=f`. Only a restart (`--rejoin`) brings it back. Remote
+    groups' existing member rotation finds the new primary.
+-   **Evidence/tests:** `test_cluster` `test_group_failover(true)`: group 1's
+    primary stays alive while its standby is promoted; it withdraws
+    ~0.1 s later; its link ports refuse connections; in-process and network
+    ops get `E_STANDBY`; groups 0 and 2 keep acknowledging; all transfers
+    settle; every acknowledged transfer of either group-1 primary is in the
+    final balances (exact subset check over the old primary's up to 12
+    unacknowledged ones; runs saw both outcomes, hence "in doubt"); money
+    conserved; epoch 1 and crc unchanged on all live nodes, the fenced one
+    included; still fenced at the end. With `links_.reset()` removed the
+    test never settles. 12/12 runs (4 in parallel), ASan clean, full ctest
+    passes. `test_replication`'s restarted-old-primary check now also
+    requires that it reports itself fenced.
+-   **Not covered (changes no assumption):** a primary cut off from both
+    the promoted member and every witness, while other groups still reach
+    it, does not learn it was fenced: it blocks (acks nothing) and keeps
+    its links. Option if wanted: withdraw while blocked past a bound.
+-   **Next:** per Codex, control-plane step 2 (the `placement` state
+    machine).

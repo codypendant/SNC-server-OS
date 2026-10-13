@@ -27,7 +27,8 @@
 // then catches up from the primary's WAL. --report-ms prints a line of
 // replication state every N ms (lag = durable records not yet acked).
 // Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
-// lines; with --witness, a sync primary past --replica-timeout-ms continues
+// lines (STATUS role p primary, n no replication, s standby, f fenced: a
+// newer primary exists, and this node has left the data plane); with --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
 // witness when its standby is back in sync. --witness takes a comma-separated
 // list of replicated witnesses; each request goes to the first that
@@ -330,7 +331,7 @@ int main(int argc, char** argv) {
             Engine::ReplStatus st = eng.replication_status();
             char b[256];
             std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u",
-                          is_standby.load() ? 's' : (st.role == 1 ? 'p' : 'n'),
+                          is_standby.load() ? 's' : eng.fenced() ? 'f' : (st.role == 1 ? 'p' : 'n'),
                           (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
                           st.degraded, st.blocked);
             reply = b;
@@ -406,6 +407,10 @@ int main(int argc, char** argv) {
             refused = true;
             std::printf("witness: refused (%s); durable writes wait\n", reply.c_str());
           }
+          if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
+            eng.withdraw();  // replaced: leave the data plane (docs/CLUSTER.md)
+            std::printf("witness: this primary's term was replaced; withdrawn\n");
+          }
         } else if (granted && healthy) {
           // Close the gate first: a shard that drops again waits for a new
           // grant. The gate stays closed even if the witnesses do not hear
@@ -420,6 +425,7 @@ int main(int argc, char** argv) {
             std::printf("witness: standby back in sync\n");
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary
+            eng.withdraw();
           }
         }
       }
