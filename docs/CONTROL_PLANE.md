@@ -1,6 +1,7 @@
 # Control plane: replication groups and placement
 
-Status: **proposal for review** (Claude, 2026-10-13). It answers the ten
+Status: **accepted with three clarifications** (Claude, 2026-10-13;
+reviewed by Codex the same day, see "Review outcome" at the end). It answers the ten
 questions in section 25 of `docs/ARCHITECTURE_AUDIT.md`. No code
 implements it yet; nothing here changes the milestone 1 data plane.
 
@@ -11,7 +12,10 @@ ObjectID ─hash→ Slot ─placement map (epoch E)→ Group ─HA state (term T
 ```
 
 - **Node**: one `snc_server` process with its data directory. It has a
-  stable `NodeID` and an address. It is a member of exactly one group.
+  stable `NodeID` and an address. The model lets a node be a member of
+  several groups (`NodeID → memberships[]`); milestone 2 runs one group
+  per `snc_server` process as an operational restriction, not a rule of
+  the schema.
 - **Replication group**: one data store and its copies. The members hold
   the same space (one space UUID, one WAL lineage, one term). At any
   instant one member is primary (the HA authority decides which); the
@@ -50,8 +54,12 @@ becomes the initial `NodeID` when a milestone 1 cluster is converted.
   superblock too (as today), so it remains per group.
 - Every member of a group has the **same shard count**, so replication
   stays stream to stream (`docs/REPLICATION.md`, "Same shape").
-- Membership changes (adding a standby, replacing a dead one) are HA
-  changes of that group, not placement changes.
+- A group is not a node: its identity is its `GroupID` and space UUID,
+  never a `NodeID`. One node may hold members of several groups (a large
+  server hosting several independently placed and failed-over groups);
+  each membership has its own data directory and shards.
+- Which nodes are members, and where they are reached, is placement
+  state (section 3). Which member is primary is HA state (section 6).
 
 ## 3. Cluster metadata schema
 
@@ -59,15 +67,23 @@ becomes the initial `NodeID` when a milestone 1 cluster is converted.
 Cluster
   cluster_id        u128, random at creation; every message carries it
   epoch             u64, placement epoch (section 5)
-  nodes[]           NodeID → { host, link_port, client_port, admin_port, group }
-  groups[]          GroupID → { space_uuid, n_shards, members[NodeID], ha_ref }
+  nodes[]           NodeID → { host, admin_port, memberships[GroupID] }
+  groups[]          GroupID → { space_uuid, n_shards, ha_ref,
+                                members[] → { NodeID, link_port, client_port } }
   slots[4096]       GroupID
   slot_state[4096]  STABLE | (later) PREPARING | COPYING | CUTOVER, with the target group
   lease_next        u64, next unassigned block of mint leases (section 11)
 ```
 
-`ha_ref` names the HA state machine instance for the group (section 10);
-the placement record does not copy the group's term or primary.
+`ha_ref` names the HA state machine instance for the group (section 10).
+
+**One authority per fact.** `placement` holds slot → group, group
+membership and addressing. `ha/<group>` holds term, current primary and
+degrade state. The placement state never carries a copy of a group's
+primary or term, not even as a hint. Nodes and clients cache
+`group → current primary` as ephemeral routing state (section 7), learned
+from the members or from `ha/<group>`, and drop it when a member refuses
+them.
 
 Size: 4,096 × 4 bytes for slots plus small tables, about 20 KiB, so every
 node and client can hold all of it.
@@ -145,9 +161,15 @@ node and client can hold all of it.
   have one with their own group in it.
 - **Persistence**: the placement state lives in the control members' state
   files (as the witnesses' state does today); each node also keeps its last
-  map in its data directory. A node that cannot reach the control plane
-  at restart serves with its stored map: safe, because a slot that has
-  moved away is sealed in the node's own data (next point).
+  map in its data directory.
+- **Starting from a stored map is provisional.** The intent is that a node
+  that cannot reach the control plane at restart may serve from its stored
+  map, relying on seals (next point). That is **not yet a guarantee**: it
+  holds only once the slot-move crash protocol is proved safe (below).
+  Until then, while slots never move (steps 1 and 2 of section 12), the stored
+  map cannot be stale and the question does not arise; the first
+  slot-move milestone must either prove it or make nodes wait for the
+  control plane at start.
 - **Ownership is fenced by data, not by the map.** When a slot moves
   (later milestone), the source group writes a durable, replicated
   *seal* record for the slot before the new epoch is chosen; a sealed
@@ -155,6 +177,16 @@ node and client can hold all of it.
   only send a request to the wrong place, never let two groups both
   accept writes for one slot. This is the placement analogue of term
   fencing, and why no node needs a lease from the control plane to serve.
+- **Unresolved safety proof (slot-move milestone).** The ordering
+  `source seal durable → placement epoch commit → destination activation`
+  must be shown safe under a crash and restart of the source primary, the
+  source standby (and a failover between them), the destination primary
+  and standby, and a control-plane minority, at every transition. Two
+  cases to settle: a seal written but the epoch never committed (the
+  source must be able to unseal, or the move must be driven forward), and
+  a destination that restarts after the epoch commit but before it has
+  activated. The proof, and a crash test that kills each party at each
+  step, are part of that milestone's definition of done.
 
 ## 10. Placement consensus vs witness consensus
 
@@ -219,15 +251,22 @@ the block it holds.
 Steps 1 and 2 are independent and could go in either order; step 1 first
 proves invariant 11 with the least new machinery.
 
-## Open questions for review
+## Review outcome (Codex, 2026-10-13)
 
-- Is "one group per node" right, or should a node host several groups
-  (one per shard set) so that load can be balanced without moving whole
-  nodes? This spec keeps one, as the simplest step from today's code.
-- Should a node fetch the map at every start even with a stored one, and
-  refuse to serve while the control plane is unreachable? This spec says
-  no, relying on seals.
-- Lease block size and whether leases should be pre-split per shard.
-- Whether the `placement` machine should record each group's current
-  primary as a hint (for clients), accepting that it may lag the `ha/*`
-  machine.
+Approved directionally, with three changes, now applied above:
+
+1. **Several groups per node are allowed by the model** (sections 2, 3);
+   one group per process is milestone 2's operational restriction only.
+2. **Seals are kept; serving from a stored map at startup is
+   provisional** until the slot-move crash protocol is proved (section 9).
+3. **No primary hints in placement**: one authority per fact (section 3).
+
+Accepted as proposed: cluster-wide mint lease blocks, `E_MOVED {epoch,
+group}`, no write forwarding, persisted placement maps, the epoch in the
+node-link hello, one Paxos library with independent `placement` and
+`ha/<group>` machines, and groups with HA under static placement as the
+first step.
+
+## Still open
+
+- Lease block size, and whether leases are pre-split per shard.
