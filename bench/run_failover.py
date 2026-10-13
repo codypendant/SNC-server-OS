@@ -3,7 +3,7 @@
 
 Primary snc_server on cores 0-1 (sync, --replica-timeout-ms 500,
 --witness); standby on core 2; snc_witness (--failover-ms 500, --poll-ms
-50); one net_bench thread on core 3. Three cases, each checked:
+50); one net_bench thread on core 3. Four cases, each checked:
 
   kill:      the primary is SIGKILLed after a loaded run. Measures the time
              from the kill to the witness's promotion and checks that the
@@ -18,6 +18,12 @@ Primary snc_server on cores 0-1 (sync, --replica-timeout-ms 500,
              promotes the standby. The old primary is resumed: it must
              acknowledge no write (its standby refuses its term and the
              witness refuses to let it continue alone).
+  rearm:     two failovers in a row. The primary is killed and the standby
+             promoted; it runs alone under a grant and creates accounts.
+             The old primary rejoins on an empty directory as its standby
+             (seeded from it); once it is back in sync the new primary is
+             killed, the witnesses promote the old one again, and every
+             account created in between must be there.
 
 --witnesses 3 runs three replicated witnesses (Paxos among them) instead of
 one; --down 1 also kills that many of them (witness 0 first, which the
@@ -130,19 +136,37 @@ def net_bench(port, objects, seconds, timeout=120):
     return float(m[1]) if m else None
 
 
-def start(port):
+def witness_list(port):
+    return ",".join(f"127.0.0.1:{port + 30 + i}" for i in range(WITNESSES))
+
+
+def node_args(port, node, rearm):
+    """snc_server flags for node 0 (starts as primary) or 1 (starts as
+    standby). With rearm, each is also configured for the other role: it
+    replicates to the other node once promoted, under the witnesses, and
+    serves seeds."""
+    cli, adm, repl, seed = ((port, port + 40, port + 60, port + 70) if node == 0 else
+                            (port + 10, port + 50, port + 20, port + 80))
+    o_repl = port + 20 if node == 0 else port + 60
+    a = ["--port", str(cli), "--data-dir", f"{WORK}/{'ps'[node]}", "--space-uuid", UUID,
+         "--admin-port", str(adm), "--objects", "200000"]
+    if node == 0 or rearm:
+        a += ["--replica-of", f"127.0.0.1:{o_repl}", "--replica-timeout-ms", "500",
+              "--witness", witness_list(port)]
+    if rearm:
+        a += ["--seed-port", str(seed)]
+    return a, repl, adm
+
+
+def start(port, rearm=False):
     shutil.rmtree(WORK, ignore_errors=True)
     os.makedirs(WORK)
-    p_cli, s_cli, repl, wit, p_adm, s_adm = (port + i for i in (0, 10, 20, 30, 40, 50))
-    sb = Proc([f"{BUILD}/snc_server", "--cpus", "2,2", "--port", str(s_cli), "--standby",
-               str(repl), "--data-dir", f"{WORK}/s", "--space-uuid", UUID, "--admin-port",
-               str(s_adm), "--objects", "200000"])
+    p_cli, s_cli, wit, p_adm, s_adm = (port + i for i in (0, 10, 30, 40, 50))
+    a, repl, _ = node_args(port, 1, rearm)
+    sb = Proc([f"{BUILD}/snc_server", "--cpus", "2,2", "--standby", str(repl)] + a)
     wait_port(s_adm, proc=sb)
-    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1", "--port", str(p_cli), "--data-dir",
-                 f"{WORK}/p", "--space-uuid", UUID, "--replica-of", f"127.0.0.1:{repl}",
-                 "--replica-timeout-ms", "500", "--witness",
-                 ",".join(f"127.0.0.1:{wit + i}" for i in range(WITNESSES)), "--admin-port",
-                 str(p_adm), "--objects", "200000"])
+    a, _, _ = node_args(port, 0, rearm)
+    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1"] + a)
     wait_port(p_adm, proc=prim)
     peers = ",".join(f"127.0.0.1:{wit + i}" for i in range(WITNESSES))
     w = Witnesses([
@@ -234,10 +258,61 @@ def case_partition(port):
                 kill_to_promoted_s=round(t - t_stop, 3), after_ops_s=round(after))
 
 
+def bench_ids(port, ids, objects, seconds):
+    """net_bench with --ids: creates the accounts and lists them in `ids`,
+    or, if the file exists, uses them (a missing one counts as an error).
+    Returns (ops/s, errors)."""
+    out = subprocess.run(
+        [f"{BUILD}/net_bench", "--port", str(port), "--threads", "1", "--cpus", "3",
+         "--objects", str(objects), "--seconds", str(seconds), "--route", "owner",
+         "--reads", "50", "--depth", "64", "--ids", ids], capture_output=True, text=True,
+        timeout=120).stdout
+    m, e = re.search(r"ops/s (\d+)", out), re.search(r"errors (\d+)", out)
+    return (float(m[1]) if m else None), (int(e[1]) if e else None)
+
+
+def case_rearm(port):
+    """Two failovers in a row. The primary (node 0) is killed and node 1
+    promoted; node 1 runs alone (granted) and creates accounts. Node 0 is
+    restarted on an empty directory as node 1's standby, seeded from it.
+    Once it is back in sync, node 1 is killed: the witnesses promote node 0
+    again, and every account node 1 created is there."""
+    prim, sb, w, p_cli, s_cli = start(port, rearm=True)
+    net_bench(p_cli, 20000, 1)
+    prim.kill()
+    prim.wait(60)
+    t1, _ = w.wait_for(r"failover:.*term 1 ", 15)
+    assert t1 is not None, "no first failover\n" + w.text()
+    ids = f"{WORK}/ids"
+    ops, err = bench_ids(s_cli, ids, 20000, 2)
+    assert ops and err == 0, f"node 1 alone: {ops} ops/s, {err} errors\n" + sb.text()
+    assert sb.wait_for(r"witness: granted", 1)[0] is not None, "node 1 ran without a grant"
+    # Node 0 rejoins as a standby, seeded from node 1.
+    shutil.rmtree(f"{WORK}/p", ignore_errors=True)
+    a, repl, adm = node_args(port, 0, True)
+    a += ["--seed-from", f"127.0.0.1:{port + 80}"]
+    t_join = time.time()
+    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1", "--standby", str(repl)] + a)
+    wait_port(adm, proc=prim)
+    t_sync, _ = sb.wait_for(r"witness: standby back in sync", 60)
+    assert t_sync is not None, "node 0 never back in sync\n" + sb.text() + prim.text()
+    # The second failover.
+    t_kill = time.time()
+    sb.kill()
+    sb.wait(60)
+    t2, line = w.wait_for(r"failover:.*term 2 ", 15)
+    assert t2 is not None, "no second failover\n" + w.text()
+    ops2, err2 = bench_ids(p_cli, ids, 20000, 2)
+    assert ops2 and err2 == 0, f"node 0 after the second failover: {ops2} ops/s, {err2} errors"
+    stop_all(prim, w)
+    return dict(case="rearm", ok=1, rejoin_to_sync_s=round(t_sync - t_join, 3),
+                kill_to_promoted_s=round(t2 - t_kill, 3), after_ops_s=round(ops2))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reps", type=int, default=3)
-    ap.add_argument("--cases", default="kill,degraded,partition")
+    ap.add_argument("--cases", default="kill,degraded,partition,rearm")
     ap.add_argument("--witnesses", type=int, default=1)
     ap.add_argument("--down", type=int, default=0)
     ap.add_argument("--out", default="bench/results/failover.csv")
@@ -245,7 +320,8 @@ def main():
     global WITNESSES, DOWN
     WITNESSES, DOWN = a.witnesses, a.down
     rows, port = [], 23000  # below the ephemeral range: a client socket could hold a port
-    cases = dict(kill=case_kill, degraded=case_degraded, partition=case_partition)
+    cases = dict(kill=case_kill, degraded=case_degraded, partition=case_partition,
+                 rearm=case_rearm)
     for rep in range(a.reps):
         for c in a.cases.split(","):
             port += 100
@@ -255,7 +331,7 @@ def main():
             rows.append(r)
             print(r, flush=True)
     fields = ["case", "witnesses", "down", "rep", "ok", "before_ops_s", "kill_to_promoted_s", "promote_s",
-              "stall_to_grant_s", "after_ops_s"]
+              "stall_to_grant_s", "rejoin_to_sync_s", "after_ops_s"]
     with open(a.out, "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=fields)
         wr.writeheader()

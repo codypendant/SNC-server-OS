@@ -169,11 +169,31 @@ of them may be down.
   running alone, the primary closes its gate before telling the witnesses
   its standby is back, and keeps telling them until one confirms.
 
+### Failing over again
+
+The witnesses watch two nodes, not two roles: `--primary` and `--standby`
+name them as they start, and the decision state records which node holds
+the current term. After a failover:
+
+1. The promoted node runs alone. Started with `--replica-of` the other
+   node and `--witness` (flags a standby ignores until it is promoted), it
+   is a sync primary without a standby, so it asks the witnesses to run
+   alone and they grant it for its new term. While the grant is out they
+   promote nothing.
+2. The old primary is restarted as its standby on an empty directory,
+   seeded from it (`--standby`, `--seed-from`). The seed carries the new
+   term, so the new primary's records are accepted.
+3. Once that standby is back in sync, the primary reports `SYNCED`, the
+   grant is closed, and the witnesses will promote the old primary if the
+   new one fails.
+
+No witness is restarted and no configuration changes; the only manual step
+is restarting the failed node as a standby.
+
 Limits of this version:
 
-- **One failover per configuration.** After promoting, the witnesses
-  serve the new primary's requests but watch nothing until they are
-  restarted with that primary and a new standby (seeded from it).
+- **Two nodes.** The witnesses watch one pair; a third node (a second
+  standby) is not supported.
 - **A majority of witnesses must be up** for failover or for a primary
   past its timeout to continue alone: availability needs them, safety does
   not. With three, one may be down. A single witness (no `--peers`) runs
@@ -450,26 +470,31 @@ for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
 `--failover-ms 500 --poll-ms 50`, one `net_bench` thread on core 3, 100K
 accounts. Each case is checked, 3 runs of each case in each witness
 configuration (one witness; three; three with one killed once the primary
-is up, the one the primary lists first). All 27 passed.
+is up, the one the primary lists first). All 36 passed.
 
 | Case | Checked |
 | --- | --- |
 | Primary SIGKILLed | the witnesses promote; the new primary serves |
 | Standby stopped under load | the primary is granted and continues; resumed, it reports in sync; stopped again, a second grant; then the primary is killed and the witnesses do not promote the stale standby |
 | Primary stopped (cut off) | the witnesses promote; the old primary, resumed, acknowledges no create from a new client and is refused; the new primary serves |
+| Two failovers in a row | the primary is killed and the standby promoted; it runs alone under a grant and creates 20K accounts; the old primary rejoins on an empty directory, seeded from it; once in sync, the new primary is killed and the old one promoted again; all 20K accounts are there |
 
 Medians, in seconds:
 
-| Witnesses | Kill to promoted | Decision and promotion | Client stall before a grant | Stop to promoted |
-| --- | --- | --- | --- | --- |
-| 1 | 0.52 | 0.016 | 0.51 | 0.68 |
-| 3 | 0.49 | 0.015 | 0.52 | 0.71 |
-| 3, one down | 0.51 | 0.028 | 0.54 | 0.69 |
+| Witnesses | Kill to promoted | Decision and promotion | Client stall before a grant | Stop to promoted | Rejoin to in sync | Second failover |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0.51 | 0.016 | 0.54 | 0.55 | 0.84 | 0.54 |
+| 3 | 0.49 | 0.015 | 0.53 | 0.54 | 0.78 | 0.54 |
+| 3, one down | 0.48 | 0.017 | 0.54 | 0.54 | 0.77 | 0.53 |
 
 - **Failover takes about half a second, almost all of it detection**
   (`--failover-ms`). Deciding by Paxos among three witnesses and promoting
   takes 15-30 ms. That includes each witness syncing its state file twice
   per decision.
+- **The second failover is as fast as the first.** A failed primary
+  rejoins as a standby and is back in sync in under a second (seeded from
+  the new primary's checkpoint, then its WAL); from then on it can take
+  over again, with no witness restarted.
 - **With one of three witnesses down, nothing changes but a few
   milliseconds**: the primary's requests skip the dead witness (connection
   refused), and the other two are a majority.
@@ -513,8 +538,8 @@ one `net_bench` thread each on core 3, 512 in flight, 8 s, 3 runs (medians).
 
 ## Open questions for later rounds
 
-- One failover per configuration: re-arming the witnesses with the
-  promoted primary and a new standby is manual. Fixed witness membership.
+- Restarting a failed node as a standby is manual (a supervisor could do
+  it). Fixed witness membership; one standby per primary.
 - Index lookups on the standby (they gather across shards, each of which
   would need its lease).
 - Standbys with a different shard count (records routed by slot rather

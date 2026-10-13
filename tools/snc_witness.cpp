@@ -1,10 +1,17 @@
 // snc_witness: decides when a standby is promoted (docs/REPLICATION.md,
-// "Automatic failover"). It polls the primary's and the standby's admin
-// ports. If the primary has not answered for --failover-ms and the standby
-// is up, it promotes the standby, unless the primary has been let continue
-// without that standby (then the standby may lack acknowledged writes).
-// A sync primary started with --witness asks before continuing without
-// its standby; a primary whose term was replaced is refused.
+// "Automatic failover"). It polls two nodes' admin ports: --primary and
+// --standby name them as they start; the roles then follow the promotions.
+// If the current primary has not answered for --failover-ms and the other
+// node is its standby (same space and term), it promotes that standby,
+// unless the primary has been let continue without it (then the standby
+// may lack acknowledged writes). A sync primary started with --witness asks
+// before continuing without its standby; a primary whose term was replaced
+// is refused.
+//
+// Re-armed after each failover: the old primary, restarted as a standby of
+// the new one (seeded from it), is promoted in turn if the new primary
+// fails once it is back in sync. Until then the new primary runs alone
+// under a grant, and the witnesses do not promote.
 //
 // Replicated (--peers): N witnesses (3 or 5) keep one decision state, and
 // every change to it (learning the primary, a grant to run alone, the
@@ -16,9 +23,7 @@
 // learn it promote the standby (PROMOTE is idempotent).
 //
 // Each witness records its state in --state, written and synced before any
-// reply that depends on it. One failover per configuration: afterwards the
-// witnesses serve the new primary's requests and watch nothing until they
-// are restarted with a new standby.
+// reply that depends on it.
 //
 // Usage: snc_witness --port P --primary HOST:ADMIN --standby HOST:ADMIN
 //                    --state FILE [--failover-ms N] [--poll-ms N]
@@ -55,23 +60,22 @@ struct State {
   u64 version = 0;
   std::string uuid;  // the space; empty until learned
   u64 term = 0;      // the current primary's term
-  bool degraded = false;     // the primary may run without the standby
-  bool failed_over = false;  // the standby was promoted
+  bool degraded = false;  // the primary may run without the standby
+  unsigned primary = 0;   // which node (0: --primary, 1: --standby) holds `term`
 
   std::string str() const {
     std::ostringstream o;
     o << version << ' ' << (uuid.empty() ? "-" : uuid) << ' ' << term << ' ' << degraded << ' '
-      << failed_over;
+      << primary;
     return o.str();
   }
   bool parse(std::istream& in) {
-    if (!(in >> version >> uuid >> term >> degraded >> failed_over)) return false;
+    if (!(in >> version >> uuid >> term >> degraded >> primary) || primary > 1) return false;
     if (uuid == "-") uuid.clear();
     return true;
   }
   bool same_decision(const State& o) const {
-    return uuid == o.uuid && term == o.term && degraded == o.degraded &&
-           failed_over == o.failed_over;
+    return uuid == o.uuid && term == o.term && degraded == o.degraded && primary == o.primary;
   }
 };
 
@@ -457,10 +461,10 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "snc_witness: cannot listen on %u\n", port);
     return 1;
   }
-  std::printf("snc_witness: port %u, %zu witness%s, state version %llu, term %llu%s%s\n", port,
-              peers.size(), peers.size() == 1 ? "" : "es", chosen.version, chosen.term,
-              chosen.degraded ? ", primary running without its standby" : "",
-              chosen.failed_over ? ", already failed over" : "");
+  std::printf("snc_witness: port %u, %zu witness%s, state version %llu, term %llu, primary "
+              "node %u%s\n", port, peers.size(), peers.size() == 1 ? "" : "es", chosen.version,
+              chosen.term, chosen.primary,
+              chosen.degraded ? ", running without its standby" : "");
   std::fflush(stdout);
 
   // Requests: Paxos messages from witnesses, and the primary's.
@@ -473,90 +477,102 @@ int main(int argc, char** argv) {
   }).detach();
 
   using clock = std::chrono::steady_clock;
-  auto primary_ok = t0;  // last time the primary answered
-  bool primary_seen = false, promoted_seen = false, decided_here = false;
+  const std::string host[2] = {phost, shost};
+  const unsigned aport[2] = {pport, sport};
+  auto status = [&](unsigned node, std::map<std::string, std::string>& f) {
+    std::string reply;
+    if (!ha::ask(host[node], aport[node], "STATUS", reply, poll_ms)) return false;
+    f = fields(reply);
+    return true;
+  };
+  auto primary_ok = t0;  // last time the current primary answered as primary
+  u64 watched = 0;       // the state version primary_ok refers to
+  u64 announced = ~0ull;  // the term last reported serving (~0: none yet)
   auto t_decided = t0;
+  double silent_s = 0;   // how long the old primary had been silent then
+  u64 decided_term = ~0ull;  // the term of a promotion this witness's proposal made
   while (true) {
     State st;
     {
       std::lock_guard<std::mutex> g(mu);
       st = chosen;
     }
-    // Promoting: ask often until the standby serves.
-    std::this_thread::sleep_for(std::chrono::milliseconds(st.failed_over && !promoted_seen ? 2 : poll_ms));
-    {
-      std::lock_guard<std::mutex> g(mu);
-      st = chosen;
-    }
-    std::string reply;
     const auto now = clock::now();
-    if (st.failed_over) {
-      // Decided: never undone, since a lost reply may hide a promotion that
-      // happened. Ask until the standby serves as primary.
-      if (promoted_seen) continue;
-      if (ha::ask(shost, sport, "STATUS", reply, poll_ms)) {
-        auto f = fields(reply);
-        if (f["role"] != "s") {
-          promoted_seen = true;
-          if (decided_here) {
-            std::printf("t=%.2f failover: primary silent for %.2fs, standby promoted to term %llu "
-                        "in %.3fs\n", secs(t0, clock::now()), secs(primary_ok, t_decided), st.term,
-                        secs(t_decided, clock::now()));
-          } else {
-            std::printf("t=%.2f failover learned: standby serves as primary, term %llu\n",
-                        secs(t0, clock::now()), st.term);
-          }
+    std::map<std::string, std::string> f;
+    if (st.uuid.empty()) {
+      // Learn the space from whichever node serves as primary.
+      for (unsigned n = 0; n < 2; ++n) {
+        if (!status(n, f) || (f["role"] != "p" && f["role"] != "n")) continue;
+        const std::string uuid = f["uuid"];
+        const u64 term = std::strtoull(f["term"].c_str(), nullptr, 10);
+        if (propose([&](const State& base, State& want) -> std::string {
+              if (!base.uuid.empty()) return "";  // already learned
+              want.uuid = uuid;
+              want.term = term;
+              want.primary = n;
+              return "";
+            }) == "OK") {
+          std::printf("t=%.2f primary up: term %llu\n", secs(t0, now), term);
           std::fflush(stdout);
-          continue;
         }
+        break;
       }
-      ha::ask(shost, sport, "PROMOTE", reply, 1000);
+      std::this_thread::sleep_for(std::chrono::milliseconds(poll_ms));
       continue;
     }
-
-    if (ha::ask(phost, pport, "STATUS", reply, poll_ms)) {
-      auto f = fields(reply);
-      if (f["role"] == "p" || f["role"] == "n") {
+    if (st.version != watched) {
+      // A new decision: the primary it names gets a full timeout from now.
+      watched = st.version;
+      primary_ok = now;
+    }
+    const unsigned p = st.primary, o = 1 - p;
+    bool promoting = false;
+    if (status(p, f)) {
+      const u64 term = std::strtoull(f["term"].c_str(), nullptr, 10);
+      if ((f["role"] == "p" || f["role"] == "n") && term == st.term) {
         primary_ok = now;
-        if (!primary_seen) {
-          const std::string uuid = f["uuid"];
-          const u64 term = std::strtoull(f["term"].c_str(), nullptr, 10);
-          std::string r = propose([&](const State& base, State& want) -> std::string {
-            if (!base.uuid.empty()) return "";  // already learned
-            want.uuid = uuid;
-            want.term = term;
-            return "";
-          });
-          if (r == "OK") {
-            primary_seen = true;
-            std::printf("t=%.2f primary up: term %s\n", secs(t0, now), f["term"].c_str());
-            std::fflush(stdout);
-          }
+        if (announced != st.term && st.term == decided_term) {
+          std::printf("t=%.2f failover: primary silent for %.2fs, standby promoted to term %llu "
+                      "in %.3fs\n", secs(t0, now), silent_s, st.term,
+                      secs(t_decided, now));
+          std::fflush(stdout);
+        } else if (announced != st.term && announced != ~0ull) {
+          std::printf("t=%.2f failover learned: node %u serves as primary, term %llu\n",
+                      secs(t0, now), p, st.term);
+          std::fflush(stdout);
         }
+        announced = st.term;
+      } else if (f["role"] == "s" && term + 1 == st.term && f["uuid"] == st.uuid) {
+        // Decided: never undone, since a lost reply may hide a promotion
+        // that happened. Ask until it serves as primary.
+        std::string reply;
+        ha::ask(host[p], aport[p], "PROMOTE", reply, 1000);
+        promoting = true;
       }
     }
-    if (!primary_seen || secs(primary_ok, now) * 1000 < failover_ms) continue;
-    // The primary is gone. Promote the standby if it has every acked write.
+    std::this_thread::sleep_for(std::chrono::milliseconds(promoting ? 2 : poll_ms));
+    if (promoting || secs(primary_ok, clock::now()) * 1000 < failover_ms) continue;
+    // The primary is gone. Promote its standby if it has every acked write.
     if (st.degraded) continue;  // it may not: wait for the primary
-    if (!ha::ask(shost, sport, "STATUS", reply, poll_ms)) continue;
-    auto f = fields(reply);
+    if (!status(o, f) || f["role"] != "s") continue;
     const std::string suuid = f["uuid"];
     const u64 sterm = std::strtoull(f["term"].c_str(), nullptr, 10);
-    if (f["role"] != "s") continue;
     const auto tp = clock::now();
     bool ours = false;  // this witness's proposal made the change
     std::string r = propose([&](const State& base, State& want) -> std::string {
-      ours = !base.failed_over;
-      if (base.failed_over) return "";
+      ours = false;
+      if (base.version != st.version) return "";  // decided meanwhile; look again
       if (base.degraded) return "the primary runs without its standby";
       if (suuid != base.uuid || sterm != base.term) return "the standby is not the primary's";
       want.term = base.term + 1;  // promotion bumps the standby's term by one
-      want.failed_over = true;
+      want.primary = o;
+      ours = true;
       return "";
     });
     if (r == "OK" && ours) {
-      decided_here = true;
+      silent_s = secs(primary_ok, tp);
       t_decided = tp;
+      decided_term = st.term + 1;
     }
   }
 }
