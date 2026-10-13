@@ -27,7 +27,9 @@
 // Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
 // lines; with --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
-// witness when its standby is back in sync. --standby-reads lets a standby
+// witness when its standby is back in sync. --witness takes a comma-separated
+// list of replicated witnesses; each request goes to the first that
+// answers. --standby-reads lets a standby
 // serve reads under leases from its sync primary (E_STALE without one).
 #include <signal.h>
 
@@ -35,8 +37,10 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "ha.h"
 #include "snc/net.h"
@@ -79,8 +83,7 @@ int main(int argc, char** argv) {
   net::NetServer::Config ncfg;
   int report_ms = 0;
   unsigned admin_port = 0;
-  std::string witness_host;
-  unsigned witness_port = 0;
+  std::vector<std::pair<std::string, unsigned>> witnesses;
   double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
@@ -123,9 +126,15 @@ int main(int argc, char** argv) {
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--witness") {
-      if (!ha::parse_hostport(val(), witness_host, witness_port)) {
-        std::fprintf(stderr, "--witness takes HOST:PORT\n");
-        return 2;
+      std::istringstream in(val());
+      std::string hp, h;
+      unsigned p = 0;
+      while (std::getline(in, hp, ',')) {
+        if (!ha::parse_hostport(hp, h, p)) {
+          std::fprintf(stderr, "--witness takes HOST:PORT[,HOST:PORT...]\n");
+          return 2;
+        }
+        witnesses.emplace_back(h, p);
       }
       cfg.replica_degrade_gated = true;
     }
@@ -235,7 +244,18 @@ int main(int argc, char** argv) {
     });
   }
   // The witness's grant to continue without the standby (see the header).
-  bool granted = false, refused = false;
+  // After running alone, the primary owes the witnesses a SYNCED: until one
+  // is confirmed they keep the grant on record and will not promote.
+  bool granted = false, refused = false, owe_synced = false;
+  // Asks the witnesses in turn; the first reply decides. A witness runs
+  // Paxos among its peers before answering, so allow it time.
+  auto ask_witness = [&](const std::string& req, std::string& reply) {
+    for (const auto& [h, p] : witnesses) {
+      if (ha::ask(h, p, req, reply, 1500)) return true;
+    }
+    reply.clear();
+    return false;
+  };
 
   int sig = 0;
   // Wait for a signal, reporting and checkpointing on the way.
@@ -250,7 +270,7 @@ int main(int argc, char** argv) {
       auto wake = now + std::chrono::hours(24);
       if (report_ms > 0) wake = std::min(wake, next_report);
       if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
-      if (!witness_host.empty()) wake = std::min(wake, now + std::chrono::milliseconds(50));
+      if (!witnesses.empty()) wake = std::min(wake, now + std::chrono::milliseconds(50));
       auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::max(wake - now, clock::duration::zero())).count();
       timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
       if ((sig = sigtimedwait(&set, nullptr, &ts)) == SIGUSR1) {
@@ -267,13 +287,13 @@ int main(int argc, char** argv) {
       }
       if (sig > 0) break;
       now = clock::now();
-      if (!witness_host.empty() && !cfg.standby) {
+      if (!witnesses.empty() && !cfg.standby) {
         Engine::ReplStatus st = eng.replication_status();
-        std::string req = std::string(granted ? "SYNCED " : "DEGRADE ") + uuid_hex + " " +
-                          std::to_string(eng.term());
+        const std::string tail = " " + uuid_hex + " " + std::to_string(eng.term());
+        const bool healthy = st.degraded == 0 && st.blocked == 0 && st.live == st.shards;
         std::string reply;
         if (!granted && st.blocked > 0) {
-          if (ha::ask(witness_host, witness_port, req, reply, 200) && reply == "OK") {
+          if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
             granted = true;
             refused = false;
             eng.allow_degrade(true);
@@ -282,14 +302,20 @@ int main(int argc, char** argv) {
             refused = true;
             std::printf("witness: refused (%s); durable writes wait\n", reply.c_str());
           }
-        } else if (granted && st.degraded == 0 && st.blocked == 0 && st.live == st.shards) {
-          // Close the gate first: a shard that drops again waits for a new grant.
+        } else if (granted && healthy) {
+          // Close the gate first: a shard that drops again waits for a new
+          // grant. The gate stays closed even if the witnesses do not hear
+          // the SYNCED: a lost reply may hide that they recorded it.
           eng.allow_degrade(false);
-          if (ha::ask(witness_host, witness_port, req, reply, 200) && reply == "OK") {
-            granted = false;
+          granted = false;
+          owe_synced = true;
+        }
+        if (owe_synced && !granted && healthy) {
+          if (ask_witness("SYNCED" + tail, reply) && reply == "OK") {
+            owe_synced = false;
             std::printf("witness: standby back in sync\n");
-          } else {
-            eng.allow_degrade(true);  // try again on the next tick
+          } else if (reply.rfind("NO term", 0) == 0) {
+            owe_synced = false;  // replaced: this node is no longer the primary
           }
         }
       }

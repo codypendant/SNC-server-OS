@@ -61,7 +61,7 @@ def run(case, port):
         row["kill_to_promoted_s"] = round(t - t_kill, 3) if t else None
     if not row["ok"]:
         print(out, file=sys.stderr)
-    fo.stop_all(*(p for p in (prim, sb, w) if p.p.poll() is None))
+    fo.stop_all(prim, sb, w)
     return row
 
 
@@ -70,7 +70,7 @@ def main():
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--out", default="bench/results/retries.csv")
     a = ap.parse_args()
-    rows, port = [], 35000
+    rows, port = [], 25000  # below the ephemeral range (see run_failover.py)
     for rep in range(a.reps):
         for case in ("plain", "session", "failover"):
             port += 100

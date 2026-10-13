@@ -19,7 +19,13 @@ Primary snc_server on cores 0-1 (sync, --replica-timeout-ms 500,
              acknowledge no write (its standby refuses its term and the
              witness refuses to let it continue alone).
 
-Prints CSV rows; usage: run_failover.py [--reps N] [--out FILE].
+--witnesses 3 runs three replicated witnesses (Paxos among them) instead of
+one; --down 1 also kills that many of them (witness 0 first, which the
+primary lists first) once the primary is up, so every decision is made by
+the rest.
+
+Prints CSV rows; usage: run_failover.py [--reps N] [--witnesses N]
+[--down K] [--out FILE].
 """
 import argparse
 import csv
@@ -36,9 +42,11 @@ import time
 BUILD = "build"
 WORK = "/tmp/snc-failover-bench"
 UUID = "5a" * 16
+WITNESSES = 1  # --witnesses
+DOWN = 0       # --down
 
 
-def wait_port(port, timeout=60):
+def wait_port(port, timeout=60, proc=None):
     t0 = time.time()
     while time.time() - t0 < timeout:
         try:
@@ -46,7 +54,7 @@ def wait_port(port, timeout=60):
             return
         except OSError:
             time.sleep(0.05)
-    sys.exit(f"port {port} never opened")
+    sys.exit(f"port {port} never opened" + ("\n" + proc.text() if proc else ""))
 
 
 class Proc:
@@ -63,12 +71,13 @@ class Proc:
 
     def wait_for(self, pattern, timeout):
         t_end = time.time() + timeout
-        while time.time() < t_end:
+        while True:
             for t, l in list(self.lines):
                 if re.search(pattern, l):
                     return t, l
+            if time.time() >= t_end:
+                return None, None
             time.sleep(0.005)
-        return None, None
 
     def text(self):
         return "\n".join(l for _, l in self.lines)
@@ -76,6 +85,37 @@ class Proc:
     def kill(self, sig=signal.SIGKILL):
         if self.p.poll() is None:
             self.p.send_signal(sig)
+
+    def wait(self, timeout):
+        self.p.wait(timeout=timeout)
+
+
+class Witnesses:
+    """The witnesses, looked at as one: a line from any of them counts."""
+
+    def __init__(self, procs):
+        self.procs = procs
+
+    def wait_for(self, pattern, timeout):
+        t_end = time.time() + timeout
+        while time.time() < t_end:
+            for w in self.procs:
+                t, l = w.wait_for(pattern, 0)
+                if t is not None:
+                    return t, l
+            time.sleep(0.005)
+        return None, None
+
+    def text(self):
+        return "\n".join(f"[witness {i}] " + w.text() for i, w in enumerate(self.procs))
+
+    def kill(self, sig=signal.SIGKILL):
+        for w in self.procs:
+            w.kill(sig)
+
+    def wait(self, timeout):
+        for w in self.procs:
+            w.wait(timeout)
 
 
 def net_bench(port, objects, seconds, timeout=120):
@@ -97,24 +137,31 @@ def start(port):
     sb = Proc([f"{BUILD}/snc_server", "--cpus", "2,2", "--port", str(s_cli), "--standby",
                str(repl), "--data-dir", f"{WORK}/s", "--space-uuid", UUID, "--admin-port",
                str(s_adm), "--objects", "200000"])
-    wait_port(s_adm)
+    wait_port(s_adm, proc=sb)
     prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1", "--port", str(p_cli), "--data-dir",
                  f"{WORK}/p", "--space-uuid", UUID, "--replica-of", f"127.0.0.1:{repl}",
-                 "--replica-timeout-ms", "500", "--witness", f"127.0.0.1:{wit}", "--admin-port",
+                 "--replica-timeout-ms", "500", "--witness",
+                 ",".join(f"127.0.0.1:{wit + i}" for i in range(WITNESSES)), "--admin-port",
                  str(p_adm), "--objects", "200000"])
-    wait_port(p_adm)
-    w = Proc([f"{BUILD}/snc_witness", "--port", str(wit), "--primary", f"127.0.0.1:{p_adm}",
-              "--standby", f"127.0.0.1:{s_adm}", "--state", f"{WORK}/witness.state",
-              "--failover-ms", "500", "--poll-ms", "50"])
+    wait_port(p_adm, proc=prim)
+    peers = ",".join(f"127.0.0.1:{wit + i}" for i in range(WITNESSES))
+    w = Witnesses([
+        Proc([f"{BUILD}/snc_witness", "--port", str(wit + i), "--primary", f"127.0.0.1:{p_adm}",
+              "--standby", f"127.0.0.1:{s_adm}", "--state", f"{WORK}/witness{i}.state",
+              "--failover-ms", "500", "--poll-ms", "50"] +
+             (["--id", str(i), "--peers", peers] if WITNESSES > 1 else []))
+        for i in range(WITNESSES)])
     if w.wait_for(r"primary up", 10)[0] is None:
         sys.exit("witness never saw the primary\n" + w.text())
+    for i in range(DOWN):
+        w.procs[i].kill()
     return prim, sb, w, p_cli, s_cli
 
 
 def stop_all(*procs):
     for p in procs:
         p.kill()
-        p.p.wait(timeout=60)
+        p.wait(timeout=60)
 
 
 def case_kill(port):
@@ -191,18 +238,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--cases", default="kill,degraded,partition")
+    ap.add_argument("--witnesses", type=int, default=1)
+    ap.add_argument("--down", type=int, default=0)
     ap.add_argument("--out", default="bench/results/failover.csv")
     a = ap.parse_args()
-    rows, port = [], 33000
+    global WITNESSES, DOWN
+    WITNESSES, DOWN = a.witnesses, a.down
+    rows, port = [], 23000  # below the ephemeral range: a client socket could hold a port
     cases = dict(kill=case_kill, degraded=case_degraded, partition=case_partition)
     for rep in range(a.reps):
         for c in a.cases.split(","):
             port += 100
             r = cases[c](port)
             r["rep"] = rep
+            r["witnesses"], r["down"] = WITNESSES, DOWN
             rows.append(r)
             print(r, flush=True)
-    fields = ["case", "rep", "ok", "before_ops_s", "kill_to_promoted_s", "promote_s",
+    fields = ["case", "witnesses", "down", "rep", "ok", "before_ops_s", "kill_to_promoted_s", "promote_s",
               "stall_to_grant_s", "after_ops_s"]
     with open(a.out, "w", newline="") as f:
         wr = csv.DictWriter(f, fieldnames=fields)
