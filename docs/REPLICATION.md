@@ -90,16 +90,93 @@ primary shard i                              standby shard i
   writes and reports why. After `replica_timeout_ms` (configurable,
   default 2 s) it continues in async mode, keeps WAL for catch-up, and
   says so in its stats and log. A deployment that prefers to stall forever
-  sets the timeout to 0. Either way the choice is explicit, not silent.
-- **Primary lost.** Promotion is manual in v1. Stop the standby and start
-  it as a primary on its data directory; recovery runs as after a crash.
-  Every write acknowledged in sync mode is in its WAL. Follow-ups in
-  flight (transfers' credits and settles) resume from the objects' resume
-  hooks, as after any crash (docs/TRANSFERS.md).
-- **No fencing in v1.** Nothing stops an old primary that comes back from
-  serving clients next to the promoted standby. Until a fencing token or
-  lease exists, promotion assumes the old primary is down. The doc and
-  `snc_server` say so.
+  sets the timeout to 0. Either way the choice is explicit, not silent. A
+  standby that hangs with its socket open (stopped, or wedged) counts as
+  lost once it acks nothing new for the same timeout while records wait.
+  With a witness (below), continuing alone needs the witness's leave.
+- **Primary lost.** An operator (or, later, an arbiter) promotes the
+  standby: in place with `Engine::promote()` (`snc_server`: SIGUSR1), or by
+  stopping it and starting it as a primary on its data directory. Every
+  write acknowledged in sync mode is in its WAL. Follow-ups in flight
+  (transfers' credits and settles) resume from the objects' resume hooks,
+  as after any crash (docs/TRANSFERS.md). `snc_witness` can decide when
+  (below).
+- **Fencing by term.** Each superblock carries a term; promotion bumps it,
+  the handshake carries it, and a standby refuses a primary of an older
+  term. An old primary that comes back therefore cannot get its writes
+  acknowledged by any standby of the new primary. With sync replication
+  and `replica_timeout_ms = 0` it then acknowledges no durable write at
+  all; with a nonzero timeout and no witness it would degrade and carry on
+  alone, so such a deployment sets the timeout to 0, keeps a replaced
+  primary down, or runs a witness. Reads wait for durability by default and stall the same way; a read
+  that skips that wait can still be served by such a primary.
+
+## Automatic failover
+
+`snc_witness` is a third process that decides two things, and records
+each decision (written and synced) before anyone acts on it:
+
+- **Whether the primary may continue without its standby.** A sync
+  primary started with `--witness` (`Engine::Config::replica_degrade_gated`)
+  that passes its timeout asks the witness (`DEGRADE uuid term`) instead
+  of degrading on its own. The witness grants it only to the term it
+  considers current. When the standby is back in sync the primary says so
+  (`SYNCED`), closing the grant.
+- **When to promote the standby.** It polls both nodes' admin ports
+  (`snc_server --admin-port`: `STATUS`, `PROMOTE`). If the primary has not
+  answered for `--failover-ms` and the standby is up, in the same space and
+  term, and the primary holds no grant, it records the new term and
+  promotes the standby. With a grant out it does not: the standby may lack
+  acknowledged writes, so it waits for the primary.
+
+Together these keep one rule: **a write is acknowledged only if the node
+that will serve next has it.** Either the standby acked it (sync), or the
+witness let the primary run alone and then will not promote the standby.
+A primary that is cut off rather than dead (from the witness, or from
+everything) is fenced twice: its standby, once promoted, refuses its
+term; and the witness refuses to let it continue alone. It acknowledges
+nothing durable.
+
+Limits of this first version:
+
+- **One failover per configuration.** After promoting, the witness
+  serves the new primary's requests but watches nothing until it is
+  restarted with that primary and a new standby (seeded from it).
+- **The witness is a single process.** If it is down, failover waits, and
+  a primary past its timeout waits for it too: availability needs the
+  witness up, safety does not. Its state file survives restarts.
+- **Failure detection is the witness's view.** A primary the witness
+  cannot reach but clients can is promoted over; the fencing above makes
+  that safe for durable writes, at the cost of those clients' availability
+  until they move to the new primary. A `net::Client` with endpoints and
+  a session moves itself and resends safely (docs/RETRIES.md).
+- Reads that skip the durability wait can still be served by a fenced
+  primary.
+
+## Reads on the standby
+
+A standby started with `standby_read_lease_ms` (`snc_server
+--standby-reads MS`) serves READ ops; writes, creates, deletes and index
+lookups stay refused (`E_STANDBY`). It serves them only under a **read
+lease** from a sync primary, and answers `E_STALE` without one.
+
+- Each shard's standby asks for a lease with its acks, at least four times
+  per lease, stamping the request with its own clock. A primary that holds
+  client acks for this standby (sync, not degraded) grants it: it echoes
+  the stamp, and it will not continue without the standby until a lease
+  length after it received the request. The standby counts from its stamp
+  (earlier than the primary's receipt) and keeps a 10% margin for the two
+  clocks' rates. Clocks need not agree, only run at about the same rate.
+- **The guarantee:** a read on the standby sees every write the primary
+  acknowledged before the read began. In sync mode the primary acks a
+  write only after the standby has it durably; the lease keeps the primary
+  from degrading (acking writes the standby lacks) while the standby may
+  still be serving reads.
+- **The cost:** a sync primary that loses a leasing standby waits for the
+  later of its `replica_timeout_ms` and the lease before continuing alone.
+  An async primary grants no leases, so its standby serves no reads.
+- Leases are per shard, so a standby shard whose link is down refuses
+  reads while its other shards serve.
 
 ## What v1 will deliver
 
@@ -128,31 +205,75 @@ primary shard i                              standby shard i
   `standby`, `standby_host` and `init_uuid`; `snc_server` gains
   `--replica-of`, `--async-replica`, `--replica-timeout-ms`, `--standby`,
   `--standby-host` and `--space-uuid`, and prints the space UUID.
-- **Catch-up is from memory, not disk.** Each primary shard keeps the
-  records it has flushed and the standby has not acked, up to
+  Round 2 adds `src/core/seed.{h,cpp}`, `read_stream_range` in storage,
+  `Engine::Config` `replica_retain_disk_bytes`, `seed_port` and
+  `seed_from`, and `snc_server` `--seed-port`, `--seed-from`,
+  `--replica-retain-mib`, `--checkpoint-s` and `--report-ms` (a line of
+  replication state every N ms).
+- **Catch-up: memory, then WAL files** (round 2). Each primary shard keeps
+  the records it has flushed and the standby has not acked, up to
   `replica_retain_bytes` (1 GiB by default). On reconnect the standby's
-  `next_lsn` picks the resume point, mid-flush if need be. A standby that
-  needs records already dropped is reported `repl_lost` and must be
-  reseeded; the primary never connects to it again. Reading the gap from
-  WAL files is the follow-up that lifts the memory bound. Checkpoints do
-  not wait for the standby.
-- **Seeding** is a new space on both sides: create the standby first with
-  the primary's UUID (`--space-uuid`, or `init_uuid`), or copy a stopped
-  primary's directory. The handshake refuses another space, shard count or
-  slot map.
+  `next_lsn` picks the resume point, mid-flush if need be. Anything older
+  than memory holds is read back from the primary's WAL segments by a
+  helper thread (off the shard's core, at lower priority) and sent first;
+  the link then continues from memory. Records dropped from memory while
+  the standby is live are sent from disk the same way.
+- **Retention.** A primary checkpoint keeps the WAL segments its standby
+  may still need (from the standby's last acked LSN), up to
+  `replica_retain_disk_bytes` per shard (16 GiB by default) beyond what the
+  checkpoint itself keeps. Past that budget the oldest go, and a standby
+  that needs them is reported `repl_lost`: it must be reseeded.
+- **Seeding** (round 2). A primary started with `seed_port`
+  (`snc_server --seed-port P`) serves its active checkpoint's files. A
+  standby started on an empty directory with `seed_from`
+  (`--seed-from host:P`) fetches them during recovery, syncs them, and only
+  then writes a superblock naming that checkpoint, so a crash mid-seed
+  leaves no space and the next start fetches again. It then recovers from
+  the checkpoint like any engine and connects at the checkpoint's LSNs;
+  the primary sends the rest from its WAL files and memory. While a seed
+  is sent, its checkpoint is not deleted, and the WAL from its LSNs is kept
+  until the standby is past them (or for an hour). A space can also start
+  new on both sides (`--space-uuid`), or from a copy of a stopped primary's
+  directory. The handshake refuses another space, shard count or slot
+  map.
+- **Divergence.** A primary that crashes after shipping records it had not
+  made durable comes back without them and reuses their LSNs. Its standby
+  then holds records the primary does not. At each handshake the standby
+  sends the crc of its last record; the primary compares it with its own
+  record at that LSN (from memory or disk) before acking or sending
+  anything, and a standby that is ahead or different is reported
+  `repl_lost` with the LSN where they part. It must be reseeded.
 - **Stop** waits for a connected standby to ack everything, so a clean
   stop leaves the two logs equal.
 - **Mint leases.** A promoted standby holds IDs minted under its primary's
   leases, which its own superblock never handed out. Recovery tracks the
   highest lease it installs and mints above it; checkpoints persist it.
+- **Promotion in place** (`Engine::promote()`): each shard stops taking
+  records and waits until every installed record is durable; the engine
+  then takes leases above every ID the old primary minted, bumps the term
+  and the generation in a durable superblock, resumes follow-ups, and
+  starts shipping to `replica_host` if one is configured (`standby_port`
+  keeps the port it listened on apart from the one it ships to). The
+  secondary index is already current: a standby maintains it as it
+  installs. Seeds carry the term, so a standby seeded from the new primary
+  starts in its term.
 - **Standby checkpoints** may truncate records it received, as on any
   engine; the two logs then agree where both have a record.
 - **Tests** (`tests/test_replication.cpp`): equal logs and objects after a
   clean run; SIGKILL of a sync primary under transfers and deposits, then
   promotion, three rounds (every acked deposit present, transfers
-  conserved, new IDs unique); a late standby catching up under live load;
-  a standby past the retention budget reported lost; a sync primary with
-  no standby degrading after its timeout.
+  conserved, new IDs unique); a late standby catching up from memory, from
+  WAL files after a checkpoint, and from a seed when the WAL it needs is
+  gone; one without a seed reported lost; a standby killed while its
+  primary writes and checkpoints catching up from WAL files on its return;
+  a standby ahead of, or different from, a primary restored from an older
+  copy refused; a sync primary with no standby degrading after its
+  timeout; a standby promoted in place after its sync primary is SIGKILLed
+  under transfers and deposits (every acked deposit kept, transfers
+  conserved, term 1, new IDs unique, index keys changed on the primary
+  found on the promoted node), then the old primary restarted with
+  timeout 0: its deposit is not acknowledged and a standby seeded from the
+  promoted node refuses it.
 
 ## Results
 
@@ -212,11 +333,132 @@ What the numbers say:
    because the standby's io_uring workers starved. The standby needs its
    cores (or a machine) to itself, like a primary.
 
+### Seeding and catch-up
+
+`bench/run_seeding.py`, `bench/results/seeding.csv`. Primary on cores 0-1
+with a checkpoint every 4 s and 64 MiB of WAL in memory per shard; one
+`net_bench` thread on core 3 (1M accounts, 50% reads, 12 s); a new
+standby on core 2 seeding from the primary. 3 runs, medians.
+
+| Case | Client ops/s | Standby caught up after | Seed | From WAL files |
+| --- | --- | --- | --- | --- |
+| No standby | 713K | | | |
+| Standby joins 2 s into the run | 406K (0.57×) | 10.4 s | 0-244 MiB | 667 MiB |
+| Standby joins after the run | | 4.8 s | 244 MiB | 246 MiB |
+
+- **A new standby is caught up in about 5 s when the primary is idle**:
+  the 244 MiB checkpoint of 1M accounts plus 250 MiB of WAL written
+  since it, about 100 MiB/s over loopback on this disk.
+- **Under load it takes about 10 s and costs the clients 43% over the
+  run**: the standby has to catch up with WAL that keeps growing, the
+  primary's shards send it all over loopback TCP (the kernel charges that
+  to their cores), and the reader shares the one disk with both WALs.
+  Where the run's latest checkpoint was still the initial empty one, the
+  seed was empty and everything came from WAL files.
+
+**Rate-limited catch-up** (`replica_catchup_bytes_per_s`, `snc_server
+--catchup-mib-s`): a token bucket on what each shard sends from WAL files
+(at most 10 ms of burst). `bench/results/seeding_rate.csv`, same setup,
+5 runs alternating with a no-standby run; client throughput as a ratio
+to the no-standby run next to it.
+
+| Catch-up limit per shard | Client ops/s vs none (median, range) | Caught up after (median) |
+| --- | --- | --- |
+| none | 0.55× (0.47-0.81) | 11.9 s |
+| 30 MiB/s | 0.63× (0.30-1.32) | 13.2 s |
+| 15 MiB/s | 0.80× (0.36-1.16) | 23.7 s |
+
+- **15 MiB/s per shard halves the clients' loss for twice the join
+  time.** 30 MiB/s barely limits anything: unlimited catch-up already
+  ran at about 30 MiB/s per shard here.
+- **These runs are noisy.** The no-standby runs alone ranged from 317K to
+  631K ops/s in this set, from the shared virtual disk, so the ratios
+  carry wide ranges; the medians are the claim, and only roughly.
+- The limit applies to WAL files only. Catch-up from memory is not
+  limited: it is at most `replica_retain_bytes` and is what the standby
+  needs next to go live.
+- The limit must exceed the shard's WAL write rate, or the standby never
+  catches up. A test checks the rate holds and catch-up completes
+  (`test_late(SLOW)`).
+
+### Promotion
+
+`bench/run_promotion.py`, `bench/results/promotion.csv`. Primary on cores
+0-1, sync replication (timeout 0) to a standby whose two shards share core
+2; one `net_bench` thread on core 3 creates 1M accounts and runs 50% reads
+for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
+3 runs.
+
+| | Median | Range |
+| --- | --- | --- |
+| Client ops/s on the primary before | 632K | 621-660K |
+| Promotion (signal to serving) | 0.052 s | 0.050-0.072 s |
+| Client ops/s on the promoted node, no standby | 957K | 921K-1.01M |
+
+- **Promotion takes about 50 ms for 1M accounts**, measured inside the
+  engine and from outside (signal to the "promoted" line; the two agree
+  within a millisecond). Most of it is the resume-hook pass over every
+  object.
+- **The standby keeps its index live** as it installs records (old key
+  out, new key in, only when the key changes), so promotion does not
+  rebuild it. Rebuilding took about 0.6 s here (0.55-0.64 s in the first
+  version of this benchmark), 92% of the promotion. The primary's
+  throughput with the live index, 632K, is within this VM's run-to-run
+  spread of the 663K measured with it rebuilt at promotion.
+- The promoted node runs without a standby until one is seeded from it.
+
+### Automatic failover
+
+`bench/run_failover.py`, `bench/results/failover.csv`: primary on cores
+0-1 (sync, 500 ms timeout, `--witness`), standby on core 2, witness with
+`--failover-ms 500 --poll-ms 50`, one `net_bench` thread on core 3, 100K
+accounts. Each case is checked, 3 runs each, all passed.
+
+| Case | Checked | Measured (median) |
+| --- | --- | --- |
+| Primary SIGKILLed | the witness promotes; the new primary serves | kill to promoted 0.52 s (promotion itself 16 ms) |
+| Standby stopped under load | the primary is granted and continues; resumed, it reports in sync; stopped again, a second grant; then the primary is killed and the witness does not promote the stale standby | clients stall 0.51 s, then continue |
+| Primary stopped (cut off) | the witness promotes; the old primary, resumed, acknowledges no create from a new client and is refused by the witness; the new primary serves | stop to promoted 0.57 s |
+
+- **Failover takes about half a second, almost all of it detection**
+  (`--failover-ms`); the promotion itself is 13-19 ms for 100K accounts.
+- Client throughput in these runs (120K-470K ops/s) is far below the
+  steadier runs above; the shared disk was noisy during this set, and
+  these runs measure correctness and timing, not throughput.
+
+### Reads on the standby
+
+`bench/run_standby_reads.py`, `bench/results/standby_reads.csv`: primary on
+cores 0-1, sync replication to a standby with 200 ms leases whose two shards
+share core 2; 1M accounts. A writer (deposits) and a reader (get_balance),
+one `net_bench` thread each on core 3, 512 in flight, 8 s, 3 runs (medians).
+
+| Reader on | Writer ops/s | Reader ops/s | Stale answers |
+| --- | --- | --- | --- |
+| Primary (2 cores) | 264K | 1.63M | |
+| Standby (1 core) | 250K | 1.13M | 0 |
+
+- **The standby serves 1.13M reads/s on one core** while applying the
+  primary's 250K writes/s, with no stale answers: leases were renewed
+  throughout.
+- On this 4-vCPU VM the standby has half the primary's cores, so moving the
+  reads there lowers the total. Where the standby has its own machine, its
+  reads add to the primary's capacity instead of sharing it.
+- Moving the reads off the primary barely changes the writer (264K vs
+  250K, within run-to-run spread).
+- `tests/test_replication.cpp` checks the guarantee: 3000 deposits, each
+  read on the standby right after the primary acknowledged it, all seen;
+  the primary stopped, reads turn `E_STALE` within 0.2 s; and a 100 ms
+  timeout waits out a 1.5 s lease before the primary continues alone.
+
 ## Open questions for later rounds
 
-- Automatic failover needs an outside arbiter (or three nodes) to avoid
-  split brain. That belongs with the distributed directory.
-- Serving reads from the standby (with bounded staleness) is cheap to add
-  once apply is live, but it changes the read API's promises.
-- Seeding over the link (checkpoint shipping), and standbys with a
-  different shard count (records routed by slot rather than by stream).
+- The witness is one process and one failover per configuration. A
+  replicated witness (or three nodes with a consensus log) belongs with
+  the distributed directory.
+- Index lookups on the standby (they gather across shards, each of which
+  would need its lease).
+- Standbys with a different shard count (records routed by slot rather
+  than by stream).
+- Choosing the catch-up limit automatically from the WAL write rate and
+  the clients' load.

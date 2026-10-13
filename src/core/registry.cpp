@@ -15,6 +15,11 @@ constexpr u32 kMaxOpId = 1u << 16;
 
 void Registry::add_type(const TypeDescriptor& t) {
   if (t.type_id < kFirstUserTypeId) die("type id in reserved range", t.type_id);
+  add_system_type(t);
+}
+
+void Registry::add_system_type(const TypeDescriptor& t) {
+  if (t.type_id == 0) die("type id 0", t.type_id);
   if (type(t.type_id)) die("duplicate type id", t.type_id);
   if (t.max_size == 0 || t.max_size > kMaxPayload || t.initial_size > t.max_size) {
     die("bad type sizes", t.type_id);

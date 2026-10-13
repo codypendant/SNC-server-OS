@@ -72,6 +72,13 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
   opts.expected_version = h.expected_version;
   opts.allow_undurable = h.flags & wire::kReqAllowUndurable;
   if (h.flags & wire::kReqApplied) opts.durability = Durability::APPLIED;
+  if (h.flags & wire::kReqSequenced) {
+    wire::SeqPrefix sp{};
+    if (args.len >= sizeof(sp)) std::memcpy(&sp, args.data, sizeof(sp));
+    opts.client_id = sp.client_id;
+    opts.seq = sp.seq;
+    args = args.len >= sizeof(sp) ? ByteView(args.data + sizeof(sp), args.len - sizeof(sp)) : ByteView{};
+  }
 
   Req* r = ps->get_req();
   r->ps = ps;
@@ -108,6 +115,7 @@ void NetServer::PerShard::on_done(void* ctx, const ExecResult& r) {
   h.version = r.version;
   if (r.durable) h.flags |= wire::kRespDurable;
   if (q->forwarded) h.flags |= wire::kRespForwarded;
+  if (r.replayed) h.flags |= wire::kRespReplayed;
   ps->cs.respond(q->conn, h, r.result);
   ConnSet::release(q->conn);
   ps->free_reqs.push_back(q);

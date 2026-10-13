@@ -19,6 +19,11 @@ struct ExecOptions {
   u64 expected_version = 0;  // 0 = unconditional
   Durability durability = Durability::DURABLE;
   bool allow_undurable = false;  // reads: do not wait for durability
+  // Safe retries (docs/RETRIES.md): a client's mutations and creates on one
+  // shard numbered 1, 2, 3...; one already applied is answered from the
+  // client's session instead of run again. 0 = unsequenced.
+  u64 client_id = 0;
+  u64 seq = 0;
 };
 
 struct ExecResult {
@@ -26,6 +31,7 @@ struct ExecResult {
   u16 app_code = 0;   // set when status == E_APP
   u64 version = 0;    // object version after the op (current version for reads)
   bool durable = false;
+  bool replayed = false;  // sequenced: answered from the session, not run again
   ObjectID id;        // target, or the new ID for create
   ByteView result;    // valid until the completion returns
 };
@@ -157,12 +163,16 @@ struct ShardStats {
   u8 repl_role = 0;            // 0 none, 1 primary, 2 standby
   bool repl_live = false;      // link to the other side is up
   bool repl_degraded = false;  // primary, sync: continuing without the standby
+  bool repl_blocked = false;   // primary, sync: past the timeout, waiting for leave to degrade
+  u64 stale_reads = 0;
+  u64 replayed = 0;            // sequenced requests answered from a client session         // standby: reads refused for want of a lease (E_STALE)
   bool repl_lost = false;      // primary: the standby must be reseeded
   u64 repl_acked_lsn = 0;      // primary: the standby is durable up to here
   u64 repl_bytes = 0;          // primary: bytes shipped
   u64 repl_retained_bytes = 0; // primary: unacked records kept in memory
   u64 repl_records = 0;        // standby: records applied
   u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
+  u64 repl_disk_bytes = 0;     // primary: shipped from WAL files (catch-up)
   bool wal_direct = false;
 };
 
@@ -226,11 +236,33 @@ class Engine {
     bool replica_sync = true;           // durable acks wait for the standby
     u32 replica_timeout_ms = 2000;      // sync: continue without it after this (0 = never)
     u64 replica_retain_bytes = 1ull << 30;  // per shard, unacked records kept for catch-up
+    u64 replica_catchup_bytes_per_s = 0;    // per shard, catch-up from disk (0: no limit)
     // Standby: listen on standby_host, shard i on port replica_port + i;
     // install and log what the primary sends; serve no ops (E_STANDBY).
     // Promote by stopping it and starting a primary on the same data_dir.
     bool standby = false;
     std::string standby_host = "0.0.0.0";
+    // Standby: listen here instead (0 = replica_port). A standby may then
+    // also set replica_host/replica_port: where it ships its WAL once
+    // promoted (Engine::promote).
+    u16 standby_port = 0;
+    // Primary: keep WAL segments a checkpoint covers while the standby may
+    // still need them, up to this much per shard beyond the checkpoint.
+    u64 replica_retain_disk_bytes = 16ull << 30;
+    // Primary: serve seeds on this port (0 = off). A seed is the active
+    // checkpoint's files; the standby then catches up from the WAL.
+    u16 seed_port = 0;
+    // Standby: with no superblock in data_dir, first fetch a seed from this
+    // primary ("host:port") instead of starting empty.
+    std::string seed_from;
+    // Primary, sync: past replica_timeout_ms, continue without the standby
+    // only once allow_degrade(true) is called (by whoever holds the
+    // failover decision, e.g. a witness). Until then durable writes wait.
+    bool replica_degrade_gated = false;
+    // Standby: serve READ ops under read leases of this length from a sync
+    // primary (0 = serve no ops). Must not exceed the primary's
+    // replica_timeout_ms, which a lease can stretch.
+    u32 standby_read_lease_ms = 0;
   };
 
   explicit Engine(const Config& cfg);
@@ -249,6 +281,29 @@ class Engine {
 
   // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
   CheckpointReport checkpoint();
+
+  // A standby becomes the primary in place (docs/REPLICATION.md): it stops
+  // taking records, waits until what it has is durable, starts a new term
+  // (written to the superblock before anything is served: a primary of an
+  // older term is refused by any standby that knows the new one), rebuilds
+  // its index, resumes follow-ups, and ships its WAL to replica_host if set.
+  // Returns the seconds it took. Control path; blocks.
+  double promote();
+  u64 term() const { return sb_.term; }
+  // With replica_degrade_gated: let sync shards continue without their
+  // standby (true), or stop letting them (false; a shard already degraded
+  // stays so until its standby catches up).
+  void allow_degrade(bool on) { degrade_ok_.store(on); }
+
+  // Replication state summed over shards, cheap enough to poll.
+  struct ReplStatus {
+    u8 role = 0;           // 0 none, 1 primary, 2 standby
+    u16 live = 0;          // shards whose link is up
+    u16 degraded = 0;      // primary: shards continuing without the standby
+    u16 blocked = 0;       // primary: shards waiting for leave to degrade
+    u16 shards = 0;
+  };
+  ReplStatus replication_status() const;
   const RecoveryReport& recovery() const { return recovery_; }
   // The space's UUID (after start, with a data_dir).
   const Uuid& space_uuid() const { return uuid_; }
@@ -270,6 +325,12 @@ class Engine {
 
   // Persistence state (control thread only).
   void recover();
+  // Seeding standbys (src/core/seed.cpp).
+  struct Seeding;
+  std::unique_ptr<Seeding> seed_;
+  std::atomic<bool> degrade_ok_{false};
+  void seed_fetch();
+  void serve_seed();
   Superblock sb_{};
   Uuid uuid_{};
   SlotMap slots_;

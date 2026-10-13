@@ -24,6 +24,8 @@ set(SNC_CORE_SOURCES
   src/core/engine.cpp
   src/core/storage.cpp
   src/core/replication.cpp
+  src/core/seed.cpp
+  src/core/session.cpp
   src/core/wal_format.cpp
   src/net/conn_set.cpp
   src/net/server.cpp
@@ -64,6 +66,7 @@ target_link_libraries(baseline_bench PRIVATE snc_core)
 
 add_executable(snc_server tools/snc_server.cpp)
 target_link_libraries(snc_server PRIVATE snc_core)
+add_executable(snc_witness tools/snc_witness.cpp)
 
 add_executable(baseline_server bench/baseline_server.cpp)
 target_link_libraries(baseline_server PRIVATE snc_core)

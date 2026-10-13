@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Automatic failover with snc_witness (docs/REPLICATION.md).
+
+Primary snc_server on cores 0-1 (sync, --replica-timeout-ms 500,
+--witness); standby on core 2; snc_witness (--failover-ms 500, --poll-ms
+50); one net_bench thread on core 3. Three cases, each checked:
+
+  kill:      the primary is SIGKILLed after a loaded run. Measures the time
+             from the kill to the witness's promotion and checks that the
+             promoted node serves.
+  degraded:  the standby is stopped (SIGSTOP) under load; the primary asks
+             the witness and continues without it. The standby is resumed
+             and catches up (the primary tells the witness), then stopped
+             again (a second grant). Then the primary is killed and the
+             standby resumed: the witness must not promote it, since it
+             lacks acknowledged writes.
+  partition: the primary is stopped (SIGSTOP), as if cut off; the witness
+             promotes the standby. The old primary is resumed: it must
+             acknowledge no write (its standby refuses its term and the
+             witness refuses to let it continue alone).
+
+Prints CSV rows; usage: run_failover.py [--reps N] [--out FILE].
+"""
+import argparse
+import csv
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import threading
+import time
+
+BUILD = "build"
+WORK = "/tmp/snc-failover-bench"
+UUID = "5a" * 16
+
+
+def wait_port(port, timeout=60):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        try:
+            socket.create_connection(("127.0.0.1", port), 0.2).close()
+            return
+        except OSError:
+            time.sleep(0.05)
+    sys.exit(f"port {port} never opened")
+
+
+class Proc:
+    """A process with its output lines collected, with arrival times."""
+
+    def __init__(self, args):
+        self.p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        self.lines = []
+        threading.Thread(target=self._read, daemon=True).start()
+
+    def _read(self):
+        for line in self.p.stdout:
+            self.lines.append((time.time(), line.rstrip()))
+
+    def wait_for(self, pattern, timeout):
+        t_end = time.time() + timeout
+        while time.time() < t_end:
+            for t, l in list(self.lines):
+                if re.search(pattern, l):
+                    return t, l
+            time.sleep(0.005)
+        return None, None
+
+    def text(self):
+        return "\n".join(l for _, l in self.lines)
+
+    def kill(self, sig=signal.SIGKILL):
+        if self.p.poll() is None:
+            self.p.send_signal(sig)
+
+
+def net_bench(port, objects, seconds, timeout=120):
+    try:
+        out = subprocess.run(
+            [f"{BUILD}/net_bench", "--port", str(port), "--threads", "1", "--cpus", "3",
+             "--objects", str(objects), "--seconds", str(seconds), "--route", "owner",
+             "--reads", "50", "--depth", "256"], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
+    m = re.search(r"ops/s (\d+)", out.stdout)
+    return float(m[1]) if m else None
+
+
+def start(port):
+    shutil.rmtree(WORK, ignore_errors=True)
+    os.makedirs(WORK)
+    p_cli, s_cli, repl, wit, p_adm, s_adm = (port + i for i in (0, 10, 20, 30, 40, 50))
+    sb = Proc([f"{BUILD}/snc_server", "--cpus", "2,2", "--port", str(s_cli), "--standby",
+               str(repl), "--data-dir", f"{WORK}/s", "--space-uuid", UUID, "--admin-port",
+               str(s_adm), "--objects", "200000"])
+    wait_port(s_adm)
+    prim = Proc([f"{BUILD}/snc_server", "--cpus", "0,1", "--port", str(p_cli), "--data-dir",
+                 f"{WORK}/p", "--space-uuid", UUID, "--replica-of", f"127.0.0.1:{repl}",
+                 "--replica-timeout-ms", "500", "--witness", f"127.0.0.1:{wit}", "--admin-port",
+                 str(p_adm), "--objects", "200000"])
+    wait_port(p_adm)
+    w = Proc([f"{BUILD}/snc_witness", "--port", str(wit), "--primary", f"127.0.0.1:{p_adm}",
+              "--standby", f"127.0.0.1:{s_adm}", "--state", f"{WORK}/witness.state",
+              "--failover-ms", "500", "--poll-ms", "50"])
+    if w.wait_for(r"primary up", 10)[0] is None:
+        sys.exit("witness never saw the primary\n" + w.text())
+    return prim, sb, w, p_cli, s_cli
+
+
+def stop_all(*procs):
+    for p in procs:
+        p.kill()
+        p.p.wait(timeout=60)
+
+
+def case_kill(port):
+    prim, sb, w, p_cli, s_cli = start(port)
+    before = net_bench(p_cli, 100000, 3)
+    t_kill = time.time()
+    prim.kill()
+    t, line = w.wait_for(r"failover:", 15)
+    assert t is not None, "no failover\n" + w.text()
+    promote_s = float(re.search(r"in ([\d.]+)s", line)[1])
+    after = net_bench(s_cli, 4000, 2)
+    assert after and after > 0, "the promoted node does not serve"
+    stop_all(sb, w)
+    return dict(case="kill", ok=1, before_ops_s=round(before), kill_to_promoted_s=round(t - t_kill, 3),
+                promote_s=promote_s, after_ops_s=round(after))
+
+
+def case_degraded(port):
+    prim, sb, w, p_cli, s_cli = start(port)
+    res = {}
+    th = threading.Thread(target=lambda: res.update(ops=net_bench(p_cli, 100000, 6)))
+    th.start()
+    time.sleep(4.5)  # about 3 s of loading, then the run
+    t_stop = time.time()
+    sb.kill(signal.SIGSTOP)
+    t, _ = prim.wait_for(r"witness: granted", 10)
+    assert t is not None, "the primary was not granted\n" + prim.text() + w.text()
+    th.join()
+    assert res.get("ops"), "the clients stalled for good"
+    # Back in sync: the primary tells the witness, which may fail over again.
+    sb.kill(signal.SIGCONT)
+    assert prim.wait_for(r"back in sync", 10)[0] is not None, "never back in sync\n" + prim.text()
+    assert w.wait_for(r"SYNCED", 5)[0] is not None
+    # Stopped again, under a little load: a second grant.
+    th = threading.Thread(target=lambda: net_bench(p_cli, 2000, 3))
+    th.start()
+    time.sleep(0.5)
+    sb.kill(signal.SIGSTOP)
+    deadline = time.time() + 10
+    while time.time() < deadline and len(re.findall(r"witness: granted", prim.text())) < 2:
+        time.sleep(0.01)
+    assert len(re.findall(r"witness: granted", prim.text())) == 2, "no second grant\n" + prim.text()
+    th.join()
+    prim.kill()
+    sb.kill(signal.SIGCONT)
+    t2, _ = w.wait_for(r"failover:", 3)
+    assert t2 is None, "promoted a standby that lacks acknowledged writes\n" + w.text()
+    stop_all(sb, w)
+    return dict(case="degraded", ok=1, before_ops_s=round(res["ops"]),
+                stall_to_grant_s=round(t - t_stop, 3))
+
+
+def case_partition(port):
+    prim, sb, w, p_cli, s_cli = start(port)
+    before = net_bench(p_cli, 20000, 1)
+    t_stop = time.time()
+    prim.kill(signal.SIGSTOP)
+    t, _ = w.wait_for(r"failover:", 15)
+    assert t is not None, "no failover\n" + w.text()
+    prim.kill(signal.SIGCONT)
+    # The old primary: a fresh client's creates must never be acknowledged.
+    old = net_bench(p_cli, 1000, 1, timeout=5)
+    assert old is None, f"the old primary acknowledged writes ({old} ops/s)"
+    t_ref, _ = prim.wait_for(r"witness: refused", 5)
+    assert t_ref is not None, "the old primary was not refused\n" + prim.text()
+    after = net_bench(s_cli, 4000, 2)
+    assert after and after > 0, "the promoted node does not serve"
+    stop_all(prim, sb, w)
+    return dict(case="partition", ok=1, before_ops_s=round(before),
+                kill_to_promoted_s=round(t - t_stop, 3), after_ops_s=round(after))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--cases", default="kill,degraded,partition")
+    ap.add_argument("--out", default="bench/results/failover.csv")
+    a = ap.parse_args()
+    rows, port = [], 33000
+    cases = dict(kill=case_kill, degraded=case_degraded, partition=case_partition)
+    for rep in range(a.reps):
+        for c in a.cases.split(","):
+            port += 100
+            r = cases[c](port)
+            r["rep"] = rep
+            rows.append(r)
+            print(r, flush=True)
+    fields = ["case", "rep", "ok", "before_ops_s", "kill_to_promoted_s", "promote_s",
+              "stall_to_grant_s", "after_ops_s"]
+    with open(a.out, "w", newline="") as f:
+        wr = csv.DictWriter(f, fieldnames=fields)
+        wr.writeheader()
+        for r in rows:
+            wr.writerow({k: r.get(k) for k in fields})
+    shutil.rmtree(WORK, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -36,6 +36,9 @@ enum class Status : u16 {
   E_OVERLOADED,
   E_SHUTTING_DOWN,
   E_STANDBY,        // this engine is a replication standby and serves no ops
+  E_STALE,          // a standby serving reads has no current lease from its primary
+  E_REPLAYED_OLD,   // sequenced: an older request, already decided; its outcome is not kept
+  E_NOT_OWNER,      // sequenced: sent to a shard that does not own the target
 };
 
 const char* status_name(Status s);

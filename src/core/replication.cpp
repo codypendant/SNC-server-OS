@@ -1,15 +1,21 @@
 #include "replication.h"
 
+#include "snc/sri.h"
+
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
+#include <sched.h>
 #include <sys/epoll.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include <cerrno>
+#include <thread>
 #include <cstdio>
 #include <cstring>
 
@@ -61,16 +67,174 @@ u32 slot_map_crc(const SlotMap& m) {
 
 // ---- Sender -------------------------------------------------------------------
 
-Sender::Sender(const Config& cfg) : cfg_(cfg) {
+Sender::Sender(const Config& cfg) : cfg_(cfg), next_expected_(cfg.start_lsn) {
   std::memcpy(hello_.magic, kMagic, 8);
   std::memcpy(hello_.space_uuid, cfg_.uuid.data(), 16);
   hello_.shard = cfg_.shard;
   hello_.n_shards = cfg_.n_shards;
   hello_.slot_crc = cfg_.slot_crc;
+  hello_.term = cfg_.term;
 }
 
 Sender::~Sender() {
+  stop_disk();
   if (fd_ >= 0) ::close(fd_);
+}
+
+// ---- Catch-up from WAL files ----------------------------------------------------
+
+namespace {
+constexpr std::size_t kDiskFrame = 1u << 20;      // records per frame read from disk
+constexpr std::size_t kDiskQueued = 16u << 20;    // read ahead at most this much
+}  // namespace
+
+void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
+  auto d = std::make_shared<DiskRead>();
+  disk_ = d;
+  disk_to_ = to;
+  std::thread([d, dir = cfg_.data_dir, shard = cfg_.shard, uuid = cfg_.uuid, from, to, verify_crc] {
+    // Not on the shard's core, which this thread inherited, and behind
+    // the shards wherever it runs.
+    cpu_set_t all;
+    CPU_ZERO(&all);
+    for (int i = 0; i < CPU_SETSIZE && i < static_cast<int>(std::thread::hardware_concurrency()); ++i) {
+      CPU_SET(i, &all);
+    }
+    pthread_setaffinity_np(pthread_self(), sizeof(all), &all);
+    ::setpriority(PRIO_PROCESS, static_cast<id_t>(::gettid()), 10);
+    std::vector<u8> f;
+    u64 first = 0, last = 0;
+    bool checking = verify_crc != 0, bad = false;
+    auto push = [&] {
+      if (f.empty()) return;
+      RecordsHeader h{static_cast<u32>(f.size() - sizeof(RecordsHeader)), 0, first, last};
+      std::memcpy(f.data(), &h, sizeof(h));
+      std::unique_lock<std::mutex> g(d->mu);
+      d->cv.wait(g, [&] { return d->bytes < kDiskQueued || d->cancel; });
+      d->bytes += f.size();
+      d->frames.push_back(std::move(f));
+      f.clear();
+    };
+    bool ok = read_stream_range(dir, shard, checking ? from - 1 : from, to, uuid,
+                                [&](const u8* rec, u32 len) {
+      if (bad) return;
+      if (checking) {
+        u32 crc;
+        std::memcpy(&crc, rec, 4);  // WalRecord::crc32c
+        bad = crc != verify_crc;
+        checking = false;
+        return;
+      }
+      if (f.empty()) {
+        f.resize(sizeof(RecordsHeader));
+        std::memcpy(&first, rec + offsetof(WalRecord, lsn), 8);
+      }
+      std::memcpy(&last, rec + offsetof(WalRecord, lsn), 8);
+      f.insert(f.end(), rec, rec + len);
+      // Cut frames only between atomic groups: the standby applies whole frames.
+      u16 flags;
+      std::memcpy(&flags, rec + offsetof(WalRecord, flags), 2);
+      if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) push();
+    });
+    if (!bad) push();
+    std::lock_guard<std::mutex> g(d->mu);
+    d->ok = ok && !bad;
+    d->diverged = bad;
+    d->done = true;
+  }).detach();
+}
+
+void Sender::stop_disk() {
+  if (disk_) {
+    std::lock_guard<std::mutex> g(disk_->mu);
+    disk_->cancel = true;
+    disk_->cv.notify_all();
+  }
+  disk_.reset();
+  disk_frame_.clear();
+  disk_off_ = 0;
+}
+
+// Sends frames read from disk. Returns true once the catch-up is complete
+// (the link may then go on to memory), false while it is still going or the
+// link failed.
+void Sender::apply_verified(bool& advanced) {
+  if (verify_ack_ > acked_) {
+    acked_ = verify_ack_;
+    advanced = true;
+  }
+  verify_ack_ = 0;
+}
+
+bool Sender::send_disk(u64 now_ns, bool& advanced) {
+  const u64 rate = cfg_.catchup_bytes_per_s;
+  if (rate) {
+    // Refill, holding at most 10 ms worth.
+    if (disk_refill_ns_ == 0) disk_refill_ns_ = now_ns;
+    u64 dt = now_ns - disk_refill_ns_;
+    u64 add = dt * rate / 1000000000ull;
+    if (add) {
+      disk_tokens_ = std::min(disk_tokens_ + add, std::max<u64>(rate / 100, 64u << 10));
+      disk_refill_ns_ += add * 1000000000ull / rate;
+    }
+  }
+  while (true) {
+    if (disk_off_ < disk_frame_.size()) {
+      std::size_t n = disk_frame_.size() - disk_off_;
+      if (rate) {
+        if (disk_tokens_ == 0) return false;  // over the rate: wait for tokens
+        n = std::min<std::size_t>(n, disk_tokens_);
+      }
+      long w = write_some(fd_, disk_frame_.data() + disk_off_, n);
+      if (w < 0) {
+        close_link(now_ns);
+        return false;
+      }
+      disk_off_ += static_cast<std::size_t>(w);
+      stats_.bytes_sent += static_cast<u64>(w);
+      stats_.disk_bytes += static_cast<u64>(w);
+      if (rate) disk_tokens_ -= static_cast<u64>(w);
+      if (disk_off_ < disk_frame_.size()) return false;  // socket full or out of tokens
+      ++stats_.frames_sent;
+    }
+    bool done, ok, div;
+    {
+      std::lock_guard<std::mutex> g(disk_->mu);
+      if (!disk_->frames.empty()) {
+        disk_frame_ = std::move(disk_->frames.front());
+        disk_->frames.pop_front();
+        disk_->bytes -= disk_frame_.size();
+        disk_->cv.notify_all();
+        disk_off_ = 0;
+        apply_verified(advanced);  // the reader checked the tail before the first frame
+        continue;
+      }
+      done = disk_->done;
+      ok = disk_->ok;
+      div = disk_->diverged;
+    }
+    if (!done) return false;
+    stop_disk();
+    if (div) {
+      diverged(now_ns, 0);
+      return false;
+    }
+    if (ok) apply_verified(advanced);
+    if (!ok) {
+      std::fprintf(stderr,
+                   "snc: standby shard %u needs WAL records no longer on disk: reseed it\n",
+                   cfg_.shard);
+      lost_ = true;
+      close_link(now_ns);
+      return false;
+    }
+    // Records dropped from memory while this ran are on disk too.
+    if (mem_first() > disk_to_) {
+      start_disk(disk_to_, mem_first());
+      continue;
+    }
+    return true;
+  }
 }
 
 void Sender::on_flush(const u8* recs, u32 len, u64 first_lsn, u64 last_lsn) {
@@ -84,16 +248,30 @@ void Sender::on_flush(const u8* recs, u32 len, u64 first_lsn, u64 last_lsn) {
   std::memcpy(c.bytes.data() + sizeof(h), recs, len);
   retained_ += c.bytes.size();
   chunks_.push_back(std::move(c));
-  // Over budget: drop the oldest unacked records. A standby that still
-  // needs them can no longer catch up from this primary's memory.
+  next_expected_ = last_lsn + 1;
+  // Over budget: drop the oldest records from memory. Every dropped chunk's
+  // flush has completed (one is in flight at a time), so the standby can
+  // still get them from disk.
+  bool restart = false;
+  u64 unsent_from = 0;
   while (retained_ > cfg_.retain_bytes && chunks_.size() > 1) {
-    if (chunks_.front().last_lsn > acked_ && (state_ != State::LIVE || send_chunk_ == 0)) lost_ = true;
+    if (state_ == State::LIVE && !disk_ && send_chunk_ == 0 && chunks_.front().last_lsn > acked_) {
+      if (send_off_ > 0 || partial_off_ < partial_.size()) restart = true;
+      else if (unsent_from == 0) unsent_from = chunks_.front().first_lsn;
+    }
     retained_ -= chunks_.front().bytes.size();
     chunks_.pop_front();
     if (send_chunk_ > 0) --send_chunk_;
     else send_off_ = 0;
   }
   stats_.retained_bytes = retained_;
+  if (restart) {
+    // A frame half sent is gone: start over from the standby's handshake.
+    close_link(sri_now_ns());
+  } else if (unsent_from != 0) {
+    // Live, with unsent records gone from memory: send them from disk first.
+    start_disk(unsent_from, mem_first());
+  }
 }
 
 void Sender::trim() {
@@ -106,6 +284,7 @@ void Sender::trim() {
 }
 
 void Sender::close_link(u64 now_ns) {
+  stop_disk();
   if (fd_ >= 0) ::close(fd_);
   fd_ = -1;
   if (state_ == State::LIVE) down_since_ = now_ns;
@@ -114,6 +293,9 @@ void Sender::close_link(u64 now_ns) {
   in_len_ = 0;
   partial_.clear();
   partial_off_ = 0;
+  echo_.clear();
+  echo_off_ = 0;
+  echo_ts_ = 0;
 }
 
 void Sender::start_connect(u64 now_ns) {
@@ -142,19 +324,56 @@ void Sender::start_connect(u64 now_ns) {
   ++stats_.connects;
 }
 
-// Finds where to resume for a standby that lacks `next_lsn` and up.
-void Sender::position_at(u64 next_lsn) {
+void Sender::diverged(u64 now_ns, u64 lsn) {
+  std::fprintf(stderr,
+               "snc: standby shard %u has records this primary does not%s%llu (a primary crash "
+               "lost them after shipping): reseed it\n",
+               cfg_.shard, lsn ? " past LSN " : "", (unsigned long long)lsn);
+  lost_ = true;
+  close_link(now_ns);
+}
+
+// Finds where to resume for a standby that lacks `next_lsn` and up, after
+// checking that its last record (crc `tail_crc`) is ours.
+void Sender::position_at(u64 next_lsn, u32 tail_crc, u64 now_ns) {
   partial_.clear();
   partial_off_ = 0;
   send_chunk_ = 0;
   send_off_ = 0;
+  if (next_lsn > next_expected_) {
+    diverged(now_ns, next_expected_ - 1);
+    return;
+  }
+  const u64 tail = next_lsn - 1;
+  if (tail != 0 && tail_crc != 0 && tail >= mem_first()) {
+    // Its last record is in memory: check it here.
+    for (const Chunk& c : chunks_) {
+      if (tail < c.first_lsn || tail > c.last_lsn) continue;
+      std::size_t off = sizeof(RecordsHeader);
+      while (off < c.bytes.size()) {
+        WalRecord r;
+        std::memcpy(&r, c.bytes.data() + off, sizeof(r));
+        if (r.lsn == tail) {
+          if (r.crc32c != tail_crc) return diverged(now_ns, tail - 1);
+          break;
+        }
+        off += r.total_len;
+      }
+      break;
+    }
+  } else if (tail != 0 && tail_crc != 0) {
+    // On disk: the reader checks it before sending anything.
+    start_disk(next_lsn, mem_first(), tail_crc);
+    return;
+  }
+  if (next_lsn < mem_first()) {
+    // Older than what memory holds: from disk first, then memory.
+    start_disk(next_lsn, mem_first());
+    return;
+  }
   while (send_chunk_ < chunks_.size() && chunks_[send_chunk_].last_lsn < next_lsn) ++send_chunk_;
   if (send_chunk_ == chunks_.size()) return;  // nothing retained it lacks; send live from here
   Chunk& c = chunks_[send_chunk_];
-  if (c.first_lsn > next_lsn) {
-    lost_ = true;  // the records it needs are no longer here
-    return;
-  }
   if (c.first_lsn == next_lsn) return;
   // Resume inside the chunk: skip whole records up to next_lsn.
   std::size_t off = sizeof(RecordsHeader);
@@ -188,25 +407,23 @@ bool Sender::read_acks(u64 now_ns) {
       std::memmove(in_, in_ + sizeof(a), in_len_ - sizeof(a));
       in_len_ -= sizeof(a);
       if (std::memcmp(a.magic, kMagic, 8) != 0 || a.status != 0) {
-        std::fprintf(stderr, "snc: standby refused shard %u (status %u)\n", cfg_.shard, a.status);
+        std::fprintf(stderr, "snc: standby refused shard %u (%s)\n", cfg_.shard,
+                     a.status == kRefusedTerm ? "this primary's term is older: it was replaced"
+                                              : "another space, shard count or slot map");
         close_link(now_ns);
         retry_at_ = now_ns + 10 * kRetryNs;
         return advanced;
       }
-      if (a.next_lsn > 0 && a.next_lsn - 1 > acked_) {
-        acked_ = a.next_lsn - 1;  // it already has these durably
-        advanced = true;
-      }
-      position_at(a.next_lsn);
-      if (lost_) {
-        std::fprintf(stderr,
-                     "snc: standby shard %u needs LSN %llu, no longer retained: reseed it\n",
-                     cfg_.shard, (unsigned long long)a.next_lsn);
-        close_link(now_ns);
-        return advanced;
-      }
+      verify_ack_ = 0;
+      position_at(a.next_lsn, a.last_crc, now_ns);
+      if (lost_) return advanced;
+      // It already has up to next_lsn - 1 durably: those count as acked once
+      // they are known to be ours (at once, unless the disk reader checks).
+      verify_ack_ = a.next_lsn > 0 ? a.next_lsn - 1 : 0;
+      if (!disk_) apply_verified(advanced);
       state_ = State::LIVE;
       down_since_ = 0;
+      progress_ns_ = now_ns;
     }
     while (in_len_ >= sizeof(Ack)) {
       Ack k;
@@ -216,6 +433,10 @@ bool Sender::read_acks(u64 now_ns) {
       if (k.durable_lsn > acked_) {
         acked_ = k.durable_lsn;
         advanced = true;
+      }
+      if (k.lease_ts != 0 && in_sync_) {
+        lease_until_ = std::max(lease_until_, now_ns + k.lease_ns);
+        echo_ts_ = std::max(echo_ts_, k.lease_ts);
       }
     }
   }
@@ -250,7 +471,34 @@ bool Sender::poll(u64 now_ns) {
   }
   advanced |= read_acks(now_ns);
   if (state_ != State::LIVE) return advanced;
-  // Send the resumed partial frame first, then whole chunks in order.
+  if (advanced || acked_ + 1 >= next_expected_) {
+    progress_ns_ = now_ns;
+  } else if (cfg_.ack_timeout_ns != 0 && now_ns - progress_ns_ >= cfg_.ack_timeout_ns) {
+    std::fprintf(stderr, "snc: standby shard %u stopped acking: treating it as down\n", cfg_.shard);
+    const u64 since = progress_ns_;
+    close_link(now_ns);
+    down_since_ = since;
+    return advanced;
+  }
+  // Catch-up from disk first, then the resumed partial frame, then whole
+  // chunks in order.
+  if (disk_ && !send_disk(now_ns, advanced)) return advanced;
+  // A lease echo goes between frames.
+  if (echo_off_ < echo_.size() || (echo_ts_ != 0 && partial_off_ >= partial_.size() && send_off_ == 0)) {
+    if (echo_off_ >= echo_.size()) {
+      RecordsHeader h{0, kFrameLease, echo_ts_, 0};
+      echo_.assign(reinterpret_cast<const u8*>(&h), reinterpret_cast<const u8*>(&h) + sizeof(h));
+      echo_off_ = 0;
+      echo_ts_ = 0;
+    }
+    long w = write_some(fd_, echo_.data() + echo_off_, echo_.size() - echo_off_);
+    if (w < 0) {
+      close_link(now_ns);
+      return advanced;
+    }
+    echo_off_ += static_cast<std::size_t>(w);
+    if (echo_off_ < echo_.size()) return advanced;  // socket full
+  }
   while (partial_off_ < partial_.size()) {
     long w = write_some(fd_, partial_.data() + partial_off_, partial_.size() - partial_off_);
     if (w < 0) {
@@ -311,9 +559,11 @@ void Receiver::drop() {
   greeted_ = false;
   in_len_ = 0;
   out_.clear();
+  lease_until_ = 0;
+  lease_sent_ = 0;
 }
 
-bool Receiver::handshake(u64 next_lsn) {
+bool Receiver::handshake(u64 next_lsn, u32 tail_crc) {
   Hello h;
   std::memcpy(&h, in_.data(), sizeof(h));
   std::memmove(in_.data(), in_.data() + sizeof(h), in_len_ - sizeof(h));
@@ -321,9 +571,13 @@ bool Receiver::handshake(u64 next_lsn) {
   HelloAck a{};
   std::memcpy(a.magic, kMagic, 8);
   a.next_lsn = next_lsn;
+  a.last_crc = tail_crc;
   if (std::memcmp(h.magic, kMagic, 8) != 0 || std::memcmp(h.space_uuid, cfg_.uuid.data(), 16) != 0 ||
       h.shard != cfg_.shard || h.n_shards != cfg_.n_shards || h.slot_crc != cfg_.slot_crc) {
     a.status = kRefusedSpace;
+    ++stats_.refused;
+  } else if (h.term < cfg_.term) {
+    a.status = kRefusedTerm;
     ++stats_.refused;
   }
   const u8* p = reinterpret_cast<const u8*>(&a);
@@ -333,7 +587,7 @@ bool Receiver::handshake(u64 next_lsn) {
   return greeted_;
 }
 
-bool Receiver::poll(u64 next_lsn, u64 durable_lsn) {
+bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
   bool did = false;
   {
     // Accept a primary. A new connection replaces the old one: it is a
@@ -364,7 +618,7 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn) {
   }
   if (!greeted_) {
     if (in_len_ < sizeof(Hello)) return did;
-    if (!handshake(next_lsn)) {
+    if (!handshake(next_lsn, tail_crc)) {
       write_some(conn_, out_.data(), out_.size());
       drop();
       return true;
@@ -376,6 +630,13 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn) {
     RecordsHeader h;
     std::memcpy(&h, in_.data() + off, sizeof(h));
     if (in_len_ - off < sizeof(h) + h.len) break;
+    if (h.kind == kFrameLease) {
+      // Our request sent at first_lsn was granted; keep a 10% margin for
+      // the two clocks' rates.
+      if (cfg_.lease_ns) lease_until_ = std::max(lease_until_, h.first_lsn + cfg_.lease_ns / 10 * 9);
+      off += sizeof(h) + h.len;
+      continue;
+    }
     const u8* p = in_.data() + off + sizeof(h);
     std::size_t at = 0;
     while (at < h.len) {
@@ -396,12 +657,18 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn) {
     std::memmove(in_.data(), in_.data() + off, in_len_ - off);
     in_len_ -= off;
   }
-  // Ack what is durable here.
-  if (durable_lsn > acked_) {
-    Ack k{durable_lsn};
+  // Ack what is durable here; ask for a lease at least 4 times per lease.
+  const bool ask = cfg_.lease_ns != 0 && greeted_ && now_ns - lease_sent_ >= cfg_.lease_ns / 4;
+  if (durable_lsn > acked_ || ask) {
+    Ack k{std::max(durable_lsn, acked_), 0, 0};
+    if (cfg_.lease_ns != 0 && greeted_) {
+      k.lease_ts = now_ns;
+      k.lease_ns = cfg_.lease_ns;
+      lease_sent_ = now_ns;
+    }
     const u8* p = reinterpret_cast<const u8*>(&k);
     out_.insert(out_.end(), p, p + sizeof(k));
-    acked_ = durable_lsn;
+    acked_ = k.durable_lsn;
   }
   if (!out_.empty()) {
     long w = write_some(conn_, out_.data(), out_.size());

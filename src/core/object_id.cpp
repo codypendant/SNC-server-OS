@@ -59,6 +59,9 @@ const char* status_name(Status s) {
     case Status::E_OVERLOADED: return "E_OVERLOADED";
     case Status::E_SHUTTING_DOWN: return "E_SHUTTING_DOWN";
     case Status::E_STANDBY: return "E_STANDBY";
+    case Status::E_STALE: return "E_STALE";
+    case Status::E_REPLAYED_OLD: return "E_REPLAYED_OLD";
+    case Status::E_NOT_OWNER: return "E_NOT_OWNER";
   }
   return "E_UNKNOWN_STATUS";
 }

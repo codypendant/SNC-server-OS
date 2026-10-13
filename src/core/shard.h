@@ -47,6 +47,7 @@ class Shard {
   // ---- Persistence (control path, on this shard's thread) ----
   // Recovery: install one record under the version rule (spec section 12).
   void install(const WalRecord& r, const u8* payload);
+  void install_indexed(const WalRecord& r, const u8* payload);
   // After replay: rebuild the index and open this shard's WAL stream.
   void finish_recovery(const WalConfig& wal_cfg, u64 next_lsn);
   // Highest mint lease among the IDs installed so far (0 = none).
@@ -61,11 +62,32 @@ class Shard {
     repl::Sender::Config sender;
     bool sync = true;           // durable completions wait for the standby's ack
     u64 timeout_ns = 0;         // sync: continue without the standby after this long (0 = never)
+    // If set, the timeout lets a shard continue without its standby only
+    // while this is true (a witness granted it; docs/REPLICATION.md).
+    const std::atomic<bool>* degrade_gate = nullptr;
     // Standby: receive, install and log the primary's records.
     bool standby = false;
     repl::Receiver::Config receiver;
   };
   void set_replication(const ReplicaConfig& c) { repl_cfg_ = c; }
+  struct ReplSummary {
+    u8 role;
+    bool live, degraded, blocked;
+  };
+  ReplSummary repl_summary() const;
+  // Promotion, on the shard's thread: stop_standby, then once every shard
+  // is standby_settled (all it installed is durable), promote.
+  void stop_standby();
+  bool standby_settled() const;
+  void promote(const ReplicaConfig& rc, const std::string& data_dir);
+  // The WAL's last record after replay, so a standby can prove its log
+  // matches its primary's when it reconnects.
+  void set_wal_tail(u64 lsn, u32 crc) {
+    tail_lsn_ = lsn;
+    tail_crc_ = crc;
+  }
+  // Primary: first LSN its standby may still need from WAL files (0: none).
+  u64 repl_retain_from() const { return sender_ ? sender_->retain_from() : 0; }
 
   struct CheckpointResult {
     u64 start_lsn = 0, objects = 0, bytes = 0;
@@ -208,9 +230,17 @@ class Shard {
 
   void run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args, const ExecOptions& opts,
            RunOut& out);
+  // `client`: a client's op, which a standby refuses or serves as a read;
+  // follow-ups run regardless (they arrive only once shards are promoted).
   void run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args, const ExecOptions& opts,
-                RunOut& out);
-  void run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out);
+                RunOut& out, bool client = true);
+  void run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts, RunOut& out);
+  // Client sessions (docs/RETRIES.md).
+  ObjectHeader* find_session(u64 client_id);
+  bool replay_if_seen(const ExecOptions& opts, RunOut& out);
+  // Logs the op's session record, first in its atomic group; returns the
+  // session so the caller can set its last_lsn with the group's.
+  ObjectHeader* record_session(const ExecOptions& opts, const ObjectID& id, u64 version);
   void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out);
 
   void prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t, const OpDescriptor* op);
@@ -240,6 +270,8 @@ class Shard {
   static void on_wal_flush(void* ctx, const u8* recs, u32 len, u64 first_lsn, u64 last_lsn);
   static bool apply_replicated(void* ctx, const u8* rec);
   bool poll_replication();
+  void start_serving();
+  void start_sender(const std::string& data_dir, u64 next_lsn);
 
   // Dispatch.
   void send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type, ByteView args,
@@ -286,7 +318,10 @@ class Shard {
   std::unique_ptr<repl::Receiver> receiver_;
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby
+  bool repl_blocked_ = false;  // overdue, but the degrade gate is closed
   int repl_epfd_ = -1;          // the replication sockets, for idle wake-ups
+  u64 tail_lsn_ = 0;            // standby: last record in its WAL, and its crc
+  u32 tail_crc_ = 0;
   std::deque<Waiter> waiters_;  // sorted by lsn
 
   // FIFO over a vector that keeps its memory: std::deque allocates and

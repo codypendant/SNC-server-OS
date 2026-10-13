@@ -2,6 +2,8 @@
 // of persistence: superblock, recovery and checkpoint orchestration (spec
 // section 12, recovery steps 1 to 9).
 #include <dirent.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -10,7 +12,10 @@
 #include <latch>
 #include <mutex>
 #include <stdexcept>
+#include <thread>
 
+#include "seed.h"
+#include "session.h"
 #include "shard.h"
 
 namespace snc {
@@ -95,6 +100,7 @@ struct EngineState {
 static std::unique_ptr<EngineState> g_state;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  register_session_type();
   RuntimeConfig& rc = cfg_.runtime;
   if (rc.pages != PageMode::SMALL && rc.heap_reserve_bytes == 0) {
     // Room for the expected objects at 512 B each (docs/HUGEPAGES.md);
@@ -168,6 +174,11 @@ bool Engine::wait_emits(double timeout_s) {
 
 void Engine::stop() {
   if (!running_) return;
+  if (seed_ && seed_->thread.joinable()) {
+    seed_->stop = true;
+    seed_->thread.join();
+    ::close(seed_->listen_fd);
+  }
   // Stop dispatching follow-ups and let the ones already sent to another
   // shard come back, so no shard waits on a response from a stopped one.
   // Paused shards still run follow-ups that arrive; wait until every one
@@ -187,14 +198,60 @@ void Engine::stop() {
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it
 }
 
+// Shard s's replication settings, as standby or as primary.
+static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const SlotMap& slots,
+                                           const Uuid& uuid_, u64 term, u16 s, bool standby,
+                                           const std::atomic<bool>* gate) {
+  const u16 n = cfg_.runtime.n_shards;
+  const u32 crc = repl::slot_map_crc(slots);
+  Shard::ReplicaConfig rc;
+  if (standby) {
+    rc.standby = true;
+    rc.receiver.host = cfg_.standby_host;
+    rc.receiver.port = static_cast<u16>((cfg_.standby_port ? cfg_.standby_port : cfg_.replica_port) + s);
+    rc.receiver.uuid = uuid_;
+    rc.receiver.shard = s;
+    rc.receiver.n_shards = n;
+    rc.receiver.slot_crc = crc;
+    rc.receiver.term = term;
+    rc.receiver.lease_ns = u64{cfg_.standby_read_lease_ms} * 1'000'000;
+  } else if (!cfg_.replica_host.empty() && (!cfg_.standby || cfg_.standby_port != 0)) {
+    rc.primary = true;
+    rc.sender.host = cfg_.replica_host;
+    rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
+    rc.sender.uuid = uuid_;
+    rc.sender.shard = s;
+    rc.sender.n_shards = n;
+    rc.sender.slot_crc = crc;
+    rc.sender.retain_bytes = cfg_.replica_retain_bytes;
+    rc.sender.catchup_bytes_per_s = cfg_.replica_catchup_bytes_per_s;
+    rc.sender.term = term;
+    rc.sync = cfg_.replica_sync;
+    rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
+    rc.sender.ack_timeout_ns = rc.timeout_ns;
+    if (cfg_.replica_degrade_gated) rc.degrade_gate = gate;
+  }
+  return rc;
+}
+
 void Engine::recover() {
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
   const u16 n = cfg_.runtime.n_shards;
   recovery_ = RecoveryReport{};
 
-  // 1. Superblock.
+  // 1. Superblock. A new standby may first fetch a seed from its primary.
   std::optional<Superblock> sb = read_superblock(dir);
+  if (!sb && !cfg_.seed_from.empty()) {
+    bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
+    if (has_data) {
+      throw std::runtime_error("seed_from: " + dir + " has data but no superblock; clear it first");
+    }
+    make_dirs(dir);
+    seed_fetch();
+    sb = read_superblock(dir);
+    if (!sb) storage_fatal("seed: superblock not readable after seeding");
+  }
   if (!sb) {
     bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
     if (!cfg_.init || has_data) {
@@ -250,6 +307,7 @@ void Engine::recover() {
   std::vector<u16> streams = list_streams(dir);
   for (u16 s : streams) adopt_spare(dir, s, uuid_);
   std::vector<u64> next_lsn(n, 1);
+  std::vector<u32> tail_crc(n, 0);  // crc of each stream's last record, for replication
   bool orphans = false;
   auto from_lsn = [&](u16 s) -> u64 { return (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1; };
 
@@ -284,6 +342,7 @@ void Engine::recover() {
       recovery_.wal_records_replayed += scans[s].records;
       recovery_.torn_tails += scans[s].torn_tails;
       next_lsn[s] = std::max(scans[s].last_lsn + 1, from_lsn(s));
+      if (scans[s].last_lsn + 1 == next_lsn[s]) tail_crc[s] = scans[s].last_crc;
     }
     for (u16 s : streams) {
       if (s >= n) storage_fatal("WAL stream without a shard under an unchanged slot map");
@@ -385,33 +444,12 @@ void Engine::recover() {
   }
 
   if (!cfg_.replica_host.empty() || cfg_.standby) {
-    const u32 crc = repl::slot_map_crc(slots_);
-    rt_->run_on_all([&](u16 s) {
-      Shard::ReplicaConfig rc;
-      if (cfg_.standby) {
-        rc.standby = true;
-        rc.receiver.host = cfg_.standby_host;
-        rc.receiver.port = static_cast<u16>(cfg_.replica_port + s);
-        rc.receiver.uuid = uuid_;
-        rc.receiver.shard = s;
-        rc.receiver.n_shards = n;
-        rc.receiver.slot_crc = crc;
-      } else {
-        rc.primary = true;
-        rc.sender.host = cfg_.replica_host;
-        rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
-        rc.sender.uuid = uuid_;
-        rc.sender.shard = s;
-        rc.sender.n_shards = n;
-        rc.sender.slot_crc = crc;
-        rc.sender.retain_bytes = cfg_.replica_retain_bytes;
-        rc.sync = cfg_.replica_sync;
-        rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
-      }
-      current_shard()->set_replication(rc);
-    });
+    rt_->run_on_all([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby, &degrade_ok_)); });
   }
-  rt_->run_on_all([&](u16 s) { current_shard()->finish_recovery(wc, next_lsn[s]); });
+  rt_->run_on_all([&](u16 s) {
+    if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
+    current_shard()->finish_recovery(wc, next_lsn[s]);
+  });
   recovery_.index_rebuild_s = since(t3);
 
   // 8. A changed slot map or orphaned streams need a checkpoint before READY
@@ -423,6 +461,67 @@ void Engine::recover() {
   }
   for (u16 s = 0; s < n; ++s) recovery_.objects += stats(s).objects;
   recovery_.total_s = since(t0);
+
+  seed_ = std::make_unique<Seeding>();
+  seed_->wal_pin.assign(n, 0);
+  if (cfg_.seed_port != 0) {
+    int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    int one = 1;
+    ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(cfg_.seed_port);
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 4) != 0) {
+      throw std::runtime_error("cannot listen for seeds on port " + std::to_string(cfg_.seed_port));
+    }
+    seed_->listen_fd = fd;
+    seed_->thread = std::thread([this] { serve_seed(); });
+  }
+}
+
+double Engine::promote() {
+  if (!running_ || !cfg_.standby || cfg_.data_dir.empty()) {
+    throw std::logic_error("promote: not a running standby");
+  }
+  const auto t0 = std::chrono::steady_clock::now();
+  const u16 n = cfg_.runtime.n_shards;
+  // 1. Take no more records, and wait until all installed are durable: the
+  // follow-ups resumed below act on them.
+  rt_->run_on_all([](u16) { current_shard()->stop_standby(); });
+  while (true) {
+    std::atomic<bool> settled{true};
+    rt_->run_on_all([&](u16) {
+      if (!current_shard()->standby_settled()) settled = false;
+    });
+    if (settled) break;
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+  }
+  // 2. The new term, and leases above every ID the old primary minted,
+  // durable before anything is served.
+  std::atomic<u64> max_seen{0};
+  rt_->run_on_all([&](u16) {
+    u64 m = current_shard()->max_lease_seen();
+    u64 cur = max_seen.load();
+    while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
+  });
+  const u64 base = std::max(sb_.next_lease, max_seen.load() + 1);
+  {
+    std::unique_lock<std::mutex> g;
+    if (seed_) g = std::unique_lock<std::mutex>(seed_->mu);
+    sb_.next_lease = base + n;
+    ++sb_.term;
+    ++sb_.generation;
+    write_superblock(cfg_.data_dir, sb_);
+  }
+  // 3. Serve.
+  cfg_.standby = false;
+  rt_->run_on_all([&](u16 s) {
+    Shard* sh = current_shard();
+    sh->set_lease(base + s);
+    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_), cfg_.data_dir);
+  });
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 
 CheckpointReport Engine::checkpoint() {
@@ -464,6 +563,21 @@ CheckpointReport Engine::checkpoint() {
   }
   for (const auto& t : registry().types()) m.types.push_back({t.type_id, t.schema_ver, t.name});
   write_manifest(dir, m);
+  // Replication: the first LSN each shard's standby may still need, and
+  // seeds in progress (docs/REPLICATION.md). WAL from there is kept.
+  std::vector<u64> keep_from(n, 0);
+  rt_->run_on_all([&](u16 s) { keep_from[s] = current_shard()->repl_retain_from(); });
+  std::unique_lock<std::mutex> seed_lock;
+  if (seed_) {
+    seed_lock = std::unique_lock<std::mutex>(seed_->mu);
+    const bool expired = std::chrono::steady_clock::now() > seed_->wal_pin_until;
+    for (u16 s = 0; s < n; ++s) {
+      u64& pin = seed_->wal_pin[s];
+      // Released once the standby is past it.
+      if (pin != 0 && (expired || keep_from[s] > pin)) pin = 0;
+      if (pin != 0 && (keep_from[s] == 0 || pin < keep_from[s])) keep_from[s] = pin;
+    }
+  }
   u64 old = sb_.active_ckpt;
   sb_.active_ckpt = seq;
   // A standby has installed IDs minted under its primary's leases; once the
@@ -480,8 +594,13 @@ CheckpointReport Engine::checkpoint() {
   ++sb_.generation;
   write_superblock(dir, sb_);
 
-  // Step 5: only now delete what the new checkpoint covers (spec C10).
-  if (old != 0) remove_tree(ckpt_dir(dir, old));
+  // Step 5: only now delete what the new checkpoint covers (spec C10),
+  // except a checkpoint a seed is still sending.
+  if (old != 0) {
+    if (seed_ && seed_->ckpt_pins.count(old)) seed_->deferred.push_back(old);
+    else remove_tree(ckpt_dir(dir, old));
+  }
+  if (seed_lock.owns_lock()) seed_lock.unlock();
   for (u16 s : list_streams(dir)) {
     if (s >= n) {
       for (u64 first : list_segments(dir, s)) ::unlink(segment_path(dir, s, first).c_str());
@@ -491,9 +610,25 @@ CheckpointReport Engine::checkpoint() {
       continue;
     }
     std::vector<u64> segs = list_segments(dir, s);
+    // Segments the checkpoint covers but a standby may still need, kept up
+    // to a budget; beyond it the oldest go and that standby needs a seed.
+    u64 keep = m.start_lsn[s];
+    if (keep_from[s] != 0) keep = std::min(keep, keep_from[s]);
+    std::size_t held = 0;
+    for (std::size_t i = 0; i + 1 < segs.size(); ++i) {
+      if (segs[i + 1] <= m.start_lsn[s] && segs[i + 1] > keep) ++held;
+    }
+    const std::size_t budget =
+        static_cast<std::size_t>(cfg_.replica_retain_disk_bytes / cfg_.wal_segment_bytes);
     for (std::size_t i = 0; i + 1 < segs.size(); ++i) {
       // Segment i holds LSNs below segs[i+1]; drop it if all are below start_lsn.
-      if (segs[i + 1] <= m.start_lsn[s]) {
+      if (segs[i + 1] > m.start_lsn[s]) continue;
+      bool needed = segs[i + 1] > keep;
+      if (needed && held > budget) {
+        needed = false;
+        --held;
+      }
+      if (!needed) {
         ::unlink(segment_path(dir, s, segs[i]).c_str());
         ++rep.segments_deleted;
       }
@@ -504,6 +639,29 @@ CheckpointReport Engine::checkpoint() {
   fsync_dir(dir + "/wal");
   rep.seconds = since(t0);
   return rep;
+}
+
+Engine::ReplStatus Engine::replication_status() const {
+  ReplStatus st;
+  st.shards = cfg_.runtime.n_shards;
+  if (!running_) return st;
+  std::mutex mu;
+  std::latch done(st.shards);
+  for (u16 s = 0; s < st.shards; ++s) {
+    rt_->submit(s, [&] {
+      Shard::ReplSummary r = current_shard()->repl_summary();
+      {
+        std::lock_guard<std::mutex> g(mu);
+        st.role = std::max(st.role, r.role);
+        st.live += r.live;
+        st.degraded += r.degraded;
+        st.blocked += r.blocked;
+      }
+      done.count_down();
+    });
+  }
+  done.wait();
+  return st;
 }
 
 ShardStats Engine::stats(u16 shard) const {

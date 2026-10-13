@@ -21,11 +21,18 @@ enum class Kind : u8 {
 enum ReqFlags : u8 {
   kReqAllowUndurable = 1u << 0,
   kReqApplied = 1u << 1,  // Durability::APPLIED
+  // Safe retries (docs/RETRIES.md): the body starts with a SeqPrefix.
+  kReqSequenced = 1u << 2,
+};
+struct SeqPrefix {
+  u64 client_id;
+  u64 seq;
 };
 
 enum RespFlags : u8 {
   kRespDurable = 1u << 0,
   kRespForwarded = 1u << 1,  // the target is owned by another shard: re-route
+  kRespReplayed = 1u << 2,   // a sequenced request already applied: answered from its session
 };
 
 // Every frame starts with its total length (header + body) in bytes.

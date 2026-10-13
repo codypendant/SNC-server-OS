@@ -1,0 +1,7 @@
+case,rep,writer_ops_s,reader_ops_s,total_ops_s,reader_stale,reader_errors
+on-primary,0,247611,1606091,1853702,0,0
+split,0,250169,1073510,1323679,0,0
+on-primary,1,277446,1629746,1907192,0,0
+split,1,263405,1132104,1395509,0,0
+on-primary,2,263701,1650213,1913914,0,0
+split,2,248106,1195726,1443832,0,0

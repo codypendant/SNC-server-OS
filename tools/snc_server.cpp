@@ -6,21 +6,39 @@
 //                   [--objects N] [--data-dir DIR] [--group-commit-us N]
 //                   [--no-mint-local] [--spin] [--pages 4k|thp|hugetlb]
 //                   [--replica-of HOST:PORT [--async-replica] [--replica-timeout-ms N]]
-//                   [--standby PORT [--standby-host H] [--space-uuid HEX]]
+//                   [--standby PORT [--standby-host H] [--space-uuid HEX]
+//                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
+//                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
+//                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
 // listens on PORT+i, keeps a copy and serves no ops. A new standby is
 // created with its primary's space UUID (printed at start). Promote a
-// standby by stopping it and starting it without --standby on the same
-// --data-dir. Nothing fences the old primary: make sure it is down.
+// standby with SIGUSR1 (in place; it then ships to --replica-of if given,
+// and --standby takes the port to listen on), or by stopping it and starting
+// it without --standby on the same --data-dir. Promotion starts a new term:
+// standbys refuse a primary of an older term, so an old primary that comes
+// back with --replica-timeout-ms 0 can acknowledge no durable write.
+// A primary started with --seed-port serves its latest checkpoint; a
+// standby started with --seed-from on an empty --data-dir fetches it first,
+// then catches up from the primary's WAL. --report-ms prints a line of
+// replication state every N ms (lag = durable records not yet acked).
+// Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
+// lines; with --witness, a sync primary past --replica-timeout-ms continues
+// without its standby only once the witness grants it, and tells the
+// witness when its standby is back in sync. --standby-reads lets a standby
+// serve reads under leases from its sync primary (E_STALE without one).
 #include <signal.h>
 
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <thread>
 
+#include "ha.h"
 #include "snc/net.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
@@ -59,6 +77,11 @@ int main(int argc, char** argv) {
   cfg.mint_local = true;
   cfg.init = true;
   net::NetServer::Config ncfg;
+  int report_ms = 0;
+  unsigned admin_port = 0;
+  std::string witness_host;
+  unsigned witness_port = 0;
+  double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -91,9 +114,24 @@ int main(int argc, char** argv) {
     else if (k == "--replica-timeout-ms") cfg.replica_timeout_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--standby") {
       cfg.standby = true;
-      cfg.replica_port = static_cast<u16>(std::atoi(val()));
+      cfg.standby_port = static_cast<u16>(std::atoi(val()));
     }
     else if (k == "--standby-host") cfg.standby_host = val();
+    else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
+    else if (k == "--seed-from") cfg.seed_from = val();
+    else if (k == "--report-ms") report_ms = std::atoi(val());
+    else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
+    else if (k == "--witness") {
+      if (!ha::parse_hostport(val(), witness_host, witness_port)) {
+        std::fprintf(stderr, "--witness takes HOST:PORT\n");
+        return 2;
+      }
+      cfg.replica_degrade_gated = true;
+    }
+    else if (k == "--checkpoint-s") checkpoint_s = std::atof(val());
+    else if (k == "--catchup-mib-s") cfg.replica_catchup_bytes_per_s = static_cast<u64>(std::atof(val()) * (1 << 20));
+    else if (k == "--replica-retain-mib") cfg.replica_retain_bytes = std::strtoull(val(), nullptr, 10) << 20;
     else if (k == "--space-uuid") {
       if (!parse_uuid(val(), cfg.init_uuid)) {
         std::fprintf(stderr, "--space-uuid takes 32 hex digits\n");
@@ -127,6 +165,7 @@ int main(int argc, char** argv) {
   sigemptyset(&set);
   sigaddset(&set, SIGINT);
   sigaddset(&set, SIGTERM);
+  sigaddset(&set, SIGUSR1);  // a standby: promote to primary
   pthread_sigmask(SIG_BLOCK, &set, nullptr);
 
   net::NetServer server(ncfg, cfg.runtime.n_shards);
@@ -141,8 +180,8 @@ int main(int argc, char** argv) {
   if (!cfg.data_dir.empty()) {
     std::printf("space uuid ");
     for (u8 b : eng.space_uuid()) std::printf("%02x", b);
-    if (cfg.standby) std::printf("  standby, listening on %u-%u", cfg.replica_port,
-                                 cfg.replica_port + cfg.runtime.n_shards - 1);
+    if (cfg.standby) std::printf("  standby, listening on %u-%u", cfg.standby_port,
+                                 cfg.standby_port + cfg.runtime.n_shards - 1);
     else if (!cfg.replica_host.empty())
       std::printf("  replicating to %s:%u (%s)", cfg.replica_host.c_str(), cfg.replica_port,
                   cfg.replica_sync ? "sync" : "async");
@@ -150,8 +189,145 @@ int main(int argc, char** argv) {
   }
   std::fflush(stdout);
 
+  // Admin port: STATUS and PROMOTE, for snc_witness. The main thread
+  // promotes (on SIGUSR1); this thread only reads.
+  std::string uuid_hex;
+  for (u8 b : eng.space_uuid()) {
+    char h[3];
+    std::snprintf(h, sizeof(h), "%02x", b);
+    uuid_hex += h;
+  }
+  std::atomic<bool> is_standby{cfg.standby}, admin_stop{false};
+  std::atomic<u64> term{eng.term()};
+  std::thread admin;
+  if (admin_port != 0) {
+    int lfd = ha::listen_on(admin_port);
+    if (lfd < 0) {
+      std::fprintf(stderr, "cannot listen on admin port %u\n", admin_port);
+      return 1;
+    }
+    admin = std::thread([&, lfd] {
+      while (!admin_stop.load()) {
+        if (!ha::wait_fd(lfd, POLLIN, 100)) continue;
+        int fd = ::accept4(lfd, nullptr, nullptr, SOCK_CLOEXEC);
+        if (fd < 0) continue;
+        std::string line, reply;
+        if (ha::read_line(fd, line, 500)) {
+          if (line == "STATUS") {
+            Engine::ReplStatus st = eng.replication_status();
+            char b[256];
+            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u",
+                          is_standby.load() ? 's' : (st.role == 1 ? 'p' : 'n'),
+                          (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
+                          st.degraded, st.blocked);
+            reply = b;
+          } else if (line == "PROMOTE") {
+            reply = is_standby.load() ? "OK" : "NO not a standby";
+            if (is_standby.load()) ::kill(::getpid(), SIGUSR1);
+          } else {
+            reply = "NO unknown request";
+          }
+          ha::write_all(fd, reply + "\n");
+        }
+        ::close(fd);
+      }
+      ::close(lfd);
+    });
+  }
+  // The witness's grant to continue without the standby (see the header).
+  bool granted = false, refused = false;
+
   int sig = 0;
-  sigwait(&set, &sig);
+  // Wait for a signal, reporting and checkpointing on the way.
+  {
+    using clock = std::chrono::steady_clock;
+    const auto t0 = clock::now();
+    auto next_report = t0 + std::chrono::milliseconds(report_ms);
+    auto next_ckpt = t0 + std::chrono::duration_cast<clock::duration>(
+                              std::chrono::duration<double>(checkpoint_s));
+    while (true) {
+      auto now = clock::now();
+      auto wake = now + std::chrono::hours(24);
+      if (report_ms > 0) wake = std::min(wake, next_report);
+      if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
+      if (!witness_host.empty()) wake = std::min(wake, now + std::chrono::milliseconds(50));
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::max(wake - now, clock::duration::zero())).count();
+      timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
+      if ((sig = sigtimedwait(&set, nullptr, &ts)) == SIGUSR1) {
+        if (cfg.standby) {
+          double s = eng.promote();
+          cfg.standby = false;
+          term.store(eng.term());
+          is_standby.store(false);
+          std::printf("promoted to primary: term %llu, in %.3fs\n",
+                      (unsigned long long)eng.term(), s);
+        }
+        std::fflush(stdout);
+        continue;
+      }
+      if (sig > 0) break;
+      now = clock::now();
+      if (!witness_host.empty() && !cfg.standby) {
+        Engine::ReplStatus st = eng.replication_status();
+        std::string req = std::string(granted ? "SYNCED " : "DEGRADE ") + uuid_hex + " " +
+                          std::to_string(eng.term());
+        std::string reply;
+        if (!granted && st.blocked > 0) {
+          if (ha::ask(witness_host, witness_port, req, reply, 200) && reply == "OK") {
+            granted = true;
+            refused = false;
+            eng.allow_degrade(true);
+            std::printf("witness: granted, continuing without the standby\n");
+          } else if (reply.rfind("NO", 0) == 0 && !refused) {
+            refused = true;
+            std::printf("witness: refused (%s); durable writes wait\n", reply.c_str());
+          }
+        } else if (granted && st.degraded == 0 && st.blocked == 0 && st.live == st.shards) {
+          // Close the gate first: a shard that drops again waits for a new grant.
+          eng.allow_degrade(false);
+          if (ha::ask(witness_host, witness_port, req, reply, 200) && reply == "OK") {
+            granted = false;
+            std::printf("witness: standby back in sync\n");
+          } else {
+            eng.allow_degrade(true);  // try again on the next tick
+          }
+        }
+      }
+      if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
+        CheckpointReport r = eng.checkpoint();
+        std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
+                    (unsigned long long)r.objects, r.seconds,
+                    (unsigned long long)r.segments_deleted);
+        next_ckpt = clock::now() + std::chrono::duration_cast<clock::duration>(
+                                       std::chrono::duration<double>(checkpoint_s));
+      }
+      if (report_ms > 0 && now >= next_report) {
+        next_report += std::chrono::milliseconds(report_ms);
+        u64 lag = 0, disk = 0, records = 0, bytes = 0;
+        bool live = true, lost = false;
+        for (u16 s = 0; s < cfg.runtime.n_shards; ++s) {
+          ShardStats ss = eng.stats(s);
+          if (ss.wal_durable_lsn > ss.repl_acked_lsn) lag += ss.wal_durable_lsn - ss.repl_acked_lsn;
+          disk += ss.repl_disk_bytes;
+          bytes += ss.repl_bytes;
+          records += ss.repl_records;
+          live &= ss.repl_live;
+          lost |= ss.repl_lost;
+        }
+        double t = std::chrono::duration<double>(now - t0).count();
+        if (cfg.standby) {
+          std::printf("report t=%.2f standby live=%d records=%llu\n", t, live,
+                      (unsigned long long)records);
+        } else {
+          std::printf("report t=%.2f live=%d lost=%d lag=%llu shipped_mib=%.1f from_disk_mib=%.1f\n",
+                      t, live, lost, (unsigned long long)lag, bytes / 1048576.0, disk / 1048576.0);
+        }
+      }
+      std::fflush(stdout);
+    }
+  }
+  admin_stop.store(true);
+  if (admin.joinable()) admin.join();
   eng.stop();
 
   u64 req = 0, fwd = 0, recvs = 0, sends = 0, frames = 0, ring = 0;

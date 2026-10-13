@@ -80,6 +80,7 @@ using RecordFn = std::function<void(const WalRecord& h, const u8* payload)>;
 struct StreamScan {
   u64 first_lsn = 0;  // first LSN delivered (0 = none)
   u64 last_lsn = 0;   // last valid LSN in the stream (0 = none)
+  u32 last_crc = 0;   // that record's crc32c
   u64 records = 0;
   u64 bytes = 0;
   u64 torn_tails = 0;  // segments that ended at a torn or unacknowledged tail
@@ -92,6 +93,14 @@ struct StreamScan {
 // continue the LSN sequence (corruption, spec C4).
 StreamScan scan_stream(const std::string& data_dir, u16 stream, u64 from_lsn, const Uuid& uuid,
                        const RecordFn& fn);
+
+// Delivers the raw bytes (header + payload) of every record with
+// from_lsn <= lsn < to_lsn, in order, for replication catch-up while the
+// stream is being written. Every record in the range must already be on
+// disk. Returns false, possibly after delivering some, if the range is not
+// all there (a segment was deleted, or a gap): the caller cannot use it.
+bool read_stream_range(const std::string& data_dir, u16 stream, u64 from_lsn, u64 to_lsn,
+                       const Uuid& uuid, const std::function<void(const u8* rec, u32 len)>& fn);
 
 // Delivers every IMAGE record of a checkpoint part. Aborts on any corruption:
 // a checkpoint named by the superblock must be complete.

@@ -22,8 +22,9 @@ struct Superblock {
   u8 space_uuid[16];
   u64 next_lease;     // section 1
   u64 active_ckpt;    // checkpoint sequence, 0 = none yet
+  u64 term;           // replication term: +1 at each promotion (docs/REPLICATION.md)
 };
-static_assert(sizeof(Superblock) == 56);
+static_assert(sizeof(Superblock) == 64);
 
 // First 4 KiB block of every WAL segment and checkpoint part.
 struct FileHeader {

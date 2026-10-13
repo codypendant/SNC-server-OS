@@ -1,5 +1,7 @@
 #include "shard.h"
 
+#include "session.h"
+
 #include "snc/sri.h"
 
 #include <fcntl.h>
@@ -60,7 +62,8 @@ void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
 
 void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts,
                     Completion done, void* ctx) {
-  if (repl_cfg_.standby) return refuse_standby(target, done, ctx);
+  // A standby with reads on serves READ ops (checked where they run).
+  if (repl_cfg_.standby && repl_cfg_.receiver.lease_ns == 0) return refuse_standby(target, done, ctx);
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
@@ -73,6 +76,14 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   }
   u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
   u16 owner = slots_.owner[h >> 52];
+  if (opts.client_id && owner != id_) {
+    // A sequence is per shard and connection: forwarding could reorder it.
+    ExecResult r;
+    r.status = Status::E_NOT_OWNER;
+    r.id = target;
+    done(ctx, r);
+    return;
+  }
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
@@ -96,9 +107,16 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
     const u16 slot = slot_of(*near);
     while (slot_of(id) != slot) id = minter_.next();
   } else {
-    while (mint_local_ && owner_of(id) != id_) id = minter_.next();
+    // A sequenced create runs here, where its sequence is kept.
+    while ((mint_local_ || opts.client_id) && owner_of(id) != id_) id = minter_.next();
   }
   u16 owner = owner_of(id);
+  if (opts.client_id && owner != id_) {
+    ExecResult r;
+    r.status = Status::E_NOT_OWNER;  // placed near an object another shard owns
+    done(ctx, r);
+    return;
+  }
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
@@ -163,7 +181,7 @@ void Shard::run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args,
   out.r.id = target;
   switch (kind) {
     case MsgKind::EXEC_REQ: run_exec(target, snc_hash64(target), op_or_type, args, opts, out); break;
-    case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, out); break;
+    case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, opts, out); break;
     case MsgKind::DELETE_REQ: run_delete(target, opts, out); break;
     default: std::abort();
   }
@@ -212,7 +230,27 @@ u64 Shard::log(RecType type, const ObjectHeader& obj, u16 flags) {
 }
 
 void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
-                     const ExecOptions& opts, RunOut& out) {
+                     const ExecOptions& opts, RunOut& out, bool client) {
+  if (client && repl_cfg_.standby) {
+    // Reads on the standby (docs/REPLICATION.md): READ ops only, and only
+    // under a lease, during which the primary acks no write this standby
+    // lacks.
+    const OpDescriptor* op = registry().op(op_id);
+    if (op == nullptr || op->kind != OpKind::READ || repl_cfg_.receiver.lease_ns == 0) {
+      out.r.status = Status::E_STANDBY;
+      return;
+    }
+    if (!receiver_ || !receiver_->lease_valid(sri_now_ns())) {
+      ++stats_.stale_reads;
+      out.r.status = Status::E_STALE;
+      return;
+    }
+  }
+  if (client && opts.client_id) {
+    // Only mutations are sequenced: a read runs again on a retry.
+    const OpDescriptor* op = registry().op(op_id);
+    if (op != nullptr && op->kind == OpKind::MUTATE && replay_if_seen(opts, out)) return;
+  }
   ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
     out.r.status = Status::E_NOT_FOUND;
@@ -299,8 +337,12 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
         if (new_len) index_insert(t->index_id, new_key, new_len, o->id);
       }
     }
+    ObjectHeader* session = client && opts.client_id && op->kind == OpKind::MUTATE
+                                ? record_session(opts, o->id, o->version)
+                                : nullptr;
     o->last_lsn = log(RecType::UPDATE, *o);
     if (peer != nullptr) peer->last_lsn = o->last_lsn;  // durable with the group
+    if (session != nullptr) session->last_lsn = o->last_lsn;
     if (!emit_scratch_.empty()) queue_emits(o->last_lsn);
     out.r.durable = durable(o->last_lsn);
     if (opts.durability == Durability::DURABLE) out.wait_lsn = o->last_lsn;
@@ -309,7 +351,9 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
   finish_result(c, op, out.r);
 }
 
-void Shard::run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out) {
+void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts,
+                       RunOut& out) {
+  if (opts.client_id && replay_if_seen(opts, out)) return;
   const TypeDescriptor* t = registry().type(type_id);
   if (t == nullptr) {
     out.r.status = Status::E_TYPE_MISMATCH;
@@ -358,7 +402,9 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out) {
     u32 len = extract_key(*t, *o, key);
     if (len) index_insert(t->index_id, key, len, o->id);
   }
+  ObjectHeader* session = opts.client_id ? record_session(opts, o->id, 1) : nullptr;
   o->last_lsn = log(RecType::CREATE, *o);
+  if (session) session->last_lsn = o->last_lsn;
   ++stats_.creates;
   out.r.version = 1;
   out.r.durable = durable(o->last_lsn);
@@ -492,6 +538,71 @@ bool Shard::quiesced() const {
   if (sender_ && sender_->live() && sender_->acked_lsn() + 1 < wal_->next_lsn()) return false;
   return (!wal_ || wal_->idle()) && waiters_.empty() && !ckpt_.active &&
          free_pending_.size() == pending_.size() && free_gathers_.size() == gathers_.size();
+}
+
+// ---- Client sessions (docs/RETRIES.md) ---------------------------------------------
+
+ObjectHeader* Shard::find_session(u64 client_id) {
+  auto mi = indexes_.find(kSessionIndexId);
+  if (mi == indexes_.end()) return nullptr;
+  auto it = mi->second.find(std::string(reinterpret_cast<const char*>(&client_id), sizeof(client_id)));
+  if (it == mi->second.end() || it->second.empty()) return nullptr;
+  ObjectHeader* o = map_.find(it->second.front());
+  return o && !o->deleted() ? o : nullptr;
+}
+
+// A sequenced op this shard already applied (seq <= the session's last) is
+// answered from the session, once that record is durable, not run again.
+bool Shard::replay_if_seen(const ExecOptions& opts, RunOut& out) {
+  ObjectHeader* s = find_session(opts.client_id);
+  if (s == nullptr) return false;
+  SessionV1 v;
+  std::memcpy(&v, s->payload(), sizeof(v));
+  if (opts.seq > v.last_seq) return false;
+  out.r.replayed = true;
+  if (opts.seq == v.last_seq) {
+    out.r.status = static_cast<Status>(v.last_status);
+    out.r.app_code = v.last_app_code;
+    out.r.id = v.last_id;
+    out.r.version = v.last_version;
+  } else {
+    out.r.status = Status::E_REPLAYED_OLD;
+  }
+  out.r.durable = durable(s->last_lsn);
+  out.wait_lsn = s->last_lsn;
+  ++stats_.replayed;
+  return true;
+}
+
+ObjectHeader* Shard::record_session(const ExecOptions& opts, const ObjectID& id, u64 version) {
+  ObjectHeader* s = find_session(opts.client_id);
+  RecType type = RecType::UPDATE;
+  if (s == nullptr) {
+    const TypeDescriptor* t = registry().type(kSessionTypeId);
+    ObjectID sid = minter_.next();
+    while (owner_of(sid) != id_) sid = minter_.next();
+    std::size_t bytes = sizeof(ObjectHeader) + sizeof(SessionV1);
+    s = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
+    if (s == nullptr) {
+      std::fprintf(stderr, "snc: out of memory for a client session on shard %u\n", id_);
+      std::abort();
+    }
+    std::memset(static_cast<void*>(s), 0, bytes);
+    s->id = sid;
+    s->type_id = kSessionTypeId;
+    s->schema_ver = t->schema_ver;
+    s->length = sizeof(SessionV1);
+    s->capacity = static_cast<u32>(alloc_.usable(s) - sizeof(ObjectHeader));
+    map_.upsert(s);
+    index_insert(kSessionIndexId, reinterpret_cast<const u8*>(&opts.client_id),
+                 sizeof(opts.client_id), sid);
+    type = RecType::CREATE;
+  }
+  SessionV1 v{opts.client_id, opts.seq, id, version, static_cast<u16>(Status::OK), 0, 0};
+  std::memcpy(s->payload(), &v, sizeof(v));
+  ++s->version;
+  log(type, *s, kRecGroupNext);
+  return s;
 }
 
 // ---- Index partition (spec section 11) ----------------------------------------------
@@ -1035,8 +1146,10 @@ void Shard::install(const WalRecord& r, const u8* payload) {
 
 void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   if (repl_cfg_.standby) {
-    // A standby runs no follow-ups and serves no lookups: it only installs
-    // and logs. Promotion restarts it as a primary, which runs both.
+    // A standby runs no follow-ups and serves no lookups: it installs,
+    // logs and keeps its index. Promotion makes it a primary, which runs
+    // follow-ups and serves.
+    rebuild_index();
     if (!wal_cfg.data_dir.empty()) {
       wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
       wal_->on_durable = &Shard::on_wal_durable;
@@ -1049,7 +1162,18 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
     return;
   }
   rebuild_index();
-  // Recovered state is durable, so whatever resume hooks emit is ready now.
+  start_serving();
+  if (!wal_cfg.data_dir.empty()) {
+    wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
+    wal_->on_durable = &Shard::on_wal_durable;
+    wal_->on_durable_ctx = this;
+    if (repl_cfg_.primary) start_sender(wal_cfg.data_dir, next_lsn);
+  }
+}
+
+// Follow-ups the objects' resume hooks re-emit. The state must be durable:
+// what they emit is ready at once.
+void Shard::start_serving() {
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted()) return;
@@ -1062,20 +1186,37 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   });
   resuming_ = false;
   queue_emits(0);
-  if (!wal_cfg.data_dir.empty()) {
-    wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
-    wal_->on_durable = &Shard::on_wal_durable;
-    wal_->on_durable_ctx = this;
-    if (repl_cfg_.primary) {
-      repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
-      sri_watch_fd(repl_epfd_);
-      repl_cfg_.sender.epoll_fd = repl_epfd_;
-      sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
-      wal_->on_flush = &Shard::on_wal_flush;
-      wal_->on_flush_ctx = this;
-      repl_hold_ = repl_cfg_.sync;
-    }
+}
+
+void Shard::start_sender(const std::string& data_dir, u64 next_lsn) {
+  if (repl_epfd_ < 0) {
+    repl_epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
+    sri_watch_fd(repl_epfd_);
   }
+  repl_cfg_.sender.epoll_fd = repl_epfd_;
+  repl_cfg_.sender.data_dir = data_dir;
+  repl_cfg_.sender.start_lsn = next_lsn;
+  sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
+  wal_->on_flush = &Shard::on_wal_flush;
+  wal_->on_flush_ctx = this;
+  repl_hold_ = repl_cfg_.sync;
+}
+
+// ---- Promotion (docs/REPLICATION.md) ------------------------------------------------
+
+void Shard::stop_standby() {
+  receiver_.reset();  // closes its sockets: nothing more is installed
+  if (wal_) wal_->poll(sri_now_ns(), /*force=*/true);
+}
+
+bool Shard::standby_settled() const {
+  return !wal_ || (wal_->idle() && wal_->durable_lsn() + 1 >= wal_->next_lsn());
+}
+
+void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
+  repl_cfg_ = rc;
+  start_serving();
+  if (wal_ && rc.primary) start_sender(data_dir, wal_->next_lsn());
 }
 
 // ---- Replication (docs/REPLICATION.md) -------------------------------------------------
@@ -1089,8 +1230,32 @@ bool Shard::apply_replicated(void* ctx, const u8* rec) {
   WalRecord r;
   std::memcpy(&r, rec, sizeof(r));
   if (!s->wal_->append_raw(rec)) return false;  // not the next LSN
-  s->install(r, rec + sizeof(r));
+  s->tail_lsn_ = r.lsn;
+  s->tail_crc_ = r.crc32c;
+  s->install_indexed(r, rec + sizeof(r));
   return true;
+}
+
+// A standby keeps its index live as it installs, so promotion need not
+// rebuild it.
+void Shard::install_indexed(const WalRecord& r, const u8* payload) {
+  const ObjectHeader* o = map_.find(r.id);
+  const TypeDescriptor* t = registry().type(r.type_id);
+  if (t == nullptr || !t->index_id) return install(r, payload);
+  u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
+  u32 old_len = o && !o->deleted() ? extract_key(*t, *o, old_key) : 0;
+  const u64 old_version = o ? o->version : 0;
+  install(r, payload);
+  o = map_.find(r.id);
+  if (o == nullptr) {
+    if (old_len) index_erase(t->index_id, old_key, old_len, r.id);
+    return;
+  }
+  if (o->version == old_version) return;  // not applied (version rule)
+  u32 new_len = o->deleted() ? 0 : extract_key(*t, *o, new_key);
+  if (new_len == old_len && std::memcmp(old_key, new_key, new_len) == 0) return;
+  if (old_len) index_erase(t->index_id, old_key, old_len, r.id);
+  if (new_len) index_insert(t->index_id, new_key, new_len, r.id);
 }
 
 bool Shard::poll_replication() {
@@ -1099,18 +1264,26 @@ bool Shard::poll_replication() {
     // Idle sleeps wake on the sockets (repl_epfd_). Stay awake while records
     // wait to become durable here: the primary is waiting for their ack,
     // and an idle sleep would add up to a millisecond to it.
-    bool did = receiver_->poll(wal_->next_lsn(), wal_->durable_lsn());
+    const u64 next = wal_->next_lsn();
+    bool did = receiver_->poll(next, wal_->durable_lsn(), tail_lsn_ + 1 == next ? tail_crc_ : 0, now);
     return did || wal_->durable_lsn() + 1 < wal_->next_lsn();
   }
   if (!sender_) return false;
   bool busy = false;
+  sender_->set_in_sync(repl_cfg_.sync && repl_hold_ && !repl_degraded_);
   if (sender_->poll(now)) {
     busy = true;
     if (repl_hold_) release_waiters();
   }
   if (repl_cfg_.sync) {
-    if (repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 && sender_->down_since_ns() != 0 &&
-        now - sender_->down_since_ns() >= repl_cfg_.timeout_ns) {
+    const bool overdue = repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 &&
+                         sender_->down_since_ns() != 0 &&
+                         now - sender_->down_since_ns() >= repl_cfg_.timeout_ns;
+    // Not before a read lease granted to the standby runs out, nor without
+    // a witness's leave when one decides.
+    repl_blocked_ = overdue && ((repl_cfg_.degrade_gate && !repl_cfg_.degrade_gate->load()) ||
+                                now < sender_->lease_until_ns());
+    if (overdue && !repl_blocked_) {
       // The standby has been gone too long: keep serving on local
       // durability alone and say so (docs/REPLICATION.md).
       std::fprintf(stderr, "snc: shard %u: standby unreachable, continuing without it\n", id_);
@@ -1232,6 +1405,12 @@ void Shard::checkpoint_step() {
 
 // ---- Stats ---------------------------------------------------------------------------
 
+Shard::ReplSummary Shard::repl_summary() const {
+  if (sender_) return {1, sender_->live(), repl_degraded_, repl_blocked_};
+  if (receiver_) return {2, receiver_->connected(), false, false};
+  return {0, false, false, false};
+}
+
 ShardStats Shard::stats() const {
   ShardStats s = stats_;
   s.objects = 0;
@@ -1243,11 +1422,13 @@ ShardStats Shard::stats() const {
     s.repl_role = 1;
     s.repl_live = sender_->live();
     s.repl_degraded = repl_degraded_;
+    s.repl_blocked = repl_blocked_;
     s.repl_lost = sender_->lost();
     s.repl_acked_lsn = sender_->acked_lsn();
     s.repl_bytes = sender_->stats().bytes_sent;
     s.repl_retained_bytes = sender_->stats().retained_bytes;
     s.repl_connects = sender_->stats().connects;
+    s.repl_disk_bytes = sender_->stats().disk_bytes;
   } else if (receiver_) {
     s.repl_role = 2;
     s.repl_live = receiver_->connected();
@@ -1390,7 +1571,8 @@ void Shard::run_emit(const Emit& e) {
   RunOut out;
   out.r.id = e.target;
   cur_source_ = e.source;
-  run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out);
+  run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out,
+           /*client=*/false);
   cur_source_ = ObjectID{};
   emit_result(e, out.r.status);
 }
