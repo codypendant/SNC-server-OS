@@ -95,7 +95,8 @@ down and recovered by the resume passes.
   list (nothing persists it yet; a node restarted with another map is
   refused by its peers' crc check, not by its own data).
 - Not combined with replication: a cluster node has no standby yet
-  (milestone 2 makes each node a pair and the witnesses the directory).
+  (milestone 2 makes each node a replication group; see
+  `docs/ARCHITECTURE_AUDIT.md`).
 - A resume pass walks every object on the shard. Cheap at this scale; at
   millions of objects per shard it should walk only objects with entries.
 - A peer that vanishes without closing its connections (power loss, a
