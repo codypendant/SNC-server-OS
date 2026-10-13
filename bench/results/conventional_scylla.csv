@@ -1,0 +1,19 @@
+engine,mode,config,rep,ops_s,p50_ns,p99_ns
+scylla,memory,deposit=counter c=256 shard-aware,0,29095,6557129,39750266
+scylla,memory,deposit=counter c=256 shard-aware,1,44966,3638815,32761936
+scylla,memory,deposit=counter c=256 shard-aware,2,57493,3279034,20588389
+scylla,memory,deposit=blind c=256 shard-aware,0,25524,7642286,39381910
+scylla,memory,deposit=blind c=256 shard-aware,1,40708,4163494,31378952
+scylla,memory,deposit=blind c=256 shard-aware,2,50257,3950481,23554973
+scylla,memory,deposit=lwt c=256 shard-aware,0,9007,18316498,102498958
+scylla,memory,deposit=lwt c=256 shard-aware,1,8459,23567767,97751572
+scylla,memory,deposit=lwt c=256 shard-aware,2,9651,15427351,106644450
+scylla,durable,deposit=counter c=256 shard-aware,0,61645,3405745,16714866
+scylla,durable,deposit=counter c=256 shard-aware,1,66032,3296433,15029679
+scylla,durable,deposit=counter c=256 shard-aware,2,51527,3852925,21150708
+scylla,durable,deposit=blind c=256 shard-aware,0,53344,4254537,14825060
+scylla,durable,deposit=blind c=256 shard-aware,1,49135,4344073,16583643
+scylla,durable,deposit=blind c=256 shard-aware,2,59332,3908383,11377691
+scylla,durable,deposit=lwt c=256 shard-aware,0,11777,13006021,76359807
+scylla,durable,deposit=lwt c=256 shard-aware,1,11169,13787885,85042478
+scylla,durable,deposit=lwt c=256 shard-aware,2,9954,13878448,97839108

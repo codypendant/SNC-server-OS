@@ -74,7 +74,8 @@ rings 9.8 us.
   workers get the core (`docs/ROUTING.md`). Seastar's reactor makes enough
   syscalls of its own that those workers get the core without yielding. This
   is inferred, not traced: native with yields off drops to 1.59M with a
-  5.8 ms p99. The native yield interval may have room to tune.
+  5.8 ms p99. A sweep of the native yield interval from 10 to 200 us was
+  flat, so tuning it does not close the gap.
 - **What Seastar would bring but this run does not use:** its TCP/DPDK
   network stack, `seastar::file` with its I/O scheduler, and futures for
   application code. SNC already has a routed TCP front end and its own WAL
