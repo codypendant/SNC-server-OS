@@ -1,5 +1,7 @@
 #include "shard.h"
 
+#include "session.h"
+
 #include "snc/sri.h"
 
 #include <fcntl.h>
@@ -74,6 +76,14 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   }
   u64 h = snc_hash64(target);  // once: slot (top bits) and map index (low bits)
   u16 owner = slots_.owner[h >> 52];
+  if (opts.client_id && owner != id_) {
+    // A sequence is per shard and connection: forwarding could reorder it.
+    ExecResult r;
+    r.status = Status::E_NOT_OWNER;
+    r.id = target;
+    done(ctx, r);
+    return;
+  }
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
@@ -97,9 +107,16 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
     const u16 slot = slot_of(*near);
     while (slot_of(id) != slot) id = minter_.next();
   } else {
-    while (mint_local_ && owner_of(id) != id_) id = minter_.next();
+    // A sequenced create runs here, where its sequence is kept.
+    while ((mint_local_ || opts.client_id) && owner_of(id) != id_) id = minter_.next();
   }
   u16 owner = owner_of(id);
+  if (opts.client_id && owner != id_) {
+    ExecResult r;
+    r.status = Status::E_NOT_OWNER;  // placed near an object another shard owns
+    done(ctx, r);
+    return;
+  }
   if (owner == id_) {
     ++stats_.ops_local;
     RunOut out;
@@ -164,7 +181,7 @@ void Shard::run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args,
   out.r.id = target;
   switch (kind) {
     case MsgKind::EXEC_REQ: run_exec(target, snc_hash64(target), op_or_type, args, opts, out); break;
-    case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, out); break;
+    case MsgKind::CREATE_REQ: run_create(target, op_or_type, args, opts, out); break;
     case MsgKind::DELETE_REQ: run_delete(target, opts, out); break;
     default: std::abort();
   }
@@ -228,6 +245,11 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
       out.r.status = Status::E_STALE;
       return;
     }
+  }
+  if (client && opts.client_id) {
+    // Only mutations are sequenced: a read runs again on a retry.
+    const OpDescriptor* op = registry().op(op_id);
+    if (op != nullptr && op->kind == OpKind::MUTATE && replay_if_seen(opts, out)) return;
   }
   ObjectHeader* obj = map_.find(target, hash);
   if (obj == nullptr || obj->deleted()) {
@@ -315,8 +337,12 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
         if (new_len) index_insert(t->index_id, new_key, new_len, o->id);
       }
     }
+    ObjectHeader* session = client && opts.client_id && op->kind == OpKind::MUTATE
+                                ? record_session(opts, o->id, o->version)
+                                : nullptr;
     o->last_lsn = log(RecType::UPDATE, *o);
     if (peer != nullptr) peer->last_lsn = o->last_lsn;  // durable with the group
+    if (session != nullptr) session->last_lsn = o->last_lsn;
     if (!emit_scratch_.empty()) queue_emits(o->last_lsn);
     out.r.durable = durable(o->last_lsn);
     if (opts.durability == Durability::DURABLE) out.wait_lsn = o->last_lsn;
@@ -325,7 +351,9 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
   finish_result(c, op, out.r);
 }
 
-void Shard::run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out) {
+void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts,
+                       RunOut& out) {
+  if (opts.client_id && replay_if_seen(opts, out)) return;
   const TypeDescriptor* t = registry().type(type_id);
   if (t == nullptr) {
     out.r.status = Status::E_TYPE_MISMATCH;
@@ -374,7 +402,9 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out) {
     u32 len = extract_key(*t, *o, key);
     if (len) index_insert(t->index_id, key, len, o->id);
   }
+  ObjectHeader* session = opts.client_id ? record_session(opts, o->id, 1) : nullptr;
   o->last_lsn = log(RecType::CREATE, *o);
+  if (session) session->last_lsn = o->last_lsn;
   ++stats_.creates;
   out.r.version = 1;
   out.r.durable = durable(o->last_lsn);
@@ -508,6 +538,71 @@ bool Shard::quiesced() const {
   if (sender_ && sender_->live() && sender_->acked_lsn() + 1 < wal_->next_lsn()) return false;
   return (!wal_ || wal_->idle()) && waiters_.empty() && !ckpt_.active &&
          free_pending_.size() == pending_.size() && free_gathers_.size() == gathers_.size();
+}
+
+// ---- Client sessions (docs/RETRIES.md) ---------------------------------------------
+
+ObjectHeader* Shard::find_session(u64 client_id) {
+  auto mi = indexes_.find(kSessionIndexId);
+  if (mi == indexes_.end()) return nullptr;
+  auto it = mi->second.find(std::string(reinterpret_cast<const char*>(&client_id), sizeof(client_id)));
+  if (it == mi->second.end() || it->second.empty()) return nullptr;
+  ObjectHeader* o = map_.find(it->second.front());
+  return o && !o->deleted() ? o : nullptr;
+}
+
+// A sequenced op this shard already applied (seq <= the session's last) is
+// answered from the session, once that record is durable, not run again.
+bool Shard::replay_if_seen(const ExecOptions& opts, RunOut& out) {
+  ObjectHeader* s = find_session(opts.client_id);
+  if (s == nullptr) return false;
+  SessionV1 v;
+  std::memcpy(&v, s->payload(), sizeof(v));
+  if (opts.seq > v.last_seq) return false;
+  out.r.replayed = true;
+  if (opts.seq == v.last_seq) {
+    out.r.status = static_cast<Status>(v.last_status);
+    out.r.app_code = v.last_app_code;
+    out.r.id = v.last_id;
+    out.r.version = v.last_version;
+  } else {
+    out.r.status = Status::E_REPLAYED_OLD;
+  }
+  out.r.durable = durable(s->last_lsn);
+  out.wait_lsn = s->last_lsn;
+  ++stats_.replayed;
+  return true;
+}
+
+ObjectHeader* Shard::record_session(const ExecOptions& opts, const ObjectID& id, u64 version) {
+  ObjectHeader* s = find_session(opts.client_id);
+  RecType type = RecType::UPDATE;
+  if (s == nullptr) {
+    const TypeDescriptor* t = registry().type(kSessionTypeId);
+    ObjectID sid = minter_.next();
+    while (owner_of(sid) != id_) sid = minter_.next();
+    std::size_t bytes = sizeof(ObjectHeader) + sizeof(SessionV1);
+    s = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
+    if (s == nullptr) {
+      std::fprintf(stderr, "snc: out of memory for a client session on shard %u\n", id_);
+      std::abort();
+    }
+    std::memset(static_cast<void*>(s), 0, bytes);
+    s->id = sid;
+    s->type_id = kSessionTypeId;
+    s->schema_ver = t->schema_ver;
+    s->length = sizeof(SessionV1);
+    s->capacity = static_cast<u32>(alloc_.usable(s) - sizeof(ObjectHeader));
+    map_.upsert(s);
+    index_insert(kSessionIndexId, reinterpret_cast<const u8*>(&opts.client_id),
+                 sizeof(opts.client_id), sid);
+    type = RecType::CREATE;
+  }
+  SessionV1 v{opts.client_id, opts.seq, id, version, static_cast<u16>(Status::OK), 0, 0};
+  std::memcpy(s->payload(), &v, sizeof(v));
+  ++s->version;
+  log(type, *s, kRecGroupNext);
+  return s;
 }
 
 // ---- Index partition (spec section 11) ----------------------------------------------

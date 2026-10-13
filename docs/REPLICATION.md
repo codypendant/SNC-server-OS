@@ -148,7 +148,8 @@ Limits of this first version:
 - **Failure detection is the witness's view.** A primary the witness
   cannot reach but clients can is promoted over; the fencing above makes
   that safe for durable writes, at the cost of those clients' availability
-  until they move to the new primary. Clients are not redirected.
+  until they move to the new primary. A `net::Client` with endpoints and
+  a session moves itself and resends safely (docs/RETRIES.md).
 - Reads that skip the durability wait can still be served by a fenced
   primary.
 
@@ -454,7 +455,7 @@ one `net_bench` thread each on core 3, 512 in flight, 8 s, 3 runs (medians).
 
 - The witness is one process and one failover per configuration. A
   replicated witness (or three nodes with a consensus log) belongs with
-  the distributed directory, as does redirecting clients.
+  the distributed directory.
 - Index lookups on the standby (they gather across shards, each of which
   would need its lease).
 - Standbys with a different shard count (records routed by slot rather

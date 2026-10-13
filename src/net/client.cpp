@@ -8,7 +8,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstring>
+#include <thread>
 
 #include "snc/net.h"
 
@@ -56,14 +58,35 @@ bool read_all(int fd, void* p, std::size_t n) {
 }
 }  // namespace
 
-Client::~Client() {
+Client::~Client() { close_links(); }
+
+void Client::close_links() {
   for (Link& l : links_) {
     if (l.fd >= 0) ::close(l.fd);
+    l.fd = -1;
   }
   if (epfd_ >= 0) ::close(epfd_);
+  epfd_ = -1;
 }
 
 bool Client::connect(const std::string& host, u16 base_port) {
+  if (endpoints_.empty()) endpoints_.push_back({host, base_port});
+  else endpoints_[0] = {host, base_port};
+  current_ = 0;
+  return open(host, base_port);
+}
+
+void Client::add_endpoint(const std::string& host, u16 base_port) {
+  if (endpoints_.empty()) endpoints_.push_back({host, base_port});  // replaced by connect()
+  endpoints_.push_back({host, base_port});
+}
+
+void Client::enable_session(u64 client_id, int failover_ms) {
+  client_id_ = client_id;
+  failover_ms_ = failover_ms;
+}
+
+bool Client::open(const std::string& host, u16 base_port) {
   auto fail = [&](const char* what) {
     error_ = std::string(what) + ": " + std::strerror(errno);
     return false;
@@ -85,6 +108,32 @@ bool Client::connect(const std::string& host, u16 base_port) {
     errno = EPROTO;
     return fail("topology");
   }
+  if (client_id_ != 0) {
+    // A standby answers ops with E_STANDBY: not the primary (yet).
+    wire::ReqHeader p{};
+    p.len = sizeof(p);
+    p.kind = wire::Kind::EXEC;
+    wire::RespHeader r;
+    if (!write_all(fd0, &p, sizeof(p)) || !read_all(fd0, &r, sizeof(r))) {
+      ::close(fd0);
+      return fail("probe");
+    }
+    std::vector<u8> body(r.len > sizeof(r) ? r.len - sizeof(r) : 0);
+    if (!body.empty() && !read_all(fd0, body.data(), body.size())) {
+      ::close(fd0);
+      return fail("probe");
+    }
+    if (static_cast<Status>(r.status) == Status::E_STANDBY) {
+      ::close(fd0);
+      errno = EAGAIN;
+      return fail("a standby");
+    }
+  }
+  if (!links_.empty() && b.n_shards != map_.n_shards) {
+    ::close(fd0);
+    errno = EPROTO;
+    return fail("another shard count");
+  }
   map_.epoch = b.map_epoch;
   map_.n_shards = b.n_shards;
   std::memcpy(map_.owner.data(), b.owner, sizeof(b.owner));
@@ -101,7 +150,10 @@ bool Client::connect(const std::string& host, u16 base_port) {
     Link& l = links_[s];
     int flags = 1;
     ::ioctl(l.fd, FIONBIO, &flags);
-    l.in.resize(kReadChunk);
+    l.in.assign(kReadChunk, 0);
+    l.in_len = 0;
+    l.out.clear();
+    l.out_off = 0;
     epoll_event ev{};
     ev.events = EPOLLIN;
     ev.data.u32 = s;
@@ -113,10 +165,49 @@ bool Client::connect(const std::string& host, u16 base_port) {
 void Client::send(u16 shard, const wire::ReqHeader& h, ByteView args) {
   Link& l = links_[shard];
   wire::ReqHeader q = h;
-  q.len = static_cast<u32>(sizeof(q)) + args.len;
+  const bool seq = client_id_ != 0 && (h.kind == wire::Kind::EXEC || h.kind == wire::Kind::CREATE);
+  wire::SeqPrefix sp{client_id_, 0};
+  if (seq) {
+    q.flags |= wire::kReqSequenced;
+    sp.seq = l.next_seq++;
+  }
+  q.len = static_cast<u32>(sizeof(q) + (seq ? sizeof(sp) : 0)) + args.len;
+  const std::size_t at = l.out.size();
   const auto* p = reinterpret_cast<const u8*>(&q);
   l.out.insert(l.out.end(), p, p + sizeof(q));
+  if (seq) {
+    const auto* x = reinterpret_cast<const u8*>(&sp);
+    l.out.insert(l.out.end(), x, x + sizeof(sp));
+  }
   if (args.len) l.out.insert(l.out.end(), args.data, args.data + args.len);
+  if (client_id_ != 0) {
+    // Kept until answered, to resend after a failover.
+    l.order[h.req_id] = l.base + l.unanswered.size();
+    l.unanswered.emplace_back(l.out.begin() + static_cast<std::ptrdiff_t>(at), l.out.end());
+  }
+}
+
+bool Client::fail_over() {
+  if (client_id_ == 0 || endpoints_.empty()) return false;
+  ++failovers_;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(failover_ms_);
+  while (std::chrono::steady_clock::now() < deadline) {
+    current_ = (current_ + 1) % endpoints_.size();
+    close_links();
+    const Endpoint& e = endpoints_[current_];
+    if (open(e.host, e.port)) {
+      // Resend what was not answered, in its original order.
+      for (Link& l : links_) {
+        for (const auto& req : l.unanswered) {
+          if (!req.empty()) l.out.insert(l.out.end(), req.begin(), req.end());
+        }
+      }
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  error_ = "failover: no primary answered: " + error_;
+  return false;
 }
 
 bool Client::flush_all() {
@@ -160,6 +251,21 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
       return -1;
     }
     if (l.in_len - pos < h.len) break;
+    if (client_id_ != 0) {
+      if (static_cast<Status>(h.status) == Status::E_STANDBY) {
+        error_ = "the node became a standby";
+        return -1;  // fail over; the request is resent
+      }
+      auto it = l.order.find(h.req_id);
+      if (it != l.order.end()) {
+        l.unanswered[it->second - l.base].clear();
+        l.order.erase(it);
+        while (!l.unanswered.empty() && l.unanswered.front().empty()) {
+          l.unanswered.pop_front();
+          ++l.base;
+        }
+      }
+    }
     if (h.flags & wire::kRespForwarded) ++forwarded_;
     on(ctx, h, ByteView(l.in.data() + pos + sizeof(h), h.len - static_cast<u32>(sizeof(h))));
     pos += h.len;
@@ -171,13 +277,13 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
 }
 
 int Client::poll(OnResponse on, void* ctx, int timeout_ms) {
-  if (!flush_all()) return -1;
+  if (!flush_all()) return fail_over() ? 0 : -1;
   epoll_event evs[64];
   int n = ::epoll_wait(epfd_, evs, 64, timeout_ms);
   int got = 0;
   for (int i = 0; i < n; ++i) {
     int r = read_link(links_[evs[i].data.u32], on, ctx);
-    if (r < 0) return -1;
+    if (r < 0) return fail_over() ? got : -1;
     got += r;
   }
   return got;

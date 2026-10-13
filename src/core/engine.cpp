@@ -15,6 +15,7 @@
 #include <thread>
 
 #include "seed.h"
+#include "session.h"
 #include "shard.h"
 
 namespace snc {
@@ -99,6 +100,7 @@ struct EngineState {
 static std::unique_ptr<EngineState> g_state;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  register_session_type();
   RuntimeConfig& rc = cfg_.runtime;
   if (rc.pages != PageMode::SMALL && rc.heap_reserve_bytes == 0) {
     // Room for the expected objects at 512 B each (docs/HUGEPAGES.md);

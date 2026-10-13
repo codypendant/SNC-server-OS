@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <atomic>
+#include <latch>
 #include <map>
 #include <mutex>
 #include <random>
@@ -1060,6 +1062,247 @@ void test_lease_hold() {
   rm_rf(pd + " " + sd);
 }
 
+// The default slot map's owner, usable off the shard threads.
+u16 test_owner(const ObjectID& id) {
+  static const SlotMap m = SlotMap::make_default(kShards);
+  return m.owner_of(id);
+}
+
+// 12. Safe retries (docs/RETRIES.md), on one engine: a sequenced deposit
+// or create sent twice runs once, an older sequence is refused, a
+// misrouted one is refused, and sessions survive a checkpoint and restart.
+void test_retries_local() {
+  std::string d = temp_dir("r");
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ObjectID acc, made;
+    u16 own = 0;
+    for (int round = 0; round < 2; ++round) {
+      Engine eng(config(d, round == 0));
+      eng.start();
+      auto seq_op = [&](u16 shard, u64 seq, bool mk) {
+        return one(eng, shard, [&](Completion cb, void* ctx) {
+          ExecOptions o;
+          o.client_id = 42;
+          o.seq = seq;
+          if (mk) {
+            CreateArgs a{};
+            a.balance_cents = kStart;
+            create(kTypeId, ByteView(&a, sizeof(a)), o, cb, ctx);
+          } else {
+            AmountArgs a{1, 0};
+            execute(acc, kOpDeposit, ByteView(&a, sizeof(a)), o, cb, ctx);
+          }
+        });
+      };
+      auto balance = [&] {
+        return one(eng, own, [&](Completion cb, void* ctx) {
+          execute(acc, kOpGetBalance, {}, {}, cb, ctx);
+        }).as<BalanceResult>().balance_cents;
+      };
+      if (round == 0) {
+        acc = create_accounts(eng, 1)[0];
+        own = test_owner(acc);
+        auto a = seq_op(own, 1, false);
+        auto b = seq_op(own, 1, false);  // a retry
+        if (a.r.status != Status::OK || a.r.replayed) _exit(50);
+        if (b.r.status != Status::OK || !b.r.replayed || b.r.version != a.r.version) _exit(51);
+        if (balance() != kStart + 1) _exit(52);
+        if (seq_op(own, 2, false).r.replayed) _exit(53);
+        if (seq_op(own, 1, false).r.status != Status::E_REPLAYED_OLD) _exit(54);
+        if (seq_op(static_cast<u16>((own + 1) % kShards), 3, false).r.status != Status::E_NOT_OWNER) _exit(55);
+        auto c1 = seq_op(own, 3, true), c2 = seq_op(own, 3, true);
+        if (c1.r.status != Status::OK || !c2.r.replayed || !(c2.r.id == c1.r.id)) _exit(56);
+        made = c1.r.id;
+        eng.checkpoint();
+        if (seq_op(own, 4, false).r.replayed) _exit(57);  // after the checkpoint: WAL only
+        if (balance() != kStart + 3) _exit(58);
+      } else {
+        // Recovered: the session remembers seq 4 and the create's ID.
+        auto r4 = seq_op(own, 4, false);
+        if (!r4.r.replayed || r4.r.status != Status::OK) _exit(59);
+        auto c = seq_op(own, 3, true);
+        if (c.r.status != Status::E_REPLAYED_OLD) _exit(60);
+        if (balance() != kStart + 3) _exit(61);
+        if (eng.stats(own).replayed == 0) _exit(62);
+        (void)made;
+      }
+      eng.stop();
+    }
+    std::printf("retries: duplicates answered from the session, kept across checkpoint and restart\n");
+    _exit(0);
+  }
+  wait_ok(pid);
+  rm_rf(d);
+}
+
+// 13. Safe retries across a failover: a sync primary runs sequenced
+// deposits, pipelined, and is SIGKILLed; its standby is promoted and the
+// client resends every request it sent, with the same sequences. Each
+// account ends at its start plus exactly the deposits sent to it.
+struct Sent {
+  u64 shard, i;
+};
+std::vector<std::vector<ObjectID>> retry_picks(const std::vector<ObjectID>& accs, u64 per_shard) {
+  std::vector<std::vector<ObjectID>> mine(kShards), picks(kShards);
+  for (const ObjectID& a : accs) mine[test_owner(a)].push_back(a);
+  for (u16 s = 0; s < kShards; ++s) {
+    std::mt19937_64 rng(99 + s);
+    for (u64 i = 0; i < per_shard && !mine[s].empty(); ++i) picks[s].push_back(mine[s][rng() % mine[s].size()]);
+  }
+  return picks;
+}
+
+void test_retries_failover() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  const u64 kPer = 20000;
+  int ready[2], plan[2];
+  CHECK_EQ(::pipe(ready), 0);
+  CHECK_EQ(::pipe(plan), 0);
+  pid_t sb = ::fork();
+  CHECK(sb >= 0);
+  if (sb == 0) {
+    ::close(ready[0]);
+    ::close(plan[1]);
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    pthread_sigmask(SIG_BLOCK, &set, nullptr);
+    Engine::Config c = config(sd, true);
+    c.standby = true;
+    c.standby_host = "127.0.0.1";
+    c.replica_port = g_port;
+    Engine eng(c);
+    eng.start();
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    int sig = 0;
+    sigwait(&set, &sig);
+    eng.promote();
+    // The plan: the accounts, then how many requests each shard sent.
+    std::vector<ObjectID> accs(64);
+    u64 sent[kShards];
+    if (::read(plan[0], accs.data(), accs.size() * sizeof(ObjectID)) !=
+            static_cast<ssize_t>(accs.size() * sizeof(ObjectID)) ||
+        ::read(plan[0], sent, sizeof(sent)) != sizeof(sent)) {
+      _exit(3);
+    }
+    auto picks = retry_picks(accs, kPer);
+    std::atomic<u64> replayed{0}, applied{0}, old{0}, bad{0};
+    std::latch done(kShards);
+    std::vector<Window> ws(kShards);
+    for (u16 s = 0; s < kShards; ++s) {
+      Window& w = ws[s];
+      w.eng = &eng;
+      w.shard = s;
+      w.total = sent[s];
+      w.window = 256;
+      w.done = &done;
+      w.issue = [&, s](u64 i, Completion cb, void* ctx) {
+        ExecOptions o;
+        o.client_id = 7;
+        o.seq = i + 1;
+        AmountArgs a{1, 0};
+        execute(picks[s][i], kOpDeposit, ByteView(&a, sizeof(a)), o, cb, ctx);
+      };
+      w.check = [&](u64, const ExecResult& r) {
+        if (r.status == Status::E_REPLAYED_OLD) ++old;
+        else if (r.status != Status::OK) ++bad;
+        else if (r.replayed) ++replayed;
+        else ++applied;
+      };
+      if (w.total == 0) {
+        done.count_down();
+        continue;
+      }
+      eng.runtime().submit(s, [&w] { pump(&w); });
+    }
+    done.wait();
+    if (bad) _exit(70);
+    std::map<ObjectID, i64> expect;
+    for (u16 s = 0; s < kShards; ++s) {
+      for (u64 i = 0; i < sent[s]; ++i) ++expect[picks[s][i]];
+    }
+    for (const ObjectID& a : accs) {
+      i64 bal = one(eng, test_owner(a), [&](Completion cb, void* ctx) {
+        execute(a, kOpGetBalance, {}, {}, cb, ctx);
+      }).as<BalanceResult>().balance_cents;
+      if (bal != kStart + expect[a]) {
+        std::printf("account %s: %lld, expected %lld\n", a.to_string().c_str(), (long long)bal,
+                    (long long)(kStart + expect[a]));
+        _exit(71);
+      }
+    }
+    std::printf("retries after failover: %llu resent; %llu answered from sessions, %llu older, "
+                "%llu applied now; every account exact\n",
+                (unsigned long long)(sent[0] + sent[1] + sent[2] + sent[3]),
+                (unsigned long long)replayed.load(), (unsigned long long)old.load(),
+                (unsigned long long)applied.load());
+    eng.stop();
+    _exit(0);
+  }
+  ::close(ready[1]);
+  ::close(plan[0]);
+  char b;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  int out[2];
+  CHECK_EQ(::pipe(out), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ::close(out[0]);
+    Engine eng(primary_config(pd, true, true, 0));
+    eng.start();
+    auto accs = create_accounts(eng, 64);
+    if (::write(out[1], accs.data(), accs.size() * sizeof(ObjectID)) !=
+        static_cast<ssize_t>(accs.size() * sizeof(ObjectID))) {
+      _exit(3);
+    }
+    auto picks = retry_picks(accs, kPer);
+    run_all(
+        eng, kPer,
+        [&](u16 s, u64 i, Completion cb, void* ctx) {
+          Sent x{s, i};
+          if (::write(out[1], &x, sizeof(x)) != sizeof(x)) _exit(3);  // before it can apply
+          ExecOptions o;
+          o.client_id = 7;
+          o.seq = i + 1;
+          AmountArgs a{1, 0};
+          execute(picks[s][i], kOpDeposit, ByteView(&a, sizeof(a)), o, cb, ctx);
+        },
+        [](u16, u64, const ExecResult& r) {
+          if (r.status != Status::OK || r.replayed) _exit(4);
+        });
+    _exit(5);  // killed before it gets here
+  }
+  ::close(out[1]);
+  std::vector<ObjectID> accs(64);
+  CHECK_EQ(::read(out[0], accs.data(), accs.size() * sizeof(ObjectID)),
+           static_cast<ssize_t>(accs.size() * sizeof(ObjectID)));
+  u64 sent[kShards] = {}, total = 0;
+  bool killed = false;
+  Sent x;
+  while (::read(out[0], &x, sizeof(x)) == sizeof(x)) {
+    sent[x.shard] = std::max(sent[x.shard], x.i + 1);
+    if (!killed && ++total >= 30000) {
+      ::kill(pid, SIGKILL);
+      killed = true;
+    }
+  }
+  CHECK(killed);
+  int st = 0;
+  ::waitpid(pid, &st, 0);
+  ::close(out[0]);
+  ::kill(sb, SIGUSR1);
+  CHECK_EQ(::write(plan[1], accs.data(), accs.size() * sizeof(ObjectID)),
+           static_cast<ssize_t>(accs.size() * sizeof(ObjectID)));
+  CHECK_EQ(::write(plan[1], sent, sizeof(sent)), static_cast<ssize_t>(sizeof(sent)));
+  ::close(plan[1]);
+  wait_ok(sb);
+  rm_rf(pd + " " + sd);
+}
+
 }  // namespace
 
 int main() {
@@ -1080,6 +1323,8 @@ int main() {
   test_hung();
   test_standby_reads();
   test_lease_hold();
+  test_retries_local();
+  test_retries_failover();
   test_degrade();
   std::printf("test_replication: ok\n");
   return 0;

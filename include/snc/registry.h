@@ -71,6 +71,7 @@ class Registry {
   // Registration aborts on duplicates or invalid descriptors: these are
   // programming errors in compiled-in code.
   void add_type(const TypeDescriptor& t);
+  void add_system_type(const TypeDescriptor& t);  // the runtime's own (reserved ids)
   void add_op(const OpDescriptor& op);
   void add_index(const IndexDescriptor& idx);  // also sets the type's index_id
 

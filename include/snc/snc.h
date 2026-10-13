@@ -19,6 +19,11 @@ struct ExecOptions {
   u64 expected_version = 0;  // 0 = unconditional
   Durability durability = Durability::DURABLE;
   bool allow_undurable = false;  // reads: do not wait for durability
+  // Safe retries (docs/RETRIES.md): a client's mutations and creates on one
+  // shard numbered 1, 2, 3...; one already applied is answered from the
+  // client's session instead of run again. 0 = unsequenced.
+  u64 client_id = 0;
+  u64 seq = 0;
 };
 
 struct ExecResult {
@@ -26,6 +31,7 @@ struct ExecResult {
   u16 app_code = 0;   // set when status == E_APP
   u64 version = 0;    // object version after the op (current version for reads)
   bool durable = false;
+  bool replayed = false;  // sequenced: answered from the session, not run again
   ObjectID id;        // target, or the new ID for create
   ByteView result;    // valid until the completion returns
 };
@@ -158,7 +164,8 @@ struct ShardStats {
   bool repl_live = false;      // link to the other side is up
   bool repl_degraded = false;  // primary, sync: continuing without the standby
   bool repl_blocked = false;   // primary, sync: past the timeout, waiting for leave to degrade
-  u64 stale_reads = 0;         // standby: reads refused for want of a lease (E_STALE)
+  u64 stale_reads = 0;
+  u64 replayed = 0;            // sequenced requests answered from a client session         // standby: reads refused for want of a lease (E_STALE)
   bool repl_lost = false;      // primary: the standby must be reseeded
   u64 repl_acked_lsn = 0;      // primary: the standby is durable up to here
   u64 repl_bytes = 0;          // primary: bytes shipped

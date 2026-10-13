@@ -12,7 +12,9 @@
 #pragma once
 
 #include <memory>
+#include <deque>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "snc/wire.h"
@@ -116,6 +118,17 @@ class Client {
   bool connect(const std::string& host, u16 base_port);
   const std::string& error() const { return error_; }
 
+  // Failover (docs/RETRIES.md). Other nodes serving the same space, tried
+  // in turn when a connection fails, until one answers as primary (within
+  // failover_ms). With a session, every request not yet answered is then
+  // resent in its original order: EXEC and CREATE requests carry a
+  // per-shard sequence, so the new primary answers one already applied from
+  // its session (kRespReplayed) instead of running it twice. Without a
+  // session, a failure still ends poll() with -1.
+  void add_endpoint(const std::string& host, u16 base_port);
+  void enable_session(u64 client_id, int failover_ms = 30000);
+  u64 failovers() const { return failovers_; }
+
   u16 shard_count() const { return map_.n_shards; }
   const SlotMap& slot_map() const { return map_; }
   u16 owner_of(const ObjectID& id) const { return map_.owner_of(id); }
@@ -136,9 +149,26 @@ class Client {
     std::size_t out_off = 0;
     std::vector<u8> in;
     std::size_t in_len = 0;
+    // Session: unanswered requests in send order, to resend after a failover.
+    u64 next_seq = 1;
+    u64 base = 0;  // order of unanswered.front()
+    std::deque<std::vector<u8>> unanswered;  // emptied once answered
+    std::unordered_map<u64, u64> order;      // req_id -> its order
   };
   bool flush_all();
   int read_link(Link& l, OnResponse on, void* ctx);
+  bool open(const std::string& host, u16 base_port);
+  void close_links();
+  bool fail_over();
+  struct Endpoint {
+    std::string host;
+    u16 port;
+  };
+  std::vector<Endpoint> endpoints_;
+  std::size_t current_ = 0;
+  u64 client_id_ = 0;
+  int failover_ms_ = 30000;
+  u64 failovers_ = 0;
 
   SlotMap map_;
   std::vector<Link> links_;

@@ -1,6 +1,7 @@
-# Safe client retries across a failover (design draft)
+# Safe client retries across a failover
 
-Status: proposed, not built. It follows automatic failover
+Status: built (engine sessions, wire flag, failover-aware `net::Client`),
+except session expiry; see "As built". It follows automatic failover
 (docs/REPLICATION.md), which promotes a standby but leaves clients pointed
 at the dead primary, and leaves them unsure what happened to the requests
 they had in flight.
@@ -38,19 +39,18 @@ shards.
   same atomic WAL group as the object it changes, using the same-shard
   group transfers already use (`OpCtx::local`, `kRecGroupNext`). A standby
   therefore holds a write exactly when it holds the session's record of it.
-  Requests that fail validation (`E_APP`, `E_VERSION_CONFLICT`) also
-  advance the session: they are logged as a session-only record. That way
-  every sequence number up to `last_seq` has been decided.
+  Requests that fail (`E_APP`, `E_VERSION_CONFLICT`, `E_NOT_FOUND`) change
+  nothing and are not logged; a retry runs them again, which can apply at
+  most once. Every sequence number up to `last_seq` was decided: applied,
+  or failed with no effect.
 - **Duplicates.** A request with `seq <= last_seq` is not run again:
   - When `seq == last_seq`, the owner answers with the recorded status and
     version, marked `replayed`. It waits for that record to be durable, as
     for any write.
-  - When `seq < last_seq`, it answers `E_REPLAYED_OLD`. The client already
-    moved past that request, so it has its answer or will get it.
-  - A gap (`seq > last_seq + 1`) means requests between them were lost. They
-    can only have been lost unlogged, and only in a failover, because one
-    connection delivers in order. The owner accepts the request and records
-    the gap.
+  - When `seq < last_seq`, it answers `E_REPLAYED_OLD`: decided earlier
+    (applied, or failed with no effect), with the outcome not kept.
+  - A gap (`seq > last_seq + 1`) is normal: failed requests leave gaps, and
+    so do requests lost unlogged in a failover. The owner runs the request.
 - **Ordering.** A sequence is per (client, owner shard), so a client must
   route sequenced requests to the owner. The owner-aware client already
   does: forwarding through another shard could reorder them. A misrouted
@@ -70,6 +70,55 @@ connection fails, or a node answers `E_STANDBY`:
 The application sees each request answered once, with `replayed` set when
 the answer came from a session record.
 
+## As built
+
+- `ExecOptions::client_id` and `seq`; `ExecResult::replayed`; statuses
+  `E_REPLAYED_OLD` and `E_NOT_OWNER`. Sessions are `System.Session`
+  objects (type 1) with a shard-local index on `client_id`
+  (`src/core/session.{h,cpp}`); MUTATE ops and creates are sequenced,
+  reads are not (a retried read runs again).
+- Wire: `kReqSequenced` (the body starts with `{client_id, seq}`) and
+  `kRespReplayed`.
+- `net::Client::add_endpoint` and `enable_session`: on a failed
+  connection, or an `E_STANDBY` answer, it tries the next endpoint until
+  one answers as primary (a probe that a standby answers `E_STANDBY`), then
+  resends every unanswered request in order. `net_bench --session ID
+  --endpoint H:P --verify`.
+- Not built: session expiry (`session_ttl_s`). Sessions stay until the
+  shard is rebuilt.
+- The client fails over on a broken connection, not on a hung one: a
+  primary cut off but alive keeps the client waiting (it is fenced, so it
+  acknowledges nothing). A request timeout would cover it.
+
+## Results
+
+`bench/run_retries.py`, `bench/results/retries.csv`. The run_failover.py
+layout (primary on cores 0-1 with a sync standby on core 2 and
+`snc_witness`); one `net_bench` thread on core 3, deposits only, 100K
+accounts, 256 in flight, 8 s, `--verify` reading every account at the end.
+3 runs each.
+
+| Case | Deposits/s (median) | Checked |
+| --- | --- | --- |
+| No session | 230K | every account exact |
+| Session (sequenced) | 220K (0.93× of the run before it) | every account exact |
+| Session, primary SIGKILLed 3 s in | 268K | 1 failover; 298-396 requests answered from sessions or as already applied; every account exact |
+
+- **No deposit was lost or applied twice** across the three failovers:
+  about 2.1M deposits each, every account at its start plus exactly what
+  the client sent it.
+- **Sequencing costs about 7%** here: one 64-byte session record logged
+  with each deposit, and a session lookup.
+- The failover runs are faster because after the kill the promoted node
+  runs without a standby. The witness promoted it about 0.52 s after the
+  kill; the client was back as soon as the probe saw a primary.
+- `tests/test_replication.cpp`: duplicates, older sequences, a misrouted
+  request and a repeated create on one engine, kept across a checkpoint and
+  restart; and 30K pipelined sequenced deposits with the primary
+  SIGKILLed, all resent to the promoted standby, every account exact
+  (with a different client ID for the resend, the same test finds accounts
+  credited twice).
+
 ## Costs and limits
 
 - **WAL bytes.** A sequenced write logs one more small record, the session
@@ -87,14 +136,9 @@ the answer came from a session record.
 - **A shard-count change at restart** moves sessions with their slots,
   like any object. The index finds them on their new owner.
 
-## Tests it would need
+## Tests still worth adding
 
-- **Retries after a SIGKILL:** with 1000 sequenced deposits in flight, the
-  primary is killed and the standby promoted. The client resends all
-  unanswered deposits, and each account ends at the start balance plus
-  exactly the number of deposits sent.
-- **Kill mid-retry:** the same, with the new primary killed again during the
-  retries (a second witness configuration).
-- **Session lifecycle:** sessions survive a checkpoint, recovery, seeding
-  and promotion, and expire after their TTL.
-- **Benchmark:** throughput with sequenced versus unsequenced deposits.
+- Kill mid-retry: the new primary killed again during the resends (needs a
+  second witness configuration).
+- Sessions across seeding: a standby seeded from a checkpoint holding
+  sessions, then promoted, still replays.

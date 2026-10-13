@@ -234,7 +234,13 @@ class Shard {
   // follow-ups run regardless (they arrive only once shards are promoted).
   void run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args, const ExecOptions& opts,
                 RunOut& out, bool client = true);
-  void run_create(ObjectID id, u32 type_id, ByteView args, RunOut& out);
+  void run_create(ObjectID id, u32 type_id, ByteView args, const ExecOptions& opts, RunOut& out);
+  // Client sessions (docs/RETRIES.md).
+  ObjectHeader* find_session(u64 client_id);
+  bool replay_if_seen(const ExecOptions& opts, RunOut& out);
+  // Logs the op's session record, first in its atomic group; returns the
+  // session so the caller can set its last_lsn with the group's.
+  ObjectHeader* record_session(const ExecOptions& opts, const ObjectID& id, u64 version);
   void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out);
 
   void prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t, const OpDescriptor* op);

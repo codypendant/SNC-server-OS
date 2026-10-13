@@ -12,6 +12,11 @@
 //                  [--objects N] [--seconds S] [--depth D] [--reads PCT]
 //                  [--route owner|any] [--misroute PCT] [--ids FILE]
 //
+// --endpoint H:P (repeatable) and --session ID: fail over to another node
+// and resend unanswered requests with per-shard sequences (docs/RETRIES.md).
+// --verify: after the run, read every account and check its balance is its
+// start plus the deposits sent to it (no transfers, one client process).
+//
 // --ids FILE: if FILE exists, use the accounts listed in it instead of
 // creating any (for example on a standby serving reads); otherwise create
 // them and write their IDs there.
@@ -61,6 +66,9 @@ struct Args {
   int transfer_pct = 0;  // ops that move 1 cent to a random account
   int xfer_local = -1;   // % of transfers to an account the source's owner also owns (-1: uniform)
   std::string ids_file;
+  std::vector<std::pair<std::string, u16>> endpoints;
+  u64 session = 0;
+  bool verify = false;
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -80,7 +88,8 @@ struct Thread {
   std::mt19937_64 rng;
   std::vector<ObjectID> created;
   Histogram hist;
-  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, stale = 0;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, stale = 0, replayed = 0;
+  std::vector<u32> deposits;  // --verify: deposits sent, by index into ids
   u32 outstanding = 0;
   std::vector<u64> start;  // per slot
   std::vector<u32> free_slots;
@@ -115,13 +124,16 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView) {
   t->hist.add(now_ns() - t->start[slot]);
   // Turned-away requests never ran, so they do not count as ops.
   auto st = static_cast<Status>(h.status);
+  if (h.flags & wire::kRespReplayed) ++t->replayed;
   if (st == Status::E_OVERLOADED) {
     ++t->overloaded;
   } else if (st == Status::E_STALE) {
     ++t->stale;  // a standby without a lease: not served
   } else {
     ++t->ops;
-    if (st != Status::OK && st != Status::E_APP) ++t->errors;  // E_APP: no funds
+    // E_APP: no funds. E_REPLAYED_OLD: a resent request already applied.
+    if (st == Status::E_REPLAYED_OLD) ++t->replayed;
+    else if (st != Status::OK && st != Status::E_APP) ++t->errors;
   }
   --t->outstanding;
   t->free_slots.push_back(slot);
@@ -169,7 +181,8 @@ void run(Thread& t) {
     while (running && !t.free_slots.empty()) {
       u32 slot = t.free_slots.back();
       t.free_slots.pop_back();
-      const ObjectID& id = sh.ids[a.zipf > 0 ? sh.zipf.next(t.rng) : t.rng() % n_ids];
+      const u64 j = a.zipf > 0 ? sh.zipf.next(t.rng) : t.rng() % n_ids;
+      const ObjectID& id = sh.ids[j];
       u16 dst;
       if (!a.route_owner) {
         dst = static_cast<u16>(t.rng() % n);
@@ -211,6 +224,7 @@ void run(Thread& t) {
         t.client.send(dst, q, {});
       } else {
         q.op = kOpDeposit;
+        if (a.verify) ++t.deposits[j];
         AmountArgs d{1, t.start[slot]};
         t.client.send(dst, q, ByteView(&d, sizeof(d)));
       }
@@ -263,6 +277,12 @@ Args parse(int argc, char** argv) {
     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
     else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
     else if (k == "--ids") a.ids_file = val();
+    else if (k == "--endpoint") {
+      std::string v = val();
+      auto c = v.rfind(':');
+      a.endpoints.emplace_back(v.substr(0, c), static_cast<u16>(std::atoi(v.c_str() + c + 1)));
+    } else if (k == "--session") a.session = std::strtoull(val(), nullptr, 10);
+    else if (k == "--verify") a.verify = true;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -300,6 +320,8 @@ int main(int argc, char** argv) {
       if (!a.cpus.empty()) pin(a.cpus[i % a.cpus.size()]);
       bool ok = t.client.connect(a.host, a.port);
       if (!ok) t.error = t.client.error();
+      for (const auto& [h, p] : a.endpoints) t.client.add_endpoint(h, p);
+      if (a.session) t.client.enable_session(a.session + i);
       if (ok) ok = load(t);
       if (!ok) failed = true;
       loaded.arrive_and_wait();
@@ -342,6 +364,9 @@ int main(int argc, char** argv) {
     sh.by_owner.resize(c.shard_count());
     for (const ObjectID& id : sh.ids) sh.by_owner[c.owner_of(id)].push_back(id);
   }
+  if (a.verify) {
+    for (auto& t : threads) t.deposits.assign(sh.ids.size(), 0);
+  }
   sh.phase.store(kRun, std::memory_order_release);
   auto t1 = std::chrono::steady_clock::now();
   ready.arrive_and_wait();
@@ -351,7 +376,8 @@ int main(int argc, char** argv) {
   double run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
 
   Histogram all;
-  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0;
+  u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0, replayed = 0,
+      failovers = 0;
   for (auto& t : threads) {
     if (!t.error.empty()) {
       std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
@@ -362,6 +388,8 @@ int main(int argc, char** argv) {
     errors += t.errors;
     overloaded += t.overloaded;
     stale += t.stale;
+    replayed += t.replayed;
+    failovers += t.client.failovers();
     misrouted += t.misrouted;
     forwarded += t.client.forwarded();
   }
@@ -377,5 +405,61 @@ int main(int argc, char** argv) {
               all.percentile(95), all.percentile(99), all.percentile(99.9));
   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
               100.0 * misrouted / std::max<u64>(1, ops), 100.0 * forwarded / std::max<u64>(1, ops));
+  if (a.session) {
+    std::printf("  failovers %llu  replayed %llu\n", (unsigned long long)failovers,
+                (unsigned long long)replayed);
+  }
+  if (a.verify) {
+    // Every account's balance is its start (1000) plus the deposits sent.
+    net::Client& c = threads[0].client;
+    struct V {
+      const std::vector<ObjectID>* ids;
+      std::vector<i64> bal;
+      u64 got = 0;
+    } v{&sh.ids, std::vector<i64>(sh.ids.size(), -1)};
+    auto on = [](void* ctx, const wire::RespHeader& h, ByteView body) {
+      auto* x = static_cast<V*>(ctx);
+      BalanceResult b{};
+      if (static_cast<Status>(h.status) == Status::OK && body.len == sizeof(b)) {
+        std::memcpy(&b, body.data, sizeof(b));
+        x->bal[h.req_id] = b.balance_cents;
+      }
+      ++x->got;
+    };
+    for (u64 k = 0; k < sh.ids.size();) {
+      u64 end = std::min<u64>(sh.ids.size(), k + 512);
+      for (u64 j = k; j < end; ++j) {
+        wire::ReqHeader q{};
+        q.kind = wire::Kind::EXEC;
+        q.op = kOpGetBalance;
+        q.req_id = j;
+        q.target = sh.ids[j];
+        c.send(c.owner_of(sh.ids[j]), q, {});
+      }
+      while (v.got < end) {
+        if (c.poll(on, &v, 100) < 0) {
+          std::fprintf(stderr, "verify: %s\n", c.error().c_str());
+          return 1;
+        }
+      }
+      k = end;
+    }
+    u64 bad = 0, sent = 0;
+    for (u64 j = 0; j < sh.ids.size(); ++j) {
+      i64 want = 1000;
+      for (auto& t : threads) want += t.deposits[j];
+      sent += static_cast<u64>(want - 1000);
+      if (v.bal[j] != want) {
+        if (bad < 5) {
+          std::printf("  verify: account %llu has %lld, expected %lld\n", (unsigned long long)j,
+                      (long long)v.bal[j], (long long)want);
+        }
+        ++bad;
+      }
+    }
+    std::printf("  verify: %zu accounts, %llu deposits, %llu mismatches\n", sh.ids.size(),
+                (unsigned long long)sent, (unsigned long long)bad);
+    if (bad) return 1;
+  }
   return errors ? 1 : 0;
 }
