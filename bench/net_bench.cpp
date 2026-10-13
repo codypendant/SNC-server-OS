@@ -14,6 +14,8 @@
 //
 // --endpoint H:P (repeatable) and --session ID: fail over to another node
 // and resend unanswered requests with per-shard sequences (docs/RETRIES.md).
+// --request-timeout-ms MS (default 5000, 0 = off): with --session, fail over
+// when a node leaves a request unanswered that long (a hung primary).
 // --verify: after the run, read every account and check its balance is its
 // start plus the deposits sent to it (no transfers, one client process).
 //
@@ -68,6 +70,7 @@ struct Args {
   std::string ids_file;
   std::vector<std::pair<std::string, u16>> endpoints;
   u64 session = 0;
+  int request_timeout_ms = 5000;
   bool verify = false;
 };
 
@@ -282,6 +285,7 @@ Args parse(int argc, char** argv) {
       auto c = v.rfind(':');
       a.endpoints.emplace_back(v.substr(0, c), static_cast<u16>(std::atoi(v.c_str() + c + 1)));
     } else if (k == "--session") a.session = std::strtoull(val(), nullptr, 10);
+    else if (k == "--request-timeout-ms") a.request_timeout_ms = std::atoi(val());
     else if (k == "--verify") a.verify = true;
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
@@ -321,7 +325,7 @@ int main(int argc, char** argv) {
       bool ok = t.client.connect(a.host, a.port);
       if (!ok) t.error = t.client.error();
       for (const auto& [h, p] : a.endpoints) t.client.add_endpoint(h, p);
-      if (a.session) t.client.enable_session(a.session + i);
+      if (a.session) t.client.enable_session(a.session + i, 30000, a.request_timeout_ms);
       if (ok) ok = load(t);
       if (!ok) failed = true;
       loaded.arrive_and_wait();
@@ -377,7 +381,7 @@ int main(int argc, char** argv) {
 
   Histogram all;
   u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0, replayed = 0,
-      failovers = 0;
+      failovers = 0, timeouts = 0;
   for (auto& t : threads) {
     if (!t.error.empty()) {
       std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
@@ -390,6 +394,7 @@ int main(int argc, char** argv) {
     stale += t.stale;
     replayed += t.replayed;
     failovers += t.client.failovers();
+    timeouts += t.client.timeouts();
     misrouted += t.misrouted;
     forwarded += t.client.forwarded();
   }
@@ -406,8 +411,8 @@ int main(int argc, char** argv) {
   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
               100.0 * misrouted / std::max<u64>(1, ops), 100.0 * forwarded / std::max<u64>(1, ops));
   if (a.session) {
-    std::printf("  failovers %llu  replayed %llu\n", (unsigned long long)failovers,
-                (unsigned long long)replayed);
+    std::printf("  failovers %llu  replayed %llu  timeouts %llu\n", (unsigned long long)failovers,
+                (unsigned long long)replayed, (unsigned long long)timeouts);
   }
   if (a.verify) {
     // Every account's balance is its start (1000) plus the deposits sent.

@@ -6,6 +6,7 @@
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -19,9 +20,22 @@ namespace snc::net {
 namespace {
 constexpr std::size_t kReadChunk = 256u << 10;
 
-int dial(const std::string& host, u16 port) {
+i64 now_ns() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+// timeout_ms > 0 bounds each blocking send and recv on the socket (the
+// handshake), so a hung node fails the step instead of stalling it.
+int dial(const std::string& host, u16 port, int timeout_ms = 0) {
   int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (fd < 0) return -1;
+  if (timeout_ms > 0) {
+    timeval tv{timeout_ms / 1000, (timeout_ms % 1000) * 1000};
+    ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    ::setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+  }
   sockaddr_in a{};
   a.sin_family = AF_INET;
   a.sin_port = htons(port);
@@ -81,9 +95,10 @@ void Client::add_endpoint(const std::string& host, u16 base_port) {
   endpoints_.push_back({host, base_port});
 }
 
-void Client::enable_session(u64 client_id, int failover_ms) {
+void Client::enable_session(u64 client_id, int failover_ms, int request_timeout_ms) {
   client_id_ = client_id;
   failover_ms_ = failover_ms;
+  request_timeout_ms_ = request_timeout_ms;
 }
 
 bool Client::open(const std::string& host, u16 base_port) {
@@ -91,7 +106,8 @@ bool Client::open(const std::string& host, u16 base_port) {
     error_ = std::string(what) + ": " + std::strerror(errno);
     return false;
   };
-  int fd0 = dial(host, base_port);
+  const int tmo = client_id_ != 0 ? request_timeout_ms_ : 0;
+  int fd0 = dial(host, base_port, tmo);
   if (fd0 < 0) return fail("connect shard 0");
 
   wire::ReqHeader q{};
@@ -143,7 +159,7 @@ bool Client::open(const std::string& host, u16 base_port) {
   links_.resize(map_.n_shards);
   links_[0].fd = fd0;
   for (u16 s = 1; s < map_.n_shards; ++s) {
-    links_[s].fd = dial(host, static_cast<u16>(base_port + s));
+    links_[s].fd = dial(host, static_cast<u16>(base_port + s), tmo);
     if (links_[s].fd < 0) return fail("connect shard");
   }
   for (u16 s = 0; s < map_.n_shards; ++s) {
@@ -202,6 +218,7 @@ bool Client::fail_over() {
           if (!req.empty()) l.out.insert(l.out.end(), req.begin(), req.end());
         }
       }
+      progress_ns_ = now_ns();
       return true;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -278,6 +295,8 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
 
 int Client::poll(OnResponse on, void* ctx, int timeout_ms) {
   if (!flush_all()) return fail_over() ? 0 : -1;
+  const bool timed = client_id_ != 0 && request_timeout_ms_ > 0;
+  if (timed && timeout_ms > request_timeout_ms_) timeout_ms = request_timeout_ms_;
   epoll_event evs[64];
   int n = ::epoll_wait(epfd_, evs, 64, timeout_ms);
   int got = 0;
@@ -285,6 +304,18 @@ int Client::poll(OnResponse on, void* ctx, int timeout_ms) {
     int r = read_link(links_[evs[i].data.u32], on, ctx);
     if (r < 0) return fail_over() ? got : -1;
     got += r;
+  }
+  if (timed) {
+    const i64 now = now_ns();
+    bool waiting = false;
+    for (const Link& l : links_) waiting |= !l.unanswered.empty();
+    if (got > 0 || !waiting || progress_ns_ == 0) {
+      progress_ns_ = now;
+    } else if (now - progress_ns_ > i64(request_timeout_ms_) * 1000000) {
+      ++timeouts_;
+      error_ = "no answer in " + std::to_string(request_timeout_ms_) + " ms";
+      return fail_over() ? got : -1;
+    }
   }
   return got;
 }

@@ -87,9 +87,14 @@ the answer came from a session record.
 - Session expiry: `Engine::Config::session_ttl_s` (default 3600). A
   primary deletes sessions untouched that long just before each checkpoint;
   the deletes replicate like any other. Tested with a 1 s TTL.
-- The client fails over on a broken connection, not on a hung one: a
-  primary cut off but alive keeps the client waiting (it is fenced, so it
-  acknowledges nothing). A request timeout would cover it.
+- Request timeout: `enable_session(id, failover_ms, request_timeout_ms)`
+  (default 5000 ms; `net_bench --request-timeout-ms`). A node that leaves a
+  request unanswered that long counts as failed, like a broken connection.
+  This covers a primary that is alive but cut off: fenced, it acknowledges
+  nothing and keeps its connections open. The same timeout bounds each
+  blocking step of reconnecting, so a hung node cannot stall the client's
+  search for the new primary. A false timeout (a slow but healthy primary)
+  costs a reconnect and a resend, never a double apply.
 
 ## Results
 
