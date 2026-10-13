@@ -90,23 +90,67 @@ primary shard i                              standby shard i
   writes and reports why. After `replica_timeout_ms` (configurable,
   default 2 s) it continues in async mode, keeps WAL for catch-up, and
   says so in its stats and log. A deployment that prefers to stall forever
-  sets the timeout to 0. Either way the choice is explicit, not silent.
+  sets the timeout to 0. Either way the choice is explicit, not silent. A
+  standby that hangs with its socket open (stopped, or wedged) counts as
+  lost once it acks nothing new for the same timeout while records wait.
+  With a witness (below), continuing alone needs the witness's leave.
 - **Primary lost.** An operator (or, later, an arbiter) promotes the
   standby: in place with `Engine::promote()` (`snc_server`: SIGUSR1), or by
   stopping it and starting it as a primary on its data directory. Every
   write acknowledged in sync mode is in its WAL. Follow-ups in flight
   (transfers' credits and settles) resume from the objects' resume hooks,
-  as after any crash (docs/TRANSFERS.md). Choosing *when* to promote is
-  not automated: that needs an outside arbiter (see open questions).
+  as after any crash (docs/TRANSFERS.md). `snc_witness` can decide when
+  (below).
 - **Fencing by term.** Each superblock carries a term; promotion bumps it,
   the handshake carries it, and a standby refuses a primary of an older
   term. An old primary that comes back therefore cannot get its writes
   acknowledged by any standby of the new primary. With sync replication
   and `replica_timeout_ms = 0` it then acknowledges no durable write at
-  all; with a nonzero timeout it would degrade and carry on alone, so a
-  deployment that may restart a replaced primary sets the timeout to 0
-  (or keeps it down). Reads wait for durability by default and stall the same way; a read
+  all; with a nonzero timeout and no witness it would degrade and carry on
+  alone, so such a deployment sets the timeout to 0, keeps a replaced
+  primary down, or runs a witness. Reads wait for durability by default and stall the same way; a read
   that skips that wait can still be served by such a primary.
+
+## Automatic failover
+
+`snc_witness` is a third process that decides two things, and records
+each decision (written and synced) before anyone acts on it:
+
+- **Whether the primary may continue without its standby.** A sync
+  primary started with `--witness` (`Engine::Config::replica_degrade_gated`)
+  that passes its timeout asks the witness (`DEGRADE uuid term`) instead
+  of degrading on its own. The witness grants it only to the term it
+  considers current. When the standby is back in sync the primary says so
+  (`SYNCED`), closing the grant.
+- **When to promote the standby.** It polls both nodes' admin ports
+  (`snc_server --admin-port`: `STATUS`, `PROMOTE`). If the primary has not
+  answered for `--failover-ms` and the standby is up, in the same space and
+  term, and the primary holds no grant, it records the new term and
+  promotes the standby. With a grant out it does not: the standby may lack
+  acknowledged writes, so it waits for the primary.
+
+Together these keep one rule: **a write is acknowledged only if the node
+that will serve next has it.** Either the standby acked it (sync), or the
+witness let the primary run alone and then will not promote the standby.
+A primary that is cut off rather than dead (from the witness, or from
+everything) is fenced twice: its standby, once promoted, refuses its
+term; and the witness refuses to let it continue alone. It acknowledges
+nothing durable.
+
+Limits of this first version:
+
+- **One failover per configuration.** After promoting, the witness
+  serves the new primary's requests but watches nothing until it is
+  restarted with that primary and a new standby (seeded from it).
+- **The witness is a single process.** If it is down, failover waits, and
+  a primary past its timeout waits for it too: availability needs the
+  witness up, safety does not. Its state file survives restarts.
+- **Failure detection is the witness's view.** A primary the witness
+  cannot reach but clients can is promoted over; the fencing above makes
+  that safe for durable writes, at the cost of those clients' availability
+  until they move to the new primary. Clients are not redirected.
+- Reads that skip the durability wait can still be served by a fenced
+  primary.
 
 ## What v1 will deliver
 
@@ -337,11 +381,30 @@ for 5 s. Then the primary is SIGKILLed and the standby gets SIGUSR1.
   spread of the 663K measured with it rebuilt at promotion.
 - The promoted node runs without a standby until one is seeded from it.
 
+### Automatic failover
+
+`bench/run_failover.py`, `bench/results/failover.csv`: primary on cores
+0-1 (sync, 500 ms timeout, `--witness`), standby on core 2, witness with
+`--failover-ms 500 --poll-ms 50`, one `net_bench` thread on core 3, 100K
+accounts. Each case is checked, 3 runs each, all passed.
+
+| Case | Checked | Measured (median) |
+| --- | --- | --- |
+| Primary SIGKILLed | the witness promotes; the new primary serves | kill to promoted 0.52 s (promotion itself 16 ms) |
+| Standby stopped under load | the primary is granted and continues; resumed, it reports in sync; stopped again, a second grant; then the primary is killed and the witness does not promote the stale standby | clients stall 0.51 s, then continue |
+| Primary stopped (cut off) | the witness promotes; the old primary, resumed, acknowledges no create from a new client and is refused by the witness; the new primary serves | stop to promoted 0.57 s |
+
+- **Failover takes about half a second, almost all of it detection**
+  (`--failover-ms`); the promotion itself is 13-19 ms for 100K accounts.
+- Client throughput in these runs (120K-470K ops/s) is far below the
+  steadier runs above; the shared disk was noisy during this set, and
+  these runs measure correctness and timing, not throughput.
+
 ## Open questions for later rounds
 
-- Automatic failover needs an outside arbiter (or three nodes) to decide
-  when to promote; terms make a wrong call safe for durable writes and
-  default reads. That belongs with the distributed directory.
+- The witness is one process and one failover per configuration. A
+  replicated witness (or three nodes with a consensus log) belongs with
+  the distributed directory, as does redirecting clients.
 - Serving reads from the standby (with bounded staleness) is cheap to add
   once apply is live, but it changes the read API's promises.
 - Standbys with a different shard count (records routed by slot rather

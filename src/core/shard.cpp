@@ -1164,8 +1164,11 @@ bool Shard::poll_replication() {
     if (repl_hold_) release_waiters();
   }
   if (repl_cfg_.sync) {
-    if (repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 && sender_->down_since_ns() != 0 &&
-        now - sender_->down_since_ns() >= repl_cfg_.timeout_ns) {
+    const bool overdue = repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 &&
+                         sender_->down_since_ns() != 0 &&
+                         now - sender_->down_since_ns() >= repl_cfg_.timeout_ns;
+    repl_blocked_ = overdue && repl_cfg_.degrade_gate && !repl_cfg_.degrade_gate->load();
+    if (overdue && !repl_blocked_) {
       // The standby has been gone too long: keep serving on local
       // durability alone and say so (docs/REPLICATION.md).
       std::fprintf(stderr, "snc: shard %u: standby unreachable, continuing without it\n", id_);
@@ -1287,6 +1290,12 @@ void Shard::checkpoint_step() {
 
 // ---- Stats ---------------------------------------------------------------------------
 
+Shard::ReplSummary Shard::repl_summary() const {
+  if (sender_) return {1, sender_->live(), repl_degraded_, repl_blocked_};
+  if (receiver_) return {2, receiver_->connected(), false, false};
+  return {0, false, false, false};
+}
+
 ShardStats Shard::stats() const {
   ShardStats s = stats_;
   s.objects = 0;
@@ -1298,6 +1307,7 @@ ShardStats Shard::stats() const {
     s.repl_role = 1;
     s.repl_live = sender_->live();
     s.repl_degraded = repl_degraded_;
+    s.repl_blocked = repl_blocked_;
     s.repl_lost = sender_->lost();
     s.repl_acked_lsn = sender_->acked_lsn();
     s.repl_bytes = sender_->stats().bytes_sent;

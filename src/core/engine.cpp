@@ -198,7 +198,8 @@ void Engine::stop() {
 
 // Shard s's replication settings, as standby or as primary.
 static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const SlotMap& slots,
-                                           const Uuid& uuid_, u64 term, u16 s, bool standby) {
+                                           const Uuid& uuid_, u64 term, u16 s, bool standby,
+                                           const std::atomic<bool>* gate) {
   const u16 n = cfg_.runtime.n_shards;
   const u32 crc = repl::slot_map_crc(slots);
   Shard::ReplicaConfig rc;
@@ -224,6 +225,8 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
     rc.sender.term = term;
     rc.sync = cfg_.replica_sync;
     rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
+    rc.sender.ack_timeout_ns = rc.timeout_ns;
+    if (cfg_.replica_degrade_gated) rc.degrade_gate = gate;
   }
   return rc;
 }
@@ -438,7 +441,7 @@ void Engine::recover() {
   }
 
   if (!cfg_.replica_host.empty() || cfg_.standby) {
-    rt_->run_on_all([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby)); });
+    rt_->run_on_all([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby, &degrade_ok_)); });
   }
   rt_->run_on_all([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
@@ -513,7 +516,7 @@ double Engine::promote() {
   rt_->run_on_all([&](u16 s) {
     Shard* sh = current_shard();
     sh->set_lease(base + s);
-    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false), cfg_.data_dir);
+    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_), cfg_.data_dir);
   });
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
@@ -633,6 +636,29 @@ CheckpointReport Engine::checkpoint() {
   fsync_dir(dir + "/wal");
   rep.seconds = since(t0);
   return rep;
+}
+
+Engine::ReplStatus Engine::replication_status() const {
+  ReplStatus st;
+  st.shards = cfg_.runtime.n_shards;
+  if (!running_) return st;
+  std::mutex mu;
+  std::latch done(st.shards);
+  for (u16 s = 0; s < st.shards; ++s) {
+    rt_->submit(s, [&] {
+      Shard::ReplSummary r = current_shard()->repl_summary();
+      {
+        std::lock_guard<std::mutex> g(mu);
+        st.role = std::max(st.role, r.role);
+        st.live += r.live;
+        st.degraded += r.degraded;
+        st.blocked += r.blocked;
+      }
+      done.count_down();
+    });
+  }
+  done.wait();
+  return st;
 }
 
 ShardStats Engine::stats(u16 shard) const {

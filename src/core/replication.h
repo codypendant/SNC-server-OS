@@ -70,6 +70,10 @@ class Sender {
     // Catch-up from disk sends at most this many bytes a second (0: no
     // limit), so a joining standby costs this shard's clients less.
     u64 catchup_bytes_per_s = 0;
+    // A live link whose standby acks nothing new for this long while
+    // records wait is treated as down (a hung or stopped standby keeps its
+    // socket open). 0: never.
+    u64 ack_timeout_ns = 0;
   };
   explicit Sender(const Config& cfg);
   ~Sender();
@@ -139,6 +143,7 @@ class Sender {
   int fd_ = -1;
   u64 retry_at_ = 0;
   u64 down_since_ = 0;
+  u64 progress_ns_ = 0;    // live: last time acks advanced or nothing waited
   bool lost_ = false;
   u64 acked_ = 0;
   std::deque<Chunk> chunks_;

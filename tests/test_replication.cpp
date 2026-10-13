@@ -866,6 +866,68 @@ void test_degrade() {
   rm_rf(pd);
 }
 
+// 8. A gated sync primary (a witness decides) waits past the timeout until
+// allow_degrade(true).
+void test_gated() {
+  std::string pd = temp_dir("p");
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine::Config c = primary_config(pd, true, true, 100);
+    c.replica_degrade_gated = true;
+    Engine eng(c);
+    eng.start();
+    std::atomic<bool> done{false};
+    std::thread t([&] {
+      create_accounts(eng, 8);
+      done = true;
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    if (done.load()) _exit(30);  // past the timeout, but not granted
+    if (eng.replication_status().blocked != kShards) _exit(31);
+    auto t0 = std::chrono::steady_clock::now();
+    eng.allow_degrade(true);
+    t.join();
+    double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    if (s > 0.2 || eng.replication_status().degraded != kShards) _exit(32);
+    std::printf("gated: no acks past the timeout until granted, then %.3fs\n", s);
+    eng.stop();
+    _exit(0);
+  }
+  wait_ok(pid);
+  rm_rf(pd);
+}
+
+// 9. A hung standby (SIGSTOP) keeps its socket open; the primary treats it
+// as down once it acks nothing for the timeout, and degrades.
+void test_hung() {
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  pid_t sb = start_standby(sd, true);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    Engine eng(primary_config(pd, true, true, 300));
+    eng.start();
+    create_accounts(eng, 8);
+    wait_replicated(eng);
+    ::kill(sb, SIGSTOP);
+    auto t0 = std::chrono::steady_clock::now();
+    create_accounts(eng, 8);
+    double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    if (s < 0.25 || eng.replication_status().degraded == 0) {  // shards that had writes
+      std::printf("hung: %.3fs, %u degraded\n", s, eng.replication_status().degraded);
+      _exit(33);
+    }
+    std::printf("hung: a stopped standby is dropped after %.2fs\n", s);
+    ::kill(sb, SIGCONT);
+    _exit(0);  // not stop(): it would wait for the standby
+  }
+  wait_ok(pid);
+  ::kill(sb, SIGCONT);
+  stop_child(sb);
+  rm_rf(pd + " " + sd);
+}
+
 }  // namespace
 
 int main() {
@@ -882,6 +944,8 @@ int main() {
   test_outage();
   test_diverged();
   test_promote();
+  test_gated();
+  test_hung();
   test_degrade();
   std::printf("test_replication: ok\n");
   return 0;

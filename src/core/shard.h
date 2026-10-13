@@ -62,11 +62,19 @@ class Shard {
     repl::Sender::Config sender;
     bool sync = true;           // durable completions wait for the standby's ack
     u64 timeout_ns = 0;         // sync: continue without the standby after this long (0 = never)
+    // If set, the timeout lets a shard continue without its standby only
+    // while this is true (a witness granted it; docs/REPLICATION.md).
+    const std::atomic<bool>* degrade_gate = nullptr;
     // Standby: receive, install and log the primary's records.
     bool standby = false;
     repl::Receiver::Config receiver;
   };
   void set_replication(const ReplicaConfig& c) { repl_cfg_ = c; }
+  struct ReplSummary {
+    u8 role;
+    bool live, degraded, blocked;
+  };
+  ReplSummary repl_summary() const;
   // Promotion, on the shard's thread: stop_standby, then once every shard
   // is standby_settled (all it installed is durable), promote.
   void stop_standby();
@@ -302,6 +310,7 @@ class Shard {
   std::unique_ptr<repl::Receiver> receiver_;
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby
+  bool repl_blocked_ = false;  // overdue, but the degrade gate is closed
   int repl_epfd_ = -1;          // the replication sockets, for idle wake-ups
   u64 tail_lsn_ = 0;            // standby: last record in its WAL, and its crc
   u32 tail_crc_ = 0;

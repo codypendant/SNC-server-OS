@@ -420,6 +420,7 @@ bool Sender::read_acks(u64 now_ns) {
       if (!disk_) apply_verified(advanced);
       state_ = State::LIVE;
       down_since_ = 0;
+      progress_ns_ = now_ns;
     }
     while (in_len_ >= sizeof(Ack)) {
       Ack k;
@@ -463,6 +464,15 @@ bool Sender::poll(u64 now_ns) {
   }
   advanced |= read_acks(now_ns);
   if (state_ != State::LIVE) return advanced;
+  if (advanced || acked_ + 1 >= next_expected_) {
+    progress_ns_ = now_ns;
+  } else if (cfg_.ack_timeout_ns != 0 && now_ns - progress_ns_ >= cfg_.ack_timeout_ns) {
+    std::fprintf(stderr, "snc: standby shard %u stopped acking: treating it as down\n", cfg_.shard);
+    const u64 since = progress_ns_;
+    close_link(now_ns);
+    down_since_ = since;
+    return advanced;
+  }
   // Catch-up from disk first, then the resumed partial frame, then whole
   // chunks in order.
   if (disk_ && !send_disk(now_ns, advanced)) return advanced;
