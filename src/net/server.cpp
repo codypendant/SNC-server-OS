@@ -70,19 +70,28 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
   }
   if (h.kind == wire::Kind::CLUSTER) {
     const ClusterMap* m = cluster_map();
-    const u16 n = m ? static_cast<u16>(m->nodes.size()) : 0;
-    std::vector<u8> body(sizeof(wire::ClusterBody) + n * sizeof(wire::ClusterEntry));
+    u16 members = 0;
+    if (m) {
+      for (const ClusterGroup& g : m->groups) members = static_cast<u16>(members + g.members.size());
+    }
+    std::vector<u8> body(sizeof(wire::ClusterBody) + members * sizeof(wire::ClusterEntry));
     auto* b = reinterpret_cast<wire::ClusterBody*>(body.data());
-    b->n_nodes = n;
     if (m) {
       b->crc = m->crc();
-      b->node_id = node_id();
-      std::memcpy(b->node_of, m->node_of.data(), kSlots);
+      b->n_groups = static_cast<u16>(m->groups.size());
+      b->group_id = group_id();
+      b->epoch = m->epoch;
+      b->n_members = members;
+      std::memcpy(b->group_of, m->group_of.data(), kSlots);
       auto* e = reinterpret_cast<wire::ClusterEntry*>(b + 1);
-      for (u16 i = 0; i < n; ++i) {
-        std::strncpy(e[i].host, m->nodes[i].host.c_str(), sizeof(e[i].host) - 1);
-        e[i].client_port = m->nodes[i].client_port;
-        e[i].n_shards = m->nodes[i].n_shards;
+      for (u16 g = 0; g < m->groups.size(); ++g) {
+        for (const ClusterMember& mem : m->groups[g].members) {
+          std::strncpy(e->host, mem.host.c_str(), sizeof(e->host) - 1);
+          e->client_port = mem.client_port;
+          e->n_shards = m->groups[g].n_shards;
+          e->group = g;
+          ++e;
+        }
       }
     }
     ps->cs.respond(c, resp_header(h.req_id, Status::OK, kNullId, static_cast<u32>(body.size())),

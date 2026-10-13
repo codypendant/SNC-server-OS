@@ -58,7 +58,7 @@ void refuse_standby(const ObjectID& id, Completion done, void* ctx) {
   r.id = id;
   done(ctx, r);
 }
-// Another node owns it (docs/CLUSTER.md).
+// Another replication group owns it (docs/CLUSTER.md).
 void refuse_wrong_node(const ObjectID& id, Completion done, void* ctx) {
   ExecResult r;
   r.status = Status::E_WRONG_NODE;
@@ -1226,7 +1226,7 @@ void Shard::resume_all(u64 lsn) {
 
 void Shard::start_links() {
   if (cluster_ == nullptr || links_) return;
-  links_ = std::make_unique<NodeLinks>(*cluster_, node_, id_);
+  links_ = std::make_unique<NodeLinks>(*cluster_, group_, member_, id_);
   emit_node_.resize(links_->size());
 }
 
@@ -1288,6 +1288,10 @@ void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
   repl_cfg_ = rc;
   start_serving();
   if (wal_ && rc.primary) start_sender(data_dir, wal_->next_lsn());
+  // Clustered: other groups' links find this member once it listens, and
+  // every link coming up re-runs the resume pass, which re-sends what the
+  // old primary's links lost.
+  start_links();
 }
 
 // ---- Replication (docs/REPLICATION.md) -------------------------------------------------
@@ -1613,8 +1617,8 @@ void Shard::route_emit(const Emit& e) {
   ++emit_ready_count_;
   if (cluster_) {
     const u16 slot = slot_of(e.target);
-    const u16 node = cluster_->node_of[slot];
-    if (node != node_) {
+    const u16 group = cluster_->group_of[slot];
+    if (group != group_) {
       if (!links_) {
         // Recovery's resume pass, before the links open: re-emitted once
         // they come up.
@@ -1622,7 +1626,7 @@ void Shard::route_emit(const Emit& e) {
         ++stats_.node_emits_dropped;
         return;
       }
-      emit_node_[links_->link_of(node, cluster_->shard_of(slot))].push_back(e);
+      emit_node_[links_->link_of(group, cluster_->shard_of(slot))].push_back(e);
       return;
     }
   }
@@ -1770,7 +1774,7 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
 const SlotMap& slot_map() { return tl_shard->slots(); }
 const ClusterMap* cluster_map() { return tl_shard->cluster(); }
-u16 node_id() { return tl_shard->node(); }
+u16 group_id() { return tl_shard->group(); }
 void prefetch(const ObjectID* ids, u32 n) { tl_shard->prefetch(ids, n); }
 
 }  // namespace snc

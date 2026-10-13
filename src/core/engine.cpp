@@ -42,7 +42,7 @@ void hook_init(void* user) {
   // Recovering: no follow-ups run until every shard has finished (see
   // Engine::recover, step 7).
   s->pause_emits(h->cfg->hold_emits || !h->cfg->data_dir.empty());
-  if (!h->cluster->nodes.empty()) s->set_cluster(h->cluster, h->cfg->node_id);
+  if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
   // In memory there is nothing to recover: links open at once.
@@ -124,11 +124,10 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
   if (!cfg.cluster.empty()) {
-    if (cfg.node_id >= cfg.cluster.size() || cfg.cluster[cfg.node_id].n_shards != cfg.runtime.n_shards) {
-      throw std::invalid_argument("cluster: node_id out of range, or its shard count is not runtime.n_shards");
-    }
-    if (!cfg.replica_host.empty() || cfg.standby) {
-      throw std::invalid_argument("cluster: not combined with replication yet");
+    if (cfg.group_id >= cfg.cluster.size() || cfg.member >= cfg.cluster[cfg.group_id].members.size() ||
+        cfg.cluster[cfg.group_id].n_shards != cfg.runtime.n_shards) {
+      throw std::invalid_argument(
+          "cluster: group_id or member out of range, or the group's shard count is not runtime.n_shards");
     }
     cluster_ = ClusterMap::make(cfg.cluster);
   }

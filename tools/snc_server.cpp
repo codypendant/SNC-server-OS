@@ -11,7 +11,7 @@
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
-//                   [--cluster HOST:LINK_PORT:SHARDS[:CLIENT_PORT],... --node I]
+//                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -38,12 +38,17 @@
 // its data directory aside (DIR.stale-TIME) and starts as that primary's
 // standby, listening on STANDBY_PORT and seeded from PEER_HOST:SEED. So a
 // supervisor can restart a failed primary with its usual command line.
-// Cluster (docs/CLUSTER.md): --cluster lists every node, the same list on
-// each, and --node says which one this is; it owns a fixed share of the
+// Cluster (docs/CLUSTER.md): --cluster lists every replication group, the
+// same list on each node; a GROUP is its members separated by '|', each
+// HOST:LINK_PORT:SHARDS[:CLIENT_PORT]. --group and --member say which this
+// node is (member defaults to 0). The group owns a fixed share of the
 // slots, refuses ops on the others' objects (E_WRONG_NODE), and sends
-// follow-ups for them over node links (shard i listens on LINK_PORT + i).
-// A CLUSTER request returns the map with each node's CLIENT_PORT, so that
-// net::ClusterClient sends each request to its owner.
+// follow-ups for them over node links (shard i of its primary listens on
+// LINK_PORT + i). Members of a group replicate as any primary and standby
+// (--replica-of, --standby, --witness ...); a promoted standby opens the
+// group's links, and the other groups find it there. A CLUSTER request
+// returns the map with each member's CLIENT_PORT, so that
+// net::ClusterClient sends each request to its owner's primary.
 #include <signal.h>
 
 #include <algorithm>
@@ -142,7 +147,8 @@ int main(int argc, char** argv) {
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--seed-from") cfg.seed_from = val();
     else if (k == "--cluster") cfg.cluster = parse_cluster(val());
-    else if (k == "--node") cfg.node_id = static_cast<u16>(std::atoi(val()));
+    else if (k == "--group") cfg.group_id = static_cast<u16>(std::atoi(val()));
+    else if (k == "--member") cfg.member = static_cast<u16>(std::atoi(val()));
     else if (k == "--report-ms") report_ms = std::atoi(val());
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
@@ -259,8 +265,10 @@ int main(int argc, char** argv) {
   cfg.app_poll = net::NetServer::poll_hook;
   cfg.app_user = &server;
   // Its own client port is --port unless the list says otherwise.
-  if (!cfg.cluster.empty() && cfg.node_id < cfg.cluster.size() && cfg.cluster[cfg.node_id].client_port == 0) {
-    cfg.cluster[cfg.node_id].client_port = ncfg.base_port;
+  if (!cfg.cluster.empty() && cfg.group_id < cfg.cluster.size() &&
+      cfg.member < cfg.cluster[cfg.group_id].members.size() &&
+      cfg.cluster[cfg.group_id].members[cfg.member].client_port == 0) {
+    cfg.cluster[cfg.group_id].members[cfg.member].client_port = ncfg.base_port;
   }
   Engine eng(cfg);
   eng.start();
@@ -272,13 +280,15 @@ int main(int argc, char** argv) {
     const ClusterMap& m = eng.cluster();
     u32 lo = kSlots, hi = 0;
     for (u32 s = 0; s < kSlots; ++s) {
-      if (m.node_of[s] != cfg.node_id) continue;
+      if (m.group_of[s] != cfg.group_id) continue;
       lo = std::min(lo, s);
       hi = s;
     }
-    std::printf("cluster: node %u of %zu, slots %u-%u, node links on ports %u-%u (map crc %08x)\n",
-                cfg.node_id, m.nodes.size(), lo, hi, m.nodes[cfg.node_id].link_port,
-                m.nodes[cfg.node_id].link_port + cfg.runtime.n_shards - 1, m.crc());
+    const u16 link = m.groups[cfg.group_id].members[cfg.member].link_port;
+    std::printf("cluster: group %u of %zu (member %u), slots %u-%u, node links on ports %u-%u while primary "
+                "(map crc %08x, placement epoch %llu)\n",
+                cfg.group_id, m.groups.size(), cfg.member, lo, hi, link, link + cfg.runtime.n_shards - 1, m.crc(),
+                (unsigned long long)m.epoch);
   }
   if (!cfg.data_dir.empty()) {
     std::printf("space uuid ");

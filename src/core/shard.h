@@ -25,16 +25,19 @@ class Shard {
 
   u16 id() const { return id_; }
   u16 owner_of(const ObjectID& id) const { return slots_.owner_of(id); }
-  // Cluster (docs/CLUSTER.md): slots another node owns are foreign here.
-  void set_cluster(const ClusterMap* map, u16 node) {
+  // Cluster (docs/CLUSTER.md): slots another replication group owns are
+  // foreign here. `member` is which of its group's members this node is.
+  void set_cluster(const ClusterMap* map, u16 group, u16 member) {
     cluster_ = map;
-    node_ = node;
+    group_ = group;
+    member_ = member;
   }
   const ClusterMap* cluster() const { return cluster_; }
-  u16 node() const { return node_; }
-  bool foreign_slot(u16 slot) const { return cluster_ != nullptr && cluster_->node_of[slot] != node_; }
+  u16 group() const { return group_; }
+  bool foreign_slot(u16 slot) const { return cluster_ != nullptr && cluster_->group_of[slot] != group_; }
   bool foreign(const ObjectID& id) const { return cluster_ != nullptr && foreign_slot(slot_of(id)); }
-  // Opens this shard's node links, once its state is recovered.
+  // Opens this shard's node links, once its state is recovered (or it is
+  // promoted: a standby has none).
   void start_links();
   const SlotMap& slots() const { return slots_; }
   // Creates mint IDs that this shard owns (docs/ROUTING.md).
@@ -375,7 +378,7 @@ class Shard {
   std::vector<Emit> emit_local_;
   std::vector<Emit> emit_running_;  // emit_local_ being run (keeps its memory)
   std::vector<Fifo<Emit>> emit_remote_;  // per destination shard
-  std::vector<Fifo<Emit>> emit_node_;    // per node link
+  std::vector<Fifo<Emit>> emit_node_;    // per node link (another group's shard)
   u64 emit_ready_count_ = 0;
   ObjectID cur_source_;  // source of the follow-up now running (OpCtx::source)
   Fifo<Emit> emit_wait_;  // sorted by lsn
@@ -384,7 +387,7 @@ class Shard {
   Checkpoint ckpt_;
 
   const ClusterMap* cluster_ = nullptr;
-  u16 node_ = 0;
+  u16 group_ = 0, member_ = 0;
   std::unique_ptr<NodeLinks> links_;
 };
 

@@ -1,6 +1,10 @@
 // Node links (internal, docs/CLUSTER.md): carry follow-ups between the
-// shards of different nodes. Each shard listens on link_port + its id and
-// keeps one outbound TCP connection to every shard of every other node.
+// shards of different replication groups. Each shard of a group's primary
+// listens on its member's link_port + its id, and keeps one outbound TCP
+// connection to every shard of every other group. A standby does not
+// listen. An outbound link tries the group's members in turn until one
+// accepts, so after a failover it finds the new primary by itself; the
+// placement map is not consulted or changed (failover is not migration).
 //
 // There are no acks. A follow-up is lost if its connection drops or is not
 // up yet. Every time a connection comes up, in either direction, the shard
@@ -28,11 +32,11 @@ class NodeLinks {
   static_assert(sizeof(Frame) == 64);
 
   // Opens the listener; call on the shard's thread.
-  NodeLinks(const ClusterMap& map, u16 node, u16 shard);
+  NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard);
   ~NodeLinks();
 
   u32 size() const { return static_cast<u32>(out_.size()); }
-  u32 link_of(u16 node, u16 shard) const { return base_[node] + shard; }
+  u32 link_of(u16 group, u16 shard) const { return base_[group] + shard; }
   bool up(u32 link) const;
   // Queued bytes are below the cap: push may add another frame.
   bool room(u32 link) const;
@@ -61,8 +65,9 @@ class NodeLinks {
   void close_in(u32 i);
   void try_listen(u64 now_ns);
 
-  u16 node_, shard_;
+  u16 group_, shard_;
   u32 crc_;
+  u64 epoch_;
   int epfd_ = -1;
   int listen_ = -1;
   u16 listen_port_ = 0;

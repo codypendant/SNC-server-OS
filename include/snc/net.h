@@ -192,9 +192,11 @@ class Client {
 };
 
 // Clustered spaces (docs/CLUSTER.md): fetches the cluster map from any node,
-// keeps a Client per node, and sends each request to the node, and the
-// shard on it, that owns its target. A single-node server works too (one
-// node owning every slot).
+// keeps a Client per replication group, and sends each request to the
+// group, and the shard in it, that owns its target. A single space works
+// too (one group owning every slot). Each group's Client connects to
+// whichever member answers as primary; with sessions it also follows the
+// group's failovers (docs/RETRIES.md), which never change the map.
 class ClusterClient {
  public:
   ClusterClient() = default;
@@ -202,26 +204,33 @@ class ClusterClient {
   ClusterClient(const ClusterClient&) = delete;
   ClusterClient& operator=(const ClusterClient&) = delete;
 
-  // Asks host:base_port for the cluster map, then connects to every node.
+  // Before connect: every group's Client gets a session (client_id), so
+  // it fails over to another member of its group and resends safely.
+  void enable_sessions(u64 client_id, int failover_ms = 30000, int request_timeout_ms = 5000);
+  // Asks host:base_port for the cluster map, then connects to every group.
   bool connect(const std::string& host, u16 base_port);
   const std::string& error() const { return error_; }
 
-  u16 node_count() const { return static_cast<u16>(nodes_.size()); }
-  u16 node_of(const ObjectID& id) const { return node_of_[slot_of(id)]; }
+  u16 group_count() const { return static_cast<u16>(groups_.size()); }
+  u16 group_of(const ObjectID& id) const { return group_of_[slot_of(id)]; }
   u32 map_crc() const { return crc_; }
-  Client& node(u16 n) { return *nodes_[n]; }
+  u64 epoch() const { return epoch_; }
+  Client& group(u16 g) { return *groups_[g]; }
 
   // Queues a request on the owner of h.target (a create with a null target
-  // goes to `create_node`).
-  void send(const wire::ReqHeader& h, ByteView args, u16 create_node = 0);
-  // Polls every node's client; waits up to timeout_ms for the first
-  // response. Returns responses handled, or -1 if a node's client failed.
+  // goes to `create_group`).
+  void send(const wire::ReqHeader& h, ByteView args, u16 create_group = 0);
+  // Polls every group's client; waits up to timeout_ms for the first
+  // response. Returns responses handled, or -1 if a group's client failed.
   int poll(Client::OnResponse on, void* ctx, int timeout_ms);
 
  private:
-  std::vector<std::unique_ptr<Client>> nodes_;
-  std::array<u8, kSlots> node_of_{};
+  std::vector<std::unique_ptr<Client>> groups_;
+  std::array<u8, kSlots> group_of_{};
   u32 crc_ = 0;
+  u64 epoch_ = 0;
+  u64 client_id_ = 0;
+  int failover_ms_ = 30000, request_timeout_ms_ = 5000;
   int epfd_ = -1;
   std::string error_;
 };
