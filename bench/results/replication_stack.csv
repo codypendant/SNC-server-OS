@@ -1,0 +1,25 @@
+engine,replica,config,rep,ops_s,latency_us
+snc,none,"net_bench 1 thread owner d512, p50",0,1062728,409.6
+snc,async,"net_bench 1 thread owner d512, p50",0,868308,458.8
+snc,sync,"net_bench 1 thread owner d512, p50",0,640103,671.7
+snc,none,"net_bench 1 thread owner d512, p50",1,1088105,409.6
+snc,async,"net_bench 1 thread owner d512, p50",1,869485,458.8
+snc,sync,"net_bench 1 thread owner d512, p50",1,592210,704.5
+snc,none,"net_bench 1 thread owner d512, p50",2,1040047,409.6
+snc,async,"net_bench 1 thread owner d512, p50",2,847706,466.9
+snc,sync,"net_bench 1 thread owner d512, p50",2,672593,655.4
+redis,none,"AOF always, p50",0,129943,6611.0
+redis,none,"AOF always, p50",1,120016,6475.0
+redis,none,"AOF always, p50",2,129388,6631.0
+redis,async,"AOF always on both, p50",0,98652,8551.0
+redis,async,"AOF always on both, p50",1,104077,8099.0
+redis,async,"AOF always on both, p50",2,105870,8223.0
+postgres,none,"pg_mixed_pipeline16.sql -c 8, mean",0,30683,4172.0
+postgres,none,"pg_mixed_pipeline16.sql -c 8, mean",1,37364,3426.0
+postgres,none,"pg_mixed_pipeline16.sql -c 8, mean",2,34211,3742.0
+postgres,async,"pg_mixed_pipeline16.sql -c 8, mean",0,39572,3235.0
+postgres,async,"pg_mixed_pipeline16.sql -c 8, mean",1,37107,3449.0
+postgres,async,"pg_mixed_pipeline16.sql -c 8, mean",2,37673,3398.0
+postgres,sync,"pg_mixed_pipeline16.sql -c 8, mean",0,28676,4464.0
+postgres,sync,"pg_mixed_pipeline16.sql -c 8, mean",1,28994,4415.0
+postgres,sync,"pg_mixed_pipeline16.sql -c 8, mean",2,27984,4574.0

@@ -203,7 +203,8 @@ void Engine::recover() {
                                          : " (start with init to create it)"));
     }
     make_dirs(dir);
-    sb = new_superblock(random_uuid());
+    const bool given = cfg_.init_uuid != Uuid{};
+    sb = new_superblock(given ? cfg_.init_uuid : random_uuid());
     recovery_.fresh = true;
   }
   sb_ = *sb;
@@ -364,6 +365,52 @@ void Engine::recover() {
   wc.direct = cfg_.wal_direct;
   spares_ = std::make_unique<SegmentPreparer>(dir, n, cfg_.wal_segment_bytes, cfg_.wal_direct);
   wc.spares = spares_.get();
+
+  // IDs from leases this superblock never handed out can arrive by
+  // replication (a standby being promoted): mint above all of them.
+  {
+    std::atomic<u64> max_seen{0};
+    rt_->run_on_all([&](u16) {
+      u64 m = current_shard()->max_lease_seen();
+      u64 cur = max_seen.load();
+      while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
+    });
+    if (max_seen.load() >= g_state->hooks.lease_base) {
+      u64 base = max_seen.load() + 1;
+      sb_.next_lease = base + n;
+      ++sb_.generation;
+      write_superblock(dir, sb_);
+      rt_->run_on_all([&](u16 s) { current_shard()->set_lease(base + s); });
+    }
+  }
+
+  if (!cfg_.replica_host.empty() || cfg_.standby) {
+    const u32 crc = repl::slot_map_crc(slots_);
+    rt_->run_on_all([&](u16 s) {
+      Shard::ReplicaConfig rc;
+      if (cfg_.standby) {
+        rc.standby = true;
+        rc.receiver.host = cfg_.standby_host;
+        rc.receiver.port = static_cast<u16>(cfg_.replica_port + s);
+        rc.receiver.uuid = uuid_;
+        rc.receiver.shard = s;
+        rc.receiver.n_shards = n;
+        rc.receiver.slot_crc = crc;
+      } else {
+        rc.primary = true;
+        rc.sender.host = cfg_.replica_host;
+        rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
+        rc.sender.uuid = uuid_;
+        rc.sender.shard = s;
+        rc.sender.n_shards = n;
+        rc.sender.slot_crc = crc;
+        rc.sender.retain_bytes = cfg_.replica_retain_bytes;
+        rc.sync = cfg_.replica_sync;
+        rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
+      }
+      current_shard()->set_replication(rc);
+    });
+  }
   rt_->run_on_all([&](u16 s) { current_shard()->finish_recovery(wc, next_lsn[s]); });
   recovery_.index_rebuild_s = since(t3);
 
@@ -419,6 +466,17 @@ CheckpointReport Engine::checkpoint() {
   write_manifest(dir, m);
   u64 old = sb_.active_ckpt;
   sb_.active_ckpt = seq;
+  // A standby has installed IDs minted under its primary's leases; once the
+  // checkpoint drops their records, only the superblock remembers them.
+  {
+    std::atomic<u64> max_seen{0};
+    rt_->run_on_all([&](u16) {
+      u64 m = current_shard()->max_lease_seen();
+      u64 cur = max_seen.load();
+      while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
+    });
+    sb_.next_lease = std::max(sb_.next_lease, max_seen.load() + 1);
+  }
   ++sb_.generation;
   write_superblock(dir, sb_);
 

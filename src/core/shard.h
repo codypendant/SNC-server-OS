@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "replication.h"
 #include "snc/snc.h"
 
 namespace snc {
@@ -48,6 +49,23 @@ class Shard {
   void install(const WalRecord& r, const u8* payload);
   // After replay: rebuild the index and open this shard's WAL stream.
   void finish_recovery(const WalConfig& wal_cfg, u64 next_lsn);
+  // Highest mint lease among the IDs installed so far (0 = none).
+  u64 max_lease_seen() const { return max_lease_seen_; }
+  // Mint new IDs from this lease from now on.
+  void set_lease(u64 lease) { minter_ = Minter(lease); }
+
+  // ---- Replication (docs/REPLICATION.md); call before finish_recovery ----
+  struct ReplicaConfig {
+    // Primary: ship the WAL to a standby.
+    bool primary = false;
+    repl::Sender::Config sender;
+    bool sync = true;           // durable completions wait for the standby's ack
+    u64 timeout_ns = 0;         // sync: continue without the standby after this long (0 = never)
+    // Standby: receive, install and log the primary's records.
+    bool standby = false;
+    repl::Receiver::Config receiver;
+  };
+  void set_replication(const ReplicaConfig& c) { repl_cfg_ = c; }
 
   struct CheckpointResult {
     u64 start_lsn = 0, objects = 0, bytes = 0;
@@ -182,7 +200,11 @@ class Shard {
     std::string path;
   };
 
-  bool durable(u64 lsn) const { return wal_ == nullptr || lsn <= wal_->durable_lsn(); }
+  bool durable(u64 lsn) const {
+    if (wal_ == nullptr) return true;
+    if (lsn > wal_->durable_lsn()) return false;
+    return !repl_hold_ || lsn <= sender_->acked_lsn();
+  }
 
   void run(MsgKind kind, ObjectID target, u32 op_or_type, ByteView args, const ExecOptions& opts,
            RunOut& out);
@@ -213,6 +235,11 @@ class Shard {
   void defer(Waiter&& w);
   void release_waiters();
   static void on_wal_durable(void* ctx);
+
+  // Replication.
+  static void on_wal_flush(void* ctx, const u8* recs, u32 len, u64 first_lsn, u64 last_lsn);
+  static bool apply_replicated(void* ctx, const u8* rec);
+  bool poll_replication();
 
   // Dispatch.
   void send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type, ByteView args,
@@ -253,6 +280,13 @@ class Shard {
   std::unordered_map<u32, IndexMap> indexes_;
 
   std::unique_ptr<WalStream> wal_;
+  u64 max_lease_seen_ = 0;
+  ReplicaConfig repl_cfg_;
+  std::unique_ptr<repl::Sender> sender_;
+  std::unique_ptr<repl::Receiver> receiver_;
+  bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
+  bool repl_degraded_ = false;  // sync, but continuing without the standby
+  int repl_epfd_ = -1;          // the replication sockets, for idle wake-ups
   std::deque<Waiter> waiters_;  // sorted by lsn
 
   // FIFO over a vector that keeps its memory: std::deque allocates and

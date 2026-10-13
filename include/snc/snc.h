@@ -153,6 +153,16 @@ struct ShardStats {
   u64 emits_in_flight = 0;       // queued here or waiting for durability
   WalStream::Stats wal;
   u64 wal_durable_lsn = 0;
+  // Replication (docs/REPLICATION.md).
+  u8 repl_role = 0;            // 0 none, 1 primary, 2 standby
+  bool repl_live = false;      // link to the other side is up
+  bool repl_degraded = false;  // primary, sync: continuing without the standby
+  bool repl_lost = false;      // primary: the standby must be reseeded
+  u64 repl_acked_lsn = 0;      // primary: the standby is durable up to here
+  u64 repl_bytes = 0;          // primary: bytes shipped
+  u64 repl_retained_bytes = 0; // primary: unacked records kept in memory
+  u64 repl_records = 0;        // standby: records applied
+  u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
   bool wal_direct = false;
 };
 
@@ -202,6 +212,25 @@ class Engine {
     u32 group_commit_us = 50;
     bool wal_sync = true;         // false = wal_sync none (development only)
     bool wal_direct = true;
+    // With init and no superblock yet: create the space with this UUID
+    // instead of a random one (all zero = random). A standby is created
+    // with its primary's UUID.
+    Uuid init_uuid{};
+
+    // Replication (docs/REPLICATION.md). Needs a data_dir; both sides need
+    // the same shard count.
+    // Primary: ship the WAL to the standby at replica_host, shard i to port
+    // replica_port + i.
+    std::string replica_host;
+    u16 replica_port = 0;
+    bool replica_sync = true;           // durable acks wait for the standby
+    u32 replica_timeout_ms = 2000;      // sync: continue without it after this (0 = never)
+    u64 replica_retain_bytes = 1ull << 30;  // per shard, unacked records kept for catch-up
+    // Standby: listen on standby_host, shard i on port replica_port + i;
+    // install and log what the primary sends; serve no ops (E_STANDBY).
+    // Promote by stopping it and starting a primary on the same data_dir.
+    bool standby = false;
+    std::string standby_host = "0.0.0.0";
   };
 
   explicit Engine(const Config& cfg);
@@ -221,6 +250,8 @@ class Engine {
   // Fuzzy checkpoint of every shard (spec section 12). Control path; blocks.
   CheckpointReport checkpoint();
   const RecoveryReport& recovery() const { return recovery_; }
+  // The space's UUID (after start, with a data_dir).
+  const Uuid& space_uuid() const { return uuid_; }
 
   NativeRuntime& runtime() { return *rt_; }
   u16 shard_count() const { return cfg_.runtime.n_shards; }

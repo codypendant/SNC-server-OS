@@ -5,6 +5,15 @@
 // Usage: snc_server [--shards N] [--cpus 0,1,...] [--host H] [--port P]
 //                   [--objects N] [--data-dir DIR] [--group-commit-us N]
 //                   [--no-mint-local] [--spin] [--pages 4k|thp|hugetlb]
+//                   [--replica-of HOST:PORT [--async-replica] [--replica-timeout-ms N]]
+//                   [--standby PORT [--standby-host H] [--space-uuid HEX]]
+//
+// Replication (docs/REPLICATION.md): a primary started with --replica-of
+// ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
+// listens on PORT+i, keeps a copy and serves no ops. A new standby is
+// created with its primary's space UUID (printed at start). Promote a
+// standby by stopping it and starting it without --standby on the same
+// --data-dir. Nothing fences the old primary: make sure it is down.
 #include <signal.h>
 
 #include <cstdio>
@@ -28,6 +37,15 @@ std::vector<int> parse_cpus(const char* s) {
     if (*p == ',') ++p;
   }
   return v;
+}
+
+bool parse_uuid(const char* s, Uuid& u) {
+  std::string h;
+  for (const char* p = s; *p; ++p)
+    if (*p != '-') h += *p;
+  if (h.size() != 32) return false;
+  for (int i = 0; i < 16; ++i) u[i] = static_cast<u8>(std::stoul(h.substr(2 * i, 2), nullptr, 16));
+  return true;
 }
 
 }  // namespace
@@ -59,6 +77,29 @@ int main(int argc, char** argv) {
     else if (k == "--group-commit-us") cfg.group_commit_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-mint-local") cfg.mint_local = false;
     else if (k == "--spin") cfg.runtime.spin_forever = true;
+    else if (k == "--replica-of") {
+      std::string v = val();
+      auto colon = v.rfind(':');
+      if (colon == std::string::npos) {
+        std::fprintf(stderr, "--replica-of takes HOST:PORT\n");
+        return 2;
+      }
+      cfg.replica_host = v.substr(0, colon);
+      cfg.replica_port = static_cast<u16>(std::atoi(v.c_str() + colon + 1));
+    }
+    else if (k == "--async-replica") cfg.replica_sync = false;
+    else if (k == "--replica-timeout-ms") cfg.replica_timeout_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--standby") {
+      cfg.standby = true;
+      cfg.replica_port = static_cast<u16>(std::atoi(val()));
+    }
+    else if (k == "--standby-host") cfg.standby_host = val();
+    else if (k == "--space-uuid") {
+      if (!parse_uuid(val(), cfg.init_uuid)) {
+        std::fprintf(stderr, "--space-uuid takes 32 hex digits\n");
+        return 2;
+      }
+    }
     else if (k == "--pages") {
       std::string v = val();
       if (v == "4k") cfg.runtime.pages = PageMode::SMALL;
@@ -97,6 +138,16 @@ int main(int argc, char** argv) {
               cfg.runtime.n_shards, ncfg.base_port, ncfg.base_port + cfg.runtime.n_shards - 1,
               cfg.data_dir.empty() ? "none (in memory)" : "DURABLE (WAL, RWF_DSYNC)",
               cfg.mint_local);
+  if (!cfg.data_dir.empty()) {
+    std::printf("space uuid ");
+    for (u8 b : eng.space_uuid()) std::printf("%02x", b);
+    if (cfg.standby) std::printf("  standby, listening on %u-%u", cfg.replica_port,
+                                 cfg.replica_port + cfg.runtime.n_shards - 1);
+    else if (!cfg.replica_host.empty())
+      std::printf("  replicating to %s:%u (%s)", cfg.replica_host.c_str(), cfg.replica_port,
+                  cfg.replica_sync ? "sync" : "async");
+    std::printf("\n");
+  }
   std::fflush(stdout);
 
   int sig = 0;
@@ -118,6 +169,19 @@ int main(int argc, char** argv) {
     sends += st.conn.send_calls;
     frames += st.conn.frames_in;
     for (u16 d = 0; d < cfg.runtime.n_shards; ++d) ring += eng.runtime().ring_stats(s, d).msgs;
+  }
+  for (u16 s = 0; s < cfg.runtime.n_shards; ++s) {
+    ShardStats ss = eng.stats(s);
+    if (ss.repl_role == 1) {
+      std::printf("shard %u: replication primary, %s%s%s, acked LSN %llu, %.1f MiB shipped, "
+                  "%llu connects\n", s, ss.repl_live ? "live" : "down",
+                  ss.repl_degraded ? ", degraded" : "", ss.repl_lost ? ", LOST" : "",
+                  (unsigned long long)ss.repl_acked_lsn, ss.repl_bytes / 1048576.0,
+                  (unsigned long long)ss.repl_connects);
+    } else if (ss.repl_role == 2) {
+      std::printf("shard %u: standby, %llu records applied, %llu connects\n", s,
+                  (unsigned long long)ss.repl_records, (unsigned long long)ss.repl_connects);
+    }
   }
   std::printf("total: requests %llu forwarded %.1f%% frames/recv %.1f frames/send %.1f "
               "ring msgs/request %.2f\n",

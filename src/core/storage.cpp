@@ -547,6 +547,24 @@ u64 WalStream::append(RecType type, u32 type_id, const ObjectID& id, u64 version
   return lsn;
 }
 
+bool WalStream::append_raw(const u8* rec) {
+  WalRecord h;
+  std::memcpy(&h, rec, sizeof(h));
+  if (h.lsn != next_lsn_) return false;
+  ensure_capacity(h.total_len);
+  std::memcpy(active_ + active_len_, rec, h.total_len);
+  ++next_lsn_;
+  if (active_len_ == 0) {
+    active_first_lsn_ = h.lsn;
+    active_since_ns_ = sri_now_ns();
+  }
+  active_len_ += h.total_len;
+  active_last_lsn_ = h.lsn;
+  ++stats_.records;
+  stats_.record_bytes += h.total_len;
+  return true;
+}
+
 bool WalStream::poll(u64 now_ns, bool force) {
   if (!inflight_ && active_len_ > 0 &&
       (force || active_len_ >= cfg_.flush_bytes ||
@@ -557,6 +575,7 @@ bool WalStream::poll(u64 now_ns, bool force) {
 }
 
 void WalStream::start_flush() {
+  if (on_flush) on_flush(on_flush_ctx, active_, active_len_, active_first_lsn_, active_last_lsn_);
   u32 padded = (active_len_ + kBlock - 1) / kBlock * kBlock;
   std::memset(active_ + active_len_, 0, padded - active_len_);
   if (seg_off_ > kBlock && seg_off_ + padded > cfg_.segment_bytes) {

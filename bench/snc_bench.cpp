@@ -10,6 +10,11 @@
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
 //                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch] [--no-batch]
 //                  [--pages 4k|thp|hugetlb] [--no-restart]
+//                  [--replica-of HOST:PORT [--async-replica]]
+//
+// With --replica-of the space ships its WAL to a standby (docs/REPLICATION.md)
+// started as: snc_server --shards N --standby PORT --data-dir DIR
+//             --space-uuid 5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -57,6 +62,9 @@ struct Args {
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
   int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
   int xfer_local = -1;   // % of transfers to an account on the source's shard (-1: uniform)
+  std::string replica_host;
+  u16 replica_port = 0;
+  bool replica_sync = true;
 };
 
 struct ShardDriver {
@@ -276,6 +284,13 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-restart") a.restart = false;
     else if (k == "--no-prefetch") a.prefetch = false;
     else if (k == "--no-batch") a.batch = false;
+    else if (k == "--replica-of") {
+      std::string v = val();
+      auto colon = v.rfind(':');
+      a.replica_host = v.substr(0, colon);
+      a.replica_port = static_cast<u16>(std::atoi(v.c_str() + colon + 1));
+    }
+    else if (k == "--async-replica") a.replica_sync = false;
     else if (k == "--pages") {
       std::string v = val();
       if (v == "4k") a.pages = PageMode::SMALL;
@@ -342,6 +357,13 @@ int main(int argc, char** argv) {
   cfg.group_commit_us = args.group_commit_us;
   cfg.wal_direct = args.direct;
   cfg.wal_sync = args.sync;
+  if (!args.replica_host.empty()) {
+    cfg.replica_host = args.replica_host;
+    cfg.replica_port = args.replica_port;
+    cfg.replica_sync = args.replica_sync;
+    cfg.replica_timeout_ms = 0;  // a lost standby should show, not be skipped
+    cfg.init_uuid.fill(0x5a);    // the standby is created with the same UUID
+  }
   const bool durable = !args.data_dir.empty();
   u64 rss0 = rss_bytes();
   auto eng_ptr = std::make_unique<Engine>(cfg);

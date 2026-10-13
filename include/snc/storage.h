@@ -177,6 +177,12 @@ class WalStream {
   u64 append(RecType type, u32 type_id, const ObjectID& id, u64 version, u16 schema_ver,
              const u8* payload, u32 payload_len, u16 flags = 0);
 
+  // Replication (docs/REPLICATION.md), standby side: appends a record
+  // received from the primary verbatim, keeping its LSN, flags and CRC.
+  // `rec` must have passed check_record. Returns false, appending nothing,
+  // if its LSN is not next_lsn().
+  bool append_raw(const u8* rec);
+
   // Call once per loop iteration. Starts a flush when due. Returns true while
   // unflushed records exist, so the loop keeps polling instead of sleeping.
   bool poll(u64 now_ns, bool force);
@@ -205,6 +211,12 @@ class WalStream {
   // Set by the owner: called on the shard thread whenever durable_lsn advances.
   void (*on_durable)(void* ctx) = nullptr;
   void* on_durable_ctx = nullptr;
+  // Set by the owner: called with the records of each flush as it starts
+  // (whole records, in LSN order, no padding), so replication can ship them
+  // while the local write is in flight. The bytes are valid only during the
+  // call.
+  void (*on_flush)(void* ctx, const u8* recs, u32 len, u64 first_lsn, u64 last_lsn) = nullptr;
+  void* on_flush_ctx = nullptr;
 
  private:
   static void flush_done(void* ctx, int result);

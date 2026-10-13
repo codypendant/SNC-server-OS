@@ -4,8 +4,8 @@ The handoff's central question is whether persistent application objects
 run as directly executable state can cut the overhead of the usual
 application/database boundary. The thread-pool baseline in the other
 reports is an in-process map, not a database, so it cannot answer that.
-This report runs the same accounts workload on PostgreSQL and Redis on
-the same VM, cores and disk.
+This report runs the same accounts workload on PostgreSQL, Redis and
+ScyllaDB on the same VM, cores and disk.
 
 ## Method
 
@@ -37,6 +37,8 @@ the same VM, cores and disk.
 | Redis, pipelined | 249K | 129K |
 | PostgreSQL, pipelined | 46K | 35K |
 | PostgreSQL, one statement per round trip | 39K | 23K, mean 0.69 ms |
+| ScyllaDB, counter deposits | 45K | 62K, p99 17 ms |
+| ScyllaDB, lightweight-transaction deposits | 9K | 11K, p99 85 ms |
 
 SNC does about 10× Redis's throughput and 50× PostgreSQL's in memory, and
 9× and 35× durable.
@@ -65,6 +67,42 @@ SNC does about 10× Redis's throughput and 50× PostgreSQL's in memory, and
    server cores at 99-100% (Redis) and 82-93% (PostgreSQL, durable, the
    rest waiting on fsync) and the client cores at 12-21%, so the servers,
    not the clients, set the rate.
+
+## ScyllaDB
+
+ScyllaDB is in the handoff's reference list because it is the production
+system closest to SNC's runtime model: shard-per-core on Seastar, each
+core owning a slice of the data, no locks between cores. It is the one
+reference system that runs here (FaRM, Rama and IBM i do not).
+
+- **Setup.** `scylladb/scylla:6.2` in Docker on cores 0-1 (`--smp 2`,
+  6 GB), host network. A Go load generator on cores 2-3 using ScyllaDB's
+  shard-aware driver, so each request goes to the core that owns its
+  partition, as SNC's owner routing does. 256 requests in flight, 1M
+  accounts, the same 50/50 mix. Durable means `--commitlog-sync batch`
+  (acknowledge after the commitlog fsync); memory is the default periodic
+  sync. `bench/conventional/scylla/run.sh`, 3 runs after a warm-up,
+  medians; `bench/results/conventional_scylla.csv`.
+- **CQL has no atomic read-modify-write on regular columns**, so a
+  deposit is modelled three ways. *Counter*: balance and op count in a
+  counter table, closest in cost to SNC's deposit but not returning the
+  new values. *LWT*: `UPDATE ... IF balance = ?` after a read, which is
+  SNC's semantics, at the price of Paxos. *Blind*: an unconditional write
+  of new values, not atomic, measured only as a floor (41K memory, 53K
+  durable; slower than counters, likely because the email index makes
+  each write read the old row first).
+- **Result.** About 50K ops/s with counters in either mode, about 10K
+  with LWT. SNC's owner-routed numbers are about 50× and 20× that. The
+  memory and durable runs land within noise of each other: with batch
+  commitlog sync ScyllaDB groups fsyncs much as SNC does, and its two
+  cores are busy with CQL parsing, the coordinator path and the storage
+  engine rather than waiting on the disk.
+- **What it shows.** Shard-per-core alone does not close the gap; ScyllaDB
+  has it and still lands near PostgreSQL here. The difference is what runs
+  on the owning core: a general query and storage pipeline (CQL, memtables,
+  SSTables, compaction) versus a registered handler on an object in place.
+  ScyllaDB gives far more (replication, a cluster, LSM storage larger than
+  memory), so as above this measures the boundary, not the databases.
 
 ## Limits
 
