@@ -1,6 +1,10 @@
 // Test helpers: run ops on shard threads from the test's main thread.
 #pragma once
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #include <functional>
 #include <latch>
 #include <memory>
@@ -10,6 +14,32 @@
 #include "snc/snc.h"
 
 namespace snc::test {
+
+// A base port in [lo, hi) with n consecutive ports free to bind now,
+// starting from a pid-dependent offset so parallel tests spread out. Keep
+// ranges below the ephemeral ports (32768 up), where outgoing connections
+// would take them.
+inline u16 free_ports(u16 lo, u16 hi, u16 n) {
+  const u32 span = static_cast<u32>(hi - lo - n);
+  for (u32 k = 0; k < span; k += n) {
+    const u16 base = static_cast<u16>(lo + (static_cast<u32>(::getpid()) * 7919u + k) % span);
+    bool ok = true;
+    for (u16 i = 0; i < n && ok; ++i) {
+      const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+      int one = 1;
+      ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+      sockaddr_in a{};
+      a.sin_family = AF_INET;
+      a.sin_addr.s_addr = htonl(INADDR_ANY);
+      a.sin_port = htons(static_cast<u16>(base + i));
+      ok = ::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) == 0;
+      ::close(fd);
+    }
+    if (ok) return base;
+  }
+  CHECK(false);
+  return 0;
+}
 
 // Issues `total` ops from one shard with at most `window` outstanding,
 // without recursing from completions (local completions run inline).

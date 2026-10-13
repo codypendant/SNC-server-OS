@@ -11,6 +11,7 @@
 //   request to the connection of the shard that owns its target.
 #pragma once
 
+#include <array>
 #include <memory>
 #include <deque>
 #include <string>
@@ -148,6 +149,8 @@ class Client {
   int poll(OnResponse on, void* ctx, int timeout_ms);
 
   u64 forwarded() const { return forwarded_; }
+  // Readable when a response may be waiting (for polling several clients).
+  int wait_fd() const { return epfd_; }
 
  private:
   struct Link {
@@ -185,6 +188,41 @@ class Client {
   std::vector<Link> links_;
   int epfd_ = -1;
   u64 forwarded_ = 0;
+  std::string error_;
+};
+
+// Clustered spaces (docs/CLUSTER.md): fetches the cluster map from any node,
+// keeps a Client per node, and sends each request to the node, and the
+// shard on it, that owns its target. A single-node server works too (one
+// node owning every slot).
+class ClusterClient {
+ public:
+  ClusterClient() = default;
+  ~ClusterClient();
+  ClusterClient(const ClusterClient&) = delete;
+  ClusterClient& operator=(const ClusterClient&) = delete;
+
+  // Asks host:base_port for the cluster map, then connects to every node.
+  bool connect(const std::string& host, u16 base_port);
+  const std::string& error() const { return error_; }
+
+  u16 node_count() const { return static_cast<u16>(nodes_.size()); }
+  u16 node_of(const ObjectID& id) const { return node_of_[slot_of(id)]; }
+  u32 map_crc() const { return crc_; }
+  Client& node(u16 n) { return *nodes_[n]; }
+
+  // Queues a request on the owner of h.target (a create with a null target
+  // goes to `create_node`).
+  void send(const wire::ReqHeader& h, ByteView args, u16 create_node = 0);
+  // Polls every node's client; waits up to timeout_ms for the first
+  // response. Returns responses handled, or -1 if a node's client failed.
+  int poll(Client::OnResponse on, void* ctx, int timeout_ms);
+
+ private:
+  std::vector<std::unique_ptr<Client>> nodes_;
+  std::array<u8, kSlots> node_of_{};
+  u32 crc_ = 0;
+  int epfd_ = -1;
   std::string error_;
 };
 

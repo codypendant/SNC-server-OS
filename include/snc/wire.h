@@ -15,6 +15,7 @@ enum class Kind : u8 {
   CREATE = 2,    // create(type = op, args); a non-null target asks for create_near(target)
   DELETE = 3,    // remove(target)
   TOPOLOGY = 4,  // returns a TopologyBody: slot map and shard count
+  CLUSTER = 5,   // returns a ClusterBody (docs/CLUSTER.md); n_nodes 0 when not clustered
   RESP = 16,
 };
 
@@ -70,6 +71,21 @@ struct TopologyBody {
   u16 reserved;
   u16 owner[kSlots];
 };
+
+// Body of a CLUSTER response: the header, then n_nodes ClusterEntry.
+struct ClusterBody {
+  u32 crc;
+  u16 n_nodes;
+  u16 node_id;  // the node answering
+  u8 node_of[kSlots];
+};
+struct ClusterEntry {
+  char host[64];  // NUL-terminated
+  u16 client_port;
+  u16 n_shards;
+  u32 reserved;
+};
+static_assert(sizeof(ClusterEntry) == 72);
 
 inline constexpr u32 kMaxFrame = sizeof(ReqHeader) + kMaxArgs;
 

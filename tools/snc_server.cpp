@@ -11,7 +11,7 @@
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
-//                   [--cluster HOST:LINK_PORT:SHARDS,... --node I]
+//                   [--cluster HOST:LINK_PORT:SHARDS[:CLIENT_PORT],... --node I]
 //
 // Replication (docs/REPLICATION.md): a primary started with --replica-of
 // ships shard i's WAL to HOST:PORT+i. A standby started with --standby PORT
@@ -42,6 +42,8 @@
 // each, and --node says which one this is; it owns a fixed share of the
 // slots, refuses ops on the others' objects (E_WRONG_NODE), and sends
 // follow-ups for them over node links (shard i listens on LINK_PORT + i).
+// A CLUSTER request returns the map with each node's CLIENT_PORT, so that
+// net::ClusterClient sends each request to its owner.
 #include <signal.h>
 
 #include <algorithm>
@@ -256,6 +258,10 @@ int main(int argc, char** argv) {
   net::NetServer server(ncfg, cfg.runtime.n_shards);
   cfg.app_poll = net::NetServer::poll_hook;
   cfg.app_user = &server;
+  // Its own client port is --port unless the list says otherwise.
+  if (!cfg.cluster.empty() && cfg.node_id < cfg.cluster.size() && cfg.cluster[cfg.node_id].client_port == 0) {
+    cfg.cluster[cfg.node_id].client_port = ncfg.base_port;
+  }
   Engine eng(cfg);
   eng.start();
   std::printf("snc_server shards=%u ports %u-%u durability=%s mint_local=%d\n",

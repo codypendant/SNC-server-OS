@@ -1769,6 +1769,8 @@ void index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompletion d
 
 u16 owner_of(const ObjectID& id) { return tl_shard->owner_of(id); }
 const SlotMap& slot_map() { return tl_shard->slots(); }
+const ClusterMap* cluster_map() { return tl_shard->cluster(); }
+u16 node_id() { return tl_shard->node(); }
 void prefetch(const ObjectID* ids, u32 n) { tl_shard->prefetch(ids, n); }
 
 }  // namespace snc

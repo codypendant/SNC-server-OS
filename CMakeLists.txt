@@ -32,6 +32,7 @@ set(SNC_CORE_SOURCES
   src/net/conn_set.cpp
   src/net/server.cpp
   src/net/client.cpp
+  src/net/cluster_client.cpp
   src/types/account.cpp)
 
 add_library(snc_core ${SNC_CORE_SOURCES} src/native/runtime.cpp)

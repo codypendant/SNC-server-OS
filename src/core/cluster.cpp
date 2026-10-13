@@ -42,18 +42,34 @@ std::vector<ClusterNode> parse_cluster(const std::string& text) {
     std::size_t end = text.find(',', at);
     if (end == std::string::npos) end = text.size();
     const std::string e = text.substr(at, end - at);
-    const std::size_t c2 = e.rfind(':');
-    const std::size_t c1 = c2 == std::string::npos || c2 == 0 ? std::string::npos : e.rfind(':', c2 - 1);
-    if (c1 == std::string::npos) throw std::invalid_argument("cluster: expected host:port:shards, got '" + e + "'");
+    // host:link_port:shards[:client_port]; the host may not contain ':'.
+    std::vector<std::string> f;
+    for (std::size_t p = 0;;) {
+      const std::size_t q = e.find(':', p);
+      f.push_back(e.substr(p, q == std::string::npos ? std::string::npos : q - p));
+      if (q == std::string::npos) break;
+      p = q + 1;
+    }
+    if (f.size() != 3 && f.size() != 4) {
+      throw std::invalid_argument("cluster: expected host:link_port:shards[:client_port], got '" + e + "'");
+    }
     ClusterNode n;
-    n.host = e.substr(0, c1);
-    const unsigned long port = std::stoul(e.substr(c1 + 1, c2 - c1 - 1));
-    const unsigned long shards = std::stoul(e.substr(c2 + 1));
-    if (n.host.empty() || port == 0 || port > 65535 || shards == 0 || shards > kMaxShards) {
+    n.host = f[0];
+    unsigned long port = 0, shards = 0, client = 0;
+    try {
+      port = std::stoul(f[1]);
+      shards = std::stoul(f[2]);
+      if (f.size() == 4) client = std::stoul(f[3]);
+    } catch (const std::exception&) {
+      throw std::invalid_argument("cluster: bad number in '" + e + "'");
+    }
+    if (n.host.empty() || port == 0 || port > 65535 || shards == 0 || shards > kMaxShards ||
+        client > 65535) {
       throw std::invalid_argument("cluster: bad entry '" + e + "'");
     }
     n.link_port = static_cast<u16>(port);
     n.n_shards = static_cast<u16>(shards);
+    n.client_port = static_cast<u16>(client);
     out.push_back(n);
     at = end + 1;
   }

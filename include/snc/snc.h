@@ -65,6 +65,10 @@ void prefetch(const ObjectID* ids, u32 n);
 u16 owner_of(const ObjectID& id);
 // The slot map this shard routes with. Valid on a worker thread.
 const SlotMap& slot_map();
+// Clustered (docs/CLUSTER.md): the cluster map and this node's id; null
+// when the engine is a single node.
+const ClusterMap* cluster_map();
+u16 node_id();
 
 // Handler-facing context (spec section 6, "What apply may do").
 class OpCtx {

@@ -11,7 +11,7 @@
 #include <map>
 #include <string>
 
-#include "check.h"
+#include "harness.h"
 #include "snc/net.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
@@ -220,7 +220,7 @@ void run(const std::string& data_dir, u16 port) {
 
 int main() {
   register_type();
-  u16 port = static_cast<u16>(20000 + (getpid() % 20000));
+  u16 port = test::free_ports(20000, 26000, 20);
   run("", port);
   char tmpl[] = "/tmp/snc-test-net-XXXXXX";
   CHECK(mkdtemp(tmpl) != nullptr);

@@ -15,8 +15,11 @@ same node list:
 
 ```
 snc_server --shards 4 --port 7000 --data-dir /d0 \
-  --cluster 10.0.0.1:7100:4,10.0.0.2:7100:4,10.0.0.3:7100:8 --node 0
+  --cluster 10.0.0.1:7100:4:7000,10.0.0.2:7100:4:7000,10.0.0.3:7100:8:7000 --node 0
 ```
+
+Each entry is `host:link_port:shards:client_port`; the client port may be
+left out, but then clients cannot be routed to that node.
 
 (`Engine::Config::cluster` and `node_id` in the library.) The map is fixed
 while running. Its crc covers the assignment and shard counts, not the
@@ -28,9 +31,13 @@ addresses; a node refuses follow-ups from a peer whose crc differs.
   create never crosses the network. `create_near` an object of another
   node is refused.
 - **Ops on another node's object** are refused with `E_WRONG_NODE`. The
-  client must send them to the owner. (Clients that route by the map, a
-  `TOPOLOGY` request, and forwarding reads for out-of-date clients come
-  with the directory, milestone 2.)
+  client must send them to the owner. Forwarding reads for out-of-date
+  clients comes with the directory (milestone 2), when the map can change.
+- **Clients route by the map.** A `CLUSTER` request (wire kind 5) returns
+  the map, its crc and every node's address and client port.
+  `net::ClusterClient` fetches it from any node, keeps one `Client` per
+  node, and sends each request to the owning node and, on it, the owning
+  shard.
 - **Index lookups** search only the node they are sent to.
 
 ## Follow-ups between nodes
@@ -73,7 +80,10 @@ others keep sending to it, and restarted. Once nothing is in flight:
 - no outbox or inbox entry is left on any node;
 - every account matches the transfers acknowledged, apart from the
   handful the killed node acknowledged in the instant before the kill,
-  which its log (written after each ack) can miss.
+  which its log (written after each ack) can miss;
+- a `ClusterClient` connected to one node reads all 360 accounts, each
+  from its owner (none refused, none forwarded between shards), and a
+  read sent to the wrong node gets `E_WRONG_NODE`.
 
 A typical run: about 20,000 transfers acknowledged, 30,000 follow-ups
 sent between nodes per node, several thousand dropped while node 1 was

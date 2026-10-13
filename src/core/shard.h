@@ -30,6 +30,8 @@ class Shard {
     cluster_ = map;
     node_ = node;
   }
+  const ClusterMap* cluster() const { return cluster_; }
+  u16 node() const { return node_; }
   bool foreign_slot(u16 slot) const { return cluster_ != nullptr && cluster_->node_of[slot] != node_; }
   bool foreign(const ObjectID& id) const { return cluster_ != nullptr && foreign_slot(slot_of(id)); }
   // Opens this shard's node links, once its state is recovered.

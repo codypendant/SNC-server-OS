@@ -22,6 +22,7 @@
 
 #include "harness.h"
 #include "snc/cluster.h"
+#include "snc/net.h"
 #include "snc/types/account.h"
 
 using namespace snc;
@@ -54,7 +55,10 @@ std::string read_file(const std::string& path) {
 
 std::vector<ClusterNode> cluster(u16 port_base) {
   std::vector<ClusterNode> c;
-  for (u32 n = 0; n < kNodes; ++n) c.push_back({"127.0.0.1", static_cast<u16>(port_base + n * 10), kShards});
+  // Node n: node links on base + 10n + shard, clients on base + 10n + 5 + shard.
+  for (u32 n = 0; n < kNodes; ++n) {
+    c.push_back({"127.0.0.1", static_cast<u16>(port_base + n * 10), kShards, static_cast<u16>(port_base + n * 10 + 5)});
+  }
   return c;
 }
 
@@ -74,8 +78,10 @@ void test_map() {
   CHECK_EQ(ClusterMap::make(moved).crc(), m.crc());
   moved[2].n_shards = 4;
   CHECK(ClusterMap::make(moved).crc() != m.crc());
-  std::vector<ClusterNode> parsed = parse_cluster("10.0.0.1:7000:4,host-b:7100:8");
+  std::vector<ClusterNode> parsed = parse_cluster("10.0.0.1:7000:4,host-b:7100:8:7400");
   CHECK_EQ(parsed.size(), 2u);
+  CHECK_EQ(parsed[0].client_port, 0);
+  CHECK_EQ(parsed[1].client_port, 7400);
   CHECK(parsed[1].host == "host-b");
   CHECK_EQ(parsed[1].link_port, 7100);
   CHECK_EQ(parsed[1].n_shards, 8);
@@ -137,6 +143,11 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   c.cluster = cluster(nd.port_base);
   c.node_id = static_cast<u16>(nd.id);
   ::mkdir(c.data_dir.c_str(), 0755);
+  net::NetServer::Config nc;
+  nc.base_port = c.cluster[nd.id].client_port;
+  net::NetServer server(nc, kShards);
+  c.app_poll = net::NetServer::poll_hook;
+  c.app_user = &server;
   Engine eng(c);
   eng.start();
   const std::string me = std::to_string(nd.id);
@@ -292,11 +303,64 @@ void wait_for(const std::string& path, double timeout_s) {
   }
 }
 
+// A client that fetches the cluster map from one node reads every account
+// from its owner: never refused, never forwarded within the node.
+void check_routing(const std::string& dir, u16 port_base) {
+  std::vector<ObjectID> ids;
+  for (u32 n = 0; n < kNodes; ++n) {
+    std::vector<ObjectID> v = read_ids(dir, n);
+    ids.insert(ids.end(), v.begin(), v.end());
+  }
+  net::ClusterClient cc;
+  const std::vector<ClusterNode> nodes = cluster(port_base);
+  CHECK(cc.connect("127.0.0.1", nodes[2].client_port));
+  CHECK_EQ(cc.node_count(), kNodes);
+  CHECK_EQ(cc.map_crc(), ClusterMap::make(nodes).crc());
+  struct Seen {
+    u64 ok = 0, forwarded = 0, wrong = 0;
+  } seen;
+  for (u64 i = 0; i < ids.size(); ++i) {
+    wire::ReqHeader h{};
+    h.kind = wire::Kind::EXEC;
+    h.op = kOpGetBalance;
+    h.req_id = i;
+    h.target = ids[i];
+    cc.send(h, ByteView());
+  }
+  // And one to a node that does not own its target.
+  wire::ReqHeader wrong{};
+  wrong.kind = wire::Kind::EXEC;
+  wrong.op = kOpGetBalance;
+  wrong.req_id = ~u64{0};
+  wrong.target = ids[0];
+  cc.node(static_cast<u16>((cc.node_of(ids[0]) + 1) % kNodes)).send(0, wrong, ByteView());
+  u64 got = 0;
+  while (got < ids.size() + 1) {
+    int r = cc.poll(
+        [](void* ctx, const wire::RespHeader& h, ByteView) {
+          auto* s = static_cast<Seen*>(ctx);
+          if (h.req_id == ~u64{0}) {
+            s->wrong += static_cast<Status>(h.status) == Status::E_WRONG_NODE;
+            return;
+          }
+          s->ok += static_cast<Status>(h.status) == Status::OK;
+          s->forwarded += (h.flags & wire::kRespForwarded) != 0;
+        },
+        &seen, 5000);
+    CHECK(r > 0);
+    got += static_cast<u64>(r);
+  }
+  CHECK_EQ(seen.ok, ids.size());
+  CHECK_EQ(seen.forwarded, 0u);
+  CHECK_EQ(seen.wrong, 1u);
+  std::printf("routing: %zu reads, each sent to its owner by the cluster map; a misrouted one refused\n",
+              ids.size());
+}
+
 void test_kill_restart() {
   char tmpl[] = "/tmp/snc-cluster-XXXXXX";
   const std::string dir = mkdtemp(tmpl);
-  // Below the ephemeral range, spread by pid so parallel runs do not meet.
-  const u16 port_base = static_cast<u16>(20000 + (::getpid() % 1200) * 10);
+  const u16 port_base = free_ports(26000, 32000, kNodes * 10);
   std::vector<Node> nodes;
   for (u32 n = 0; n < kNodes; ++n) nodes.push_back({dir, n, port_base});
   std::vector<pid_t> pids;
@@ -342,6 +406,7 @@ void test_kill_restart() {
     }
     settled = entries == 0 ? settled + 1 : 0;
   }
+  check_routing(dir, port_base);
   write_file(dir + "/stop", "");
   for (pid_t p : pids) {
     ::waitpid(p, &st, 0);
