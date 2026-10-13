@@ -34,15 +34,64 @@ fair comparison:
 Durable, SNC stays ahead of the 4-log baseline: 2.04-2.07M vs 1.07-1.34M
 ops/s with 50% reads, 0.97M vs 0.65M deposits only.
 
+## Batched ring messages
+
+Requests one shard sends another within one loop iteration now travel as
+one `MULTI_REQ` message: up to 32 48-byte records (target, op, pending
+slot, flags, args up to 16 bytes) in a buffer from the sender's heap. The
+owner prefetches all the targets, runs the ops, writes each response over
+its record and returns the same buffer as `MULTI_RESP`; the sender
+completes the ops and frees it. A batch of one is sent as an ordinary
+request. An op that must wait for durability, or whose result is over 16
+bytes, is answered with its own `RESP` and marked in the batch as
+answered apart. Requests with a version condition or larger args are not
+batched. `Engine::Config::batch_remote` (on by default; `snc_bench
+--no-batch`) turns it off.
+
+Messages per remote op fall from 2.0 to about 0.5. What that buys depends
+on how many requests are in flight, because a shard batches what it
+issued in one loop iteration. The owner also publishes each batched
+response as soon as it is written (`sri_publish`) instead of at the end
+of its loop iteration. In process, 100% remote, 50% reads, mean of 3 runs
+(`bench/results/matrix_batch_depth.csv`):
+
+| Requests in flight per shard | 32 | 128 | 512 |
+| --- | --- | --- | --- |
+| SNC, batched | 9.31M | 11.43M | 12.47M |
+| SNC, one message per op | 8.04M | 9.36M | 10.05M |
+| Baseline | 11.32M | 11.84M | 10.42M |
+| SNC / baseline | 0.82x | 0.97x | 1.20x |
+
+At depth 32 batches stay small (about five ops per destination per
+iteration), so each op carries a larger share of the loop's fixed work:
+draining every ring, publishing, and one prefetch pass per batch. The
+shards are not waiting: counting cycles spent in loop iterations that found
+no work gives under 1% at depth 32. Deeper pipelines (an ingress with many
+clients, or a batch job) fill the batches, and at 512 in flight SNC
+overtakes the baseline on all-remote work.
+
+The cost is latency: the baseline answers in 0.2 us at p50, because it
+runs the op on the calling thread; SNC's remote p50 is 8.5 us at depth 32
+and 104 us at depth 512 (179 us without batching). Ops that reach their
+owner directly (TCP routing, `docs/ROUTING.md`) do not pay it.
+
+Durable throughput is unchanged (`durable` group in `matrix_batch.csv`: 1.86-2.03M
+ops/s against 0.91-1.21M for the baseline), since durable writes are
+answered apart once their record is on disk.
+
 ## What is left
 
-At 100% remote an op costs SNC about 2x a local op: two cache-line
-messages (request and response), each written on one core and read on
-another, plus the ring drain and dispatch. The baseline pays none of
-that, because uniform keys almost never contend its stripe locks. The
-profile left after this round has no single large item: the benchmark
-driver and its per-op timestamps (also paid by the baseline), the op
-itself, and the ring path in roughly equal parts. Going further needs
-fewer messages per op, not cheaper ones: routing requests to the owner
-at ingress (`docs/ROUTING.md`) and placing related objects together
-(`create_near`, `docs/TRANSFERS.md`).
+At shallow depth the remote path is bound by work per op, not by waiting:
+the shards spend under 1% of their cycles in idle iterations, and the
+latency follows from throughput (32 ops in flight at about 2.3M ops/s per
+shard is about 14 us each). Sending a batch earlier or polling more often
+would not help, since nothing waits.
+
+Tried and dropped: one drain pass over every inbound ring, prefetching the
+batch buffers and targets of all sources together before running any.
+It moved depth 32 by +5% and depth 512 by -4% in alternating A/B runs,
+both within the noise of this VM, so the per-ring prefetch stays.
+
+Ops that reach their owner directly avoid the path entirely, which is why
+routing at ingress (`docs/ROUTING.md`) and placing related objects together
+(`create_near`, `docs/TRANSFERS.md`) matter most.

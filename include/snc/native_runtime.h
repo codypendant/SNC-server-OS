@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include "snc/pages.h"
 #include "snc/sri.h"
 
 namespace snc {
@@ -20,6 +21,11 @@ struct RuntimeConfig {
   u32 idle_spin_us = 50;        // spin before sleeping; 0 = sleep at once
   bool spin_forever = false;    // benchmarks: never sleep
   u64 heap_limit_bytes = 0;     // per shard, 0 = unlimited
+  // Pages for each shard's object heap and local map (docs/HUGEPAGES.md).
+  // With huge pages the heap is an arena of heap_reserve_bytes per shard;
+  // allocations beyond it use normal pages.
+  PageMode pages = PageMode::SMALL;
+  u64 heap_reserve_bytes = 0;
   // While file I/O is in flight, yield the core at most this often so the
   // kernel's io_uring workers (which complete RWF_DSYNC writes) can run on
   // it. 0 = never yield. See docs/ROUTING.md, "Durable p99: the cause".

@@ -4,7 +4,7 @@
 //
 // Usage: snc_server [--shards N] [--cpus 0,1,...] [--host H] [--port P]
 //                   [--objects N] [--data-dir DIR] [--group-commit-us N]
-//                   [--no-mint-local] [--spin]
+//                   [--no-mint-local] [--spin] [--pages 4k|thp|hugetlb]
 #include <signal.h>
 
 #include <cstdio>
@@ -59,6 +59,16 @@ int main(int argc, char** argv) {
     else if (k == "--group-commit-us") cfg.group_commit_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--no-mint-local") cfg.mint_local = false;
     else if (k == "--spin") cfg.runtime.spin_forever = true;
+    else if (k == "--pages") {
+      std::string v = val();
+      if (v == "4k") cfg.runtime.pages = PageMode::SMALL;
+      else if (v == "thp") cfg.runtime.pages = PageMode::THP;
+      else if (v == "hugetlb") cfg.runtime.pages = PageMode::HUGETLB;
+      else {
+        std::fprintf(stderr, "--pages takes 4k, thp or hugetlb\n");
+        return 2;
+      }
+    }
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       return 2;

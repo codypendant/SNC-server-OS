@@ -16,7 +16,8 @@ namespace snc {
 
 class Shard {
  public:
-  Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects);
+  Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects,
+        PageMode pages = PageMode::SMALL);
   ~Shard();
 
   u16 id() const { return id_; }
@@ -24,6 +25,9 @@ class Shard {
   const SlotMap& slots() const { return slots_; }
   // Creates mint IDs that this shard owns (docs/ROUTING.md).
   void set_mint_local(bool on) { mint_local_ = on; }
+  void set_batch_remote(bool on) { batch_remote_ = on; }
+  // Sends the requests batched for each destination this iteration.
+  void flush_batches();
 
   // ---- Application API (entry shard) ----
   void execute(ObjectID target, OpID op, ByteView args, const ExecOptions& opts, Completion done,
@@ -84,7 +88,41 @@ class Shard {
     Completion done = nullptr;
     void* ctx = nullptr;
     u32 gen = 0;
+    ObjectID target;  // batched requests: their responses do not carry it
   };
+
+  // MULTI_REQ records, overwritten in place by MULTI_RESP records.
+  struct BatchReq {
+    ObjectID target;
+    u32 op;
+    u32 slot;
+    u32 gen;
+    u8 flags;  // kMsgAllowUndurable, kMsgDurApplied
+    u8 len;
+    u16 pad;
+    u8 args[kMsgInlineBytes];
+  };
+  struct BatchResp {
+    u32 slot;
+    u32 gen;
+    u16 status;  // kBatchAnsweredApart: answered by its own RESP
+    u16 app_code;
+    u8 durable;
+    u8 len;
+    u16 pad;
+    u64 version;
+    u8 result[kMsgInlineBytes];
+  };
+  static_assert(sizeof(BatchReq) == 48 && sizeof(BatchResp) <= sizeof(BatchReq));
+  static constexpr u16 kBatchAnsweredApart = 0xffff;
+  static constexpr u32 kBatchMax = 32;
+  struct OutBatch {
+    BatchReq* recs = nullptr;
+    u32 n = 0;
+  };
+  void send_batch(u16 dst);
+  void serve_multi(const Msg& m);
+  void complete_multi(const Msg& m);
 
   struct Gather {
     IndexCompletion done = nullptr;
@@ -200,6 +238,9 @@ class Shard {
   LocalMap map_;
   Minter minter_;
   bool mint_local_ = false;
+  bool batch_remote_ = true;
+  std::vector<OutBatch> out_batches_;  // per destination
+  std::vector<u16> batch_dsts_;        // destinations with a batch open
   ShardAllocator& alloc_;
   ShardStats stats_;
   std::vector<Pending> pending_;

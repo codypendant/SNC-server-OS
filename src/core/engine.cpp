@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <latch>
@@ -27,8 +28,10 @@ struct EngineHooks {
 void hook_init(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   u16 id = sri_shard_id();
-  auto* s = new Shard(id, *h->slots, h->lease_base + id, h->cfg->expected_objects);
+  auto* s = new Shard(id, *h->slots, h->lease_base + id, h->cfg->expected_objects,
+                      h->cfg->runtime.pages);
   s->set_mint_local(h->cfg->mint_local);
+  s->set_batch_remote(h->cfg->batch_remote);
   set_current_shard(s);
   (*h->shards)[id] = s;
 }
@@ -51,6 +54,7 @@ bool hook_poll(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   bool busy = current_shard()->poll();
   if (h->cfg->app_poll) busy |= h->cfg->app_poll(h->cfg->app_user, sri_shard_id());
+  current_shard()->flush_batches();  // after the app issued this iteration's requests
   return busy;
 }
 
@@ -91,6 +95,13 @@ struct EngineState {
 static std::unique_ptr<EngineState> g_state;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  RuntimeConfig& rc = cfg_.runtime;
+  if (rc.pages != PageMode::SMALL && rc.heap_reserve_bytes == 0) {
+    // Room for the expected objects at 512 B each (docs/HUGEPAGES.md);
+    // anything beyond it spills to normal pages.
+    const u64 per_shard = cfg.expected_objects / (rc.n_shards ? rc.n_shards : 1);
+    rc.heap_reserve_bytes = std::max<u64>(per_shard * 512, 256ull << 20);
+  }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
   g_state = std::make_unique<EngineState>();
@@ -104,7 +115,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   h.quiesced = hook_quiesced;
   h.fini = hook_fini;
   h.user = &g_state->hooks;
-  rt_ = std::make_unique<NativeRuntime>(cfg.runtime, h);
+  rt_ = std::make_unique<NativeRuntime>(cfg_.runtime, h);
 }
 
 Engine::~Engine() {

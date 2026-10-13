@@ -9,7 +9,7 @@ and the handoff's development sequence (§24).
 | Step | State | Where |
 | --- | --- | --- |
 | 1. Development Linux | Done: Ubuntu 24.04, GCC 13, CMake | `CMakeLists.txt` |
-| 2. Runtime abstraction | Done for the native backend; Seastar adapter not started | `include/snc/sri.h`, `src/native/runtime.cpp` |
+| 2. Runtime abstraction | Done: native backend, plus a Seastar backend behind the same interface (`-DSNC_SEASTAR=ON`). Seastar is 0.45-0.92x of native in memory; native stays ([SEASTAR.md](SEASTAR.md)) | `include/snc/sri.h`, `src/native/runtime.cpp`, `src/seastar/runtime.cc` |
 | 3. Dedicated per-core workers | Done: pinned threads, run-to-completion loop, eventfd idle | `src/native/runtime.cpp` |
 | 4. Stable ObjectID | Done | `include/snc/object_id.h` |
 | 5. In-memory object directory | Done: slot map + per-shard local map | `include/snc/slot_map.h`, `include/snc/local_map.h` |
@@ -30,7 +30,8 @@ and the handoff's development sequence (§24).
 | Hot-key (Zipf) workloads | Done: `--zipf THETA` in all benchmarks; SNC overtakes the baseline at high skew (θ 1.5), and over TCP at θ 0.99 too; leads durable at every skew | `bench/zipf.h`, [SKEW.md](SKEW.md) |
 | Comparison with a conventional stack | Done: same workload on PostgreSQL 16 and Redis 7, same cores; SNC about 10× Redis and 35-50× PostgreSQL | `bench/conventional/`, [CONVENTIONAL.md](CONVENTIONAL.md) |
 | Two-object ops (transfers) | Done: durable follow-ups (`OpCtx::emit`, `resume`) across shards, one op with an atomic WAL group (`OpCtx::local`) within a shard; `create_near` places related objects in one slot; conserved across restart, remap, torn groups and SIGKILL. Random pairs: 1.7x slower than the locked baseline in memory, within 10% durable; all pairs on one shard: 1.5x faster in memory, tied durable. 7-9x Redis, 15-35x PostgreSQL | [TRANSFERS.md](TRANSFERS.md) |
-| Cross-core handoff | Done: inline ID hash, messages written in place in the ring, one fence per loop. In process 100% remote: 0.60x -> 0.67x the baseline; 50% remote 0.67x -> 0.82x | [CROSSCORE.md](CROSSCORE.md) |
+| Cross-core handoff | Done: inline ID hash, messages written in place in the ring, one fence per loop, batched requests (`MULTI_REQ`, 0.5 messages per remote op). In process 100% remote at depth 32: 0.60x -> 0.82x the baseline; at depth 512: 1.20x | [CROSSCORE.md](CROSSCORE.md) |
+| Huge pages (handoff §10, "Later" list) | Done: `RuntimeConfig::pages` puts each shard's local map and object heap (a mimalloc arena) on THP or reserved HugeTLB pages, the rest of the process on 4 KiB. 3-10% in memory; the baseline gains as much from system-wide THP, so the gaps between them barely move. Default stays 4 KiB | `include/snc/pages.h`, [HUGEPAGES.md](HUGEPAGES.md) |
 | Request routing to the owning shard | Done: per-shard TCP listeners, wire protocol v0, owner-aware client, owner-local minting for creates; measured against the baseline behind the same front end | `src/net/`, `include/snc/wire.h`, `tools/snc_server.cpp`, [ROUTING.md](ROUTING.md) |
 
 ## Known deviations from the spec

@@ -8,7 +8,8 @@
 // Usage: snc_bench [--shards N] [--objects N] [--seconds S] [--remote PCT]
 //                  [--depth D] [--reads PCT] [--no-pin] [--spin]
 //                  [--data-dir DIR] [--group-commit-us N] [--no-direct] [--no-sync]
-//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch]
+//                  [--no-checkpoint] [--io-yield-us N] [--io-cpus 3] [--no-prefetch] [--no-batch]
+//                  [--pages 4k|thp|hugetlb] [--no-restart]
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -47,8 +48,11 @@ struct Args {
   bool direct = true;
   bool sync = true;
   bool checkpoint = true;  // false: restart replays the whole WAL
+  bool restart = true;     // false: skip the timed restart (one runtime per process)
   u32 io_yield_us = 50;  // RuntimeConfig default
   bool prefetch = true;
+  bool batch = true;  // Engine::Config::batch_remote
+  PageMode pages = PageMode::SMALL;
   std::vector<int> io_cpus;
   double zipf = 0;  // > 0: Zipf key choice over all objects; --remote is ignored
   int transfer_pct = 0;  // ops that move 1 cent to a random account (docs/TRANSFERS.md)
@@ -269,7 +273,19 @@ Args parse(int argc, char** argv) {
     else if (k == "--no-direct") a.direct = false;
     else if (k == "--no-sync") a.sync = false;
     else if (k == "--no-checkpoint") a.checkpoint = false;
+    else if (k == "--no-restart") a.restart = false;
     else if (k == "--no-prefetch") a.prefetch = false;
+    else if (k == "--no-batch") a.batch = false;
+    else if (k == "--pages") {
+      std::string v = val();
+      if (v == "4k") a.pages = PageMode::SMALL;
+      else if (v == "thp") a.pages = PageMode::THP;
+      else if (v == "hugetlb") a.pages = PageMode::HUGETLB;
+      else {
+        std::fprintf(stderr, "--pages takes 4k, thp or hugetlb\n");
+        std::exit(2);
+      }
+    }
     else if (k == "--io-yield-us") a.io_yield_us = static_cast<u32>(std::atoi(val()));
     else if (k == "--io-cpus") {
       for (const char* p = val(); *p;) {
@@ -316,6 +332,8 @@ int main(int argc, char** argv) {
   cfg.runtime.io_yield_us = args.io_yield_us;
   cfg.runtime.io_worker_cpus = args.io_cpus;
   cfg.prefetch = args.prefetch;
+  cfg.batch_remote = args.batch;
+  cfg.runtime.pages = args.pages;
   cfg.expected_objects = args.objects;
   cfg.app_poll = bench_poll;
   cfg.app_user = &bench;
@@ -430,7 +448,7 @@ int main(int argc, char** argv) {
   if (durable && args.checkpoint) cp = eng.checkpoint();
   eng.stop();
 
-  u64 heap = 0, objects = 0, map_bytes = 0;
+  u64 heap = 0, objects = 0, map_bytes = 0, arena_misses = 0;
   WalStream::Stats wal;
   int direct = 0;
   for (u16 s = 0; s < args.shards; ++s) {
@@ -438,6 +456,7 @@ int main(int argc, char** argv) {
     heap += st.heap_live_bytes;
     objects += st.objects;
     map_bytes += st.local_map_bytes;
+    arena_misses += st.heap_arena_misses;
     wal.records += st.wal.records;
     wal.record_bytes += st.wal.record_bytes;
     wal.written_bytes += st.wal.written_bytes;
@@ -450,7 +469,7 @@ int main(int argc, char** argv) {
     direct += st.wal_direct;
   }
 
-  std::printf("snc_bench backend=native shards=%u pinned=%d/%u durability=%s\n", args.shards,
+  std::printf("snc_bench backend=%s shards=%u pinned=%d/%u durability=%s\n", sri_backend(), args.shards,
               pinned, args.shards,
               !durable ? "none (in memory)"
                        : (args.sync ? "DURABLE (WAL, RWF_DSYNC)" : "WAL without sync (dev only)"));
@@ -458,6 +477,13 @@ int main(int argc, char** argv) {
               "local maps %.1f MiB\n",
               (unsigned long long)objects, load_s, objects / load_s,
               double(rss1 - rss0) / objects, double(heap) / objects, map_bytes / 1048576.0);
+  {
+    ShardStats s0 = eng.stats(0);
+    std::printf("pages: asked %s, map %s, heap %s (arena %.0f MiB/shard), spilled allocs %llu\n",
+                page_mode_name(args.pages), page_mode_name(s0.map_pages),
+                page_mode_name(s0.heap_pages), s0.heap_arena_bytes / 1048576.0,
+                (unsigned long long)arena_misses);
+  }
   if (args.transfer_pct) {
     std::printf("transfers: %d%% of ops, rejected %llu, turned away %llu, follow-ups/op %.2f, "
                 "settled %.1f ms after the run\n",
@@ -501,6 +527,7 @@ int main(int argc, char** argv) {
                 (unsigned long long)cp.segments_deleted);
     // Restart: recover the space from the checkpoint plus the WAL written since.
     eng_ptr.reset();
+    if (!args.restart) return errors ? 1 : 0;
     Engine::Config rc;
     rc.runtime.n_shards = args.shards;
     rc.runtime.pin = args.pin;

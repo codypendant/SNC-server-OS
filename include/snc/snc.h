@@ -140,6 +140,10 @@ struct ShardStats {
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
   u64 heap_live_bytes = 0;
+  PageMode map_pages = PageMode::SMALL;   // pages the local map got
+  PageMode heap_pages = PageMode::SMALL;  // pages the heap arena got (SMALL = no arena)
+  u64 heap_arena_bytes = 0;
+  u64 heap_arena_misses = 0;              // allocations that spilled to normal pages
   u64 index_lookups_served = 0;
   u64 deferred_completions = 0;  // completions that waited for durability
   u64 emits = 0;                 // follow-ups emitted (OpCtx::emit)
@@ -187,6 +191,9 @@ class Engine {
     bool mint_local = false;
     // Prefetch the targets of each batch of requests drained from a ring.
     bool prefetch = true;
+    // Requests one shard sends another within a loop iteration travel as
+    // one message, answered in the same buffer (docs/CROSSCORE.md).
+    bool batch_remote = true;
 
     // Persistence. Empty data_dir = in-memory only: every state reports durable.
     std::string data_dir;
