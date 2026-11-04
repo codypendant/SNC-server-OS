@@ -6,6 +6,15 @@ builds nothing in Core by itself. The program, as cody handed it over on
 2026-11-04: [REFERENCE_ARCHITECTURE_PROGRAM.md](REFERENCE_ARCHITECTURE_PROGRAM.md).
 Each system review follows [TEMPLATE.md](TEMPLATE.md).
 
+**Feeds the validation program.** This lane also serves the experimental
+validation / falsification milestone ([EXPERIMENTAL_VALIDATION.md](../EXPERIMENTAL_VALIDATION.md)),
+which decides GO / REFINE / NARROW / STOP for SNC after S1. Each system is
+an adversarial reviewer, not a feature list. Its review feeds the design
+of the comparative workloads: which semantics can be matched with SNC,
+and how the system is configured fairly. SpacetimeDB, Redis and
+PostgreSQL bear on workload A; SpacetimeDB and Orleans on B; Restate and
+DBOS/PostgreSQL on C. DBOS is the null hypothesis.
+
 ## Status
 
 | Deliverable | Lane | When it is needed | State |

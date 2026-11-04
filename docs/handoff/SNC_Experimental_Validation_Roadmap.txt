@@ -1,0 +1,298 @@
+SNC ROADMAP / SCOPE CHANGE — EXPERIMENTAL FALSIFICATION MILESTONE
+
+STRATEGIC DECISION
+
+Implement this roadmap change immediately.
+
+We are no longer treating continued expansion of SNC as an assumption.
+
+The next major milestone is:
+
+SNC EXPERIMENTAL VALIDATION / FALSIFICATION MILESTONE
+
+The purpose is NOT to prove SNC is great. The purpose is to design experiments capable of proving that SNC is not worth pursuing.
+
+SNC survives this milestone only if evidence demonstrates a meaningful workload envelope where the architecture provides sufficient value to justify its complexity.
+
+WHY NOW
+
+The core prototype is already substantial: stable ObjectIDs, pinned owner-local execution, cross-core dispatch, indexes, WAL/group commit, checkpoint/recovery, durable follow-ups, cross-shard/cross-node operations, replication, witness/Paxos HA, fencing, retries, placement, migration, fail-closed migration serving, and HEALTH decoupling.
+
+Documents, generic Events/Timers, WaitSets, Activation, Agent Runtime, security/capabilities, multi-tenancy and Rust are NOT required to decide whether the core thesis deserves continued investment.
+
+IMMEDIATE SEQUENCE
+
+1. Do not interrupt the currently authorized S1 bounded destination staging slice.
+2. Finish and review S1.
+3. Resolve only correctness defects necessary to make falsification tests meaningful/fair. R08 and R11 are likely candidates and remain separately reviewed slices.
+4. Freeze major feature expansion.
+5. Establish an SNC Experimental Baseline.
+6. Execute the falsification program.
+7. Hold a formal GO / REFINE / NARROW / STOP review.
+8. Major platform expansion resumes only if that decision justifies it.
+
+SCOPE FREEZE AFTER S1
+
+Do not begin merely because they are in the long-term vision:
+- native Documents;
+- generic Durable Events/Timers;
+- Wait Conditions/WaitSets;
+- generic Activation;
+- Agent Runtime;
+- MMO framework;
+- broad plugin/module platform;
+- production security/capability subsystem;
+- multi-tenancy;
+- Rust rewrite;
+- DPDK/VPP specialization;
+- unrelated feature expansion.
+
+Exception: work explicitly required to execute a validation workload or correct a defect that invalidates the experiment.
+
+CORE QUESTION
+
+Does SNC provide enough measurable advantage over simpler/existing approaches to justify a new state-native execution substrate?
+
+Ask: “What evidence would convince us SNC should not be built?”
+
+Define failure criteria before final comparative results are known. Do not move the goalposts afterward.
+
+FALSIFICATION TARGETS
+
+Actively try to prove:
+1. Owner-local execution has no material realistic advantage.
+2. Benefits disappear with realistic cross-object/cross-core coordination.
+3. Tail latency becomes unacceptable under skew, migration, failure or recovery.
+4. Memory/object density is not competitive.
+5. WAL/storage/network amplification erases compute advantages.
+6. Recovery/failover/migration complexity outweighs benefits.
+7. Existing systems provide similar semantics/performance with much lower operational complexity.
+8. Correctness coordination destroys the locality thesis.
+9. SNC scales poorly across cores, NUMA domains or machines.
+10. No sufficiently valuable workload envelope exists.
+
+VALIDATION WORKLOAD A — STATEFUL OBJECT SERVICE
+
+Use millions of durable objects, owner-local reads/mutations, secondary-index queries, configurable Zipf skew, configurable cross-object percentage, configurable local/remote ownership, persistence, replication and failure/recovery.
+
+Compare where semantics can be matched:
+- SNC
+- SpacetimeDB
+- Redis + service
+- PostgreSQL + service
+
+Measure ops/s/core, p50/p95/p99/p99.9, CPU/op, RAM/object, WAL/storage bytes/op, network bytes/op, recovery, failover interruption and operational complexity.
+
+VALIDATION WORKLOAD B — PERSISTENT SIMULATION / MMO-LIKE WORLD
+
+This is a benchmark workload, NOT a product pivot.
+
+Model a large persistent entity population, spatial/ownership regions, high-frequency local interactions, occasional cross-region interactions, hot/cold regions, ownership movement, migration, node failure and recovery.
+
+Compare primarily SNC, SpacetimeDB and Orleans where matched semantics are practical.
+
+Question: is natural state locality actually a meaningful SNC advantage?
+
+VALIDATION WORKLOAD C — DURABLE WORKFLOW / DORMANT-ENTITY SIMULATION
+
+Do NOT build Agent Runtime for this.
+
+Approximate with existing SNC primitives:
+
+many durable entities
+-> dormant
+-> wake/event
+-> read state
+-> mutate
+-> emit durable obligation
+-> settle
+-> dormant
+
+Scale toward 100K–1M entities as practical. Inject failure/recovery.
+
+Compare primarily SNC, Restate and DBOS/PostgreSQL.
+
+Question: does SNC provide a meaningful substrate advantage, or do existing durable-execution systems already provide the value more simply?
+
+LOCALITY ENVELOPE
+
+Sweep actual available physical cores after hardware discovery. Do not assume the R740xd is available.
+
+Example locality sweep:
+100% owner-local
+95%
+90%
+75%
+50%
+25%
+0%
+
+Where hardware permits distinguish:
+- same owner/core;
+- different core same NUMA node/socket;
+- different NUMA node/socket;
+- different machine;
+- remote physical site.
+
+Measure throughput and tail latency to derive the actual SNC locality/coordination performance surface.
+
+AVAILABLE LAB TOPOLOGY
+
+MAIN LOCAL SNC SERVER:
+Use the user’s SECOND server, NOT the R740xd.
+
+Known approximately:
+- ~384 GB RAM;
+- Intel Xeon Gold processors;
+- exact CPU model/core count unknown;
+- available for Linux/bare-metal SNC testing.
+
+Before benchmarking record:
+lscpu -e
+lscpu
+numactl --hardware
+free -h
+lsblk
+lspci -nn
+ethtool for test NICs
+kernel/version/governor
+storage model/filesystem/mount options
+
+Commit the machine manifest with benchmark evidence. Do not guess CPU topology.
+
+R740xd:
+Do NOT plan bare-metal SNC testing on it. It runs TrueNAS Scale as its bare-metal OS and is not available as the primary benchmark host.
+
+REMOTE PHYSICAL-SITE HOST:
+The user’s partner/best friend has a Linux machine at another physical location. Record its hardware/network manifest before use.
+
+Use it for real WAN/cross-site testing:
+- RTT/jitter;
+- replication;
+- cross-node operations;
+- interruption/reconnect;
+- failover assumptions;
+- cross-site migration where sensible;
+- bandwidth amplification;
+- tail latency.
+
+Keep WAN and LAN/local results as separate experimental classes.
+
+CLOUD/VPS:
+Retain disposable VPS hosts for reproducible fault injection. They complement, not replace, the physical-site tests.
+
+BENCHMARK DISCIPLINE
+
+Match semantics wherever possible.
+
+Never compare SNC durable+replicated operations against competitor volatile/local operations and call it a win.
+
+For each comparison record:
+- durability guarantee;
+- replication guarantee;
+- acknowledgement point;
+- consistency model;
+- operation semantics;
+- index semantics;
+- batching/pipelining;
+- client concurrency;
+- hardware allocation;
+- storage;
+- network;
+- software version/commit;
+- configuration.
+
+If exact matching is impossible, state the mismatch prominently.
+
+CORRECTNESS BEFORE PERFORMANCE
+
+A benchmark is invalid if the tested configuration violates its declared contract.
+
+Do not benchmark around R08, R11 or another known issue while presenting stronger semantics than the configuration provides.
+
+FAILURE / ADVERSARIAL PROGRAM
+
+Exercise combinations of:
+SIGKILL; SIGSTOP/stalls; resets; silent/asymmetric partitions; reconnect/flap; standby loss; primary loss; failover under load; failover during retry; failover during migration; driver death; migration restart; overload; hot-key skew; poor locality; recovery under load; checkpoint interaction; disk-full/EIO where safely injectable; WAL corruption characterization; high cross-owner percentage.
+
+Use deterministic regressions plus longer randomized/adversarial runs where practical.
+
+SCALE LADDER
+
+Use a ladder such as:
+100K
+250K
+500K
+1M
+5M
+10M objects/entities
+
+Continue until a meaningful resource/system limit is reached.
+
+Record whether the limit is memory, CPU, storage, network, recovery time, latency, correctness or operational impracticality. Failure to scale is evidence.
+
+METRICS
+
+At minimum:
+throughput; p50/p95/p99/p99.9; CPU/op; memory/bytes per object; WAL bytes/op; storage IOPS/bandwidth; network bytes/op; cross-core/node traffic where measurable; recovery; failover interruption; migration total and client-visible interruption; replication lag; queue/backlog high-water; errors/refusals/retries.
+
+Also measure operational complexity:
+number of services/processes, configuration surface, deployment steps, recovery/operator actions, and manual-intervention failure modes.
+
+REFERENCE ARCHITECTURE RESEARCH LANE
+
+Continue in parallel:
+1. Styx — migration, acknowledgement, deterministic execution.
+2. Restate — scheduler/backpressure/dormancy.
+3. Orleans — identity, activation, locality, reminders.
+4. SpacetimeDB — integrated state/computation and transactions.
+5. DBOS — Postgres durable execution/null hypothesis.
+
+Use these as adversarial design reviewers, not feature shopping lists.
+
+GO / REFINE / NARROW / STOP
+
+GO:
+Evidence demonstrates a meaningful defensible workload envelope with sufficient performance, density, predictability, failure semantics or operational simplicity.
+
+REFINE:
+Promising thesis, but a small number of measured architectural bottlenecks prevent a fair conclusion. Do only bounded work on those bottlenecks and rerun.
+
+NARROW:
+SNC is valuable only for a narrower class. Narrow the architecture/product rather than pretending it is general.
+
+STOP:
+Existing approaches are equivalent/better/simpler, SNC advantages disappear under realistic coordination/failure, or complexity cannot be justified.
+
+STOP is a successful research outcome if evidence supports it.
+
+REPOSITORY CHANGES REQUESTED NOW
+
+1. Create docs/EXPERIMENTAL_VALIDATION.md containing this program.
+2. Update docs/STATUS.md with:
+   “Experimental Validation / Falsification Milestone — planned after S1 and required correctness fixes.”
+3. Update roadmap/scope language so major platform expansion is conditional on GO/REFINE/NARROW/STOP.
+4. Link research/README.md to this validation program and state that reference research feeds comparative workload design.
+5. Add benchmark machine manifests for every physical/cloud host.
+6. Store raw results under bench/results with exact configuration and commit SHA.
+
+IMMEDIATE INSTRUCTION
+
+Do not interrupt S1.
+
+Add this roadmap/scope change to the repository now.
+
+Then:
+
+S1
+-> review
+-> only correctness fixes required for valid experiments
+-> Experimental Baseline
+-> falsification program
+-> GO / REFINE / NARROW / STOP
+
+Major future platform work is conditional on that decision.
+
+The purpose is not to protect SNC. It is to give SNC a serious opportunity to fail.
+
+If it survives and demonstrates a meaningful advantage, we will have evidence that justifies building the rest of the platform.

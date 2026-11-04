@@ -4,6 +4,30 @@ What the code covers today, measured against the
 [SNC v0.1 Object & Execution Specification](https://claude.ai/code/artifact/8a25e96e-09ae-43ef-9e42-d6763e1eebd9)
 and the handoff's development sequence (§24).
 
+## Next milestone: experimental validation / falsification
+
+**Experimental Validation / Falsification Milestone: planned after S1 and
+the required correctness fixes** ([EXPERIMENTAL_VALIDATION.md](EXPERIMENTAL_VALIDATION.md)).
+Decided by cody on 2026-11-04.
+
+- **Scope freeze after S1.** No major platform expansion until the
+  milestone's GO / REFINE / NARROW / STOP decision. That covers native
+  Documents, generic Events/Timers, WaitSets, Activation, the Agent
+  Runtime, an MMO framework, a plugin platform, security/capabilities,
+  multi-tenancy, a Rust rewrite, and DPDK/VPP.
+- **Exceptions:** work a validation workload explicitly requires, and
+  fixes for defects that would invalidate an experiment (R08, R11 are
+  candidates).
+- **Order:** S1 (in progress, not interrupted), its review, the required
+  correctness fixes, the SNC Experimental Baseline (fixed commit, machine
+  manifests, pre-registered failure criteria), the falsification program,
+  then the decision.
+- **Evidence rules:** every benchmark host has a manifest in
+  [bench/manifests/](../bench/manifests/README.md); raw results go under
+  `bench/results/<campaign>/` with the exact configuration and commit
+  SHA. Numbers from this project's 4-vCPU development VM are regression
+  checks only.
+
 ## Handoff §24 steps
 
 | Step | State | Where |
