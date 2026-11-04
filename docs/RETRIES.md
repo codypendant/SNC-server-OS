@@ -43,7 +43,11 @@ shards.
   nothing and are not logged; a retry runs them again, which can apply at
   most once. Every sequence number up to `last_seq` was decided: applied,
   or failed with no effect.
-- **Duplicates.** A request with `seq <= last_seq` is not run again:
+- **Duplicates.** A request with `seq <= last_seq` is not run again, and
+  gets its answer before any refusal a new request would get (`E_MOVED`,
+  `E_MIGRATING`, `E_OVERLOADED`): a client resends a refused request as a
+  new one, so refusing a duplicate would apply it twice.
+  Specifically:
   - When `seq == last_seq`, the owner answers with the recorded status and
     version, marked `replayed`. It waits for that record to be durable, as
     for any write.

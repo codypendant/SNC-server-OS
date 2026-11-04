@@ -306,3 +306,20 @@ request re-applies — or (b) the client (`snc_load`) counting an in-doubt
 transfer as acknowledged. `check()` now preserves `.delta`/`.unknown` on
 failure so the next occurrence can be classified. **Do not treat failover
 under partition as proven until this is pinned down.**
+
+**Cause found (2026-11-04, after the run): a resend answered
+`E_OVERLOADED`.** `Shard::execute` refused new work when the shard's
+follow-up backlog was over its limit *before* checking the client's
+session. A promoted primary starts with a large backlog (resume re-sends
+every unsettled transfer) at exactly the moment clients resend their
+unanswered requests. A resend of a transfer the old primary had already
+replicated got `E_OVERLOADED` instead of its recorded answer; the client
+treats `E_OVERLOADED` as "never ran" and sends it again as a new request, so
+it ran twice. That matches every symptom: net 0 (each double is a whole
+transfer), more off accounts than in-doubt transfers, and only under
+`partition`, whose ~8 s dual failover builds the largest backlog. Fixed: a
+sequenced mutation checks its session before the overload refusal (the
+same ordering rule `E_MOVED` already follows). Regression test:
+`test_transfer` `test_resend_overloaded` (fails without the fix).
+Not yet re-run on hosts; a confirmation run is ~24 `p3 --fault partition`
+rounds.
