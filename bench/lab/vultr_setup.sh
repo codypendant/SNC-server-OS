@@ -20,7 +20,7 @@ DIR=${SNC_DIR:-$HOME/snc-server-os}
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -yq build-essential cmake ninja-build git liburing-dev \
+apt-get install -yq build-essential cmake ninja-build git liburing-dev libmimalloc-dev libxxhash-dev \
   iperf3 fio iproute2 iptables python3
 
 if command -v ufw >/dev/null; then
