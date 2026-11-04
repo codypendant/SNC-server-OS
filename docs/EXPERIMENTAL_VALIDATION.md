@@ -4,6 +4,9 @@
 correctness fixes that the experiments need. Roadmap and scope decision by
 cody, 2026-11-04. The source text is
 [handoff/SNC_Experimental_Validation_Roadmap.txt](handoff/SNC_Experimental_Validation_Roadmap.txt).
+The profiles, triage and pre-registered decision rules the campaign uses
+are in [EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md) (draft for
+review).
 
 This is the next major milestone. It replaces "keep extending SNC" as the
 default plan. **Major platform work after S1 depends on the decision this
@@ -215,14 +218,14 @@ locality/coordination performance surface.
 
 ## 7. Lab topology
 
-- **Main local SNC server: the user's second server, not the R740xd.**
-  Known approximately: about 384 GB RAM, Intel Xeon Gold processors, exact
-  CPU model and core count unknown. It is available for bare-metal Linux
-  SNC testing.
+- **Main local SNC server: a Dell PowerEdge R640, not the R740xd.**
+  Dual socket, Intel Xeon Gold, about 384 GB RAM, Linux. The exact CPU
+  model, core count and NUMA topology come from its manifest. It is the
+  bare-metal Linux SNC test host.
 - **R740xd: no bare-metal SNC testing.** It runs TrueNAS Scale as its
   bare-metal OS and is not the primary benchmark host.
-- **Remote physical-site host:** a Linux machine at another physical
-  location. Record its hardware and network manifest before use. Use it
+- **Remote physical-site host:** the partner's Dell PowerEdge R640,
+  Linux, at another physical location; exact hardware from its manifest. Record its hardware and network manifest before use. Use it
   for real WAN and cross-site testing:
   - RTT and jitter;
   - replication;
@@ -269,8 +272,8 @@ Manifests on record (bench/manifests/README.md):
 | --- | --- |
 | This project's cloud VM | `dev-vm-4vcpu-20261104.txt` |
 | Vultr VPSs of 2026-11-04 | Not captured by the script; the hosts are destroyed. What was recorded is in REAL_MACHINES.md "Vultr run" |
-| Main local server (second server) | **To capture before its first run** |
-| Remote physical-site host | **To capture before its first run** |
+| Main local server (Dell R640) | **To capture before its first run** |
+| Remote physical-site host (partner's Dell R640) | **To capture before its first run** |
 | Any new VPS | To capture at creation |
 
 ## 9. Benchmark discipline

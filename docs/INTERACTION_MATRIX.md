@@ -28,7 +28,7 @@ Class, per work order Part IX:
 | --- | --- | --- | --- | --- | --- |
 | 1 | Retry × overload | The duplicate check runs before `E_OVERLOADED` [INV 18] | G3 | `test_transfer` `test_resend_overloaded` (EL2), found on real hosts | **TESTED** |
 | 2 | Retry × migration (resend to the source) | Deduplicated before `E_MOVED`/`E_MIGRATING`, also after a restart | G3 | `test_resend_refusals` (EL2) | **TESTED** |
-| 3 | Retry × migration (resend to the new owner after `E_MOVED`) | Sessions stay on the source; the destination has none, so a resend of an applied-but-unanswered request runs again | G3 | INFERRED | **UNTESTED** |
+| 3 | Retry × migration (resend to the new owner after `E_MOVED`) | Sessions stay on the source; the destination has none, so a resend of an applied-but-unanswered request runs again. Refined (EXPERIMENTAL_BASELINE.md Q2): the shipped library resends an in-doubt request to the same group, which deduplicates before `E_MOVED`, so the double apply needs an expired (R11) or lost (R08) source session, or a resend that bypasses the library | G3 | INFERRED | **UNTESTED** (pre-baseline test T-Q2) |
 | 4 | Retry × failover (sync) | Sessions are replicated; resends after failover are deduplicated | G3 | `test_replication` 30K resends (EL3), Vultr P3 (EL4) | **TESTED** |
 | 5 | Retry × second failover during resends | Same path as row 4, two terms | G3 | `RETRIES.md:156-161` | **UNTESTED** |
 | 6 | Retry × recovery (restart) | Sessions are WAL objects, recovered with the data | G3 | `test_resend_refusals` (restart while sealed), `test_crash` (EL3, acked results; no resends) | **PARTIALLY TESTED** |
@@ -58,13 +58,13 @@ Class, per work order Part IX:
 
 | # | A × B | What happens (as built) | At risk | Evidence | Class |
 | --- | --- | --- | --- | --- | --- |
-| 20 | Migration × failover (destination or source group fails over mid-move) | Promotion ignores placement; slot state is a replicated object, so the new primary should resume the node-side steps | G1, G4, G6 | INFERRED | **UNTESTED** |
+| 20 | Migration × failover (destination or source group fails over mid-move) | Slot state is a replicated object; the promoted node runs the start barrier (placement v2: arrival proof, re-seal, commit gate) and resumes the node-side steps; a volatile S1 chain is lost and the driver's resend starts a new one | G1, G4, G6 | `test_migrate` (sync groups, standby promoted at each step, EL3); `test_fail_closed` F1, F3, F6, F7, F13, F17 (lossy async promotion, EL2, PR #40); `test_s1` dst_promote, src_promote, fence (EL2, PR #44) | **TESTED** |
 | 21 | Migration × replication | Moves run between sync-replicated groups; staged objects and seals are replicated | G2 | P5 lab (EL2, loopback), Vultr P5 (EL4) | **PARTIALLY TESTED** (no standby check after a move) |
-| 22 | Migration × recovery (node crash at each step) | Every step resumes from durable slot state | G1, G4 | `test_migrate` 67 crash points (EL3) | **TESTED** |
+| 22 | Migration × recovery (node crash at each step) | Every step resumes from durable slot state | G1, G4 | `test_migrate` 67 crash points (EL3); `test_s1` crashes inside the final stage chain at admit, check, put, scan, stage and reply, one restarting with units off (EL2) | **TESTED** |
 | 23 | Migration × follow-ups (transfers into and out of a moving slot) | Follow-ups to a sealed slot are held and re-emitted after activation | G4 | `test_migrate` (transfers during moves, all settle) (EL3) | **TESTED** |
 | 24 | Migration × silent partition | Stale seal answered; the PR #28 double apply fixed | G3 | Vultr rerun 24/24 (EL4) | **TESTED** |
 | 25 | Placement × recovery (restart with an older map) | `E_MIGRATING` until refreshed | G1 | `test_resend_refusals` (EL2) | **TESTED** |
-| 26 | Control-plane loss × migration | The driver stops; the slot can stay sealed until a majority returns; resumable | G6 | driver death tested (EL3); witness-majority loss not | **PARTIALLY TESTED** |
+| 26 | Control-plane loss × migration | The driver stops; the slot can stay sealed until a majority returns; resumable | G6 | driver death tested (EL3, and mid-chain: `test_s1` driver_death); an offline restart without the control plane does not start (F17); witness-majority loss mid-move not tested | **PARTIALLY TESTED** |
 | 27 | Checkpoint × migration (seal or staged objects across a checkpoint and restart) | Slot state is an object; checkpointed with the rest | G1 | INFERRED | **UNTESTED** |
 | 28 | Indexes × migration | Results filtered to served slots; staged objects re-indexed on `put_image` (the D amplifier) | index results; G6 via D | MEASURED (D) for cost; correctness INFERRED | **PARTIALLY TESTED** |
 
@@ -87,6 +87,14 @@ Class, per work order Part IX:
 Not applicable: a standby × migration-driver requests (the driver talks
 only to primaries); in-memory mode × replication.
 
+## Baseline triage (2026-11-04)
+
+[EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md) section 3 classifies
+every row that matters to the falsification campaign as BLOCKER,
+EXCLUSION, TEST REQUIRED or NON-BLOCKING per benchmark profile, and
+section 5 names the pre-baseline tests (T-Q1..T-Q10, T-H). Row 20 is now
+TESTED and leaves the ranking below.
+
 ## M. Untested high-risk interactions, ranked
 
 Ranked by safety impact first: rows that can serve from two owners (G1),
@@ -97,8 +105,7 @@ measured, with contracts proposed in CORE_CONTRACTS sections 9-11.
 
 | Rank | Row | Impact | Why this rank | Smallest test that would settle it |
 | --- | --- | --- | --- | --- |
-| 1 | 20: failover during a slot move | G1, G4 | Moves are when shard threads are busiest (row 11), so a false failover mid-move is the likely real path | `test_migrate` plus: SIGKILL the destination primary at each step, promote its standby, let the driver resume; check single owner and balances |
-| 2 | 3: resend to the new owner after `E_MOVED` | G3 | A plain client following the documented refusal can apply twice; needs only a lost answer | `test_resend_refusals`: apply, drop the answer, move the slot, resend to the destination |
+| 2 | 3: resend to the new owner after `E_MOVED` | G3 | Needs a lost answer plus an expired or lost source session, or a client that bypasses the library (Q2) | `test_resend_refusals`: apply, drop the answer, move the slot, resend to the destination |
 | 3 | 32: wrong data directory before the UUID check | G1 | Operator error, brief window, but two owners | start a node on another group's directory with `--control`; expect refusal before serving |
 | 4 | 19b: WAL bit rot in the last segment | G2 | Silent loss of acknowledged writes on one node; a sync standby still holds them | `test_persistence`: flip a byte mid-segment, restart; expect a refusal, not a silent truncation |
 | 4b | 19a: stale reads on a cut-off old primary | consistency | Any partition; reads only | `test_replication`: cut the primary from standby and witnesses, promote, write on the new primary, read on the old |

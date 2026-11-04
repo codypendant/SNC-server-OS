@@ -1,0 +1,218 @@
+PR #44 / S1 + EXPERIMENTAL ROADMAP REVIEW
+
+DECISION
+
+PR #43 Experimental Validation roadmap: APPROVED.
+PR #44 S1 bounded destination staging: APPROVED.
+
+Do NOT start S2/S3 or major platform features.
+
+S1 achieved its primary goal. On the corrected 100K shared-key workload, the longest non-preemptible destination task fell from about 2979 ms to about 3.8 ms. STATUS max during final staging fell from about 2986 ms to 16 ms, and foreground deposit max fell from roughly 1.6 s to about 32 ms.
+
+The tradeoff is real and must remain visible: total move time increased about 45%, while client-visible E_MIGRATING increased about 37% on shared-email and about 10% on unique-email workloads. This is exactly the kind of tradeoff the falsification program must evaluate.
+
+Accepted S1 refinements:
+- non-final STAGE also uses bounded units;
+- reply slot_report is bounded without changing reply content;
+- driver resend covers final and non-final stages;
+- MOVE ROLE replaces expensive INFO probing;
+- STAGE is its own bounded unit;
+- no new wire, durable, placement or migration protocol;
+- volatile FINALIZING remains non-authoritative;
+- D1/D7 fail-closed proof remains intact;
+- source/destination failover, driver death, retry, fencing and existing migration crash tests pass;
+- --move-units off remains rollback/comparison.
+
+The shared-email index path is now measured at roughly 0.2 ms per put. It is not itself a multi-second primitive in this workload. Do not optimize the index now.
+
+Final verification:
+- RelWithDebInfo 22/22;
+- ASan+UBSan 22/22;
+- TSan 22/22.
+The sanitizer S1 scale was reduced because sanitizer overhead exceeded the driver's deadline; that is valid correctness coverage, not scale evidence.
+
+The Experimental Validation roadmap is also correctly integrated:
+- docs/EXPERIMENTAL_VALIDATION.md;
+- STATUS and AGENTS scope gate;
+- reference-research linkage;
+- bench/manifest.sh and host manifests;
+- raw-result/config/commit requirements;
+- major platform work conditional on GO / REFINE / NARROW / STOP.
+
+NEXT WORK ORDER — EXPERIMENTAL BASELINE READINESS REVIEW
+
+Do not implement another architecture feature.
+
+Create docs/EXPERIMENTAL_BASELINE.md first.
+
+Purpose: define exactly which SNC configurations and correctness contracts may be used in the falsification campaign.
+
+For every known issue/high-risk interaction classify it:
+
+BLOCKER — must be fixed before baseline because it invalidates a declared experimental contract.
+CONFIGURATION EXCLUSION — no fix required if that mode is excluded.
+TEST REQUIRED — likely safe but must be tested before relying on it.
+NON-BLOCKING KNOWN LIMIT — may remain if explicitly excluded from claims.
+
+R08
+
+Evaluate whether automatic async HA can simply be excluded from the initial baseline.
+
+Likely:
+- synchronous replication may be used for HA/durability comparisons;
+- async may be benchmarked only as explicitly weaker LOCAL_DURABLE;
+- do not claim HA_DURABLE for async;
+- unsafe automatic async promotion must not contaminate a durable-HA profile.
+
+Determine whether R08 actually needs implementation before the campaign or whether honest configuration exclusion is sufficient. Prefer the smallest scientifically valid approach.
+
+R11
+
+Session expiry can cause an old sequenced operation to execute again.
+
+Determine whether planned campaign durations/idle behavior can encounter expiry.
+
+Do not hide it by simply choosing a huge TTL and calling it fixed.
+
+Decide whether:
+- session incarnation is a baseline blocker;
+- long-idle retry semantics can be excluded from claims;
+- another explicitly bounded profile is scientifically sufficient.
+
+HIGH-RISK INTERACTION TRIAGE
+
+Review and update INTERACTION_MATRIX, especially:
+- resend to new owner after E_MOVED;
+- second failover during resends;
+- shard-count change × sessions;
+- checkpoint × lost standby;
+- blocked sync × load/memory growth;
+- WAL bit rot;
+- stale reads from cut-off old primary;
+- wrong data directory/control-plane startup;
+- checkpoint × migration;
+- failover during migration;
+- witness-majority loss during move/failure.
+
+PRs #40/#44 now provide evidence for some previously UNTESTED migration interactions. Update stale classifications.
+
+PRE-REGISTER BENCHMARK PROFILES
+
+Define exact profiles before comparative results.
+
+Example structure:
+
+PROFILE A — LOCAL DURABLE
+- durable WAL;
+- no standby;
+- exact acknowledgement/crash semantics documented.
+
+PROFILE B — SYNC HA
+- synchronous standby;
+- HEALTH witnesses;
+- placement v2;
+- move units on;
+- exact HA durability/failover contract.
+
+PROFILE C — MEMORY / ARCHITECTURAL CEILING
+- explicitly non-durable;
+- only measures execution/locality ceiling;
+- never compared to durable competitors as if semantics match.
+
+PROFILE D — ASYNC LOCAL_DURABLE
+- only if useful;
+- explicitly weaker;
+- unsafe automatic failover excluded until R08 contract exists.
+
+Derive final profiles from current contracts.
+
+For every profile document:
+- what OK means;
+- process-crash survival;
+- host-loss survival;
+- replication guarantee;
+- failover guarantee;
+- retry guarantee/horizon;
+- read consistency;
+- migration guarantee;
+- known exclusions.
+
+HARDWARE TOPOLOGY
+
+Update the validation plan with actual intended infrastructure:
+
+MAIN LOCAL BARE-METAL HOST
+- Dell PowerEdge R640;
+- dual-socket;
+- Intel Xeon Gold;
+- ~384 GB RAM;
+- exact CPU model/core count/NUMA topology TBD from manifest;
+- Linux SNC test host.
+
+REMOTE PHYSICAL HOST
+- partner's Dell PowerEdge R640;
+- Linux;
+- separate physical location;
+- exact hardware TBD from manifest.
+
+VPS FABRIC
+- arbitrary disposable VPS nodes/regions;
+- same-region and WAN topologies;
+- record provider, instance type, region, measured RTT/jitter/loss and machine manifest.
+
+R740xd
+- TrueNAS Scale bare metal;
+- not the planned SNC bare-metal benchmark host.
+
+Do not guess CPU counts.
+
+PRE-REGISTER FALSIFICATION DECISION RULES
+
+Before the full comparative campaign, state what results cause:
+GO
+REFINE
+NARROW
+STOP.
+
+Where numeric thresholds are not yet defensible, define the qualitative rule and the pilot measurement that will set the threshold.
+
+Do not set final thresholds after competitor results are known.
+
+NO S2/S3
+
+S1 is sufficient migration machinery for the initial experimental baseline.
+
+S2/S3 become REFINE candidates only if experiments show migration behavior prevents a fair evaluation.
+
+REFERENCE RESEARCH
+
+Continue in parallel. Styx remains first priority. Do not import mechanisms merely because competitors have them.
+
+DELIVERABLE
+
+docs/EXPERIMENTAL_BASELINE.md must contain:
+1. candidate fixed baseline commit/configuration;
+2. benchmark profiles and semantics;
+3. known-issue triage;
+4. BLOCKER / EXCLUSION / TEST REQUIRED / NON-BLOCKING classification;
+5. required pre-baseline tests;
+6. R08 baseline decision;
+7. R11 baseline decision;
+8. updated interaction-matrix classifications;
+9. hardware/manifests plan;
+10. pre-registered falsification decision rules;
+11. exact requirements to freeze the Experimental Baseline;
+12. explicit claims the baseline is NOT allowed to make.
+
+DESIGN / TRIAGE FIRST.
+
+Return this document for review before implementing newly identified blockers or beginning the comparative campaign.
+
+FINAL
+
+PR #43: APPROVED.
+PR #44 / S1: APPROVED.
+
+The project is now at the intended transition from feature development to experimental falsification.
+
+Proceed only with the EXPERIMENTAL BASELINE READINESS REVIEW.
