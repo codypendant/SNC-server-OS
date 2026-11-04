@@ -45,7 +45,7 @@
 // diagnostics; it is the witness's liveness signal and proves nothing
 // about replication or promotion eligibility. STATUS asks every shard for
 // its replication state and may be slow. --debug-admin also accepts DEBUG
-// STALL <shard> <ms> (tests only). With --witness, a sync primary past --replica-timeout-ms continues
+// STALL <shard> <ms> and DEBUG REPL-PAUSE 1|0 (tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
 // witness when its standby is back in sync. --witness takes a comma-separated
 // list of replicated witnesses; each request goes to the first that
@@ -559,6 +559,16 @@ int main(int argc, char** argv) {
           }
         });
         std::printf("debug: stalling shard %u for %u ms\n", sh, ms);
+        std::fflush(stdout);
+        reply = "OK";
+        return true;
+      }
+      // DEBUG REPL-PAUSE 1|0 (tests; docs/MIGRATION_FAIL_CLOSED.md 14): this
+      // node's replication senders ship nothing more until resumed, so a
+      // test chooses exactly which records the standby lacks.
+      if (debug_admin && (line == "DEBUG REPL-PAUSE 1" || line == "DEBUG REPL-PAUSE 0")) {
+        Engine::debug_pause_replication(line.back() == '1');
+        std::printf("debug: replication %s\n", line.back() == '1' ? "paused" : "resumed");
         std::fflush(stdout);
         reply = "OK";
         return true;

@@ -396,6 +396,9 @@ class Engine {
   // brings the node back. Control path.
   void withdraw();
   bool fenced() const;
+  // Tests only: every replication sender in this process stops shipping
+  // (on) or resumes (off). See repl::set_debug_pause.
+  static void debug_pause_replication(bool on);
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down

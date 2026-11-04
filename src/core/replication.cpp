@@ -2,6 +2,8 @@
 
 #include "snc/sri.h"
 
+#include <atomic>
+
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -20,6 +22,13 @@
 #include <cstring>
 
 namespace snc::repl {
+
+namespace {
+std::atomic<bool> g_debug_pause{false};
+}  // namespace
+
+void set_debug_pause(bool on) { g_debug_pause.store(on); }
+bool debug_paused() { return g_debug_pause.load(std::memory_order_relaxed); }
 
 namespace {
 
@@ -473,6 +482,10 @@ bool Sender::poll(u64 now_ns) {
   }
   advanced |= read_acks(now_ns);
   if (state_ != State::LIVE) return advanced;
+  if (debug_paused()) {
+    progress_ns_ = now_ns;  // paused on purpose: not a silent standby
+    return advanced;
+  }
   if (advanced || acked_ + 1 >= next_expected_) {
     progress_ns_ = now_ns;
   } else if (cfg_.ack_timeout_ns != 0 && now_ns - progress_ns_ >= cfg_.ack_timeout_ns) {

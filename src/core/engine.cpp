@@ -907,6 +907,8 @@ void Engine::withdraw() {
 
 bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
 
+void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
+
 bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 
 Engine::ReplStatus Engine::replication_status() const {
