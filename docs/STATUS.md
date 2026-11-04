@@ -18,10 +18,28 @@ Decided by cody on 2026-11-04.
 - **Exceptions:** work a validation workload explicitly requires, and
   fixes for defects that would invalidate an experiment (R08, R11 are
   candidates).
-- **Order:** S1 (implemented, under review), its review, the required
-  correctness fixes, the SNC Experimental Baseline (fixed commit, machine
-  manifests, pre-registered failure criteria), the falsification program,
-  then the decision.
+- **Order:**
+  1. S1 (approved, PR #44).
+  2. The baseline readiness review
+     ([EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md), draft for
+     review), and its review.
+  3. The pre-baseline tests and any blocker fixes they force.
+  4. The SNC Experimental Baseline: a fixed commit, machine manifests,
+     and pre-registered failure criteria.
+  5. The falsification program.
+  6. The decision.
+- **Readiness review (draft).** It proposes:
+  - profiles A (LOCAL_DURABLE), B (SYNC HA), C (memory ceiling) and an
+    optional D (async, manual failover);
+  - R08 handled by excluding automatic async failover;
+  - R11 handled by a bounded retry horizon proven by a test, with the
+    TTL left at its default;
+  - seven pre-baseline tests;
+  - pre-registered GO / REFINE / NARROW / STOP rules.
+
+  It found no blocker for these profiles. Two items (checkpoint × lost
+  standby, blocked sync × memory) become blockers for Profile B's
+  failure runs if their tests reproduce the hazard.
 - **Evidence rules:** every benchmark host has a manifest in
   [bench/manifests/](../bench/manifests/README.md); raw results go under
   `bench/results/<campaign>/` with the exact configuration and commit
@@ -157,8 +175,8 @@ Decided by cody on 2026-11-04.
   Restate, Orleans, SpacetimeDB and DBOS, compared mechanism by mechanism
   against SNC's contracts; runs alongside Core work and changes nothing by
   itself.
-- S1 bounded destination staging (2026-11-04, **implemented, under
-  review**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md) section 18. Every
+- S1 bounded destination staging (2026-11-04, **approved** after the
+  review of PR #44): [MIGRATION_STAGING.md](MIGRATION_STAGING.md) section 18. Every
   STAGE (final and copy ahead) and its reply report run on B's shard as a
   chain of bounded units with guards between them (fence, token,
   placement, mutation, rehash), a durability window, and a driver resend

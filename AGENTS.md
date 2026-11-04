@@ -954,3 +954,42 @@ or source comments.
 -   **Next action:** wait for cody/Codex review. S2, S3, R08 and R11 are
     not started. The experimental validation milestone follows this
     review and any correctness fixes it requires.
+
+### 2026-11-04 UTC --- Claude (Claude Code): experimental baseline readiness review (design and triage only)
+
+-   **Classification:** KEEP. Documents only; no code or contract change.
+-   **What:**
+    - `docs/EXPERIMENTAL_BASELINE.md`, after cody's approval of PRs #43
+      and #44 (`docs/handoff/PR44_S1_and_Experimental_Baseline_Handoff.txt`):
+      - candidate baseline `fd0ba42`;
+      - profiles A (LOCAL_DURABLE), B (SYNC HA), C (memory ceiling) and
+        an optional D (async, manual failover), each with its OK,
+        survival, replication, failover, retry, read and migration
+        contract;
+      - a known-issue triage per profile;
+      - pre-baseline tests (T-Q1..T-Q10, T-H);
+      - the R08 and R11 decisions;
+      - the hardware plan (main and remote Dell R640s, VPS fabric);
+      - pre-registered GO/REFINE/NARROW/STOP rules;
+      - the freeze requirements;
+      - the claims the baseline may not make.
+    - INTERACTION_MATRIX: row 20 is TESTED (PRs #40 and #44); rows 3,
+      22 and 26 are refined.
+    - EXPERIMENTAL_VALIDATION and the manifests README carry the R640
+      hosts.
+-   **Proposed decisions:**
+    - **R08:** EXCLUSION. Profile B is sync only; async only as Profile D
+      without witnesses. F-a is deferred.
+    - **R11:** not a blocker. The shipped client resends in-doubt
+      requests only within about 35 s of a failure, against a 3600 s
+      TTL (left at its default). Test T-Q1 must prove that horizon, and
+      long-idle retries are excluded from claims.
+-   **Found:**
+    - No secondary-index query on the wire (X1, a workload-A gap).
+      Recommended: a small wire kind, as its own slice.
+    - Checkpoint × lost standby (Q3) and blocked sync × memory (Q4)
+      become blockers for Profile B failure runs if their tests
+      reproduce the hazard.
+-   **Next action:** WAIT for cody/Codex review of the document. Implement
+    nothing (tests, X1, harness guards) and start no campaign until it
+    is accepted.

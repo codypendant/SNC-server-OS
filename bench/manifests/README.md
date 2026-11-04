@@ -16,7 +16,7 @@ command lines.
 | --- | --- | --- |
 | This project's cloud VM (4 vCPU, 15 GiB, one NUMA node) | Development, loopback regression checks. Not experiment evidence: multi-process runs are CPU-oversubscribed | [dev-vm-4vcpu-20261104.txt](dev-vm-4vcpu-20261104.txt) |
 | Vultr VPSs, 2026-11-04 (three, 2 vCPU) | Lab run P0-P6. Destroyed; no script manifest. What was recorded: [REAL_MACHINES.md](../../docs/REAL_MACHINES.md) | none |
-| Main local server (cody's second server, about 384 GB, Xeon Gold; not the R740xd) | Bare-metal local SNC benchmarks | **to capture before first use** |
+| Main local server: Dell PowerEdge R640 (dual-socket Xeon Gold, about 384 GB; not the R740xd) | Bare-metal local SNC benchmarks | **to capture before first use** |
 | R740xd | TrueNAS Scale; not used for bare-metal SNC tests | n/a |
-| Remote physical-site Linux host | WAN and cross-site class (kept separate from LAN results) | **to capture before first use** |
-| Future disposable VPSs | Reproducible fault injection | capture at creation |
+| Remote physical host: the partner's Dell PowerEdge R640 (Linux) | WAN and cross-site class (kept separate from LAN results) | **to capture before first use**, with RTT, jitter and loss to the main host |
+| VPS nodes | Same-region and WAN fabric, fault injection | at creation, with provider, instance type, region, and RTT, jitter and loss per pair |
