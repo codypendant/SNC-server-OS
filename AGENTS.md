@@ -824,3 +824,26 @@ or source comments.
 -   **Not changed:** R08, R11, S1, any code.
 -   **Next action:** review of MIGRATION_FAIL_CLOSED.md (decisions 1-5 in
     its section 0). Then implementation only if approved.
+
+### 2026-11-04 UTC --- Claude (Claude Code): fail-closed migration serving, D1/D7 (implementation)
+
+-   **Classification:** implementation of the slice the PR #39 review
+    authorized. **REFINE** of MIGRATION.md (exact activation, serving
+    proof, start barrier, commit gate), CORE_CONTRACTS (MS-1 to MS-4 in
+    section 2; E9 now covered for migration state) and FAILURE_MODEL (new
+    row C7a). No change to R08, R11 or S1-S3; no repair, GC, new client
+    status or trace rings.
+-   **Order kept:** F1/F2 (and D1b-D1d) reproduced on the old code first,
+    exactly as predicted (`bench/results/failclosed-20261104/`); then
+    placement v2, exact activation and the cached proof, DIR/role, the
+    barrier and re-seal, the gate and aborts, visibility and backfill.
+-   **What:** see MIGRATION_FAIL_CLOSED.md section 20 (code map,
+    differences from the design, measurements, manual v2 rollback,
+    residual risks).
+-   **Evidence:** `test_fail_closed` (F1-F11, F13, F15, F17, F18, role
+    crash order, backfill, stuck, prepared, f10_reseal, f7_prepared, size;
+    compat and f7b against an old build), `test_proof` (C, D, E, F12),
+    `test_placement` (v2 text rules); independent source review and QA
+    against the four documents (findings fixed: MIGRATION_FAIL_CLOSED.md
+    section 20). Sanitizer and full-suite results: section 20 "Runs".
+-   **Next action:** review of this slice. Do NOT start S1 before it.

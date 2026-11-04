@@ -19,7 +19,9 @@ snc_ctl --control H0:9000,H1:9000,H2:9000 move --abort 1202
 ```
 
 Either command, run again after any failure (of itself, a node, or a
-control-plane minority), carries on from where the move is.
+control-plane minority), carries on from where the move is. (One
+exception: a committed move whose destination has no evidence of it ends
+STUCK; see "Serving needs proof".)
 
 ## The pieces
 
@@ -49,7 +51,7 @@ does. Its phase is one of:
 
 | Phase | Meaning |
 | --- | --- |
-| NONE (no record) | serving iff the map gives this group the slot |
+| NONE (no record) | serving iff the map gives this group the slot (and, with an arrival on record, the proof below holds: "Serving needs proof") |
 | ACTIVE | as NONE (activated here by a move, or unsealed) |
 | SEALED `{move, to, epoch, count, digest}` | moving away: never applies another write to the slot, whatever the map says |
 | STAGED `{move, from, epoch, count, digest}` | moving here: an exact copy of the sealed source, not yet authoritative |
@@ -57,12 +59,13 @@ does. Its phase is one of:
 **The serving rule.** A node of group G serves slot S (runs ops on its
 objects, mints IDs in it, runs follow-ups to it, resumes its objects) iff
 it is G's primary, not fenced, its map gives S to G, and G's phase for S
-is NONE or ACTIVE (`Shard::serving`). The check runs on the shard that
+is NONE or ACTIVE (`Shard::serving`) and, when the placement records an
+arrival for S, its slot state proves that arrival ("Serving needs proof"). The check runs on the shard that
 owns S, the same thread that writes the seal, so an op either runs before
 the seal's record (and is in the log ahead of it) or is refused. Refusals:
 `E_MOVED {epoch, group}` when the map gives S to another group,
 `E_MIGRATING {epoch, group}` when the map gives it to this group but the
-phase does not (sealed: `group` is the destination).
+phase or the proof does not (sealed: `group` is the destination).
 
 ## The state machine
 
@@ -76,16 +79,18 @@ step is idempotent. The node side is `migrate::NodeHandler` (requests
 | no move, `slots[S] = A` | CAS: add `{id, S, A, B, E+1, PREPARED}` | the record | PREPARED |
 | PREPARED | **copy ahead**: B sends what it holds of S (`id, version, crc`); A exports its *durable* objects that differ; B stages them (chunks, not final) | objects at B, not served | |
 | PREPARED | **seal** at A (only if the placement shows this move PREPARED) | SEALED at A, durable on its standby | CAS: SEALED |
-| SEALED | **final copy**: B's list again; A exports all of S (only once its seal for this move is durable), payloads for what differs; B makes its copy equal (adds, replaces, drops the rest), checks count and digest, writes STAGED | STAGED at B, durable on its standby | CAS: STAGED |
-| STAGED | CAS: `slots[S] = B`, `epoch = E+1`, state COMMITTED | the new map | COMMITTED |
-| COMMITTED | **activate** at B: refresh its map; STAGED becomes ACTIVE once the map gives S to B at epoch ≥ E+1 | ACTIVE at B | push the map to every node; CAS: remove the record |
+| SEALED | **final copy**: B's list again; A exports all of S (only once its seal for this move is durable), payloads for what differs; B makes its copy equal (adds, replaces, drops the rest), checks count and digest, writes STAGED. Skipped if B already holds a durable STAGED of this move; the move is aborted if A's primary has no SEALED of it (a lossy promotion) or B refuses the copy with a version conflict three times | STAGED at B, durable on its standby | CAS: STAGED |
+| STAGED | **commit gate** (no source member answering `ROLE m`, one answering as primary, none serving S; a serving one aborts the move after three looks); CAS: `slots[S] = B`, `epoch = E+1`, state COMMITTED, and with v2 `arrived[S] = (id, E+1)` | the new map | COMMITTED |
+| COMMITTED | **activate** at B: refresh its map; STAGED becomes ACTIVE once the map gives S to B at epoch ≥ E+1 **and records this move as S's arrival** (exact activation, docs/MIGRATION_FAIL_CLOSED.md: a STAGED record of another move never activates) | ACTIVE at B | push the map to every node; CAS: remove the record |
 
 **Abort** is a CAS removing the record while its state is not COMMITTED,
 then an **unseal** at A. A unseals only after a linearizable read shows
 `slots[S] = A` and no move with its seal's ID (`NodeHandler::unseal`): the
 removed move can then never commit, as a record is only re-created by a new
 PREPARE, which gets a new ID. After COMMITTED a move can only be finished
-(`move --abort` answers `NO committed`). Any driver run that finds no move
+(`move --abort` answers `NO committed`), or, when B's primary has no
+evidence of it (`proof=missing`, a lossy promotion at B), cleared as
+STUCK: S then stays unavailable until a repair (not built). Any driver run that finds no move
 of S also asks its owner to unseal (`Driver::settle_owner`), which clears a
 seal left by a driver that died between the abort CAS and the unseal.
 
@@ -114,9 +119,13 @@ or finished by another driver) changes nothing when it wakes.
 ## Proof
 
 Write `serves(G, S, t)` for "some node of G serves S at instant t" (the
-rule above). Within one group, the existing HA protocol allows at most one
-node to acknowledge writes per term, fences the others, and a promoted
-standby holds every durable record (docs/REPLICATION.md, invariants 3 and
+rule above). **Assumption (made explicit by docs/MIGRATION_FAIL_CLOSED.md):**
+within one group, the existing HA protocol allows at most one node to
+acknowledge writes per term, fences the others, and a promoted standby
+holds every durable record; that holds for sync-healthy groups only. Where
+it does not (async or degraded groups, admin `PROMOTE`), the serving proof
+and start barrier of "Serving needs proof" keep the conclusion for every
+history with one primary per group at a time (docs/REPLICATION.md, invariants 3 and
 16). So a group's slot state behaves as one durable register: what a step
 reports as done is in it after any failover, and anything not yet durable
 was never acknowledged. Maps on a node only move forward (a node adopts
@@ -160,8 +169,9 @@ argument for the move that took S away from it), or it is at least m's
 epoch, which gives S to Y, not Z. Y serves only after activating (STAGED →
 ACTIVE needs Lemma 3's condition) or, for a group that never staged S,
 never. So at most Y serves. A sealed group never serves, whatever map it
-starts from, which is why a node may start from its **stored map** when the
-control plane is down: a stale map can make a node refuse a slot it owns,
+starts from, which is why a primary's own directory may start from its
+**stored map** when the control plane is down (a directory that was last
+a standby may not: it reads the placement first, "Serving needs proof"): a stale map can make a node refuse a slot it owns,
 never accept one it does not (this settles docs/CONTROL_PLANE.md section 9's
 provisional point).
 
@@ -181,7 +191,7 @@ ordinary durable writes.
 | copying, copied | the record; partial copy at B (not served) | copies what differs again, seals, ... (or abort) |
 | sealed | SEALED at A; SEALED in placement | final copy, STAGED, commit, ... (or abort: remove, unseal A) |
 | staged | STAGED at B; STAGED in placement | commit, ... (or abort: remove, unseal A; B's copy stays unserved) |
-| committed | the new map | activate B, clear the record (abort refused) |
+| committed | the new map | activate B, clear the record (abort refused); STUCK, record cleared, if B has no evidence of the move |
 | activated | ACTIVE at B | push the map, clear the record |
 
 A failed primary of either group: its standby is promoted with every step
@@ -191,8 +201,32 @@ the witnesses in a deployment). A control-plane minority: the placement
 and lease machines continue. A control-plane majority: no step advances;
 slots keep being served as they were, except a sealed slot, which stays
 unavailable (never unsafe) until the control plane is back. A restarted
-node starts from its stored map and serves only what the rule above allows;
+primary starts from its stored map and serves only what the rule above
+allows (a former standby's directory runs the start barrier instead);
 its map catches up from the control plane later.
+
+## Serving needs proof (docs/MIGRATION_FAIL_CLOSED.md, as built)
+
+The placement says who owns S; it does not say that a node's copy of S is
+the one the last move delivered. With placement v2 (`--placement-v2`)
+every commit records `arrived[S] = (move, epoch)` in the same CAS, and a
+node serves S only if its own slot state proves that arrival: ACTIVE of
+that move, or a later move's record undone by an abort (UNSEAL) that
+never left. Anything else (no record, an older ACTIVE, a STAGED of
+another move, an older SEALED reopened by UNSEAL) fails closed: clients
+get `E_MIGRATING`, creates, index lookups, follow-ups and resumes skip or
+hold the slot, and the admin `INFO` says `proof=missing` (or `stale-map`
+when the local record is newer than the node's map). A slot with no
+arrival on record (never moved, or moved under v1 and not backfilled)
+keeps the rule above: it is not protected.
+
+Promotion and the start of a directory that was last a standby run a
+start barrier first: the placement read linearizably and adopted, a slot
+the placement says this group is moving away (PREPARED, SEALED or STAGED) re-sealed
+with an ordinary durable record, and only then the node serves and
+`DIR/role` says `primary`. The driver's commit additionally waits for the
+source group (no member answering `ROLE m`, a primary answering, none
+serving S) and aborts a move whose source has lost its seal.
 
 ## Follow-ups across a move
 
@@ -229,7 +263,7 @@ The rules (`src/core/shard.cpp`, `Shard::stale`, `on_link_frame`,
   arrives later), then every shard re-sends what is unsettled, so nothing
   re-sent is routed by a shard that still has the old map.
 - A follow-up whose target is in a slot this group owns but does not serve
-  (sealed or staged) is held, and released when the slot is activated or
+  (sealed, staged or unproven) is held, and released when the slot is activated or
   unsealed, or the map changes.
 
 ## Clients
@@ -361,6 +395,14 @@ gives S to this group.
   refresh keeps holding them (their sources re-send them later anyway).
 - Reads are not forwarded to the new owner; clients get `E_MOVED` and
   refresh.
+- A source primary the driver cannot reach (a cut-off async primary) is
+  not seen by the commit gate and may keep serving S after the commit
+  (R08, "cut-off primary"; docs/MIGRATION_FAIL_CLOSED.md section 20).
+- A slot left unproven (STUCK, or any `proof=missing`) stays unavailable;
+  repair (re-staging from the source's sealed copy) is not built.
+- Slots moved before placement v2 have no arrival on record and are not
+  protected until `snc_ctl --placement-v2 placement backfill` records
+  one.
 - The driver is an operator tool: `PLACEMENT CAS` accepts any well-formed
   placement from anyone who can reach the witnesses.
 - Copy requests carry whole slots in one admin line; fine for a test-sized

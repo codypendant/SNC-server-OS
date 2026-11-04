@@ -116,12 +116,18 @@ and the handoff's development sequence (§24).
   modifications, not built**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md).
   The final stage of a big slot still holds the destination shard for
   seconds (4.8 s at 100K objects).
-- Fail-closed migration serving, D1/D7 (2026-11-04, **design only, under
-  review; takes priority over S1**): [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md).
-  Today, after a lossy promotion (async, admin `PROMOTE`, or restarting a
-  standby's directory as a primary), a moved slot can be served from a
-  partial or stale copy, and a source that lost its seal can serve and
-  lose writes. INFERRED from code; not yet reproduced.
+- Fail-closed migration serving, D1/D7 (2026-11-04, **implemented, under
+  review; S1 waits for that review**): [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md)
+  section 20. Before it (reproduced: `bench/results/failclosed-20261104/`),
+  a lossy promotion (async, admin `PROMOTE`, or restarting a standby's
+  directory as a primary) let a moved slot be served from a partial or
+  stale copy, and a source that lost its seal serve and lose writes. Now,
+  with placement v2 (`--placement-v2`), a slot serves only with local
+  proof of the move that last gave it to the group; promotion and a
+  former standby's start re-seal before serving (`DIR/role`); the commit
+  waits for the source group. Not covered: a second primary the driver
+  cannot reach (R08), slots moved under v1 until backfilled; an unproven
+  slot stays unavailable (no repair yet).
 
 ## Benchmark numbers
 

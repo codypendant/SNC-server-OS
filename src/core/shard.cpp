@@ -1267,13 +1267,16 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
   }
   rebuild_index();
   refresh_slots();  // before the resume pass: it skips slots not served
-  start_serving();
+  // The log first: the start barrier's re-seal is an ordinary record, and
+  // it goes before anything is served (docs/MIGRATION_FAIL_CLOSED.md 5a).
   if (!wal_cfg.data_dir.empty()) {
     wal_ = std::make_unique<WalStream>(wal_cfg, id_, next_lsn);
     wal_->on_durable = &Shard::on_wal_durable;
     wal_->on_durable_ctx = this;
     if (repl_cfg_.primary) start_sender(wal_cfg.data_dir, next_lsn);
   }
+  apply_reseal();
+  start_serving();
   activate_staged();  // a move committed while this node was down
   start_links();
 }
@@ -1392,8 +1395,11 @@ bool Shard::standby_settled() const {
 void Shard::promote(const ReplicaConfig& rc, const std::string& data_dir) {
   repl_cfg_ = rc;
   refresh_slots();
-  start_serving();
   if (wal_ && rc.primary) start_sender(data_dir, wal_->next_lsn());
+  // The start barrier's re-seal (docs/MIGRATION_FAIL_CLOSED.md 5a): this
+  // prefix is final (stop_standby, settled) and nothing has been served.
+  apply_reseal();
+  start_serving();
   activate_staged();  // the old primary may have died between a commit and its activation
   // Clustered: other groups' links find this member once it listens, and
   // every link coming up re-runs the resume pass, which re-sends what the
@@ -1461,7 +1467,7 @@ void Shard::install_indexed(const WalRecord& r, const u8* payload) {
     SlotStateV1 st;
     std::memcpy(&st, payload, sizeof(st));
     const ObjectHeader* cur = map_.find(r.id);
-    if (cur == nullptr || cur->version < r.version) phases_[st.slot].store(st.phase, std::memory_order_relaxed);
+    if (cur == nullptr || cur->version < r.version) set_cache(st.slot, &st);
   }
   const ObjectHeader* o = map_.find(r.id);
   const TypeDescriptor* t = registry().type(r.type_id);
@@ -1641,6 +1647,7 @@ ShardStats Shard::stats() const {
   map_.for_each([&](const ObjectHeader* o) { s.objects += !o->deleted(); });
   s.emits_in_flight = emits_in_flight();
   s.emits_held_now = emit_held_.size();
+  s.slots_unproven = unproven_count();
   if (links_) s.node_connects = links_->connects();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
@@ -1990,6 +1997,18 @@ void Shard::emit_result(const Emit& e, Status s) {
 
 // ---- Slot moves (docs/MIGRATION.md) ------------------------------------------------
 
+const char* slot_proof_name(SlotProof p) {
+  switch (p) {
+    case SlotProof::OK: return "ok";
+    case SlotProof::FOREIGN: return "foreign";
+    case SlotProof::SEALED: return "sealed";
+    case SlotProof::STAGED: return "staged";
+    case SlotProof::MISSING: return "missing";
+    case SlotProof::STALE_MAP: return "stale-map";
+  }
+  return "?";
+}
+
 u64 slot_object_digest(const ObjectID& id, u64 version, u32 crc) {
   u64 x = snc_hash64(id) ^ (version * 0x9E3779B97F4A7C15ull) ^ (u64{crc} << 17);
   x ^= x >> 30;
@@ -2056,18 +2075,129 @@ u64 Shard::write_slot_state(u16 slot, const SlotStateV1& st) {
   std::memcpy(o->payload(), &st, sizeof(st));
   ++o->version;
   o->last_lsn = log(type, *o);
-  phases_[slot].store(st.phase, std::memory_order_relaxed);
+  set_cache(slot, &st);
   return o->last_lsn;
 }
 
+// Every slot this shard owns, with or without a state object: a slot with
+// none but an arrival on record is exactly the lost evidence the proof
+// must catch (docs/MIGRATION_FAIL_CLOSED.md 4, "never-moved NONE vs
+// evidence-lost NONE").
 void Shard::refresh_slots() {
   if (phases_ == nullptr) return;
-  map_.for_each([&](const ObjectHeader* o) {
-    if (o->deleted() || o->type_id != kSlotStateTypeId) return;
+  for (u32 s = 0; s < kSlots; ++s) {
+    if (slots_.owner[s] == id_) recompute_slot(static_cast<u16>(s));
+  }
+}
+
+// PROVEN (docs/MIGRATION_FAIL_CLOSED.md 4): local evidence that the image
+// here belongs to the ownership era the map's arrival `a` began.
+//   - no arrival on record (never moved, or moved before placement v2):
+//     today's rule, the slot is proven;
+//   - ACTIVE by exactly that move;
+//   - or a later move's seal here, undone because that move aborted. A seal
+//     needs a proven, served slot, and move IDs grow, so such a record was
+//     written in this era, and a replica holding it holds everything before
+//     it. An undone seal of an EARLIER move is an older era's (D1d).
+// Nothing else proves it: not phase NONE without a record, not an older
+// ACTIVE (D1c), not a STAGED (activation turns the right one into ACTIVE).
+static bool proven(const SlotArrival& a, const SlotStateV1* st) {
+  if (a.move == 0) return true;
+  if (st == nullptr) return false;
+  const bool unsealed = (st->flags & kSlotUnsealed) != 0;
+  const auto ph = static_cast<SlotPhase>(st->phase);
+  if (ph == SlotPhase::ACTIVE && !unsealed && st->move_id == a.move) return true;
+  return unsealed && st->move_id > a.move && (ph == SlotPhase::NONE || ph == SlotPhase::ACTIVE);
+}
+
+u8 Shard::cache_value(u16 slot, const SlotStateV1* st) const {
+  const u8 ph = st ? st->phase : 0;
+  if (cluster_ == nullptr || ph > static_cast<u8>(SlotPhase::ACTIVE)) return ph;  // sealed, staged: never served
+  if (cluster_->group_of[slot] != group_) return ph;  // another group's: never served
+  return proven(cluster_->arrived[slot], st) ? ph : kCacheUnproven;
+}
+
+void Shard::set_cache(u16 slot, const SlotStateV1* st) {
+  if (phases_ == nullptr) return;
+  const u8 v = cache_value(slot, st);
+  const u8 was = phases_[slot].exchange(v, std::memory_order_relaxed);
+  // A STAGED record older than the arrival (D1b) keeps its phase in the
+  // cache (never served either way) but is as unproven as the rest: said
+  // once, when the record or the arrival changes.
+  const SlotArrival arr = cluster_ ? cluster_->arrived[slot] : SlotArrival{};
+  const bool stale_staged = v == static_cast<u8>(SlotPhase::STAGED) && st && arr.move != 0 &&
+                            st->move_id < arr.move && cluster_->group_of[slot] == group_;
+  const std::pair<u64, u64> key{arr.move, stale_staged ? st->move_id : 0};
+  auto said = stale_staged_said_.find(slot);
+  if (stale_staged && (said == stale_staged_said_.end() || said->second != key)) {
+    stale_staged_said_[slot] = key;
+    std::fprintf(stderr,
+                 "snc: shard %u: slot %u MIGRATION_STATE_INCOMPLETE: placement says arrived by move %llx at epoch "
+                 "%llu; local state staged move %llx (older) - not serving\n",
+                 id_, slot, (unsigned long long)arr.move, (unsigned long long)arr.epoch,
+                 (unsigned long long)st->move_id);
+    SNC_TRACE("slot_unproven slot=%u move=%llx local_phase=3 local_move=%llx", slot, (unsigned long long)arr.move,
+              (unsigned long long)st->move_id);
+  }
+  if (v == kCacheUnproven && was != kCacheUnproven) {
+    const SlotArrival& a = cluster_->arrived[slot];
+    std::fprintf(stderr,
+                 "snc: shard %u: slot %u MIGRATION_STATE_INCOMPLETE: placement says arrived by move %llx at epoch "
+                 "%llu; local state %s move %llx%s - not serving\n",
+                 id_, slot, (unsigned long long)a.move, (unsigned long long)a.epoch,
+                 st == nullptr ? "none" : st->phase == 1 ? "active" : "none",
+                 (unsigned long long)(st ? st->move_id : 0),
+                 st && (st->flags & kSlotUnsealed) ? " unsealed" : "");
+    SNC_TRACE("slot_unproven slot=%u move=%llx local_phase=%u local_move=%llx", slot, (unsigned long long)a.move,
+              st ? st->phase : 0u, (unsigned long long)(st ? st->move_id : 0));
+  }
+}
+
+void Shard::recompute_slot(u16 slot) {
+  if (const ObjectHeader* o = slot_state(slot)) {
     SlotStateV1 st;
     std::memcpy(&st, o->payload(), sizeof(st));
-    phases_[st.slot].store(st.phase, std::memory_order_relaxed);
-  });
+    set_cache(slot, &st);
+  } else {
+    set_cache(slot, nullptr);
+  }
+}
+
+SlotProof Shard::proof_of(u16 slot, const SlotStateV1* st) const {
+  if (cluster_ == nullptr) return SlotProof::OK;
+  if (cluster_->group_of[slot] != group_) return SlotProof::FOREIGN;
+  const u8 v = cache_value(slot, st);
+  if (v == static_cast<u8>(SlotPhase::SEALED)) return SlotProof::SEALED;
+  if (v == static_cast<u8>(SlotPhase::STAGED)) {
+    // Staged by a move older than the arrival: it can never activate (exact
+    // activation), so nothing here will prove this slot.
+    const u64 a = cluster_->arrived[slot].move;
+    return st && a != 0 && st->move_id < a ? SlotProof::MISSING : SlotProof::STAGED;
+  }
+  if (v != kCacheUnproven) return SlotProof::OK;
+  // Evidence of a later move than the map's arrival, not undone by an
+  // abort: this node's map is older than its state.
+  if (st && !(st->flags & kSlotUnsealed) && st->move_id > cluster_->arrived[slot].move) return SlotProof::STALE_MAP;
+  return SlotProof::MISSING;
+}
+
+u64 Shard::unproven_count() const {
+  u64 n = 0;
+  if (phases_ == nullptr) return 0;
+  for (u32 s = 0; s < kSlots; ++s) {
+    if (slots_.owner[s] != id_) continue;
+    const u8 v = phases_[s].load(std::memory_order_relaxed);
+    if (v == kCacheUnproven) {
+      ++n;
+    } else if (v == static_cast<u8>(SlotPhase::STAGED) && cluster_ && cluster_->group_of[s] == group_) {
+      // A stale STAGED (older than the arrival) proves nothing either.
+      SlotStateV1 st;
+      const ObjectHeader* o = const_cast<Shard*>(this)->slot_state(static_cast<u16>(s));  // a lookup; changes nothing
+      if (o) std::memcpy(&st, o->payload(), sizeof(st));
+      n += proof_of(static_cast<u16>(s), o ? &st : nullptr) == SlotProof::MISSING;
+    }
+  }
+  return n;
 }
 
 void Shard::set_map(const ClusterMap* map) {
@@ -2076,6 +2206,9 @@ void Shard::set_map(const ClusterMap* map) {
   }
   cluster_ = map;
   if (links_) links_->set_epoch(map->epoch);
+  // The proof first: nothing below may run on a slot the new map's arrival
+  // leaves unproven (invariant 17, pass 1).
+  refresh_slots();
   // At once, before anything else runs under the new map: what was held
   // for it goes ahead of whatever arrives from now on.
   activate_staged();
@@ -2100,8 +2233,12 @@ void Shard::activate_staged() {
     if (o->deleted() || o->type_id != kSlotStateTypeId) return;
     SlotStateV1 st;
     std::memcpy(&st, o->payload(), sizeof(st));
+    // Exact (docs/MIGRATION_FAIL_CLOSED.md 4): the move the map's arrival
+    // names, not any staged move whose epoch it passes (an aborted move's
+    // STAGED can share the epoch of the move that committed: D1b).
+    const SlotArrival& a = cluster_->arrived[st.slot];
     if (st.phase == static_cast<u8>(SlotPhase::STAGED) && cluster_->group_of[st.slot] == group_ &&
-        cluster_->epoch >= st.epoch) {
+        cluster_->epoch >= st.epoch && (a.move == 0 || a.move == st.move_id)) {
       ready.push_back(st);
     }
   });
@@ -2116,6 +2253,10 @@ void Shard::activate_staged() {
 }
 
 void Shard::resume_slot(u16 slot) {
+  // Only a slot this node serves: an unseal that leaves the slot without
+  // proof (D1d: an older seal reopened) must not re-emit its stale
+  // objects' obligations (docs/MIGRATION_FAIL_CLOSED.md 12).
+  if (cluster_ && !serving(slot)) return;
   resuming_ = true;
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted() || slot_of(o->id) != slot) return;
@@ -2133,9 +2274,13 @@ void Shard::resume_slot(u16 slot) {
 SlotReport Shard::slot_report(u16 slot) {
   SlotReport r;
   r.slot = slot;
+  SlotStateV1 st{};
+  const ObjectHeader* so = slot_state(slot);
+  if (so) std::memcpy(&st, so->payload(), sizeof(st));
+  r.proof = proof_of(slot, so ? &st : nullptr);
+  if (cluster_) r.arrived = cluster_->arrived[slot];
   if (ObjectHeader* o = slot_state(slot)) {
-    SlotStateV1 st;
-    std::memcpy(&st, o->payload(), sizeof(st));
+    r.flags = st.flags;
     r.phase = st.phase;
     r.group = st.group;
     r.move_id = st.move_id;
@@ -2155,6 +2300,23 @@ SlotReport Shard::slot_report(u16 slot) {
     r.live_digest += slot_object_digest(o->id, o->version, image_crc(*o));
   });
   return r;
+}
+
+void Shard::slot_states(std::vector<SlotReport>& out) {
+  map_.for_each([&](const ObjectHeader* o) {
+    if (o->deleted() || o->type_id != kSlotStateTypeId) return;
+    SlotStateV1 st;
+    std::memcpy(&st, o->payload(), sizeof(st));
+    SlotReport r;
+    r.slot = st.slot;
+    r.phase = st.phase;
+    r.flags = st.flags;
+    r.group = st.group;
+    r.move_id = st.move_id;
+    r.epoch = st.epoch;
+    r.durable = durable(o->last_lsn);
+    out.push_back(r);
+  });
 }
 
 void Shard::slot_objects(u16 slot, bool payloads, std::vector<SlotObject>& out) {
@@ -2193,6 +2355,9 @@ Status Shard::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn) {
   }
   if (ph == SlotPhase::STAGED) return Status::E_MIGRATING;
   if (foreign_slot(slot)) return Status::E_MOVED;
+  // An unproven slot is never sealed: an aborted move's undone seal is
+  // proof of the era it was written in (docs/MIGRATION_FAIL_CLOSED.md 9).
+  if (phases_[slot].load(std::memory_order_relaxed) == kCacheUnproven) return Status::E_MIGRATING;
   // Every op on the slot runs on this thread: those before this point are
   // in the log before the seal, and none runs after it.
   SlotStateV1 st{};
@@ -2211,6 +2376,38 @@ Status Shard::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn) {
   std::fprintf(stderr, "snc: shard %u: slot %u sealed for move %llx (%llu objects)\n", id_, slot,
                (unsigned long long)move, (unsigned long long)st.count);
   return Status::OK;
+}
+
+Status Shard::reseal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn) {
+  lsn = 0;
+  if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
+  if (const ObjectHeader* o = slot_state(slot)) {
+    SlotStateV1 cur;
+    std::memcpy(&cur, o->payload(), sizeof(cur));
+    if (cur.phase == static_cast<u8>(SlotPhase::SEALED) && cur.move_id == move) {
+      lsn = o->last_lsn;  // the old primary's seal reached this prefix
+      return Status::OK;
+    }
+  }
+  if (phases_[slot].load(std::memory_order_relaxed) == kCacheUnproven) {
+    std::fprintf(stderr, "snc: shard %u: slot %u not re-sealed for move %llx: unproven here, so not served\n", id_,
+                 slot, (unsigned long long)move);
+    return Status::OK;
+  }
+  const Status st = seal_slot(slot, move, to, epoch, lsn);
+  std::fprintf(stderr, "snc: shard %u: slot %u re-sealed for move %llx at the start barrier: %s\n", id_, slot,
+               (unsigned long long)move, status_name(st));
+  SNC_TRACE("slot_resealed slot=%u move=%llx status=%s", slot, (unsigned long long)move, status_name(st));
+  return st;
+}
+
+void Shard::apply_reseal() {
+  reseal_lsn_ = 0;
+  if (!reseal_.on) return;
+  reseal_.on = false;
+  if (slots_.owner[reseal_.slot] != id_) return;
+  u64 lsn = 0;
+  if (reseal_slot(reseal_.slot, reseal_.move, reseal_.to, reseal_.epoch, lsn) == Status::OK) reseal_lsn_ = lsn;
 }
 
 Status Shard::unseal_slot(u16 slot, u64 move, u64& lsn) {
@@ -2249,6 +2446,7 @@ Status Shard::export_slot(u16 slot, u64 move, bool final, const std::vector<Slot
   } else if (!sealed_here) {
     if (ph == SlotPhase::SEALED || ph == SlotPhase::STAGED) return Status::E_MIGRATING;
     if (foreign_slot(slot)) return Status::E_MOVED;
+    if (phases_[slot].load(std::memory_order_relaxed) == kCacheUnproven) return Status::E_MIGRATING;
   }
   std::unordered_map<ObjectID, std::pair<u64, u32>, ObjectIdHash> known;
   for (const SlotObject& h : have) known[h.id] = {h.version, h.crc};

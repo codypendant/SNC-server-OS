@@ -64,6 +64,36 @@ inline Got get(const Members& ms, Placement& out, std::string& why) {
   return Got::UNREACHABLE;
 }
 
+// The placement, linearizably (PLACEMENT SYNC): the control plane's latest,
+// with the placement machine's version. Decisions that must not rest on a
+// stale view use it: unsealing, the driver's next step, and the start
+// barrier (docs/MIGRATION_FAIL_CLOSED.md 5a).
+inline bool sync(const Members& ms, u64& version, Placement& out, std::string& why) {
+  why = "no control member answered";
+  for (const auto& [h, port] : ms) {
+    std::string reply;
+    if (!ha::ask(h, port, "PLACEMENT SYNC", reply, 4000)) continue;
+    std::istringstream in(reply);
+    std::string tag;
+    if (!(in >> tag) || tag != "STATE" || !(in >> version)) {
+      why = h + ":" + std::to_string(port) + ": " + reply;
+      continue;
+    }
+    std::string body;
+    std::getline(in, body);
+    const auto b = body.find_first_not_of(' ');
+    body = b == std::string::npos ? "" : body.substr(b);
+    auto p = Placement::decode(body);
+    if (!p) {
+      why = "no placement (or a malformed one) in the control plane";
+      return false;
+    }
+    out = std::move(*p);
+    return true;
+  }
+  return false;
+}
+
 // "OK" once the placement is chosen; "NO ..." otherwise (already
 // initialised with another map, no quorum, nobody answered).
 inline std::string init(const Members& ms, const Placement& p) {
@@ -137,8 +167,10 @@ struct NodeSetup {
 // Node `node_id` with data in `data_dir`: fetches the placement (trying for
 // up to wait_ms), checks it names this node, and keeps it and the NodeID in
 // the data directory. Unreachable control plane: the stored map, if any.
-// Safe with slot moves: seals, not the map alone, decide what a node serves
-// (docs/MIGRATION.md). False, with `why`, if the node may not start.
+// Safe with slot moves: seals and arrival proofs, not the map alone, decide
+// what a node serves (docs/MIGRATION.md, docs/MIGRATION_FAIL_CLOSED.md); a
+// directory that was last a standby does not start on the stored map at
+// all (the start barrier, in Engine::start). False, with `why`, if the node may not start.
 inline bool resolve(const Members& ms, const std::string& data_dir, u32 node_id, int wait_ms, NodeSetup& out,
                     std::string& why) {
   ::mkdir(data_dir.c_str(), 0755);
@@ -208,6 +240,7 @@ inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   c.cluster = s.placement.cluster_groups();
   c.cluster_slots.assign(s.placement.slots.begin(), s.placement.slots.end());
   c.cluster_epoch = s.placement.epoch;
+  c.cluster_arrived.assign(s.placement.arrived.begin(), s.placement.arrived.end());
   c.group_id = s.group;
   c.member = s.member;
   c.init_uuid = s.placement.groups[s.group].space;
@@ -215,15 +248,32 @@ inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   auto stored = std::make_shared<std::atomic<u64>>(s.placement.epoch);
   const std::string path = c.data_dir + "/placement";
   const Uuid cluster = s.placement.cluster_id;
-  c.placement_fetch = [ms, stored, path, cluster](std::array<u8, kSlots>& slots, u64& epoch) {
+  c.placement_fetch = [ms, stored, path, cluster](Placement& out) {
     Placement p;
     std::string why;
     if (get(ms, p, why) != Got::MAP || p.cluster_id != cluster) return false;
     // A majority read may be behind one this node had: keep only newer.
+    // Written as read: a v2 placement stays v2 with its arrivals.
     u64 cur = stored->load();
     if (p.epoch > cur && write_synced(path, p.encode())) stored->compare_exchange_strong(cur, p.epoch);
-    slots = p.slots;
-    epoch = p.epoch;
+    out = std::move(p);
+    return true;
+  };
+  c.placement_sync = [ms, stored, path, cluster](Placement& out) {
+    u64 version = 0;
+    Placement p;
+    std::string why;
+    if (!sync(ms, version, p, why)) {
+      std::fprintf(stderr, "control: no linearizable placement read: %s\n", why.c_str());
+      return false;
+    }
+    if (p.cluster_id != cluster) {
+      std::fprintf(stderr, "control: the control plane serves another cluster\n");
+      return false;
+    }
+    u64 cur = stored->load();
+    if (p.epoch > cur && write_synced(path, p.encode())) stored->compare_exchange_strong(cur, p.epoch);
+    out = std::move(p);
     return true;
   };
 }

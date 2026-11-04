@@ -36,6 +36,12 @@ struct SlotStateV1 {
 static_assert(sizeof(SlotStateV1) == 40);
 inline constexpr u16 kSlotUnsealed = 1;
 
+// The serving cache (Shard::phases_) holds a SlotPhase, or this: the map
+// gives the slot to this group but the local evidence does not prove the
+// arrival it records (docs/MIGRATION_FAIL_CLOSED.md 4). Volatile: never in
+// a record; recomputed whenever the slot's state or the map changes.
+inline constexpr u8 kCacheUnproven = 4;
+
 // Registers the type and its index once per process.
 void register_slot_state_type();
 

@@ -2,8 +2,10 @@
 // of persistence: superblock, recovery and checkpoint orchestration (spec
 // section 12, recovery steps 1 to 9).
 #include <dirent.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -99,6 +101,51 @@ double since(std::chrono::steady_clock::time_point t) {
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
 }
 
+// DIR/role (docs/MIGRATION_FAIL_CLOSED.md 4.3, review of PR #39 item 4):
+// whether this data directory holds a primary's own disk or a standby's
+// replica prefix, which may be lossy. Correctness metadata: written whole,
+// synced, renamed into place, the directory synced. Anything but exactly
+// "primary" or "standby" reads as MALFORMED, and only a directory from
+// before role files existed (superblock without kSbRoleTracked) may lack
+// it and still count as a primary's.
+enum class DirRole { MISSING, PRIMARY, STANDBY, MALFORMED };
+
+const char* role_name(DirRole r) {
+  switch (r) {
+    case DirRole::MISSING: return "missing";
+    case DirRole::PRIMARY: return "primary";
+    case DirRole::STANDBY: return "standby";
+    case DirRole::MALFORMED: return "malformed";
+  }
+  return "?";
+}
+
+DirRole read_role(const std::string& dir) {
+  const std::string path = dir + "/role";
+  const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return errno == ENOENT ? DirRole::MISSING : DirRole::MALFORMED;
+  char b[32];
+  const ssize_t n = ::read(fd, b, sizeof(b));
+  ::close(fd);
+  const std::string s(b, n > 0 ? static_cast<std::size_t>(n) : 0);
+  if (s == "primary\n") return DirRole::PRIMARY;
+  if (s == "standby\n") return DirRole::STANDBY;
+  return DirRole::MALFORMED;
+}
+
+void write_role(const std::string& dir, DirRole role) {
+  const std::string path = dir + "/role", tmp = path + ".tmp";
+  const std::string text = std::string(role_name(role)) + "\n";
+  const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+  if (fd < 0 || ::write(fd, text.data(), text.size()) != static_cast<ssize_t>(text.size()) || ::fsync(fd) != 0) {
+    if (fd >= 0) ::close(fd);
+    storage_fatal("cannot write " + tmp);
+  }
+  ::close(fd);
+  if (::rename(tmp.c_str(), path.c_str()) != 0) storage_fatal("cannot rename " + tmp);
+  fsync_dir(dir);
+}
+
 void remove_tree(const std::string& path) {
   // Only used on flat directories this engine created (checkpoints).
   if (DIR* d = ::opendir(path.c_str())) {
@@ -158,6 +205,10 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
       std::array<u8, kSlots> a;
       std::copy(cfg.cluster_slots.begin(), cfg.cluster_slots.end(), a.begin());
       cluster_ = ClusterMap::assign(cfg.cluster, a, cfg.cluster_epoch);
+    }
+    if (!cfg.cluster_arrived.empty()) {
+      if (cfg.cluster_arrived.size() != kSlots) throw std::invalid_argument("cluster: cluster_arrived needs every slot");
+      std::copy(cfg.cluster_arrived.begin(), cfg.cluster_arrived.end(), cluster_.arrived.begin());
     }
   }
   g_state = std::make_unique<EngineState>();
@@ -309,6 +360,14 @@ void Engine::recover() {
   const u16 n = cfg_.runtime.n_shards;
   recovery_ = RecoveryReport{};
 
+  // 0. The role (docs/MIGRATION_FAIL_CLOSED.md 4.3). A standby says so on
+  // disk before any replica record or seed can land here: from then on
+  // this directory may hold a lossy prefix, until a promotion's start
+  // barrier completes.
+  make_dirs(dir);
+  const DirRole role = read_role(dir);
+  if (cfg_.standby) write_role(dir, DirRole::STANDBY);
+
   // 1. Superblock. A new standby may first fetch a seed from its primary.
   std::optional<Superblock> sb = read_superblock(dir);
   if (!sb && !cfg_.seed_from.empty()) {
@@ -335,6 +394,39 @@ void Engine::recover() {
   }
   sb_ = *sb;
   std::memcpy(uuid_.data(), sb_.space_uuid, 16);
+
+  // A start that may hold a replica prefix (the directory was last a
+  // standby, or its role cannot be read and it has had one) runs the start
+  // barrier: the placement read linearizably and adopted before any shard
+  // starts (the stored map is not accepted), a re-seal before anything
+  // serves, and only then role "primary". Without a control plane to ask
+  // (no placement_sync) there are no moves, and nothing to re-seal.
+  std::optional<Placement> barrier;
+  bool after_barrier = false;
+  if (!cfg_.standby) {
+    after_barrier = role == DirRole::STANDBY || role == DirRole::MALFORMED ||
+                    (role == DirRole::MISSING && (sb_.flags & kSbRoleTracked));
+    if (after_barrier) {
+      std::fprintf(stderr, "snc: data directory role %s: start barrier before serving\n", role_name(role));
+      if (cfg_.placement_sync && !cfg_.cluster.empty()) {
+        Placement p;
+        if (!cfg_.placement_sync(p)) {
+          throw std::runtime_error(
+              "start barrier: this data directory was last a standby (its records may be a lossy prefix), so the "
+              "placement must be read linearizably before it serves, and the control plane did not answer");
+        }
+        if (p.epoch >= cluster_.epoch) {
+          ClusterMap m = ClusterMap::assign(cluster_.groups, p.slots, p.epoch);
+          m.arrived = p.arrived;
+          cluster_ = std::move(m);
+        }
+        barrier = std::move(p);
+      }
+    } else if (role == DirRole::MISSING) {
+      write_role(dir, DirRole::PRIMARY);  // a primary's own disk (new, or from before role files)
+    }
+  }
+  sb_.flags |= kSbRoleTracked;  // in the superblock written below
 
   // 2. Manifest and type catalog.
   std::optional<Manifest> m;
@@ -526,9 +618,11 @@ void Engine::recover() {
   }
   rt_->run_on_all([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
+    if (barrier) reseal_from(*barrier);
     current_shard()->finish_recovery(wc, next_lsn[s]);
   });
   recovery_.index_rebuild_s = since(t3);
+  if (after_barrier) finish_barrier(barrier.has_value());
 
   // 8. A changed slot map or orphaned streams need a checkpoint before READY
   // (spec C9) so no object's history spans two streams.
@@ -558,18 +652,95 @@ void Engine::recover() {
   }
 }
 
+// The move states in which the start barrier seals the slot at its source:
+// SEALED and STAGED (the seal must still hold), and PREPARED: the driver
+// seals next (the same record; SEAL is idempotent for a move), and a
+// starting node that the commit gate cannot see yet (an offline start has
+// no admin port, so no ROLE m) must not serve a slot a move may be about
+// to take (review of the slice, finding 3). An abort unseals it as usual.
+static bool barrier_seals(PlacementMove::State s) {
+  return s == PlacementMove::State::PREPARED || s == PlacementMove::State::SEALED ||
+         s == PlacementMove::State::STAGED;
+}
+
+// On a shard's thread: the start barrier's re-seal, if `p` says this group
+// is moving a slot away (PREPARED, SEALED or STAGED) and this shard owns it.
+void Engine::reseal_from(const Placement& p) {
+  const PlacementMove& m = p.move;
+  if (barrier_seals(m.state) &&
+      m.from == cfg_.group_id) {
+    current_shard()->set_reseal(m.slot, m.id, m.to, m.epoch);
+  }
+}
+
+// The end of the start barrier: every re-seal durable here, then (with a
+// control plane) the placement read once more, in case the move went on
+// while this node recovered, and only then role "primary".
+void Engine::finish_barrier(bool synced) {
+  const u16 n = cfg_.runtime.n_shards;
+  auto wait_local = [&](u16 s, u64 lsn) {
+    while (!on_shard(s, [&] { return current_shard()->lsn_local_durable(lsn); })) {
+      std::this_thread::sleep_for(std::chrono::microseconds(200));
+    }
+  };
+  for (u16 s = 0; s < n; ++s) wait_local(s, on_shard(s, [] { return current_shard()->reseal_lsn(); }));
+  if (synced) {
+    Placement p;
+    if (!cfg_.placement_sync(p)) {
+      throw std::runtime_error("start barrier: the control plane stopped answering before this node could serve");
+    }
+    update_placement(p.slots, p.epoch, &p.arrived);
+    const PlacementMove& m = p.move;
+    if (barrier_seals(m.state) &&
+        m.from == cfg_.group_id) {
+      const u16 s = slots_.owner[m.slot];
+      const u64 lsn = on_shard(s, [&] {
+        u64 l = 0;
+        current_shard()->reseal_slot(m.slot, m.id, m.to, m.epoch, l);
+        return l;
+      });
+      wait_local(s, lsn);
+    }
+  }
+  if (cfg_.debug_barrier_hold_ms) {
+    std::fprintf(stderr, "debug: start barrier held %u ms before role primary\n", cfg_.debug_barrier_hold_ms);
+    std::this_thread::sleep_for(std::chrono::milliseconds(cfg_.debug_barrier_hold_ms));
+  }
+  if (cfg_.debug_barrier_crash) {
+    std::fprintf(stderr, "debug: crash before role primary\n");
+    std::fflush(stderr);
+    ::_exit(9);
+  }
+  write_role(cfg_.data_dir, DirRole::PRIMARY);
+  std::fprintf(stderr, "snc: start barrier done: serving as a primary\n");
+}
+
 double Engine::promote() {
   if (!running_ || !cfg_.standby || cfg_.data_dir.empty()) {
     throw std::logic_error("promote: not a running standby");
   }
   const auto t0 = std::chrono::steady_clock::now();
   const u16 n = cfg_.runtime.n_shards;
+  // The start barrier (docs/MIGRATION_FAIL_CLOSED.md 5a), first: this
+  // standby's prefix may be lossy, so it serves nothing before it has read
+  // the placement linearizably. If it cannot, nothing has changed.
+  std::optional<Placement> barrier;
+  if (cfg_.placement_sync && !cfg_.cluster.empty()) {
+    Placement p;
+    if (!cfg_.placement_sync(p)) {
+      throw std::runtime_error("promote: no linearizable placement read (start barrier)");
+    }
+    barrier = std::move(p);
+  }
   // 0. With lease blocks, a fresh one first: if the control plane does not
   // give one, nothing has changed yet.
   u64 block_lo = 0, block_hi = 0;
   if (cfg_.lease_blocks && (!cfg_.lease_blocks(n, block_lo, block_hi) || block_hi < block_lo + n)) {
     throw std::runtime_error("promote: no mint lease block from the control plane");
   }
+  // The synced map, adopted (a commit that already happened makes the
+  // slot foreign here; its arrival decides the proof).
+  if (barrier) update_placement(barrier->slots, barrier->epoch, &barrier->arrived);
   // 1. Take no more records, and wait until all installed are durable: the
   // follow-ups resumed below act on them.
   // The listeners stay, refusing the old primary's term (sb_.term + 1 is
@@ -612,9 +783,11 @@ double Engine::promote() {
     Shard* sh = current_shard();
     sh->pause_emits(true);
     sh->set_lease(base + s);
+    if (barrier) reseal_from(*barrier);
     sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_), cfg_.data_dir);
   });
   release_emits();
+  finish_barrier(false);  // the re-seal durable here, then role "primary"
   return std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
 }
 
@@ -757,12 +930,16 @@ auto Engine::on_shard(u16 shard, F fn) -> decltype(fn()) {
   return std::move(*out);
 }
 
-bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch) {
+bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
+                              const std::array<SlotArrival, kSlots>* arrived) {
   if (!running_ || cfg_.cluster.empty()) return false;
   std::lock_guard<std::mutex> g(map_mu_);
   const ClusterMap* cur = map_.load();
+  // Epoch only: arrivals change with an epoch (a commit, or the backfill,
+  // which raises it so nodes adopt it).
   if (epoch <= cur->epoch) return false;
   auto next = std::make_unique<ClusterMap>(ClusterMap::assign(cur->groups, slots, epoch));
+  if (arrived) next->arrived = *arrived;
   const ClusterMap* p = next.get();
   maps_.push_back(std::move(next));
   map_.store(p);
@@ -797,9 +974,8 @@ void Engine::watch_placement() {
 
 bool Engine::refresh_placement() {
   if (!cfg_.placement_fetch) return false;
-  std::array<u8, kSlots> slots{};
-  u64 epoch = 0;
-  return cfg_.placement_fetch(slots, epoch) && update_placement(slots, epoch);
+  Placement p;
+  return cfg_.placement_fetch(p) && update_placement(p.slots, p.epoch, &p.arrived);
 }
 
 Status Engine::wait_lsn(u16 shard, u64 lsn, double timeout_s) {
@@ -820,6 +996,20 @@ Status Engine::wait_lsn(u16 shard, u64 lsn, double timeout_s) {
 SlotReport Engine::slot_report(u16 slot) {
   if (!running_) return SlotReport{};
   return on_shard(slots_.owner[slot], [&] { return current_shard()->slot_report(slot); });
+}
+
+std::vector<SlotReport> Engine::slot_states() {
+  std::vector<SlotReport> out;
+  if (!running_) return out;
+  std::mutex mu;
+  rt_->run_on_all([&](u16) {
+    std::vector<SlotReport> v;
+    current_shard()->slot_states(v);
+    std::lock_guard<std::mutex> g(mu);
+    out.insert(out.end(), v.begin(), v.end());
+  });
+  std::sort(out.begin(), out.end(), [](const SlotReport& a, const SlotReport& b) { return a.slot < b.slot; });
+  return out;
 }
 
 Status Engine::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out, double timeout_s) {
@@ -906,6 +1096,8 @@ void Engine::withdraw() {
 }
 
 bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
+
+void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
 
 bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 

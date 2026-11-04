@@ -59,6 +59,13 @@ struct Ack {
 inline constexpr u32 kRefusedSpace = 1;   // other space, shard count or slot map
 inline constexpr u32 kRefusedTerm = 3;    // a primary from an older term (fenced)
 
+// Tests only (snc_server --debug-admin, DEBUG REPL-PAUSE): while set, every
+// Sender in this process ships nothing more and does not time out its
+// standby, so a test decides exactly which records a standby lacks.
+// Process-wide: one engine per process (snc_server).
+void set_debug_pause(bool on);
+bool debug_paused();
+
 // Primary side, one per shard.
 class Sender {
  public:

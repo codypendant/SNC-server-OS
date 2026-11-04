@@ -86,6 +86,28 @@ Rules:
   - The old primary withdraws when it learns of the new term.
 - **Recovery:** a node owns nothing until its recovery barrier (section
   12).
+- **Migration serving proof** [AS-BUILT, docs/MIGRATION_FAIL_CLOSED.md;
+  for slots with an arrival on record, placement v2]:
+  - **MS-1.** A node MUST NOT serve S unless the placement gives S to its
+    group AND its local slot state proves the arrival on record
+    (`proven`, `shard.cpp`): ACTIVE of that move, or an unsealed record of
+    a later move whose phase is NONE or ACTIVE. Without proof S answers
+    `E_MIGRATING` and no create, mint, index hit, follow-up or resume acts
+    on it.
+  - **MS-2.** STAGED(M) becomes ACTIVE only when the arrival on record is
+    M (or none is on record) and the map's epoch has reached M's.
+  - **MS-3.** A promoted standby, or a directory that was last a standby,
+    serves nothing before reading the placement linearizably and adopting
+    it, and never serves a slot its group is moving away (move PREPARED,
+    SEALED or STAGED): the re-seal is written before anything serves.
+    `DIR/role` says `primary` (and the admin port `ROLE p`) only once the
+    re-seal is durable; a missing or unreadable role after role
+    files exist means "run the barrier", and with no control plane the
+    node does not serve.
+  - **MS-4.** A move commits only when no reachable source member is
+    promoting (`ROLE m`), one answers as primary, and no reachable primary
+    serves S. A source primary the driver cannot reach is not covered
+    (R08, "cut-off primary").
 
 ## 3. Mutation stages
 
@@ -333,13 +355,13 @@ Admin `PROMOTE` has no term guard.
 | --- | --- | --- |
 | E1 | The group's mode permits automatic promotion (sync; not async, section 9) | **no**: the witness does not know the mode |
 | E2 | The HA state is not degraded (no DEGRADE grant on record) | yes (EL2-EL4: `test_witness.py`, Vultr P3) |
-| E3 | The candidate's term equals the decided term, and the promotion is chosen by a witness majority for term+1 | witness path only (EL2-EL4); admin `PROMOTE` has no term guard |
+| E3 | The candidate's term equals the decided term, and the promotion is chosen by a witness majority for term+1 | witness path only (EL2-EL4); admin `PROMOTE` has no term guard; admin `PROMOTE` now runs the start barrier (MS-3), its missing term guard stays R08 |
 | E4 | The candidate's space UUID equals the group's | yes (EL0, `snc_witness.cpp` STATUS check) |
 | E5 | The candidate's durable LSN, per shard, is at least the primary's last acknowledged LSN. In sync healthy mode this follows from E1+E2, because the primary acknowledges nothing the standby has not acked; the witness compares no LSNs | by construction for sync (EL2-EL4); never checked explicitly |
 | E6 | The candidate has finished catch-up (it was in sync, not seeding or catching up from disk) | INFERRED (EL0) yes. Initial seed: the seed fetch runs inside `Engine::recover` (`engine.cpp:327-337`) and the admin thread that answers `STATUS` starts only after `start` returns (`snc_server.cpp:355, 455`), so a seeding node never answers role=s and cannot be promoted. Catch-up of a connected standby: the primary is not in sync, so it degraded or blocked. Not tested |
 | E7 | The candidate is not diverged (no records from a term it did not follow) | yes: the term handshake refuses an older term's stream |
 | E8 | The candidate passed its own recovery barrier (section 12) | INFERRED (EL0) yes, implicitly: the admin port (`HEALTH`, `STATUS`) opens only after `Engine::start` returns (`snc_server.cpp`, kept by the admin loop) |
-| E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **UNPROVEN**: promotion ignores placement; `test_migrate` covers driver and node crashes, not a failover during a move |
+| E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **COVERED for migration state** (MS-3): promotion reads the placement linearizably, adopts it and re-seals (`test_fail_closed` F6, F7, F13, F17; EL2). Who may be promoted is still R08 |
 | E10 | The decision has a witness quorum | yes (Paxos; EL2 `test_witness.py` with one witness down) |
 | E11 | The candidate obtained a fresh mint lease block (with the control plane) before serving | with `--control` (`lease_blocks` set): yes (EL0 `Engine::promote` step 0; EL2 `test_control.py`). Without it: leases above `max(next_lease, max_seen + 1)` (`engine.cpp:589`) |
 

@@ -1,10 +1,11 @@
 // snc_load: the lab's transfer load and checker (docs/REAL_MACHINES.md).
 //
 //   snc_load create --connect HOST:PORT --accounts N [--in-slot M]
-//                   [--start CENTS] --ids FILE
+//                   [--near ID] [--start CENTS] --ids FILE
 //     Creates N accounts spread over the groups, then M more in the slot of
 //     the first one (a slot to move). Writes their IDs to FILE, and the
-//     first plus the M to FILE.hot.
+//     first plus the M to FILE.hot. --near ID: the N in ID's slot instead
+//     (tests/test_fail_closed.py).
 //   snc_load run --connect HOST:PORT --ids FILE --seconds T --out PREFIX
 //                [--threads K] [--depth D] [--hot-pct P] [--report-ms MS]
 //     Random transfers through a ClusterClient with sessions (it follows
@@ -95,7 +96,8 @@ bool connect(net::ClusterClient& cc, const std::string& host, unsigned port, dou
 
 // ---- create -------------------------------------------------------------------------------
 
-int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 start, const std::string& ids_path) {
+int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 start, const std::string& ids_path,
+               const ObjectID& near_id) {
   net::ClusterClient cc;
   cc.enable_sessions(std::random_device{}() | 1ull << 40, 30000, 5000);
   if (!connect(cc, host, port, 30)) die("connect: " + cc.error());
@@ -141,7 +143,7 @@ int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 s
     }
     if (!ctx.error.empty()) die(ctx.error);
   };
-  run(n, ObjectID{});
+  run(n, near_id);
   // By value: run() appends to ctx.got, which may reallocate. (A reference
   // to ctx.got[0] dangled after the first reallocation, and the "100K"
   // slots of docs/REAL_MACHINES.md P5 got about 31K: docs/EVIDENCE.md.)
@@ -553,7 +555,8 @@ int main(int argc, char** argv) {
   const i64 start = std::atoll(get("start", "1000000").c_str());
   if (cmd == "create") {
     return cmd_create(host, port, std::strtoull(need("accounts").c_str(), nullptr, 10),
-                      std::strtoull(get("in-slot", "0").c_str(), nullptr, 10), start, need("ids"));
+                      std::strtoull(get("in-slot", "0").c_str(), nullptr, 10), start, need("ids"),
+                      f.count("near") ? ObjectID::parse(f["near"]).value_or(ObjectID{}) : ObjectID{});
   }
   if (cmd == "run") {
     return cmd_run(host, port, need("ids"), std::atof(need("seconds").c_str()),

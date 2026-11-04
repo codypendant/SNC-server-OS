@@ -8,6 +8,12 @@
 //   v1 cluster=HEX32 epoch=E nodes=ID@HOST:ADMIN,...
 //      groups=SHARDS/UUIDHEX/NODE:LINK:CLIENT+NODE:LINK:CLIENT,... slots=G*N,G*N,...
 //      [move=IDHEX:SLOT:FROM:TO:EPOCH:STATE]
+// Version 2 (docs/MIGRATION_FAIL_CLOSED.md) is the same line starting "v2",
+// with one more optional key, last:
+//      [arrived=SLOT:MOVEHEX:EPOCH,...]   (sparse, ascending slots)
+// the commit that last gave each listed slot to its group. A v1 decoder
+// refuses v2, so an older writer cannot rewrite it and drop `arrived`; a
+// placement read as v2 is always written back as v2.
 // Groups are numbered by their place in the list; slots are runs from 0.
 // The move, when present, is the one slot move in progress
 // (docs/MIGRATION.md); it changes the machine's version, never the epoch,
@@ -61,17 +67,25 @@ struct PlacementMove {
 };
 
 struct Placement {
+  // Encoding version: 1, or 2 once v2 writes are enabled (snc_ctl
+  // --placement-v2) or a v2 placement was read. Never lowered by a writer.
+  u8 version = 1;
   Uuid cluster_id{};
   u64 epoch = 0;
   std::vector<PlacementNode> nodes;
   std::vector<PlacementGroup> groups;
   std::array<u8, kSlots> slots{};
   PlacementMove move;
+  // v2 only: per slot, the commit that last gave it to its group. Set by a
+  // move's commit (and the backfill); never by a failover.
+  std::array<SlotArrival, kSlots> arrived{};
 
   // A first placement: epoch 1, slots in ClusterMap::make's contiguous
   // ranges. Throws std::invalid_argument on an unknown or repeated node.
   static Placement initial(const Uuid& cluster_id, std::vector<PlacementNode> nodes,
                            std::vector<PlacementGroup> groups);
+  // Throws std::logic_error for a v1 placement with arrivals: they would be
+  // dropped (a writer must raise the version, never lose them).
   std::string encode() const;
   // Checks the form and the references (nodes, groups, slots).
   static std::optional<Placement> decode(const std::string& text);

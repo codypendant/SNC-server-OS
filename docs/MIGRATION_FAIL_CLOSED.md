@@ -1,6 +1,10 @@
 # Fail-closed migration serving (D1/D7) — design for review
 
-**Status: PROPOSED. Design only; nothing in this document is implemented.**
+**Status: IMPLEMENTED (the D1/D7 slice authorized by the PR #39 review,
+2026-11-04 17:45 UTC), pending review.** Sections 0-19 are the design as
+approved; section 20 records what was built, where it differs, the
+measurements and the residual risks. Repair (section 11), R08, R11 and S1
+are not built.
 Work order: cody's review of PR #38, 2026-11-04 17:22 UTC.
 
 **The question.** How does SNC decide that a slot involved in a committed
@@ -26,9 +30,8 @@ or in-progress migration has enough local migration evidence to be served?
 
 - **CODE:** read from the source at 88bc897 (main after PR #38), cited as `file:line`.
 - **INFERRED:** reasoned from the code, not run.
-- **MEASURED:** observed in a run. Nothing in this document is measured.
-  D1 and D7 have not been reproduced yet; reproducing them is the first
-  step of the implementation slice (section 14, tests F1 and F2).
+- **MEASURED:** observed in a run. Only section 20 holds measurements;
+  sections 0-19 are the design as approved (their CODE cites are 88bc897).
 
 ## 0. Summary and decisions for review
 
@@ -843,3 +846,238 @@ MIGRATION_STAGING.md that change:**
 | `tools/snc_server.cpp` header (offline promotion by restarting without `--standby`) | **REFINE** | that start now runs the barrier and needs the control plane |
 | FAILURE_MODEL "cut-off primary" gap | unchanged | a second primary the driver cannot reach is not closed here (section 5) |
 | MIGRATION_STAGING.md sections 1.4, 2.2, 6, A.1 | **REFINE** | section 17 above |
+
+## 20. As built (implementation slice, after the PR #39 review)
+
+**Characterized first (review condition 12).** F1 (D1) and F2 (D7), then
+D1b, D1c and D1d, were run against the code before the fix (main at
+4c92093 plus test instrumentation only) and reproduced exactly as
+predicted; evidence in
+`bench/results/failclosed-20261104/characterization.txt`
+(`SNC_CHARACTERIZE=1 tests/test_fail_closed.py`):
+
+| | Before (MEASURED) | After (MEASURED) |
+| --- | --- | --- |
+| F1 D1 | promoted Q_B serves S, phase NONE, 31 of 41 accounts; 10 `E_NOT_FOUND`; an acked deposit missing; a create in S succeeds | `proof=missing`, every op `E_MIGRATING`, create refused, a credit into S held; never sampled serving |
+| F2 D7 | promoted Q_A serves S and acks a write; after the commit two groups serve; the write is lost at B | Q_A re-sealed at the barrier (phase SEALED, new term), the write `E_MIGRATING`; one serving group; DONE with every write acked before the promotion at B |
+| F4 D1b | STAGED(M1) of an aborted move activated although M3 committed | not activated (`proof=missing`) |
+| F5 D1c | ACTIVE(M3) of an earlier era served at epoch 4 | not served |
+| F5b D1d | SEALED(M5) reopened by UNSEAL and served | not served |
+
+**Where it is in the code.**
+
+- Placement v2 (`include/snc/placement.h`, `src/core/placement.cpp`):
+  `v2 ... arrived=SLOT:MOVEHEX:EPOCH,...`, sparse, ascending, every epoch
+  at most the placement's; `encode` refuses a v1 placement that carries
+  arrivals (no silent downgrade); decode rejects unordered, repeated,
+  zero, non-canonical or out-of-range entries. The driver writes the
+  arrival in the commit CAS when the placement is already v2 or
+  `--placement-v2` was given, and every rewrite starts from the placement
+  it read, so v2 stays v2. `snc_ctl --placement-v2 init|move|placement
+  backfill` is the only way v2 is first written.
+- The proof (`src/core/shard.cpp` `proven`, `cache_value`, `set_cache`):
+  folded into the per-slot serving cache as a volatile fourth value
+  (`kCacheUnproven`), recomputed by `write_slot_state`, `install_indexed`,
+  `refresh_slots` (now every owned slot) and `set_map`, which recomputes
+  before `activate_staged` and `release_held`. Everything that asks
+  `serving()` fails closed: client ops, creates and mints, deletes, index
+  lookups, follow-ups (held), resumes, exports and seals (`E_MIGRATING`).
+  `INFO` adds `flags=`, `proof=` (`ok`, `foreign`, `sealed`, `staged`,
+  `missing`, `stale-map`) and `arrived=`; STATUS adds `unproven=N`; the
+  log line `MIGRATION_STATE_INCOMPLETE` and the `slot_unproven` trace.
+- Exact activation (`activate_staged`): the arrival's move must equal the
+  STAGED record's (or no arrival is on record). A STAGED record older than
+  the arrival reports `proof=missing`: it can never activate.
+- DIR/role (`src/core/engine.cpp` `read_role`, `write_role`): exactly
+  `primary\n` or `standby\n`, written to a temporary file, fsynced,
+  renamed, directory fsynced; anything else reads as malformed. A standby
+  writes `standby` before the superblock, seed or any replica record. A
+  superblock flag (`kSbRoleTracked`, in the formerly reserved field, which
+  older binaries ignore) marks directories that have had a role file:
+  only a directory without it may lack the file and start as a primary.
+- The start barrier: in place (`Engine::promote`) the placement sync comes
+  first (a failure changes nothing: "promote refused"), then the lease
+  block, adoption, settling the replica prefix, the re-seal inside each
+  shard's promotion before `start_serving`, then a wait for the re-seal's
+  local durability, then `role primary`. Offline (`Engine::start` of a
+  directory whose role is standby, malformed, or missing after role files
+  exist): the placement sync before any shard starts (the stored map is
+  replaced), the re-seal before `finish_recovery`'s serving pass, then the
+  same durability wait, a second sync (the move may have advanced), and
+  `role primary`. With no control plane the start fails. `ROLE m` is
+  answered while an in-place promotion runs.
+- The barrier seals at PREPARED too (not only SEALED or STAGED): the
+  driver seals next anyway (SEAL is idempotent for a move), and an offline
+  start, which the gate cannot see, must not serve a slot a move may be
+  about to take. An abort unseals it as for any seal.
+- The re-seal is `reseal_slot`: an ordinary SEALED record of the move,
+  written under the new term; a slot already SEALED for that move keeps
+  its record; an unproven slot is left alone (nothing is written that
+  could later look like proof).
+- The driver (`tools/migrate.h`): the commit gate (`ROLE m` anywhere in
+  the source group waits; no answering primary waits; a primary serving S
+  is retried twice more and then the move is aborted, "ABORTED commit
+  gate: ..."); a source without SEALED(M) at the stage step aborts the
+  move; a
+  destination that already holds a durable STAGED(M) skips the re-export;
+  a destination that is unproven at activation leaves the driver
+  `STUCK ... proof=missing` and clears the move record (the arrival stays
+  on record and the source keeps SEALED(M), which a repair needs; other
+  moves are not blocked). A final stage refused `E_VERSION_CONFLICT`
+  three times in one driver run (a race settles on a fresh HAVE; a source whose
+  sealed image is older than the destination's copy never does) aborts
+  the move.
+- Backfill (`snc_ctl --placement-v2 placement backfill`,
+  `Driver::backfill`): reads the placement linearizably, refuses while a
+  move is in progress or any group has no answering primary, and reads
+  every group primary's slot states (`MOVE STATES`). A slot gets an
+  arrival only when its owner holds ACTIVE(M), not unsealed, durable, at
+  an epoch the placement has reached, and no other group holds a later
+  move of it or anything for M but its source's seal. One CAS, epoch + 1,
+  idempotent; everything else is listed as `UNRESOLVED slot:reason`.
+- Test hooks, all behind `--debug-admin`: `DEBUG REPL-PAUSE 1|0` (every
+  replication sender in the process stops shipping, without timing out)
+  and `--debug-barrier hold:MS|crash` (at the end of the barrier, before
+  `role primary`).
+
+**Differences from the design.**
+
+- `placement downgrade` was not built (review item 15). Rolling back after
+  v2 is the manual procedure below.
+- `ROLE m` exists only for the in-place promotion: an offline start has no
+  admin port until its barrier is done, so the gate does not see it
+  (residual 2). In exchange the barrier also seals at PREPARED, which
+  removes the design's path-2 exception (section 5, and the SEALED row of
+  section 7): no barrier serves a slot the placement shows moving away.
+- The aborts of 5a/5c (no seal at the source) plus one more: a final
+  stage refused with a version conflict three times in one driver run.
+- A durable format addition beyond `DIR/role`: the superblock's formerly
+  reserved field is now `flags`, with `kSbRoleTracked` (older binaries
+  ignore it), so that a missing role file after role files exist is not
+  taken for a legacy primary's (section 15 said `DIR/role` only).
+- The driver clears a COMMITTED move whose destination is unproven, with
+  STUCK, instead of leaving it (MIGRATION.md's state machine gains that
+  outcome).
+- An in-place promotion starts serving the other slots before the re-seal
+  is durable (`Shard::promote` runs `start_serving`, then
+  `finish_barrier` waits); S itself is SEALED in memory before anything
+  serves, so it is never served, and `DIR/role` says `primary` only once
+  the re-seal is durable (a crash before that runs the barrier again).
+  Section 5a's "only then serve" holds for S, not for the node.
+- F14 samples `MOVE INFO` every 5-10 ms across in-place and witness
+  promotions instead of stopping the process at `refresh_slots` and
+  `start_serving`.
+- A resume of a slot (after an UNSEAL) now runs only if the slot serves:
+  an UNSEAL that leaves a slot unproven (D1d) re-emits nothing from its
+  stale objects (found by the independent review).
+
+**QA against MIGRATION_FAIL_CLOSED.md, CORE_CONTRACTS, FAILURE_MODEL and
+MIGRATION.md** (a second separate reader): every section 4-9, 12, 13
+and 15 requirement implemented, nothing unauthorized built; two plan
+items lacked tests (F10 with a re-seal, F7's PREPARED race: added), two
+small gaps (leading zeros accepted in `arrived=`; no log line for a stale
+STAGED: fixed), and doc drift in this section, CORE_CONTRACTS MS-1/MS-3
+and E3, FAILURE_MODEL C7a, MIGRATION.md and MIGRATION_STAGING.md
+(fixed).
+
+**Independent review** (a separate reviewer reading the diff against the
+ten review conditions; nothing run): conditions 1, 2, 5-8 and 10 met; 3
+and 9 met except one blocking finding (the resume after an UNSEAL, above),
+fixed with a test that fails without the fix (`test_proof`); 4 met for
+in-place promotion, the offline path's missing `ROLE m` handled by sealing
+at PREPARED (`prepared` scenario). Also fixed: a STUCK move blocking all
+other moves (`stuck` scenario), the driver aborting on one version
+conflict, counters not reset between moves, a repeated `arrived=` key
+accepted, a missing parent directory of a new standby. No backfill false
+positive was found.
+
+**Tests.** `tests/test_fail_closed.py` (real processes, three witnesses,
+two or three groups; `ctest` runs every scenario that needs no older
+build): F1-F11, F13 (`f13:` prefix, witness promotion), F15, F17
+(`f17:` prefix: the standby's directory restarted without `--standby`,
+refused while the control plane is down), F18, `role` (review 13A: crash
+after the standby marker, crash with the barrier held open, crash before
+the primary marker, truncated / malformed / empty / missing role file),
+`backfill` (13B idempotence and 13F refusals: a move in progress, a group
+without a primary, owner unsealed or not active), `stuck`, `prepared`
+(an offline start at PREPARED seals), `f10_reseal` (a re-seal at
+promotion cleared by the abort's UNSEAL), `f7_prepared` (in-place
+promotion at PREPARED, held at ROLE m, while the driver runs) and
+`size`. With
+`--old` (a build of main before this slice): `compat` (a v1 cluster of
+old binaries, upgraded in place; pre-upgrade directories start as
+primaries with the control plane down; the backfill through the old,
+unchanged witnesses; an old `snc_ctl` can neither read v2 nor write
+anything) and `f7b` (a reachable source primary that serves S: the gate
+aborts the move). `tests/test_proof.cpp`: 13C (no window after map
+adoption: the first op refused, no index hit, no create, a held credit),
+13D (STAGED(0x20) never activates for arrival 0x30; activates for 0x20),
+13E / F12 (a restart on a map whose arrival is older than the local
+ACTIVE: `stale-map`, unserved until the current placement). F14 is the
+probes inside F1, F3, F6, F7, f7_prepared and F13 (MOVE INFO sampled
+every 5-10 ms across in-place and witness promotions: never serving; an
+offline start has no admin port to sample until its barrier is done). `tests/test_placement.cpp`:
+13B text rules.
+
+**Runs (2026-11-04, this VM: 4 vCPU, loopback; fresh build directories,
+after every review and QA fix).** RelWithDebInfo `ctest`: 20/20 passed,
+including `test_migrate` (the existing migration crash matrix) and
+`test_crash`; `test_fail_closed` ran its 24 scenarios in 140 s. ASan+UBSan
+(Debug, `-fno-sanitize-recover=undefined`): 20/20. TSan (Debug,
+`halt_on_error=1`): 20/20. The Python tests ran the sanitized server and
+witness binaries too; a sanitizer report aborts the process, and none
+did. `compat` and `f7b` against a build of main before this slice: ok.
+
+**Placement size (MEASURED, loopback, 4 vCPU; review item 14).**
+
+| | v1 (2 groups) | v2, 256 arrivals | v2, all 4,096 arrivals |
+| --- | --- | --- | --- |
+| encoded | 266 B | 6.3 KB | 101.6 KB (small epochs); 146.6 KB with 16-digit move IDs and 13-digit epochs |
+| CAS (3 witnesses, Paxos + fsync) | 8.4 ms | 8.7 ms | 14.1 ms |
+| SYNC | 3.4 ms | 3.4 ms | 6.1 ms |
+| witness state on disk | | | 101.7 KB per witness |
+| encode / decode / to ClusterMap | | | 0.48 ms / 1.4 ms / 7 µs |
+| memory | | | 64 KiB per Placement and per ClusterMap |
+
+Startup load is one decode of the stored placement (1.4 ms at worst).
+Nothing was optimized.
+
+**Rollback after v2 (manual, unsafe; review item 15).** There is no
+command. Before any v2 placement exists, rolling back is replacing the
+binaries. After: (0) check that no move is in progress and that every
+node reports `STATUS unproven=0` (an old binary would serve an unproven
+slot's partial copy: D1); (1) stop every driver; (2) accept that all of
+this slice's protection is gone: D1, D1b, D1c, D1d and D7 reopen, and
+the commit gate and start barrier do not exist in the old binaries; (3)
+with every node stopped, read the placement and its version with
+`PLACEMENT SYNC` on a witness and write a v1 body (the same text with
+`v2` changed to `v1` and the `arrived=` key removed, epoch + 1) with a
+raw `PLACEMENT CAS VERSION BODY` (an old `snc_ctl` cannot decode v2);
+(4) delete or rewrite every node's `DIR/placement` (an old binary refuses
+to start on a v2 file); (5) start the old binaries.
+
+**Residual risks (not closed here).**
+
+1. A second source primary the driver cannot reach (a cut-off async
+   primary) can still serve S after the commit: R08 / "cut-off primary".
+2. An offline start of a former standby answers no `ROLE m` (its admin
+   port opens after the barrier), so the gate cannot see it. It seals at
+   PREPARED, SEALED or STAGED before anything serves and syncs again once
+   that is durable, so it never serves a slot the placement shows moving
+   away from its group. A move that is *prepared* after its last sync
+   needs this group's primary to seal: if that is this node, the driver
+   waits for its admin port; if another member is also acting as primary,
+   that is residual 1. An in-place promotion that read a move which is
+   then aborted keeps its re-seal until a driver run for the slot unseals
+   it (liveness only).
+3. Slots moved before v2 are protected only once backfilled; the backfill
+   leaves what it cannot prove unresolved.
+4. An unproven slot stays unavailable until repair (not built).
+5. Acknowledged writes lost by an async promotion stay lost (R08).
+6. Upgrade order: a directory from before role files (no `DIR/role`, no
+   `kSbRoleTracked`) that was a standby must be restarted with
+   `--standby` first; restarted without it, it is taken for a legacy
+   primary's and runs no barrier. A rollback to an older binary and back
+   can leave a stale `primary` file on a directory that served as a
+   standby meanwhile (older binaries do not write it).
+

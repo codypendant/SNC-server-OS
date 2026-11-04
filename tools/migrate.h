@@ -9,7 +9,7 @@
 // to the commit).
 //
 // Node requests (one line each way):
-//   MOVE ROLE                    -> ROLE p|s|f EPOCH
+//   MOVE ROLE                    -> ROLE p|s|f|m EPOCH   (m: promoting, the start barrier)
 //   MOVE INFO SLOT               -> INFO <report>
 //   MOVE SEAL SLOT MOVE TO EPOCH -> OK <report> | NO <status> <report>
 //   MOVE UNSEAL SLOT             -> OK <report> | NO <why>   (checks the control plane)
@@ -18,9 +18,12 @@
 //   MOVE STAGE SLOT MOVE FROM EPOCH FINAL COUNT DIGEST N OBJ... -> OK <report> | NO <status> <report>
 //   MOVE ACTIVATE SLOT           -> OK <report> | NO <report>  (refreshes the map first)
 //   MOVE REFRESH                 -> OK EPOCH
+//   MOVE STATES                  -> STATES N SLOT:PHASE:FLAGS:MOVE:EPOCH:DURABLE ...
 // OBJ is ID:VERSION:TYPE:SCHEMA:CRC:PAYLOAD, PAYLOAD hex, "-" when not sent.
 // <report> is the slot's state: phase group move epoch count digest durable
-// serving map_group map_epoch live_count live_digest.
+// serving map_group map_epoch live_count live_digest, then (fail-closed
+// serving, docs/MIGRATION_FAIL_CLOSED.md 13) flags=F proof=WHY
+// arrived=MOVE:EPOCH, which older parsers ignore.
 #pragma once
 
 #include <sys/socket.h>
@@ -115,7 +118,9 @@ inline std::string report_text(const SlotReport& r) {
   std::ostringstream s;
   s << unsigned(r.phase) << ' ' << r.group << ' ' << std::hex << r.move_id << std::dec << ' ' << r.epoch << ' '
     << r.count << ' ' << r.digest << ' ' << r.durable << ' ' << r.serving << ' ' << r.map_group << ' '
-    << r.map_epoch << ' ' << r.live_count << ' ' << r.live_digest;
+    << r.map_epoch << ' ' << r.live_count << ' ' << r.live_digest << " flags=" << r.flags
+    << " proof=" << slot_proof_name(r.proof) << " arrived=" << std::hex << r.arrived.move << std::dec << ':'
+    << r.arrived.epoch;
   return s.str();
 }
 
@@ -129,6 +134,23 @@ inline bool parse_report(std::istream& in, SlotReport& r) {
   r.phase = static_cast<u8>(phase);
   r.durable = durable != 0;
   r.serving = serving != 0;
+  // The fail-closed fields, if the node sends them (the rest of the line).
+  for (std::string kv; in >> kv;) {
+    if (kv.rfind("flags=", 0) == 0) {
+      r.flags = static_cast<u16>(std::strtoul(kv.c_str() + 6, nullptr, 10));
+    } else if (kv.rfind("proof=", 0) == 0) {
+      const std::string v = kv.substr(6);
+      for (u8 p = 0; p <= static_cast<u8>(SlotProof::STALE_MAP); ++p) {
+        if (v == slot_proof_name(static_cast<SlotProof>(p))) r.proof = static_cast<SlotProof>(p);
+      }
+    } else if (kv.rfind("arrived=", 0) == 0) {
+      const auto c = kv.find(':');
+      if (c != std::string::npos) {
+        r.arrived.move = std::strtoull(kv.c_str() + 8, nullptr, 16);
+        r.arrived.epoch = std::strtoull(kv.c_str() + c + 1, nullptr, 10);
+      }
+    }
+  }
   return true;
 }
 
@@ -142,29 +164,7 @@ struct Snapshot {
 // The placement, linearizably (PLACEMENT SYNC): decisions that must not
 // rest on a stale view (unsealing, the driver's next step) use this.
 inline bool sync(const control::Members& ms, Snapshot& out, std::string& why) {
-  why = "no control member answered";
-  for (const auto& [h, port] : ms) {
-    std::string reply;
-    if (!ha::ask(h, port, "PLACEMENT SYNC", reply, 4000)) continue;
-    std::istringstream in(reply);
-    std::string tag;
-    if (!(in >> tag) || tag != "STATE" || !(in >> out.version)) {
-      why = h + ":" + std::to_string(port) + ": " + reply;
-      continue;
-    }
-    std::string body;
-    std::getline(in, body);
-    const auto b = body.find_first_not_of(' ');
-    body = b == std::string::npos ? "" : body.substr(b);
-    auto p = Placement::decode(body);
-    if (!p) {
-      why = "no placement (or a malformed one) in the control plane";
-      return false;
-    }
-    out.p = std::move(*p);
-    return true;
-  }
-  return false;
+  return control::sync(ms, out.version, out.p, why);
 }
 
 // "OK" once `next` is version `at` + 1.
@@ -196,6 +196,18 @@ class NodeHandler {
     if (what == "REFRESH") {
       refresh();
       return "OK " + std::to_string(eng_.cluster().epoch);
+    }
+    if (what == "STATES") {
+      std::string out;
+      std::size_t n = 0;
+      for (const SlotReport& r : eng_.slot_states()) {
+        char b[96];
+        std::snprintf(b, sizeof(b), " %u:%u:%u:%llx:%llu:%d", r.slot, unsigned(r.phase), unsigned(r.flags),
+                      (unsigned long long)r.move_id, (unsigned long long)r.epoch, r.durable ? 1 : 0);
+        out += b;
+        ++n;
+      }
+      return "STATES " + std::to_string(n) + out;
     }
     if (!(in >> slot) || slot >= kSlots) return "NO bad request";
     const u16 s = static_cast<u16>(slot);
@@ -365,6 +377,16 @@ class Driver {
   bool push_refresh = true;
   int deadline_ms = 30000;
   int chunk = 8;  // objects per STAGE request ahead of the seal
+  // Write placement v2 (docs/MIGRATION_FAIL_CLOSED.md 15): the commit
+  // records the slot's arrival. Only once every node, driver and snc_ctl
+  // reads v2. A placement already v2 is always written as v2, with or
+  // without this: nothing here ever lowers the version or drops arrivals.
+  bool placement_v2 = false;
+  // The commit gate (5b): how many times a source primary may be seen
+  // serving the slot at placement STAGED before the move is aborted.
+  int gate_serving_limit = 3;
+  // Final stages refused E_VERSION_CONFLICT before the move is aborted.
+  int version_conflict_limit = 3;
   std::string log;
 
   // Moves `slot` to group `to`, or carries on the move of it in progress.
@@ -372,6 +394,9 @@ class Driver {
   // (another slot's move is in progress), STUCK <why>.
   std::string move(u16 slot, u16 to) {
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
+    gate_serving_ = version_conflicts_ = 0;
+    gate_wait_.clear();
+    aborted_.clear();
     u64 mine = 0;
     std::string why, last_state = "none";
     while (std::chrono::steady_clock::now() < end) {
@@ -388,7 +413,7 @@ class Driver {
       if (P.move.state == PlacementMove::State::NONE) {
         if (mine != 0 || P.slots[slot] == to) {
           settle_owner(P, slot, end);
-          return P.slots[slot] == to ? "DONE" : "ABORTED";
+          return P.slots[slot] == to ? "DONE" : aborted_.empty() ? "ABORTED" : "ABORTED " + aborted_;
         }
         if (to >= P.groups.size()) return "STUCK no group " + std::to_string(to);
         Placement N = P;
@@ -417,7 +442,7 @@ class Driver {
         case PlacementMove::State::COMMITTED: r = step_committed(sn, why); break;
         default: break;
       }
-      if (r.rfind("STOPPED", 0) == 0) return r;
+      if (r.rfind("STOPPED", 0) == 0 || r.rfind("STUCK", 0) == 0) return r;
       if (r == "retry") pause();
     }
     return "STUCK " + (why.empty() ? std::string("deadline") : why) + " (after " +
@@ -451,6 +476,119 @@ class Driver {
         did = true;
         if (stop("aborted")) return "STOPPED aborted";
       }
+    }
+    return "STUCK " + why;
+  }
+
+  // The conservative backfill (docs/MIGRATION_FAIL_CLOSED.md 15, review
+  // of PR #39 item 6): arrivals for slots that moved before placement v2,
+  // from the evidence the groups hold. Writes an arrival only where it is
+  // unambiguous: the owner's primary holds ACTIVE(M) for the slot, not an
+  // undone seal, durable, at an epoch the placement has reached, and no
+  // other group holds a record of a later move of it (a seal of M itself
+  // at its source is expected). Every group's primary must answer. Slots
+  // with no record anywhere never moved and need none. Anything else is
+  // left without an arrival and reported. One CAS, raising the epoch so
+  // running nodes adopt it; idempotent (slots with an arrival are skipped).
+  // "BACKFILLED N at epoch E", or "NOTHING", then "; UNRESOLVED K: ..."; or
+  // "NO <why>" (a move in progress, a group without a primary).
+  std::string backfill() {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
+    std::string why = "deadline";
+    while (std::chrono::steady_clock::now() < end) {
+      Snapshot sn;
+      if (!sync(ms_, sn, why)) {
+        pause();
+        continue;
+      }
+      const Placement& P = sn.p;
+      if (P.move.state != PlacementMove::State::NONE) return "NO a move is in progress";
+      struct Rec {
+        bool have = false;
+        SlotReport r;
+      };
+      std::vector<std::vector<Rec>> recs(P.groups.size(), std::vector<Rec>(kSlots));
+      for (u16 g = 0; g < P.groups.size(); ++g) {
+        Node n;
+        if (!primary(P, g, n, why)) return "NO " + why;
+        const std::string a = ask_node(n, "MOVE STATES");
+        std::istringstream in(a);
+        std::string tag;
+        std::size_t cnt = 0;
+        if (!(in >> tag) || tag != "STATES" || !(in >> cnt)) return "NO group " + std::to_string(g) + " STATES: " + a;
+        for (std::size_t i = 0; i < cnt; ++i) {
+          std::string t;
+          unsigned slot = 0, phase = 0, flags = 0;
+          unsigned long long mv = 0, ep = 0;
+          int durable = 0;
+          if (!(in >> t) || std::sscanf(t.c_str(), "%u:%u:%u:%llx:%llu:%d", &slot, &phase, &flags, &mv, &ep,
+                                         &durable) != 6 || slot >= kSlots) {
+            return "NO group " + std::to_string(g) + " sent a malformed state";
+          }
+          Rec& x = recs[g][slot];
+          x.have = true;
+          x.r.slot = static_cast<u16>(slot);
+          x.r.phase = static_cast<u8>(phase);
+          x.r.flags = static_cast<u16>(flags);
+          x.r.move_id = mv;
+          x.r.epoch = ep;
+          x.r.durable = durable != 0;
+        }
+      }
+      Placement N = P;
+      std::size_t added = 0;
+      std::string unresolved;
+      std::size_t n_unresolved = 0;
+      for (u32 s = 0; s < kSlots; ++s) {
+        if (P.arrived[s].move != 0) continue;
+        const u16 owner = P.slots[s];
+        bool any = false;
+        for (const auto& gr : recs) any |= gr[s].have;
+        if (!any) continue;  // never moved
+        auto refuse = [&](const std::string& w) {
+          unresolved += (n_unresolved ? "," : " ") + std::to_string(s) + ":" + w;
+          ++n_unresolved;
+        };
+        const Rec& o = recs[owner][s];
+        if (!o.have) {
+          refuse("owner-has-no-record");
+          continue;
+        }
+        if (o.r.phase != 1 || (o.r.flags & 1) || o.r.move_id == 0 || o.r.epoch == 0 || o.r.epoch > P.epoch ||
+            !o.r.durable) {
+          refuse(o.r.phase != 1 ? "owner-not-active" : (o.r.flags & 1) ? "owner-unsealed" : "owner-record-unusable");
+          continue;
+        }
+        bool later = false, odd = false;
+        for (u16 g = 0; g < recs.size(); ++g) {
+          if (g == owner || !recs[g][s].have) continue;
+          const SlotReport& x = recs[g][s].r;
+          if (x.move_id > o.r.move_id) later = true;
+          if (x.move_id == o.r.move_id && x.phase != 2) odd = true;  // only its source's seal is expected
+        }
+        if (later || odd) {
+          refuse(later ? "later-move-elsewhere" : "ambiguous");
+          continue;
+        }
+        N.arrived[s] = SlotArrival{o.r.move_id, o.r.epoch};
+        ++added;
+      }
+      const std::string tail =
+          n_unresolved ? "; UNRESOLVED " + std::to_string(n_unresolved) + unresolved : std::string();
+      if (added == 0) return "NOTHING" + tail;
+      N.version = 2;
+      N.epoch = P.epoch + 1;  // so running nodes adopt it (they adopt by epoch)
+      const std::string r = cas(ms_, sn.version, N);
+      note("backfill " + std::to_string(added) + " arrivals at epoch " + std::to_string(N.epoch) + ": " + r);
+      if (r == "OK") {
+        if (push_refresh) {
+          for (const PlacementNode& nd : N.nodes) {
+            if (nd.admin_port) ask_node(Node{nd.host, nd.admin_port}, "MOVE REFRESH");
+          }
+        }
+        return "BACKFILLED " + std::to_string(added) + " at epoch " + std::to_string(N.epoch) + tail;
+      }
+      why = "placement changed: " + r;  // retried from a fresh read
     }
     return "STUCK " + why;
   }
@@ -503,6 +641,66 @@ class Driver {
     why = "no primary answers in group " + std::to_string(group);
     return false;
   }
+
+  bool info(const Node& n, u16 slot, SlotReport& r) {
+    const std::string a = ask_node(n, "MOVE INFO " + std::to_string(slot));
+    std::istringstream in(a);
+    std::string tag;
+    return (in >> tag) && tag == "INFO" && parse_report(in, r);
+  }
+
+  // The commit gate (docs/MIGRATION_FAIL_CLOSED.md 5b), at placement STAGED,
+  // before the commit: every source member that answers is asked. OK only
+  // if none is promoting (ROLE m: its start barrier may have read the
+  // placement before STAGED), at least one is a primary, and no primary
+  // serves the slot. A member that does not answer is not seen: a second
+  // primary the driver cannot reach is the HA problem (R08), not closed here.
+  enum class Gate { OK, WAIT, SERVING };
+  Gate gate(const Placement& P, const PlacementMove& m, std::string& why) {
+    int primaries = 0;
+    for (const PlacementMember& mb : P.groups[m.from].members) {
+      const PlacementNode* nd = P.node(mb.node);
+      if (nd == nullptr || nd->admin_port == 0) continue;
+      const Node n{nd->host, nd->admin_port};
+      const std::string r = ask_node(n, "MOVE ROLE");
+      if (r.rfind("ROLE m", 0) == 0) {
+        why = "commit gate: source node " + std::to_string(mb.node) + " is promoting";
+        return Gate::WAIT;
+      }
+      if (r.rfind("ROLE p", 0) != 0) continue;
+      SlotReport rep;
+      if (!info(n, m.slot, rep)) {
+        why = "commit gate: no INFO from source node " + std::to_string(mb.node);
+        return Gate::WAIT;
+      }
+      if (rep.serving) {
+        why = "commit gate: source node " + std::to_string(mb.node) + " serves the slot";
+        note(why);
+        return Gate::SERVING;
+      }
+      ++primaries;
+    }
+    if (primaries == 0) {
+      why = "commit gate: no source primary answers";
+      return Gate::WAIT;
+    }
+    return Gate::OK;
+  }
+
+  // Aborts the move in progress (before its commit): the move leaves the
+  // placement; the next pass of move() unseals the owner (settle_owner).
+  std::string abort_move(const Snapshot& sn, const std::string& reason) {
+    Placement N = sn.p;
+    N.move = PlacementMove{};
+    const std::string r = cas(ms_, sn.version, N);
+    note("abort move " + hexid(sn.p.move.id) + " (" + reason + "): " + r);
+    if (r == "OK") aborted_ = reason;
+    return "next";
+  }
+  int gate_serving_ = 0;
+  int version_conflicts_ = 0;
+  std::string gate_wait_;  // the last reason the gate gave to wait
+  std::string aborted_;  // why this driver aborted the move, if it did
 
   bool have(const Node& dst, u16 slot, std::vector<SlotObject>& v, std::string& why) {
     const std::string r = ask_node(dst, "MOVE HAVE " + std::to_string(slot));
@@ -593,6 +791,24 @@ class Driver {
     const PlacementMove& m = sn.p.move;
     Node src, dst;
     if (!primary(sn.p, m.from, src, why) || !primary(sn.p, m.to, dst, why)) return "retry";
+    // The destination already holds a final copy of this move's sealed
+    // source (its STAGED, durable): it came from a sealed source, which
+    // changes no more, so it stays the move's image even if the source's
+    // primary has since been replaced by one with an older prefix
+    // (docs/MIGRATION_FAIL_CLOSED.md 5a, "What the re-sealed Q_A means").
+    SlotReport d;
+    if (info(dst, m.slot, d) && d.phase == 3 && d.move_id == m.id && d.durable) {
+      note("destination already staged for move " + hexid(m.id));
+      if (advance(sn, PlacementMove::State::STAGED) == "OK" && stop("staged")) return "STOPPED staged";
+      return "next";
+    }
+    // No seal for this move at the source's primary (a promoted standby
+    // whose prefix lacks it, and that read the placement before the seal):
+    // no final export can ever be made there. Abort (5c), do not loop.
+    SlotReport s;
+    if (info(src, m.slot, s) && !(s.phase == 2 && s.move_id == m.id)) {
+      return abort_move(sn, "the source's primary holds no seal for this move");
+    }
     std::vector<SlotObject> h, objs;
     u64 count = 0, digest = 0;
     if (!have(dst, m.slot, h, why) || !export_from(src, m.slot, m.id, true, h, objs, count, digest, why)) {
@@ -600,6 +816,18 @@ class Driver {
     }
     const std::string r = stage_at(dst, m.slot, m, true, count, digest, objs);
     note("final copy (" + std::to_string(count) + " objects): " + r.substr(0, r.find(' ', 3)));
+    if (r.rfind("NO E_VERSION_CONFLICT", 0) == 0) {
+      // Either a race (another driver's copy, a retried request: a fresh
+      // HAVE settles it) or the destination holds newer versions than this
+      // sealed source (its primary lost records it had copied ahead, a
+      // lossy promotion), which no retry settles. Abort only when it
+      // persists.
+      if (++version_conflicts_ < version_conflict_limit) {
+        why = "final stage: E_VERSION_CONFLICT (retrying)";
+        return "retry";
+      }
+      return abort_move(sn, "the source's sealed image is older than the destination's copy");
+    }
     if (r.rfind("OK", 0) != 0) {
       why = "destination STAGE final: " + (r.empty() ? std::string("no answer") : r);
       return "retry";
@@ -615,10 +843,25 @@ class Driver {
       why = "move epoch " + std::to_string(m.epoch) + " is not placement epoch + 1";
       return "retry";
     }
+    // The commit gate (docs/MIGRATION_FAIL_CLOSED.md 5b).
+    const Gate g = gate(sn.p, m, why);
+    if (g == Gate::WAIT) {
+      if (why != gate_wait_) note(why + " (waiting)");  // once per reason
+      gate_wait_ = why;
+      return "retry";
+    }
+    if (g == Gate::SERVING) {
+      if (++gate_serving_ < gate_serving_limit) return "retry";
+      return abort_move(sn, why);
+    }
     Placement N = sn.p;
     N.slots[m.slot] = static_cast<u8>(m.to);
     N.epoch = m.epoch;
     N.move.state = PlacementMove::State::COMMITTED;
+    if (N.version >= 2 || placement_v2) {
+      N.version = 2;
+      N.arrived[m.slot] = SlotArrival{m.id, m.epoch};  // in the same CAS as the commit
+    }
     const std::string r = cas(ms_, sn.version, N);
     note("commit move " + hexid(m.id) + " at epoch " + std::to_string(m.epoch) + ": " + r);
     if (r == "OK" && stop("committed")) return "STOPPED committed";
@@ -633,6 +876,21 @@ class Driver {
     const std::string r = ask_node(dst, "MOVE ACTIVATE " + std::to_string(m.slot));
     if (r.rfind("OK", 0) != 0) {
       why = "destination ACTIVATE: " + (r.empty() ? std::string("no answer") : r);
+      // Committed, but the destination's primary holds no evidence of this
+      // move (a lossy promotion there): nothing a driver does can activate
+      // it (repair is a later slice). The move record is cleared, so other
+      // moves are not blocked: the arrival (M) stays in the placement and
+      // the source keeps SEALED(M), which is what a repair needs; with no
+      // move on record nothing unseals the source (it is not the owner).
+      if (r.find("proof=missing") != std::string::npos) {
+        Placement N = sn.p;
+        N.move = PlacementMove{};
+        const std::string c = cas(ms_, sn.version, N);
+        note("clear committed move " + hexid(m.id) + " (destination unproven): " + c);
+        if (c != "OK") return "retry";
+        return "STUCK the destination holds no evidence of move " + hexid(m.id) +
+               " (proof=missing): slot " + std::to_string(m.slot) + " stays unavailable until repaired";
+      }
       return "retry";
     }
     note("activated at group " + std::to_string(m.to));
