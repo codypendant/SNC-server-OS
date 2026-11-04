@@ -96,6 +96,10 @@ class Loop {
 
   Loop(int listen_fd, Handlers h) : lfd_(listen_fd), h_(std::move(h)) {
     ::fcntl(lfd_, F_SETFL, ::fcntl(lfd_, F_GETFL) | O_NONBLOCK);
+  }
+  // Starts answering. Separate from the constructor so the caller can
+  // publish the Loop (its counters) before the first request.
+  void start() {
     loop_ = std::thread([this] { run(); });
     worker_ = std::thread([this] { work(); });
   }
@@ -106,6 +110,10 @@ class Loop {
   // running finishes first. MOVE threads are the caller's to wait for.
   void stop() {
     if (stopped_.exchange(true)) return;
+    if (!loop_.joinable()) {  // never started
+      ::close(lfd_);
+      return;
+    }
     stop_.store(true);
     if (loop_.joinable()) loop_.join();
     {
@@ -160,7 +168,15 @@ class Loop {
         if (ms < timeout) timeout = ms;
       }
       int n = ::poll(pfds.data(), pfds.size(), timeout);
-      if (n < 0 && errno != EINTR) break;
+      if (n < 0) {
+        // Never give up the port: a silent admin port reads as a dead
+        // node and gets it failed over.
+        if (errno != EINTR) {
+          SNC_TRACE("admin_poll_fail errno=%d", errno);
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        continue;
+      }
       const u64 now = mono_ns();
       // Read what arrived. pfds[i + 1] is half[i] (half is not changed
       // before this pass ends; finished ones are marked fd = -1).

@@ -519,7 +519,7 @@ touched (INFERRED).
 | `main_ms` | main loop | the loop now wakes at least every 100 ms (before: only for a report, a checkpoint or a witness), so an idle main loop reads ≤ about 100 |
 | Admin loop | `tools/admin_loop.h` | non-blocking `poll()` loop; `HEALTH` and `DEBUG` inline; `MOVE` handed to its own thread as soon as `MOVE ` arrives (that thread reads the rest by the same 500 ms deadline); everything else to one worker, in order. Opened after `Engine::start`, as before (E6, E8) |
 | Limits new in the loop | `tools/admin_loop.h` | a non-`MOVE` line over 64 KiB is refused (`NO line too long`; before, any line up to 256 MiB was read); listen backlog 256 (was 16); out of descriptors, the oldest half-read connection is closed instead of spinning |
-| Witness | `tools/snc_witness.cpp` | polls `HEALTH`; a reply not starting `role=` switches that node to `STATUS` and `HEALTH` is retried every 10 s; `--health-verb status` restores the old polling; the standby's eligibility check stays `STATUS` |
+| Witness | `tools/snc_witness.cpp` | polls `HEALTH`; a reply not starting `role=` switches that node to `STATUS` and `HEALTH` is retried every 10 s; `--health-verb status` restores the old polling; the standby's eligibility check stays `STATUS`; once a promotion is decided, `PROMOTE` is resent at most every 50 ms |
 | Rejoin | `tools/snc_server.cpp` | asks `HEALTH`, and `STATUS` if the reply is not `role=...` |
 | Traces | `docs/TRACING.md` | `witness_status` became `witness_ask` (with the verb); `admin_heavy_slow` and `admin_inline_slow` added; `admin_status_slow` keeps only the `replication_status` time |
 
@@ -545,7 +545,27 @@ so nothing was broadened.
 
 ### 10.4 Evidence
 
-EVIDENCE_TABLE_PLACEHOLDER
+All on the 4-vCPU development VM, 2026-11-04. `tests/test_health.py`
+(registered in CTest as `test_health`) runs T1-T8, T10, T10b and T11;
+T12 is a lab run; T9 a benchmark. Numbers are from the RelWithDebInfo run
+unless marked.
+
+| # | Test | Result |
+| --- | --- | --- |
+| T1 | Real sync pair, 3 witnesses (`failover_ms` 1000, `poll_ms` 100), create load; `DEBUG STALL 0 3000` on the primary | **pass.** No promotion; HA state version 1 before and after, not degraded. `HEALTH` answered 89/89 polls, slowest 1.4 ms; `stall_ms` peaked at 2,992 and returned to 0; `main_ms` peaked at 3,017 (HF4: the main loop waits in `replication_status`). `STATUS` took 2.7 s (the coupling is still in `STATUS`, as intended). Load resumed; 10,000 acknowledged creates, 0 missing. `HEALTH` role = `STATUS` role on both nodes |
+| T2 | T1 with every witness on `--health-verb status` | **pass: the false promotion reproduces.** State went to version 3, term 1, node 1 primary, running alone under a grant (as in STABILIZATION_REPORT D). 0 of 3,000 acknowledged creates missing on the promoted node |
+| T3 | Option B: `DEBUG STALL 0 6000` (6 × `failover_ms`) | **pass.** No promotion, state version unchanged; `HEALTH` 148/148, slowest 3.7 ms; `stall_ms` rose monotonically to 5,981 and returned to 0; `STATUS` 5.7 s; service resumed with no change of authority; 0 of 10,000 missing |
+| T4 | SIGKILL the primary | **pass.** Promoted in 1.05 s; 0 missing; promoted node `HEALTH` role `p` = `STATUS` role `p` |
+| T5 | SIGSTOP the primary, then SIGCONT | **pass.** Promoted in 1.05 s; old primary `role=f` after SIGCONT; 0 missing |
+| T6 | Partition: proxies on node 0's admin, client, replication and witness paths stop forwarding without closing | **pass.** Promoted in 1.05 s; a client on node 0's side of the cut got 0 batches acknowledged; after the heal node 0 reported `role=f`; 0 missing |
+| T7 | Eligibility, fake nodes: a standby answering `HEALTH` whose `STATUS` is silent; wrong term; wrong space; a grant on record | **pass.** None promoted; the first is promoted once its `STATUS` answers. Eligibility is unchanged, not widened |
+| T8 | Node 0 killed, node 1 promoted, `DEBUG STALL 0 5000` on node 1, node 0 restarted with `--rejoin` | **pass.** Node 0 found node 1 as primary through `HEALTH`, moved its data aside and started as its standby. Node 1's `STATUS` took 4.7 s meanwhile: the old 5 × 500 ms `STATUS` probe would have read "unreachable" |
+| T9 | `snc_bench`, 2 shards, 1M objects, 3 s runs, before/after binaries alternated (ABAB): in memory local (10 pairs), in memory 50% remote (10 pairs), durable (6 pairs) | **no regression visible.** Median after vs before: +3.2%, +2.7%, +6.7%. Host noise is larger than the 2% bar: run-to-run spread 8-16% of the median in every set, and "after" cannot be faster for a real reason, so these differences are noise. Raw data: `bench/results/health-20261104/t9_snc_bench.json` |
+| T10 | Two witnesses on `HEALTH`, one on `STATUS`, T1's stall | **pass: the `STATUS` witness still promotes** (state version 3, term 1). Pins HL-5 |
+| T10b | Fake nodes without `HEALTH` | **pass.** Fallback logged and polled with `STATUS`; a silent old primary is still failed over; after an upgrade the witness used `HEALTH` again within 9.5 s, and only `HEALTH` thereafter |
+| T11 | 300 connections that never send a line, shard 0 stalled 3 s, 24 heavy requests (1 AUDIT, 23 STATUS), then `HEALTH` | **pass.** `HEALTH` 5/5, slowest 0.9 ms; 45 connections evicted (half-read high-water ≤ 256); queue high-water 16; 7 `NO busy`; the AUDIT and 16 STATUS answered after the stall. Without `--debug-admin`, `DEBUG STALL` answers `NO unknown request` |
+| T12 | Lab P5 on loopback, 100K-object slot moved and back under load, `SNC_TRACE=1` (`bench/results/lab-20261104/p5-131933`) | **pass.** Both moves DONE; the first final copy succeeded (PR #35's 4/4 runs had `E_FENCED` there, from the false promotion); no `witness_suspect` and no promotion; no witness poll failed or took ≥ 20 ms during the 4,772.7 ms final stage on the destination shard (the only failed polls are at startup, before the nodes listened). Move 51.6 s (before: 57-61 s), back 3.8 s (before: 11-12 s). The shard was still busy 4.8 s: W1 stands |
+| T13 | Full suite: RelWithDebInfo; ASan+UBSan; TSan | **17/17 in each.** Server children run under the sanitizer builds with `log_path` set: no report from any process (ASan/UBSan: `test_health`; TSan: the whole suite). Leak checks do not cover processes the tests SIGKILL. The only sanitizer output is the existing compile-time `-Wtsan` warning on `atomic_thread_fence` in the runtime loop, not new |
 
 ### 10.5 What this leaves (known, accepted, or next)
 
@@ -563,3 +583,24 @@ EVIDENCE_TABLE_PLACEHOLDER
 - **Rollout (HL-5).** Any `STATUS` witness keeps the false failover (T2,
   T10).
 - **Seastar.** No progress counter: silence only (HF9).
+
+### 10.6 Independent review and QA of the implementation
+
+A separate reviewer read the diff against these requirements. **Nothing
+blocking.** Verified there: the poll loop's index bookkeeping, one owner
+per descriptor, thread lifetimes against `eng.stop()`, that `HEALTH` takes
+no lock a shard thread holds, the `replicating` lifecycle, and that
+eligibility still uses `STATUS`. Findings and what was done:
+
+| Finding | Severity | Done |
+| --- | --- | --- |
+| A failed admin-port bind returned with the sampler thread still joinable (`std::terminate`, SIGABRT instead of exit 1) | should-fix | fixed: the sampler is stopped and joined first; checked: exit code 1 with the port taken |
+| A `poll()` error other than EINTR ended the admin loop for good: a silent port, so a false failover | should-fix | fixed: traced (`admin_poll_fail`), 10 ms back-off, continue |
+| The first `HEALTH` answers could miss the `adm_*` counters (the loop started before it was published) | nit | fixed: `Loop::start()` after publication |
+| While a promotion runs, `HEALTH` answers at once with `role=s`, so each witness sent `PROMOTE` every 2 ms (STATUS's latency used to pace it) | nit | fixed: at most one `PROMOTE` per 50 ms per witness |
+| T11's eviction assertion could flake on a slow host (idle connections time out before they are evicted); its high-water check could not fail | nit | fixed: asserts evicted + timed out ≥ 44 |
+| `STATUS` can now answer `NO busy`; a queued `PROMOTE` runs after its client gave up; a non-`MOVE` line over 64 KiB gets `NO line too long`; the worker's reply write has no timeout | nit | kept and recorded: a `STATUS`-polling witness treats `NO busy` as silence, which is what a stalled `STATUS` was before; the other two were true of the old admin thread already |
+| `HEALTH` role = `STATUS` role is tested for primary, standby and promoted, not for fenced, in-memory or restart | nit | recorded: those rows stay EL0 in 10.3 |
+
+After the fixes: the full suite 17/17 again in RelWithDebInfo, ASan+UBSan
+and TSan, with no sanitizer report from any process.

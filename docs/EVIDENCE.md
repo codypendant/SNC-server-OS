@@ -568,6 +568,13 @@ blocks the destination shard thread longer than the witnesses'
 caused by the move itself, and one more reason for the bounded, chunked
 final stage (section 4). The real-machine 100K rows remain unmeasured.
 
+**Fixed for the HA path (2026-11-04, EL3, HEALTH_DECOUPLING.md
+section 10).** With every witness polling `HEALTH`, the same 100K move
+(`bench/results/lab-20261104/p5-131933`, traced) completed with no
+promotion: the first final copy succeeded, and no witness poll failed or
+took 20 ms during the 4.8 s final stage. The stage itself is unchanged
+(the bounded-staging slice is next).
+
 **Explained (2026-11-04, MEASURED).** Traced in 3 of 3 runs and
 reproduced in one process: the final stage runs as one shard task of
 3.7-5.0 s, 91% of it (97% of the put phase) re-indexing a posting list shared by every account

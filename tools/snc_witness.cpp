@@ -480,6 +480,7 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
   auto t_decided = t0;
   double silent_s = 0;   // how long the old primary had been silent then
   u64 decided_term = ~0ull;  // the term of a promotion this witness's proposal made
+  auto last_promote = t0 - std::chrono::seconds(1);  // when this witness last sent PROMOTE
   while (true) {
     const State st = chosen_state(group);
     const auto now = clock::now();
@@ -530,8 +531,13 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
       } else if (f["role"] == "s" && term + 1 == st.term && f["uuid"] == st.uuid) {
         // Decided: never undone, since a lost reply may hide a promotion
         // that happened. Ask until it serves as primary.
-        std::string reply;
-        ha::ask(host[p], aport[p], "PROMOTE", reply, 1000);
+        // At most every 50 ms: HEALTH answers at once while the promotion
+        // runs, so it no longer paces these requests as STATUS did.
+        if (clock::now() - last_promote >= std::chrono::milliseconds(50)) {
+          std::string reply;
+          ha::ask(host[p], aport[p], "PROMOTE", reply, 1000);
+          last_promote = clock::now();
+        }
         promoting = true;
       }
     }

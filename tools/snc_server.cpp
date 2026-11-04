@@ -533,6 +533,9 @@ int main(int argc, char** argv) {
     int lfd = ha::listen_on(admin_port, 256);
     if (lfd < 0) {
       std::fprintf(stderr, "cannot listen on admin port %u\n", admin_port);
+      sampler_stop.store(true);
+      if (sampler.joinable()) sampler.join();
+      eng.stop();
       return 1;
     }
     admin::Loop::Handlers h;
@@ -614,7 +617,8 @@ int main(int argc, char** argv) {
     // Opened only now, after Engine::start: no admin verb, HEALTH
     // included, is answered during recovery (CORE_CONTRACTS E6, E8).
     admin_owner = std::make_unique<admin::Loop>(lfd, std::move(h));
-    admin_loop.store(admin_owner.get());
+    admin_loop.store(admin_owner.get());  // before any HEALTH: its counters
+    admin_owner->start();
   }
   // The witness's grant to continue without the standby (see the header).
   // After running alone, the primary owes the witnesses a SYNCED: until one
