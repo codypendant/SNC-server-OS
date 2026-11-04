@@ -76,6 +76,7 @@ Snapshot snapshot(Engine& eng) {
   Snapshot s;
   for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
     eng.for_each_object(sh, [&](const ObjectHeader& h) {
+      if (h.type_id != kTypeId) return;  // client sessions
       const auto* a = reinterpret_cast<const AccountV1*>(h.payload());
       s.balance[h.id] = a->balance_cents;
       s.entries += a->n_out + a->n_in;
@@ -471,6 +472,64 @@ void test_crash() {
 
 }  // namespace
 
+// A resend of a sequenced transfer, arriving while the owner shard has a
+// follow-up backlog (as after a promotion), gets its recorded answer and
+// does not run again; it used to get E_OVERLOADED, which a client resends as
+// a new request, so the transfer ran twice (found on real hosts,
+// docs/REAL_MACHINES.md).
+void test_resend_overloaded() {
+  Engine::Config c = config(2, "", false);
+  c.hold_emits = true;  // follow-ups queue: the backlog builds up
+  Engine eng(c);
+  eng.start();
+  auto ids = create_accounts(eng, 400);
+  const SlotMap map = SlotMap::make_default(2);
+  std::vector<ObjectID> mine, other;
+  for (const ObjectID& id : ids) (map.owner_of(id) == 0 ? mine : other).push_back(id);
+  CHECK(mine.size() >= 40 && !other.empty());
+  auto transfer = [&](const ObjectID& from, const ObjectID& to, u64 client, u64 seq) {
+    return one(eng, 0, [&](Completion cb, void* ctx) {
+      ExecOptions o;
+      o.client_id = client;
+      o.seq = seq;
+      TransferArgs t{to, 1, 7};
+      execute(from, kOpTransfer, ByteView(&t, sizeof(t)), o, cb, ctx);
+    });
+  };
+  std::map<ObjectID, i64> net;
+  OneResult first = transfer(mine[0], other[0], 77, 1);
+  CHECK_EQ(first.r.status, Status::OK);
+  CHECK(!first.r.replayed);
+  net[mine[0]] -= 1;
+  net[other[0]] += 1;
+  // Fill shard 0's backlog past its limit with ordinary transfers.
+  u64 queued = 0;
+  for (std::size_t i = 1; i < mine.size() && eng.stats(0).overloaded == 0; ++i) {
+    for (int k = 0; k < 60 && eng.stats(0).overloaded == 0; ++k) {
+      OneResult r = transfer(mine[i], other[(i + k) % other.size()], 0, 0);
+      if (r.r.status == Status::OK) {
+        net[mine[i]] -= 1;
+        net[other[(i + k) % other.size()]] += 1;
+        ++queued;
+      } else {
+        CHECK(r.r.status == Status::E_OVERLOADED || (r.r.status == Status::E_APP && r.r.app_code == kAppBusy));
+      }
+    }
+  }
+  CHECK(eng.stats(0).overloaded > 0);
+  // The resend: answered from the session, not refused, not run again.
+  OneResult again = transfer(mine[0], other[0], 77, 1);
+  CHECK_EQ(again.r.status, Status::OK);
+  CHECK(again.r.replayed);
+  // A new sequenced request is still refused while the backlog lasts.
+  CHECK_EQ(transfer(mine[0], other[0], 77, 2).r.status, Status::E_OVERLOADED);
+  eng.release_emits();
+  verify(eng, ids, net);
+  eng.stop();
+  std::printf("resend while overloaded: replayed, ran once (%llu transfers queued ahead of it)\n",
+              (unsigned long long)queued);
+}
+
 int main() {
   register_type();
   test_memory();
@@ -478,6 +537,7 @@ int main() {
   test_local();
   test_placement();
   test_crash();
+  test_resend_overloaded();
   std::printf("test_transfer: ok\n");
   return 0;
 }

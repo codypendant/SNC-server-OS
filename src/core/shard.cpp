@@ -107,6 +107,19 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
   if (emits_in_flight() > kEmitBacklog) {
+    // A resent sequenced mutation already applied here gets its answer,
+    // not E_OVERLOADED: a client told E_OVERLOADED sends it again as a new
+    // request, which would apply it twice. Promotion leaves a backlog, and
+    // that is exactly when clients resend (found on real hosts,
+    // docs/REAL_MACHINES.md).
+    if (opts.client_id && slots_.owner[h >> 52] == id_) {
+      const OpDescriptor* d = registry().op(op);
+      RunOut out;
+      out.r.id = target;
+      if (d != nullptr && d->kind == OpKind::MUTATE && replay_if_seen(opts, out)) {
+        return complete_local(out, done, ctx);
+      }
+    }
     ++stats_.overloaded;
     ExecResult r;
     r.status = Status::E_OVERLOADED;

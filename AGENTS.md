@@ -576,3 +576,23 @@ or source comments.
     is classified.** Then: the 1M-object reconnect and node-link isolation
     need the 5-host layout (3 hosts cannot cut one node link without
     failing over both groups).
+
+### 2026-11-04 03:10 UTC --- Claude (Claude Code): the partition double-apply
+
+-   **Area:** client sessions (docs/RETRIES.md) under failover. Classified
+    **REFINE** (an ordering fix, no protocol change).
+-   **Found:** the Vultr run's open item (balances off under `partition`,
+    net 0) is a real bug, not an `snc_load` miscount. `Shard::execute`
+    answered `E_OVERLOADED` (follow-up backlog over 1,024) before the
+    session replay check. After a promotion the backlog is large while
+    clients resend; a resend of an already replicated transfer got
+    `E_OVERLOADED`, and clients resend that as a new request, so it ran
+    twice. Same shape as the `E_MOVED` double-apply fixed in PR #24.
+-   **Fixed:** a sequenced mutation checks its session before the
+    overload refusal. Rule now stated in RETRIES.md: a duplicate gets its
+    answer before any refusal a new request would get.
+-   **Evidence:** `test_transfer` `test_resend_overloaded` fails without
+    the fix, passes with it (also under ASan); full ctest passes.
+-   **Open:** not re-run on real hosts (servers torn down); a confirmation
+    is ~24 `p3 --fault partition` rounds on three fresh hosts.
+
