@@ -145,6 +145,8 @@ class Shard {
   // primary's term; `flag` (engine-wide) spreads it to every shard, and
   // setting it from outside (a witness said so) does the same.
   void set_withdraw_flag(std::atomic<bool>* flag) { withdraw_flag_ = flag; }
+  // Set once a sender exists (Engine::replicating).
+  void set_replicating_flag(std::atomic<bool>* flag) { replicating_flag_ = flag; }
   void withdraw();
   bool withdrawn() const { return withdrawn_; }
   // The WAL's last record after replay, so a standby can prove its log
@@ -411,6 +413,7 @@ class Shard {
   std::unique_ptr<repl::Receiver> receiver_;
   std::unique_ptr<repl::Receiver> fence_listener_;  // promoted: refuses the old term
   std::atomic<bool>* withdraw_flag_ = nullptr;
+  std::atomic<bool>* replicating_flag_ = nullptr;
   bool withdrawn_ = false;
   bool repl_hold_ = false;      // sync replication in force: durable() waits for acks
   bool repl_degraded_ = false;  // sync, but continuing without the standby

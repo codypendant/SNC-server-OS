@@ -483,6 +483,10 @@ u16 NativeRuntime::shard_count() const { return static_cast<u16>(g->shards.size(
 
 const ShardTopology& NativeRuntime::topology(u16 shard) const { return g->shards.at(shard)->topo; }
 
+// Not counted on this backend (docs/HEALTH_DECOUPLING.md 3.2): HEALTH then
+// reports no stall_ms, and only silence is visible.
+bool NativeRuntime::progress(u16, u64&) const { return false; }
+
 RingStats NativeRuntime::ring_stats(u16 src, u16 dst) const {
   if (src == dst) return {};
   return g->shards.at(src)->stats.at(dst);

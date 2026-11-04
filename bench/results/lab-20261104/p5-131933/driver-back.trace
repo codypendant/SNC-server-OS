@@ -1,0 +1,27 @@
+T 959580451949 26455 driver prepare move 0000000000000007: OK
+T 959587612671 26455 driver_ask port=21220 req=ROLE bytes=9 ok=1 ms=0.7 reply_bytes=8 reply=ROLE p 2
+T 959588274304 26455 driver_ask port=21140 req=ROLE bytes=9 ok=1 ms=0.6 reply_bytes=8 reply=ROLE p 2
+T 959920487160 26455 driver_ask port=21140 req=HAVE 1326 bytes=14 ok=1 ms=332.2 reply_bytes=5495872 reply=HAVE 100049 0100000100000000-000000000e6
+T 960427763592 26455 driver_ask port=21220 req=EXPORT 1326 0000000000000007 0 1 bytes=5495903 ok=1 ms=369.4 reply_bytes=5495900 reply=OBJS 100049 11837348197554022418 100049 
+T 960481312664 26455 driver copied 0 objects ahead of the seal
+T 960793663207 26455 driver_ask port=21220 req=SEAL 1326 0000000000000007 0 3 bytes=35 ok=1 ms=312.3 reply_bytes=74 reply=OK 2 0 7 3 100049 11837348197554022418 1
+T 960793691293 26455 driver seal: OK 2 0 7 3 100049 11837348197554022418 1 0 1 2 100049 11837348197554022418
+T 960806189128 26455 driver move 0000000000000007 -> sealed: OK
+T 960812189464 26455 driver_ask port=21220 req=ROLE bytes=9 ok=1 ms=0.3 reply_bytes=8 reply=ROLE p 2
+T 960812369346 26455 driver_ask port=21140 req=ROLE bytes=9 ok=1 ms=0.2 reply_bytes=8 reply=ROLE p 2
+T 961086789372 26455 driver_ask port=21140 req=HAVE 1326 bytes=14 ok=1 ms=274.4 reply_bytes=5495872 reply=HAVE 100049 0100000100000000-000000000e6
+T 961731980259 26455 driver_ask port=21220 req=EXPORT 1326 0000000000000007 1 1 bytes=5495903 ok=1 ms=542.7 reply_bytes=5495900 reply=OBJS 100049 11837348197554022418 100049 
+T 962700613392 26455 driver_ask port=21140 req=STAGE 1326 0000000000000007 1 3  bytes=5495934 ok=1 ms=843.6 reply_bytes=74 reply=OK 3 1 7 3 100049 11837348197554022418 1
+T 962700651423 26455 driver final copy (100049 objects): OK 3
+T 962711206308 26455 driver move 0000000000000007 -> staged: OK
+T 962725542676 26455 driver commit move 0000000000000007 at epoch 3: OK
+T 962729070311 26455 driver_ask port=21140 req=ROLE bytes=9 ok=1 ms=0.4 reply_bytes=8 reply=ROLE p 2
+T 963067528842 26455 driver_ask port=21140 req=ACTIVATE 1326 bytes=18 ok=1 ms=338.4 reply_bytes=74 reply=OK 1 1 7 3 100049 11837348197554022418 0
+T 963067562988 26455 driver activated at group 0
+T 963069597421 26455 driver_ask port=21140 req=REFRESH bytes=12 ok=1 ms=2.0 reply_bytes=4 reply=OK 3
+T 963076088218 26455 driver_ask port=21180 req=REFRESH bytes=12 ok=1 ms=6.5 reply_bytes=4 reply=OK 3
+T 963078879836 26455 driver_ask port=21220 req=REFRESH bytes=12 ok=1 ms=2.8 reply_bytes=4 reply=OK 3
+T 963080887409 26455 driver_ask port=21260 req=REFRESH bytes=12 ok=1 ms=2.0 reply_bytes=4 reply=OK 3
+T 963088449060 26455 driver move 0000000000000007 done: OK
+T 963091427909 26455 driver_ask port=21140 req=ROLE bytes=9 ok=1 ms=0.2 reply_bytes=8 reply=ROLE p 3
+T 963316729209 26455 driver_ask port=21140 req=UNSEAL 1326 bytes=16 ok=1 ms=225.3 reply_bytes=74 reply=OK 1 1 7 3 100049 11837348197554022418 1

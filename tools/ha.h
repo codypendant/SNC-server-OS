@@ -28,7 +28,7 @@ inline bool parse_hostport(const std::string& v, std::string& host, unsigned& po
   return port != 0;
 }
 
-inline int listen_on(unsigned port) {
+inline int listen_on(unsigned port, int backlog = 16) {
   int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
   int one = 1;
   ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
@@ -36,7 +36,7 @@ inline int listen_on(unsigned port) {
   a.sin_family = AF_INET;
   a.sin_port = htons(static_cast<uint16_t>(port));
   a.sin_addr.s_addr = htonl(INADDR_ANY);
-  if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 16) != 0) {
+  if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, backlog) != 0) {
     ::close(fd);
     return -1;
   }

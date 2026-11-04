@@ -9,7 +9,7 @@
 //                   [--standby PORT [--standby-host H] [--space-uuid HEX]
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
-//                   [--admin-port P] [--witness HOST:PORT] [--standby-reads LEASE_MS]
+//                   [--admin-port P [--debug-admin]] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -37,9 +37,15 @@
 // the MOVE requests of snc_ctl move (tools/migrate.h). --admin-port also
 // answers AUDIT [PATH] (the accounts served here; docs/REAL_MACHINES.md).
 // With --control, clients are served on every interface unless --host is set.
-// Automatic failover (snc_witness): --admin-port answers STATUS and PROMOTE
-// lines (STATUS role p primary, n no replication, s standby, f fenced: a
-// newer primary exists, and this node has left the data plane); with --witness, a sync primary past --replica-timeout-ms continues
+// Automatic failover (snc_witness): --admin-port answers HEALTH, STATUS and
+// PROMOTE lines (role p primary with a replication sender, n primary
+// without one, s standby, f fenced: a newer primary exists, and this node
+// has left the data plane). HEALTH (docs/HEALTH_DECOUPLING.md) answers at
+// once from published state, with shard and main-loop progress as
+// diagnostics; it is the witness's liveness signal and proves nothing
+// about replication or promotion eligibility. STATUS asks every shard for
+// its replication state and may be slow. --debug-admin also accepts DEBUG
+// STALL <shard> <ms> (tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
 // witness when its standby is back in sync. --witness takes a comma-separated
 // list of replicated witnesses; each request goes to the first that
@@ -76,6 +82,7 @@
 #include <thread>
 #include <vector>
 
+#include "admin_loop.h"
 #include "control.h"
 #include "ha.h"
 #include "migrate.h"
@@ -165,6 +172,7 @@ int main(int argc, char** argv) {
   u16 rejoin_port = 0;
   control::Members control_members;
   long long node_id = -1;
+  bool debug_admin = false;  // DEBUG STALL on the admin port (tests only)
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -218,6 +226,7 @@ int main(int argc, char** argv) {
     else if (k == "--report-ms") report_ms = std::atoi(val());
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
+    else if (k == "--debug-admin") debug_admin = true;
     else if (k == "--witness") {
       std::istringstream in(val());
       std::string hp, h;
@@ -312,8 +321,14 @@ int main(int argc, char** argv) {
   if (rejoin_port != 0 && !cfg.standby) {
     std::string reply;
     bool asked = false;
+    // HEALTH (docs/HEALTH_DECOUPLING.md 3.4): answered without waiting on
+    // the peer's shards, so a long shard task there does not read as
+    // "unreachable". A peer that does not know the verb is asked STATUS.
     for (int i = 0; i < 5 && !asked; ++i) {
-      asked = ha::ask(peer_admin_host, peer_admin_port, "STATUS", reply, 500);
+      asked = ha::ask(peer_admin_host, peer_admin_port, "HEALTH", reply, 500);
+      if (asked && reply.rfind("role=", 0) != 0) {
+        asked = ha::ask(peer_admin_host, peer_admin_port, "STATUS", reply, 500);
+      }
       if (!asked) ::usleep(100000);
     }
     std::string role, uuid;
@@ -403,20 +418,107 @@ int main(int argc, char** argv) {
   }
   std::fflush(stdout);
 
-  // Admin port: STATUS and PROMOTE, for snc_witness. The main thread
-  // promotes (on SIGUSR1); this thread only reads.
+  // Admin port (docs/HEALTH_DECOUPLING.md): HEALTH, STATUS, PROMOTE, AUDIT,
+  // MOVE. The main thread promotes (on SIGUSR1); the admin side only reads.
   std::string uuid_hex;
   for (u8 b : eng.space_uuid()) {
     char h[3];
     std::snprintf(h, sizeof(h), "%02x", b);
     uuid_hex += h;
   }
-  std::atomic<bool> is_standby{cfg.standby}, admin_stop{false};
+  std::atomic<bool> is_standby{cfg.standby};
   std::atomic<u64> term{eng.term()};
   // The mint lease block held (0-0 without blocks), for STATUS.
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
+  // The main loop's last iteration (admin::mono_ns), for HEALTH's main_ms.
+  std::atomic<u64> main_tick{admin::mono_ns()};
+  // Role: s standby, f fenced, else p (a replication sender exists) or n.
+  // A role fact only: p does not say the standby is connected or in sync.
+  auto role_now = [&](bool p_from_status, int status_role) {
+    if (is_standby.load()) return 's';
+    if (eng.fenced()) return 'f';
+    if (p_from_status) return status_role == 1 ? 'p' : 'n';
+    return eng.replicating() ? 'p' : 'n';
+  };
+
+  // Shard progress (3.2): each shard's loop counter, sampled every 10 ms.
+  // HEALTH compares the counter read at answer time with the last sample:
+  // changed means progress (stall 0); unchanged means stalled since the
+  // sample that last saw it change. A late sampler can only lengthen the
+  // stall it reports, never shorten it.
+  const u16 n_shards = cfg.runtime.n_shards;
+  std::mutex prog_mu;
+  std::vector<u64> prog_count(n_shards, 0), prog_changed(n_shards, admin::mono_ns());
+  bool prog_ok = true;
+  for (u16 s = 0; s < n_shards; ++s) prog_ok &= eng.runtime().progress(s, prog_count[s]);
+  std::atomic<bool> sampler_stop{false};
+  std::thread sampler;
+  if (prog_ok) {
+    sampler = std::thread([&] {
+      while (!sampler_stop.load()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        const u64 now = admin::mono_ns();
+        std::lock_guard<std::mutex> g(prog_mu);
+        for (u16 s = 0; s < n_shards; ++s) {
+          u64 v = 0;
+          eng.runtime().progress(s, v);
+          if (v != prog_count[s]) {
+            prog_count[s] = v;
+            prog_changed[s] = now;
+          }
+        }
+      }
+    });
+  }
+
+  // HEALTH (3.1): published values only; no shard task, no lock a shard
+  // thread holds. Liveness of this process and its admin path, plus
+  // diagnostics. It does NOT say that replication is current, that the
+  // node is eligible for promotion, or that every shard makes progress:
+  // stall_ms and main_ms are diagnostic and drive no decision (review of
+  // PR #36, option B).
+  std::atomic<admin::Loop*> admin_loop{nullptr};
+  auto health = [&] {
+    char b[512];
+    int n = std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s epoch=%llu leases=%llu-%llu shards=%u",
+                          role_now(false, 0), (unsigned long long)term.load(), uuid_hex.c_str(),
+                          (unsigned long long)eng.cluster().epoch, (unsigned long long)lease_lo.load(),
+                          (unsigned long long)lease_hi.load(), n_shards);
+    auto clamp = [&] { n = std::min(std::max(n, 0), static_cast<int>(sizeof(b)) - 1); };
+    clamp();
+    const u64 now = admin::mono_ns();
+    if (prog_ok) {
+      u64 worst = 0;
+      unsigned worst_shard = 0;
+      std::lock_guard<std::mutex> g(prog_mu);
+      for (u16 s = 0; s < n_shards; ++s) {
+        u64 v = 0;
+        eng.runtime().progress(s, v);
+        const u64 stall = v != prog_count[s] || now < prog_changed[s] ? 0 : now - prog_changed[s];
+        if (stall > worst) {
+          worst = stall;
+          worst_shard = s;
+        }
+      }
+      n += std::snprintf(b + n, sizeof(b) - n, " stall_ms=%llu stall_shard=%u", (unsigned long long)(worst / 1000000),
+                         worst_shard);
+      clamp();
+    }
+    const u64 tick = main_tick.load();
+    n += std::snprintf(b + n, sizeof(b) - n, " main_ms=%llu", (unsigned long long)(now > tick ? (now - tick) / 1000000 : 0));
+    clamp();
+    if (const admin::Loop* al = admin_loop.load()) {
+      const admin::Counters& c = al->counters();
+      std::snprintf(b + n, sizeof(b) - n, " adm_q=%llu adm_q_hw=%llu adm_busy=%llu adm_half=%llu adm_half_hw=%llu "
+                    "adm_evicted=%llu adm_timeouts=%llu",
+                    c.queue_depth.load(), c.queue_hw.load(), c.busy.load(), c.half.load(), c.half_hw.load(),
+                    c.evicted.load(), c.timeouts.load());
+    }
+    return std::string(b);
+  };
+
   // Slot moves (docs/MIGRATION.md): MOVE requests, each on its own thread
-  // (a seal or a stage waits for durability; STATUS must not wait behind it).
+  // (a seal or a stage waits for durability; nothing may wait behind it).
   std::unique_ptr<migrate::NodeHandler> mover;
   if (!control_members.empty()) {
     mover = std::make_unique<migrate::NodeHandler>(eng, control_members, my_group, [&] {
@@ -426,77 +528,93 @@ int main(int argc, char** argv) {
   std::mutex move_mu;
   std::condition_variable move_cv;
   int moving = 0;
-  std::thread admin;
+  std::unique_ptr<admin::Loop> admin_owner;
   if (admin_port != 0) {
-    int lfd = ha::listen_on(admin_port);
+    int lfd = ha::listen_on(admin_port, 256);
     if (lfd < 0) {
       std::fprintf(stderr, "cannot listen on admin port %u\n", admin_port);
       return 1;
     }
-    admin = std::thread([&, lfd] {
-      while (!admin_stop.load()) {
-        if (!ha::wait_fd(lfd, POLLIN, 100)) continue;
-        int fd = ::accept4(lfd, nullptr, nullptr, SOCK_CLOEXEC);
-        if (fd < 0) continue;
-        std::string line, reply;
-        const u64 t_accept = trace::enabled() ? trace::now_ns() : 0;
-        const bool got = ha::read_line(fd, line, 500);
-        const u64 t_read = trace::enabled() ? trace::now_ns() : 0;
-        if (!got) SNC_TRACE("admin_read_fail read_ms=%.1f bytes=%zu", (t_read - t_accept) / 1e6, line.size());
-        if (got) {
-          if (line.rfind("MOVE ", 0) == 0 && mover) {
-            SNC_TRACE("admin_move_in verb=%.24s bytes=%zu read_ms=%.1f", line.c_str() + 5, line.size(),
-                      (t_read - t_accept) / 1e6);
-            {
-              std::lock_guard<std::mutex> g(move_mu);
-              ++moving;
-            }
-            std::thread([&, fd, line] {
-              const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
-              const std::string out = mover->handle(line);
-              const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
-              ha::write_all(fd, out + "\n");
-              SNC_TRACE("admin_move_out verb=%.24s handle_ms=%.1f write_ms=%.1f reply=%.40s", line.c_str() + 5,
-                        (t1 - t0) / 1e6, trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0, out.c_str());
-              ::close(fd);
-              std::lock_guard<std::mutex> g(move_mu);
-              --moving;
-              move_cv.notify_all();
-            }).detach();
-            continue;
-          }
-          if (line == "STATUS") {
-            const u64 t_st = trace::enabled() ? trace::now_ns() : 0;
-            Engine::ReplStatus st = eng.replication_status();
-            if (trace::enabled()) {
-              const u64 t_done = trace::now_ns();
-              // Only slow answers: a witness polls every few tens of ms.
-              if (t_done - t_accept >= 20'000'000) {
-                SNC_TRACE("admin_status_slow total_ms=%.1f read_ms=%.1f repl_status_ms=%.1f", (t_done - t_accept) / 1e6,
-                          (t_read - t_accept) / 1e6, (t_done - t_st) / 1e6);
-              }
-            }
-            char b[256];
-            std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu",
-                          is_standby.load() ? 's' : eng.fenced() ? 'f' : (st.role == 1 ? 'p' : 'n'),
-                          (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
-                          st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
-                          (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load());
-            reply = b;
-          } else if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) {
-            reply = audit(eng, line.size() > 6 ? line.substr(6) : "");
-          } else if (line == "PROMOTE") {
-            reply = is_standby.load() ? "OK" : "NO not a standby";
-            if (is_standby.load()) ::kill(::getpid(), SIGUSR1);
-          } else {
-            reply = "NO unknown request";
-          }
-          ha::write_all(fd, reply + "\n");
-        }
-        ::close(fd);
+    admin::Loop::Handlers h;
+    h.inline_verb = [&](const std::string& line, std::string& reply) {
+      if (line == "HEALTH") {
+        reply = health();
+        return true;
       }
-      ::close(lfd);
-    });
+      // DEBUG STALL <shard> <ms> (tests; docs/HEALTH_DECOUPLING.md 6): one
+      // task that spins on that shard's thread. Unknown, as any verb,
+      // unless the server was started with --debug-admin.
+      if (debug_admin && line.rfind("DEBUG STALL ", 0) == 0) {
+        unsigned sh = 0, ms = 0;
+        if (std::sscanf(line.c_str() + 12, "%u %u", &sh, &ms) != 2 || sh >= n_shards || ms > 600000) {
+          reply = "NO DEBUG STALL <shard> <ms>";
+          return true;
+        }
+        eng.runtime().submit(static_cast<u16>(sh), [ms] {
+          const u64 end = admin::mono_ns() + u64{ms} * 1000000;
+          while (admin::mono_ns() < end) {
+          }
+        });
+        std::printf("debug: stalling shard %u for %u ms\n", sh, ms);
+        std::fflush(stdout);
+        reply = "OK";
+        return true;
+      }
+      return false;
+    };
+    h.heavy = [&](const std::string& line) -> std::string {
+      if (line == "STATUS") {
+        const u64 t_st = trace::enabled() ? trace::now_ns() : 0;
+        Engine::ReplStatus st = eng.replication_status();
+        if (trace::enabled()) {
+          const u64 ms = (trace::now_ns() - t_st) / 1000000;
+          if (ms >= 20) SNC_TRACE("admin_status_slow repl_status_ms=%llu", (unsigned long long)ms);
+        }
+        char b[256];
+        std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu",
+                      role_now(true, st.role), (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
+                      st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
+                      (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load());
+        return b;
+      }
+      if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");
+      if (line == "PROMOTE") {
+        if (!is_standby.load()) return "NO not a standby";
+        ::kill(::getpid(), SIGUSR1);
+        return "OK";
+      }
+      return "NO unknown request";
+    };
+    if (mover) {
+      h.move = [&](int fd, std::string got, u64 deadline) {
+        {
+          std::lock_guard<std::mutex> g(move_mu);
+          ++moving;
+        }
+        std::thread([&, fd, got = std::move(got), deadline]() mutable {
+          const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+          if (admin::finish_line(fd, got, deadline)) {
+            const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
+            SNC_TRACE("admin_move_in verb=%.24s bytes=%zu read_ms=%.1f", got.c_str() + 5, got.size(), (t1 - t0) / 1e6);
+            const std::string out = mover->handle(got);
+            const u64 t2 = trace::enabled() ? trace::now_ns() : 0;
+            ha::write_all(fd, out + "\n");
+            SNC_TRACE("admin_move_out verb=%.24s handle_ms=%.1f write_ms=%.1f reply=%.40s", got.c_str() + 5,
+                      (t2 - t1) / 1e6, trace::enabled() ? (trace::now_ns() - t2) / 1e6 : 0.0, out.c_str());
+          } else {
+            SNC_TRACE("admin_read_fail move bytes=%zu", got.size());
+          }
+          ::close(fd);
+          std::lock_guard<std::mutex> g(move_mu);
+          --moving;
+          move_cv.notify_all();
+        }).detach();
+      };
+    }
+    // Opened only now, after Engine::start: no admin verb, HEALTH
+    // included, is answered during recovery (CORE_CONTRACTS E6, E8).
+    admin_owner = std::make_unique<admin::Loop>(lfd, std::move(h));
+    admin_loop.store(admin_owner.get());
   }
   // The witness's grant to continue without the standby (see the header).
   // After running alone, the primary owes the witnesses a SYNCED: until one
@@ -525,8 +643,10 @@ int main(int argc, char** argv) {
     auto next_ckpt = t0 + std::chrono::duration_cast<clock::duration>(
                               std::chrono::duration<double>(checkpoint_s));
     while (true) {
+      main_tick.store(admin::mono_ns());
       auto now = clock::now();
-      auto wake = now + std::chrono::hours(24);
+      // At least every 100 ms, so HEALTH's main_ms means something.
+      auto wake = now + std::chrono::milliseconds(100);
       if (report_ms > 0) wake = std::min(wake, next_report);
       if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
       if (!witnesses.empty()) wake = std::min(wake, now + std::chrono::milliseconds(50));
@@ -629,8 +749,11 @@ int main(int argc, char** argv) {
       std::fflush(stdout);
     }
   }
-  admin_stop.store(true);
-  if (admin.joinable()) admin.join();
+  // Stop the admin side before the engine: no shard task is submitted
+  // once eng.stop() begins.
+  if (admin_owner) admin_owner->stop();
+  sampler_stop.store(true);
+  if (sampler.joinable()) sampler.join();
   {
     std::unique_lock<std::mutex> g(move_mu);
     move_cv.wait(g, [&] { return moving == 0; });

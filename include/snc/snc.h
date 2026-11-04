@@ -396,6 +396,13 @@ class Engine {
   // brings the node back. Control path.
   void withdraw();
   bool fenced() const;
+  // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
+  // true once any shard has started a replication sender (at recovery as a
+  // primary with a replica, or at promotion). Senders are never torn down
+  // before stop, so it stays true through link loss, degraded running,
+  // fencing and withdrawal. The same answer as replication_status().role
+  // == 1, without a shard task. Safe from any thread.
+  bool replicating() const;
 
   // ---- Slot moves (docs/MIGRATION.md). Control path; each blocks. ----
   // A newer placement: adopt it (false if `epoch` is not newer than the

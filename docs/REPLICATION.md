@@ -123,11 +123,17 @@ each decision (written and synced) before anyone acts on it:
   considers current. When the standby is back in sync the primary says so
   (`SYNCED`), closing the grant.
 - **When to promote the standby.** It polls both nodes' admin ports
-  (`snc_server --admin-port`: `STATUS`, `PROMOTE`). If the primary has not
-  answered for `--failover-ms` and the standby is up, in the same space and
+  (`snc_server --admin-port`) with `HEALTH`, which the node answers
+  without waiting on its shard threads, so a long task on a shard does
+  not read as death ([HEALTH_DECOUPLING.md](HEALTH_DECOUPLING.md); a node
+  without `HEALTH` is polled with `STATUS`). If the primary has not
+  answered for `--failover-ms`, and the standby answers `STATUS` (every
+  shard of it, within `--poll-ms`) as a standby in the same space and
   term, and the primary holds no grant, it records the new term and
-  promotes the standby. With a grant out it does not: the standby may lack
-  acknowledged writes, so it waits for the primary.
+  promotes the standby (`PROMOTE`). With a grant out it does not: the
+  standby may lack acknowledged writes, so it waits for the primary. An
+  answer to `HEALTH` proves the process is alive, nothing more: a primary
+  whose shard is stuck but whose process answers is not failed over.
 
 Together these keep one rule: **a write is acknowledged only if the node
 that will serve next has it.** Either the standby acked it (sync), or the

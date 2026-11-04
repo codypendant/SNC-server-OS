@@ -39,9 +39,24 @@
 // SYNCED (else the group whose space it is). The same witnesses also hand
 // out cluster-wide mint lease blocks (the `leases` machine).
 //
+// Liveness (docs/HEALTH_DECOUPLING.md): the witness polls each node with
+// HEALTH, which a node answers without waiting on its shard threads, so a
+// long shard task no longer reads as silence. A node that does not know
+// HEALTH (any reply not starting "role=") is polled with STATUS, and HEALTH
+// is tried again every 10 s. --health-verb status polls STATUS only (the
+// behavior before HEALTH; rollback). The protection against false
+// failovers holds only when EVERY witness of a group polls HEALTH: each
+// witness decides alone that a primary is silent and proposes the
+// promotion. Shard stall reported by HEALTH (stall_ms) is diagnostic and
+// drives no decision here (review of PR #36, option B): a live process
+// whose shard is stuck is not failed over. Promotion eligibility is
+// unchanged: the standby is still checked with STATUS before a promotion
+// is proposed, so it must still answer from every shard within --poll-ms.
+//
 // Usage: snc_witness --port P [--primary HOST:ADMIN --standby HOST:ADMIN]
 //                    [--group G=HOST:ADMIN,HOST:ADMIN ...]
 //                    --state FILE [--failover-ms N] [--poll-ms N]
+//                    [--health-verb health|status]
 //                    [--id I --peers HOST:PORT,HOST:PORT,...]
 // --peers lists every witness, this one included at index --id.
 #include <fcntl.h>
@@ -299,6 +314,8 @@ struct Pair {
   unsigned port[2];
 };
 void watch(unsigned group, Pair pair, int failover_ms, int poll_ms);
+// Poll liveness with HEALTH (false: STATUS only, --health-verb status).
+bool g_use_health = true;
 
 }  // namespace
 
@@ -335,6 +352,7 @@ int main(int argc, char** argv) {
     else if (k == "--poll-ms") poll_ms = std::atoi(v.c_str());
     else if (k == "--id") self_id = static_cast<unsigned>(std::atoi(v.c_str()));
     else if (k == "--peers") peer_list = v;
+    else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
     else {
       std::fprintf(stderr, "bad flag %s %s\n", k.c_str(), v.c_str());
       return 2;
@@ -343,6 +361,7 @@ int main(int argc, char** argv) {
   if (port == 0 || (pport == 0) != (sport == 0) || state_path.empty() || (pport != 0 && pairs.count(0))) {
     std::fprintf(stderr, "usage: snc_witness --port P [--primary HOST:ADMIN --standby HOST:ADMIN] "
                          "[--group G=PHOST:ADMIN,SHOST:ADMIN ...] --state FILE [--failover-ms N] "
+                         "[--health-verb health|status] "
                          "[--poll-ms N] [--id I --peers H:P,...]\n");
     return 2;
   }
@@ -382,6 +401,8 @@ int main(int argc, char** argv) {
                 chosen.term, chosen.primary, chosen.degraded ? ", running without its standby" : "");
   }
   if (pairs.empty()) std::printf("snc_witness: no pair to watch: placement and leases only\n");
+  else std::printf("snc_witness: liveness polled with %s\n", g_use_health ? "HEALTH (STATUS for nodes without it)"
+                                                                         : "STATUS (--health-verb status)");
   std::fflush(stdout);
 
   // Requests: Paxos messages from witnesses, and the primary's.
@@ -408,20 +429,50 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
   using clock = std::chrono::steady_clock;
   const std::string* host = pair.host;
   const unsigned* aport = pair.port;
-  auto status = [&](unsigned node, std::map<std::string, std::string>& f) {
+  // Asks one node `verb`, within poll_ms; false is silence.
+  auto ask_node = [&](unsigned node, const char* verb, std::map<std::string, std::string>& f) {
     std::string reply;
     const u64 t_ask = trace::enabled() ? trace::now_ns() : 0;
-    const bool ok = ha::ask(host[node], aport[node], "STATUS", reply, poll_ms);
+    const bool ok = ha::ask(host[node], aport[node], verb, reply, poll_ms);
     if (trace::enabled()) {
       const double ms = (trace::now_ns() - t_ask) / 1e6;
       if (!ok || ms >= 20) {
-        SNC_TRACE("witness_status group=%u node=%u port=%u ok=%d ms=%.1f reply=%.60s", group, node, aport[node],
-                  ok ? 1 : 0, ms, reply.c_str());
+        SNC_TRACE("witness_ask group=%u node=%u port=%u verb=%s ok=%d ms=%.1f reply=%.60s", group, node, aport[node],
+                  verb, ok ? 1 : 0, ms, reply.c_str());
       }
     }
     if (!ok) return false;
     f = fields(reply);
+    // Every answer this witness reads starts with role= (an old node
+    // answers HEALTH "NO unknown request").
+    if (reply.rfind("role=", 0) != 0) f["role"] = "";
     return true;
+  };
+  // Per node: polled with STATUS because it did not know HEALTH, and when
+  // to try HEALTH again (an upgraded node is picked up without a restart).
+  bool fallback[2] = {false, false};
+  clock::time_point retry_health[2] = {t0, t0};
+  // Liveness: HEALTH, or STATUS for a node that does not know HEALTH.
+  auto status = [&](unsigned node, std::map<std::string, std::string>& f) {
+    const auto now = clock::now();
+    if (!g_use_health || (fallback[node] && now < retry_health[node])) return ask_node(node, "STATUS", f);
+    if (!ask_node(node, "HEALTH", f)) return false;  // silence: no fallback
+    if (!f["role"].empty()) {
+      if (fallback[node]) {
+        fallback[node] = false;
+        std::printf("t=%.2f group %u node %u answers HEALTH: polled with HEALTH again\n", secs(t0, now), group, node);
+        std::fflush(stdout);
+      }
+      return true;
+    }
+    if (!fallback[node]) {
+      std::printf("t=%.2f group %u node %u does not know HEALTH: polled with STATUS (a busy shard there still "
+                  "reads as silence)\n", secs(t0, now), group, node);
+      std::fflush(stdout);
+    }
+    fallback[node] = true;
+    retry_health[node] = now + std::chrono::seconds(10);
+    return ask_node(node, "STATUS", f);
   };
   auto primary_ok = t0;  // last time the current primary answered as primary
   u64 watched = 0;       // the state version primary_ok refers to
@@ -490,7 +541,11 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
     SNC_TRACE("witness_suspect group=%u primary=%u term=%llu silent_ms=%.1f degraded=%d", group, p,
               (unsigned long long)st.term, secs(primary_ok, clock::now()) * 1000, st.degraded ? 1 : 0);
     if (st.degraded) continue;  // it may not: wait for the primary
-    if (!status(o, f) || f["role"] != "s") continue;
+    // Eligibility: STATUS, as before HEALTH, never HEALTH. STATUS needs
+    // every standby shard to run a task within poll_ms; HEALTH would drop
+    // that requirement and so widen eligibility (a standby with a stuck
+    // shard would be promoted, and Engine::promote would hang on it).
+    if (!ask_node(o, "STATUS", f) || f["role"] != "s") continue;
     const std::string suuid = f["uuid"];
     const u64 sterm = std::strtoull(f["term"].c_str(), nullptr, 10);
     const auto tp = clock::now();
