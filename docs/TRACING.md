@@ -46,7 +46,8 @@ Events emitted today:
 | `admin_move_in` / `admin_move_out` / `admin_read_fail` | admin port (`admin_read_fail`: no whole line within 500 ms, or closed first) | verb, bytes, read / handle / write ms, reply prefix |
 | `ask_witness` | primary → witness (DEGRADE, SYNCED) | port, request, ok, ms, reply |
 | `stage_begin` / `stage_end` / `seal` / `export` | `src/core/engine.cpp` | slot, move, final, objects, on-shard ms, durability-wait ms, status |
-| `stage_slot_phases` | `Shard::stage_slot` final | check, put (count, index ms, WAL ms), scan ms, map size |
+| `stage_unit` | `Engine::stage_slot`, each unit of a stage chain (S1, MIGRATION_STAGING.md 18) | slot, move, final, phase the unit started in, unit µs, puts and drops so far, bytes appended not yet durable, status. (Replaces `stage_slot_phases` of the one-task final stage.) |
+| `slot_active` | `Shard::activate_staged`, the ACTIVE record written at the destination | slot, move, epoch (the end of the move's `E_MIGRATING` window, with `seal` at the source its start) |
 | `move_stage_req` | `tools/migrate.h` node handler | decode ms, control-plane check ms |
 | `driver`, `driver_ask` | `tools/migrate.h` driver | step text; each request's verb, bytes, ms, reply |
 | `witness_ask` | `tools/snc_witness.cpp`, a HEALTH or STATUS poll that failed or took ≥ 20 ms (was `witness_status`, STATUS only) | group, node, verb, ok, ms, reply |

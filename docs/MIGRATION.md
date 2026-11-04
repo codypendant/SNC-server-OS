@@ -115,6 +115,21 @@ or finished by another driver) changes nothing when it wakes.
   record in the shard's stream, so it is durable only once they are.
 - B refuses to stage into a slot its own map gives to its group (there it
   can only be a source).
+- **How B executes a stage (S1, MIGRATION_STAGING.md 18).** One stage
+  request (final or not) runs as a chain of bounded units on the slot's
+  shard (about 1 ms or 1 MiB each, `--move-unit-us`, `--move-unit-bytes`),
+  with other work on the shard between units. Each unit first re-checks
+  local authority (not a standby, not withdrawn or fenced, the slot still
+  foreign, the chain not superseded, no other writer of the slot); a
+  failed check stops the chain with nothing recorded as staged. One chain
+  per slot: a second request for the same or an older move is refused
+  `E_OVERLOADED` (the driver resends the same request with backoff) and a
+  newer move's request supersedes it. Nothing about a chain is durable:
+  its only durable output is the staged records themselves, so a crash
+  or failover mid-chain leaves inert records in a foreign slot, which the
+  retry's HAVE finds. What a stage means is unchanged: same records, same
+  order, STAGED last and only after the count and digest match.
+  `--move-units off` runs each request as one task (the rollback).
 
 ## Proof
 

@@ -11,9 +11,17 @@
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P [--debug-admin]] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--adopt-role primary|standby]
+//                   [--move-units on|off] [--move-unit-us N] [--move-unit-bytes N]
+//                   [--move-window-bytes N]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
+//
+// --move-units (docs/MIGRATION_STAGING.md 18): a stage request for a slot
+// moving here runs as a chain of shard tasks of about --move-unit-us
+// (default 1000) or --move-unit-bytes (default 1 MiB) each, waiting while
+// more than --move-window-bytes (default 8 MiB) it wrote is not yet
+// durable; off runs each request as one task (the rollback).
 //
 // --control (docs/CLUSTER.md, "Starting from the control plane"): instead
 // of --cluster/--group/--member, fetch the placement map from the control
@@ -61,7 +69,8 @@
 // diagnostics; it is the witness's liveness signal and proves nothing
 // about replication or promotion eligibility. STATUS asks every shard for
 // its replication state and may be slow. --debug-admin also accepts DEBUG
-// STALL <shard> <ms> and DEBUG REPL-PAUSE 1|0, and --debug-barrier hold:MS|crash
+// STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0 and DEBUG MOVE-STOP <phase> <unit>
+// hold:MS|crash, and --debug-barrier hold:MS|crash
 // (the end of the start barrier, docs/MIGRATION_FAIL_CLOSED.md; tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
 // witness when its standby is back in sync. --witness takes a comma-separated
@@ -94,6 +103,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -244,6 +254,26 @@ int main(int argc, char** argv) {
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--debug-admin") debug_admin = true;
+    else if (k == "--move-units") {
+      const std::string v = val();
+      if (v != "on" && v != "off") {
+        std::fprintf(stderr, "--move-units takes on or off\n");
+        return 2;
+      }
+      cfg.move_units = v == "on";
+    }
+    else if (k == "--move-unit-us" || k == "--move-unit-bytes" || k == "--move-window-bytes") {
+      const char* v = val();
+      char* end = nullptr;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (end == v || *end != '\0' || n == 0 || (k == "--move-unit-us" && n > 10000000)) {
+        std::fprintf(stderr, "%s takes a positive number\n", k.c_str());
+        return 2;
+      }
+      if (k == "--move-unit-us") cfg.move_unit_us = static_cast<u32>(n);
+      else if (k == "--move-unit-bytes") cfg.move_unit_bytes = n;
+      else cfg.move_window_bytes = n;
+    }
     else if (k == "--adopt-role") {
       // docs/LEGACY_ROLE.md: once, for a data directory from before role files.
       const std::string v = val();
@@ -733,6 +763,32 @@ int main(int argc, char** argv) {
       if (debug_admin && (line == "DEBUG REPL-PAUSE 1" || line == "DEBUG REPL-PAUSE 0")) {
         Engine::debug_pause_replication(line.back() == '1');
         std::printf("debug: replication %s\n", line.back() == '1' ? "paused" : "resumed");
+        std::fflush(stdout);
+        reply = "OK";
+        return true;
+      }
+      // DEBUG MOVE-STOP <phase> <unit> hold:MS|crash (tests;
+      // docs/MIGRATION_STAGING.md 18): the next final stage chain here
+      // holds, or the process exits, just before that unit of that phase
+      // (admit, check, put, scan, drop, stage; reply: after STAGED is
+      // durable, before the answer). Once.
+      if (debug_admin && line.rfind("DEBUG MOVE-STOP ", 0) == 0) {
+        char ph[16] = {}, how[32] = {};
+        unsigned unit = 0, ms = 0;
+        int phase = -1;
+        if (std::sscanf(line.c_str() + 16, "%15s %u %31s", ph, &unit, how) == 3) {
+          static const char* const names[] = {"admit", "check", "put", "scan", "drop", "stage", "reply"};
+          for (int i = 0; i < 7; ++i) {
+            if (std::strcmp(ph, names[i]) == 0) phase = i;
+          }
+        }
+        const bool crash = std::strcmp(how, "crash") == 0;
+        if (phase < 0 || (!crash && (std::sscanf(how, "hold:%u", &ms) != 1 || ms > 600000))) {
+          reply = "NO DEBUG MOVE-STOP <admit|check|put|scan|drop|stage|reply> <unit> hold:MS|crash";
+          return true;
+        }
+        eng.debug_stage_stop(phase, unit, crash, ms);
+        std::printf("debug: move stop at %s unit %u %s\n", ph, unit, how);
         std::fflush(stdout);
         reply = "OK";
         return true;

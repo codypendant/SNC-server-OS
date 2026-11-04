@@ -1081,6 +1081,234 @@ whole-stage path without touching user data.
 These belong to S2, S3, A.1 and later slices, each brought back for
 review first.
 
+## 18. As built: S1 (2026-11-04)
+
+S1 was authorized after the review of PR #41
+(`handoff/PR41_Review_and_S1_Work_Order.txt`). Every claim below is
+MEASURED on this project's 4-vCPU loopback VM unless marked INFERRED.
+Raw results are in `bench/results/s1-20261104/`.
+
+### 18.1 What runs
+
+`Engine::stage_slot` runs every STAGE, **final and non-final**, as a
+chain of bounded units on B's shard:
+
+- **Admission** (`Shard::stage_admit`) registers the chain in
+  `stage_chain_[slot]` under a new token. A same or older move is refused
+  `E_OVERLOADED`; a newer move supersedes.
+- **Units** (`Shard::stage_unit`) run the phases CHECK, PUT, SCAN, DROP
+  and STAGE. Each unit stops after `--move-unit-us` (default 1000 µs) or
+  `--move-unit-bytes` of payload (default 1 MiB), plus at most one object.
+- **Guards before each unit:**
+  - G-fence: the node withdrew or became a standby (`E_FENCED`,
+    `E_STANDBY`);
+  - G-chain: a newer move took the token (`E_MIGRATING`);
+  - G-map: the slot is no longer this node's to stage (`E_MOVED`);
+  - G-mut: the slot was mutated outside the chain
+    (`E_VERSION_CONFLICT`);
+  - G-gen: the local map rehashed, so the SCAN restarts.
+- **Scheduling:** a unit that goes on requeues the next one on the same
+  shard (`Engine::on_shard_steps`), behind its rings, I/O and injected
+  tasks. It returns to the control thread only when:
+  - the chain is done or refused;
+  - the window is full;
+  - a debug stop is armed.
+- **Window:** while more than `--move-window-bytes` (default 8 MiB) of
+  the chain's appended records are not durable, the control thread waits
+  for the LSN that brings it back under the window, off the shard.
+- **Reply:** the reply's `slot_report` (D3) is walked in bounded units
+  too (`Shard::slot_report_unit`), with its content unchanged. It
+  restarts on a rehash, a mutation of the slot or a foreign change. After
+  8 restarts it falls back to one task.
+- **Rollback:** `--move-units off` runs the same code as one task.
+
+The driver (`tools/migrate.h` `stage_resend`) handles an unanswered or
+`E_OVERLOADED` STAGE, final or not:
+
+- It probes `MOVE ROLE` (constant time, not `INFO`).
+- It resends the same line after 1, 2, 4, 8, 8 ... s, up to 6 times.
+- It does not re-send HAVE or EXPORT while it resends (D4); after 6
+  resends, or once the node stops answering as a primary, the ordinary
+  retry (HAVE, EXPORT) takes over.
+
+`DEBUG MOVE-STOP <phase> <unit> hold:MS|crash` (`--debug-admin` only)
+stops a final chain at a named unit. It fires once and is cleared at the
+end of every final chain.
+
+### 18.2 Departures from section 17
+
+| Plan (section 17) | As built | Why |
+| --- | --- | --- |
+| Non-final stages keep one task, with a node-side `E_BAD_ARGS` cap on their size | Non-final stages run the same chain; there is no cap | The same code with no new refusal. A driver's `--chunk 100000` copy ahead no longer reproduces the long task |
+| D3 reply report out of scope unless its content changes (A.3) | Walked in bounded units; content unchanged | It was the next-longest task after the final stage (about 100 ms at this map). Chaining it needs no reply change |
+| Driver: back off on `E_OVERLOADED` or a timeout of the **final** STAGE | Final and non-final, with a `MOVE ROLE` probe | The review found the non-final path still re-looped. `INFO` is O(map) |
+| `move_stage_window_bytes` | `--move-window-bytes` | Naming |
+| STAGE (activation of the staged set) inside the last DROP unit | Its own unit | It gives the `stage` stop point; the unit stays bounded |
+| At least 5 runs per cell (section 14) | 3 runs per matrix cell, 2 per sweep cell | Time. Spreads are reported; every conclusion below holds across all runs |
+
+There is no wire, format, placement or durable-state change. What the
+chain writes is the same staged records as before. A chain is volatile:
+a crash loses it, and the driver's resend starts a new one over the
+records already written (section 4).
+
+### 18.3 Tests (work order S1-1..S1-18)
+
+| ID | Test |
+| --- | --- |
+| S1-1, S1-13 | `test_stage_chain` B (identical state, count and digest to `--move-units off`, over random copy-ahead subsets); `test_s1` normal |
+| S1-2, S1-3 | `bench/s1_move.py`, 100K accounts in one slot, shared and unique email (18.4) |
+| S1-4, S1-5, S1-6 | Stop points sit between units, so "during the first unit" is approximated by check 0 (after admission, before the first unit) and put 1 (after one unit of one object). `test_s1` crash at admit 0, check 0, put 1, put 12 (restart with units off: R), scan 2, stage 0, reply 0. Each time the driver's resend finishes the move, every acknowledged deposit is present, and money is conserved |
+| S1-7 | `test_s1` dst_promote |
+| S1-8 | `test_s1` src_promote |
+| S1-9 | `test_s1` driver_death: the chain finishes, and a new driver resumes |
+| S1-10 | `test_stage_chain` I and SU; `test_s1` duplicate (refused `E_OVERLOADED`, the first chain unaffected) |
+| S1-11 | `test_stage_chain` G; `test_s1` fence (B's standby promoted while its chain is held: the old primary's chain stops with `E_FENCED` within one unit) |
+| S1-12 | `test_s1` normal: B is held mid-PUT and its proof reports `serving=0` and the slot not yet STAGED |
+| S1-14 | `test_s1` normal: a transfer from another slot credits S while the chain is held (the follow-up waits at the sealed source and lands once after the move); a deposit to S is refused `E_MIGRATING` |
+| S1-15, S1-16 | `test_s1` health (asserts HEALTH max under 200 ms only); STATUS and foreground against the one-task baseline are benchmark evidence (18.4), not a regression test. Likewise S1-2/S1-3: no test asserts the bound at 100K |
+| S1-17 | `test_fail_closed` (D1/D7), unchanged and passing |
+| S1-18 | `test_migrate` (the 67-scenario crash matrix), unchanged and passing |
+| Map walk | `test_local_map` L; `test_stage_chain` M (a rehash mid-SCAN restarts it, with the same result) |
+| Unit bound | `test_stage_chain` A (20K objects: the longest unit stays under a loose 250 ms limit, set for sanitizer builds; the tight bound is the benchmark's, 18.4) and W (the window) |
+
+### 18.4 Evidence: 100K-object move
+
+**Setup** (`bench/s1_move.py`): real processes on loopback, two groups,
+each a primary with an async standby, and three witnesses.
+
+- One slot of 100,000 accounts moves from A to B with `--chunk 256`.
+- During the copy ahead, 4 writers deposit into 18,000 of them (the
+  baseline final changed 17,874), so the final stage has 18,000 puts.
+- B is probed throughout:
+  - HEALTH and STATUS every 5 ms, each on its own thread;
+  - a durable deposit into one of 16 other accounts every 2 ms;
+  - a read of a moving account every 2 ms (the client-visible
+    `E_MIGRATING` interval).
+
+Medians of 3 runs, with `--move-units on` (defaults) and `off` (one
+task, the old behaviour):
+
+| | on, shared email | off, shared | on, unique email | off, unique |
+| --- | --- | --- | --- | --- |
+| **Longest unit (non-preemptible)** | **3.8 ms** (3.1-5.1) | 2979 ms | **3.4 ms** (2.6-3.6) | 312 ms |
+| Unit p50 / p95 / p99 | 1.1 / 1.4 / 1.7 ms | one unit | 1.0 / 1.3 / 1.8 ms | one unit |
+| Units | 2741 | 1 | 339 | 1 |
+| Shard time in the chain | 3084 ms | 2979 ms | 373 ms | 312 ms |
+| Final-stage duration | 4965 ms | 3072 ms | 718 ms | 432 ms |
+| Client-visible `E_MIGRATING` | 7.0 s | 5.1 s | 2.71 s | 2.47 s |
+| Total move | 36.8 s | 25.4 s | 32.3 s | 22.5 s |
+| B shard iterations ≥ 20 ms, final stage | none | 2984 ms | none | 320 ms |
+| HEALTH p50 / p99 / max, final | 0.3 / 1.2 / 7.8 ms | 0.3 / 1.4 / 4.2 ms | 0.3 / 1.0 / 2.4 ms | 0.4 / 1.1 / 1.1 ms |
+| HEALTH `stall_ms` max, final | 3 | 2977 | 2 | 309 |
+| STATUS p50 / p95 / p99 / max, final | 5.4 / 7.0 / 8.6 / 16 ms | one sample, 2986 ms | 5.2 / 7.7 / 8.9 / 8.9 ms | 313 ms |
+| Foreground deposit p50 / p95 / p99 / max, final | 6.9 / 8.8 / 10.1 / 31.5 ms (n 552) | 1637 ms (n 2) | 6.9 / 9.9 / 13.9 / 13.9 ms (n 80) | 113 ms (n 2) |
+| Puts in the final | 18,000 | 15,829 | 18,000 | 15,713 |
+| WAL bytes appended by the final | 4.46 MB | 3.93 MB | 4.46 MB | 3.90 MB |
+| Window high-water (not yet durable) | 34 KB | n/a | 188 KB | n/a |
+| Window waits | 0 | n/a | 0 | n/a |
+| B VmHWM | 86 MB | 91-145 MB | 97 MB | 100-155 MB |
+
+Notes on the table:
+
+- **WAL and replication bytes.** WAL bytes are the record headers and
+  payloads the chain appended. Replication bytes were not measured;
+  INFERRED to be the same plus framing, since the async standby receives
+  the same records.
+- **FINALIZING memory.** The chain's own structures (the request's
+  object list, `listed`, `gone`) were not measured separately; only the
+  process high-water (VmHWM) is. INFERRED from their sizes: tens of MB
+  at most for 100K objects, dominated by the request list, which the
+  one-task path holds too.
+- **Puts in off mode.** Off mode's final has fewer puts because its copy
+  ahead is shorter, so the writers change fewer accounts. Per put, the
+  two modes cost about the same shard time.
+- **Queue high-water.** The window high-water is the chain's backlog of
+  not-yet-durable records. The `listed` set is reserved once, off the
+  shard (`listed_entries` on the chain line).
+
+**Budget sweep** (shared email unless named; medians of 2):
+
+| Setting | Final stage | `E_MIGRATING` | Units | Longest unit | Foreground p50 / p99 / max | STATUS p50 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `T_unit` 0.25 ms | 7987 ms | 10.1 s | 9005 | 14.5 ms (6.0-23.0) | 3.5 / 8.5 / 28 ms | 4.4 ms |
+| **`T_unit` 1 ms (default)** | 4965 ms | 7.0 s | 2741 | 3.8 ms | 6.9 / 10.1 / 31.5 ms | 5.4 ms |
+| `T_unit` 4 ms | 4847 ms | 6.85 s | 834 | 7.2 ms | 19.9 / 27.5 / 46.5 ms | 11.7 ms |
+| Unique, unit bytes 64 KiB or 4 MiB | no material change from 1 MiB | | | | | |
+| Unique, window 64 KiB | 866 ms | | | | 76 waits | |
+
+The defaults (1 ms, 1 MiB, 8 MiB) were chosen for latency and progress,
+not peak throughput:
+
+- **1 ms** keeps foreground p99 near 10 ms, against 27.5 ms at 4 ms.
+  0.25 ms costs 60% more final-stage time for a 1.6 ms gain in p99.
+- **The byte budget is not binding:** about 13 KB per unit at 1 ms.
+- **The 8 MiB window is never reached:** the high-water is at most
+  290 KB in any run.
+
+These are prototype defaults, not contracts.
+
+### 18.5 What the evidence says
+
+1. **The multi-second monolithic shard task is gone** (the main
+   acceptance criterion):
+   - B's longest non-preemptible interval in the final stage falls from
+     2979 ms to 3.8 ms (shared) and from 312 ms to 3.4 ms (unique).
+   - No B shard iteration of 20 ms or more occurs in the final stage.
+   - STATUS and foreground maxima fall from seconds to tens of
+     milliseconds.
+2. **The shared-key index primitive does not violate the unit budget.**
+   It costs about 0.17-0.2 ms per put with a shared email key, against
+   about 0.02 ms unique, because erasing from a posting list is linear
+   in its length. That is per object, and a unit ends after the object
+   that crosses the budget. So it lengthens the chain (2741 units
+   against 339), not any unit. It is reported as a separate primitive
+   (the "index posting-list pathology" Codex kept separate) and not
+   optimized here.
+3. **Regressions** (whether they count as "modest" is the reviewers' call):
+   - **Final-stage duration** rises 1.6x (shared) and 1.7x (unique).
+     Shard time in the chain is only 1.04x and 1.2x off mode's. The rest
+     is wall time between units, while the shard serves other work and
+     the 4-vCPU host runs 8 server processes with spinning shard threads
+     (INFERRED from load ~5, and from an in-process `bench/stage_stall`
+     run during development where chain and shard time were within
+     about 6%; that output was not kept).
+   - **Client-visible `E_MIGRATING`** rises from 5.1 to 7.0 s (+37%,
+     shared) and from 2.47 to 2.71 s (+10%, unique). S1 does not shorten
+     the window; S2/S3 do (section 17).
+   - **Total move time** rises about 45% (25.4 to 36.8 s; 22.5 to
+     32.3 s). INFERRED cause: the copy ahead's non-final chains and
+     their chained reports, about 390 of them, each paying per-unit
+     scheduling on an oversubscribed host.
+4. **Outliers.** At `T_unit` 0.25 ms the longest unit was 14.5 ms (6-23
+   ms) and one 23 ms shard iteration occurred in the final; at 1 ms none
+   over 5.1 ms. Not attributed; INFERRED to be preemption of the shard
+   thread on the oversubscribed host (a unit's wall time includes it).
+5. **Not delivered, as planned (section 17):**
+   - B's longest iteration over the whole move is still about 94-102 ms.
+     That is HAVE, `INFO`, the seal and export at A, and activation:
+     O(map) tasks that S1 does not touch.
+   - There is still no memory bound on the copy ahead.
+
+### 18.6 Unchanged residuals
+
+S1 changes nothing in these, and they stay as LEGACY_ROLE.md section 6
+and EVIDENCE.md record them:
+
+- **Legacy adoption:**
+  - the swapped-labels case is not protected;
+  - adoption without a control plane is only an operator's assertion.
+
+  No WAL-position heuristic is added.
+- **D1 and D7** stay fail-closed (S1-17).
+- **R08 and R11** are untouched.
+- **Fencing reach.** A chain stops at its next unit only once its node
+  knows it is fenced (it learns at its replication sender, or from the
+  control plane). A cut-off old primary that never learns finishes its
+  chain into an inert STAGED, as before S1.
+- **An aborted move** can still leave an inert STAGED at B if the abort
+  lands mid-chain (pre-existing; the chain checks the local map, not the
+  control plane, between units).
+
 ## Appendix A. Adjacent defects (characterized, not fixed)
 
 ### A.1 D1: fail-open serving of a moved slot after a lossy promotion (INFERRED from code, high severity, conditional)

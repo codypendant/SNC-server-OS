@@ -2023,9 +2023,6 @@ namespace {
 // Application objects move with their slot; the runtime's own (sessions,
 // slot states) are per shard and stay.
 bool moves_with_slot(u32 type_id) { return type_id >= 256; }
-struct ObjectIdHash {
-  std::size_t operator()(const ObjectID& id) const { return snc_hash64(id); }
-};
 u32 image_crc(u32 type_id, u16 schema_ver, const u8* payload, u32 len) {
   u8 head[6];
   std::memcpy(head, &type_id, 4);
@@ -2245,6 +2242,8 @@ void Shard::activate_staged() {
   for (SlotStateV1 st : ready) {
     st.phase = static_cast<u8>(SlotPhase::ACTIVE);
     write_slot_state(st.slot, st);
+    SNC_TRACE("slot_active slot=%u move=%llx epoch=%llu", st.slot, (unsigned long long)st.move_id,
+              (unsigned long long)st.epoch);
     std::fprintf(stderr, "snc: shard %u: slot %u active here (move %llx, epoch %llu)\n", id_, st.slot,
                  (unsigned long long)st.move_id, (unsigned long long)st.epoch);
     resume_slot(st.slot);
@@ -2271,7 +2270,7 @@ void Shard::resume_slot(u16 slot) {
   queue_emits(wal_ ? wal_->next_lsn() - 1 : 0);
 }
 
-SlotReport Shard::slot_report(u16 slot) {
+SlotReport Shard::slot_report_head(u16 slot) {
   SlotReport r;
   r.slot = slot;
   SlotStateV1 st{};
@@ -2294,12 +2293,45 @@ SlotReport Shard::slot_report(u16 slot) {
     r.map_group = cluster_->group_of[slot];
     r.map_epoch = cluster_->epoch;
   }
+  return r;
+}
+
+SlotReport Shard::slot_report(u16 slot) {
+  SlotReport r = slot_report_head(slot);
   map_.for_each([&](const ObjectHeader* o) {
     if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
     ++r.live_count;
     r.live_digest += slot_object_digest(o->id, o->version, image_crc(*o));
   });
   return r;
+}
+
+bool Shard::slot_report_unit(ReportWalk& w, SlotReport& out, u64 unit_ns) {
+  const u64 deadline = trace::now_ns() + unit_ns;
+  // Restart if the table grew, staging changed the slot, or the slot
+  // turned served (activated: client ops may then change it too).
+  if (!w.started || map_.generation() != w.walk.gen || slot_mut_[w.slot] != w.mut ||
+      foreign_slot(w.slot) != w.foreign) {
+    if (w.started) ++w.restarts;
+    w.started = true;
+    map_.walk_begin(w.walk);
+    w.mut = slot_mut_[w.slot];
+    w.foreign = foreign_slot(w.slot);
+    w.n = w.d = 0;
+  }
+  const bool complete = map_.walk_step(
+      w.walk,
+      [&](const ObjectHeader* o) {
+        if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != w.slot) return;
+        ++w.n;
+        w.d += slot_object_digest(o->id, o->version, image_crc(*o));
+      },
+      [&] { return trace::now_ns() >= deadline; });
+  if (!complete) return false;
+  out = slot_report_head(w.slot);
+  out.live_count = w.n;
+  out.live_digest = w.d;
+  return true;
 }
 
 void Shard::slot_states(std::vector<SlotReport>& out) {
@@ -2506,6 +2538,7 @@ ObjectHeader* Shard::put_image(const SlotObject& so, u64& lsn) {
   const u64 t_log = trace::enabled() ? trace::now_ns() : 0;
   o->last_lsn = lsn = log(type, *o);
   if (trace::enabled()) trace_log_ns_ += trace::now_ns() - t_log;
+  ++slot_mut_[slot_of(o->id)];
   return o;
 }
 
@@ -2518,13 +2551,19 @@ void Shard::drop_object(ObjectHeader* o, u64& lsn) {
   }
   ++o->version;
   lsn = log(RecType::DELETE, *o);
+  ++slot_mut_[slot_of(o->id)];
   map_.erase(o->id);
   alloc_.free(o);
 }
 
-Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
-                         u64 count, u64 digest, u64& lsn) {
-  lsn = 0;
+const char* StageChain::phase_name(u8 p) {
+  static const char* const names[] = {"admit", "check", "put", "scan", "drop", "stage", "done"};
+  return p <= DONE ? names[p] : "?";
+}
+
+Status Shard::stage_admit(StageChain& c) {
+  c.lsn = 0;
+  const u16 slot = c.slot;
   if (cluster_ == nullptr || repl_cfg_.standby || withdrawn_) return Status::E_STANDBY;
   ObjectHeader* so = slot_state(slot);
   SlotStateV1 cur{};
@@ -2533,89 +2572,204 @@ Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, co
   // Move IDs grow with every move: a request for an older one is late (a
   // driver that stalled across an abort and a newer move), and must not
   // replace what a newer move staged here.
-  if (so && cur.move_id > move) return Status::E_MIGRATING;
-  if (ph == SlotPhase::STAGED && cur.move_id == move) {
+  if (so && cur.move_id > c.move) return Status::E_MIGRATING;
+  if (ph == SlotPhase::STAGED && cur.move_id == c.move) {
     // Final already: the staged copy is the sealed state and stays so. A
     // late copy from before the seal must not change it.
-    if (!final) return Status::E_MIGRATING;
-    if (cur.count != count || cur.digest != digest) return Status::E_VERSION_CONFLICT;
-    lsn = so->last_lsn;
+    if (!c.final) return Status::E_MIGRATING;
+    if (cur.count != c.count || cur.digest != c.digest) return Status::E_VERSION_CONFLICT;
+    c.lsn = so->last_lsn;
+    c.phase = StageChain::DONE;
     return Status::OK;
   }
   // A slot this node's map gives this group is never staged over: here it
   // is the source (serving or sealed), never the destination. A
   // destination's map names the source until the move commits.
   if (!foreign_slot(slot)) return Status::E_MOVED;
-  const u64 t_begin = trace::enabled() ? trace::now_ns() : 0;
-  trace_index_ns_ = trace_log_ns_ = 0;
-  std::unordered_map<ObjectID, const SlotObject*, ObjectIdHash> listed;
-  for (const SlotObject& x : objs) {
-    if (slot_of(x.id) != slot || !moves_with_slot(x.type_id)) return Status::E_BAD_ARGS;
-    ObjectHeader* o = map_.find(x.id);
-    if (!x.has_payload) {
-      // Already here at this state (the destination said so).
-      if (o == nullptr || o->deleted() || o->version != x.version || image_crc(*o) != x.crc) {
-        return Status::E_VERSION_CONFLICT;
-      }
-    } else {
-      const TypeDescriptor* t = registry().type(x.type_id);
-      if (t == nullptr || t->schema_ver != x.schema_ver || x.payload.size() > t->max_size ||
-          image_crc(x.type_id, x.schema_ver, x.payload.data(), static_cast<u32>(x.payload.size())) != x.crc ||
-          (t->check && !t->check(x.payload.data(), static_cast<u32>(x.payload.size())))) {
-        return Status::E_BAD_ARGS;
-      }
-      // A source's state only moves forward (staged copies are durable states of it).
-      if (o != nullptr && !o->deleted() && o->version > x.version) return Status::E_VERSION_CONFLICT;
-    }
-    listed[x.id] = &x;
-  }
-  const u64 t_checked = trace::enabled() ? trace::now_ns() : 0;
-  u64 at = 0, put = 0;
-  for (const SlotObject& x : objs) {
-    if (!x.has_payload) continue;
-    ObjectHeader* o = map_.find(x.id);
-    if (o && !o->deleted() && o->version == x.version && image_crc(*o) == x.crc) continue;
-    if (put_image(x, at) == nullptr) return Status::E_NO_MEMORY;
-    lsn = std::max(lsn, at);
-    ++put;
-  }
-  const u64 t_put = trace::enabled() ? trace::now_ns() : 0;
-  if (!final) return Status::OK;
-  // Final: exactly the source's objects. Anything else staged here for
-  // the slot is gone at the source (IDs are never reused).
-  std::vector<ObjectHeader*> gone;
-  u64 n = 0, d = 0;
-  map_.for_each([&](const ObjectHeader* o) {
-    if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
-    if (!listed.count(o->id)) {
-      gone.push_back(const_cast<ObjectHeader*>(o));
-      return;
-    }
-    ++n;
-    d += slot_object_digest(o->id, o->version, image_crc(*o));
-  });
-  const u64 t_scanned = trace::enabled() ? trace::now_ns() : 0;
-  SNC_TRACE("stage_slot_phases shard=%u slot=%u objs=%zu check_ms=%.1f put=%llu put_ms=%.1f (index_ms=%.1f wal_ms=%.1f) "
-            "scan_ms=%.1f map_size=%llu",
-            id_, slot, objs.size(), (t_checked - t_begin) / 1e6, (unsigned long long)put, (t_put - t_checked) / 1e6,
-            trace_index_ns_ / 1e6, trace_log_ns_ / 1e6, (t_scanned - t_put) / 1e6, (unsigned long long)map_.size());
-  if (n != count || d != digest) return Status::E_VERSION_CONFLICT;  // nothing recorded as staged
-  for (ObjectHeader* o : gone) {
-    drop_object(o, at);
-    lsn = std::max(lsn, at);
-  }
-  SlotStateV1 st{};
-  st.slot = slot;
-  st.phase = static_cast<u8>(SlotPhase::STAGED);
-  st.group = from;
-  st.move_id = move;
-  st.epoch = epoch;
-  st.count = count;
-  st.digest = digest;
-  lsn = write_slot_state(slot, st);  // after every staged record in this stream
-  std::fprintf(stderr, "snc: shard %u: slot %u staged for move %llx (%llu objects)\n", id_, slot,
-               (unsigned long long)move, (unsigned long long)count);
+  // One chain per slot: a second request for the same or an older move
+  // waits for this one (the driver resends it later, and is then answered
+  // from what this one did); a newer move's supersedes it (it stops at its
+  // next unit).
+  auto it = stage_chain_.find(slot);
+  if (it != stage_chain_.end() && it->second.second >= c.move) return Status::E_OVERLOADED;
+  c.token = ++stage_token_;
+  stage_chain_[slot] = {c.token, c.move};
+  c.mut = slot_mut_[slot];
+  c.phase = StageChain::CHECK;
+  c.i = 0;
   return Status::OK;
+}
+
+void Shard::stage_release(StageChain& c) {
+  auto it = stage_chain_.find(c.slot);
+  if (c.token != 0 && it != stage_chain_.end() && it->second.first == c.token) stage_chain_.erase(it);
+  c.token = 0;
+}
+
+Status Shard::stage_unit(StageChain& c) {
+  const u64 t0 = trace::now_ns();
+  const u16 slot = c.slot;
+  // Guards: local state only, no round trip (docs/MIGRATION_STAGING.md 3.2).
+  if (cluster_ == nullptr || repl_cfg_.standby) return Status::E_STANDBY;
+  // A fence is seen here before poll() applies it.
+  if (withdrawn_ || (sender_ && sender_->fenced()) ||
+      (withdraw_flag_ && withdraw_flag_->load(std::memory_order_relaxed))) {
+    return Status::E_FENCED;
+  }
+  auto it = stage_chain_.find(slot);
+  if (it == stage_chain_.end() || it->second.first != c.token) return Status::E_MIGRATING;  // superseded
+  if (!foreign_slot(slot)) return Status::E_MOVED;
+  // Only this chain writes the slot's objects while it runs: another write
+  // voids what it checked or counted.
+  if (slot_mut_[slot] != c.mut) return Status::E_VERSION_CONFLICT;
+  // What became durable since the last unit no longer counts against the window.
+  while (!c.pending.empty() && durable(c.pending.front().first)) {
+    c.pending_bytes -= c.pending.front().second;
+    c.pending.pop_front();
+  }
+  const std::vector<SlotObject>& objs = *c.objs;
+  const u64 deadline = c.unit_ns == ~u64{0} ? ~u64{0} : t0 + c.unit_ns;
+  u64 unit_bytes = 0;
+  bool did = false;  // at least one object (bucket) per unit
+  auto over = [&] { return did && (trace::now_ns() >= deadline || unit_bytes >= c.unit_bytes); };
+  auto over_window = [&] { return did && c.pending_bytes > c.window_bytes; };
+  auto appended = [&](u64 lsn, u64 bytes) {
+    c.lsn = std::max(c.lsn, lsn);
+    if (c.window_bytes != ~u64{0}) {  // unbounded (one task): no bookkeeping, nothing to wait for
+      c.pending.emplace_back(lsn, bytes);
+      c.pending_bytes += bytes;
+      c.pending_hw = std::max(c.pending_hw, c.pending_bytes);
+    }
+    unit_bytes += bytes;
+    c.bytes += bytes;
+  };
+  trace_index_ns_ = trace_log_ns_ = 0;
+  const u8 phase_at_start = c.phase;
+  Status st = Status::OK;
+  while (st == Status::OK && c.phase != StageChain::DONE) {
+    if (c.phase == StageChain::CHECK) {
+      // Every entry checked before anything is written (a bad entry
+      // anywhere refuses the request with nothing put).
+      for (; c.i < objs.size(); ++c.i) {
+        if (over()) break;
+        const SlotObject& x = objs[c.i];
+        did = true;
+        if (slot_of(x.id) != slot || !moves_with_slot(x.type_id)) return Status::E_BAD_ARGS;
+        ObjectHeader* o = map_.find(x.id);
+        if (!x.has_payload) {
+          // Already here at this state (the destination said so).
+          if (o == nullptr || o->deleted() || o->version != x.version || image_crc(*o) != x.crc) {
+            return Status::E_VERSION_CONFLICT;
+          }
+        } else {
+          const TypeDescriptor* t = registry().type(x.type_id);
+          if (t == nullptr || t->schema_ver != x.schema_ver || x.payload.size() > t->max_size ||
+              image_crc(x.type_id, x.schema_ver, x.payload.data(), static_cast<u32>(x.payload.size())) != x.crc ||
+              (t->check && !t->check(x.payload.data(), static_cast<u32>(x.payload.size())))) {
+            return Status::E_BAD_ARGS;
+          }
+          // A source's state only moves forward (staged copies are durable states of it).
+          if (o != nullptr && !o->deleted() && o->version > x.version) return Status::E_VERSION_CONFLICT;
+        }
+        if (c.final) c.listed[x.id] = &x;
+      }
+      if (c.i < objs.size()) break;
+      c.phase = StageChain::PUT;
+      c.i = 0;
+    } else if (c.phase == StageChain::PUT) {
+      for (; c.i < objs.size(); ++c.i) {
+        if (over() || over_window()) break;
+        const SlotObject& x = objs[c.i];
+        did = true;  // a skipped entry costs a lookup and a crc: it counts
+        if (!x.has_payload) continue;
+        ObjectHeader* o = map_.find(x.id);
+        if (o && !o->deleted() && o->version == x.version && image_crc(*o) == x.crc) continue;
+        u64 at = 0;
+        if (put_image(x, at) == nullptr) return Status::E_NO_MEMORY;
+        c.mut = slot_mut_[slot];
+        ++c.put;
+        appended(at, sizeof(ObjectHeader) + x.payload.size());
+      }
+      if (c.i < objs.size()) break;
+      if (!c.final) {
+        c.phase = StageChain::DONE;
+        break;
+      }
+      // Final: exactly the source's objects. Anything else staged here for
+      // the slot is gone at the source (IDs are never reused).
+      c.phase = StageChain::SCAN;
+      map_.walk_begin(c.walk);
+      c.n = c.d = 0;
+      c.gone.clear();
+    } else if (c.phase == StageChain::SCAN) {
+      if (map_.generation() != c.walk.gen) {  // the table grew: start again
+        map_.walk_begin(c.walk);
+        c.n = c.d = 0;
+        c.gone.clear();
+        ++c.scan_restarts;
+      }
+      const bool complete = map_.walk_step(
+          c.walk,
+          [&](const ObjectHeader* o) {
+            did = true;
+            if (o->deleted() || !moves_with_slot(o->type_id) || slot_of(o->id) != slot) return;
+            if (!c.listed.count(o->id)) {
+              c.gone.push_back(o->id);
+              return;
+            }
+            ++c.n;
+            c.d += slot_object_digest(o->id, o->version, image_crc(*o));
+          },
+          [&] { return trace::now_ns() >= deadline; });
+      if (!complete) break;
+      if (c.n != c.count || c.d != c.digest) return Status::E_VERSION_CONFLICT;  // nothing recorded as staged
+      c.phase = StageChain::DROP;
+      c.i = 0;
+    } else if (c.phase == StageChain::DROP) {
+      for (; c.i < c.gone.size(); ++c.i) {
+        if (over() || over_window()) break;
+        ObjectHeader* o = map_.find(c.gone[c.i]);
+        did = true;
+        if (o == nullptr || o->deleted()) continue;
+        const u64 bytes = sizeof(ObjectHeader) + o->length;
+        u64 at = 0;
+        drop_object(o, at);
+        c.mut = slot_mut_[slot];
+        ++c.dropped;
+        appended(at, bytes);
+      }
+      if (c.i < c.gone.size()) break;
+      c.phase = StageChain::STAGE;
+      // STAGED is written in a unit of its own, after every unit that wrote
+      // objects (a stop or crash point between them; one task when unbounded).
+      if (c.unit_ns != ~u64{0}) break;
+    } else if (c.phase == StageChain::STAGE) {
+      SlotStateV1 st_rec{};
+      st_rec.slot = slot;
+      st_rec.phase = static_cast<u8>(SlotPhase::STAGED);
+      st_rec.group = c.from;
+      st_rec.move_id = c.move;
+      st_rec.epoch = c.epoch;
+      st_rec.count = c.count;
+      st_rec.digest = c.digest;
+      c.lsn = write_slot_state(slot, st_rec);  // after every staged record in this stream
+      c.phase = StageChain::DONE;
+      std::fprintf(stderr, "snc: shard %u: slot %u staged for move %llx (%llu objects)\n", id_, slot,
+                   (unsigned long long)c.move, (unsigned long long)c.count);
+    }
+  }
+  const u64 took = trace::now_ns() - t0;
+  ++c.units;
+  ++c.phase_units[phase_at_start < StageChain::DONE ? phase_at_start : 0];
+  if (took > c.max_unit_ns) {
+    c.max_unit_ns = took;
+    c.max_unit_phase = phase_at_start;
+  }
+  c.shard_ns += took;
+  c.unit_us.push_back(static_cast<u32>(std::min<u64>(took / 1000, 0xffffffffu)));
+  c.index_ns += trace_index_ns_;
+  c.log_ns += trace_log_ns_;
+  return st;
 }
 
 // ---- Public API -------------------------------------------------------------------------

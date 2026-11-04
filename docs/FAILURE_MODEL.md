@@ -106,7 +106,7 @@ per fault, how far the code delivers them today.
 
 | Class | Fault | Status |
 | --- | --- | --- |
-| W1 | One unit of work monopolizes a shard thread (final stage, export, slot_report, checkpoint, rebuild_index) | The false failover it caused is gone with `HEALTH` (P2). Still a **KNOWN ISSUE** for the availability of the stalled shard: its clients wait for the whole task (final stage measured 4.8 s, T12); others **UNPROVEN** (EL0). CORE_CONTRACTS section 11, B-1 is the bounded-work rule (next slice) |
+| W1 | One unit of work monopolizes a shard thread (final stage, export, slot_report, checkpoint, rebuild_index) | The false failover it caused is gone with `HEALTH` (P2). Final stage and its reply report: **FIXED by S1** (longest unit 3.8 ms against 2979 ms one-task at 100K, no shard iteration of 20 ms or more in the final; EL2 loopback, MIGRATION_STAGING.md 18). Still a **KNOWN ISSUE** for the other O(map) tasks: HAVE, `INFO`, seal, export, activation, checkpoint, `rebuild_index` (about 100 ms each at this map); others **UNPROVEN** (EL0). CORE_CONTRACTS section 11, B-1 |
 | W2 | Session expiry before a resend (retry horizon) | **KNOWN ISSUE** (R11: `test_session_ttl` resends an answered request after expiry and it applies again; a lost answer takes the same path, INFERRED); contract in CORE_CONTRACTS section 10 |
 | W3 | Resource exhaustion: allocation failure in the session path aborts the process; the backlog refuses new work; growth is unbounded while durability stalls | **UNPROVEN** (EL0); inventory in STABILIZATION_REPORT J |
 

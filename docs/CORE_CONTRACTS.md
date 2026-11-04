@@ -365,7 +365,7 @@ Admin `PROMOTE` has no term guard.
 | E6 | The candidate has finished catch-up (it was in sync, not seeding or catching up from disk) | INFERRED (EL0) yes. Initial seed: the seed fetch runs inside `Engine::recover` (`engine.cpp:327-337`) and the admin thread that answers `STATUS` starts only after `start` returns (`snc_server.cpp:355, 455`), so a seeding node never answers role=s and cannot be promoted. Catch-up of a connected standby: the primary is not in sync, so it degraded or blocked. Not tested |
 | E7 | The candidate is not diverged (no records from a term it did not follow) | yes: the term handshake refuses an older term's stream |
 | E8 | The candidate passed its own recovery barrier (section 12) | INFERRED (EL0) yes, implicitly: the admin port (`HEALTH`, `STATUS`) opens only after `Engine::start` returns (`snc_server.cpp`, kept by the admin loop) |
-| E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **COVERED for migration state** (MS-3): promotion reads the placement linearizably, adopts it and re-seals (`test_fail_closed` F6, F7, F13, F17; EL2). Who may be promoted is still R08 |
+| E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **COVERED for migration state** (MS-3): promotion reads the placement linearizably, adopts it and re-seals (`test_fail_closed` F6, F7, F13, F17; EL2). A final stage in flight at the old primary is volatile and stops at its next unit once that node knows it is fenced; the new primary's resend starts a new chain (S1: `test_s1` dst_promote, fence; EL2, MIGRATION_STAGING.md 18). Who may be promoted is still R08 |
 | E10 | The decision has a witness quorum | yes (Paxos; EL2 `test_witness.py` with one witness down) |
 | E11 | The candidate obtained a fresh mint lease block (with the control plane) before serving | with `--control` (`lease_blocks` set): yes (EL0 `Engine::promote` step 0; EL2 `test_control.py`). Without it: leases above `max(next_lease, max_seen + 1)` (`engine.cpp:589`) |
 
@@ -541,6 +541,11 @@ posting list.
   staged object records of a final stage) rather than a separate manifest;
   a second durable progress state machine needs evidence that it is
   required (MIGRATION_STAGING.md section 4).
+  IMPLEMENTED for migration staging (S1, MIGRATION_STAGING.md 18): every
+  STAGE and its reply report run as units of `--move-unit-us` (default
+  1 ms) plus one object; longest measured 3.8 ms at 100K (EL2, loopback).
+  Still unbounded: HAVE, `INFO`, seal, export, activation, checkpoint
+  snapshot, `rebuild_index` (about 100 ms each at this map).
 - B-2 [ACCEPTED, IMPLEMENTED: HEALTH_DECOUPLING.md section 10].
   Liveness health (what a witness polls) MUST NOT wait on shard threads
   finishing work. It reads a per-shard progress counter (each loop

@@ -387,6 +387,8 @@ class Driver {
   int gate_serving_limit = 3;
   // Final stages refused E_VERSION_CONFLICT before the move is aborted.
   int version_conflict_limit = 3;
+  // Stage resends on no answer or E_OVERLOADED (1, 2, 4, 8, 8... s apart).
+  int stage_resends = 6;
   std::string log;
 
   // Moves `slot` to group `to`, or carries on the move of it in progress.
@@ -740,6 +742,31 @@ class Driver {
                              " " + std::to_string(digest) + " " + encode_list(objs));
   }
 
+  // One logical stage request (S1, docs/MIGRATION_STAGING.md 18): the
+  // destination runs it as a chain that can outlast the 15 s answer
+  // deadline. On no answer, or E_OVERLOADED (a chain for this slot is
+  // already running there, or the chain's durability wait timed out), wait and send the same request again rather
+  // than a fresh HAVE/EXPORT, which would only queue behind it: once the
+  // running chain is done, the resend is answered at once (a final from
+  // STAGED; a non-final by puts of what is already there). Between
+  // resends only MOVE ROLE is asked (no shard work); once the node does
+  // not answer as a primary (it died, or its standby took over), the
+  // ordinary retry takes over (fresh primaries, HAVE, EXPORT).
+  std::string stage_resend(const Node& dst, const PlacementMove& m, bool final, u64 count, u64 digest,
+                           const std::vector<SlotObject>& objs, const char* what) {
+    std::string r;
+    for (int attempt = 0, wait_s = 1;; ++attempt, wait_s = std::min(wait_s * 2, 8)) {
+      r = stage_at(dst, m.slot, m, final, count, digest, objs);
+      const bool busy = r.empty() || r.rfind("NO E_OVERLOADED", 0) == 0;
+      if (!busy || attempt >= stage_resends) break;
+      note(std::string(what) + ": " + (r.empty() ? "no answer" : "E_OVERLOADED") + ", again in " +
+           std::to_string(wait_s) + " s");
+      std::this_thread::sleep_for(std::chrono::seconds(wait_s));
+      if (ask_node(dst, "MOVE ROLE").rfind("ROLE p", 0) != 0) break;
+    }
+    return r;
+  }
+
   std::string advance(const Snapshot& sn, PlacementMove::State to) {
     Placement N = sn.p;
     N.move.state = to;
@@ -766,7 +793,7 @@ class Driver {
     for (std::size_t at = 0; at < send.size(); at += step) {
       std::vector<SlotObject> part(send.begin() + static_cast<std::ptrdiff_t>(at),
                                    send.begin() + static_cast<std::ptrdiff_t>(std::min(send.size(), at + step)));
-      const std::string r = stage_at(dst, m.slot, m, false, 0, 0, part);
+      const std::string r = stage_resend(dst, m, false, 0, 0, part, "copy ahead");
       if (r.rfind("OK", 0) != 0) {
         why = "destination STAGE: " + (r.empty() ? std::string("no answer") : r);
         return "retry";
@@ -814,7 +841,7 @@ class Driver {
     if (!have(dst, m.slot, h, why) || !export_from(src, m.slot, m.id, true, h, objs, count, digest, why)) {
       return "retry";
     }
-    const std::string r = stage_at(dst, m.slot, m, true, count, digest, objs);
+    const std::string r = stage_resend(dst, m, true, count, digest, objs, "final copy");
     note("final copy (" + std::to_string(count) + " objects): " + r.substr(0, r.find(' ', 3)));
     if (r.rfind("NO E_VERSION_CONFLICT", 0) == 0) {
       // Either a race (another driver's copy, a retried request: a fresh
