@@ -554,7 +554,14 @@ after):
 | | sealed | move | move back | `E_MIGRATING` window | check |
 | --- | --- | --- | --- | --- | --- |
 | before the fix | 31,307 | 9.4 s | 4.2 s | | OK |
-| after the fix | 100,050 | 57.0 s | 11.9 s | 0.24 s | OK (200,000 accounts each served once) |
+| after the fix | 100,050 | 57.0 s | 11.9 s | ~~0.24 s~~ invalid (see note) | OK (200,000 accounts each served once) |
+
+**Correction (2026-11-04, PR #38).** The `E_MIGRATING` window column is
+the lab probe's `migrating_window_s`, which undercounts by about 40x (its
+rounds took ~0.5 s, each counted as 20 ms; MIGRATION_STAGING.md A.2).
+Measured from node traces, a 100K move's window is about 6.75 s
+(MIGRATION_STAGING.md section 14.1). Do not cite 0.24 s; it is kept only
+as a record of the measurement defect.
 
 **New observation, not explained yet.** In the fixed run, with no fault
 injected, the destination group's primary was replaced during the final

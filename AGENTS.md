@@ -796,3 +796,31 @@ or source comments.
     the migration stall itself, which is **not fixed**; index, R08, R11.
 -   **Next action:** review of MIGRATION_STAGING.md (decisions 1-5 in its
     section 0). No implementation before that.
+
+### 2026-11-04 UTC --- Claude (Claude Code): fail-closed migration serving, D1/D7 (design only)
+
+-   **Classification:** design for review; no code changed. **REFINE** of
+    MIGRATION.md's activation rule and safety proof (its HA-durability
+    assumption made explicit) and of the promotion path (it reads placement).
+-   **What:** `docs/MIGRATION_FAIL_CLOSED.md`, the 19 sections of the PR #38
+    review. Serving becomes a positive proof: the placement records, per
+    slot, the move that last gave it to its group (`arrived`, placement v2);
+    a node serves only with local evidence of exactly that move. Plus a
+    start barrier for any start that may hold a replica prefix (linearizable
+    placement read, re-seal, `ROLE m`), and a commit gate in the driver.
+-   **Found:** D1b (stale STAGED of an aborted move activated: activation
+    ignores move IDs), D1c (earlier-era ACTIVE served), D1d (earlier-era
+    SEALED reopened by UNSEAL), and the offline promotion path (a standby's
+    directory restarted without `--standby`) that bypasses `Engine::promote`.
+    All INFERRED from code; F1/F2 reproduce them first in the implementation
+    slice.
+-   **Also, per the PR #38 review:** MIGRATION_STAGING.md marked accepted
+    with modifications (budgets are sweep points, `W_window` UNDECIDED);
+    MIGRATION.md's scratch-area stream marked SUPERSEDED (kept); the
+    0.24 s / 0.18 s probe window figures marked invalid in EVIDENCE and
+    REAL_MACHINES; CORE_CONTRACTS B-1 refined (output as progress).
+-   **Evidence:** independent review against the code (17 findings: 4
+    blocking, all applied).
+-   **Not changed:** R08, R11, S1, any code.
+-   **Next action:** review of MIGRATION_FAIL_CLOSED.md (decisions 1-5 in
+    its section 0). Then implementation only if approved.

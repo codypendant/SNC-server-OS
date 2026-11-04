@@ -1,8 +1,30 @@
-# Bounded and resumable migration staging (design for review)
+# Bounded and resumable migration staging (design)
 
-**Status: PROPOSED. Design only; nothing in this document is implemented.**
-Work order of 2026-11-04 15:57 UTC (review of PR #37): produce this
-design for review before any migration chunking is built.
+**Status: ACCEPTED WITH MODIFICATIONS (review of PR #38, 2026-11-04 17:22
+UTC). Nothing in this document is implemented.**
+
+The review's decisions, which override the text below where they differ:
+
+- **Accepted:** the S1 architecture; no separate durable manifest (durable
+  staged records are the progress); a volatile FINALIZING chain; fencing
+  checks between bounded units; S1, S2 and S3 as separate slices; unit
+  sizing driven by latency and control progress; S3 as the direction that
+  supersedes the older scratch-area stream (kept in MIGRATION.md as
+  history).
+- **Unit budgets:** `T_unit` 1 ms, `B_unit` 1 MiB and `W_stage` 8 MiB are
+  **initial sweep points, not architecture constants**. Final values come
+  from measured shard monopolization, foreground latency, HEALTH
+  responsiveness, replication progress, WAL behavior, memory pressure and
+  staging throughput. The goal is bounded execution, not migration
+  throughput.
+- **`W_window` is UNDECIDED** (decision 4 below is not accepted). The 100K
+  move has a ~2.2 s O(slot) floor with an empty delta, so no 1 s target can
+  be met before S1 is measured and S3 bounds the remaining work.
+- **Order of work changed:** the D1/D7 fail-closed migration safety
+  ([MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md)) comes before S1.
+  Each step needs review before the next.
+
+Original work order: 2026-11-04 15:57 UTC (review of PR #37).
 
 What this document keeps unchanged:
 
@@ -1046,6 +1068,11 @@ review first.
 ## Appendix A. Adjacent defects (characterized, not fixed)
 
 ### A.1 D1: fail-open serving of a moved slot after a lossy promotion (INFERRED from code, high severity, conditional)
+
+> Superseded by [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md), which
+> found variants D1b-D1d, replaces the `moved` epoch below with
+> `arrived = (move_id, epoch)`, and adds a start barrier and a commit gate
+> for D7.
 
 **The serving rule.** `serving(S)` is "the map gives S to this group and
 the phase ≤ 1" (`shard.h:47`). A group that has never held slot S has no
