@@ -142,7 +142,13 @@ int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 s
     if (!ctx.error.empty()) die(ctx.error);
   };
   run(n, ObjectID{});
-  if (in_slot > 0) run(in_slot, ctx.got[0]);
+  // By value: run() appends to ctx.got, which may reallocate. (A reference
+  // to ctx.got[0] dangled after the first reallocation, and the "100K"
+  // slots of docs/REAL_MACHINES.md P5 got about 31K: docs/EVIDENCE.md.)
+  const ObjectID first = ctx.got.empty() ? ObjectID{} : ctx.got[0];
+  if (in_slot > 0) run(in_slot, first);
+  u64 in_first_slot = 0;
+  for (const ObjectID& id : ctx.got) in_first_slot += slot_of(id) == slot_of(first);
   std::string all, hot;
   for (size_t i = 0; i < ctx.got.size(); ++i) {
     all += ctx.got[i].to_string() + "\n";
@@ -151,7 +157,7 @@ int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 s
   std::ofstream(ids_path) << all;
   std::ofstream(ids_path + ".hot") << hot;
   std::printf("created %zu accounts over %u groups%s\n", ctx.got.size(), cc.group_count(),
-              in_slot ? (", " + std::to_string(in_slot + 1) + " in slot " + std::to_string(slot_of(ctx.got[0]))).c_str()
+              in_slot ? (", " + std::to_string(in_first_slot) + " in slot " + std::to_string(slot_of(first))).c_str()
                       : "");
   return 0;
 }

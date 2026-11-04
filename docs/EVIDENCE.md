@@ -3,7 +3,7 @@
 A consolidation pass over `main` at `7de9e98` (through PR #32), asked for
 by Codex's review of the first real-machine runs. It maps what the code,
 the tests and the real-machine results establish today. **It changes no
-engine behavior.** The one code change is in a test (section 9, item 10). Where a claim is inferred from reading code rather than from a
+engine behavior.** The one code change is in a test (section 9, item 10). Section 12, added after Codex's review, adds characterization tests and fixes a bug in the `snc_load` benchmark client; it still changes no engine behavior. Where a claim is inferred from reading code rather than from a
 test or a run, it says so.
 
 Sources: `src/`, `tools/`, `tests/`, `bench/lab/`,
@@ -31,10 +31,10 @@ test behind it.
 | R05 Identity and authorization | MISSING | No principal, tenant or capability anywhere in core, wire or control plane. `client_id` is a dedupe key, not an identity | none | Everything. Admin ports (STATUS, PROMOTE, AUDIT) and the witness protocol are unauthenticated plaintext |
 | R06 Disaster recovery | PARTIAL (machine failures only) | Crash recovery from checkpoint plus WAL. Divergence detection and reseed. Fencing by term. IDs are not reused after a restart: the superblock's `next_lease` is advanced and written on every start (C12, `engine.cpp:359-370`), and clustered nodes take lease blocks from the control plane (`lease_lo`/`lease_hi`) | `test_crash`, `test_persistence`, `test_cluster`, `test_migrate`; Vultr P3/P5/P6 | No backup, restore manifest, restore-in-isolation, or point-in-time recovery. Nothing stops a restored old copy from competing for authority beyond term fencing. RPO and RTO are undefined |
 | R07 Reproducible verification | PARTIAL | Crash injection at defined steps (67 migration scenarios). Lab harness with process and network faults on real hosts. Each run is checked against a conservation invariant (`snc_load check`, AUDIT) | `test_migrate`, `test_crash`, `bench/lab/`, `bench/results/lab-20261104/` | No controlled time, network delivery or storage completion; no deterministic simulation. `--seed` affects only `soak` (PR #31). No history checker beyond money conservation and single ownership. The lab fetches every node and witness log into the run directory (`lab.py` `down`), but `.gitignore` excludes them, so the Vultr logs were lost with host c (section 5) |
-| R08 Acknowledgement boundary | INSUFFICIENT | Fully specified in section 2: accept, local commit (atomic WAL group), durable (WAL group commit as an io_uring `RWF_DSYNC` write, `storage.cpp:653`, `sri.h:62-64`; `O_DIRECT` where the filesystem allows it), replicated (standby acks after its fsync), and the client ack per mode | Section 2's tests and runs | Power loss and device write caches (assumes `RWF_DSYNC` reaches media; untested, L7). Async plus witness promotion can lose acked writes (inferred). The result payload is not in the dedupe record |
+| R08 Acknowledgement boundary | INSUFFICIENT | Fully specified in section 2: accept, local commit (atomic WAL group), durable (WAL group commit as an io_uring `RWF_DSYNC` write, `storage.cpp:653`, `sri.h:62-64`; `O_DIRECT` where the filesystem allows it), replicated (standby acks after its fsync), and the client ack per mode | Section 2's tests and runs | Power loss and device write caches (assumes `RWF_DSYNC` reaches media; untested, L7). Async plus witness promotion loses acked writes (**confirmed**, section 12). The result payload is not in the dedupe record |
 | R09 Cancellation and time | MISSING | No cancellation and no timers. Time appears as client request timeouts (monotonic), witness `failover_ms` (monotonic), session TTL (**wall clock**, `time(nullptr)`, `shard.cpp:686`, `engine.cpp:629`), and Paxos ballots (wall clock, `paxos.h:396-400`) | `test_replication` `test_session_ttl` | Everything in R09. A wall-clock jump can expire sessions early (inferred), which ties into R11 |
 | R10 Bounded work | PARTIAL | Client `EXEC`s refused `E_OVERLOADED` above `kEmitBacklog` follow-ups per shard (creates are never refused for backlog). Bounded rings (`E_OVERLOADED` on the remote path). Outbox bounded (`kAppBusy`), inbox bounded by senders' outboxes. Replication retention budget and a catch-up rate limit. Bounded alloc failure gives `E_NO_MEMORY` for objects | `test_transfer` (`test_resend_overloaded`); P4 backlog | No per-tenant or per-entity fairness. No memory admission: a session allocation that fails **aborts** the process (`record_session`, `shard.cpp:670`). No queue-age metric. Admission metrics are not exported (section 6). No PSI. Hot-entity limits are unmeasured |
-| R11 Retention and deletion | PARTIAL, **with a correctness gap** | IDs are never reused (C12). Deleted objects leave tombstones until checkpoint. WAL is kept for an unacked standby (retention budget, then reseed). Sessions (dedupe evidence) are deleted after `session_ttl_s` idle (default 1 h) | `test_session_ttl` | The retry horizon is the TTL, but it is not enforced. A client that resends with its old `client_id` after expiry has the request **run again**. RETRIES says it "must start a new client_id"; nothing checks that (inferred, untested). There is no other GC or retention policy |
+| R11 Retention and deletion | PARTIAL, **with a correctness gap** | IDs are never reused (C12). Deleted objects leave tombstones until checkpoint. WAL is kept for an unacked standby (retention budget, then reseed). Sessions (dedupe evidence) are deleted after `session_ttl_s` idle (default 1 h) | `test_session_ttl` | The retry horizon is the TTL, but it is not enforced. A client that resends with its old `client_id` after expiry has the request **run again** (**confirmed**: `test_session_ttl` now asserts the double apply; section 12). RETRIES says it "must start a new client_id"; nothing checks that. There is no other GC or retention policy |
 | R12 Durable formats vs runtime layouts | PARTIAL | WAL, checkpoint and superblock have magic, `format` = 1, CRC32C, explicit offsets, little-endian only (`static_assert`, `types.h:17`). Replication, node-link and seed streams have magics (`SNCREPL1`, `SNCL`, `SNCSEED1`). Manifest type catalog | `test_persistence` (torn tail, CRC) | Formats are C++ structs written as bytes (`static_assert` sizes, no spec document). Wire protocol v0 has **no version field**. No compatibility matrix and no feature gates. A magic identifies a stream but carries no negotiated version |
 | R13 Module containment | MISSING (no extensions yet) | Types and ops are compiled into the binary and registered in process. Debug builds check handler contracts (`validate` must not modify, no `emit` outside `apply`): cooperative, not isolation | `contract_violation` in `shard.cpp` | Classifying existing modules is trivial today: all are trusted core. The boundary is undefined for any future plugin |
 | R14 State plus activation obligation | PARTIAL | The obligation is in the same commit domain as the transition (outbox in the object's payload, one WAL record), and is re-derived by `resume` (section 3). Indexes are authoritative synchronous structures, rebuilt at recovery | `test_transfer`, `test_migrate`, `test_cluster` | Per-type, not a facility. No timers or conditional waits, so no registration/recheck protocol. Resume is a full scan (cost at 1M unmeasured, L2) |
@@ -101,7 +101,7 @@ Read in `src/core/shard.cpp`; numbers are its line numbers at `7de9e98`.
 | `execute` 109-128 | `E_OVERLOADED` | **yes** (the PR #28 fix) | holds. Covered by `test_transfer` `test_resend_overloaded`, which fails without the fix |
 | `execute` 130-137 | `E_NOT_OWNER` | no | **holds today, with a gap**; see "Sessions across a shard-count change" below |
 | `run_exec` 295-312 | `E_STANDBY` (withdrawn, or standby), `E_STALE` (reads only) | no | **safe**, as for `execute` 96 |
-| `run_exec` 314-325 | `E_MOVED` / `E_MIGRATING` for a slot this shard owns but does not serve | **yes** (`replay_if_seen` at 317, then `refuse_unserved` at 322) | holds. Exercised by `test_migrate`'s crash matrix ("found by the crash tests", docs/MIGRATION.md); **no deterministic unit test** like `test_resend_overloaded` |
+| `run_exec` 314-325 | `E_MOVED` / `E_MIGRATING` for a slot this shard owns but does not serve | **yes** (`replay_if_seen` at 317, then `refuse_unserved` at 322) | holds. Exercised by `test_migrate`'s crash matrix ("found by the crash tests", docs/MIGRATION.md), and deterministically by `test_resend_refusals` (sealed, moved, and both after a restart; section 12) |
 | `run_exec` 326-357 | `E_NOT_FOUND`, `E_UNKNOWN_OP`, `E_TYPE_MISMATCH`, `E_BAD_ARGS`, `E_VERSION_CONFLICT`, `E_APP` | after the session (317) | holds: a duplicate never reaches them; a new request that fails changes nothing and is not logged |
 | `create` 151-189 | `E_STANDBY`, `E_MOVED` (with `near`), `E_NOT_OWNER` | yes with `near` (161-165); otherwise `run_create` checks first (427) | holds |
 | `remove` 191-203 | `E_STANDBY`, `E_MOVED` | **deletes are not sequenced** (client sequences `EXEC` and `CREATE` only, `client.cpp:184`; `run_delete` keeps no session) | not covered by the contract; see "Deletes" below |
@@ -150,7 +150,7 @@ Durability modes, each separately:
 | `DURABLE`, no standby | written with `RWF_DSYNC` locally. Exceptions: `wal_sync=false` (`storage.h:120`), and no data directory, where `durable()` is always true (`shard.h:308`) | media loss (power loss is untested, see section 8) |
 | `DURABLE`, sync standby (default with `--replica-of`) | fsynced on both | losing both machines |
 | `DURABLE`, sync, **degraded** (standby lost past `replica_timeout_ms`, witness granted) | fsynced on the primary only; the witnesses will not promote while degraded | losing the primary before the standby catches up (the system then waits for it) |
-| `DURABLE`, `--async-replica` | fsynced on the primary only | a failover: the standby may lack it. **Inferred from code:** the witness promotes an async standby like a sync one; it only knows about degraded grants, which async never requests. Not tested, and not stated in docs/REPLICATION.md |
+| `DURABLE`, `--async-replica` | fsynced on the primary only | a failover: the standby may lack it. **Confirmed** (`test_async_failover`, section 12): the witness promotes an async standby like a sync one (it only knows about degraded grants, which async never requests), and the promoted node lacks every write acked while its standby was stopped. Not stated in docs/REPLICATION.md |
 | `APPLIED` (`kReqApplied`) | applied in memory | any crash before the fsync. A sequenced `APPLIED` write that is lost is never resent, because it was answered |
 | creates | always `DURABLE`, whatever was asked | as `DURABLE` |
 | unlogged ops | applied in memory, never logged | any restart (by design: benchmark counters) |
@@ -189,7 +189,7 @@ scenarios with a session client); `bench/run_retries.py` (no loss or
 double apply across six failovers); Vultr P3/P5/P6, and the 24-round
 partition re-run (corroborating only; see section 4).
 
-**Remaining uncertainty.** Async plus witness promotion (above). Sessions
+**Remaining uncertainty.** Async plus witness promotion: confirmed lossy, contract undecided (section 12). Sessions
 through standby seeding then promotion: untested (docs/RETRIES.md lists
 it). A second failover during the resends (kill mid-retry): untested.
 Power loss: untested.
@@ -253,8 +253,10 @@ activate. The real-machine numbers support this protocol:
 
 The "100K" runs moved about 31K objects: the driver logs and the check
 show 31,295 (chunk 8) and 31,364 (chunk 256) sealed, although the creator
-asked for 100,000. docs/REAL_MACHINES.md quotes them as 100K. The cause
-is not found yet (section 9). Copy time scales with N/chunk round trips;
+asked for 100,000. docs/REAL_MACHINES.md quotes them as 100K. **Cause
+found** (section 12): a dangling reference in `snc_load create`, so most
+"in slot" creates landed near garbage IDs. Fixed; a real 100K slot moved
+on loopback (section 12). The 100K real-machine rows still need a rerun. Copy time scales with N/chunk round trips;
 on successful moves the unavailable window does not grow with the slot.
 The largest-slot chunk-8 failure shows that the admin-line
 copy control does not scale. The fix is a bounded, resumable, chunked
@@ -378,13 +380,14 @@ toward the scheduler and admission work. No scheduler change now.
    on one shard. Only the client's shard-count guard keeps that safe
    (section 1).
 5. docs/REPLICATION.md describes async mode, but not that a witness
-   failover of an async pair can drop acknowledged writes. This is
-   inferred from code (section 2).
+   failover of an async pair can drop acknowledged writes. Confirmed by
+   `test_async_failover` (section 12).
 6. docs/MIGRATION.md credits the replay-before-`E_MOVED` rule to the crash
-   tests. That holds, but no deterministic test pins it the way
-   `test_resend_overloaded` pins the overload case.
+   tests. That holds; `test_resend_refusals` now pins it deterministically
+   (section 12).
 7. docs/REAL_MACHINES.md reports the largest P5 moves as 100K objects. The
-   driver logs show about 31K objects sealed (section 4).
+   driver logs show about 31K objects sealed (section 4). Cause: a
+   `snc_load` bug, fixed (section 12).
 8. Invariant 17 was cited in the AGENTS.md handoff log ("New invariant 17
    above") but was never in the list. It is added now, with its wording
    taken from Codex's review as relayed on 2026-10-13. No earlier text of
@@ -439,3 +442,128 @@ toward the scheduler and admission work. No scheduler change now.
 The tests and the logging can be done locally. One partition round on
 three hosts (about an hour of rental) then settles section 5 before any
 failover constant changes.
+
+## 12. Verification slice (2026-11-04, after Codex's review of PR #33)
+
+No semantics were changed. Each item below is a test that asserts the
+behavior **as observed**, so a later contract change must change the
+test with it.
+
+### R08: an async standby promoted without acknowledged writes (confirmed)
+
+`tests/test_async_failover.py` (ctest `test_async_failover`), real
+processes on loopback: `snc_server --async-replica --witness`, its
+standby, one `snc_witness --failover-ms 500 --poll-ms 50`. Observed
+history:
+
+1. 500 accounts created on the primary with the standby live (set A),
+   every create answered OK; 1 s for the standby to catch up.
+2. Standby `SIGSTOP`. 500 more accounts created (set B): **every create
+   answered OK** (creates are always `DURABLE`; async waits for the local
+   fsync only).
+3. Primary `SIGKILL`, standby `SIGCONT`.
+4. Witness, 2.67 s after start: `group 0 failover: primary silent for
+   0.50s, standby promoted to term 1 in 0.012s`.
+5. On the promoted node, each ID read once (`GetBalance`): set A 0 of 500
+   missing; **set B 500 of 500 missing** (`E_NOT_FOUND`).
+
+Control, same history with a sync pair: set B is acknowledged only after
+the witness grants `DEGRADE` (`primary term 0 continues without its
+standby: OK`), and the witness then does **not** promote (the standby
+stays a standby). Nothing acknowledged is lost; the group waits for its
+primary instead.
+
+A client that got OK for a set-B write never resends it, so the loss is
+silent. Contract choices (not decided):
+
+| Choice | Effect | Cost |
+| --- | --- | --- |
+| a. Witnesses never auto-promote an async standby; an operator forces it (and accepts the loss) | no silent loss | async gives no automatic availability, only a warm copy |
+| b. Bounded-lag async: the primary stops acking (or asks for a grant, as sync does) once the standby is more than K records or T ms behind | loss bounded by K/T, and the witness knows when the bound is suspended | a new knob; the grant path already exists for sync |
+| c. Keep promotion and document it: async OK means "durable on the primary"; a failover can lose up to the replication lag | simplest | R08's "acknowledged = survives failover" does not hold for async; needs a client-visible flag on the ack |
+| d. Async acks say so (a response flag) and the client library treats them like `APPLIED` | honest per request | every client must handle a weaker OK |
+
+Recommendation, for Codex: (a) as the default, with (b) as the opt-in
+way to keep automatic failover, since (b) reuses the sync degrade grant.
+
+### R11: a resend after its session expired applies again (confirmed)
+
+`test_replication` `test_session_ttl` now asserts the balance.
+Observed history, in one engine with `session_ttl_s = 1`:
+
+1. Client 9, seq 1, deposit 1 cent: applied (balance 1001); resent:
+   `replayed`.
+2. A checkpoint before the TTL keeps the session.
+3. After 2.1 s idle, a checkpoint expires it (`sessions_expired = 1`).
+4. The same request (client 9, seq 1) again: **OK, not replayed, applied
+   again** (balance 1002).
+5. Sent once more: `replayed` (step 4 opened a new session at seq 1).
+   Balance stays 1002.
+
+The server cannot tell "a client I forgot" from "a new client". Choices
+(not decided):
+
+| Choice | How | Cost |
+| --- | --- | --- |
+| a. Client incarnation | the server issues `client_id`s (minted, never reused, like ObjectIDs); a sequenced request from an ID it holds no session for is refused (`E_SESSION_EXPIRED`, nothing applied) unless it is an explicit "open" | an open round trip per client; a refused client must read state to resolve in-doubt requests, as with `E_REPLAYED_OLD` |
+| b. Retain dedupe differently | after the TTL keep a tombstone (client, shard, last seq: ~24 bytes) much longer, or until the client closes the session | memory grows with clients ever seen; still a horizon, only longer |
+| c. Reject stale sessions | the session carries an epoch the client echoes; an unknown epoch is refused | like (a), without minting IDs |
+| d. Bound retry validity | each request carries a deadline (send time + horizon < TTL); late requests are refused | needs comparable clocks (R09); a slow client can still be wrong |
+
+Recommendation, for Codex: (a). It needs no clocks and turns the
+silent double apply into a refusal the client can act on.
+
+### Duplicates meeting E_MOVED and E_MIGRATING (now pinned)
+
+`tests/test_resend_refusals.cpp` (ctest `test_resend_refusals`): one
+clustered engine (group 0 of 2). On an account in slot S, client 5 applies
+two deposits (seq 1, 2) and client 6 a `create_near` (seq 1). At four
+stages (S sealed; S given to group 1; restarted from disk, still sealed;
+restarted and given to group 1 again), the resends are answered from the
+sessions, never refused: the latest of each client `replayed` with its
+first version or ID, client 5's older seq 1 `E_REPLAYED_OLD`. New
+sequences and unsequenced requests get `E_MIGRATING` or `E_MOVED`. The
+account's version and balance never move. Also observed: after a restart
+the slot comes back sealed and the configured (older) placement is used
+until a newer one is adopted, so the node answers `E_MIGRATING`, not
+`E_MOVED`, until its placement is refreshed.
+
+### Why the "100K" slots held about 31K
+
+`snc_load create --in-slot M` passed `ctx.got[0]` **by reference** into
+the loop that appends to `ctx.got`. After the vector's first reallocation
+the reference dangled, and the remaining creates were placed near garbage
+IDs. It printed the requested count (`100001 in slot ...`), not a
+measured one. Reproduced on one node: of 100,001 "in slot" IDs, 280 were
+in the slot and 53,014 in one unrelated slot, spread over 2,048 slots.
+Fixed (copy by value; the message now counts the IDs actually in the
+slot): 100,001 of 100,001.
+
+The count follows from the vector's growth (libstdc++ doubles): after
+the 100,000 phase-1 accounts its capacity was 131,072, so the reference
+held for 31,072 more creates, plus the ~24 phase-1 accounts already in
+the slot: about 31.1K, against 31,295 and 31,364 sealed on Vultr and
+31,307 on loopback (the rest are later creates whose garbage target
+happened to fall in the slot). The 1K and 10K rows never reached the
+reallocation, so they are correct (1,049 and 10,049 sealed).
+
+The P5 100K move on loopback, `--chunk 256`, 20 s of load
+(`bench/results/lab-20261104/p5-055814` before the fix, `p5-060000`
+after):
+
+| | sealed | move | move back | `E_MIGRATING` window | check |
+| --- | --- | --- | --- | --- | --- |
+| before the fix | 31,307 | 9.4 s | 4.2 s | | OK |
+| after the fix | 100,050 | 57.0 s | 11.9 s | 0.24 s | OK (200,000 accounts each served once) |
+
+**New observation, not explained yet.** In the fixed run, with no fault
+injected, the destination group's primary was replaced during the final
+copy: the driver logged `final copy (100050 objects): NO E_FENCED`, the
+witnesses `group 0 failover learned: node 1 serves as primary, term 1`
+(t = 55.0 s), and the old primary `fenced (a newer primary exists)`. The
+driver retried against the new primary and the move completed; the
+check passed. Inferred, not verified: staging 100K objects in one step
+blocks the destination shard thread longer than the witnesses'
+`failover_ms` (1,000 ms here), so they promote. This is a false failover
+caused by the move itself, and one more reason for the bounded, chunked
+final stage (section 4). The real-machine 100K rows remain unmeasured.

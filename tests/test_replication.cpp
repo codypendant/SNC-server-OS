@@ -1179,8 +1179,22 @@ void test_session_ttl() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2100));
     eng.checkpoint();
     if (eng.stats(own).sessions_expired != 1) _exit(82);
-    if (dep().r.replayed) _exit(83);  // forgotten: runs again
-    std::printf("session ttl: an idle session expires at the checkpoint after its TTL\n");
+    // R11 characterization (docs/EVIDENCE.md section 1, observed 2026-11-04):
+    // the resend of an applied (client 9, seq 1) after its session expired
+    // is not recognized and applies a second time. Not the intended
+    // contract; change this with it.
+    auto again = dep();
+    if (again.r.status != Status::OK || again.r.replayed) _exit(83);
+    auto balance = [&] {
+      return one(eng, own, [&](Completion cb, void* ctx) {
+        execute(acc, kOpGetBalance, {}, {}, cb, ctx);
+      }).as<BalanceResult>().balance_cents;
+    };
+    if (balance() != kStart + 2) _exit(84);  // one deposit, applied twice
+    if (!dep().r.replayed) _exit(85);       // the second run opened a new session
+    if (balance() != kStart + 2) _exit(86);
+    std::printf("session ttl: an idle session expires at the checkpoint after its TTL; "
+                "a resend after that applies again (balance start+2)\n");
     eng.stop();
     _exit(0);
   }
