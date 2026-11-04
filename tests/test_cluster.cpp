@@ -336,12 +336,26 @@ Totals totals(Engine& eng, std::map<ObjectID, i64>* balance = nullptr) {
   _exit(0);
 }
 
+// Every process this test forks. A failed CHECK exits the test process;
+// its children would otherwise keep running, holding ctest's output pipe
+// open, so ctest waits for its timeout instead of reporting the failure.
+std::vector<pid_t> g_children;
+pid_t g_test_pid = 0;
+void kill_children() {
+  if (::getpid() != g_test_pid) return;  // a forked child exiting
+  for (pid_t p : g_children) ::kill(p, SIGKILL);
+}
+pid_t track(pid_t pid) {
+  if (pid > 0) g_children.push_back(pid);
+  return pid;
+}
+
 pid_t spawn(const Node& nd, bool init, u32 rounds) {
   std::fflush(stdout);
   pid_t pid = ::fork();
   CHECK(pid >= 0);
   if (pid == 0) node_main(nd, init, rounds);
-  return pid;
+  return track(pid);
 }
 
 void wait_for(const std::string& path, double timeout_s) {
@@ -448,7 +462,7 @@ std::vector<pid_t> start_control(const std::string& dir, u16 port0, std::string&
               "--peers", members.c_str(), static_cast<char*>(nullptr));
       _exit(127);
     }
-    pids.push_back(pid);
+    pids.push_back(track(pid));
   }
   return pids;
 }
@@ -980,12 +994,24 @@ pid_t spawn_member(const Member& me) {
   pid_t pid = ::fork();
   CHECK(pid >= 0);
   if (pid == 0) member_main(me);
-  return pid;
+  return track(pid);
 }
 
 u64 progress_of(const std::string& dir, u32 g, u32 m) {
   const std::string text = read_file(dir + "/progress." + tag(g, m));
   return text.empty() ? 0 : std::stoull(text);
+}
+
+// Seconds until group g's member m acknowledges more than `before`
+// transfers, or -1 after timeout_s.
+double wait_progress(const std::string& dir, u32 g, u32 m, u64 before, double timeout_s) {
+  const auto t0 = std::chrono::steady_clock::now();
+  while (true) {
+    const double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    if (progress_of(dir, g, m) > before) return s;
+    if (s > timeout_s) return -1;
+    ::usleep(10000);
+  }
 }
 
 // live_fence: group 1's primary is not killed. Its standby is promoted
@@ -1051,10 +1077,15 @@ void test_group_failover(bool live_fence) {
     // Its node-link listeners are closed (the others' links can only find
     // the new primary), while the groups that never failed keep working.
     for (u16 s = 0; s < kShards; ++s) CHECK(!can_connect(static_cast<u16>(map.groups[1].members[0].link_port + s)));
+    // They keep making progress. Measured rather than sampled once: right
+    // after the withdrawal their follow-ups to group 1 wait for the new
+    // primary, and on a loaded machine new transfers can be held back
+    // (E_OVERLOADED) for longer than a fixed 300 ms window.
     const u64 before0 = progress_of(dir, 0, 0), before2 = progress_of(dir, 2, 0);
-    ::usleep(300000);
-    CHECK(progress_of(dir, 0, 0) > before0);
-    CHECK(progress_of(dir, 2, 0) > before2);
+    const double w0 = wait_progress(dir, 0, 0, before0, 10), w2 = wait_progress(dir, 2, 0, before2, 10);
+    std::printf("groups 0 and 2 acknowledged more transfers %.3f s and %.3f s after the withdrawal\n", w0, w2);
+    CHECK(w0 >= 0);
+    CHECK(w2 >= 0);
   }
   // Its new primary runs transfers of its own, then everyone finishes.
   wait_for(dir + "/progress.1.1", 60);
@@ -1180,6 +1211,8 @@ void test_group_failover(bool live_fence) {
 }  // namespace
 
 int main() {
+  g_test_pid = ::getpid();
+  std::atexit(kill_children);
   register_type();
   test_map();
   test_kill_restart(false);
