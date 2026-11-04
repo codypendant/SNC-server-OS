@@ -58,11 +58,11 @@ cmake --build build
 
 [ -f "$HOME/.ssh/id_ed25519" ] || ssh-keygen -q -t ed25519 -N "" -f "$HOME/.ssh/id_ed25519"
 for ip in "$A" "$B"; do
-  if ! ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "root@$ip" true 2>/dev/null; then
+  if ! ssh -n -o BatchMode=yes -o StrictHostKeyChecking=accept-new "root@$ip" true 2>/dev/null; then
     echo "Enter root's password on $ip:"
     ssh-copy-id -o StrictHostKeyChecking=accept-new "root@$ip" </dev/tty
   fi
-  ssh -o BatchMode=yes "root@$ip" true
+  ssh -n -o BatchMode=yes "root@$ip" true
 done
 
 python3 - "$A" "$B" "$C" <<'PY'
