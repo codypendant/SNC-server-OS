@@ -51,8 +51,19 @@ measured.
     delivery is recoverable and transient.**
 16. **No inter-object or externally visible computation resumes before
     the execution domain crosses its recovery barrier.**
+17. **A placement epoch is adopted node-wide before state-driven replay
+    for that epoch begins.**
+18. **A duplicate is resolved before any refusal that invites a resend.**
+    For a sequenced mutation, the owner answers from the client's session
+    before returning any status that would lead the client to send the
+    request again as new work (today `E_MOVED`, `E_MIGRATING`,
+    `E_OVERLOADED`). See `docs/EVIDENCE.md` section 1.
 
-Invariants 11--16 come from `docs/ARCHITECTURE_AUDIT.md` (2026-10-13).
+Invariants 11--16 come from `docs/ARCHITECTURE_AUDIT.md` (2026-10-13);
+17 from Codex's review of slot moves (2026-10-13 18:22 UTC; the handoff
+log cited it but it was missing from this list until 2026-11-04, and its
+wording here is taken from that review as relayed, since no earlier text
+of it exists in the repo); 18 from the real-machine partition finding (2026-11-04).
 
 ## Current Implementation State
 
@@ -622,3 +633,37 @@ or source comments.
     `docs/REAL_MACHINES.md`, "Partition re-run with the fix".
 -   **Next action:** for a stronger result, count refused resends in
     `snc_load`, or run the pre-fix build the same way to measure its rate.
+
+### 2026-11-04 05:40 UTC --- Claude (Claude Code): contracts and evidence pass
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (this PR). Classified
+    **KEEP** (no engine change): docs, plus a `test_cluster` robustness
+    fix. Its live-fence progress check sampled a fixed 300 ms window and
+    failed under load (2 of 6 runs beside `test_migrate`). It now waits up
+    to 10 s and prints the gap (0.00-0.23 s in 18 loaded runs). A failed
+    CHECK no longer leaves forked members holding ctest's pipe, which had
+    turned the failure into a 12-minute hang.
+-   **Area:** retry contract, acknowledgement stages (R08), obligation
+    foundations (R14), failure detection, migration, backlog metrics.
+-   **What changed:** `docs/EVIDENCE.md` (new); `docs/STATUS.md` real-machine
+    row, replication cost across machines, test count; invariants 17 and 18
+    here.
+-   **Found:** no new violation of the retry contract in the execute or
+    admission path. Gaps: sessions across a shard-count change rely on
+    `net::Client` refusing a changed shard count (undocumented); deletes are
+    not sequenced; `E_MOVED`/`E_MIGRATING` ordering has no deterministic
+    test; a witness failover of an `--async-replica` pair can drop acked
+    writes (inferred from code, untested and undocumented). Invariant 17 was
+    cited in this log but missing from the list.
+-   **Not determined:** which stage of the detection chain adds the ~6 s a
+    silent partition costs over a kill. The logs were not kept; no
+    timeout should change before lab experiment L0.
+-   **R01-R14:** mapped in `docs/EVIDENCE.md` section 0 against the
+    Contracts and Validation Handoff v1.0 (now in `docs/handoff/`). None is
+    STRONG. R08 is implemented with insufficient evidence. R01, R03, R04,
+    R06, R07, R10, R11, R12 and R14 are partial. R02, R05, R09 and R13 are
+    missing. R11 has a correctness gap: dedupe evidence expires after the
+    session TTL, and a resend after that runs again.
+-   **Next action:** L0 plus contract tests, no behavior change
+    (`docs/EVIDENCE.md` section 11).
+

@@ -246,6 +246,12 @@ post-mortem.
 | P6 soak (20 min) | 30 rounds of mixed load with random kill/stop and moves back and forth; every round's load clean (~17-19K ops/s), final check OK (101,000 accounts each served once, 77/77 in doubt resolved) |
 | P3 `partition` x24, with the PR #28 fix (`74209a8`, fresh hosts) | **24 of 24 passed.** Promote 7.66-8.41 s (median 7.71); client gap 3.5-7.0 s; every old primary reported fenced; 4,393,822 acknowledged transfers; 14-26 in doubt per round, all resolved. See below |
 
+**Correction (2026-11-04, docs/EVIDENCE.md):** the "100K" P5 rows moved
+about 31K objects. The driver logs show 31,295 (chunk 8) and 31,364
+(chunk 256) objects sealed, although the creator asked for 100,000 in the
+slot. The rates above hold for those counts. Why the slot held fewer is
+not yet known.
+
 ### Partition re-run with the fix (2026-11-04)
 
 Three new VPSs of the same kind, same layout (a = 149.28.249.82, b =
