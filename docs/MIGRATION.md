@@ -296,6 +296,10 @@ Result: all 67 pass, run 8 times in a row (536 runs), and under ASan.
 
 ### Chunked migration stream
 
+> Under review (2026-11-04): [MIGRATION_STAGING.md](MIGRATION_STAGING.md)
+> proposes replacing this plan (no scratch area; bounded units, then a
+> streamed transfer). Until it is decided, this section is the accepted plan.
+
 The protocol stays as it is; only the transport of a copy changes. Today
 the driver reads a slot from the source and writes it to the destination
 as one admin line each way. The replacement is a stream per copy:

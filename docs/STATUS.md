@@ -112,6 +112,11 @@ and the handoff's development sequence (§24).
   with no promotion). Shard stall is reported, never acted on: a shard
   wedged forever is not failed over (accepted until work is bounded).
   Effective only when every witness of a group polls `HEALTH`.
+- Bounded/resumable migration staging (2026-11-04, **design only, under
+  review**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md). Nothing built:
+  the final stage of a big slot still holds the destination shard for
+  seconds (4.8 s at 100K objects). Also reports an untested fail-open path
+  (a moved slot served from a partial copy after a lossy promotion, D1).
 
 ## Benchmark numbers
 
