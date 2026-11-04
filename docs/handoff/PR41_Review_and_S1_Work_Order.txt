@@ -1,0 +1,348 @@
+PR #41 REVIEW / NEXT WORK ORDER
+
+Decision
+
+PR #41 (merge 81e380ed) is APPROVED.
+
+The legacy-role upgrade blocker from PR #40 is closed. An untracked
+pre-role-file directory is no longer silently treated as a primary.
+Ordinary startup fails closed; a legacy standby must explicitly run as a
+standby; a legacy primary requires one-time explicit adoption and still
+runs through the start barrier.
+
+Fresh RelWithDebInfo, ASan+UBSan and TSan suites passed 20/20.
+Independent review and QA were completed and their findings were fixed.
+
+S1 bounded destination staging is now authorized.
+
+What PR #41 got right
+
+Unknown legacy role fails closed
+
+missing DIR/role + no kSbRoleTracked is no longer proof of primary
+status.
+
+Safe paths are now:
+
+-   legacy standby: --standby, with role/tracking durable before replica
+    service;
+-   legacy primary: --adopt-role primary, evidence check, start barrier,
+    then durable primary role.
+
+This closes the silent wrong-startup-flag bypass of the D1/D7 migration
+protection.
+
+Explicit adoption was the correct design
+
+Do not infer old role from WAL length, checkpoint shape, term, UUID, or
+similar heuristics. Old primary and standby directories can be durably
+indistinguishable. A safety boundary must not rest on a heuristic.
+
+Primary-adoption checks are accepted
+
+Refusing adoption when another member is serving/promoting, silent,
+fenced at this/later term, newer-term, wrong-space, unreadable, or when
+a configured control plane is unavailable is correct.
+
+The independent-review fix to check MOVE ROLE as well as HEALTH is
+important; keep it.
+
+The check disproves; it does not prove
+
+Preserve the documented residual:
+
+If an operator explicitly swaps both old labels—starts the old primary
+as standby and explicitly adopts the old standby as primary—the
+same-term standby evidence may not disprove the claim.
+
+This does not block S1. It now requires two explicit incorrect one-time
+operator actions rather than a silent/default startup mistake.
+
+Do not add WAL-position heuristics merely to eliminate this residual
+from the list.
+
+No-control-plane deployments
+
+Keep the distinction explicit:
+
+-   if --control is configured and unavailable, adoption fails closed;
+-   if no control plane exists at all and there is no peer evidence,
+    primary adoption is an explicit operator assertion with no contrary
+    evidence available.
+
+Do not describe the latter as a proven primary. R08 ordinary-data
+durability risk remains.
+
+Crash ordering is accepted
+
+Before adoption barrier completion, a crash leaves the legacy-primary
+directory ambiguous and the next ordinary start refuses again.
+
+After barrier completion, durable DIR/role=primary is sufficient even if
+the tracking superblock update has not yet completed.
+
+Standby role/tracking is durable before replica service.
+
+L1-L9 satisfied
+
+The requested legacy-primary, legacy-standby, missing-flag,
+control-plane-down, contrary-evidence, crash-order, post-adoption, and
+old-build compatibility cases are covered.
+
+The compatibility test using a real pre-role-file build is particularly
+valuable.
+
+PR #41 sign-off
+
+PR #41 closes the blocker before S1.
+
+Do not reopen this upgrade design merely to eliminate every possible
+explicit operator mistake. Preserve the residuals and move forward.
+
+------------------------------------------------------------------------
+
+NEXT WORK ORDER — S1 BOUNDED DESTINATION STAGING IMPLEMENTATION
+
+The S1 design in MIGRATION_STAGING.md was previously accepted. PRs
+#40/#41 now provide the fail-closed serving-proof and upgrade safety it
+depends on.
+
+S1 is AUTHORIZED.
+
+Objective
+
+Replace the multi-second monolithic destination final-stage shard task
+with a bounded cooperative chain of shard work units without changing
+the migration wire protocol, placement format, durable object format, or
+D1/D7 serving-proof semantics.
+
+S1 changes how final staging executes, not what final staging means.
+
+Preserve the state machine
+
+Keep:
+
+COPY AHEAD -> SEAL SOURCE -> FINAL SYNCHRONIZATION/STAGING -> STAGED COMPLETE -> PLACEMENT COMMIT -> ACTIVATE DESTINATION
+
+Do not weaken source seal, final-image equality, STAGED durability,
+exact activation, arrived provenance, placement ordering, non-serving
+partial state, or fencing.
+
+Durable progress
+
+Do not add a separate durable staging manifest.
+
+Use existing durable staged/object records as progress.
+
+A crash may destroy the volatile FINALIZING chain. Driver retry/HAVE
+must rediscover durable progress and converge.
+
+Volatile FINALIZING chain
+
+The chain may keep move/request identity, cursor, bounded pending work,
+count/digest state and response state, but it must not become a second
+durable authority.
+
+Bounded units
+
+Use the earlier values only as experimental starting points, not
+permanent constants:
+
+-   ~1 ms time budget;
+-   ~1 MiB work/object budget;
+-   ~8 MiB outstanding staging/WAL pressure.
+
+Stop/yield on whichever bound is reached first.
+
+Primary goal: eliminate multi-second non-preemptible destination shard
+work.
+
+Authority checks between units
+
+At unit boundaries inspect existing local authority/fencing state.
+
+If term authority is lost, the node is fenced, or move/placement
+preconditions no longer hold, stop the chain and refuse appropriately.
+
+Do not add a consensus round per unit.
+
+Partial state remains non-serving
+
+At every intermediate unit:
+
+-   no serving;
+-   no index exposure;
+-   no minting;
+-   no follow-up execution;
+-   no resume from stale/partial objects;
+-   no stale/wrong-move activation.
+
+Do not create any S1 exception to PROVEN/UNPROVEN.
+
+Index work counts toward the bound
+
+The original 100K stall was heavily amplified by index maintenance.
+
+S1 does not authorize index redesign, but wall-clock unit duration
+includes index work.
+
+If a single existing index primitive itself remains
+multi-second/non-preemptible, characterize it explicitly:
+
+S1 scheduler bounded; index primitive still non-preemptible.
+
+Do not hide it and do not optimize it in this PR.
+
+Admin/wire semantics
+
+Keep one logical final-stage request if practical. The driver must not
+need to understand internal S1 unit boundaries.
+
+No migration wire-protocol change is authorized.
+
+Memory/backpressure
+
+Bound FINALIZING memory, pending payloads, queued work and outstanding
+WAL/staging bytes. Record high-water marks.
+
+Do not replace a CPU stall with unbounded memory growth.
+
+Crash/retry matrix
+
+Exercise crashes:
+
+-   before first unit;
+-   during early unit;
+-   between units;
+-   after many units;
+-   after object work before STAGED;
+-   after STAGED durability before reply.
+
+After retry: no partial serving, no duplicate logical mutation, durable
+progress reused where applicable, exact final image, eventual
+convergence or fail-closed outcome.
+
+Source and destination failover
+
+Source promotion after SEAL must preserve PR #40 re-seal and commit-gate
+semantics.
+
+Destination promotion during FINALIZING must never treat volatile
+FINALIZING state as durable. It may reuse durable records, remains
+non-serving unless proven, and converges on retry.
+
+Do not claim unsafe async staging survives a lossy promotion; fail
+closed when proof is absent.
+
+HEALTH remains decoupled
+
+PR #37 stays intact. Do not recouple HEALTH to shard execution because
+S1 improves shard responsiveness.
+
+Measure HEALTH, STATUS and foreground latency during staging.
+
+Performance evidence
+
+For corrected 100K migration record:
+
+-   maximum non-preemptible shard interval;
+-   p50/p95/p99 staging-unit wall time;
+-   final-stage duration;
+-   total move duration;
+-   client-visible E_MIGRATING interval;
+-   HEALTH p50/p95/p99/max;
+-   STATUS p50/p95/p99/max;
+-   foreground operation p50/p95/p99/max;
+-   WAL bytes;
+-   replication bytes if readily available;
+-   FINALIZING memory high-water;
+-   queue/backlog high-water.
+
+The main acceptance criterion is that the multi-second monolithic shard
+task is gone. Total move time may remain similar or regress modestly.
+
+Budget sweep
+
+Run a small controlled sweep around candidate time and byte/object
+budgets. Choose the prototype default from latency/progress behavior,
+not peak throughput alone. Do not make it a permanent contract.
+
+Shared-key index workload
+
+Test both unique-index-key and the pathological shared-key workload.
+
+If the shared-key index primitive itself violates the unit budget,
+report it as a separate blocking primitive. Do not optimize it in S1.
+
+Minimum deterministic tests
+
+-   S1-1 normal bounded final stage
+-   S1-2 corrected 100K migration
+-   S1-3 shared-key pathological index workload
+-   S1-4 destination crash during first unit
+-   S1-5 destination crash between units
+-   S1-6 destination crash near completion
+-   S1-7 destination promotion during FINALIZING
+-   S1-8 source promotion after SEAL during FINALIZING
+-   S1-9 driver death during FINALIZING
+-   S1-10 duplicate/retried final-stage request
+-   S1-11 fencing/term change between units
+-   S1-12 partial destination remains unproven/non-serving
+-   S1-13 exact final count/digest/state
+-   S1-14 follow-ups/transfers during staging
+-   S1-15 HEALTH remains responsive
+-   S1-16 STATUS/foreground progress versus monolithic baseline
+-   S1-17 existing D1/D7 fail-closed suite
+-   S1-18 existing migration crash matrix
+
+Use deterministic stop/crash points where practical.
+
+Verification
+
+Before review:
+
+-   fresh RelWithDebInfo full suite;
+-   fresh ASan+UBSan;
+-   fresh TSan characterization;
+-   independent source review against MIGRATION_STAGING.md and D1/D7
+    invariants;
+-   separate QA;
+-   reconcile EVIDENCE/STATUS/AGENTS.
+
+Scope
+
+AUTHORIZED: - S1 bounded destination final-stage execution; - volatile
+FINALIZING chain; - bounded unit scheduling/yielding; - local authority
+guards between units; - bounded memory/backpressure needed by S1; - S1
+tests/instrumentation/evidence.
+
+NOT AUTHORIZED: - S2 converging copy-ahead; - S3 streamed/cursor
+protocol; - index data-structure redesign; - repair/re-staging; - R08; -
+R11; - new migration wire protocol; - new durable staging manifest; -
+unrelated optimization.
+
+If S1 exposes a correctness defect, characterize it and preserve
+evidence. Fix on site only if clearly required by S1 and within scope;
+otherwise report it separately.
+
+Parallel reference research
+
+The new reference-architecture research lane should run in parallel and
+must not block this S1 slice.
+
+Styx is the first priority because its online state-migration and
+acknowledgement work may inform later S2/S3 design. Do not redesign S1
+mid-implementation based on a reference-system idea unless a concrete
+safety defect is found.
+
+Final instruction
+
+PR #41: APPROVED.
+
+Proceed with the S1 BOUNDED DESTINATION STAGING IMPLEMENTATION slice
+only.
+
+After implementation, tests, sanitizers, independent review and QA,
+return the PR and evidence for review.
+
+Do not automatically proceed to S2/S3, R08 or R11.

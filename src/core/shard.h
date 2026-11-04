@@ -19,6 +19,51 @@
 
 namespace snc {
 
+struct ObjectIdHash {
+  std::size_t operator()(const ObjectID& id) const { return snc_hash64(id); }
+};
+
+// A stage request run as a chain of bounded units on the slot's shard
+// (S1, docs/MIGRATION_STAGING.md 3.2). Volatile, on the requesting
+// (control) thread's stack: the shard reads and writes it only inside
+// stage_admit / stage_unit / stage_release, each one shard task. Durable
+// progress is only the records the units write (no manifest): a lost
+// chain leaves inert records in a foreign slot, which a retry finds.
+struct StageChain {
+  enum Phase : u8 { ADMIT, CHECK, PUT, SCAN, DROP, STAGE, DONE };
+  static const char* phase_name(u8 p);
+  // The request.
+  u16 slot = 0, from = 0;
+  u64 move = 0, epoch = 0, count = 0, digest = 0;
+  bool final = false;
+  const std::vector<SlotObject>* objs = nullptr;
+  // Bounds of one unit (~0: none, the whole request in one unit). A unit
+  // stops at the first object boundary (a scan: the first empty bucket)
+  // past unit_ns of shard-thread time or unit_bytes of payload put or
+  // dropped, or (puts, drops) while more than window_bytes it appended
+  // are not yet durable; it always does at least one object.
+  u64 unit_ns = ~u64{0}, unit_bytes = ~u64{0}, window_bytes = ~u64{0};
+  // State.
+  u8 phase = ADMIT;
+  u64 token = 0;       // this chain's registration (0: none)
+  u32 mut = 0;         // the slot's mutation count after this chain's own writes
+  std::size_t i = 0;   // next entry (check, put) or gone ID (drop)
+  std::unordered_map<ObjectID, const SlotObject*, ObjectIdHash> listed;
+  LocalMap::Walk walk;
+  std::vector<ObjectID> gone;
+  u64 n = 0, d = 0;
+  u64 lsn = 0;         // the record that must be durable before OK (0: none)
+  std::deque<std::pair<u64, u64>> pending;  // (lsn, bytes) appended, maybe not yet durable
+  u64 pending_bytes = 0;
+  // Measurements (reported at the end).
+  u64 runs = 0;  // returns to the requesting thread (window waits, debug stops)
+  u64 units = 0, put = 0, dropped = 0, bytes = 0, scan_restarts = 0, max_unit_ns = 0, pending_hw = 0;
+  u64 index_ns = 0, log_ns = 0, shard_ns = 0;
+  std::vector<u32> unit_us;
+  u8 max_unit_phase = ADMIT;
+  u64 phase_units[DONE] = {};
+};
+
 class Shard {
  public:
   Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects,
@@ -65,6 +110,17 @@ class Shard {
   // state objects, then serving, then (a primary) activation.
   void refresh_slots();
   SlotReport slot_report(u16 slot);
+  // slot_report in bounded steps (S1: the final stage's reply), the walk
+  // restarting if the table grows or the slot's objects change between
+  // steps. True once `out` is filled.
+  struct ReportWalk {
+    u16 slot = 0;
+    bool started = false, foreign = false;
+    LocalMap::Walk walk;
+    u32 mut = 0;
+    u64 n = 0, d = 0, restarts = 0;
+  };
+  bool slot_report_unit(ReportWalk& w, SlotReport& out, u64 unit_ns);
   // Every slot state object here, as reports without the live scan.
   void slot_states(std::vector<SlotReport>& out);
   // The slot's application objects, with payloads if asked.
@@ -75,8 +131,15 @@ class Shard {
   Status unseal_slot(u16 slot, u64 move, u64& lsn);
   Status export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
                      std::vector<SlotObject>& out, u64& count, u64& digest);
-  Status stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
-                    u64 count, u64 digest, u64& lsn);
+  // Destination staging as a chain (StageChain). admit: the refusals
+  // that need no work (a finished STAGED for the move answers at once:
+  // phase DONE), then registers the chain for its slot (one at a time; a
+  // newer move's chain supersedes an older one's). unit: the guards (fence,
+  // superseded, map, the slot's mutations), then work up to the bounds;
+  // DONE when finished. release: drops the registration (every exit).
+  Status stage_admit(StageChain& c);
+  Status stage_unit(StageChain& c);
+  void stage_release(StageChain& c);
   // Activates every slot staged here that the map now gives this group by
   // exactly that staged move (its arrival on record), or, with no arrival
   // on record (placement v1), at or past the staged epoch.
@@ -505,6 +568,13 @@ class Shard {
   std::unique_ptr<NodeLinks> links_;
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
+  // Stage chains (S1): per slot, the running chain's (token, move); and
+  // per slot, a count of the writes staging made to its objects (put_image,
+  // drop_object), which a chain compares between units.
+  std::unordered_map<u16, std::pair<u64, u64>> stage_chain_;
+  u64 stage_token_ = 0;
+  SlotReport slot_report_head(u16 slot);
+  std::vector<u32> slot_mut_ = std::vector<u32>(kSlots, 0);
   // Slots whose stale STAGED (older than the arrival) was logged, with the
   // (arrival, staged move) logged: said once per change.
   std::unordered_map<u16, std::pair<u64, u64>> stale_staged_said_;

@@ -1,11 +1,12 @@
 // snc_load: the lab's transfer load and checker (docs/REAL_MACHINES.md).
 //
 //   snc_load create --connect HOST:PORT --accounts N [--in-slot M]
-//                   [--near ID] [--start CENTS] --ids FILE
+//                   [--near ID] [--start CENTS] [--email shared|unique] --ids FILE
 //     Creates N accounts spread over the groups, then M more in the slot of
 //     the first one (a slot to move). Writes their IDs to FILE, and the
 //     first plus the M to FILE.hot. --near ID: the N in ID's slot instead
-//     (tests/test_fail_closed.py).
+//     (tests/test_fail_closed.py). --email: every account's email "e" (one
+//     index posting list, the default) or a distinct one each.
 //   snc_load run --connect HOST:PORT --ids FILE --seconds T --out PREFIX
 //                [--threads K] [--depth D] [--hot-pct P] [--report-ms MS]
 //     Random transfers through a ClusterClient with sessions (it follows
@@ -97,7 +98,7 @@ bool connect(net::ClusterClient& cc, const std::string& host, unsigned port, dou
 // ---- create -------------------------------------------------------------------------------
 
 int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 start, const std::string& ids_path,
-               const ObjectID& near_id) {
+               const ObjectID& near_id, bool unique_email) {
   net::ClusterClient cc;
   cc.enable_sessions(std::random_device{}() | 1ull << 40, 30000, 5000);
   if (!connect(cc, host, port, 30)) die("connect: " + cc.error());
@@ -121,6 +122,7 @@ int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 s
     else c->error = std::string("create: ") + status_name(static_cast<Status>(h.status));
   };
   // Phase 1: N spread over the groups; phase 2: M near the first.
+  u64 made = 0;  // distinct emails, when asked for
   auto run = [&](u64 want, const ObjectID& near) {
     const size_t base = ctx.got.size();
     u64 sent = 0, req = 1;
@@ -135,6 +137,11 @@ int cmd_create(const std::string& host, unsigned port, u64 n, u64 in_slot, i64 s
         q.op = kTypeId;
         q.req_id = req++;
         q.target = near;
+        if (unique_email) {
+          const std::string e = "u" + std::to_string(++made);
+          a.email_len = static_cast<u8>(e.size());
+          std::memcpy(a.email, e.data(), e.size());
+        }
         cc.send(q, ByteView(&a, sizeof(a)), static_cast<u16>(sent % cc.group_count()));
         ++sent;
         ++ctx.outstanding;
@@ -556,7 +563,8 @@ int main(int argc, char** argv) {
   if (cmd == "create") {
     return cmd_create(host, port, std::strtoull(need("accounts").c_str(), nullptr, 10),
                       std::strtoull(get("in-slot", "0").c_str(), nullptr, 10), start, need("ids"),
-                      f.count("near") ? ObjectID::parse(f["near"]).value_or(ObjectID{}) : ObjectID{});
+                      f.count("near") ? ObjectID::parse(f["near"]).value_or(ObjectID{}) : ObjectID{},
+                      get("email", "shared") == "unique");
   }
   if (cmd == "run") {
     return cmd_run(host, port, need("ids"), std::atof(need("seconds").c_str()),

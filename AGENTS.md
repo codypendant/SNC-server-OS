@@ -912,3 +912,45 @@ or source comments.
 -   **Next action:** S1 continues unchanged and returns for review. The
     milestone starts after that review and the correctness fixes it
     requires.
+
+### 2026-11-04 UTC --- Claude (Claude Code): S1 bounded destination staging (implementation)
+
+-   **Classification:** REFINE. Migration staging now executes in bounded
+    units, with no wire, format, placement or durable-state change.
+-   **What:**
+    - Every STAGE, final or not, and its reply report run as a volatile
+      chain of units on B's shard. Each unit is at most
+      `--move-unit-us` (1 ms) or `--move-unit-bytes` (1 MiB) plus one
+      object.
+    - Guards run between units: fence, token, placement, mutation and
+      rehash.
+    - A window (8 MiB) bounds the not-yet-durable records.
+    - The driver resends after `E_OVERLOADED` or a timeout, with a
+      `MOVE ROLE` probe, instead of HAVE/EXPORT loops.
+    - `--move-units off` is the one-task rollback.
+    - `DEBUG MOVE-STOP` gives deterministic stop and crash points.
+-   **Evidence:** MIGRATION_STAGING.md section 18, EVIDENCE.md section
+    14, `bench/results/s1-20261104/`.
+    - At 100K, B's longest unit falls from 2979 ms to 3.8 ms.
+    - The costs: total move +45%; `E_MIGRATING` +37% (shared) and +10%
+      (unique).
+    - The shared-key index cost (about 0.2 ms per put) is a separate
+      primitive; it was not optimized.
+    - Tests: `test_stage_chain`, `test_s1` (S1-1..S1-18), plus
+      `test_fail_closed` and `test_migrate` unchanged.
+    - Full suites: RelWithDebInfo 22/22. ASan+UBSan and TSan 21/22 at
+      first: `test_s1` health hit the driver's 60 s deadline (its copy
+      ahead of 10,000 objects at `--chunk 4` is 3-10x slower under
+      sanitizers). It now uses 2,000 objects in sanitizer builds, and
+      `test_s1` then passed in all three builds, with no sanitizer
+      reports.
+-   **Departures from section 17:**
+    - non-final stages are chained (no `E_BAD_ARGS` cap);
+    - the D3 report is chained, with its content unchanged;
+    - the driver resend also covers non-final stages;
+    - 3 runs per matrix cell, not 5.
+-   **Residuals kept:** the legacy swapped-labels case; no-control-plane
+    adoption is only an operator assertion; no WAL-position heuristics.
+-   **Next action:** wait for cody/Codex review. S2, S3, R08 and R11 are
+    not started. The experimental validation milestone follows this
+    review and any correctness fixes it requires.

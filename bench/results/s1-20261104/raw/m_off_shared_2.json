@@ -1,0 +1,186 @@
+{
+ "args": {
+  "build": "build",
+  "objects": 100000,
+  "email": "shared",
+  "units": "off",
+  "unit_us": 1000,
+  "unit_bytes": 1048576,
+  "window_bytes": 8388608,
+  "writers": 4,
+  "changed": 18000,
+  "chunk": 256,
+  "json": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/s1/m_off_shared_2.json",
+  "keep": false
+ },
+ "work": "/tmp/snc-s1move-rl0gksyr",
+ "slot": 1326,
+ "slot_objects": 100000,
+ "source": 1,
+ "dest": 3,
+ "move": "DONE",
+ "move_s": 25.952,
+ "writer_deposits_ok": 17059,
+ "final_stage_ms": 2896.2,
+ "final_stage_end": {
+  "slot": "1326",
+  "move": "2",
+  "final": "1",
+  "objs": "100000",
+  "units": "1",
+  "max_unit_ms": "2778.580",
+  "chain_ms": "2778.7",
+  "wait_lsn_ms": "117.5",
+  "index_ms": "2447.1",
+  "wal_ms": "42.3",
+  "status": "OK"
+ },
+ "e_migrating_trace_ms": 4781.8,
+ "e_migrating_client_ms": 5057.0,
+ "client_refusals": {
+  "E_MIGRATING": 1464
+ },
+ "stage_units_trace": {
+  "n": 0,
+  "p50": null,
+  "p95": null,
+  "p99": null,
+  "max": null
+ },
+ "chain": {
+  "slot": "1326",
+  "move": "2",
+  "objs": "100000",
+  "status": "OK",
+  "units": "1",
+  "p50": "2778.579",
+  "p95": "2778.579",
+  "p99": "2778.579",
+  "max": "2778.580",
+  "put": "15829",
+  "dropped": "0",
+  "bytes": "3925592",
+  "window_hw": "0",
+  "window_waits": "0",
+  "scan_restarts": "0",
+  "shard_ms": "2778.6",
+  "chain_ms": "2778.7",
+  "wait_ms": "117.5",
+  "listed_entries": "100000",
+  "gone": "0",
+  "report_units": "0",
+  "report_restarts": "0",
+  "runs": "0"
+ },
+ "dest_long_iters_ge20ms": {
+  "whole_run": {
+   "n": 294,
+   "p50": 51.3,
+   "p95": 76.0,
+   "p99": 95.0,
+   "max": 2790.2
+  },
+  "final_stage": {
+   "n": 2,
+   "p50": 2790.2,
+   "p95": 2790.2,
+   "p99": 2790.2,
+   "max": 2790.2
+  }
+ },
+ "dest_long_iters_final_detail": [
+  {
+   "shard": "0",
+   "total_ms": "2790.2",
+   "drain_ms": "0.0",
+   "inject_ms": "2778.6",
+   "injected": "1",
+   "io_ms": "0.0",
+   "poll_ms": "11.6",
+   "publish_ms": "0.0"
+  },
+  {
+   "shard": "0",
+   "total_ms": "91.8",
+   "drain_ms": "0.0",
+   "inject_ms": "91.5",
+   "injected": "1",
+   "io_ms": "0.0",
+   "poll_ms": "0.3",
+   "publish_ms": "0.0"
+  }
+ ],
+ "dest_trace_events_final": {
+  "stage_begin": 1,
+  "shard_long_iter": 1,
+  "admin_status_slow": 1,
+  "admin_heavy_slow": 1,
+  "stage_end": 1
+ },
+ "HEALTH": {
+  "final_stage": {
+   "n": 519,
+   "p50": 0.344,
+   "p95": 0.777,
+   "p99": 1.36,
+   "max": 5.937
+  },
+  "whole_move": {
+   "n": 4434,
+   "p50": 0.361,
+   "p95": 1.407,
+   "p99": 3.257,
+   "max": 64.394
+  }
+ },
+ "STATUS": {
+  "final_stage": {
+   "n": 2,
+   "p50": 2799.384,
+   "p95": 2799.384,
+   "p99": 2799.384,
+   "max": 2799.384
+  },
+  "whole_move": {
+   "n": 881,
+   "p50": 6.388,
+   "p95": 71.468,
+   "p99": 83.597,
+   "max": 2799.384
+  }
+ },
+ "fg": {
+  "final_stage": {
+   "n": 2,
+   "p50": 95.622,
+   "p95": 95.622,
+   "p99": 95.622,
+   "max": 95.622
+  },
+  "whole_move": {
+   "n": 1366,
+   "p50": 3.336,
+   "p95": 69.224,
+   "p99": 80.358,
+   "max": 2793.58
+  }
+ },
+ "health_stall_ms_max": {
+  "final_stage": 2781,
+  "whole_move": 2781
+ },
+ "VmHWM": "91532 kB",
+ "VmRSS": "54096 kB",
+ "driver_log": [
+  "T 5317039647811 18245 driver copied 99997 objects ahead of the seal",
+  "T 5317370868865 18245 driver seal: OK 2 1 2 2 100000 5636672121051206852 1 0 0 1 100000 5636672121051206852 flags=0 proof=sealed arrived=0:0",
+  "T 5321788757590 18245 driver final copy (100000 objects): OK 3",
+  "T 5321797223821 18245 driver move 0000000000000002 -> staged: OK",
+  "T 5321969373319 18245 driver commit move 0000000000000002 at epoch 2: OK",
+  "[  20.744] copied 99997 objects ahead of the seal",
+  "[  21.075] seal: OK 2 1 2 2 100000 5636672121051206852 1 0 0 1 100000 5636672121051206852 flags=0 proof=sealed arrived=0:0",
+  "[  25.493] final copy (100000 objects): OK 3",
+  "[  25.502] move 0000000000000002 -> staged: OK",
+  "[  25.674] commit move 0000000000000002 at epoch 2: OK"
+ ]
+}

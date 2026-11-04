@@ -132,6 +132,49 @@ class LocalMap {
     }
   }
 
+  // Bumped by every rehash (growth): a walk in progress must restart.
+  u64 generation() const { return gen_; }
+
+  // A walk of the table in bounded steps, with the map changing between
+  // steps (docs/MIGRATION_STAGING.md 3.4). A step may end only just after
+  // an empty bucket, and the walk starts just after one; then every entry
+  // present for the whole walk is visited exactly once, however other
+  // entries are inserted or erased between steps: entries never move
+  // forward (insertion moves none; backward shift moves one only toward
+  // its home), and none can cross an empty bucket its home is after. An
+  // entry visited zero or two times was inserted or erased mid-walk. A
+  // rehash moves everything: the caller compares generation() and
+  // restarts (walk_begin) when it changed.
+  struct Walk {
+    std::size_t pos = 0, left = 0;
+    u64 gen = 0;
+  };
+  void walk_begin(Walk& w) const {
+    std::size_t e = 0;
+    while (table_[e].obj != nullptr) e = (e + 1) & mask_;  // load factor <= 0.8: one exists
+    w.pos = (e + 1) & mask_;
+    w.left = cap_;
+    w.gen = gen_;
+  }
+  // Visits buckets from where the walk stopped, calling fn(entry) for
+  // each entry; after each empty bucket, asks stop() and returns if it
+  // says so. True once the whole table has been visited. The map must not
+  // change during a step (fn must not insert or erase).
+  template <typename F, typename S>
+  bool walk_step(Walk& w, F&& fn, S&& stop) const {
+    while (w.left != 0) {
+      const Entry& e = table_[w.pos];
+      w.pos = (w.pos + 1) & mask_;
+      --w.left;
+      if (e.obj != nullptr) {
+        fn(e.obj);
+      } else if (w.left != 0 && stop()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
  private:
   struct Entry {
     ObjectHeader* obj = nullptr;
@@ -148,6 +191,7 @@ class LocalMap {
     // would only waste memory.
     const PageMode mode = cap * sizeof(Entry) >= (2u << 20) ? pages_ : PageMode::SMALL;
     table_ = static_cast<Entry*>(map_pages(cap * sizeof(Entry), mode, 64, &got_));  // zeroed
+    ++gen_;
     cap_ = cap;
     mask_ = cap - 1;
     size_ = 0;
@@ -163,6 +207,7 @@ class LocalMap {
   std::size_t cap_ = 0;
   std::size_t mask_ = 0;
   std::size_t size_ = 0;
+  u64 gen_ = 0;
 };
 
 }  // namespace snc

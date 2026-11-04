@@ -395,6 +395,17 @@ class Engine {
     // or exit at once as a crash would (no destructors, nothing flushed).
     u32 debug_barrier_hold_ms = 0;
     bool debug_barrier_crash = false;
+    // Destination staging (S1, docs/MIGRATION_STAGING.md 3.2): a stage
+    // request runs as a chain of shard tasks ("units"), each stopping past
+    // move_unit_us of shard time or move_unit_bytes of payload written, and
+    // no put or drop unit starts while more than move_window_bytes the
+    // chain appended are not yet durable. Prototype defaults (a sweep, not
+    // a contract). move_units = false: the whole request in one task
+    // (the behavior before S1; same records, same order).
+    bool move_units = true;
+    u32 move_unit_us = 1000;
+    u64 move_unit_bytes = 1u << 20;
+    u64 move_window_bytes = 8u << 20;
 
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.
@@ -465,6 +476,8 @@ class Engine {
   // The newest placement epoch seen from another node (0: none newer).
   u64 epoch_seen() const;
   SlotReport slot_report(u16 slot);
+  // The shard that owns `slot` on this node.
+  u16 slot_owner(u16 slot) const { return slots_.owner[slot]; }
   // Every slot state object this node holds (slot, phase, flags, move_id,
   // epoch, durable), for snc_ctl placement backfill.
   std::vector<SlotReport> slot_states();
@@ -488,6 +501,14 @@ class Engine {
   // checked against count and digest, and recorded STAGED, durably.
   Status stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
                     u64 count, u64 digest, SlotReport& out, double timeout_s = 10);
+  // Tests only (snc_server DEBUG MOVE-STOP): the next final stage chain
+  // stops before its `unit`-th unit (from 0) that starts in `phase`
+  // (admit, check, put, scan, drop, stage; or reply: STAGED durable, not
+  // yet answered), and holds there `hold_ms` (the shard runs other work
+  // meanwhile), or exits the process as a crash would. Once.
+  void debug_stage_stop(int phase, u32 unit, bool crash, u32 hold_ms);
+  // The last final stage chain's measurements, one line (empty: none).
+  std::string last_stage_report() const;
 
   // Replication state summed over shards, cheap enough to poll.
   struct ReplStatus {
@@ -550,8 +571,23 @@ class Engine {
   Status wait_lsn(u16 shard, u64 lsn, double timeout_s);
   template <class F>
   auto on_shard(u16 shard, F fn) -> decltype(fn());
+  // Runs step() on `shard` until it returns true, each call a task of its
+  // own queued behind whatever the shard has waiting (no round trip to the
+  // caller between calls); blocks until then.
+  template <typename F>
+  void on_shard_steps(u16 shard, F step);
   std::unique_ptr<SegmentPreparer> spares_;
   RecoveryReport recovery_;
+  struct DebugStageStop {
+    int phase = -1;
+    u32 unit = 0, hold_ms = 0;
+    bool crash = false;
+  };
+  mutable std::mutex stage_mu_;
+  DebugStageStop debug_stage_;
+  std::atomic<bool> debug_stage_armed_{false};
+  std::string last_stage_;
+  void debug_stage_point(int phase, u32 unit);
 };
 
 }  // namespace snc

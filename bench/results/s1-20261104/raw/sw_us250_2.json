@@ -1,0 +1,176 @@
+{
+ "args": {
+  "build": "build",
+  "objects": 100000,
+  "email": "shared",
+  "units": "on",
+  "unit_us": 250,
+  "unit_bytes": 1048576,
+  "window_bytes": 8388608,
+  "writers": 4,
+  "changed": 18000,
+  "chunk": 256,
+  "json": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/s1/sw_us250_2.json",
+  "keep": false
+ },
+ "work": "/tmp/snc-s1move-wthqrum8",
+ "slot": 1326,
+ "slot_objects": 100000,
+ "source": 1,
+ "dest": 3,
+ "move": "DONE",
+ "move_s": 42.925,
+ "writer_deposits_ok": 30133,
+ "final_stage_ms": 8296.6,
+ "final_stage_end": {
+  "slot": "1326",
+  "move": "2",
+  "final": "1",
+  "objs": "100000",
+  "units": "9209",
+  "max_unit_ms": "22.987",
+  "chain_ms": "8149.2",
+  "wait_lsn_ms": "146.8",
+  "index_ms": "3274.1",
+  "wal_ms": "53.1",
+  "status": "OK"
+ },
+ "e_migrating_trace_ms": 10129.6,
+ "e_migrating_client_ms": 10396.9,
+ "client_refusals": {
+  "E_MIGRATING": 3472
+ },
+ "stage_units_trace": {
+  "n": 9209,
+  "p50": 0.323,
+  "p95": 0.726,
+  "p99": 0.96,
+  "max": 22.986
+ },
+ "chain": {
+  "slot": "1326",
+  "move": "2",
+  "objs": "100000",
+  "status": "OK",
+  "units": "9209",
+  "p50": "0.323",
+  "p95": "0.726",
+  "p99": "0.960",
+  "max": "22.987",
+  "put": "18000",
+  "dropped": "0",
+  "bytes": "4464000",
+  "window_hw": "9176",
+  "window_waits": "0",
+  "scan_restarts": "0",
+  "shard_ms": "3647.7",
+  "chain_ms": "8149.2",
+  "wait_ms": "146.8",
+  "listed_entries": "100000",
+  "gone": "0",
+  "report_units": "311",
+  "report_restarts": "0",
+  "runs": "1"
+ },
+ "dest_long_iters_ge20ms": {
+  "whole_run": {
+   "n": 5,
+   "p50": 82.6,
+   "p95": 98.0,
+   "p99": 98.0,
+   "max": 98.0
+  },
+  "final_stage": {
+   "n": 1,
+   "p50": 23.1,
+   "p95": 23.1,
+   "p99": 23.1,
+   "max": 23.1
+  }
+ },
+ "dest_long_iters_final_detail": [
+  {
+   "shard": "0",
+   "total_ms": "23.1",
+   "drain_ms": "0.0",
+   "inject_ms": "23.0",
+   "injected": "1",
+   "io_ms": "0.0",
+   "poll_ms": "0.1",
+   "publish_ms": "0.0"
+  }
+ ],
+ "dest_trace_events_final": {
+  "stage_begin": 1,
+  "stage_unit": 9209,
+  "shard_long_iter": 1,
+  "admin_heavy_slow": 1,
+  "stage_end": 1
+ },
+ "HEALTH": {
+  "final_stage": {
+   "n": 1476,
+   "p50": 0.336,
+   "p95": 0.795,
+   "p99": 1.413,
+   "max": 9.667
+  },
+  "whole_move": {
+   "n": 7441,
+   "p50": 0.365,
+   "p95": 1.392,
+   "p99": 2.805,
+   "max": 44.393
+  }
+ },
+ "STATUS": {
+  "final_stage": {
+   "n": 831,
+   "p50": 4.557,
+   "p95": 6.77,
+   "p99": 9.53,
+   "max": 22.767
+  },
+  "whole_move": {
+   "n": 4885,
+   "p50": 3.226,
+   "p95": 5.76,
+   "p99": 8.203,
+   "max": 108.091
+  }
+ },
+ "fg": {
+  "final_stage": {
+   "n": 1336,
+   "p50": 3.581,
+   "p95": 7.003,
+   "p99": 8.858,
+   "max": 40.151
+  },
+  "whole_move": {
+   "n": 8432,
+   "p50": 2.409,
+   "p95": 5.539,
+   "p99": 7.599,
+   "max": 119.918
+  }
+ },
+ "health_stall_ms_max": {
+  "final_stage": 7,
+  "whole_move": 84
+ },
+ "VmHWM": "86052 kB",
+ "VmRSS": "62740 kB",
+ "driver_log": [
+  "T 5597289625949 12058 driver copied 100000 objects ahead of the seal",
+  "T 5597603028281 12058 driver seal: OK 2 1 2 2 100000 3545668860898125310 1 0 0 1 100000 3545668860898125310 flags=0 proof=sealed arrived=0:0",
+  "T 5607392116687 12058 driver final copy (100000 objects): OK 3",
+  "T 5607402519773 12058 driver move 0000000000000002 -> staged: OK",
+  "T 5607573276895 12058 driver commit move 0000000000000002 at epoch 2: OK",
+  "[  32.383] copied 100000 objects ahead of the seal",
+  "[  32.696] seal: OK 2 1 2 2 100000 3545668860898125310 1 0 0 1 100000 3545668860898125310 flags=0 proof=sealed arrived=0:0",
+  "[  42.486] final copy (100000 objects): OK 3",
+  "[  42.496] move 0000000000000002 -> staged: OK",
+  "[  42.667] commit move 0000000000000002 at epoch 2: OK"
+ ]
+}

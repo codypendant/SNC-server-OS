@@ -18,7 +18,7 @@ Decided by cody on 2026-11-04.
 - **Exceptions:** work a validation workload explicitly requires, and
   fixes for defects that would invalidate an experiment (R08, R11 are
   candidates).
-- **Order:** S1 (in progress, not interrupted), its review, the required
+- **Order:** S1 (implemented, under review), its review, the required
   correctness fixes, the SNC Experimental Baseline (fixed commit, machine
   manifests, pre-registered failure criteria), the falsification program,
   then the decision.
@@ -157,8 +157,24 @@ Decided by cody on 2026-11-04.
   Restate, Orleans, SpacetimeDB and DBOS, compared mechanism by mechanism
   against SNC's contracts; runs alongside Core work and changes nothing by
   itself.
-- Legacy role upgrade hardening (2026-11-04, **implemented, under review;
-  S1 waits for that review**): [LEGACY_ROLE.md](LEGACY_ROLE.md). A data
+- S1 bounded destination staging (2026-11-04, **implemented, under
+  review**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md) section 18. Every
+  STAGE (final and copy ahead) and its reply report run on B's shard as a
+  chain of bounded units with guards between them (fence, token,
+  placement, mutation, rehash), a durability window, and a driver resend
+  instead of HAVE/EXPORT loops; `--move-units off` is the one-task
+  rollback. At 100K objects:
+  - **the longest non-preemptible unit falls from 2979 ms to 3.8 ms**;
+  - STATUS max during the final falls from 2986 ms to 16 ms;
+  - foreground deposit max falls from 1.6 s to 32 ms.
+
+  The costs are the total move (+45%) and the client-visible `E_MIGRATING`
+  window (+37% shared email, +10% unique). The shared-email index costs
+  about 0.2 ms per put: per object, within the unit bound, a separate
+  primitive. Tests: `test_stage_chain`, `test_s1` (S1-1..S1-18). Raw
+  results: `bench/results/s1-20261104/`.
+- Legacy role upgrade hardening (2026-11-04, **approved** after the review
+  of PR #41): [LEGACY_ROLE.md](LEGACY_ROLE.md). A data
   directory from before role files no longer starts as a primary by
   default: it is a standby (`--standby`) or is adopted once
   (`--adopt-role primary`), refused if a group member serves, is silent or

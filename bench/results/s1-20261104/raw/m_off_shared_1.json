@@ -1,0 +1,186 @@
+{
+ "args": {
+  "build": "build",
+  "objects": 100000,
+  "email": "shared",
+  "units": "off",
+  "unit_us": 1000,
+  "unit_bytes": 1048576,
+  "window_bytes": 8388608,
+  "writers": 4,
+  "changed": 18000,
+  "chunk": 256,
+  "json": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/s1/m_off_shared_1.json",
+  "keep": false
+ },
+ "work": "/tmp/snc-s1move-4zfuida0",
+ "slot": 1326,
+ "slot_objects": 100000,
+ "source": 1,
+ "dest": 3,
+ "move": "DONE",
+ "move_s": 25.39,
+ "writer_deposits_ok": 16460,
+ "final_stage_ms": 3264.2,
+ "final_stage_end": {
+  "slot": "1326",
+  "move": "2",
+  "final": "1",
+  "objs": "100000",
+  "units": "1",
+  "max_unit_ms": "3160.567",
+  "chain_ms": "3163.1",
+  "wait_lsn_ms": "101.0",
+  "index_ms": "2804.6",
+  "wal_ms": "49.3",
+  "status": "OK"
+ },
+ "e_migrating_trace_ms": 5123.7,
+ "e_migrating_client_ms": 5389.0,
+ "client_refusals": {
+  "E_MIGRATING": 1600
+ },
+ "stage_units_trace": {
+  "n": 0,
+  "p50": null,
+  "p95": null,
+  "p99": null,
+  "max": null
+ },
+ "chain": {
+  "slot": "1326",
+  "move": "2",
+  "objs": "100000",
+  "status": "OK",
+  "units": "1",
+  "p50": "3160.566",
+  "p95": "3160.566",
+  "p99": "3160.566",
+  "max": "3160.567",
+  "put": "15376",
+  "dropped": "0",
+  "bytes": "3813248",
+  "window_hw": "0",
+  "window_waits": "0",
+  "scan_restarts": "0",
+  "shard_ms": "3160.6",
+  "chain_ms": "3163.1",
+  "wait_ms": "101.0",
+  "listed_entries": "100000",
+  "gone": "0",
+  "report_units": "0",
+  "report_restarts": "0",
+  "runs": "0"
+ },
+ "dest_long_iters_ge20ms": {
+  "whole_run": {
+   "n": 305,
+   "p50": 49.7,
+   "p95": 78.1,
+   "p99": 87.0,
+   "max": 3166.0
+  },
+  "final_stage": {
+   "n": 2,
+   "p50": 3166.0,
+   "p95": 3166.0,
+   "p99": 3166.0,
+   "max": 3166.0
+  }
+ },
+ "dest_long_iters_final_detail": [
+  {
+   "shard": "0",
+   "total_ms": "3166.0",
+   "drain_ms": "0.0",
+   "inject_ms": "3160.7",
+   "injected": "1",
+   "io_ms": "0.0",
+   "poll_ms": "5.2",
+   "publish_ms": "0.0"
+  },
+  {
+   "shard": "0",
+   "total_ms": "86.3",
+   "drain_ms": "0.0",
+   "inject_ms": "86.2",
+   "injected": "1",
+   "io_ms": "0.0",
+   "poll_ms": "0.1",
+   "publish_ms": "0.0"
+  }
+ ],
+ "dest_trace_events_final": {
+  "stage_begin": 1,
+  "shard_long_iter": 2,
+  "admin_status_slow": 1,
+  "admin_heavy_slow": 1,
+  "stage_end": 1
+ },
+ "HEALTH": {
+  "final_stage": {
+   "n": 581,
+   "p50": 0.371,
+   "p95": 0.779,
+   "p99": 1.109,
+   "max": 3.401
+  },
+  "whole_move": {
+   "n": 4386,
+   "p50": 0.372,
+   "p95": 1.353,
+   "p99": 3.013,
+   "max": 12.778
+  }
+ },
+ "STATUS": {
+  "final_stage": {
+   "n": 2,
+   "p50": 3166.183,
+   "p95": 3166.183,
+   "p99": 3166.183,
+   "max": 3166.183
+  },
+  "whole_move": {
+   "n": 854,
+   "p50": 5.974,
+   "p95": 72.071,
+   "p99": 85.726,
+   "max": 3166.183
+  }
+ },
+ "fg": {
+  "final_stage": {
+   "n": 2,
+   "p50": 3177.644,
+   "p95": 3177.644,
+   "p99": 3177.644,
+   "max": 3177.644
+  },
+  "whole_move": {
+   "n": 1387,
+   "p50": 2.704,
+   "p95": 68.995,
+   "p99": 84.509,
+   "max": 3177.644
+  }
+ },
+ "health_stall_ms_max": {
+  "final_stage": 3161,
+  "whole_move": 3161
+ },
+ "VmHWM": "144352 kB",
+ "VmRSS": "50932 kB",
+ "driver_log": [
+  "T 5182549947482 21349 driver copied 100000 objects ahead of the seal",
+  "T 5182852222519 21349 driver seal: OK 2 1 2 2 100000 13596042285289739573 1 0 0 1 100000 13596042285289739573 flags=0 proof=sealed arrived=0:0",
+  "T 5187639489649 21349 driver final copy (100000 objects): OK 3",
+  "T 5187647878708 21349 driver move 0000000000000002 -> staged: OK",
+  "T 5187811669151 21349 driver commit move 0000000000000002 at epoch 2: OK",
+  "[  19.858] copied 100000 objects ahead of the seal",
+  "[  20.160] seal: OK 2 1 2 2 100000 13596042285289739573 1 0 0 1 100000 13596042285289739573 flags=0 proof=sealed arrived=0:0",
+  "[  24.947] final copy (100000 objects): OK 3",
+  "[  24.955] move 0000000000000002 -> staged: OK",
+  "[  25.119] commit move 0000000000000002 at epoch 2: OK"
+ ]
+}

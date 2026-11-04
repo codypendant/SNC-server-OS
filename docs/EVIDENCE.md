@@ -624,3 +624,46 @@ Full record: [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md) section
   lost; a legacy adoption where both members' flags are swapped, or one
   without a control plane (LEGACY_ROLE.md section 6).
 
+
+## 14. S1 bounded destination staging (2026-11-04, after the review of PR #41)
+
+Full record: [MIGRATION_STAGING.md](MIGRATION_STAGING.md) section 18. Raw
+results: `bench/results/s1-20261104/`.
+
+- **Bounded work (B-1, W1) for migration staging.** This is EL2:
+  loopback, real processes, 100K objects, medians of 3.
+  - **Before** (`--move-units off`, the old one task): the final stage
+    held B's shard for 2979 ms (shared email) and 312 ms (unique).
+  - **After:** the longest unit is 3.8 ms and 3.4 ms, unit p99 is
+    1.7-1.8 ms, and no B shard iteration of 20 ms or more occurs in the
+    final.
+- **Interruptibility.** The final stage is stopped within one unit by:
+  - fencing (`E_FENCED`);
+  - promotion of B's standby, once the old primary knows it (EL2,
+    `test_s1` fence);
+  - a newer move (G-chain, `test_stage_chain` SU).
+
+  G-mut (a foreign mutation) is implemented but not exercised by a test.
+
+  A crash at any named unit leaves no serving copy, and the driver's
+  resend converges. Evidence: `test_s1` crash matrix (EL2) and
+  `test_stage_chain` (EL1).
+- **Equivalence.** The chained final stages exactly the one-task final's
+  objects, count and digest (`test_stage_chain` B, random subsets).
+- **Costs, MEASURED:**
+  - final stage 1.6x;
+  - client-visible `E_MIGRATING` +37% (shared) and +10% (unique);
+  - total move +45%.
+
+  INFERRED: the gap between shard time (1.04-1.2x) and wall time comes
+  from CPU oversubscription on this 4-vCPU host.
+- **Not evidence of:**
+  - bounded HAVE, `INFO`, seal, export or activation (about 100 ms each
+    at this map);
+  - a shorter `E_MIGRATING` window (S2/S3);
+  - any memory bound on the copy ahead;
+  - behaviour on real machines or across a WAN (the experimental
+    validation milestone).
+- **The index posting-list cost** is a separate primitive, not a unit
+  violation: about 0.2 ms per put with a shared email, linear in the
+  posting list.

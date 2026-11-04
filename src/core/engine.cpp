@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <functional>
 #include <latch>
 #include <optional>
 #include <mutex>
@@ -989,6 +990,20 @@ auto Engine::on_shard(u16 shard, F fn) -> decltype(fn()) {
   return std::move(*out);
 }
 
+template <typename F>
+void Engine::on_shard_steps(u16 shard, F step) {
+  std::latch back(1);
+  std::function<void()> task = [&] {
+    if (step()) {
+      back.count_down();  // the last touch of this frame
+      return;
+    }
+    rt_->submit(shard, task);
+  };
+  rt_->submit(shard, task);
+  back.wait();
+}
+
 bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
                               const std::array<SlotArrival, kSlots>* arrived) {
   if (!running_ || cfg_.cluster.empty()) return false;
@@ -1122,22 +1137,190 @@ Status Engine::slot_objects(u16 slot, std::vector<SlotObject>& out) {
   return Status::OK;
 }
 
+// S1 (docs/MIGRATION_STAGING.md 3.2): the request runs as a chain of
+// shard tasks driven from this (control) thread; between two units the
+// shard runs whatever else is queued. Every exit releases the chain's
+// registration. The chain is volatile: what it wrote is ordinary staged
+// records, inert in a foreign slot, found again by a retry's HAVE.
 Status Engine::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
                           u64 count, u64 digest, SlotReport& out, double timeout_s) {
   const u16 sh = slots_.owner[slot];
-  u64 lsn = 0;
-  const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+  StageChain c;
+  c.slot = slot;
+  c.move = move;
+  c.from = from;
+  c.epoch = epoch;
+  c.final = final;
+  c.objs = &objs;
+  c.count = count;
+  c.digest = digest;
+  // Sized here, off the shard: growing it entry by entry would rehash
+  // inside a unit.
+  if (final) c.listed.reserve(objs.size());
+  if (cfg_.move_units) {
+    c.unit_ns = u64{cfg_.move_unit_us} * 1000;
+    c.unit_bytes = cfg_.move_unit_bytes;
+    c.window_bytes = cfg_.move_window_bytes;
+  }
+  const u64 t0 = trace::now_ns();
   SNC_TRACE("stage_begin slot=%u move=%llx final=%d objs=%zu shard=%u", slot, (unsigned long long)move, final ? 1 : 0,
             objs.size(), sh);
-  Status st =
-      on_shard(sh, [&] { return current_shard()->stage_slot(slot, move, from, epoch, final, objs, count, digest, lsn); });
-  const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
-  if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
-  out = slot_report(slot);
-  SNC_TRACE("stage_end slot=%u move=%llx final=%d objs=%zu on_shard_ms=%.1f wait_lsn_ms=%.1f status=%s", slot,
-            (unsigned long long)move, final ? 1 : 0, objs.size(), (t1 - t0) / 1e6,
-            trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0, status_name(st));
+  Status st;
+  u64 window_waits = 0;
+  if (!cfg_.move_units) {
+    st = on_shard(sh, [&] {
+      Shard* s = current_shard();
+      Status r = s->stage_admit(c);
+      if (r == Status::OK && c.phase != StageChain::DONE) r = s->stage_unit(c);
+      s->stage_release(c);
+      return r;
+    });
+  } else {
+    if (final) debug_stage_point(StageChain::ADMIT, 0);
+    st = on_shard(sh, [&] { return current_shard()->stage_admit(c); });
+    // A run of units: each unit, when the chain goes on, queues the next
+    // behind whatever the shard has waiting (its rings, I/O and injected
+    // tasks run in between), with no round trip to this thread. The run
+    // comes back here when the chain is done or refused, when the window
+    // is full, or after every unit while a debug stop is armed.
+    auto run_units = [&]() -> Status {
+      Status out = Status::OK;
+      on_shard_steps(sh, [&] {
+        const u8 ph = c.phase;
+        const Status r = current_shard()->stage_unit(c);
+        SNC_TRACE("stage_unit slot=%u move=%llx final=%d phase=%s unit_us=%u put=%llu dropped=%llu pending=%llu "
+                  "status=%s",
+                  slot, (unsigned long long)move, final ? 1 : 0, StageChain::phase_name(ph),
+                  c.unit_us.empty() ? 0u : c.unit_us.back(), (unsigned long long)c.put,
+                  (unsigned long long)c.dropped, (unsigned long long)c.pending_bytes, status_name(r));
+        out = r;
+        return r != Status::OK || c.phase == StageChain::DONE || c.pending_bytes > c.window_bytes ||
+               (final && debug_stage_armed_.load(std::memory_order_relaxed));
+      });
+      return out;
+    };
+    try {
+      while (st == Status::OK && c.phase != StageChain::DONE) {
+        if (final) debug_stage_point(c.phase, static_cast<u32>(c.phase_units[c.phase]));
+        ++c.runs;
+        st = run_units();
+        // The window: wait (off the shard) for the oldest appended record
+        // while too much of what the chain wrote is not yet durable.
+        if (st == Status::OK && c.pending_bytes > c.window_bytes && !c.pending.empty()) {
+          // Until enough of it is durable to bring it back under the window
+          // (the oldest records first: durability is in LSN order).
+          u64 left = c.pending_bytes;
+          u64 lsn = 0;
+          for (const auto& [l, b] : c.pending) {
+            lsn = std::max(lsn, l);
+            left -= b;
+            if (left <= c.window_bytes) break;
+          }
+          ++window_waits;
+          st = wait_lsn(sh, lsn, timeout_s);
+        }
+      }
+    } catch (...) {
+      // Every exit clears the registration (docs/MIGRATION_STAGING.md 3.2).
+      on_shard(sh, [&] {
+        current_shard()->stage_release(c);
+        return 0;
+      });
+      throw;
+    }
+    on_shard(sh, [&] {
+      current_shard()->stage_release(c);
+      return 0;
+    });
+  }
+  const u64 t1 = trace::now_ns();
+  if (st == Status::OK) st = wait_lsn(sh, c.lsn, timeout_s);
+  if (final && st == Status::OK) debug_stage_point(StageChain::DONE, 0);  // "reply"
+  if (final) {
+    // A stop point this chain never reached (its phase took fewer units)
+    // must not fire in a later, unrelated move.
+    std::lock_guard<std::mutex> g(stage_mu_);
+    debug_stage_ = DebugStageStop{};
+    debug_stage_armed_ = false;
+  }
+  // The reply's report walks the whole map: in bounded steps too (an
+  // unchanged slot is the common case; a slot that keeps changing under
+  // the walk falls back to one task).
+  u64 report_units = 0, report_restarts = 0;
+  if (cfg_.move_units) {
+    Shard::ReportWalk w;
+    w.slot = slot;
+    const u64 unit_ns = c.unit_ns;
+    bool walked = false;
+    on_shard_steps(sh, [&] {
+      ++report_units;
+      walked = current_shard()->slot_report_unit(w, out, unit_ns);
+      return walked || w.restarts > 8;
+    });
+    if (!walked) out = slot_report(slot);  // the slot kept changing under the walk
+    report_restarts = w.restarts;
+  } else {
+    out = slot_report(slot);
+  }
+  const u64 t2 = trace::now_ns();
+  if (final && c.units != 0) {
+    std::vector<u32> u = c.unit_us;
+    std::sort(u.begin(), u.end());
+    auto pct = [&](double p) { return u.empty() ? 0.0 : u[std::min(u.size() - 1, static_cast<std::size_t>(p * u.size()))] / 1e3; };
+    char line[640];
+    std::snprintf(line, sizeof(line),
+                  "stage_chain slot=%u move=%llx objs=%zu status=%s units=%llu (check %llu put %llu scan %llu drop %llu "
+                  "stage %llu) unit_ms p50=%.3f p95=%.3f p99=%.3f max=%.3f (%s) put=%llu dropped=%llu bytes=%llu "
+                  "window_hw=%llu window_waits=%llu scan_restarts=%llu shard_ms=%.1f chain_ms=%.1f wait_ms=%.1f "
+                  "listed_entries=%zu gone=%zu report_units=%llu report_restarts=%llu runs=%llu",
+                  slot, (unsigned long long)move, objs.size(), status_name(st), (unsigned long long)c.units,
+                  (unsigned long long)c.phase_units[StageChain::CHECK], (unsigned long long)c.phase_units[StageChain::PUT],
+                  (unsigned long long)c.phase_units[StageChain::SCAN], (unsigned long long)c.phase_units[StageChain::DROP],
+                  (unsigned long long)c.phase_units[StageChain::STAGE], pct(0.5), pct(0.95), pct(0.99),
+                  c.max_unit_ns / 1e6, StageChain::phase_name(c.max_unit_phase), (unsigned long long)c.put, (unsigned long long)c.dropped,
+                  (unsigned long long)c.bytes, (unsigned long long)c.pending_hw, (unsigned long long)window_waits,
+                  (unsigned long long)c.scan_restarts, c.shard_ns / 1e6, (t1 - t0) / 1e6, (t2 - t1) / 1e6,
+                  c.listed.size(), c.gone.size(), (unsigned long long)report_units,
+                  (unsigned long long)report_restarts, (unsigned long long)c.runs);
+    std::fprintf(stderr, "snc: %s\n", line);
+    std::lock_guard<std::mutex> g(stage_mu_);
+    last_stage_ = line;
+  }
+  SNC_TRACE("stage_end slot=%u move=%llx final=%d objs=%zu units=%llu max_unit_ms=%.3f chain_ms=%.1f wait_lsn_ms=%.1f "
+            "index_ms=%.1f wal_ms=%.1f status=%s",
+            slot, (unsigned long long)move, final ? 1 : 0, objs.size(), (unsigned long long)c.units, c.max_unit_ns / 1e6,
+            (t1 - t0) / 1e6, (t2 - t1) / 1e6, c.index_ns / 1e6, c.log_ns / 1e6, status_name(st));
   return st;
+}
+
+void Engine::debug_stage_stop(int phase, u32 unit, bool crash, u32 hold_ms) {
+  std::lock_guard<std::mutex> g(stage_mu_);
+  debug_stage_ = DebugStageStop{phase, unit, hold_ms, crash};
+  debug_stage_armed_ = true;
+}
+
+std::string Engine::last_stage_report() const {
+  std::lock_guard<std::mutex> g(stage_mu_);
+  return last_stage_;
+}
+
+void Engine::debug_stage_point(int phase, u32 unit) {
+  DebugStageStop d;
+  {
+    std::lock_guard<std::mutex> g(stage_mu_);
+    if (debug_stage_.phase != phase || debug_stage_.unit != unit) return;
+    d = debug_stage_;
+    debug_stage_ = DebugStageStop{};  // once
+    debug_stage_armed_ = false;
+  }
+  const char* name = phase == StageChain::DONE ? "reply" : StageChain::phase_name(static_cast<u8>(phase));
+  if (d.crash) {
+    std::fprintf(stderr, "debug: stage chain crash before %s unit %u\n", name, unit);
+    std::fflush(stderr);
+    _exit(9);
+  }
+  std::fprintf(stderr, "debug: stage chain held %u ms before %s unit %u\n", d.hold_ms, name, unit);
+  std::this_thread::sleep_for(std::chrono::milliseconds(d.hold_ms));
 }
 
 void Engine::take_lease_block(u16 n) {
