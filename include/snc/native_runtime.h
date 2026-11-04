@@ -62,6 +62,10 @@ class NativeRuntime {
 
   u16 shard_count() const;
   const ShardTopology& topology(u16 shard) const;
+  // Shard progress (docs/HEALTH_DECOUPLING.md 3.2): the number of loop
+  // iterations shard `shard` has started. Safe from any thread; never waits
+  // on the shard. False if this backend does not count them (Seastar).
+  bool progress(u16 shard, u64& iterations) const;
   // Stats for ring (src, dst); read after stop() or accept racy values.
   RingStats ring_stats(u16 src, u16 dst) const;
 

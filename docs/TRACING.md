@@ -40,14 +40,16 @@ Events emitted today:
 | Event | Where | Fields |
 | --- | --- | --- |
 | `shard_long_iter` | `src/native/runtime.cpp` loop, iteration ≥ 20 ms | shard, total, drain, inject (+count), io, poll, publish (ms) |
-| `admin_status_slow` | `tools/snc_server.cpp`, STATUS ≥ 20 ms | total, read, `replication_status` (ms) |
-| `admin_move_in` / `admin_move_out` / `admin_read_fail` | admin port | verb, bytes, read / handle / write ms, reply prefix |
+| `admin_status_slow` | `tools/snc_server.cpp`, `replication_status` ≥ 20 ms inside a STATUS | `replication_status` (ms). Before HEALTH it also carried total and read ms; those are now in `admin_heavy_slow` |
+| `admin_heavy_slow` | `tools/admin_loop.h` worker, a queued verb (STATUS, AUDIT, PROMOTE ...) ≥ 20 ms from accept to answer | verb, total, queue wait, run (ms) |
+| `admin_inline_slow` | `tools/admin_loop.h`, an inline verb (HEALTH, DEBUG) ≥ 20 ms from accept to answer | verb, total (ms) |
+| `admin_move_in` / `admin_move_out` / `admin_read_fail` | admin port (`admin_read_fail`: no whole line within 500 ms, or closed first) | verb, bytes, read / handle / write ms, reply prefix |
 | `ask_witness` | primary → witness (DEGRADE, SYNCED) | port, request, ok, ms, reply |
 | `stage_begin` / `stage_end` / `seal` / `export` | `src/core/engine.cpp` | slot, move, final, objects, on-shard ms, durability-wait ms, status |
 | `stage_slot_phases` | `Shard::stage_slot` final | check, put (count, index ms, WAL ms), scan ms, map size |
 | `move_stage_req` | `tools/migrate.h` node handler | decode ms, control-plane check ms |
 | `driver`, `driver_ask` | `tools/migrate.h` driver | step text; each request's verb, bytes, ms, reply |
-| `witness_status` | `tools/snc_witness.cpp`, poll failed or ≥ 20 ms | group, node, ok, ms, reply |
+| `witness_ask` | `tools/snc_witness.cpp`, a HEALTH or STATUS poll that failed or took ≥ 20 ms (was `witness_status`, STATUS only) | group, node, verb, ok, ms, reply |
 | `witness_suspect` / `witness_propose_promote` | witness | silence ms, degraded; proposal result, ms |
 | `cpu_thread` / `cpu_host` | `bench/lab/cpu_sample.py` | tid, %CPU, state, CPU; run queue, PSI |
 

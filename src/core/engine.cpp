@@ -34,6 +34,7 @@ struct EngineHooks {
   const ClusterMap* cluster;
   const std::atomic<bool>* serving;
   std::atomic<bool>* fenced;
+  std::atomic<bool>* replicating;
   std::atomic<u8>* phases;
   std::atomic<u64>* epoch_hint;
 };
@@ -49,6 +50,7 @@ void hook_init(void* user) {
   // Engine::recover, step 7).
   s->pause_emits(h->cfg->hold_emits || !h->cfg->data_dir.empty());
   s->set_withdraw_flag(h->fenced);
+  s->set_replicating_flag(h->replicating);
   s->set_phases(h->phases);
   s->set_epoch_hint(h->epoch_hint);
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
@@ -120,6 +122,8 @@ struct EngineState {
   // A newer primary of this group exists: every shard withdraws from the
   // data plane (Shard::withdraw).
   std::atomic<bool> fenced{false};
+  // Some shard has a replication sender (Engine::replicating).
+  std::atomic<bool> replicating{false};
   // Slot moves (docs/MIGRATION.md): each slot's phase here, and the newest
   // placement epoch seen on a node link.
   std::array<std::atomic<u8>, kSlots> phases{};
@@ -159,7 +163,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
   g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced,
-                               g_state->phases.data(), &g_state->epoch_hint};
+                               &g_state->replicating, g_state->phases.data(), &g_state->epoch_hint};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -902,6 +906,8 @@ void Engine::withdraw() {
 }
 
 bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
+
+bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 
 Engine::ReplStatus Engine::replication_status() const {
   ReplStatus st;

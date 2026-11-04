@@ -1368,6 +1368,7 @@ void Shard::start_sender(const std::string& data_dir, u64 next_lsn) {
   repl_cfg_.sender.data_dir = data_dir;
   repl_cfg_.sender.start_lsn = next_lsn;
   sender_ = std::make_unique<repl::Sender>(repl_cfg_.sender);
+  if (replicating_flag_) replicating_flag_->store(true);
   wal_->on_flush = &Shard::on_wal_flush;
   wal_->on_flush_ctx = this;
   repl_hold_ = repl_cfg_.sync;

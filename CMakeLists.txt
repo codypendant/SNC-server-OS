@@ -81,6 +81,7 @@ if(PYTHON3)
   add_test(NAME test_witness COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_witness.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_async_failover COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_async_failover.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_control COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_control.py ${CMAKE_BINARY_DIR})
+  add_test(NAME test_health COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_health.py ${CMAKE_BINARY_DIR})
 endif()
 
 add_executable(baseline_server bench/baseline_server.cpp)

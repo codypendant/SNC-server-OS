@@ -736,3 +736,33 @@ or source comments.
 -   **Next action:** Codex reviews the contracts (CORE_CONTRACTS sections
     5-14 are PROPOSED unless tagged otherwise). Recommended next slice:
     R08 option F-a (async groups never auto-promote). Not started.
+
+### 2026-11-04 UTC --- Claude (Claude Code): HA health-path decoupling (option B)
+
+-   **Classification:** **REFINE** of the witness's liveness signal and the
+    admin port, as approved in the review of PR #36 (option B and the four
+    decisions). No durable-format, client wire or Paxos-state change.
+-   **What changed:** `HEALTH` admin verb (published state only, shard and
+    main-loop progress as diagnostics); per-shard loop counter
+    (`NativeRuntime::progress`) and a 10 ms sampler; `Engine::replicating()`
+    for `role` without a shard task; a non-blocking admin loop
+    (`tools/admin_loop.h`: `HEALTH` inline, `MOVE` handed off early, one
+    worker for the other verbs, queue 16, half-read 256, counters);
+    `DEBUG STALL` behind `--debug-admin`; witness polls `HEALTH` with
+    `STATUS` fallback and `--health-verb status` rollback; `--rejoin`
+    uses `HEALTH`. Docs: HEALTH_DECOUPLING section 10, CORE_CONTRACTS
+    PE-3, PE-4, B-2, B-3 (option B), FAILURE_MODEL P2 and W1,
+    INTERACTION_MATRIX row 11, REPLICATION, TRACING, EVIDENCE, STATUS.
+-   **Deviations from the proposal, for review:** the standby is still
+    checked with `STATUS` before promotion (no `stall_ms` eligibility rule,
+    so eligibility is exactly as before); `progress()` is on
+    `NativeRuntime`, not `sri.h`; non-`MOVE` admin lines are capped at
+    64 KiB; the main loop wakes every 100 ms so `main_ms` is meaningful.
+-   **Evidence:** `tests/test_health.py` T1-T8, T10, T10b, T11 pass in
+    RelWithDebInfo, ASan+UBSan and TSan (full suites 17/17 each, server
+    children clean); T12 lab P5 100K move with no promotion; T9 no
+    regression visible (host noise 8-16%, larger than the 2% bar).
+-   **Not changed:** `failover_ms`, `poll_ms`, migration staging, the index,
+    R08, R11, trace rings.
+-   **Next action:** review of this slice. Bounded/resumable migration
+    staging only after that review.

@@ -338,7 +338,7 @@ Admin `PROMOTE` has no term guard.
 | E5 | The candidate's durable LSN, per shard, is at least the primary's last acknowledged LSN. In sync healthy mode this follows from E1+E2, because the primary acknowledges nothing the standby has not acked; the witness compares no LSNs | by construction for sync (EL2-EL4); never checked explicitly |
 | E6 | The candidate has finished catch-up (it was in sync, not seeding or catching up from disk) | INFERRED (EL0) yes. Initial seed: the seed fetch runs inside `Engine::recover` (`engine.cpp:327-337`) and the admin thread that answers `STATUS` starts only after `start` returns (`snc_server.cpp:355, 455`), so a seeding node never answers role=s and cannot be promoted. Catch-up of a connected standby: the primary is not in sync, so it degraded or blocked. Not tested |
 | E7 | The candidate is not diverged (no records from a term it did not follow) | yes: the term handshake refuses an older term's stream |
-| E8 | The candidate passed its own recovery barrier (section 12) | INFERRED (EL0) yes, implicitly: `STATUS` is answered only after `Engine::start` |
+| E8 | The candidate passed its own recovery barrier (section 12) | INFERRED (EL0) yes, implicitly: the admin port (`HEALTH`, `STATUS`) opens only after `Engine::start` returns (`snc_server.cpp`, kept by the admin loop) |
 | E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **UNPROVEN**: promotion ignores placement; `test_migrate` covers driver and node crashes, not a failover during a move |
 | E10 | The decision has a witness quorum | yes (Paxos; EL2 `test_witness.py` with one witness down) |
 | E11 | The candidate obtained a fresh mint lease block (with the control plane) before serving | with `--control` (`lease_blocks` set): yes (EL0 `Engine::promote` step 0; EL2 `test_control.py`). Without it: leases above `max(next_lease, max_seen + 1)` (`engine.cpp:589`) |
@@ -349,9 +349,21 @@ Admin `PROMOTE` has no term guard.
 - PE-2 [PROPOSED]. Operator promotion (`PROMOTE`) MUST carry the term it
   expects and fail on any other, and MUST require an explicit
   acknowledgement of possible loss when E1, E5 or E6 does not hold.
-- PE-3 [PROPOSED]. Silence MUST be measured on a health path that does
-  not depend on shard threads finishing long work (section 11): today a
-  busy primary is indistinguishable from a dead one (P2, measured).
+- PE-3 [ACCEPTED, IMPLEMENTED: review of PR #36; HEALTH_DECOUPLING.md
+  section 10]. Silence MUST be measured on a health path that does not
+  depend on shard threads finishing long work (section 11). As built:
+  the witness polls `HEALTH`, which waits on no shard. This holds only
+  when **every** witness of the group polls `HEALTH`: one witness on
+  `STATUS` (old, or `--health-verb status`) still makes a busy primary
+  look dead and proposes the promotion for the whole group (EL3,
+  `test_health.py` T10).
+- PE-4 [ACCEPTED: review of PR #36]. **Liveness is not promotion
+  eligibility.** A `HEALTH` answer establishes only that the process and
+  its admin path respond. It establishes none of: every shard healthy,
+  useful progress, replication current, HA_DURABLE, safe to promote,
+  safe to serve, eligible. `HEALTH` MUST NOT make eligibility weaker than
+  before; as built the standby is still checked with `STATUS` before a
+  promotion is proposed (EL3, `test_health.py` T7).
 
 ## 9. R08: async replication contract (deliverable F)
 
@@ -499,17 +511,25 @@ posting list.
   the slot, the map or a posting list MUST be chunked and resumable, with
   its progress in durable state where it must survive a crash (the
   migration steps already are).
-- B-2. Liveness health (what a witness polls) MUST NOT wait on shard
-  threads finishing work. It MAY read a per-shard heartbeat (a counter
-  each loop iteration publishes) and report a shard as *busy* separately
-  from *dead*.
-- B-3. A stall detector MUST distinguish "the loop has not iterated for
-  T" from "STATUS was slow", and the witness MUST NOT promote on a slow
-  answer from a process that proves it is alive, only on silence. **The
-  trade-off is real**: a primary whose shard thread is wedged forever is
-  alive and useless. The rule needs a second budget (a wedge limit),
-  much longer than the failover budget, after which the primary withdraws
-  itself. **UNDECIDED.**
+- B-2 [ACCEPTED, IMPLEMENTED: HEALTH_DECOUPLING.md section 10].
+  Liveness health (what a witness polls) MUST NOT wait on shard threads
+  finishing work. It reads a per-shard progress counter (each loop
+  iteration publishes it) and reports a shard as *stalled* (`stall_ms`)
+  separately from the process being silent.
+- B-3 [ACCEPTED: review of PR #36, option B]. **Shard progress is
+  diagnostic state, not authority state**, until the work it measures is
+  bounded (B-1). A stall detector reports "the loop has not iterated for
+  T" (`HEALTH` `stall_ms`) separately from "STATUS was slow". The
+  witness promotes only on silence of the health path. A shard stall
+  alone, or a main-loop stall alone, MUST NOT trigger automatic
+  promotion, withdrawal or a grant. The trade-off is accepted as a
+  temporary availability limitation: a primary whose shard thread is
+  wedged forever is alive and useless, and stays primary until an
+  operator acts (HEALTH_DECOUPLING.md HF1). Automatic wedge handling MAY
+  be reconsidered with an evidence-based threshold once the relevant work
+  is bounded and a progress contract exists; a threshold chosen to exceed
+  today's measurements is not one. Self-withdrawal on a stall is rejected
+  (HEALTH_DECOUPLING.md 3.5, option C).
 - B-4. Changing `failover_ms`, poll timeouts or TTLs MUST NOT be used to
   hide B-1..B-3 [ACCEPTED: work order].
 

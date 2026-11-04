@@ -1,0 +1,392 @@
+T 896795472088 18109 shard_long_iter shard=0 total_ms=22.5 drain_ms=0.0 inject_ms=0.0 injected=0 io_ms=0.0 poll_ms=22.5 publish_ms=0.0
+T 898021426944 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 898141274251 18109 shard_long_iter shard=0 total_ms=119.8 drain_ms=0.0 inject_ms=119.6 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 898141355866 18109 admin_move_out verb=INFO 1326 handle_ms=119.9 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 10364023
+T 898274715565 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 898378080697 18109 shard_long_iter shard=0 total_ms=103.2 drain_ms=0.0 inject_ms=103.1 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 898378118556 18109 admin_move_out verb=INFO 1326 handle_ms=103.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 11884112
+T 898531275063 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 898646410055 18109 shard_long_iter shard=0 total_ms=114.6 drain_ms=0.0 inject_ms=114.4 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 898646439445 18109 admin_move_out verb=INFO 1326 handle_ms=115.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15598331
+T 898791306205 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 898892478672 18109 admin_move_out verb=INFO 1326 handle_ms=101.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 16439655
+T 898893260098 18109 shard_long_iter shard=0 total_ms=101.7 drain_ms=0.0 inject_ms=100.8 injected=1 io_ms=0.0 poll_ms=0.9 publish_ms=0.0
+T 899025022371 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 899140937282 18109 admin_move_out verb=INFO 1326 handle_ms=115.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 14776568
+T 899141078946 18109 shard_long_iter shard=0 total_ms=116.0 drain_ms=0.0 inject_ms=115.6 injected=1 io_ms=0.0 poll_ms=0.4 publish_ms=0.0
+T 899271374750 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 899369629539 18109 admin_move_out verb=INFO 1326 handle_ms=98.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 82364550
+T 899369658964 18109 shard_long_iter shard=0 total_ms=98.2 drain_ms=0.0 inject_ms=98.1 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 899500502441 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 899601476266 18109 admin_move_out verb=INFO 1326 handle_ms=100.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 10443323
+T 899604498864 18109 shard_long_iter shard=0 total_ms=103.9 drain_ms=0.0 inject_ms=100.6 injected=1 io_ms=0.0 poll_ms=3.2 publish_ms=0.0
+T 899732560735 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 899832806611 18109 admin_move_out verb=INFO 1326 handle_ms=100.2 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 83023945
+T 899832867391 18109 shard_long_iter shard=0 total_ms=99.7 drain_ms=0.0 inject_ms=99.6 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 899972683823 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 900072410886 18109 admin_move_out verb=INFO 1326 handle_ms=99.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 85378278
+T 900075215224 18109 shard_long_iter shard=0 total_ms=102.3 drain_ms=0.0 inject_ms=99.4 injected=1 io_ms=0.0 poll_ms=3.0 publish_ms=0.0
+T 900205938502 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 900306084484 18109 admin_move_out verb=INFO 1326 handle_ms=100.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15217680
+T 900309699962 18109 shard_long_iter shard=0 total_ms=103.7 drain_ms=0.0 inject_ms=100.0 injected=1 io_ms=0.1 poll_ms=3.7 publish_ms=0.0
+T 900448446697 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 900564382420 18109 shard_long_iter shard=0 total_ms=115.8 drain_ms=0.0 inject_ms=115.7 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 900564385668 18109 admin_move_out verb=INFO 1326 handle_ms=115.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 16560522
+T 900691931443 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 900795522328 18109 shard_long_iter shard=0 total_ms=103.5 drain_ms=0.0 inject_ms=103.3 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 900795523559 18109 admin_move_out verb=INFO 1326 handle_ms=103.5 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 45384302
+T 900923686970 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 901018315590 18109 admin_move_out verb=INFO 1326 handle_ms=94.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 11935494
+T 901022613874 18109 shard_long_iter shard=0 total_ms=98.9 drain_ms=0.0 inject_ms=94.4 injected=1 io_ms=0.0 poll_ms=4.4 publish_ms=0.0
+T 901161436124 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 901280671427 18109 admin_move_out verb=INFO 1326 handle_ms=118.4 write_ms=0.8 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 92966242
+T 901284074754 18109 shard_long_iter shard=0 total_ms=122.4 drain_ms=0.0 inject_ms=118.0 injected=1 io_ms=0.0 poll_ms=4.4 publish_ms=0.0
+T 901447033473 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 901564514796 18109 admin_move_out verb=INFO 1326 handle_ms=117.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 86847318
+T 901565116210 18109 shard_long_iter shard=0 total_ms=117.7 drain_ms=0.0 inject_ms=116.9 injected=1 io_ms=0.0 poll_ms=0.8 publish_ms=0.0
+T 901719084903 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 901841362057 18109 admin_move_out verb=INFO 1326 handle_ms=122.2 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 11259773
+T 901841377484 18109 shard_long_iter shard=0 total_ms=121.1 drain_ms=0.0 inject_ms=120.9 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 901973677192 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 902077453129 18109 admin_move_out verb=INFO 1326 handle_ms=103.7 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 40318821
+T 902077592648 18109 shard_long_iter shard=0 total_ms=103.8 drain_ms=0.0 inject_ms=103.6 injected=1 io_ms=0.0 poll_ms=0.3 publish_ms=0.0
+T 902213837074 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 902311542130 18109 admin_move_out verb=INFO 1326 handle_ms=97.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 26950179
+T 902314844502 18109 shard_long_iter shard=0 total_ms=100.9 drain_ms=0.0 inject_ms=97.5 injected=1 io_ms=0.0 poll_ms=3.4 publish_ms=0.0
+T 902435256802 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 902528550808 18109 shard_long_iter shard=0 total_ms=93.2 drain_ms=0.0 inject_ms=93.1 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 902528679990 18109 admin_move_out verb=INFO 1326 handle_ms=93.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75195150
+T 902667502927 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 902771139223 18109 admin_move_out verb=INFO 1326 handle_ms=103.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 18234316
+T 902775091664 18109 shard_long_iter shard=0 total_ms=107.5 drain_ms=0.0 inject_ms=103.5 injected=1 io_ms=0.0 poll_ms=4.1 publish_ms=0.0
+T 902911076954 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 903092329114 18109 admin_move_out verb=INFO 1326 handle_ms=181.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 16626253
+T 903092337599 18109 shard_long_iter shard=0 total_ms=180.9 drain_ms=0.0 inject_ms=180.7 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 903291289839 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 903403018023 18109 admin_move_out verb=INFO 1326 handle_ms=111.7 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15503001
+T 903403067374 18109 shard_long_iter shard=0 total_ms=111.4 drain_ms=0.0 inject_ms=111.2 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 903546796273 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 903668621991 18109 admin_move_out verb=INFO 1326 handle_ms=121.8 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 56747605
+T 903668724115 18109 shard_long_iter shard=0 total_ms=121.8 drain_ms=0.0 inject_ms=121.6 injected=1 io_ms=0.0 poll_ms=0.3 publish_ms=0.0
+T 903850463991 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 904007594281 18109 admin_move_out verb=INFO 1326 handle_ms=157.1 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15716260
+T 904007746472 18109 shard_long_iter shard=0 total_ms=157.2 drain_ms=0.0 inject_ms=157.0 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 904243942693 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 904410832186 18109 shard_long_iter shard=0 total_ms=166.6 drain_ms=0.0 inject_ms=166.4 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 904410847183 18109 admin_move_out verb=INFO 1326 handle_ms=166.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 91275387
+T 904651875172 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 904805060558 18109 admin_move_out verb=INFO 1326 handle_ms=153.1 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 17460840
+T 904805857287 18109 shard_long_iter shard=0 total_ms=153.9 drain_ms=0.0 inject_ms=153.0 injected=1 io_ms=0.0 poll_ms=0.9 publish_ms=0.0
+T 905069874234 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.6
+T 905226759068 18109 shard_long_iter shard=0 total_ms=156.7 drain_ms=0.0 inject_ms=156.7 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 905226984806 18109 admin_move_out verb=INFO 1326 handle_ms=157.0 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 10502807
+T 905479598470 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 905639268501 18109 admin_move_out verb=INFO 1326 handle_ms=159.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 44793242
+T 905639330990 18109 shard_long_iter shard=0 total_ms=159.6 drain_ms=0.0 inject_ms=159.4 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 905902458825 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 906060485839 18109 admin_move_out verb=INFO 1326 handle_ms=158.0 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 65431404
+T 906064119087 18109 shard_long_iter shard=0 total_ms=161.6 drain_ms=0.0 inject_ms=157.8 injected=1 io_ms=0.0 poll_ms=3.8 publish_ms=0.0
+T 906329647533 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 906484410258 18109 admin_move_out verb=INFO 1326 handle_ms=154.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15078800
+T 906484530512 18109 shard_long_iter shard=0 total_ms=152.5 drain_ms=0.0 inject_ms=152.3 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 906721732390 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 906883692158 18109 admin_move_out verb=INFO 1326 handle_ms=161.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 17176974
+T 906885079928 18109 shard_long_iter shard=0 total_ms=163.2 drain_ms=0.0 inject_ms=161.6 injected=1 io_ms=0.0 poll_ms=1.6 publish_ms=0.0
+T 907170645140 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 907349565788 18109 admin_move_out verb=INFO 1326 handle_ms=178.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 92683118
+T 907349620449 18109 shard_long_iter shard=0 total_ms=178.9 drain_ms=0.0 inject_ms=178.7 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 907641027040 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 907828108090 18109 admin_move_out verb=INFO 1326 handle_ms=187.0 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 16534473
+T 907828592169 18109 shard_long_iter shard=0 total_ms=187.4 drain_ms=0.0 inject_ms=186.7 injected=1 io_ms=0.0 poll_ms=0.6 publish_ms=0.0
+T 908178361978 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 908402318181 18109 admin_move_out verb=INFO 1326 handle_ms=223.8 write_ms=0.2 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 10555103
+T 908403997810 18109 shard_long_iter shard=0 total_ms=225.6 drain_ms=0.0 inject_ms=223.6 injected=1 io_ms=0.0 poll_ms=1.9 publish_ms=0.0
+T 908743115932 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 908897385490 18109 admin_move_out verb=INFO 1326 handle_ms=154.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 17990879
+T 908898007718 18109 shard_long_iter shard=0 total_ms=154.5 drain_ms=0.0 inject_ms=153.7 injected=1 io_ms=0.0 poll_ms=0.8 publish_ms=0.0
+T 909175462179 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 909362105227 18109 admin_move_out verb=INFO 1326 handle_ms=186.6 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 12318953
+T 909362119412 18109 shard_long_iter shard=0 total_ms=186.6 drain_ms=0.0 inject_ms=186.5 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 909663794117 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 909844660537 18109 admin_move_out verb=INFO 1326 handle_ms=180.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 33335592
+T 909845684331 18109 shard_long_iter shard=0 total_ms=181.8 drain_ms=0.0 inject_ms=180.6 injected=1 io_ms=0.0 poll_ms=1.2 publish_ms=0.0
+T 910148037794 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 910338138287 18109 admin_move_out verb=INFO 1326 handle_ms=190.0 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 59513254
+T 910338568417 18109 shard_long_iter shard=0 total_ms=190.5 drain_ms=0.0 inject_ms=189.8 injected=1 io_ms=0.0 poll_ms=0.7 publish_ms=0.0
+T 910633927277 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 910801766944 18109 admin_move_out verb=INFO 1326 handle_ms=167.8 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 56056894
+T 910802124676 18109 shard_long_iter shard=0 total_ms=168.0 drain_ms=0.0 inject_ms=167.6 injected=1 io_ms=0.0 poll_ms=0.4 publish_ms=0.0
+T 911110546117 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 911284130838 18109 admin_move_out verb=INFO 1326 handle_ms=173.5 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15263746
+T 911286873798 18109 shard_long_iter shard=0 total_ms=176.2 drain_ms=0.0 inject_ms=173.3 injected=1 io_ms=0.0 poll_ms=2.9 publish_ms=0.0
+T 911626562954 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 911785167050 18109 admin_move_out verb=INFO 1326 handle_ms=158.6 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 55374196
+T 911785306670 18109 shard_long_iter shard=0 total_ms=158.7 drain_ms=0.0 inject_ms=158.5 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 912100203030 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 912269599948 18109 admin_move_out verb=INFO 1326 handle_ms=169.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 15010686
+T 912269748539 18109 shard_long_iter shard=0 total_ms=168.0 drain_ms=0.0 inject_ms=167.7 injected=1 io_ms=0.0 poll_ms=0.3 publish_ms=0.0
+T 912561260968 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 912727773496 18109 admin_move_out verb=INFO 1326 handle_ms=166.5 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 11634136
+T 912729131471 18109 shard_long_iter shard=0 total_ms=167.8 drain_ms=0.0 inject_ms=166.3 injected=1 io_ms=0.0 poll_ms=1.5 publish_ms=0.0
+T 913036642110 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 913214750240 18109 admin_move_out verb=INFO 1326 handle_ms=178.1 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 13655230
+T 913214926344 18109 shard_long_iter shard=0 total_ms=178.1 drain_ms=0.0 inject_ms=177.8 injected=1 io_ms=0.0 poll_ms=0.3 publish_ms=0.0
+T 913541555175 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 913704741769 18109 admin_move_out verb=INFO 1326 handle_ms=163.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 16301582
+T 913705151695 18109 shard_long_iter shard=0 total_ms=163.4 drain_ms=0.0 inject_ms=162.9 injected=1 io_ms=0.0 poll_ms=0.5 publish_ms=0.0
+T 914003657797 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 914167650338 18109 admin_move_out verb=INFO 1326 handle_ms=163.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 21671563
+T 914167703103 18109 shard_long_iter shard=0 total_ms=164.0 drain_ms=0.0 inject_ms=163.8 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 914472426966 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 914632328045 18109 admin_move_out verb=INFO 1326 handle_ms=159.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 14010219
+T 914633559503 18109 shard_long_iter shard=0 total_ms=161.1 drain_ms=0.0 inject_ms=159.5 injected=1 io_ms=0.0 poll_ms=1.6 publish_ms=0.0
+T 914958357557 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 915119301973 18109 admin_move_out verb=INFO 1326 handle_ms=160.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 23982123
+T 915120127689 18109 shard_long_iter shard=0 total_ms=161.6 drain_ms=0.0 inject_ms=160.6 injected=1 io_ms=0.0 poll_ms=1.0 publish_ms=0.0
+T 915464774024 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 915643492836 18109 admin_move_out verb=INFO 1326 handle_ms=178.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 11776001
+T 915644595485 18109 shard_long_iter shard=0 total_ms=179.7 drain_ms=0.0 inject_ms=178.4 injected=1 io_ms=0.0 poll_ms=1.3 publish_ms=0.0
+T 915976934271 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 916159194964 18109 admin_move_out verb=INFO 1326 handle_ms=182.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 60920337
+T 916160038301 18109 shard_long_iter shard=0 total_ms=183.0 drain_ms=0.0 inject_ms=182.0 injected=1 io_ms=0.0 poll_ms=1.0 publish_ms=0.0
+T 916510449425 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 916701639311 18109 admin_move_out verb=INFO 1326 handle_ms=191.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 24715040
+T 916704090504 18109 shard_long_iter shard=0 total_ms=193.5 drain_ms=0.0 inject_ms=191.0 injected=1 io_ms=0.0 poll_ms=2.6 publish_ms=0.0
+T 917067083089 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 917264921280 18109 admin_move_out verb=INFO 1326 handle_ms=197.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 10585340
+T 917266279409 18109 shard_long_iter shard=0 total_ms=199.1 drain_ms=0.0 inject_ms=197.7 injected=1 io_ms=0.0 poll_ms=1.5 publish_ms=0.0
+T 917662701762 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 917874282306 18109 admin_move_out verb=INFO 1326 handle_ms=211.6 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 86729992
+T 917878706890 18109 shard_long_iter shard=0 total_ms=215.9 drain_ms=0.0 inject_ms=211.4 injected=1 io_ms=0.0 poll_ms=4.5 publish_ms=0.0
+T 918251775657 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 918433526779 18109 shard_long_iter shard=0 total_ms=181.6 drain_ms=0.0 inject_ms=181.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 918433737396 18109 admin_move_out verb=INFO 1326 handle_ms=181.9 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 918732343619 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 918914901380 18109 shard_long_iter shard=0 total_ms=182.4 drain_ms=0.0 inject_ms=182.4 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 918915259692 18109 admin_move_out verb=INFO 1326 handle_ms=182.7 write_ms=0.2 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 919251271098 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 919434024316 18109 shard_long_iter shard=0 total_ms=182.7 drain_ms=0.0 inject_ms=182.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 919434104123 18109 admin_move_out verb=INFO 1326 handle_ms=182.8 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 919764123284 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 919953880979 18109 shard_long_iter shard=0 total_ms=189.6 drain_ms=0.0 inject_ms=189.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 919953987194 18109 admin_move_out verb=INFO 1326 handle_ms=189.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 920306622854 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 920490881341 18109 shard_long_iter shard=0 total_ms=184.1 drain_ms=0.0 inject_ms=184.1 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 920491029148 18109 admin_move_out verb=INFO 1326 handle_ms=184.4 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 920805677277 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 920956244900 18109 shard_long_iter shard=0 total_ms=150.5 drain_ms=0.0 inject_ms=150.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 920956388319 18109 admin_move_out verb=INFO 1326 handle_ms=150.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 921289447569 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 921470227555 18109 shard_long_iter shard=0 total_ms=180.7 drain_ms=0.0 inject_ms=180.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 921470364506 18109 admin_move_out verb=INFO 1326 handle_ms=180.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 921795626211 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 921983091301 18109 shard_long_iter shard=0 total_ms=187.2 drain_ms=0.0 inject_ms=187.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 921983281358 18109 admin_move_out verb=INFO 1326 handle_ms=187.6 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 922340972921 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 922547700046 18109 shard_long_iter shard=0 total_ms=206.6 drain_ms=0.0 inject_ms=206.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 922547805661 18109 admin_move_out verb=INFO 1326 handle_ms=206.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 922860217584 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 923039541752 18109 shard_long_iter shard=0 total_ms=178.8 drain_ms=0.0 inject_ms=178.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 923039725057 18109 admin_move_out verb=INFO 1326 handle_ms=179.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 923385924789 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 923586950669 18109 shard_long_iter shard=0 total_ms=200.8 drain_ms=0.0 inject_ms=200.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 923587335876 18109 admin_move_out verb=INFO 1326 handle_ms=201.2 write_ms=0.2 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 923929613698 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 924114498569 18109 shard_long_iter shard=0 total_ms=184.8 drain_ms=0.0 inject_ms=184.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 924114673285 18109 admin_move_out verb=INFO 1326 handle_ms=185.0 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 924440171582 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 924610004155 18109 shard_long_iter shard=0 total_ms=169.7 drain_ms=0.0 inject_ms=169.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 924610132600 18109 admin_move_out verb=INFO 1326 handle_ms=169.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 924937312757 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 925101494026 18109 shard_long_iter shard=0 total_ms=164.0 drain_ms=0.0 inject_ms=164.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 925101658854 18109 admin_move_out verb=INFO 1326 handle_ms=164.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 925425727267 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 925587170835 18109 shard_long_iter shard=0 total_ms=161.3 drain_ms=0.0 inject_ms=161.3 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 925587245252 18109 admin_move_out verb=INFO 1326 handle_ms=161.5 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 925922589269 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 926082468753 18109 shard_long_iter shard=0 total_ms=159.7 drain_ms=0.0 inject_ms=159.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 926082576869 18109 admin_move_out verb=INFO 1326 handle_ms=159.9 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 926414422228 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 926586564287 18109 shard_long_iter shard=0 total_ms=172.1 drain_ms=0.0 inject_ms=172.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 926589029145 18109 admin_move_out verb=INFO 1326 handle_ms=172.2 write_ms=2.4 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 926996983314 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 927181347300 18109 shard_long_iter shard=0 total_ms=184.2 drain_ms=0.0 inject_ms=184.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 927181549195 18109 admin_move_out verb=INFO 1326 handle_ms=184.5 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 927650544145 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 927839768837 18109 shard_long_iter shard=0 total_ms=189.2 drain_ms=0.0 inject_ms=189.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 927839894651 18109 admin_move_out verb=INFO 1326 handle_ms=189.3 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 928247466529 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 928406862570 18109 shard_long_iter shard=0 total_ms=159.2 drain_ms=0.0 inject_ms=159.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 928407096455 18109 admin_move_out verb=INFO 1326 handle_ms=159.5 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 928768315036 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 928933151311 18109 shard_long_iter shard=0 total_ms=164.8 drain_ms=0.0 inject_ms=164.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 928933309468 18109 admin_move_out verb=INFO 1326 handle_ms=164.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 929304961760 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 929482142505 18109 shard_long_iter shard=0 total_ms=177.0 drain_ms=0.0 inject_ms=177.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 929482250883 18109 admin_move_out verb=INFO 1326 handle_ms=177.2 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 929848340730 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 930022388975 18109 shard_long_iter shard=0 total_ms=173.8 drain_ms=0.0 inject_ms=173.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 930022542577 18109 admin_move_out verb=INFO 1326 handle_ms=174.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 930410605424 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 930581901483 18109 shard_long_iter shard=0 total_ms=171.2 drain_ms=0.0 inject_ms=171.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 930582109585 18109 admin_move_out verb=INFO 1326 handle_ms=171.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 930969026788 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 931145124932 18109 shard_long_iter shard=0 total_ms=175.7 drain_ms=0.0 inject_ms=175.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 931145253669 18109 admin_move_out verb=INFO 1326 handle_ms=176.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 931574910962 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 931753230294 18109 shard_long_iter shard=0 total_ms=178.2 drain_ms=0.0 inject_ms=178.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 931753422443 18109 admin_move_out verb=INFO 1326 handle_ms=178.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 932096048453 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 932274385135 18109 shard_long_iter shard=0 total_ms=178.0 drain_ms=0.0 inject_ms=178.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 932274485889 18109 admin_move_out verb=INFO 1326 handle_ms=178.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 932667341865 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 932849522668 18109 shard_long_iter shard=0 total_ms=182.0 drain_ms=0.0 inject_ms=182.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 932849681533 18109 admin_move_out verb=INFO 1326 handle_ms=182.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 933183621970 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 933364400605 18109 shard_long_iter shard=0 total_ms=180.7 drain_ms=0.0 inject_ms=180.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 933364520904 18109 admin_move_out verb=INFO 1326 handle_ms=180.9 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 933868580796 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 934108680315 18109 shard_long_iter shard=0 total_ms=240.0 drain_ms=0.0 inject_ms=240.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 934108883640 18109 admin_move_out verb=INFO 1326 handle_ms=240.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 934483187635 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 934674794677 18109 shard_long_iter shard=0 total_ms=191.5 drain_ms=0.0 inject_ms=191.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 934674992118 18109 admin_move_out verb=INFO 1326 handle_ms=191.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 935023970037 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 935210941878 18109 shard_long_iter shard=0 total_ms=186.7 drain_ms=0.0 inject_ms=186.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 935211193227 18109 admin_move_out verb=INFO 1326 handle_ms=187.0 write_ms=0.2 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 935577620606 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 935776960167 18109 shard_long_iter shard=0 total_ms=199.2 drain_ms=0.0 inject_ms=199.1 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 935777102453 18109 admin_move_out verb=INFO 1326 handle_ms=199.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 936241689720 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 936430430799 18109 shard_long_iter shard=0 total_ms=188.6 drain_ms=0.0 inject_ms=188.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 936430544758 18109 admin_move_out verb=INFO 1326 handle_ms=188.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 936857284492 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 937033876703 18109 shard_long_iter shard=0 total_ms=176.5 drain_ms=0.0 inject_ms=176.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 937034051206 18109 admin_move_out verb=INFO 1326 handle_ms=176.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 937416836341 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 937607076162 18109 shard_long_iter shard=0 total_ms=190.0 drain_ms=0.0 inject_ms=190.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 937607227255 18109 admin_move_out verb=INFO 1326 handle_ms=190.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 937980071009 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 938184277064 18109 shard_long_iter shard=0 total_ms=204.0 drain_ms=0.0 inject_ms=204.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 938184409316 18109 admin_move_out verb=INFO 1326 handle_ms=204.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 938528981289 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 938718665765 18109 shard_long_iter shard=0 total_ms=189.6 drain_ms=0.0 inject_ms=189.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 938718922366 18109 admin_move_out verb=INFO 1326 handle_ms=189.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 939138868474 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 939334896593 18109 shard_long_iter shard=0 total_ms=195.9 drain_ms=0.0 inject_ms=195.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 939335207088 18109 admin_move_out verb=INFO 1326 handle_ms=196.3 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 939734694739 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 939923624612 18109 shard_long_iter shard=0 total_ms=188.8 drain_ms=0.0 inject_ms=188.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 939923756640 18109 admin_move_out verb=INFO 1326 handle_ms=189.0 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 940288115825 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 940479719438 18109 shard_long_iter shard=0 total_ms=191.5 drain_ms=0.0 inject_ms=191.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 940479898826 18109 admin_move_out verb=INFO 1326 handle_ms=191.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 940887285663 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 941110457035 18109 shard_long_iter shard=0 total_ms=223.1 drain_ms=0.0 inject_ms=223.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 941110542291 18109 admin_move_out verb=INFO 1326 handle_ms=223.2 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 941511010891 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 941681561225 18109 shard_long_iter shard=0 total_ms=170.3 drain_ms=0.0 inject_ms=170.3 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 941681724361 18109 admin_move_out verb=INFO 1326 handle_ms=170.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 942053256345 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 942229371458 18109 shard_long_iter shard=0 total_ms=176.0 drain_ms=0.0 inject_ms=176.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 942229483143 18109 admin_move_out verb=INFO 1326 handle_ms=176.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 942572954652 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 942760861722 18109 shard_long_iter shard=0 total_ms=187.9 drain_ms=0.0 inject_ms=187.8 injected=1 io_ms=0.0 poll_ms=0.1 publish_ms=0.0
+T 942761264277 18109 admin_move_out verb=INFO 1326 handle_ms=188.2 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 943184623499 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 943367755685 18109 shard_long_iter shard=0 total_ms=183.0 drain_ms=0.0 inject_ms=183.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 943368105873 18109 admin_move_out verb=INFO 1326 handle_ms=183.4 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 943750316952 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 943930324937 18109 shard_long_iter shard=0 total_ms=179.9 drain_ms=0.0 inject_ms=179.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 943930413912 18109 admin_move_out verb=INFO 1326 handle_ms=180.0 write_ms=0.0 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 944319087903 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 944503946909 18109 shard_long_iter shard=0 total_ms=184.8 drain_ms=0.0 inject_ms=184.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 944504177322 18109 admin_move_out verb=INFO 1326 handle_ms=185.0 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 944919033331 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 945140891536 18109 shard_long_iter shard=0 total_ms=221.8 drain_ms=0.0 inject_ms=221.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 945140985395 18109 admin_move_out verb=INFO 1326 handle_ms=221.9 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 945588746479 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 945776504796 18109 shard_long_iter shard=0 total_ms=187.6 drain_ms=0.0 inject_ms=187.6 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 945776650758 18109 admin_move_out verb=INFO 1326 handle_ms=187.8 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 946205808289 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 946391861315 18109 shard_long_iter shard=0 total_ms=186.0 drain_ms=0.0 inject_ms=185.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 946392067016 18109 admin_move_out verb=INFO 1326 handle_ms=186.1 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 946833693888 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 947048329327 18109 shard_long_iter shard=0 total_ms=214.5 drain_ms=0.0 inject_ms=214.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 947048486489 18109 admin_move_out verb=INFO 1326 handle_ms=214.7 write_ms=0.1 reply=INFO 0 0 0 0 0 0 1 0 0 1 100049 75245497
+T 947586306995 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 947704918611 18109 shard_long_iter shard=0 total_ms=118.5 drain_ms=0.0 inject_ms=118.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 947705079905 18109 admin_move_out verb=INFO 1326 handle_ms=118.7 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 947997511247 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 948232890235 18109 shard_long_iter shard=0 total_ms=235.2 drain_ms=0.0 inject_ms=235.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 948233033147 18109 admin_move_out verb=INFO 1326 handle_ms=235.5 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 948660457047 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 948761201494 18109 shard_long_iter shard=0 total_ms=100.4 drain_ms=0.0 inject_ms=100.4 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 948761344344 18109 admin_move_out verb=INFO 1326 handle_ms=100.8 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 949213764881 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 949457312243 18109 shard_long_iter shard=0 total_ms=243.1 drain_ms=0.0 inject_ms=243.0 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 949457427531 18109 admin_move_out verb=INFO 1326 handle_ms=243.6 write_ms=0.0 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 951969120750 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 952221943336 18109 shard_long_iter shard=0 total_ms=252.7 drain_ms=0.0 inject_ms=252.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 952222031013 18109 admin_move_out verb=INFO 1326 handle_ms=252.9 write_ms=0.0 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 954189595399 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 954233348681 18109 admin_move_in verb=REFRESH bytes=12 read_ms=0.0
+T 954325596206 18109 shard_long_iter shard=0 total_ms=135.8 drain_ms=0.0 inject_ms=135.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 954325785872 18109 admin_move_out verb=INFO 1326 handle_ms=136.1 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 954327146052 18109 admin_move_out verb=REFRESH handle_ms=93.7 write_ms=0.1 reply=OK 2
+T 954726445132 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 954825554624 18109 shard_long_iter shard=0 total_ms=98.9 drain_ms=0.0 inject_ms=98.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 954825769656 18109 admin_move_out verb=INFO 1326 handle_ms=99.2 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 955126485210 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 955237414759 18109 shard_long_iter shard=0 total_ms=110.8 drain_ms=0.0 inject_ms=110.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 955237663017 18109 admin_move_out verb=INFO 1326 handle_ms=111.1 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 955547905995 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 955658608290 18109 shard_long_iter shard=0 total_ms=110.5 drain_ms=0.0 inject_ms=110.4 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 955658789602 18109 admin_move_out verb=INFO 1326 handle_ms=110.8 write_ms=0.0 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 955949134437 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 956056096474 18109 shard_long_iter shard=0 total_ms=104.8 drain_ms=0.0 inject_ms=104.8 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 956056267463 18109 admin_move_out verb=INFO 1326 handle_ms=107.1 write_ms=0.0 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 956335895428 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 956436265489 18109 admin_move_out verb=INFO 1326 handle_ms=100.3 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 956436297840 18109 shard_long_iter shard=0 total_ms=100.3 drain_ms=0.0 inject_ms=100.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 956712913942 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 956821841225 18109 shard_long_iter shard=0 total_ms=108.8 drain_ms=0.0 inject_ms=108.7 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 956822043041 18109 admin_move_out verb=INFO 1326 handle_ms=109.1 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 957129571276 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 957227073133 18109 shard_long_iter shard=0 total_ms=97.3 drain_ms=0.0 inject_ms=97.3 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 957227224700 18109 admin_move_out verb=INFO 1326 handle_ms=97.6 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 957531488320 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 957639440121 18109 admin_move_out verb=INFO 1326 handle_ms=107.9 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 957639477222 18109 shard_long_iter shard=0 total_ms=107.9 drain_ms=0.0 inject_ms=107.7 injected=1 io_ms=0.0 poll_ms=0.2 publish_ms=0.0
+T 957914721864 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 958013883948 18109 shard_long_iter shard=0 total_ms=98.9 drain_ms=0.0 inject_ms=98.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 958014071764 18109 admin_move_out verb=INFO 1326 handle_ms=99.3 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 958305198010 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.1
+T 958408617475 18109 shard_long_iter shard=0 total_ms=103.3 drain_ms=0.0 inject_ms=103.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 958408734822 18109 admin_move_out verb=INFO 1326 handle_ms=103.5 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 958744312221 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 958865084015 18109 shard_long_iter shard=0 total_ms=120.4 drain_ms=0.0 inject_ms=120.4 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 958865213735 18109 admin_move_out verb=INFO 1326 handle_ms=120.9 write_ms=0.0 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 959188284664 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 959310543914 18109 shard_long_iter shard=0 total_ms=122.1 drain_ms=0.0 inject_ms=122.1 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 959310666849 18109 admin_move_out verb=INFO 1326 handle_ms=122.3 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 959625336212 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 959819797774 18109 shard_long_iter shard=0 total_ms=194.2 drain_ms=0.0 inject_ms=194.2 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 959819952289 18109 admin_move_out verb=INFO 1326 handle_ms=194.6 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 960095704171 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 960249040644 18109 shard_long_iter shard=0 total_ms=152.9 drain_ms=0.0 inject_ms=152.9 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 960249199460 18109 admin_move_out verb=INFO 1326 handle_ms=153.4 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 960808611892 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 960998224860 18109 shard_long_iter shard=0 total_ms=189.5 drain_ms=0.0 inject_ms=189.5 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 960998507197 18109 admin_move_out verb=INFO 1326 handle_ms=189.8 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 961370111177 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 961575575434 18109 shard_long_iter shard=0 total_ms=205.3 drain_ms=0.0 inject_ms=205.3 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 961575685341 18109 admin_move_out verb=INFO 1326 handle_ms=205.5 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 961973125942 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 962232411383 18109 shard_long_iter shard=0 total_ms=259.2 drain_ms=0.0 inject_ms=259.1 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 962232520346 18109 admin_move_out verb=INFO 1326 handle_ms=259.3 write_ms=0.1 reply=INFO 2 1 2 2 100049 11837348197554022418
+T 962811454974 18109 admin_move_in verb=INFO 1326 bytes=14 read_ms=0.0
+T 963023035495 18109 shard_long_iter shard=0 total_ms=211.4 drain_ms=0.0 inject_ms=211.4 injected=1 io_ms=0.0 poll_ms=0.0 publish_ms=0.0
+T 963023248796 18109 admin_move_out verb=INFO 1326 handle_ms=211.7 write_ms=0.1 reply=INFO 3 1 7 3 100049 11837348197554022418
+T 963069747145 18109 admin_move_in verb=REFRESH bytes=12 read_ms=0.0
+T 963075801972 18109 admin_move_out verb=REFRESH handle_ms=6.0 write_ms=0.0 reply=OK 3

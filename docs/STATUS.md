@@ -105,6 +105,13 @@ and the handoff's development sequence (§24).
   [TRACING.md](TRACING.md) (`SNC_TRACE=1` stopgap tracing, proposed
   rings), [STABILIZATION_REPORT.md](STABILIZATION_REPORT.md) (the 100K
   false failover explained, resource inventory, Baseline 0.2 criteria).
+- HA health decoupled from shard work (2026-11-04, option B):
+  [HEALTH_DECOUPLING.md](HEALTH_DECOUPLING.md) section 10. Witnesses
+  poll `HEALTH`, answered without waiting on shard threads; a busy shard
+  no longer causes a failover (`tests/test_health.py`; the 100K move ran
+  with no promotion). Shard stall is reported, never acted on: a shard
+  wedged forever is not failed over (accepted until work is bounded).
+  Effective only when every witness of a group polls `HEALTH`.
 
 ## Benchmark numbers
 

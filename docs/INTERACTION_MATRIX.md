@@ -41,7 +41,7 @@ Class, per work order Part IX:
 | # | A × B | What happens (as built) | At risk | Evidence | Class |
 | --- | --- | --- | --- | --- | --- |
 | 10 | Async replication × witness promotion | The witness promotes an async standby; acknowledged writes are lost | G2 | `test_async_failover` 500/500 (EL2) | **KNOWN ISSUE** (R08) |
-| 11 | Long shard task × witness health | `STATUS` waits on every shard thread; the witness poll times out at 100 ms; promotion after 1 s; the promoted node has no replica | G6, then G2 (unreported LOCAL_DURABLE) | MEASURED, 3/3 traced runs; `bench/stage_stall` | **KNOWN ISSUE** |
+| 11 | Long shard task × witness health | Before HEALTH: `STATUS` waited on every shard thread, the witness poll timed out at 100 ms, promotion after 1 s, the promoted node had no replica. With every witness on `HEALTH` (HEALTH_DECOUPLING.md section 10): no promotion; the stalled shard's clients wait (W1) | G6, then G2 (unreported LOCAL_DURABLE), before the fix | `test_health.py` T1 (3 s stall), T3 (6 s), T2 (A/B: STATUS witnesses still promote), T10 (one STATUS witness still promotes), T12 lab P5 100K move traced (no promotion, 4.8 s final stage) | **TESTED** (EL3), when every witness polls `HEALTH`; **KNOWN ISSUE** with any `STATUS` witness |
 | 12 | Standby seeding × primary death | A seeding node is still in `Engine::start`, so it never answers `STATUS` and cannot be promoted (CORE_CONTRACTS E6) | G2 | INFERRED (EL0) | **UNTESTED**, settled at EL0 |
 | 13 | Checkpoint × lost standby with a witness | The main thread waits for durability that needs the standby, and is also the thread that asks for DEGRADE | G6 (wedged primary) | INFERRED | **UNTESTED** |
 | 14 | Sync blocked (`repl_blocked_`) × client load | Waiters, held follow-ups, pipelining and must-deliver overflow grow without limit until the grant | G6, then memory | INFERRED | **UNTESTED** |
@@ -107,7 +107,7 @@ measured, with contracts proposed in CORE_CONTRACTS sections 9-11.
 | 6 | 5: second failover during resends | G3 | Same path as row 4; INFERRED safe, never run | `test_replication` with two consecutive kills during a resend storm |
 | 7 | 8: shard-count change × sessions | G3 | Silent if a client bypasses the refusal | `test_persistence`: sessions on 4 shards, restart on 2, resend |
 | 8 | 27: checkpoint × migration | G1 | Narrow window; slot state is an ordinary object | `test_migrate` with `checkpoint()` between seal and activate, then restart |
-| 9 | 13, 19c: checkpoint × lost standby with a witness, at run time and at restart | G6 | A wedge that would look like row 11 | `test_witness.py` `--checkpoint-s 1`, kill the standby mid-checkpoint |
+| 9 | 13, 19c: checkpoint × lost standby with a witness, at run time and at restart | G6 | A wedged main thread (it also asks for DEGRADE). `HEALTH` keeps answering and only `main_ms` shows it (HEALTH_DECOUPLING.md HF4); no witness acts on it | `test_witness.py` `--checkpoint-s 1`, kill the standby mid-checkpoint |
 | 10 | 15: flapping links | G6, then G2 | Each flap can leave a group without a replica | lab `link` fault on a 1.5 s period for a minute |
 | 11 | 14: blocked sync × load | G6, memory | No bound | standby SIGSTOP plus a witness denying DEGRADE; watch RSS |
 | 12 | 19, 26: witness majority loss × failover / migration | G6 | Rare; by design no decisions without a majority | kill 2 of 3 witnesses during a move and during a primary kill |

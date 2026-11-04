@@ -1,6 +1,11 @@
-# HA health-path decoupling: design proposal
+# HA health-path decoupling: design and implementation
 
-Status: **PROPOSED, for review. Nothing here is implemented.**
+Status: **ACCEPTED with option B and IMPLEMENTED** (review of PR #36 by
+cody, relaying ChatGPT, 2026-11-04 13:04 UTC). Sections 0-9 are the
+proposal as reviewed, kept for the record. **Section 10 records the
+decisions, the rules as accepted and the implementation as built; where
+an earlier section disagrees with it, section 10 governs.** The passages
+superseded by option B are marked *[superseded: section 10]*.
 
 The review of PR #35 (cody, relaying ChatGPT, 2026-11-04 12:40 UTC)
 asked for this proposal. That review put this slice **before** the R08
@@ -305,12 +310,14 @@ other rows need their own bounding before any threshold can be small.
 | **B. No wedge detection in this slice** | Silence only | A wedged primary stays primary until an operator acts. Its other shards keep serving. Smallest change; an explicit, temporary regression for wedges only |
 | **C. Node self-withdraws** | `Engine::withdraw` once a shard passes the threshold | Rejected. `withdraw` is permanent until restart (`engine.cpp:900-901`), takes the healthy shards down too (`Shard::withdraw` fails their waiters, `shard.cpp:1407-1431`), and the node cannot know whether a standby is eligible. It also needs the same threshold as A |
 
-**Recommendation: A, with the value decided by the reviewer.** The
+*[superseded: section 10: option B was chosen.]* **Recommendation: A, with the value decided by the reviewer.** The
 proposal does not pick a number to fit a measurement. If a number is
 wanted now, it must exceed the longest row above with margin; 10 s would
 cover the measured rows.
 
-**Standby eligibility (stricter only).**
+**Standby eligibility (stricter only).** *[superseded: section 10.
+`stall_ms` drives no decision; the standby keeps being checked with
+`STATUS`, so eligibility is exactly as before.]*
 
 - Today's coupling requires every standby shard to run a task within
   `poll_ms` before promotion (the standby's `STATUS` must finish in
@@ -337,7 +344,7 @@ silent. Consequences:
 Rollout:
 
 1. Upgrade the nodes. `HEALTH` is additive and inert until asked.
-2. Upgrade every witness, all with the same `--wedge-ms`.
+2. Upgrade every witness *[superseded: there is no `--wedge-ms`; section 10]*.
 3. The fix takes effect only once every witness of a group polls
    `HEALTH`. T10 tests a mixed set to pin this down.
 
@@ -416,7 +423,7 @@ touched (INFERRED).
 | --- | --- | --- |
 | T1 | **Regression for the original mechanism.** A real sync pair and 3 witnesses (`failover_ms` 1000, `poll_ms` 100), under write load. `DEBUG STALL 0 3000` on the primary | the witnesses' HA state version is unchanged and not degraded (so no promotion, and none blocked by a grant); `stall_ms` rises to ≥ 2,500 and returns to 0; `STATUS` is slow meanwhile (the coupling is still in `STATUS`, as intended); no acknowledged write lost |
 | T2 | T1 with every witness on `--health-verb status` | a promotion happens. This shows the fix is the verb, not a timing change |
-| T3 | Wedge (option A): `--wedge-ms 2000`, `DEBUG STALL 0 6000`, under write load | promotion after about `wedge_ms + failover_ms`; no acknowledged write lost; the old primary acknowledges nothing after the promotion is decided; the stalled shard's waiters get `E_FENCED` |
+| T3 | *[superseded: section 10.3, T3 for option B]* Wedge (option A): `--wedge-ms 2000`, `DEBUG STALL 0 6000`, under write load | promotion after about `wedge_ms + failover_ms`; no acknowledged write lost; the old primary acknowledges nothing after the promotion is decided; the stalled shard's waiters get `E_FENCED` |
 | T4 | SIGKILL the primary | promotion within `failover_ms` plus the existing slack (as `test_witness.py`) |
 | T5 | SIGSTOP the primary | promotion; after SIGCONT the old primary is fenced |
 | T6 | Partition through a TCP proxy that stops forwarding everything to and from the primary (admin, replication, client ports) | promotion after `failover_ms` plus slack. The old primary is fenced when its sender reaches the promoted standby, which refuses its term. No acknowledgement from the old primary after promotion (sync) |
@@ -435,7 +442,7 @@ touched (INFERRED).
 | Witness polling | `--health-verb status` on **every** witness of a group restores today's polling (3.6). Reverting the witness binary does the same |
 | Node: `HEALTH`, the counter and the sampler | additive, and inert when nobody asks |
 | Node: the admin loop | a separate change that reverts on its own. `--health-verb status` does not undo it. Its observable behavior for heavy verbs is unchanged (one at a time) |
-| Wedge rule | `--wedge-ms 0` turns it off (option B) |
+| Wedge rule | *[superseded: option B has no wedge rule]* |
 | Data | no data or format migration in either direction |
 
 ## 8. What this slice does not do
@@ -456,3 +463,144 @@ touched (INFERRED).
 3. **`DEBUG STALL`** behind `--debug-admin` in the shipped binary,
    versus a test-only build.
 4. **The cost bar** for T9.
+
+## 10. Accepted decisions and implementation (2026-11-04)
+
+### 10.1 The review's decisions
+
+| # | Decision | As built |
+| --- | --- | --- |
+| 1 | Wedge handling: **option B**. No `wedge_ms`, no stall-triggered promotion, no self-withdraw | `stall_ms` and `main_ms` are reported only; nothing reads them for a decision |
+| 2 | Heavy-verb queue bound 16, with depth, high-water and busy counters | `admin::kQueueMax`; `adm_q`, `adm_q_hw`, `adm_busy` in `HEALTH` |
+| 3 | Half-read connection bound 256, with counters | `admin::kHalfMax`; `adm_half`, `adm_half_hw`, `adm_evicted`, `adm_timeouts` |
+| 4 | `DEBUG STALL` only with `--debug-admin`, in the shipped `snc_server` | without the flag it answers `NO unknown request`, like any unknown verb |
+| 5 | Cost: about 2% median throughput, repeated before/after runs, honest about noise | T9, section 10.4 |
+
+### 10.2 Rules as accepted (normative)
+
+- **HL-0 [ACCEPTED]. Liveness is not promotion eligibility.** A `HEALTH`
+  answer establishes that the `snc_server` process and its admin path
+  respond. It does **not** establish that every shard is healthy, that
+  useful application progress occurs, that replication is current, that
+  the node is HA_DURABLE, or that it is safe to promote, safe to serve or
+  eligible for promotion.
+- **HL-1 [ACCEPTED].** As section 2, plus the admin loop's own counters
+  (published atomics). No replication state. `role=p` means "a
+  replication sender exists" (10.3), a role fact; it never means
+  "replication is healthy".
+- **HL-2 [ACCEPTED].** `STATUS` keeps its meaning and may be slow. It is
+  no longer the witness's liveness signal.
+- **HL-3 [ACCEPTED, as built stricter than proposed].** `HEALTH` MUST NOT
+  make promotion eligibility weaker than before. This slice adds **no**
+  eligibility input: the witness still checks the standby with `STATUS`
+  before proposing a promotion, so every standby shard must still run a
+  task within `poll_ms`, exactly as before. Section 3.5's proposed
+  `stall_ms ≥ failover_ms` rule was **not** built (the review: stall_ms
+  must not become an implicit promotion rule).
+- **HL-4 [ACCEPTED, option B]. Shard progress is diagnostic state in this
+  slice, not authority state.** A shard stall alone, or a main-loop stall
+  alone, MUST NOT trigger automatic promotion, withdrawal or a grant.
+  Only silence (no answer to the liveness verb within `poll_ms`, for
+  `failover_ms`) feeds the existing failure-detection path.
+- **HL-5 [ACCEPTED]. Rollout.** The protection is in effect for a group
+  only when **every** witness protecting it polls `HEALTH`. Each witness
+  decides alone that a primary is silent, so one old or
+  `--health-verb status` witness can still propose the false failover for
+  the whole group (T10).
+
+### 10.3 As built
+
+| Part | Where | Behavior |
+| --- | --- | --- |
+| Progress counter | `src/native/runtime.cpp` `Worker::iterations` | its own cache line; at the top of every loop iteration a relaxed load and store (single writer, no locked instruction) |
+| Progress read | `NativeRuntime::progress(shard, out)` (`include/snc/native_runtime.h`) | from any thread, never waits on the shard. **Deviation from 3.2:** on `NativeRuntime`, not `sri.h`, because every `sri_*` call is valid only on a worker thread. Seastar returns false, and `HEALTH` then omits `stall_ms` |
+| Sampler | `tools/snc_server.cpp` | a thread, every 10 ms, records `(count, changed_at)` per shard under a mutex shared only with `HEALTH` (never with a shard thread) |
+| `HEALTH` | `tools/snc_server.cpp` | `role term uuid epoch leases shards stall_ms stall_shard main_ms adm_q adm_q_hw adm_busy adm_half adm_half_hw adm_evicted adm_timeouts` |
+| `main_ms` | main loop | the loop now wakes at least every 100 ms (before: only for a report, a checkpoint or a witness), so an idle main loop reads ≤ about 100 |
+| Admin loop | `tools/admin_loop.h` | non-blocking `poll()` loop; `HEALTH` and `DEBUG` inline; `MOVE` handed to its own thread as soon as `MOVE ` arrives (that thread reads the rest by the same 500 ms deadline); everything else to one worker, in order. Opened after `Engine::start`, as before (E6, E8) |
+| Limits new in the loop | `tools/admin_loop.h` | a non-`MOVE` line over 64 KiB is refused (`NO line too long`; before, any line up to 256 MiB was read); listen backlog 256 (was 16); out of descriptors, the oldest half-read connection is closed instead of spinning |
+| Witness | `tools/snc_witness.cpp` | polls `HEALTH`; a reply not starting `role=` switches that node to `STATUS` and `HEALTH` is retried every 10 s; `--health-verb status` restores the old polling; the standby's eligibility check stays `STATUS`; once a promotion is decided, `PROMOTE` is resent at most every 50 ms |
+| Rejoin | `tools/snc_server.cpp` | asks `HEALTH`, and `STATUS` if the reply is not `role=...` |
+| Traces | `docs/TRACING.md` | `witness_status` became `witness_ask` (with the verb); `admin_heavy_slow` and `admin_inline_slow` added; `admin_status_slow` keeps only the `replication_status` time |
+
+**The `replicating` flag (the review's additional requirement).**
+`Engine::replicating()` reads an atomic that `Shard::start_sender` sets
+when it creates a sender. Its lifecycle against `STATUS`'s
+`replication_status().role` (the max over shards of "has a sender"):
+
+| Event | Sender | Flag | `HEALTH` role | `STATUS` role |
+| --- | --- | --- | --- | --- |
+| Start as primary with `--replica-of` and a data dir | created in `finish_recovery`, before the admin port opens | set | `p` | `p` |
+| Start as primary without a replica, or in memory | none | clear | `n` | `n` |
+| Replication link lost, standby gone, degraded or blocked | kept (a `Sender` is never reset before stop: its only assignment is `shard.cpp` `start_sender`) | set | `p` | `p` |
+| Standby | none | clear | `s` (from `is_standby`) | `s` |
+| Promotion | created inside `Engine::promote` when the promoted node has `--replica-of`; `is_standby` is cleared only after `promote` returns | set before the role leaves `s` | `p` (or `n` without `--replica-of`) | same |
+| Fenced or withdrawn | kept | set | `f` (`fenced` is checked first) | `f` |
+| Restart | a new process: the flag starts clear and is set during recovery, before the admin port opens | | as at start | as at start |
+
+INFERRED (EL0) identical in every row; `test_health.py` checks
+`HEALTH` role = `STATUS` role on both nodes before every stall scenario
+and on the promoted node in T4 (EL3). No shard interrogation was needed,
+so nothing was broadened.
+
+### 10.4 Evidence
+
+All on the 4-vCPU development VM, 2026-11-04. `tests/test_health.py`
+(registered in CTest as `test_health`) runs T1-T8, T10, T10b and T11;
+T12 is a lab run; T9 a benchmark. Numbers are from the RelWithDebInfo run
+unless marked.
+
+| # | Test | Result |
+| --- | --- | --- |
+| T1 | Real sync pair, 3 witnesses (`failover_ms` 1000, `poll_ms` 100), create load; `DEBUG STALL 0 3000` on the primary | **pass.** No promotion; HA state version 1 before and after, not degraded. `HEALTH` answered 89/89 polls, slowest 1.4 ms; `stall_ms` peaked at 2,992 and returned to 0; `main_ms` peaked at 3,017 (HF4: the main loop waits in `replication_status`). `STATUS` took 2.7 s (the coupling is still in `STATUS`, as intended). Load resumed; 10,000 acknowledged creates, 0 missing. `HEALTH` role = `STATUS` role on both nodes |
+| T2 | T1 with every witness on `--health-verb status` | **pass: the false promotion reproduces.** State went to version 3, term 1, node 1 primary, running alone under a grant (as in STABILIZATION_REPORT D). 0 of 3,000 acknowledged creates missing on the promoted node |
+| T3 | Option B: `DEBUG STALL 0 6000` (6 × `failover_ms`) | **pass.** No promotion, state version unchanged; `HEALTH` 148/148, slowest 3.7 ms; `stall_ms` rose monotonically to 5,981 and returned to 0; `STATUS` 5.7 s; service resumed with no change of authority; 0 of 10,000 missing |
+| T4 | SIGKILL the primary | **pass.** Promoted in 1.05 s; 0 missing; promoted node `HEALTH` role `p` = `STATUS` role `p` |
+| T5 | SIGSTOP the primary, then SIGCONT | **pass.** Promoted in 1.05 s; old primary `role=f` after SIGCONT; 0 missing |
+| T6 | Partition: proxies on node 0's admin, client, replication and witness paths stop forwarding without closing | **pass.** Promoted in 1.05 s; a client on node 0's side of the cut got 0 batches acknowledged; after the heal node 0 reported `role=f`; 0 missing |
+| T7 | Eligibility, fake nodes: a standby answering `HEALTH` whose `STATUS` is silent; wrong term; wrong space; a grant on record | **pass.** None promoted; the first is promoted once its `STATUS` answers. Eligibility is unchanged, not widened |
+| T8 | Node 0 killed, node 1 promoted, `DEBUG STALL 0 5000` on node 1, node 0 restarted with `--rejoin` | **pass.** Node 0 found node 1 as primary through `HEALTH`, moved its data aside and started as its standby. Node 1's `STATUS` took 4.7 s meanwhile: the old 5 × 500 ms `STATUS` probe would have read "unreachable" |
+| T9 | `snc_bench`, 2 shards, 1M objects, 3 s runs, before/after binaries alternated (ABAB): in memory local (10 pairs), in memory 50% remote (10 pairs), durable (6 pairs) | **no regression visible.** Median after vs before: +3.2%, +2.7%, +6.7%. Host noise is larger than the 2% bar: run-to-run spread 8-16% of the median in every set, and "after" cannot be faster for a real reason, so these differences are noise. Raw data: `bench/results/health-20261104/t9_snc_bench.json` |
+| T10 | Two witnesses on `HEALTH`, one on `STATUS`, T1's stall | **pass: the `STATUS` witness still promotes** (state version 3, term 1). Pins HL-5 |
+| T10b | Fake nodes without `HEALTH` | **pass.** Fallback logged and polled with `STATUS`; a silent old primary is still failed over; after an upgrade the witness used `HEALTH` again within 9.5 s, and only `HEALTH` thereafter |
+| T11 | 300 connections that never send a line, shard 0 stalled 3 s, 24 heavy requests (1 AUDIT, 23 STATUS), then `HEALTH` | **pass.** `HEALTH` 5/5, slowest 0.9 ms; 45 connections evicted (half-read high-water ≤ 256); queue high-water 16; 7 `NO busy`; the AUDIT and 16 STATUS answered after the stall. Without `--debug-admin`, `DEBUG STALL` answers `NO unknown request` |
+| T12 | Lab P5 on loopback, 100K-object slot moved and back under load, `SNC_TRACE=1` (`bench/results/lab-20261104/p5-131933`) | **pass.** Both moves DONE; the first final copy succeeded (PR #35's 4/4 runs had `E_FENCED` there, from the false promotion); no `witness_suspect` and no promotion; no witness poll failed or took ≥ 20 ms during the 4,772.7 ms final stage on the destination shard (the only failed polls are at startup, before the nodes listened). Move 51.6 s (before: 57-61 s), back 3.8 s (before: 11-12 s). The shard was still busy 4.8 s: W1 stands |
+| T13 | Full suite: RelWithDebInfo; ASan+UBSan; TSan | **17/17 in each.** Server children run under the sanitizer builds with `log_path` set: no report from any process (ASan/UBSan: `test_health`; TSan: the whole suite). Leak checks do not cover processes the tests SIGKILL. The only sanitizer output is the existing compile-time `-Wtsan` warning on `atomic_thread_fence` in the runtime loop, not new |
+
+### 10.5 What this leaves (known, accepted, or next)
+
+- **HF1, wedge (accepted under option B).** A primary process whose
+  shard thread never returns stays primary, and that shard's clients
+  wait, until an operator acts. `stall_ms`/`stall_shard` show it. Before
+  this slice the witnesses would have failed it over after
+  `failover_ms`. A temporary availability limitation, by decision.
+- **HF4, main thread.** While a shard stalls, the primary's main loop
+  waits in `replication_status()` (it decides DEGRADE and SYNCED there);
+  `main_ms` shows it (T1). Unchanged in kind; no decision uses it.
+- **W1.** The stalled shard is unavailable for the whole task (the final
+  stage is still 4.8 s in T12). Bounded/resumable migration staging is
+  the next slice.
+- **Rollout (HL-5).** Any `STATUS` witness keeps the false failover (T2,
+  T10).
+- **Seastar.** No progress counter: silence only (HF9).
+
+### 10.6 Independent review and QA of the implementation
+
+A separate reviewer read the diff against these requirements. **Nothing
+blocking.** Verified there: the poll loop's index bookkeeping, one owner
+per descriptor, thread lifetimes against `eng.stop()`, that `HEALTH` takes
+no lock a shard thread holds, the `replicating` lifecycle, and that
+eligibility still uses `STATUS`. Findings and what was done:
+
+| Finding | Severity | Done |
+| --- | --- | --- |
+| A failed admin-port bind returned with the sampler thread still joinable (`std::terminate`, SIGABRT instead of exit 1) | should-fix | fixed: the sampler is stopped and joined first; checked: exit code 1 with the port taken |
+| A `poll()` error other than EINTR ended the admin loop for good: a silent port, so a false failover | should-fix | fixed: traced (`admin_poll_fail`), 10 ms back-off, continue |
+| The first `HEALTH` answers could miss the `adm_*` counters (the loop started before it was published) | nit | fixed: `Loop::start()` after publication |
+| While a promotion runs, `HEALTH` answers at once with `role=s`, so each witness sent `PROMOTE` every 2 ms (STATUS's latency used to pace it) | nit | fixed: at most one `PROMOTE` per 50 ms per witness |
+| T11's eviction assertion could flake on a slow host (idle connections time out before they are evicted); its high-water check could not fail | nit | fixed: asserts evicted + timed out ≥ 44 |
+| `STATUS` can now answer `NO busy`; a queued `PROMOTE` runs after its client gave up; a non-`MOVE` line over 64 KiB gets `NO line too long`; the worker's reply write has no timeout | nit | kept and recorded: a `STATUS`-polling witness treats `NO busy` as silence, which is what a stalled `STATUS` was before; the other two were true of the old admin thread already |
+| `HEALTH` role = `STATUS` role is tested for primary, standby and promoted, not for fenced, in-memory or restart | nit | recorded: those rows stay EL0 in 10.3 |
+
+After the fixes: the full suite 17/17 again in RelWithDebInfo, ASan+UBSan
+and TSan, with no sanitizer report from any process.

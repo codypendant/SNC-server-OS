@@ -43,6 +43,11 @@ struct Worker {
   std::unique_ptr<ShardAllocator> alloc;
   int efd = -1;
   alignas(64) std::atomic<bool> sleeping{false};
+  // Loop iterations, written only by this worker, read by any thread
+  // (NativeRuntime::progress; docs/HEALTH_DECOUPLING.md 3.2). Its own
+  // cache line, so readers never share one with the hot fields.
+  alignas(64) std::atomic<u64> iterations{0};
+  alignas(64) char pad_after_iterations_ = 0;
 
   std::vector<Ring*> inbound;   // [src], owned; allocated on this worker
   std::vector<Ring*> outbound;  // [dst], = workers[dst].inbound[id]
@@ -322,6 +327,10 @@ void NativeRuntime::Impl::loop(Worker& w) {
   const bool tr = trace::enabled();
   constexpr u64 kLongIterNs = 20'000'000;
   while (true) {
+    // Progress (docs/HEALTH_DECOUPLING.md 3.2): an idle loop still comes
+    // here about every 1 ms, so a count that stops means one iteration is
+    // still running. Single writer: a plain relaxed load and store.
+    w.iterations.store(w.iterations.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
     const u64 t_start = tr ? now_ns() : 0;
     u64 t_drain = 0, t_inject = 0, t_io = 0, t_poll = 0;
     std::size_t n_injected = 0;
@@ -565,6 +574,12 @@ u16 NativeRuntime::shard_count() const { return static_cast<u16>(impl_->workers.
 
 const ShardTopology& NativeRuntime::topology(u16 shard) const {
   return impl_->workers.at(shard)->topo;
+}
+
+bool NativeRuntime::progress(u16 shard, u64& iterations) const {
+  if (shard >= impl_->workers.size()) return false;
+  iterations = impl_->workers[shard]->iterations.load(std::memory_order_relaxed);
+  return true;
 }
 
 RingStats NativeRuntime::ring_stats(u16 src, u16 dst) const {
