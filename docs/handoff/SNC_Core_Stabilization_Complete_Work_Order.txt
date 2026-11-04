@@ -1,0 +1,191 @@
+Complete Engineering Work Order — supersedes prior fragmented handoffs
+
+Objective: Establish exactly what SNC means before expanding what SNC does. PR #34 verification is accepted. Characterize → specify → review → decide → implement. This is not a rewrite or feature phase. Do not begin the Rust rewrite, native Documents, Durable Events/Timers, Agent Runtime, plugin/module system, new networking architecture, or unrelated optimization. During this work order only characterization tests, causal instrumentation, and test/benchmark/instrumentation fixes are authorized. Do not implement R08 or R11 semantic changes yet.
+
+PART I — ACCEPTED FINDINGS FROM PR #34
+
+R08 CONFIRMED: async primary/standby synchronized; standby SIGSTOP; primary acknowledges 500 creates; primary SIGKILL; standby resumes and is promoted; 500/500 acknowledged creates are absent. This proves acknowledged write → local durability → primary loss → stale async promotion → acknowledged state lost. Sync degrade-grant control does not promote the stale standby. Do not patch before specifying durability/promotion.
+
+R11 CONFIRMED: client 9/seq 1 applies; duplicate replays; after session expiry the same client/sequence executes again. Deduplication correctness currently ends with session retention. Do not merely increase TTL.
+
+Invariant 18: A duplicate MUST be resolved before any refusal that invites a resend. Preserve E_OVERLOADED, E_MIGRATING, E_MOVED, restart-while-sealed, and restart+placement-move regressions.
+
+Previous Vultr “100K” migration evidence is invalid as 100K scale evidence: snc_load held a vector reference across growth; reallocation invalidated it and garbage ObjectIDs redirected create_near. ObjectID-by-value fix accepted.
+
+Corrected ~100,050-object loopback migration verified final state: forward ~57 s; return ~11.9 s; E_MIGRATING ~0.24 s; consistency PASS; no two-serving-groups violation. Destination primary was nevertheless fenced/replaced during final copy without injected fault. Final-staging starvation → witness timeout is INFERRED, not measured. Do not increase failover_ms or weaken HA before causal proof.
+
+PART II — NORMATIVE CORE SPECIFICATION
+
+Create docs/CORE_CONTRACTS.md. Use MUST/MUST NOT/SHOULD/SHOULD NOT/MAY; mark UNDECIDED, AS-BUILT — CONTRACT UNDECIDED, and UNPROVEN.
+
+Define identities: ObjectID/reuse, client, session/incarnation, NodeID, replication group, space, placement epoch, HA term, migration/move; state survival across restart/failover/migration/restore/upgrade.
+
+Define ownership: authoritative/serving owner, primary, standby, fenced former primary, placement owner, shard owner; rights under failover/migration/recovery/stale placement/stale term. Failover is not migration; placement epoch and HA term are independent.
+
+Define mutation stages: RECEIVED, ACCEPTED, APPLIED, LOCALLY COMMITTED, LOCAL_DURABLE, REPLICATED, HA_DURABLE, ACKNOWLEDGED, SETTLED; map as-built behavior and observability.
+
+PART III — DURABILITY CLASSES
+
+APPLIED = in-memory change. LOCAL_DURABLE = crossed local persistence boundary. HA_DURABLE = crossed persistence boundary required by automatic-failover contract. SETTLED = all durable distributed obligations completed.
+
+Verify rather than assume: sync replicated DURABLE OK → HA_DURABLE; async replicated DURABLE OK → LOCAL_DURABLE but not necessarily HA_DURABLE; cross-group transfer OK → durable debit + durable obligation but not necessarily SETTLED. Separate acknowledgement durability from distributed settlement.
+
+PART IV — READ CONSISTENCY
+
+Specify owner/standby reads, leases, durable-only visibility, allow_undurable, index visibility/rebuild, stale routing, migration/failover reads, cross-object reads, and any multi-object snapshot semantics. Do not imply snapshot isolation. State where intermediate cross-object state is observable.
+
+PART V — RETRY / DEDUPLICATION
+
+Formalize client identity, sequence scope, latest replay, older sequences, gaps, failover resend, E_REPLAYED_OLD, E_MOVED, E_MIGRATING, E_OVERLOADED, E_STANDBY, E_FENCED, E_NOT_OWNER, timeout, broken connection, creates/deletes, and PR #33 shard-count/session interaction. Preserve invariant 18; do not broaden guarantees beyond evidence.
+
+PART VI — R08 ASYNC CONTRACT
+
+Do not implement yet. Sync auto-failover MAY occur only when candidate satisfies HA-durability/promotion eligibility; HA-durable acknowledgements MUST survive covered single-primary failover.
+
+Async acknowledgement may be LOCAL_DURABLE without HA_DURABLE. Proposed default: async standby = warm replica; automatic promotion = disabled; operator-forced promotion requires explicit acknowledgement of possible data loss. Future bounded-lag async HA may use record/byte/time lag plus witness-known eligibility. Deliver exact contract, minimal witness information, compatibility effects, and proving tests.
+
+PART VII — R11 SESSION INCARNATION
+
+Do not implement yet. OPEN_SESSION → durable SessionID/incarnation → sequenced operations → ACTIVE → EXPIRED/CLOSED. After dedupe evidence expires, old SessionID + old sequence MUST NOT EXECUTE; return E_SESSION_EXPIRED or equivalent.
+
+Specify identity generation, sequence scope, persistence, replication, failover, recovery, migration/shard-count change, expiry/close, stale-incarnation rejection, and client recovery. Correctness MUST NOT depend on synchronized clocks.
+
+PART VIII — FAILURE MODEL
+
+Create docs/FAILURE_MODEL.md. Define P1 crash/P2 stall/P3 clean restart; H1 host crash/H2 stall/H3 power loss; N1 reset/N2 silent partition/N3 asymmetric/N4 latency-jitter/N5 loss/N6 reordering/N7 flapping; S1 death before durability/S2 torn write/S3 write-fsync failure/S4 device loss/S5 power loss/S6 latent corruption; C1 witness minority/C2 stale placement/C3 stale HA term/C4 split reachability/C5 control plane unavailable during restart/C6 during migration/C7 stale replica candidate. Map guarantees to tolerated classes; mark UNPROVEN or OUT OF CONTRACT.
+
+PART IX — INTERACTION MATRIX
+
+Create docs/INTERACTION_MATRIX.md for replication, HA, placement, migration, retry/session, overload/admission, recovery, durable follow-ups, WAL/checkpoint, control plane, indexes, client routing. Classify pairs TESTED/PARTIALLY TESTED/UNTESTED/KNOWN ISSUE/NOT APPLICABLE with exact evidence. Prioritize retry×overload/migration/failover/recovery; session expiry×retry; replication×HA/migration/recovery; migration×HA/placement/recovery/follow-ups; follow-ups×failover/overload; placement×recovery; control-plane loss×migration/failover; checkpoint×session/migration. Map first.
+
+PART X — CORRECTNESS DIMENSIONS
+
+Report SAFETY, CONSISTENCY, DURABILITY, IDEMPOTENCY, LIVENESS, AVAILABILITY, PERFORMANCE separately. Re-evaluate corrected 100K migration. Starting hypothesis only: safety PASS; single-owner consistency PASS; durability PASS; liveness PASS; availability DEGRADED; performance requires investigation. Verify.
+
+PART XI — BOUNDED WORK
+
+Normative proposal: A single unit of work MUST NOT monopolize an execution domain long enough to violate health, liveness, or control-plane responsiveness. Large work should be bounded/resumable. Applies to migration, checkpointing, recovery, indexing, compaction, graph work, consolidation, plugins, future Agent Runtime work. Measure budgets before numeric limits.
+
+PART XII — 100K FALSE-FAILOVER INSTRUMENTATION
+
+Primary causal investigation. Build one monotonic correlated timeline for migration PREPARE/chunks/SEAL/final copy/STAGE/COMMIT/ACTIVATE; destination shard progress/long ops/admin arrival-response/starvation; WAL append/flush/fsync; replication send/receive/durable ack; witness STATUS/last-good/suspicion/threshold/Paxos/promotion/fencing; relevant CPU and queue depths. Answer exactly where health/control-plane progress stops, for how long, and why. Separate MEASURED from INFERRED and verify beyond first plausible cause.
+
+PART XIII — CAUSAL TRACE DESIGN
+
+Propose bounded TraceEvent records: monotonic timestamp, node, shard, event type, correlation ID, ObjectID/slot/group where relevant, small fixed metadata. Near-zero disabled cost; bounded enabled cost; nonblocking hot path; avoid critical-path allocation; prefer per-core/per-shard rings; dump after failure; enough correlation for failover/migration/recovery/retry. Engineering observability, not enterprise audit.
+
+PART XIV — ACKNOWLEDGEMENT SEMANTICS
+
+For every mode specify receive, accept, apply, local visibility, WAL existence, local durability, standby receipt, standby durability, HA_DURABLE point, client acknowledgement, auto-failover permission, remaining loss modes, retry legality/same sequence, and outstanding distributed obligations.
+
+Create and verify a matrix for APPLIED, local DURABLE, sync replicated, degraded sync, async replicated, SETTLED. Cross-group acknowledgement is not necessarily settlement. Document OK+replayed, E_REPLAYED_OLD, and unknown/in-doubt so a client can answer exactly what SNC guarantees and what action is legal next.
+
+PART XV — PROMOTION ELIGIBILITY
+
+Separate replica existence from eligibility. Specify PROMOTION_ELIGIBLE using replication mode, HA term, placement epoch, replica durable LSN, known primary acknowledged/committed LSN, degrade grant, divergence/freshness, recovery completion, placement adoption, migration state, witness quorum. A live replica MUST NOT auto-promote merely because it is alive. Specify now; implement later.
+
+PART XVI — RECOVERY BARRIERS
+
+Formalize actual sequence around persistent-state recovery, WAL replay, placement/epoch authority, HA authority, index rebuild/validation, durable-obligation re-derivation, serving. Preserve invariant 16: no inter-object/externally visible computation before recovery barrier. Preserve invariant 17: placement epoch adopted node-wide before state-driven replay for that epoch. Evaluate sessions, migration seals, node-link resume, indexes, catch-up, promotion.
+
+PART XVII — DURABLE OBLIGATIONS
+
+Document state transition + durable obligation in same commit domain → recoverable unit. If a durable transition creates future work, the obligation MUST become durable atomically with it or the transition must not become externally committed. Volatile queues are caches, not truth. Do not add external queues as the architecture. Future events/timers/conditions/waits should generalize this pattern.
+
+PART XVIII — RESOURCE / BACKPRESSURE
+
+Inventory bounds for follow-up backlog, rings, outbox/inbox, replication retention/catch-up, WAL buffers, client in-flight, migration staging, sessions, object allocation, control-plane queues. For each: bound; at-bound behavior; refuse/delay/drop/retry/fatal; retry safety; observability; monopolization; control-plane starvation; durable-obligation refusal; safety/liveness/performance impact. Verify PR #33 session-allocation process-abort behavior. Map first, redesign later.
+
+PART XIX — EVIDENCE HIERARCHY
+
+Level 0 code inference; 1 unit/characterization; 2 integration; 3 fault injection; 4 real-machine; 5 long-run/adversarial; 6 formal/independent oracle. Record strongest level for major EVIDENCE.md claims. Observed runs are not mathematical proof.
+
+PART XX — DETERMINISTIC REGRESSION POLICY
+
+Distributed correctness failures discovered nondeterministically or on real machines SHOULD receive deterministic reproduction of the essential causal mechanism whenever practical. Keep both discovery environment and regression. Existing examples: test_resend_overloaded, test_session_ttl, test_async_failover, test_resend_refusals.
+
+PART XXI — SANITIZER / TEST BASELINE
+
+Before Baseline 0.2: clean rebuild ASan+UBSan and applicable suite; clean rebuild TSan and applicable suite; classify failures as product defect, test defect, unsupported sanitizer/runtime interaction, or known unresolved race. Do not suppress failures for green status. PR #34 RelWithDebInfo: 16/16 PASS; sanitizer results were stale/not rerun.
+
+PART XXII — REAL-MACHINE TEST BOUNDARIES
+
+Do not rent hosts merely for more green runs. Preserve future experiments: silent-partition causal timing; corrected true 100K migration after false-failover cause/bounded final copy; 1M reconnect/resume scan; five-host topology; cross-datacenter RTT; multi-socket NUMA; kill during retry/second failover; persistence/power boundary. Reuse existing EVIDENCE.md L0–L7 names if assigned.
+
+PART XXIII — CORE ARCHITECTURE BASELINE 0.2
+
+Do not declare reached now. Exit gate: CORE_CONTRACTS, FAILURE_MODEL, INTERACTION_MATRIX; durability/ack semantics; R08/R11 contracts plus conforming implementations; bounded-work principle; causal understanding and correction of 100K false failover; deterministic regressions; recovery barriers; resource-gap classification; clean RelWithDebInfo and fresh ASan+UBSan; characterized TSan; required real-machine reruns after semantic changes; reconciled EVIDENCE.md/STATUS.md/AGENTS.md; no silent contract/implementation contradictions; intentional documentation of deviations.
+
+PART XXIV — RUST TRANSITION RULE
+
+Do not begin Rust now. Rust does not define SNC semantics; verified contracts do. C++ becomes behavioral reference, differential-testing oracle, source of proven algorithms, and durable-format compatibility requirements. Contract wins over accidental C++ behavior. Durable formats/protocols must be language-independent; do not persist native runtime layouts as long-term contract.
+
+PART XXV — FUTURE PLATFORM BOUNDARY
+
+Preserve SNC CORE → GENERIC SNC PLATFORM (Documents, Durable Events, Timers, Conditions/WaitSets, Activation, Security/capabilities, Audit/provenance, indexing/search) → FRAMEWORKS (Agent Runtime, MMO, workflow, data services, networking/stateful edge). Do not put Agent Runtime semantics in Core or design SNC solely around AI. SNC exposes primitives, not prescribed applications.
+
+PART XXVI — FUTURE AGENT RUNTIME
+
+Do not implement now. Preserve persistent, temporary, specialist, one-shot, and possible ephemeral swarm agents under one abstraction. The model supplies intelligence; SNC supplies continuity. Identity, memory, project state, skills, provenance, policy, history, and institutional knowledge belong to SNC; models are replaceable execution resources.
+
+PART XXVII — SECURITY PLACEHOLDER
+
+R05 and R13 remain missing. Do not build the security system during this work order. CORE_CONTRACTS and FAILURE_MODEL must preserve room for principal identity, tenant identity, capability-based authorization, project/security domains, secret brokering, executable policy, module containment, audit/provenance, and multi-tenant resource isolation. Explicitly document current unauthenticated control/admin surfaces as prototype limitations; do not represent current isolation as production security.
+
+PART XXVIII — MULTI-TENANT RESOURCE ISOLATION PLACEHOLDER
+
+Do not implement multi-tenancy now. Preserve future hierarchical accounting: cluster → tenant → project → team/role → entity/agent → execution. Governable resources may include CPU, memory, storage, WAL bandwidth, network, activation rate, runnable entities, cross-shard work, cross-node work, and future GPU/inference resources. Current requirement: do not design admission/backpressure semantics that make hierarchical accounting impossible.
+
+PART XXIX — LOCALITY PRINCIPLE
+
+Preserve locality as first-class architecture. Logical relationships and physical locality are not identical. Future placement may consider ownership, access frequency, observed co-access, NUMA topology, network topology, resource class, temperature, and latency class. Current rule: cross-locality costs must remain explicit. Do not hide cross-core, cross-NUMA, or cross-node work behind abstractions that imply equal cost.
+
+PART XXX — TRANSACTION BOUNDARY PRINCIPLE
+
+Preserve: Atomic locally; coordinated durably across ownership boundaries. Same-owner/same-shard transitions may use atomic WAL grouping. Cross-owner operations should generally use durable protocols/obligations rather than broad distributed transactions. Current transfer pattern—local durable transition + durable obligation → remote idempotent settlement—is the reference. Do not turn SNC into a generic distributed-lock/2PC system without future evidence.
+
+PART XXXI — REQUIRED DELIVERABLES
+
+Return: A docs/CORE_CONTRACTS.md; B docs/FAILURE_MODEL.md; C docs/INTERACTION_MATRIX.md; D measured causal report for corrected 100K migration false failover; E lightweight causal-tracing design; F exact R08 async replication/promotion contract; G exact R11 client/session-incarnation contract; H acknowledgement/durability matrix; I recovery-barrier specification; J bounded-resource/backpressure inventory; K Baseline 0.2 exit criteria; L contradictions among code/tests/docs/intended contracts; M untested high-risk interactions ranked by safety impact; N smallest implementation slice recommended after review; O appropriate EVIDENCE.md/STATUS.md/AGENTS.md updates; P tests/instrumentation required to establish facts. Do not implement R08/R11 semantic changes and do not begin another major subsystem.
+
+PART XXXII — REVIEW AND QA REQUIREMENTS
+
+Use the established three-way discipline: (1) primary analysis/author; (2) independent review against source; (3) QA checking unsupported claims, contradictions, missing evidence, accidental scope expansion, incorrect MUST/SHOULD/MAY usage, and confusion between current behavior and intended contract. Every normative claim must trace to an accepted architectural decision, implementation evidence, test evidence, or explicitly proposed contract. Do not convert inference into a requirement without identifying the decision.
+
+PART XXXIII — ENGINEERING RULES FOR THIS PHASE
+
+Always verify; never assume.
+
+Fix on site when a defect is inside the authorized slice; verify the fix before moving on.
+
+Do not silently expand scope. Record architectural dependencies or out-of-slice findings and propose the next action.
+
+Preserve the project’s work-slice, manifest, source-control, and independent-review discipline.
+
+Distinguish OBSERVED, MEASURED, INFERRED, PROPOSED, UNPROVEN, and ACCEPTED CONTRACT in notes and evidence.
+
+Do not weaken a correctness mechanism merely to make a test pass.
+
+Do not change timeouts, retry horizons, retention periods, or failover thresholds as a substitute for understanding causality.
+
+Do not call a behavior safe because the final state happened to verify; classify safety, consistency, durability, idempotency, liveness, availability, and performance separately.
+
+When a real-machine failure is found, preserve raw evidence and create a deterministic reproduction of the essential mechanism when practical.
+
+Keep failover and migration conceptually separate; keep HA term and placement epoch separate.
+
+Keep acknowledgement and settlement separate; keep local durability and HA durability separate.
+
+Treat deduplication/session state, tombstones, promotion eligibility, and durable obligations as correctness state where the contract requires them.
+
+Do not allow documentation to outrun evidence. Reconcile EVIDENCE.md, STATUS.md, AGENTS.md, tests, and normative contracts before declaring Baseline 0.2.
+
+No new major subsystem begins until this stabilization review has produced its required deliverables and the next implementation slice has been explicitly reviewed.
+
+FINAL EXECUTION INSTRUCTION
+
+Start with the evidence map and the 100K causal instrumentation, because they establish the facts needed to settle the normative contracts without guessing. Draft CORE_CONTRACTS.md, FAILURE_MODEL.md, and INTERACTION_MATRIX.md in parallel only where existing evidence is sufficient; mark unresolved items explicitly rather than inventing behavior.
+
+At the end of this work order, return the complete deliverable set from Part XXXI, the independent-review/QA findings, and one recommendation for the smallest next implementation slice. Do not start that implementation slice until it is reviewed and authorized.
+
+This complete work order supersedes the earlier fragmented PR #34 continuation messages.

@@ -62,6 +62,7 @@
 #include <vector>
 
 #include "ha.h"
+#include "snc/trace.h"
 #include "paxos.h"
 
 using namespace snc;
@@ -409,7 +410,16 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
   const unsigned* aport = pair.port;
   auto status = [&](unsigned node, std::map<std::string, std::string>& f) {
     std::string reply;
-    if (!ha::ask(host[node], aport[node], "STATUS", reply, poll_ms)) return false;
+    const u64 t_ask = trace::enabled() ? trace::now_ns() : 0;
+    const bool ok = ha::ask(host[node], aport[node], "STATUS", reply, poll_ms);
+    if (trace::enabled()) {
+      const double ms = (trace::now_ns() - t_ask) / 1e6;
+      if (!ok || ms >= 20) {
+        SNC_TRACE("witness_status group=%u node=%u port=%u ok=%d ms=%.1f reply=%.60s", group, node, aport[node],
+                  ok ? 1 : 0, ms, reply.c_str());
+      }
+    }
+    if (!ok) return false;
     f = fields(reply);
     return true;
   };
@@ -477,6 +487,8 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(promoting ? 2 : poll_ms));
     if (promoting || secs(primary_ok, clock::now()) * 1000 < failover_ms) continue;
     // The primary is gone. Promote its standby if it has every acked write.
+    SNC_TRACE("witness_suspect group=%u primary=%u term=%llu silent_ms=%.1f degraded=%d", group, p,
+              (unsigned long long)st.term, secs(primary_ok, clock::now()) * 1000, st.degraded ? 1 : 0);
     if (st.degraded) continue;  // it may not: wait for the primary
     if (!status(o, f) || f["role"] != "s") continue;
     const std::string suuid = f["uuid"];
@@ -493,6 +505,8 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
       ours = true;
       return "";
     });
+    SNC_TRACE("witness_propose_promote group=%u to=%u term=%llu result=%.40s ours=%d propose_ms=%.1f", group, o,
+              (unsigned long long)(st.term + 1), r.c_str(), ours ? 1 : 0, secs(tp, clock::now()) * 1000);
     if (r == "OK" && ours) {
       silent_s = secs(primary_ok, tp);
       t_decided = tp;

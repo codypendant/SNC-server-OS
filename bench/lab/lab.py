@@ -147,6 +147,15 @@ class Lab:
     def bin(self, host, name):
         return f"{host.bin}/{name}"
 
+    def driver_log(self, stderr, name):
+        """snc_ctl's log lines; its SNC_TRACE lines go to OUT/driver-NAME.trace."""
+        lines = stderr.strip().splitlines()
+        trace = [l for l in lines if l.startswith("T ")]
+        if trace:
+            with open(os.path.join(self.out, f"driver-{name}.trace"), "w") as f:
+                f.write("\n".join(trace) + "\n")
+        return [l for l in lines if not l.startswith("T ")][-20:]
+
     def spawn(self, host, name, cmd):
         pid = host.spawn(f"{self.run_dir}/{name}.log", cmd)
         self.procs.append((host, pid, name))
@@ -208,6 +217,12 @@ class Lab:
         for k, n in self.nodes.items():
             st = wait(lambda: status(n["host"].addr, n["admin"]), f"node {k} up", timeout=120)
             n["role"] = st["role"]
+        if os.environ.get("SNC_TRACE") == "1":
+            # Per-thread CPU into the same timeline as SNC_TRACE (docs/TRACING.md).
+            # Local hosts only: remote hosts do not have the script.
+            for h in {id(h): h for h in self.hosts.values()}.values():
+                if h.local:
+                    self.spawn(h, f"cpu-{h.name}", f"python3 {REPO}/bench/lab/cpu_sample.py {self.run_dir}/cpu-{h.name}.trace")
         self.note("cluster up", groups=len(self.groups), nodes=len(self.nodes))
 
     def start_node(self, k, objects, replica_timeout_ms=2000, rejoin=False):
@@ -250,6 +265,16 @@ class Lab:
             n["host"].fetch(f"{self.run_dir}/n{k}.log", os.path.join(self.out, f"n{k}.log"))
         for i, h in enumerate(self.witness_hosts):
             h.fetch(f"{self.run_dir}/w{i}.log", os.path.join(self.out, f"w{i}.log"))
+        if os.environ.get("SNC_TRACE") == "1":
+            # Keep the trace lines: *.log files are not committed (.gitignore).
+            for name in [f"n{k}" for k in self.nodes] + [f"w{i}" for i in range(len(self.witness_hosts))]:
+                src = os.path.join(self.out, f"{name}.log")
+                if os.path.exists(src):
+                    with open(src, errors="replace") as f, open(os.path.join(self.out, f"{name}.trace"), "w") as t:
+                        t.writelines(l for l in f if l.startswith("T "))
+        for h in {id(h): h for h in self.hosts.values()}.values():
+            if h.local and os.path.exists(f"{self.run_dir}/cpu-{h.name}.trace"):
+                h.fetch(f"{self.run_dir}/cpu-{h.name}.trace", os.path.join(self.out, f"cpu-{h.name}.trace"))
         if not self.cfg.get("keep"):
             for h in {id(h): h for h in self.hosts.values()}.values():
                 h.sh(f"rm -rf {self.run_dir}", check=False)
@@ -609,14 +634,14 @@ def p5(lab, args):
     r = c.sh(f"{ctl} {chunk} {slot} {dest}", check=False, timeout=900)
     steps["move_s"] = round(time.time() - t, 3)
     steps["move"] = r.stdout.strip()
-    steps["driver_log"] = r.stderr.strip().splitlines()[-20:]
+    steps["driver_log"] = lab.driver_log(r.stderr, "move")
     lab.note("moved", slot=slot, result=r.stdout.strip(), seconds=steps["move_s"])
     time.sleep(args.seconds / 4)
     t = time.time()
     r = c.sh(f"{ctl} {chunk} {slot} {home}", check=False, timeout=900)
     steps["back_s"] = round(time.time() - t, 3)
     steps["back"] = r.stdout.strip()
-    steps["back_driver_log"] = r.stderr.strip().splitlines()[-20:]
+    steps["back_driver_log"] = lab.driver_log(r.stderr, "back")
     lab.note("moved back", result=r.stdout.strip(), seconds=steps["back_s"])
     summary = lab.wait_load("load", pid, args.seconds + 300)
     probe.stop()

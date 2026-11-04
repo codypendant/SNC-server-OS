@@ -75,6 +75,7 @@ add_executable(snc_ctl tools/snc_ctl.cpp)
 target_link_libraries(snc_ctl PRIVATE snc_core)
 add_executable(snc_witness tools/snc_witness.cpp)
 target_link_libraries(snc_witness PRIVATE Threads::Threads)
+target_include_directories(snc_witness PRIVATE ${CMAKE_SOURCE_DIR}/include)
 find_program(PYTHON3 python3)
 if(PYTHON3)
   add_test(NAME test_witness COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_witness.py ${CMAKE_BINARY_DIR})
@@ -89,5 +90,8 @@ add_executable(net_bench bench/net_bench.cpp)
 target_link_libraries(net_bench PRIVATE snc_core)
 
 # The lab's load and checker (docs/REAL_MACHINES.md).
+add_executable(stage_stall bench/stage_stall.cpp)
+target_link_libraries(stage_stall PRIVATE snc_core)
+
 add_executable(snc_load bench/snc_load.cpp)
 target_link_libraries(snc_load PRIVATE snc_core)

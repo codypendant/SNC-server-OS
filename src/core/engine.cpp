@@ -19,6 +19,7 @@
 #include "session.h"
 #include "shard.h"
 #include "slot_state.h"
+#include "snc/trace.h"
 
 namespace snc {
 
@@ -820,8 +821,12 @@ SlotReport Engine::slot_report(u16 slot) {
 Status Engine::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out, double timeout_s) {
   const u16 sh = slots_.owner[slot];
   u64 lsn = 0;
+  const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
   Status st = on_shard(sh, [&] { return current_shard()->seal_slot(slot, move, to, epoch, lsn); });
+  const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
   if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
+  SNC_TRACE("seal slot=%u move=%llx on_shard_ms=%.1f wait_lsn_ms=%.1f status=%s", slot, (unsigned long long)move,
+            (t1 - t0) / 1e6, trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0, status_name(st));
   out = slot_report(slot);
   return st;
 }
@@ -847,7 +852,13 @@ Status Engine::export_slot(u16 slot, u64 move, bool final, const std::vector<Slo
       if (const Status w = wait_lsn(sh, lsn, 10); w != Status::OK) return w;
     }
   }
-  return on_shard(sh, [&] { return current_shard()->export_slot(slot, move, final, have, out, count, digest); });
+  const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+  const Status st =
+      on_shard(sh, [&] { return current_shard()->export_slot(slot, move, final, have, out, count, digest); });
+  SNC_TRACE("export slot=%u move=%llx final=%d have=%zu out=%zu on_shard_ms=%.1f status=%s", slot,
+            (unsigned long long)move, final ? 1 : 0, have.size(), out.size(),
+            trace::enabled() ? (trace::now_ns() - t0) / 1e6 : 0.0, status_name(st));
+  return st;
 }
 
 Status Engine::slot_objects(u16 slot, std::vector<SlotObject>& out) {
@@ -862,10 +873,17 @@ Status Engine::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, c
                           u64 count, u64 digest, SlotReport& out, double timeout_s) {
   const u16 sh = slots_.owner[slot];
   u64 lsn = 0;
+  const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+  SNC_TRACE("stage_begin slot=%u move=%llx final=%d objs=%zu shard=%u", slot, (unsigned long long)move, final ? 1 : 0,
+            objs.size(), sh);
   Status st =
       on_shard(sh, [&] { return current_shard()->stage_slot(slot, move, from, epoch, final, objs, count, digest, lsn); });
+  const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
   if (st == Status::OK) st = wait_lsn(sh, lsn, timeout_s);
   out = slot_report(slot);
+  SNC_TRACE("stage_end slot=%u move=%llx final=%d objs=%zu on_shard_ms=%.1f wait_lsn_ms=%.1f status=%s", slot,
+            (unsigned long long)move, final ? 1 : 0, objs.size(), (t1 - t0) / 1e6,
+            trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0, status_name(st));
   return st;
 }
 
