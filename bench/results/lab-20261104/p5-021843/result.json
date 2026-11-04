@@ -1,0 +1,123 @@
+{
+  "scenario": "p5",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p5",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 100000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": false,
+  "check": "account 0100000100000000-0000000000000003 served by 0 nodes\naccount 0100000100000000-00000000000008de served by 0 nodes\naccount 0100000100000000-0000000000001c41 served by 0 nodes\naccount 0100000100000000-0000000000002529 served by 0 nodes\naccount 0100000100000000-0000000000003110 served by 0 nodes\nFAIL: 31295 accounts not served exactly once",
+  "slot": 1326,
+  "slot_size": 100000,
+  "from": 0,
+  "to": 1,
+  "move_s": 197.544,
+  "move": "STUCK no control member answered",
+  "driver_log": [
+    "[   0.019] prepare move 0000000000000002: OK",
+    "[ 197.419] copied 31269 objects ahead of the seal",
+    "[ 197.521] seal: OK 2 1 2 2 31295 18049299040479310795 1 0 0 1 31295 18049299040479310795",
+    "[ 197.532] move 0000000000000002 -> sealed: OK"
+  ],
+  "back_s": 0.01,
+  "back": "BUSY move 0000000000000002 of slot 1326",
+  "back_driver_log": [],
+  "node_epochs": [
+    1
+  ],
+  "probe_rounds": 1164,
+  "two_serving": 0,
+  "migrating_window_s": 0.88,
+  "load": {
+    "seconds": "30.1024",
+    "acked": "54726",
+    "ops_s": "1817.99",
+    "p50_us": "2944",
+    "p99_us": "102400",
+    "p999_us": "110592",
+    "max_us": "139264",
+    "unknown": "0",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "0",
+    "refreshes": "0",
+    "failovers": "0",
+    "epoch": "1",
+    "error": "-"
+  },
+  "events": [
+    {
+      "t": 4.65,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 8.133,
+      "event": "created",
+      "out": "created 200000 accounts over 2 groups, 100001 in slot 1326"
+    },
+    {
+      "t": 8.18,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 213.225,
+      "event": "moved",
+      "slot": 1326,
+      "result": "STUCK no control member answered",
+      "seconds": 197.544
+    },
+    {
+      "t": 220.736,
+      "event": "moved back",
+      "result": "BUSY move 0000000000000002 of slot 1326",
+      "seconds": 0.01
+    },
+    {
+      "t": 220.739,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "1817.99",
+      "p99_us": "102400",
+      "error": "-"
+    },
+    {
+      "t": 220.831,
+      "event": "settled",
+      "seconds": 0.08
+    },
+    {
+      "t": 223.487,
+      "event": "check",
+      "ok": false,
+      "out": "account 0100000100000000-0000000000000003 served by 0 nodes\naccount 0100000100000000-00000000000008de served by 0 nodes\naccount 0100000100000000-0000000000001c41 served by 0 nodes\naccount 0100000100000000-0000000000002529 served by 0 nodes\naccount 0100000100000000-0000000000003110 served by 0 nodes\nFAIL: 31295 accounts not served exactly once"
+    }
+  ]
+}

@@ -69,7 +69,16 @@ int main() {
   rt.start();
 
   const u64 total = kPerPair * kShards * (kShards - 1);
-  auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+  // The deadline is a safety net, not a throughput assertion. With more
+  // shards than cores the pinned workers time-share, so delivery of this
+  // deliberately overflow-heavy stream slows roughly in proportion to the
+  // oversubscription. 60 s was tuned on the 4-vCPU loopback reference; on a
+  // 2-vCPU host the four shards take ~100 s. Scale by the oversubscription
+  // factor so the net stays the same on >= kShards cores (docs/REAL_MACHINES.md).
+  unsigned ncpu = std::thread::hardware_concurrency();
+  if (ncpu == 0) ncpu = kShards;
+  unsigned waves = (kShards + ncpu - 1) / ncpu;
+  auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60) * waves;
   while (g_received.load() < total && std::chrono::steady_clock::now() < deadline) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }

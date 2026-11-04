@@ -1,0 +1,666 @@
+{
+  "scenario": "soak",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "soak",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 20.0,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 101000 accounts each served once; balances = acknowledged transfers + 77 of 77 in doubt",
+  "rounds": 30,
+  "events": [
+    {
+      "t": 5.047,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 6.318,
+      "event": "created",
+      "out": "created 101000 accounts over 2 groups, 1001 in slot 3000"
+    },
+    {
+      "t": 6.329,
+      "event": "load started",
+      "name": "load0",
+      "seconds": 40
+    },
+    {
+      "t": 16.359,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 46.56,
+      "event": "load finished",
+      "name": "load0",
+      "ops_s": "11850.1",
+      "p99_us": "4864",
+      "error": "-"
+    },
+    {
+      "t": 46.566,
+      "event": "load started",
+      "name": "load1",
+      "seconds": 40
+    },
+    {
+      "t": 56.567,
+      "event": "fault",
+      "kind": "stop",
+      "node": 1,
+      "peer": null
+    },
+    {
+      "t": 58.585,
+      "event": "healed",
+      "host": "a",
+      "cmd": "kill -CONT 205515"
+    },
+    {
+      "t": 86.767,
+      "event": "load finished",
+      "name": "load1",
+      "ops_s": "10244.2",
+      "p99_us": "6144",
+      "error": "-"
+    },
+    {
+      "t": 86.773,
+      "event": "load started",
+      "name": "load2",
+      "seconds": 40
+    },
+    {
+      "t": 96.774,
+      "event": "fault",
+      "kind": "kill",
+      "node": 3,
+      "peer": null
+    },
+    {
+      "t": 127.404,
+      "event": "load finished",
+      "name": "load2",
+      "ops_s": "12770.7",
+      "p99_us": "6912",
+      "error": "-"
+    },
+    {
+      "t": 127.412,
+      "event": "load started",
+      "name": "load3",
+      "seconds": 40
+    },
+    {
+      "t": 140.676,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 168.348,
+      "event": "load finished",
+      "name": "load3",
+      "ops_s": "13988.6",
+      "p99_us": "6912",
+      "error": "-"
+    },
+    {
+      "t": 168.355,
+      "event": "load started",
+      "name": "load4",
+      "seconds": 40
+    },
+    {
+      "t": 182.861,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 209.027,
+      "event": "load finished",
+      "name": "load4",
+      "ops_s": "15518.5",
+      "p99_us": "5888",
+      "error": "-"
+    },
+    {
+      "t": 209.034,
+      "event": "load started",
+      "name": "load5",
+      "seconds": 40
+    },
+    {
+      "t": 222.259,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 249.425,
+      "event": "load finished",
+      "name": "load5",
+      "ops_s": "16703.8",
+      "p99_us": "6144",
+      "error": "-"
+    },
+    {
+      "t": 249.432,
+      "event": "load started",
+      "name": "load6",
+      "seconds": 40
+    },
+    {
+      "t": 263.773,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 289.932,
+      "event": "load finished",
+      "name": "load6",
+      "ops_s": "18152.9",
+      "p99_us": "4608",
+      "error": "-"
+    },
+    {
+      "t": 289.939,
+      "event": "load started",
+      "name": "load7",
+      "seconds": 40
+    },
+    {
+      "t": 304.088,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 330.249,
+      "event": "load finished",
+      "name": "load7",
+      "ops_s": "17030.7",
+      "p99_us": "4864",
+      "error": "-"
+    },
+    {
+      "t": 330.256,
+      "event": "load started",
+      "name": "load8",
+      "seconds": 40
+    },
+    {
+      "t": 344.514,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 370.673,
+      "event": "load finished",
+      "name": "load8",
+      "ops_s": "17995",
+      "p99_us": "4864",
+      "error": "-"
+    },
+    {
+      "t": 370.679,
+      "event": "load started",
+      "name": "load9",
+      "seconds": 40
+    },
+    {
+      "t": 383.634,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 412.303,
+      "event": "load finished",
+      "name": "load9",
+      "ops_s": "14316.5",
+      "p99_us": "12288",
+      "error": "-"
+    },
+    {
+      "t": 412.309,
+      "event": "load started",
+      "name": "load10",
+      "seconds": 40
+    },
+    {
+      "t": 428.605,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 452.755,
+      "event": "load finished",
+      "name": "load10",
+      "ops_s": "11656.1",
+      "p99_us": "27648",
+      "error": "-"
+    },
+    {
+      "t": 452.764,
+      "event": "load started",
+      "name": "load11",
+      "seconds": 40
+    },
+    {
+      "t": 466.297,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 492.956,
+      "event": "load finished",
+      "name": "load11",
+      "ops_s": "13449.3",
+      "p99_us": "20480",
+      "error": "-"
+    },
+    {
+      "t": 492.963,
+      "event": "load started",
+      "name": "load12",
+      "seconds": 40
+    },
+    {
+      "t": 507.151,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 533.306,
+      "event": "load finished",
+      "name": "load12",
+      "ops_s": "14526.7",
+      "p99_us": "16384",
+      "error": "-"
+    },
+    {
+      "t": 533.313,
+      "event": "load started",
+      "name": "load13",
+      "seconds": 40
+    },
+    {
+      "t": 547.824,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 573.98,
+      "event": "load finished",
+      "name": "load13",
+      "ops_s": "11376.9",
+      "p99_us": "34816",
+      "error": "-"
+    },
+    {
+      "t": 573.987,
+      "event": "load started",
+      "name": "load14",
+      "seconds": 40
+    },
+    {
+      "t": 589.627,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 614.276,
+      "event": "load finished",
+      "name": "load14",
+      "ops_s": "13360",
+      "p99_us": "21504",
+      "error": "-"
+    },
+    {
+      "t": 614.283,
+      "event": "load started",
+      "name": "load15",
+      "seconds": 40
+    },
+    {
+      "t": 627.323,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 654.485,
+      "event": "load finished",
+      "name": "load15",
+      "ops_s": "16749.5",
+      "p99_us": "8704",
+      "error": "-"
+    },
+    {
+      "t": 654.492,
+      "event": "load started",
+      "name": "load16",
+      "seconds": 40
+    },
+    {
+      "t": 668.901,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 695.065,
+      "event": "load finished",
+      "name": "load16",
+      "ops_s": "16517",
+      "p99_us": "6400",
+      "error": "-"
+    },
+    {
+      "t": 695.071,
+      "event": "load started",
+      "name": "load17",
+      "seconds": 40
+    },
+    {
+      "t": 708.217,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 735.381,
+      "event": "load finished",
+      "name": "load17",
+      "ops_s": "14473.1",
+      "p99_us": "5376",
+      "error": "-"
+    },
+    {
+      "t": 735.39,
+      "event": "load started",
+      "name": "load18",
+      "seconds": 40
+    },
+    {
+      "t": 754.071,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 775.705,
+      "event": "load finished",
+      "name": "load18",
+      "ops_s": "15950.2",
+      "p99_us": "4352",
+      "error": "-"
+    },
+    {
+      "t": 775.711,
+      "event": "load started",
+      "name": "load19",
+      "seconds": 40
+    },
+    {
+      "t": 789.066,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 816.228,
+      "event": "load finished",
+      "name": "load19",
+      "ops_s": "18073.5",
+      "p99_us": "4352",
+      "error": "-"
+    },
+    {
+      "t": 816.233,
+      "event": "load started",
+      "name": "load20",
+      "seconds": 40
+    },
+    {
+      "t": 830.4,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 856.563,
+      "event": "load finished",
+      "name": "load20",
+      "ops_s": "17691.7",
+      "p99_us": "4352",
+      "error": "-"
+    },
+    {
+      "t": 856.569,
+      "event": "load started",
+      "name": "load21",
+      "seconds": 40
+    },
+    {
+      "t": 869.925,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 897.085,
+      "event": "load finished",
+      "name": "load21",
+      "ops_s": "17572.9",
+      "p99_us": "5120",
+      "error": "-"
+    },
+    {
+      "t": 897.091,
+      "event": "load started",
+      "name": "load22",
+      "seconds": 40
+    },
+    {
+      "t": 911.247,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 937.408,
+      "event": "load finished",
+      "name": "load22",
+      "ops_s": "18502.5",
+      "p99_us": "4096",
+      "error": "-"
+    },
+    {
+      "t": 937.414,
+      "event": "load started",
+      "name": "load23",
+      "seconds": 40
+    },
+    {
+      "t": 950.354,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 978.021,
+      "event": "load finished",
+      "name": "load23",
+      "ops_s": "18743.2",
+      "p99_us": "3712",
+      "error": "-"
+    },
+    {
+      "t": 978.028,
+      "event": "load started",
+      "name": "load24",
+      "seconds": 40
+    },
+    {
+      "t": 992.328,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 1018.485,
+      "event": "load finished",
+      "name": "load24",
+      "ops_s": "17122",
+      "p99_us": "4608",
+      "error": "-"
+    },
+    {
+      "t": 1018.491,
+      "event": "load started",
+      "name": "load25",
+      "seconds": 40
+    },
+    {
+      "t": 1031.568,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 1058.737,
+      "event": "load finished",
+      "name": "load25",
+      "ops_s": "17585",
+      "p99_us": "6656",
+      "error": "-"
+    },
+    {
+      "t": 1058.744,
+      "event": "load started",
+      "name": "load26",
+      "seconds": 40
+    },
+    {
+      "t": 1072.917,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 1099.098,
+      "event": "load finished",
+      "name": "load26",
+      "ops_s": "18458.2",
+      "p99_us": "4352",
+      "error": "-"
+    },
+    {
+      "t": 1099.112,
+      "event": "load started",
+      "name": "load27",
+      "seconds": 40
+    },
+    {
+      "t": 1112.326,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 1139.491,
+      "event": "load finished",
+      "name": "load27",
+      "ops_s": "18442.4",
+      "p99_us": "3968",
+      "error": "-"
+    },
+    {
+      "t": 1139.497,
+      "event": "load started",
+      "name": "load28",
+      "seconds": 40
+    },
+    {
+      "t": 1153.952,
+      "event": "move",
+      "to": 1,
+      "result": "DONE"
+    },
+    {
+      "t": 1180.11,
+      "event": "load finished",
+      "name": "load28",
+      "ops_s": "18679",
+      "p99_us": "4864",
+      "error": "-"
+    },
+    {
+      "t": 1180.117,
+      "event": "load started",
+      "name": "load29",
+      "seconds": 40
+    },
+    {
+      "t": 1193.167,
+      "event": "move",
+      "to": 0,
+      "result": "DONE"
+    },
+    {
+      "t": 1220.334,
+      "event": "load finished",
+      "name": "load29",
+      "ops_s": "18437.5",
+      "p99_us": "4608",
+      "error": "-"
+    },
+    {
+      "t": 1220.391,
+      "event": "settled",
+      "seconds": 0.06
+    },
+    {
+      "t": 1224.859,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 101000 accounts each served once; balances = acknowledged transfers + 77 of 77 in doubt"
+    }
+  ]
+}

@@ -1,5 +1,12 @@
 # Real-machine test plan
 
+Status (2026-11-04): first run on physical hosts — three Vultr VPSs in
+Dallas (`bench/lab/vultr.toml`). P0-P5 and a 20-minute soak ran; results
+and the assumptions they confirmed or changed are in "Vultr run
+(2026-11-04)" below, next to the loopback reference, and in the `AGENTS.md`
+handoff log. One open item (an intermittent balance-check failure under
+the `partition` fault) is flagged there.
+
 Status (2026-10-13): the harness is built and passes on loopback
 (reference numbers below). No physical hosts yet; findings go in the last
 section and in the `AGENTS.md` handoff log as they come in.
@@ -191,6 +198,45 @@ cores among all of that; compare shapes, not absolute numbers. Results in
 | P5 move, 2,012-object slot, `--chunk 8` | 6.05 s there and 6.12 s back, of which 5.7 s is the copy ahead of the seal; seal to activation 0.25 s; probe: never two serving groups, 0.18 s with none serving; every node at epoch 3; check OK |
 | P5 move, same, `--chunk 256` | 0.56 s there and 0.97 s back; same window and checks |
 
+## Vultr run (2026-11-04)
+
+Three Vultr VPSs in Dallas (`bench/lab/vultr.toml`), each Ubuntu 24.04,
+kernel 6.8, **2 vCPU (Skylake), 3.8 GB RAM, 75 GB disk, one NIC
+`enp1s0`**. c = 45.32.205.25 (clients, move driver, witness 2); a =
+45.32.201.96 (group 0 primary, group 1 standby, witness 0); b =
+45.76.56.244 (group 1 primary, group 0 standby, witness 1). **Public IPs
+were used** — Vultr private networking was not enabled, so each host has
+only `enp1s0` with a public address. ufw is on by default (SSH only); tcp
+21000-21600 was opened between the three hosts, without which every node
+link and witness message is silently dropped. A primary and its standby
+must not share a host, so both groups span a and b; each of a and b runs
+two `snc_server` processes (4 pinned shard threads) on 2 cores plus a
+witness, so absolute throughput is low — compare shapes. Results in
+`bench/results/lab-20261104/`.
+
+Three loopback-only assumptions in the harness/tests were fixed here:
+`test_runtime.cpp`'s 60 s delivery deadline assumed >= 4 cores (4 shards on
+2 cores take ~102 s; it now scales by `ceil(shards/cpus)`); P0's `iperf3`
+used its default port 5201, outside the firewall-opened range, and hung
+~130 s (now `base_port+500` with `--connect-timeout`); and `check()` now
+preserves its inputs (`.delta`, `.unknown`, `ids`) on a failed check for
+post-mortem.
+
+| Run | Result |
+| --- | --- |
+| P0 baseline | RTT 0.34-0.39 ms avg between every pair (one datacentre, sub-ms); iperf3 7.7 Gbit/s; fsync p50/p99 a 395/586 us, c 428/864 us, b 774/1171 us (b's disk ~2x slower) |
+| P1 one node, clients on c | memory d1/d16/d128 = 10.0K/125.7K/658K ops/s; durable = 3.9K/36.9K/255K; 0 errors. Depth 1 is RTT/service-time bound, high depth recovers |
+| P2 sync replication | durable+sync d1/d16/d128 = 3.85K/38.8K/249.5K, **0.98/1.05/0.98x** of P1 non-sync durable (loopback was 0.54-0.60x): the standby's own cores remove the loopback CPU contention and the 0.33 ms RTT overlaps the fsync |
+| P3 `kill` / `stop` | promote 1.45 s / 1.63 s; `stop` old primary withdrew 0.16 s after SIGCONT; client gap 0.5 s / 2.0 s; check OK |
+| P3 `partition` / `oneway` | promote 7.7-8.5 s / 7.9 s — a silent cut sends no RST, so failover waits out timeouts (~5x the process-fault case); client gap 3.5 s / 6.5 s; check OK except an intermittent partition failure (see Findings) |
+| P4 `partition` (10 s cut) | cross-group follow-up backlog grows ~linearly to ~26K unsettled, drains 8.1 s after heal; check OK. On 3 hosts a host-level cut also fails over both groups (6 failovers); isolating one node link needs the 5-host layout |
+| P4 `delay` (netem 1/5/20 ms) | no failover, 0 in-doubt; throughput 9.7K/7.9K/7.7K ops/s; 20 ms is well inside `failover_ms` 1000 |
+| P5 move 1K/10K/100K, `--chunk 8` | 4.8 s / 43.5 s / **FAILED**; move time is N/chunk durable round trips + RTT each; E_MIGRATING window stays 0.1-0.2 s regardless |
+| P5 move 1K/10K/100K, `--chunk 256` | 0.58 s / 2.9 s / 11.3 s; all DONE, check OK |
+| P5 100K / `--chunk 8` | after ~197 s of copy-ahead the driver returned `STUCK no control member answered` and left the slot sealed, not activated (31,295 accounts served by 0 nodes); a retry was refused `BUSY`. Evidence for the chunked stream (assumption #4) — but the failure is a control-plane timeout under the long copy, not the predicted clean 15 s admin-line error |
+| P5 crash matrix | `--crash source`/`dest` `--at sealed`/`committed`, all four: standby promoted, move DONE, never two serving groups, money conserved; E_MIGRATING window widens to ~0.6-0.7 s across a crash |
+| P6 soak (20 min) | 30 rounds of mixed load with random kill/stop and moves back and forth; every round's load clean (~17-19K ops/s), final check OK (101,000 accounts each served once, 77/77 in doubt resolved) |
+
 ## Findings
 
 From building the harness, on loopback:
@@ -210,3 +256,53 @@ From building the harness, on loopback:
    (no replication), not `p`; the lab accepts either.
 
 Predicted, to confirm on hosts: the assumptions above.
+
+### From the Vultr run (2026-11-04)
+
+How the predicted assumptions turned out:
+
+1. **A dead host looks like a hung connection, not a reset — confirmed,
+   and it dominates failover time.** `kill`/`stop` promote in ~1.5 s (the
+   process's kernel still sends a RST); `partition`/`oneway`, where nothing
+   is sent, promote in ~8 s because failover has to wait out the ack and
+   witness timeouts. This is the single largest real-vs-loopback
+   difference in the failover path.
+2. **Timeouts tuned on loopback held.** No false failovers: netem up to
+   20 ms never tripped `failover_ms` 1000, and all three hosts being in one
+   datacentre (RTT ~0.34 ms) left the connect/retry/witness timeouts with
+   wide margin. The one place a timeout bit was a loopback-only *test*
+   deadline (`test_runtime`, fixed). Left untested: cross-datacentre RTT,
+   where these margins would shrink.
+3. **Sync replication got cheaper, not dearer.** 0.98-1.05x of non-sync
+   durable, vs 0.54-0.60x on loopback: the standby runs on its own host so
+   the shared-core contention is gone, and the replication RTT overlaps the
+   fsync. The ratio moved the opposite way from a naive "fsync + RTT" guess.
+4. **Whole-slot copies in one admin line do not scale — confirmed.** The
+   100K-object / chunk-8 move did not complete (control plane lost after
+   ~197 s, slot left sealed). chunk 256 still completes 100K in 11.3 s. The
+   chunked stream is needed before slots this size migrate in production.
+5. **Resume on reconnect:** the P4 10 s cut's ~26K-entry backlog drained in
+   8.1 s after heal with 100K objects; a 1M-object reconnect on the 5-host
+   layout is still untested (3 hosts cannot cut one node link without also
+   failing over both groups).
+6/7. Leases and NUMA: not stressed here (sub-ms drift, single-socket 2-vCPU
+   hosts); left for a multi-socket / cross-site run.
+
+**Open — intermittent balance-check failure under `partition`.** About 1
+run in ~24 (seen once in ~24 `partition` runs; `kill`/`stop`/`oneway`/soak
+never showed it), the check fails: balances net to 0 (money conserved) but
+~32 accounts do not equal their acknowledged transfers, and the client
+recorded fewer in-doubt transfers (14) than needed to explain them. It
+appears only under `partition`, where both groups fail over at once (both
+span a and b) during the long ~8 s dual-promote window. The witness Paxos
+was seen to behave correctly in every inspected run (it refused the
+cut-off old primary's degrade — "NO term 0 was replaced by 1" — so that
+primary blocked its pending writes and withdrew, no split brain). Net-0
+narrows it to either (a) a lost or double-applied *acknowledged* transfer
+— a real but rare safety bug; a candidate is that a request's target
+account and its client-session object can live on different shards whose
+per-shard replication streams are cut at different points, so a replayed
+request re-applies — or (b) the client (`snc_load`) counting an in-doubt
+transfer as acknowledged. `check()` now preserves `.delta`/`.unknown` on
+failure so the next occurrence can be classified. **Do not treat failover
+under partition as proven until this is pinned down.**

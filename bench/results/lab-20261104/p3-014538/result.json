@@ -1,0 +1,124 @@
+{
+  "scenario": "p3",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p3",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "partition",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": false,
+  "check": "account 0100000100000000-00000000000075bb off by 14\naccount 0100000100000000-000000000000d3d5 off by 21\naccount 0100000100000000-00000000000128fe off by 13\naccount 0100000100000000-0000000000014972 off by 7\naccount 0100000100000000-0000000000022f67 off by 27\nFAIL: 32 accounts are not their acknowledged transfers (net 0)",
+  "promote_s": 8.522331953048706,
+  "withdraw_s": 0.0029935836791992188,
+  "client_gap_s": 3.5,
+  "load": {
+    "seconds": "30.1255",
+    "acked": "166941",
+    "ops_s": "5541.51",
+    "p50_us": "2944",
+    "p99_us": "5376",
+    "p999_us": "10752",
+    "max_us": "7077888",
+    "unknown": "14",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "10942",
+    "refreshes": "0",
+    "failovers": "9",
+    "epoch": "1",
+    "error": "-"
+  },
+  "status_samples": 2220,
+  "events": [
+    {
+      "t": 6.651,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 7.947,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 7.953,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 17.955,
+      "event": "fault",
+      "kind": "partition",
+      "node": 1,
+      "peer": "b"
+    },
+    {
+      "t": 26.477,
+      "event": "promoted",
+      "node": 2,
+      "seconds": 8.522,
+      "term": "1"
+    },
+    {
+      "t": 27.946,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D OUTPUT -d 45.76.56.244 -j DROP"
+    },
+    {
+      "t": 28.479,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D INPUT -s 45.76.56.244 -j DROP"
+    },
+    {
+      "t": 28.483,
+      "event": "old primary withdrew",
+      "seconds": 0.003
+    },
+    {
+      "t": 38.547,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "5541.51",
+      "p99_us": "5376",
+      "error": "-"
+    },
+    {
+      "t": 38.622,
+      "event": "settled",
+      "seconds": 0.07
+    },
+    {
+      "t": 40.125,
+      "event": "check",
+      "ok": false,
+      "out": "account 0100000100000000-00000000000075bb off by 14\naccount 0100000100000000-000000000000d3d5 off by 21\naccount 0100000100000000-00000000000128fe off by 13\naccount 0100000100000000-0000000000014972 off by 7\naccount 0100000100000000-0000000000022f67 off by 27\nFAIL: 32 accounts are not their acknowledged transfers (net 0)"
+    }
+  ]
+}
