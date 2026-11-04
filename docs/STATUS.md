@@ -112,11 +112,16 @@ and the handoff's development sequence (§24).
   with no promotion). Shard stall is reported, never acted on: a shard
   wedged forever is not failed over (accepted until work is bounded).
   Effective only when every witness of a group polls `HEALTH`.
-- Bounded/resumable migration staging (2026-11-04, **design only, under
-  review**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md). Nothing built:
-  the final stage of a big slot still holds the destination shard for
-  seconds (4.8 s at 100K objects). Also reports an untested fail-open path
-  (a moved slot served from a partial copy after a lossy promotion, D1).
+- Bounded/resumable migration staging (2026-11-04, **design accepted with
+  modifications, not built**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md).
+  The final stage of a big slot still holds the destination shard for
+  seconds (4.8 s at 100K objects).
+- Fail-closed migration serving, D1/D7 (2026-11-04, **design only, under
+  review; takes priority over S1**): [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md).
+  Today, after a lossy promotion (async, admin `PROMOTE`, or restarting a
+  standby's directory as a primary), a moved slot can be served from a
+  partial or stale copy, and a source that lost its seal can serve and
+  lose writes. INFERRED from code; not yet reproduced.
 
 ## Benchmark numbers
 

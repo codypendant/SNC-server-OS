@@ -510,7 +510,11 @@ posting list.
   checkpoint on the main thread (STABILIZATION_REPORT J). Work proportional to
   the slot, the map or a posting list MUST be chunked and resumable, with
   its progress in durable state where it must survive a crash (the
-  migration steps already are).
+  migration steps already are). REFINED (review of PR #38): durable
+  progress MAY be the work's own durable, idempotent, inert output (the
+  staged object records of a final stage) rather than a separate manifest;
+  a second durable progress state machine needs evidence that it is
+  required (MIGRATION_STAGING.md section 4).
 - B-2 [ACCEPTED, IMPLEMENTED: HEALTH_DECOUPLING.md section 10].
   Liveness health (what a witness polls) MUST NOT wait on shard threads
   finishing work. It reads a per-shard progress counter (each loop

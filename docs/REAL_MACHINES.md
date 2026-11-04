@@ -203,7 +203,7 @@ cores among all of that; compare shapes, not absolute numbers. Results in
 | --- | --- |
 | P3 `kill` group 0's primary | promoted 1.00 s after the kill (`failover_ms` 1000); no transfer acknowledged for at most one 0.5 s report interval, max latency 0.98 s; 13.8K transfers/s; check OK (20,000 accounts, none in doubt) |
 | P3 `stop` (hung primary) | promoted 1.06 s after; after `SIGCONT` the old primary withdrew (`role=f`) in 0.12 s; no transfer acknowledged for 2.0 s (the hung primary holds requests until the client's 3 s request timeout); check OK |
-| P5 move, 2,012-object slot, `--chunk 8` | 6.05 s there and 6.12 s back, of which 5.7 s is the copy ahead of the seal; seal to activation 0.25 s; probe: never two serving groups, 0.18 s with none serving; every node at epoch 3; check OK |
+| P5 move, 2,012-object slot, `--chunk 8` | 6.05 s there and 6.12 s back, of which 5.7 s is the copy ahead of the seal; seal to activation 0.25 s; probe: never two serving groups, 0.18 s with none serving (a probe figure; the probe can undercount, MIGRATION_STAGING.md A.2, so use the seal-to-activation time as the window); every node at epoch 3; check OK |
 | P5 move, same, `--chunk 256` | 0.56 s there and 0.97 s back; same window and checks |
 
 ## Vultr run (2026-11-04)
