@@ -50,7 +50,7 @@ Ubuntu Server 24.04 LTS (kernel 6.8; SNC needs 6.x for io_uring), or
 Debian 13. Then:
 
 ```sh
-sudo apt install build-essential cmake ninja-build git liburing-dev \
+sudo apt install build-essential cmake ninja-build git liburing-dev libmimalloc-dev libxxhash-dev \
                  iperf3 fio iproute2 iptables
 ```
 
