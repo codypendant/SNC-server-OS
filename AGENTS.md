@@ -880,3 +880,35 @@ or source comments.
     with transfers. Pin versions and check licenses per review.
 -   **Next action:** none until a lane is started; the Core order is
     unchanged (legacy-role review, then S1).
+
+### 2026-11-04 UTC --- Claude (Claude Code): experimental validation milestone and scope freeze
+
+-   **Classification:** KEEP. Roadmap and documents only. There is no
+    code or contract change; the one new script records the machine.
+-   **What:** cody's validation roadmap is filed as
+    `docs/EXPERIMENTAL_VALIDATION.md`; the source text is in
+    `docs/handoff/`. STATUS.md names the milestone: planned after S1
+    and the required correctness fixes.
+    - **Major platform expansion after S1 is conditional** on the
+      milestone's GO / REFINE / NARROW / STOP decision. Documents,
+      Events/Timers, WaitSets, Activation, the Agent Runtime, a Rust
+      rewrite, DPDK/VPP and the rest are frozen until then. Exceptions:
+      work a validation workload needs, and fixes for defects that would
+      invalidate an experiment.
+    - The research lane now states that it feeds the comparative
+      workload design.
+    - Added `bench/manifest.sh`, `bench/manifests/` (the development
+      VM's manifest; the main local server and the remote-site host are
+      still to capture), and rules for raw results under `bench/results/`.
+-   **Review notes:**
+    - Failure criteria are committed per campaign
+      (`bench/results/<campaign>/CRITERIA.md`) before its comparative
+      runs. No thresholds are proposed; they are for cody and Codex at
+      the Experimental Baseline.
+    - Loopback numbers from the 4-vCPU VM are regression checks only:
+      multi-process runs there are CPU-oversubscribed.
+    - Gaps: there are no SpacetimeDB, Orleans, Restate or DBOS
+      harnesses, and no drivers for workloads B and C (section 5 table).
+-   **Next action:** S1 continues unchanged and returns for review. The
+    milestone starts after that review and the correctness fixes it
+    requires.
