@@ -249,7 +249,7 @@ activate. The real-machine numbers support this protocol:
 | --- | --- | --- | --- |
 | `--slot-size 1000` (1,049 objects sealed) | 4.8 s | 0.58 s | 0.1-0.2 s |
 | `--slot-size 10000` (10,049) | 43.5 s | 2.9 s | 0.1-0.2 s |
-| `--slot-size 100000` (**31,295-31,364 sealed**) | failed after 197 s: driver `STUCK`, slot left sealed, window 0.88 s | 11.3 s | 0.1-0.2 s |
+| `--slot-size 100000` (**31,295-31,364 sealed**) | failed after 197 s: driver `STUCK`, slot left sealed, window 0.88 s (INFERRED cause, 2026-11-04: the driver's own 60 s deadline with a stale message, not the control plane; STABILIZATION_REPORT D) | 11.3 s | 0.1-0.2 s |
 
 The "100K" runs moved about 31K objects: the driver logs and the check
 show 31,295 (chunk 8) and 31,364 (chunk 256) sealed, although the creator
@@ -567,3 +567,13 @@ blocks the destination shard thread longer than the witnesses'
 `failover_ms` (1,000 ms here), so they promote. This is a false failover
 caused by the move itself, and one more reason for the bounded, chunked
 final stage (section 4). The real-machine 100K rows remain unmeasured.
+
+**Explained (2026-11-04, MEASURED).** Traced in 3 of 3 runs and
+reproduced in one process: the final stage runs as one shard task of
+3.7-5.0 s, 91% of it (97% of the put phase) re-indexing a posting list shared by every account
+(one email), while `STATUS` waits on every shard thread and the witness
+treats a poll slower than 100 ms as silence. The promoted node is left
+with no replica. Full causal report:
+[STABILIZATION_REPORT.md](STABILIZATION_REPORT.md) section D. The
+contracts this evidence feeds are in [CORE_CONTRACTS.md](CORE_CONTRACTS.md)
+(sections 8-11) and the open contradictions in STABILIZATION_REPORT L.

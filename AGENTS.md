@@ -698,3 +698,41 @@ or source comments.
     real-machine 100K rerun.
 -   **Next action:** Codex decides the R08 and R11 contracts; then the
     bounded final copy (section 4) or L0, as Codex prefers.
+
+### 2026-11-04 UTC --- Claude (Claude Code): core stabilization work order (characterize and specify)
+
+-   **Classification:** **KEEP** for the engine (no semantic change).
+    Instrumentation, bench and test fixes, and specifications only, as the
+    work order authorizes. One operator-tool message fix is flagged for
+    review (below).
+-   **What changed:**
+    -   `SNC_TRACE=1` stopgap tracing (`include/snc/trace.h`; shard loop,
+        admin, witness, migration, stage phases), `bench/lab/cpu_sample.py`,
+        `bench/lab/trace_merge.py`, and `bench/stage_stall` (an in-process
+        repro of the stall).
+    -   `tests/test_cluster.cpp`: a data race in the test's own counter
+        (TSan) fixed with an atomic.
+    -   `tools/migrate.h`: the driver's `STUCK` message no longer carries a
+        stale reason, and names the deadline and move state. **For review:
+        it is an operator tool's output, at the edge of the authorization.**
+    -   New docs: `CORE_CONTRACTS.md` (A, F, G, H, I), `FAILURE_MODEL.md`
+        (B), `INTERACTION_MATRIX.md` (C, M), `TRACING.md` (E),
+        `STABILIZATION_REPORT.md` (D, J, K, L, N, P, Part X, sanitizers,
+        review and QA findings). EVIDENCE.md and STATUS.md reconciled.
+-   **Found:**
+    -   The 100K false failover is explained and measured: the final stage
+        runs as one shard task (3.7-5.0 s, 91% re-indexing a posting list
+        shared by every account), `STATUS` waits on every shard thread,
+        and the witness treats a 100 ms poll timeout as silence. The
+        promoted node is left with no replica, acknowledging
+        LOCAL_DURABLE with nothing reported.
+    -   Sanitizers: ASan+UBSan 16/16; TSan 16/16 after the test fix.
+    -   Review found two gaps not known before (INFERRED, EL0): a cut-off
+        old primary serves stale default reads; WAL corruption in the
+        middle of the last segment silently drops acknowledged records.
+        And a possible restart hang (recovery checkpoint waiting for a lost
+        standby under a witness).
+-   **Not changed:** R08, R11, timeouts, `failover_ms`, TTLs.
+-   **Next action:** Codex reviews the contracts (CORE_CONTRACTS sections
+    5-14 are PROPOSED unless tagged otherwise). Recommended next slice:
+    R08 option F-a (async groups never auto-promote). Not started.

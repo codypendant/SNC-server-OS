@@ -16,9 +16,11 @@ import argparse
 import glob
 import os
 import re
+import signal
 
 
 def main():
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)  # quiet under | head
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
     ap.add_argument("--from", dest="t_from", type=float, default=None)
