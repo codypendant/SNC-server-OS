@@ -596,3 +596,29 @@ or source comments.
 -   **Open:** not re-run on real hosts (servers torn down); a confirmation
     is ~24 `p3 --fault partition` rounds on three fresh hosts.
 
+
+### 2026-11-04 04:30 UTC --- Claude (Claude Code): partition re-run with the fix
+
+-   **Commit/PR:** `claude/p3-partition-confirmation`; ran `74209a8`.
+    Docs and results only; no code change.
+-   **Area:** client sessions under failover; real-machine lab.
+-   **Found:** **24 of 24** `p3 --fault partition` rounds passed on three
+    fresh Vultr hosts: no double-apply, every old primary fenced, promote
+    7.66-8.41 s, 489-4,247 `E_OVERLOADED` per round.
+-   **Limits (keep these when citing it):** at the old rate of about 1 in
+    24, 0 failures in 24 has a ~36% chance without any fix, and bounds the
+    rate only below ~12% (95%). `snc_load` does not count refused resends
+    separately, and the one failing round had more refusals (10,942) than
+    any round here. The fix rests on the cause and
+    `test_resend_overloaded`; this run is consistent with it, not proof.
+-   **Harness (changes an assumption):** `--seed` does nothing for `p3`,
+    only `soak` reads it. `p3` passes or fails on the balance check alone,
+    and only logs an old primary that does not withdraw.
+-   **Setup:** `vultr_setup.sh` had not finished on c: the inventory still
+    held the old addresses and nothing was deployed. Cause not determined.
+    I applied its last two steps by hand; the new addresses are not
+    committed in `vultr.toml`.
+-   **Evidence:** `bench/results/lab-20261104/p3-040835` to `p3-042527`;
+    `docs/REAL_MACHINES.md`, "Partition re-run with the fix".
+-   **Next action:** for a stronger result, count refused resends in
+    `snc_load`, or run the pre-fix build the same way to measure its rate.
