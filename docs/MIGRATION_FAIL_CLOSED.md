@@ -893,8 +893,11 @@ predicted; evidence in
   renamed, directory fsynced; anything else reads as malformed. A standby
   writes `standby` before the superblock, seed or any replica record. A
   superblock flag (`kSbRoleTracked`, in the formerly reserved field, which
-  older binaries ignore) marks directories that have had a role file:
-  only a directory without it may lack the file and start as a primary.
+  older binaries ignore) marks directories that have had a role file. A
+  directory with neither (from before role files) does not start as a
+  primary unless adopted once (`--adopt-role primary`, checked, through the
+  barrier): [LEGACY_ROLE.md](LEGACY_ROLE.md), after the review of this
+  slice.
 - The start barrier: in place (`Engine::promote`) the placement sync comes
   first (a failure changes nothing: "promote refused"), then the lease
   block, adoption, settling the replica prefix, the re-seal inside each
@@ -961,9 +964,12 @@ predicted; evidence in
 - An in-place promotion starts serving the other slots before the re-seal
   is durable (`Shard::promote` runs `start_serving`, then
   `finish_barrier` waits); S itself is SEALED in memory before anything
-  serves, so it is never served, and `DIR/role` says `primary` only once
-  the re-seal is durable (a crash before that runs the barrier again).
-  Section 5a's "only then serve" holds for S, not for the node.
+  serves, and a crash before durability runs the barrier again. Precisely
+  (review of PR #40, item 8): **the node may serve independently proven
+  unaffected slots while the migration barrier finishes; the affected slot
+  remains non-serving, and the directory is not declared primary until
+  barrier durability completes.** The whole node does not wait to serve;
+  section 5a's "only then serve" holds for S.
 - F14 samples `MOVE INFO` every 5-10 ms across in-place and witness
   promotions instead of stopping the process at `refresh_slots` and
   `start_serving`.
@@ -1005,8 +1011,9 @@ promotion cleared by the abort's UNSEAL), `f7_prepared` (in-place
 promotion at PREPARED, held at ROLE m, while the driver runs) and
 `size`. With
 `--old` (a build of main before this slice): `compat` (a v1 cluster of
-old binaries, upgraded in place; pre-upgrade directories start as
-primaries with the control plane down; the backfill through the old,
+old binaries, upgraded in place; since [LEGACY_ROLE.md](LEGACY_ROLE.md)
+every pre-upgrade directory is refused until started with `--standby` or
+adopted with `--adopt-role primary`; the backfill through the old,
 unchanged witnesses; an old `snc_ctl` can neither read v2 nor write
 anything) and `f7b` (a reachable source primary that serves S: the gate
 aborts the move). `tests/test_proof.cpp`: 13C (no window after map
@@ -1074,10 +1081,12 @@ to start on a v2 file); (5) start the old binaries.
    leaves what it cannot prove unresolved.
 4. An unproven slot stays unavailable until repair (not built).
 5. Acknowledged writes lost by an async promotion stay lost (R08).
-6. Upgrade order: a directory from before role files (no `DIR/role`, no
-   `kSbRoleTracked`) that was a standby must be restarted with
-   `--standby` first; restarted without it, it is taken for a legacy
-   primary's and runs no barrier. A rollback to an older binary and back
-   can leave a stale `primary` file on a directory that served as a
-   standby meanwhile (older binaries do not write it).
+6. ~~Upgrade order: a pre-role-file standby restarted without
+   `--standby` is taken for a legacy primary's.~~ **Closed** by
+   [LEGACY_ROLE.md](LEGACY_ROLE.md) (after the review of PR #40): such a
+   directory is refused unless started with `--standby` or adopted with
+   `--adopt-role primary` (checked against the group's members, through
+   the barrier, crash-safe). Still open: a rollback to an older binary
+   and back can leave a stale `primary` file on a directory that served
+   as a standby meanwhile (older binaries do not write it).
 

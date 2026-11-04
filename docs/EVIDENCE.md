@@ -612,8 +612,15 @@ Full record: [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md) section
   an offline restart of the standby's directory (F17), which does not
   start while the control plane is down. `test_fail_closed`,
   `test_proof`, `test_placement`.
+- **Legacy directories** (after the review of PR #40,
+  [LEGACY_ROLE.md](LEGACY_ROLE.md)): a directory from before role files is
+  refused as a primary unless adopted; adoption is refused on contrary
+  evidence (a member serving, silent, or at a newer term) and is
+  crash-safe (`legacy_primary`, `legacy_standby`, `legacy_stale`; `compat`
+  with directories written by the older build). EL2, loopback.
 - **Not evidence of:** safety against a source primary the driver cannot
   reach (R08); protection of slots moved before placement v2 that the
   backfill could not prove; any recovery of writes an async promotion
-  lost.
+  lost; a legacy adoption where both members' flags are swapped, or one
+  without a control plane (LEGACY_ROLE.md section 6).
 

@@ -364,6 +364,19 @@ class Engine {
     // entries, or empty: none).
     std::vector<SlotArrival> cluster_arrived;
 
+    // Legacy directories (docs/LEGACY_ROLE.md): a data directory from
+    // before role files (no DIR/role, superblock without kSbRoleTracked)
+    // never starts as a primary unless this says, once, that it is one.
+    // PRIMARY: its group's primary's own disk (adopt_primary_check may
+    // refuse; the start barrier still runs; tracked only once role
+    // "primary" is durable). STANDBY: needs `standby` (the same as starting
+    // it with `standby` alone; for scripts that say it explicitly).
+    // Refused on a new directory, or one whose recorded role differs.
+    enum class AdoptRole : u8 { NONE, PRIMARY, STANDBY };
+    AdoptRole adopt_role = AdoptRole::NONE;
+    // Called (space UUID, superblock term) before a legacy directory is
+    // adopted as a primary's; throws std::runtime_error to refuse.
+    std::function<void(const Uuid& space, u64 term)> adopt_primary_check;
     // Placement refresh (docs/MIGRATION.md): returns the control plane's
     // latest placement (and keeps it where the node starts from next
     // time). Asked every placement_poll_ms, and at once when a newer epoch

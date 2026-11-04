@@ -116,8 +116,8 @@ and the handoff's development sequence (§24).
   modifications, not built**): [MIGRATION_STAGING.md](MIGRATION_STAGING.md).
   The final stage of a big slot still holds the destination shard for
   seconds (4.8 s at 100K objects).
-- Fail-closed migration serving, D1/D7 (2026-11-04, **implemented, under
-  review; S1 waits for that review**): [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md)
+- Fail-closed migration serving, D1/D7 (2026-11-04, **implemented and
+  approved**): [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md)
   section 20. Before it (reproduced: `bench/results/failclosed-20261104/`),
   a lossy promotion (async, admin `PROMOTE`, or restarting a standby's
   directory as a primary) let a moved slot be served from a partial or
@@ -128,6 +128,12 @@ and the handoff's development sequence (§24).
   waits for the source group. Not covered: a second primary the driver
   cannot reach (R08), slots moved under v1 until backfilled; an unproven
   slot stays unavailable (no repair yet).
+- Legacy role upgrade hardening (2026-11-04, **implemented, under review;
+  S1 waits for that review**): [LEGACY_ROLE.md](LEGACY_ROLE.md). A data
+  directory from before role files no longer starts as a primary by
+  default: it is a standby (`--standby`) or is adopted once
+  (`--adopt-role primary`), refused if a group member serves, is silent or
+  is at a newer term, and started through the barrier.
 
 ## Benchmark numbers
 

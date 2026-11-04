@@ -105,9 +105,10 @@ double since(std::chrono::steady_clock::time_point t) {
 // whether this data directory holds a primary's own disk or a standby's
 // replica prefix, which may be lossy. Correctness metadata: written whole,
 // synced, renamed into place, the directory synced. Anything but exactly
-// "primary" or "standby" reads as MALFORMED, and only a directory from
-// before role files existed (superblock without kSbRoleTracked) may lack
-// it and still count as a primary's.
+// "primary" or "standby" reads as MALFORMED. A directory from before role
+// files existed (superblock without kSbRoleTracked) lacks it, and its role
+// is unknown: it starts as a standby, or as a primary only when adopted
+// as one (docs/LEGACY_ROLE.md).
 enum class DirRole { MISSING, PRIMARY, STANDBY, MALFORMED };
 
 const char* role_name(DirRole r) {
@@ -365,7 +366,27 @@ void Engine::recover() {
   // this directory may hold a lossy prefix, until a promotion's start
   // barrier completes.
   make_dirs(dir);
-  const DirRole role = read_role(dir);
+  DirRole role = read_role(dir);
+  using Adopt = Config::AdoptRole;
+  // --adopt-role (docs/LEGACY_ROLE.md) is checked before anything is
+  // written: it names the role of an untracked (legacy) directory, never
+  // overrides a role on record, and a standby is adopted only to run as one.
+  if (cfg_.adopt_role != Adopt::NONE) {
+    const DirRole want = cfg_.adopt_role == Adopt::PRIMARY ? DirRole::PRIMARY : DirRole::STANDBY;
+    if (want == DirRole::PRIMARY && cfg_.standby) {
+      throw std::runtime_error("--adopt-role primary contradicts --standby");
+    }
+    if (want == DirRole::STANDBY && !cfg_.standby) {
+      throw std::runtime_error("--adopt-role standby needs --standby (it adopts the directory to run as a standby)");
+    }
+    const std::optional<Superblock> pre = read_superblock(dir);
+    if (!pre) throw std::runtime_error("--adopt-role: " + dir + " has no superblock (nothing to adopt)");
+    const bool untracked = role == DirRole::MISSING && !(pre->flags & kSbRoleTracked);
+    if (!untracked && role != want) {
+      throw std::runtime_error(std::string("--adopt-role ") + role_name(want) + ": data directory " + dir +
+                               " already has role " + role_name(role) + " (a recorded role is never overridden)");
+    }
+  }
   if (cfg_.standby) write_role(dir, DirRole::STANDBY);
 
   // 1. Superblock. A new standby may first fetch a seed from its primary.
@@ -401,19 +422,46 @@ void Engine::recover() {
   // starts (the stored map is not accepted), a re-seal before anything
   // serves, and only then role "primary". Without a control plane to ask
   // (no placement_sync) there are no moves, and nothing to re-seal.
+  //
+  // Legacy directories (docs/LEGACY_ROLE.md): a superblock from before
+  // role files (no kSbRoleTracked) and no role file. Nothing on disk says
+  // whether it was a primary's or a standby's (an older standby's
+  // directory looks exactly like its primary's), so it never starts as a
+  // primary on its own: the operator says which, once (--adopt-role), and
+  // even then it starts only through the start barrier. A legacy
+  // directory started with --standby has said so already (its role file
+  // was written above).
+  const bool legacy = !recovery_.fresh && role == DirRole::MISSING && !(sb_.flags & kSbRoleTracked) &&
+                      !cfg_.standby;
+  if (legacy) {
+    if (cfg_.adopt_role != Adopt::PRIMARY) {
+      throw std::runtime_error(
+          "legacy data directory " + dir +
+          ": no role file and no role tracking (written by a binary from before role files), so it may hold a "
+          "standby's prefix and does not start as a primary. Start it once with --standby [--adopt-role standby] "
+          "if it is a standby's, or with --adopt-role primary if it is its group's primary's own disk (checked "
+          "against the group's other members, then started through the start barrier)");
+    }
+    // Refused if what can be seen says otherwise: another member of the
+    // group serving or promoting, or one at a newer term of this space.
+    if (cfg_.adopt_primary_check) cfg_.adopt_primary_check(uuid_, sb_.term);
+    std::fprintf(stderr, "snc: legacy data directory adopted as a primary's; start barrier before serving\n");
+  }
   std::optional<Placement> barrier;
   bool after_barrier = false;
   if (!cfg_.standby) {
     after_barrier = role == DirRole::STANDBY || role == DirRole::MALFORMED ||
-                    (role == DirRole::MISSING && (sb_.flags & kSbRoleTracked));
+                    (role == DirRole::MISSING && (sb_.flags & kSbRoleTracked)) || legacy;
     if (after_barrier) {
       std::fprintf(stderr, "snc: data directory role %s: start barrier before serving\n", role_name(role));
       if (cfg_.placement_sync && !cfg_.cluster.empty()) {
         Placement p;
         if (!cfg_.placement_sync(p)) {
           throw std::runtime_error(
-              "start barrier: this data directory was last a standby (its records may be a lossy prefix), so the "
-              "placement must be read linearizably before it serves, and the control plane did not answer");
+              std::string("start barrier: this data directory ") +
+              (legacy ? "has no recorded role (a legacy directory may hold a standby's lossy prefix)"
+                      : "was last a standby (its records may be a lossy prefix)") +
+              ", so the placement must be read linearizably before it serves, and the control plane did not answer");
         }
         if (p.epoch >= cluster_.epoch) {
           ClusterMap m = ClusterMap::assign(cluster_.groups, p.slots, p.epoch);
@@ -423,10 +471,14 @@ void Engine::recover() {
         barrier = std::move(p);
       }
     } else if (role == DirRole::MISSING) {
-      write_role(dir, DirRole::PRIMARY);  // a primary's own disk (new, or from before role files)
+      write_role(dir, DirRole::PRIMARY);  // a new primary's own disk
     }
   }
-  sb_.flags |= kSbRoleTracked;  // in the superblock written below
+  // In the superblock written below. Not yet for a legacy directory being
+  // adopted as a primary's: until its barrier has written role "primary",
+  // a crash must leave it exactly as ambiguous as before (refused again
+  // without --adopt-role), not "tracked, role missing".
+  if (!legacy) sb_.flags |= kSbRoleTracked;
 
   // 2. Manifest and type catalog.
   std::optional<Manifest> m;
@@ -622,7 +674,14 @@ void Engine::recover() {
     current_shard()->finish_recovery(wc, next_lsn[s]);
   });
   recovery_.index_rebuild_s = since(t3);
-  if (after_barrier) finish_barrier(barrier.has_value());
+  if (after_barrier) {
+    finish_barrier(barrier.has_value());
+    if (!(sb_.flags & kSbRoleTracked)) {  // an adopted legacy primary: role "primary" is on disk now
+      sb_.flags |= kSbRoleTracked;
+      ++sb_.generation;
+      write_superblock(dir, sb_);
+    }
+  }
 
   // 8. A changed slot map or orphaned streams need a checkpoint before READY
   // (spec C9) so no object's history spans two streams.
