@@ -1,0 +1,169 @@
+{
+  "scenario": "p4",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p4",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "delay",
+    "failover_ms": 1000,
+    "delay_ms": 1,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 100000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt",
+  "backlog": [
+    [
+      17.65,
+      57
+    ],
+    [
+      18.23,
+      60
+    ],
+    [
+      18.82,
+      72
+    ],
+    [
+      19.4,
+      69
+    ],
+    [
+      19.98,
+      60
+    ],
+    [
+      20.57,
+      79
+    ],
+    [
+      21.87,
+      60
+    ],
+    [
+      22.45,
+      66
+    ],
+    [
+      23.03,
+      63
+    ],
+    [
+      23.62,
+      51
+    ],
+    [
+      24.2,
+      81
+    ],
+    [
+      24.77,
+      74
+    ],
+    [
+      25.35,
+      52
+    ],
+    [
+      25.92,
+      70
+    ],
+    [
+      26.5,
+      77
+    ],
+    [
+      27.07,
+      64
+    ]
+  ],
+  "settle_after_heal_s": 9.61991024017334,
+  "load": {
+    "seconds": "30.1459",
+    "acked": "291625",
+    "ops_s": "9673.77",
+    "p50_us": "2688",
+    "p99_us": "8704",
+    "p999_us": "25600",
+    "max_us": "786432",
+    "unknown": "0",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "0",
+    "refreshes": "0",
+    "failovers": "0",
+    "epoch": "1",
+    "error": "-"
+  },
+  "events": [
+    {
+      "t": 5.727,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 6.985,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 6.992,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 16.995,
+      "event": "fault",
+      "kind": "delay",
+      "node": 1,
+      "peer": "b"
+    },
+    {
+      "t": 28.067,
+      "event": "healed",
+      "host": "a",
+      "cmd": "tc qdisc del dev enp1s0 root"
+    },
+    {
+      "t": 37.631,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "9673.77",
+      "p99_us": "8704",
+      "error": "-"
+    },
+    {
+      "t": 37.686,
+      "event": "settled",
+      "seconds": 0.06
+    },
+    {
+      "t": 38.986,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 100000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"
+    }
+  ]
+}

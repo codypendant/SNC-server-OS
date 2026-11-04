@@ -1,0 +1,138 @@
+{
+  "scenario": "p5",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p5",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 101000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt",
+  "slot": 1326,
+  "slot_size": 1000,
+  "from": 0,
+  "to": 1,
+  "move_s": 4.832,
+  "move": "DONE",
+  "driver_log": [
+    "[   0.019] prepare move 0000000000000002: OK",
+    "[   4.458] copied 1026 objects ahead of the seal",
+    "[   4.494] seal: OK 2 1 2 2 1049 3453876169058622263 1 0 0 1 1049 3453876169058622263",
+    "[   4.510] move 0000000000000002 -> sealed: OK",
+    "[   4.674] final copy (1049 objects): OK 3",
+    "[   4.686] move 0000000000000002 -> staged: OK",
+    "[   4.703] commit move 0000000000000002 at epoch 2: OK",
+    "[   4.757] activated at group 1",
+    "[   4.806] move 0000000000000002 done: OK"
+  ],
+  "back_s": 5.332,
+  "back": "DONE",
+  "back_driver_log": [
+    "[   0.018] prepare move 0000000000000007: OK",
+    "[   4.928] copied 1028 objects ahead of the seal",
+    "[   4.961] seal: OK 2 0 7 3 1049 6371878752555355553 1 0 1 2 1049 6371878752555355553",
+    "[   4.975] move 0000000000000007 -> sealed: OK",
+    "[   5.156] final copy (1049 objects): OK 3",
+    "[   5.169] move 0000000000000007 -> staged: OK",
+    "[   5.185] commit move 0000000000000007 at epoch 3: OK",
+    "[   5.238] activated at group 0",
+    "[   5.305] move 0000000000000007 done: OK"
+  ],
+  "node_epochs": [
+    3
+  ],
+  "probe_rounds": 388,
+  "two_serving": 0,
+  "migrating_window_s": 0.1,
+  "load": {
+    "seconds": "30.1052",
+    "acked": "149024",
+    "ops_s": "4950.1",
+    "p50_us": "2560",
+    "p99_us": "32768",
+    "p999_us": "45056",
+    "max_us": "106496",
+    "unknown": "0",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "1192",
+    "overloaded": "0",
+    "refreshes": "4",
+    "failovers": "0",
+    "epoch": "3",
+    "error": "-"
+  },
+  "events": [
+    {
+      "t": 5.708,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 7.028,
+      "event": "created",
+      "out": "created 101000 accounts over 2 groups, 1001 in slot 1326"
+    },
+    {
+      "t": 7.05,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 19.383,
+      "event": "moved",
+      "slot": 1326,
+      "result": "DONE",
+      "seconds": 4.832
+    },
+    {
+      "t": 32.215,
+      "event": "moved back",
+      "result": "DONE",
+      "seconds": 5.332
+    },
+    {
+      "t": 37.248,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "4950.1",
+      "p99_us": "32768",
+      "error": "-"
+    },
+    {
+      "t": 37.323,
+      "event": "settled",
+      "seconds": 0.05
+    },
+    {
+      "t": 38.561,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 101000 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"
+    }
+  ]
+}

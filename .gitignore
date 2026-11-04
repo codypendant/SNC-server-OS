@@ -5,3 +5,6 @@ compile_commands.json
 __pycache__/
 bench/results/lab-*/*/*.log
 bench/results/lab-*/*/bal.*
+bench/results/lab-*/*/*.delta
+bench/results/lab-*/*/*.unknown
+bench/results/lab-*/*/ids*

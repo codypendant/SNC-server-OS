@@ -1,0 +1,118 @@
+{
+  "scenario": "p3",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p3",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "oneway",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 100000 accounts each served once; balances = acknowledged transfers + 21 of 21 in doubt",
+  "promote_s": 7.862405061721802,
+  "withdraw_s": 0.0019040107727050781,
+  "client_gap_s": 6.5,
+  "load": {
+    "seconds": "30.123",
+    "acked": "175372",
+    "ops_s": "5821.86",
+    "p50_us": "3712",
+    "p99_us": "10752",
+    "p999_us": "28672",
+    "max_us": "7077888",
+    "unknown": "21",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "501",
+    "refreshes": "0",
+    "failovers": "4",
+    "epoch": "1",
+    "error": "-"
+  },
+  "status_samples": 2200,
+  "events": [
+    {
+      "t": 4.636,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 5.843,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 5.85,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 15.851,
+      "event": "fault",
+      "kind": "oneway",
+      "node": 1,
+      "peer": "b"
+    },
+    {
+      "t": 23.713,
+      "event": "promoted",
+      "node": 2,
+      "seconds": 7.862,
+      "term": "1"
+    },
+    {
+      "t": 25.213,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D INPUT -s 45.76.56.244 -j DROP"
+    },
+    {
+      "t": 25.215,
+      "event": "old primary withdrew",
+      "seconds": 0.002
+    },
+    {
+      "t": 36.286,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "5821.86",
+      "p99_us": "10752",
+      "error": "-"
+    },
+    {
+      "t": 36.355,
+      "event": "settled",
+      "seconds": 0.07
+    },
+    {
+      "t": 37.857,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 100000 accounts each served once; balances = acknowledged transfers + 21 of 21 in doubt"
+    }
+  ]
+}

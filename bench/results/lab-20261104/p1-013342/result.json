@@ -1,0 +1,81 @@
+{
+  "scenario": "p1",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p1",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "memory d1": "ops/s 10042  errors 0  overloaded 0  stale 0",
+  "memory d16": "ops/s 125667  errors 0  overloaded 0  stale 0",
+  "memory d128": "ops/s 658153  errors 0  overloaded 0  stale 0",
+  "durable d1": "ops/s 3920  errors 0  overloaded 0  stale 0",
+  "durable d16": "ops/s 36880  errors 0  overloaded 0  stale 0",
+  "durable d128": "ops/s 255426  errors 0  overloaded 0  stale 0",
+  "events": [
+    {
+      "t": 44.954,
+      "event": "net_bench",
+      "mode": "memory",
+      "depth": 1,
+      "result": "ops/s 10042  errors 0  overloaded 0  stale 0"
+    },
+    {
+      "t": 75.874,
+      "event": "net_bench",
+      "mode": "memory",
+      "depth": 16,
+      "result": "ops/s 125667  errors 0  overloaded 0  stale 0"
+    },
+    {
+      "t": 106.112,
+      "event": "net_bench",
+      "mode": "memory",
+      "depth": 128,
+      "result": "ops/s 658153  errors 0  overloaded 0  stale 0"
+    },
+    {
+      "t": 191.325,
+      "event": "net_bench",
+      "mode": "durable",
+      "depth": 1,
+      "result": "ops/s 3920  errors 0  overloaded 0  stale 0"
+    },
+    {
+      "t": 225.999,
+      "event": "net_bench",
+      "mode": "durable",
+      "depth": 16,
+      "result": "ops/s 36880  errors 0  overloaded 0  stale 0"
+    },
+    {
+      "t": 256.611,
+      "event": "net_bench",
+      "mode": "durable",
+      "depth": 128,
+      "result": "ops/s 255426  errors 0  overloaded 0  stale 0"
+    }
+  ]
+}

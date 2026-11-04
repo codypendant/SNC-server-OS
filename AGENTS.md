@@ -525,3 +525,54 @@ or source comments.
     `docs/REAL_MACHINES.md`) and a Claude Code session on one of them runs
     P0-P6. Codex to review the plan and harness meanwhile.
 
+
+### 2026-11-04 UTC --- Claude (Claude Code): real-machine run on Vultr
+
+-   **Commit/PR:** `claude/project-thread-n8tebd` (this PR). Classified
+    **REFINE**: harness/test fixes and results only; no protocol or
+    data-plane change.
+-   **Area:** real-machine lab, phases P0-P6 (`docs/REAL_MACHINES.md`).
+-   **Hosts:** three Vultr VPSs in Dallas, 2 vCPU / 3.8 GB / one NIC each,
+    **public IPs** (no private networking). ufw opened for tcp 21000-21600
+    between the hosts; clients/driver and witness 2 on c, a group's primary
+    and standby never shared. `bench/lab/vultr.toml`,
+    `bench/results/lab-20261104/`.
+-   **What changed (harness/tests, loopback-only assumptions):** (1)
+    `tests/test_runtime.cpp`'s 60 s deadline assumed >= 4 cores; 4 shards on
+    2 cores take ~102 s, so ctest failed. Now scales by
+    `ceil(shards/cpus)`; unchanged on >= 4 cores. (2) P0's `iperf3` used
+    its default port 5201, outside the firewall-opened range, and hung
+    ~130 s; now `base_port+500` with `--connect-timeout`. (3) `check()`
+    preserves `.delta`/`.unknown`/`ids` on a failed check for post-mortem.
+-   **RTT effects:** all three hosts in one datacentre, RTT ~0.34 ms, so
+    steady-state throughput barely differs from loopback and no loopback
+    timeout was too tight. netem 1/5/20 ms degrades throughput gently
+    (9.7K -> 7.7K ops/s) and never trips `failover_ms` 1000.
+-   **Reconnect / failover behaviour (assumption changes):** a silent cut
+    (partition/oneway) has no RST, so promotion waits out timeouts and
+    takes ~8 s vs ~1.5 s for kill/stop -- the dominant real-vs-loopback
+    failover difference. Sync replication is **0.98-1.05x** of non-sync
+    durable (loopback 0.54-0.60x): across hosts the standby has its own
+    cores and the RTT overlaps the fsync. P4's 10 s cross-group cut built a
+    ~26K-entry follow-up backlog that drained 8.1 s after heal.
+-   **Migration throughput:** move time is N/chunk durable round trips plus
+    RTT each: 1K/10K move in 4.8 s/43.5 s at chunk 8, 0.58 s/2.9 s at chunk
+    256. **The 100K-object whole-slot move at chunk 8 does not complete** --
+    after ~197 s the driver returned `STUCK no control member answered` and
+    left the slot sealed, not activated (retry refused `BUSY`); chunk 256
+    does 100K in 11.3 s. The client-visible E_MIGRATING window stays
+    0.1-0.9 s regardless of slot size. Direct evidence for the chunked
+    stream (`docs/MIGRATION.md` "Next"). The P5 crash matrix (source/dest
+    primary killed at sealed/committed) all pass; soak 20 min / 30 rounds
+    of kill/stop/move passed, money conserved.
+-   **Open question / next action:** an intermittent (~1 in ~24) balance
+    check failure under the `partition` fault only -- net 0 (money
+    conserved) but ~32 accounts off with fewer in-doubt recorded than
+    needed. Either a rare lost/double-applied acknowledged transfer
+    (candidate: a request's account and its session object on different
+    shards, replication cut at different points -> replay re-applies) or an
+    `snc_load` in-doubt under-count. `check()` now preserves inputs to
+    catch the next one. **Failover under partition is not proven until this
+    is classified.** Then: the 1M-object reconnect and node-link isolation
+    need the 5-host layout (3 hosts cannot cut one node link without
+    failing over both groups).

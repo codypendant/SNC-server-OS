@@ -1,0 +1,107 @@
+{
+  "scenario": "p3",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p3",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 100000 accounts each served once; balances = acknowledged transfers + 9 of 9 in doubt",
+  "promote_s": 1.4500114917755127,
+  "withdraw_s": null,
+  "client_gap_s": 0.5,
+  "load": {
+    "seconds": "30.1337",
+    "acked": "329264",
+    "ops_s": "10926.8",
+    "p50_us": "2560",
+    "p99_us": "5632",
+    "p999_us": "9728",
+    "max_us": "983040",
+    "unknown": "9",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "530",
+    "refreshes": "0",
+    "failovers": "2",
+    "epoch": "1",
+    "error": "-"
+  },
+  "status_samples": 2284,
+  "events": [
+    {
+      "t": 4.822,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 6.138,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 6.146,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 16.147,
+      "event": "fault",
+      "kind": "kill",
+      "node": 1,
+      "peer": null
+    },
+    {
+      "t": 17.597,
+      "event": "promoted",
+      "node": 2,
+      "seconds": 1.45,
+      "term": "1"
+    },
+    {
+      "t": 36.714,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "10926.8",
+      "p99_us": "5632",
+      "error": "-"
+    },
+    {
+      "t": 36.758,
+      "event": "settled",
+      "seconds": 0.04
+    },
+    {
+      "t": 38.048,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 100000 accounts each served once; balances = acknowledged transfers + 9 of 9 in doubt"
+    }
+  ]
+}

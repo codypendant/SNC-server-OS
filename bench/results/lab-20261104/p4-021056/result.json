@@ -1,0 +1,183 @@
+{
+  "scenario": "p4",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p4",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "partition",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "ok": true,
+  "check": "OK: 100000 accounts each served once; balances = acknowledged transfers + 30 of 30 in doubt",
+  "backlog": [
+    [
+      18.76,
+      59
+    ],
+    [
+      19.32,
+      59
+    ],
+    [
+      19.88,
+      59
+    ],
+    [
+      20.44,
+      59
+    ],
+    [
+      21.0,
+      31
+    ],
+    [
+      21.56,
+      31
+    ],
+    [
+      22.14,
+      8624
+    ],
+    [
+      22.72,
+      8593
+    ],
+    [
+      23.29,
+      8593
+    ],
+    [
+      23.86,
+      8593
+    ],
+    [
+      24.42,
+      8593
+    ],
+    [
+      24.98,
+      8593
+    ],
+    [
+      25.56,
+      17374
+    ],
+    [
+      26.14,
+      19056
+    ],
+    [
+      26.72,
+      20723
+    ],
+    [
+      27.29,
+      22408
+    ],
+    [
+      27.86,
+      24123
+    ],
+    [
+      28.44,
+      25811
+    ]
+  ],
+  "settle_after_heal_s": 8.124233961105347,
+  "load": {
+    "seconds": "30.1153",
+    "acked": "129461",
+    "ops_s": "4298.84",
+    "p50_us": "5120",
+    "p99_us": "6656",
+    "p999_us": "34816",
+    "max_us": "7077888",
+    "unknown": "30",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "695",
+    "refreshes": "0",
+    "failovers": "6",
+    "epoch": "1",
+    "error": "-"
+  },
+  "events": [
+    {
+      "t": 5.954,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 7.652,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 7.658,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 17.813,
+      "event": "fault",
+      "kind": "partition",
+      "node": 1,
+      "peer": "b"
+    },
+    {
+      "t": 29.464,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D OUTPUT -d 45.76.56.244 -j DROP"
+    },
+    {
+      "t": 29.935,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D INPUT -s 45.76.56.244 -j DROP"
+    },
+    {
+      "t": 37.988,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "4298.84",
+      "p99_us": "6656",
+      "error": "-"
+    },
+    {
+      "t": 38.059,
+      "event": "settled",
+      "seconds": 0.07
+    },
+    {
+      "t": 39.568,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 100000 accounts each served once; balances = acknowledged transfers + 30 of 30 in doubt"
+    }
+  ]
+}

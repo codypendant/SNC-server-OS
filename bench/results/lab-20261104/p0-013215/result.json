@@ -1,0 +1,60 @@
+{
+  "scenario": "p0",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p0",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "kill",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 1
+  },
+  "hosts": {
+    "a": "45.32.201.96",
+    "b": "45.76.56.244",
+    "c": "45.32.205.25"
+  },
+  "rtt": {
+    "a->b": "rtt min/avg/max/mdev = 0.295/0.380/0.493/0.035 ms",
+    "a->c": "rtt min/avg/max/mdev = 0.304/0.363/0.637/0.037 ms",
+    "b->a": "rtt min/avg/max/mdev = 0.239/0.363/0.542/0.037 ms",
+    "b->c": "rtt min/avg/max/mdev = 0.325/0.393/1.356/0.078 ms",
+    "c->a": "rtt min/avg/max/mdev = 0.258/0.339/0.479/0.033 ms",
+    "c->b": "rtt min/avg/max/mdev = 0.287/0.392/0.556/0.046 ms"
+  },
+  "iperf": {
+    "b->a": 7715430310.48081
+  },
+  "fsync": {
+    "a": {
+      "iops": 2872.312769,
+      "fsync_p50_us": 395.264,
+      "fsync_p99_us": 585.728
+    },
+    "b": {
+      "iops": 1225.477452,
+      "fsync_p50_us": 774.144,
+      "fsync_p99_us": 1171.456
+    },
+    "c": {
+      "iops": 2457.254275,
+      "fsync_p50_us": 428.032,
+      "fsync_p99_us": 864.256
+    }
+  },
+  "events": []
+}

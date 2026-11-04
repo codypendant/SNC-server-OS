@@ -376,6 +376,16 @@ class Lab:
                  f"--runs {','.join(f'{self.run_dir}/{x}' for x in runs)}", check=False)
         ok = r.returncode == 0
         self.note("check", ok=ok, out=r.stdout.strip())
+        # Preserve the checker's inputs so a failed check (seen intermittently
+        # off loopback, e.g. the partition fault) can be analysed after the
+        # cluster is torn down: the per-run acknowledged deltas and in-doubt
+        # transfers, and the id list. Balances (bal.*) are already fetched.
+        if not ok:
+            self.client.fetch(self.ids, os.path.join(self.out, "ids"))
+            self.client.fetch(f"{self.ids}.hot", os.path.join(self.out, "ids.hot"))
+            for x in runs:
+                self.client.fetch(f"{self.run_dir}/{x}.delta", os.path.join(self.out, f"{x}.delta"))
+                self.client.fetch(f"{self.run_dir}/{x}.unknown", os.path.join(self.out, f"{x}.unknown"))
         return ok, r.stdout.strip()
 
     def watch(self, every=0.05):
@@ -411,9 +421,15 @@ def p0(lab, args):
             res["rtt"][f"{a.name}->{b.name}"] = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr
     if len(hosts) > 1 and hosts[0].sh("command -v iperf3", check=False).returncode == 0:
         srv = hosts[0]
-        pid = srv.spawn(f"{lab.run_dir}/iperf3.log", "iperf3 -s -1")
+        # iperf3's default port 5201 is outside the lab's firewall-opened range
+        # (base_port .. base_port+600); on a firewalled host the control
+        # connection's SYNs are dropped and the client hangs ~130 s. Use an
+        # in-range port and fail fast if it is still unreachable.
+        iperf_port = lab.base + 500
+        pid = srv.spawn(f"{lab.run_dir}/iperf3.log", f"iperf3 -s -1 -p {iperf_port}")
         time.sleep(0.5)
-        r = hosts[1].sh(f"iperf3 -c {srv.addr} -t 5 -J", check=False)
+        r = hosts[1].sh(f"iperf3 -c {srv.addr} -p {iperf_port} --connect-timeout 5000 -t 5 -J",
+                        check=False, timeout=60)
         try:
             res["iperf"][f"{hosts[1].name}->{srv.name}"] = json.loads(r.stdout)["end"]["sum_received"]["bits_per_second"]
         except (ValueError, KeyError):
