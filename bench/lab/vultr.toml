@@ -1,0 +1,28 @@
+# Three Vultr VPSs in Dallas (2026-11-04), throwaway, for the real-machine
+# phases. Run lab.py on c; it reaches a and b over SSH as root.
+[lab]
+build = "build"
+dir = "/var/tmp/snc-lab"
+shards = 2
+objects = 1000000
+base_port = 21000
+
+[hosts.a]
+addr = "45.32.201.96"
+ssh = "root@45.32.201.96"
+iface = "enp1s0"
+
+[hosts.b]
+addr = "45.76.56.244"
+ssh = "root@45.76.56.244"
+iface = "enp1s0"
+
+[hosts.c]
+addr = "45.32.205.25"
+ssh = "local"
+iface = "enp1s0"
+
+[layout]
+witnesses = ["a", "b", "c"]
+groups = [["a", "b"], ["b", "a"]]
+client = "c"
