@@ -34,7 +34,8 @@ static_assert(sizeof(Superblock) == 80);
 // The data directory keeps DIR/role (docs/MIGRATION_FAIL_CLOSED.md 4.3):
 // from then on a missing or unreadable role file reads as "standby", never
 // as a primary's own disk. Without it (a directory from before DIR/role),
-// a missing file is a primary's (legacy).
+// the role is unknown: such a directory starts as a standby (--standby) or
+// is adopted once as a primary's (docs/LEGACY_ROLE.md), never assumed one.
 inline constexpr u16 kSbRoleTracked = 1;
 
 // First 4 KiB block of every WAL segment and checkpoint part.

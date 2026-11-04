@@ -36,8 +36,13 @@ what makes the lossy promotion possible).
   prepared  an offline start of the source's standby at PREPARED seals S.
   f10_reseal  a re-seal at promotion, then an abort: the UNSEAL clears it.
   f7_prepared the gate while a standby promoted at PREPARED holds ROLE m.
-  compat    (--old) old binaries, v1 placement, upgrade, backfill; an old
-            snc_ctl cannot read v2, so cannot strip arrivals.
+  legacy_primary, legacy_standby, legacy_stale  directories from before
+            role files (docs/LEGACY_ROLE.md, L1-L8): refused without
+            --adopt-role primary or --standby; adoption checked against the
+            group's other members, crash-safe, then ordinary.
+  compat    (--old) old binaries, v1 placement, upgrade (L9: no directory
+            starts as a primary without adoption), backfill; an old snc_ctl
+            cannot read v2, so cannot strip arrivals.
   size      placement v2 worst case through real witnesses.
 (F12 and the proof-cache cases: tests/test_proof.cpp; v2 text rules:
 tests/test_placement.cpp; F14: the probes in F1, F3, F6, F7, F13, F17.)
@@ -596,6 +601,75 @@ def read_role(c, k):
         return None
 
 
+_CRC32C = []
+for _n in range(256):
+    _c = _n
+    for _ in range(8):
+        _c = (_c >> 1) ^ 0x82F63B78 if _c & 1 else _c >> 1
+    _CRC32C.append(_c)
+
+
+def crc32c(data):
+    c = 0xFFFFFFFF
+    for b in data:
+        c = _CRC32C[(c ^ b) & 0xFF] ^ (c >> 8)
+    return c ^ 0xFFFFFFFF
+
+
+def superblocks(c, k):
+    """(path, generation, flags) of each valid superblock copy of node k."""
+    out = []
+    for name in ("superblock.a", "superblock.b"):
+        path = f"{c.work}/n{k}/{name}"
+        if not os.path.exists(path):
+            continue
+        blk = bytearray(open(path, "rb").read(4096))
+        stored = struct.unpack_from("<I", blk, 12)[0]
+        blk[12:16] = b"\0\0\0\0"
+        if blk[:8] == b"SNCSUPR1" and crc32c(bytes(blk)) == stored:
+            out.append((path, struct.unpack_from("<Q", blk, 16)[0], struct.unpack_from("<H", blk, 10)[0]))
+    return out
+
+
+def tracked(c, k):
+    """The newest valid superblock carries kSbRoleTracked."""
+    return bool(max(superblocks(c, k), key=lambda x: x[1])[2] & 1)
+
+
+def make_legacy(c, k):
+    """Node k's directory (k stopped) as a binary from before role files
+    left it: no DIR/role, superblock flags 0 (CRC-32C recomputed). The same
+    bytes an older binary writes (tests compat and the --old runs check
+    that path with a real older build)."""
+    for path, _, _ in superblocks(c, k):
+        blk = bytearray(open(path, "rb").read())
+        struct.pack_into("<H", blk, 10, 0)
+        blk[12:16] = b"\0\0\0\0"
+        struct.pack_into("<I", blk, 12, crc32c(bytes(blk[:4096])))
+        with open(path, "r+b") as f:
+            f.write(blk)
+            os.fsync(f.fileno())
+    if os.path.exists(f"{c.work}/n{k}/role"):
+        os.unlink(f"{c.work}/n{k}/role")
+    assert read_role(c, k) is None and not tracked(c, k)
+
+
+def must_fail(c, k, why, standby_of=None, extra=()):
+    """Starting node k exits non-zero and logs `why`; a legacy directory
+    stays legacy (no role file, no tracking)."""
+    was_legacy = read_role(c, k) is None and not tracked(c, k)
+    log = f"{c.work}/n{k}.log"
+    before = os.path.getsize(log) if os.path.exists(log) else 0
+    c.start(k, standby_of=standby_of, extra=extra)
+    rc = c.server[k].wait(timeout=60)
+    text = open(log).read()[before:]
+    assert rc != 0, f"node {k} started: {text[-1500:]}"
+    assert why in text, text[-1500:]
+    if was_legacy:
+        assert read_role(c, k) is None and not tracked(c, k), f"node {k}: a refused start changed its directory"
+    return text
+
+
 def arrivals(c):
     """The placement's arrivals: {slot: (move, epoch)}."""
     out = {}
@@ -982,14 +1056,169 @@ def scenario_backfill_cluster():
     return dict(v2=False)
 
 
+LEGACY = "legacy data directory"
+
+
+def scenario_legacy_primary(c, ev):
+    """L1, L4, L7, L8 (docs/LEGACY_ROLE.md): a primary's directory from
+    before role files. Not started without adoption (control plane up or
+    down); adopted with the control plane down: refused; a crash at the end
+    of the adoption's barrier leaves it exactly as ambiguous as before;
+    adopted with its standby answering: serves, role "primary", tracked;
+    then it restarts as any tracked primary, and --adopt-role cannot
+    re-label it."""
+    ids, S = c.create(1, 1, in_slot=5)
+    a = owner_primary(c, S)
+    qa = c.peer(a)
+    wait(lambda: c.caught_up(qa, S, len(ids)), "standby caught up")
+    c.kill(a)
+    make_legacy(c, a)
+    must_fail(c, a, LEGACY)                                      # L3 analogue: no flag
+    ev["no_flag"] = (read_role(c, a), tracked(c, a))
+    assert ev["no_flag"] == (None, False)
+    c.control_down()
+    must_fail(c, a, LEGACY)                                      # L4: no flag, control down
+    must_fail(c, a, "stored map only", extra=["--adopt-role", "primary"])  # L4
+    c.control_up()
+    assert read_role(c, a) is None and not tracked(c, a)
+    must_fail(c, a, "needs --standby", extra=["--adopt-role", "standby"])
+    # L7: a crash at the end of the barrier (re-seal durable, role not yet
+    # written): still legacy, so the next ordinary start is refused.
+    c.start(a, extra=["--adopt-role", "primary", "--debug-barrier", "crash"])
+    rc = c.server[a].wait(timeout=60)
+    ev["crash"] = (rc, read_role(c, a), tracked(c, a))
+    assert ev["crash"] == (9, None, False), ev["crash"]
+    must_fail(c, a, LEGACY)
+    # ... and a kill while the barrier is held open (ROLE m): the same.
+    c.start(a, extra=["--adopt-role", "primary", "--debug-barrier", "hold:3000"])
+    wait(lambda: "start barrier held" in open(f"{c.work}/n{a}.log").read(), "barrier held", timeout=60)
+    c.kill(a)
+    assert read_role(c, a) is None and not tracked(c, a)
+    must_fail(c, a, LEGACY)
+    # L1: adopted; its standby answers (role s, same term): serves.
+    c.start(a, extra=["--adopt-role", "primary"])
+    wait(lambda: c.role(a) in ("p", "n"), "adopted primary up", timeout=60)
+    log = open(f"{c.work}/n{a}.log").read()
+    assert "adopted as a primary's" in log and "start barrier before serving" in log, log[-1500:]
+    ev["adopted"] = (read_role(c, a), tracked(c, a), statuses(c.client[a], ids))
+    assert ev["adopted"] == ("primary\n", True, {"OK": len(ids)}), ev["adopted"]
+    assert deposit(c.client[a], ids[0], 5) == OK
+    # L8: from now on a tracked primary: plain restarts, even with the
+    # control plane down; --adopt-role never re-labels it.
+    c.kill(a)
+    must_fail(c, a, "already has role primary", extra=["--adopt-role", "standby"], standby_of=qa)
+    assert read_role(c, a) == "primary\n"
+    c.control_down()
+    c.start(a)
+    wait(lambda: c.role(a) in ("p", "n"), "restarted as a tracked primary, control down", timeout=60)
+    assert statuses(c.client[a], ids) == {"OK": len(ids)}
+    c.control_up()
+    c.kill(a)
+    c.start(a, extra=["--adopt-role", "primary"])            # matches: a no-op
+    wait(lambda: c.role(a) in ("p", "n"), "restarted with a matching --adopt-role", timeout=60)
+    # A role file lost after tracking: the start barrier (a former standby
+    # is assumed), not a refusal and not an optimistic primary.
+    c.kill(a)
+    os.unlink(f"{c.work}/n{a}/role")
+    c.control_down()
+    must_fail(c, a, "start barrier")
+    c.control_up()
+    c.start(a)
+    wait(lambda: c.role(a) in ("p", "n"), "tracked, role lost: through the barrier", timeout=60)
+    ev["final"] = (read_role(c, a), tracked(c, a))
+    assert ev["final"] == ("primary\n", True)
+
+
+def scenario_legacy_standby(c, ev):
+    """L2, L3, L4, L5, L6: a standby's directory from before role files.
+    Started without --standby: refused (control plane up or down), writing
+    nothing. Adopted as a primary's while its primary serves: refused (the
+    evidence says it is not). With --standby (alone or with --adopt-role
+    standby): role "standby" and tracking are durable before it serves as
+    a replica; promoted later, it goes through the start barrier."""
+    ids, S = c.create(1, 1, in_slot=5)
+    a = owner_primary(c, S)
+    qa = c.peer(a)
+    wait(lambda: c.caught_up(qa, S, len(ids)), "standby caught up")
+    c.kill(qa)
+    make_legacy(c, qa)
+    must_fail(c, qa, LEGACY)                                         # L3
+    c.control_down()
+    must_fail(c, qa, LEGACY)                                         # L4
+    c.control_up()
+    text = must_fail(c, qa, "is serving as primary or promoting", extra=["--adopt-role", "primary"])  # L2, L5
+    ev["refused"] = text.strip().splitlines()[-1][:160]
+    assert read_role(c, qa) is None and not tracked(c, qa)
+    assert c.role(a) in ("p", "n")
+    # L6: --standby alone, or with --adopt-role standby: role "standby"
+    # and tracking durable (both written before the shards start).
+    for extra in ([], ["--adopt-role", "standby"]):
+        c.start(qa, standby_of=a, extra=extra)
+        wait(lambda: c.role(qa) == "s", f"legacy standby up with --standby {extra}")
+        ev[f"adopted{extra}"] = (read_role(c, qa), tracked(c, qa))
+        assert (read_role(c, qa), tracked(c, qa)) == ("standby\n", True)
+        wait(lambda: c.caught_up(qa, S, len(ids)), "replicating")
+        c.kill(qa)
+        if not extra:
+            make_legacy(c, qa)
+    # Promoted offline: through the start barrier (control down: refused).
+    c.kill(a)
+    c.control_down()
+    must_fail(c, qa, "start barrier")
+    c.control_up()
+    c.start(qa)
+    wait(lambda: c.role(qa) in ("p", "n"), "former legacy standby promoted through the barrier", timeout=60)
+    assert read_role(c, qa) == "primary\n"
+    assert statuses(c.client[qa], ids) == {"OK": len(ids)}
+
+
+def scenario_legacy_stale(c, ev):
+    """L5, a newer term: the group failed over (its standby promoted, term
+    +1); the old primary's directory, from before role files, adopted as a
+    primary's while the standby is mid-promotion (refused: promoting),
+    while the new one serves (refused: serving), while it is
+    down (refused: no answer), and while it answers as a standby at the
+    newer term (refused: stale). Nothing is written by any of them."""
+    ids, S = c.create(1, 1, in_slot=5)
+    a = owner_primary(c, S)
+    qa = c.peer(a)
+    c.kill(qa)
+    c.start(qa, standby_of=a, extra=["--debug-barrier", "hold:15000"])
+    wait(lambda: c.role(qa) == "s", "standby back")
+    wait(lambda: c.caught_up(qa, S, len(ids)), "standby caught up")
+    c.kill(a)
+    make_legacy(c, a)
+    # Its standby mid-promotion (barrier held: HEALTH still says s, MOVE
+    # ROLE says m): refused.
+    assert c.ask(qa, "PROMOTE") == "OK"
+    wait(lambda: c.role(qa) == "m", "standby promoting")
+    text = must_fail(c, a, "(role m)", extra=["--adopt-role", "primary"])
+    ev["promoting"] = text.strip().splitlines()[-1][:160]
+    wait(lambda: c.role(qa) in ("p", "n"), "standby promoted", timeout=30)
+    must_fail(c, a, "is serving as primary or promoting", extra=["--adopt-role", "primary"])
+    c.kill(qa)
+    must_fail(c, a, "it may be the primary", extra=["--adopt-role", "primary"])
+    # qa as a standby (of nobody here): it answers role s at its newer term.
+    c.start(qa, standby_of=a)
+    wait(lambda: c.role(qa) == "s", "new term's node answering as a standby")
+    text = must_fail(c, a, "this directory is stale", extra=["--adopt-role", "primary"])
+    ev["refused"] = text.strip().splitlines()[-1][:160]
+    assert read_role(c, a) is None and not tracked(c, a)
+
+
+
 def scenario_compat(c, ev):
-    """F16 and B with the build before this slice: a v1 cluster of old
-    binaries moves S; every node restarts on the new build (pre-upgrade
-    directories: no role file, superblock without the role flag: they
-    start as primaries, even with the control plane down); S, moved before
-    v2, still serves (documented: not protected until backfilled); the
-    backfill records it; an old snc_ctl then cannot read the placement, so
-    it cannot strip the arrival."""
+    """F16, B and L9 with the build before role files: a v1 cluster of old
+    binaries moves S; every node is upgraded (pre-upgrade directories: no
+    role file, superblock without the role flag). None starts as a primary
+    by default: an old standby's directory started without --standby is
+    refused, and so is adopting it as a primary's with its primary down;
+    started with --standby it is a standby. An old primary's directory is
+    refused without --adopt-role primary, and adopted only with the control
+    plane up and its standby answering. S, moved before v2, still serves
+    (documented: not protected until backfilled); the backfill records it;
+    an old snc_ctl then cannot read the placement, so cannot strip the
+    arrival."""
     assert OLD, "needs --old BUILD_DIR"
     ids, S = c.create(1, 1, in_slot=5)
     a = owner_primary(c, S)
@@ -997,16 +1226,25 @@ def scenario_compat(c, ev):
     assert c.ctl("move", S, c.group_of(b))[0] == "DONE"
     for k in sorted(c.server):
         c.kill(k)
-    assert read_role(c, a) is None
+    assert read_role(c, a) is None and not tracked(c, a)
     c.bin = BUILD
-    c.control_down()
     for g in range(c.groups):
-        c.start(2 * g + 1)
-    for g in range(c.groups):
-        wait(lambda: c.role(2 * g + 1) in ("p", "n"), f"pre-upgrade primary {2 * g + 1} up, control down", timeout=60)
-    ev["roles"] = {k: read_role(c, k) for k in (1, 3)}
-    assert ev["roles"] == {1: "primary\n", 3: "primary\n"}
-    c.control_up()
+        p, q = 2 * g + 1, 2 * g + 2
+        must_fail(c, q, LEGACY)                                            # L3
+        must_fail(c, q, "it may be the primary", extra=["--adopt-role", "primary"])  # L2: its primary is down
+        c.start(q, standby_of=p)                                           # an explicit standby claim
+        wait(lambda: c.role(q) == "s", f"pre-upgrade standby {q} up as a standby")
+        assert (read_role(c, q), tracked(c, q)) == ("standby\n", True)
+        must_fail(c, p, LEGACY)                                            # no optimistic primary
+        c.control_down()
+        must_fail(c, p, "stored map only", extra=["--adopt-role", "primary"])  # L4
+        c.control_up()
+        assert read_role(c, p) is None and not tracked(c, p)
+        c.start(p, extra=["--adopt-role", "primary"])                      # L1
+        wait(lambda: c.role(p) in ("p", "n"), f"pre-upgrade primary {p} adopted", timeout=60)
+    ev["roles"] = {k: (read_role(c, k), tracked(c, k)) for k in sorted(c.server)}
+    assert ev["roles"] == {1: ("primary\n", True), 2: ("standby\n", True), 3: ("primary\n", True),
+                           4: ("standby\n", True)}, ev["roles"]
     ib = c.info(b, S)
     ev["moved_before_v2"] = dict(serving=ib["serving"], proof=ib.get("proof"), arrived=ib.get("arrived"))
     assert ib["serving"] == 1 and ib.get("arrived") == "0:0"
@@ -1182,7 +1420,8 @@ def size_measure():
 # Every scenario of the fixed code that needs no older build (ctest runs
 # these); compat and f7b need --old.
 ALL = ["f1", "f2", "f3", "f4", "f5", "f5b", "f6", "f7", "f8_f9", "f10", "f11", "f13:f3", "f13:f6", "f15",
-       "f17:f1", "f17:f5", "f17:f6", "f18", "role", "backfill", "stuck", "prepared", "f10_reseal", "f7_prepared", "size"]
+       "f17:f1", "f17:f5", "f17:f6", "f18", "role", "backfill", "stuck", "prepared", "f10_reseal", "f7_prepared",
+       "legacy_primary", "legacy_standby", "legacy_stale", "size"]
 
 
 def main():

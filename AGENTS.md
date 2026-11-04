@@ -847,3 +847,23 @@ or source comments.
     against the four documents (findings fixed: MIGRATION_FAIL_CLOSED.md
     section 20). Sanitizer and full-suite results: section 20 "Runs".
 -   **Next action:** review of this slice. Do NOT start S1 before it.
+
+### 2026-11-04 UTC --- Claude (Claude Code): legacy role upgrade hardening
+
+-   **Classification:** the slice the review of PR #40 (item 17) ordered
+    before S1. **REFINE** of MIGRATION_FAIL_CLOSED.md (residual 6 closed;
+    section 20's in-place-promotion wording made exact, item 8) and
+    CORE_CONTRACTS MS-3. No change to S1-S3, R08, R11, the driver's retry
+    rule, STUCK or rollback.
+-   **What:** [docs/LEGACY_ROLE.md](docs/LEGACY_ROLE.md). A directory with
+    no role file and no `kSbRoleTracked` is refused as a primary; it starts
+    with `--standby` (role and tracking durable before replica service) or
+    once with `--adopt-role primary`: refused without the control plane or
+    if a group member is silent, serving/promoting or at a newer term;
+    then the start barrier; tracking only after role `primary`. Option B
+    (infer the role) rejected: nothing on disk distinguishes an old
+    standby. No compatibility mode: the upgrade is the cutover.
+-   **Evidence:** `test_fail_closed` `legacy_primary`, `legacy_standby`,
+    `legacy_stale` (L1-L8), `compat` rewritten against the older build
+    (L9); runs, independent review and QA in LEGACY_ROLE.md section 7.
+-   **Next action:** review of this slice. Do NOT start S1 before it.

@@ -10,6 +10,7 @@
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
 //                   [--admin-port P [--debug-admin]] [--witness HOST:PORT] [--standby-reads LEASE_MS]
+//                   [--adopt-role primary|standby]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -38,6 +39,16 @@
 // standby started with --seed-from on an empty --data-dir fetches it first,
 // then catches up from the primary's WAL. --report-ms prints a line of
 // replication state every N ms (lag = durable records not yet acked).
+// --adopt-role (docs/LEGACY_ROLE.md): a data directory written by a binary
+// from before role files (no DIR/role, no role tracking in its superblock)
+// may be a standby's, so it does not start as a primary: start it once
+// with --standby, or with --adopt-role primary if it is its group's
+// primary's own disk. That is refused if the control plane did not answer
+// or any other member of the group is silent, serving or promoting, or at
+// a newer term; then the start barrier runs, and only its end records the
+// directory as a primary's. --adopt-role standby (with --standby) is the
+// same as --standby. On a directory with a role on record the flag must
+// match it (then it does nothing).
 // Slot moves (docs/MIGRATION.md): with --control, --admin-port also answers
 // the MOVE requests of snc_ctl move (tools/migrate.h). --admin-port also
 // answers AUDIT [PATH] (the accounts served here; docs/REAL_MACHINES.md).
@@ -233,6 +244,16 @@ int main(int argc, char** argv) {
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--debug-admin") debug_admin = true;
+    else if (k == "--adopt-role") {
+      // docs/LEGACY_ROLE.md: once, for a data directory from before role files.
+      const std::string v = val();
+      if (v == "primary") cfg.adopt_role = Engine::Config::AdoptRole::PRIMARY;
+      else if (v == "standby") cfg.adopt_role = Engine::Config::AdoptRole::STANDBY;
+      else {
+        std::fprintf(stderr, "--adopt-role takes primary or standby\n");
+        return 2;
+      }
+    }
     else if (k == "--debug-barrier") {
       // Tests only (needs --debug-admin): hold:MS or crash, at the end of
       // the start barrier before role "primary" (Engine::Config).
@@ -308,6 +329,11 @@ int main(int argc, char** argv) {
   // group and member, and the group's space, from the control members (or
   // the map stored in --data-dir if they do not answer).
   u16 my_group = 0;
+  // --adopt-role primary: the group's other members' admin ports, each
+  // asked before a legacy directory is adopted as a primary's.
+  std::vector<std::pair<std::string, unsigned>> adopt_peers;
+  bool adopt_unknown_peer = false;  // a member with no admin port in the map
+  bool adopt_stored_map = false;
   if (!control_members.empty() || node_id >= 0) {
     if (control_members.empty() || node_id < 0 || node_id > 0xffffffffLL || cfg.data_dir.empty() ||
         !cfg.cluster.empty()) {
@@ -322,6 +348,17 @@ int main(int argc, char** argv) {
     }
     control::apply(setup, control_members, cfg);
     my_group = setup.group;
+    adopt_stored_map = setup.stored;
+    for (std::size_t i = 0; i < setup.placement.groups[setup.group].members.size(); ++i) {
+      if (i == setup.member) continue;
+      const u32 id = setup.placement.groups[setup.group].members[i].node;
+      const PlacementNode* nd = nullptr;
+      for (const PlacementNode& x : setup.placement.nodes) {
+        if (x.id == id) nd = &x;
+      }
+      if (nd == nullptr || nd->admin_port == 0) adopt_unknown_peer = true;
+      else adopt_peers.emplace_back(nd->host, nd->admin_port);
+    }
     // Clients reach it where the map says (if it says).
     const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
     if (me.client_port != 0) ncfg.base_port = me.client_port;
@@ -339,7 +376,9 @@ int main(int argc, char** argv) {
   // while this node was away: this node's data has fallen behind or
   // diverged, so it is moved aside and the node starts as the other's
   // standby, seeded from it.
-  if (rejoin_port != 0 && !cfg.standby) {
+  // (Not with --adopt-role primary: the adoption check below asks the same
+  // peer and refuses if it is primary, before the directory is touched.)
+  if (rejoin_port != 0 && !cfg.standby && cfg.adopt_role != Engine::Config::AdoptRole::PRIMARY) {
     std::string reply;
     bool asked = false;
     // HEALTH (docs/HEALTH_DECOUPLING.md 3.4): answered without waiting on
@@ -385,6 +424,99 @@ int main(int argc, char** argv) {
     std::fflush(stdout);
   }
 
+  // Legacy directory adopted as a primary's (docs/LEGACY_ROLE.md): refused
+  // unless every other member of its group that the map or --rejoin names
+  // answers, and none of them is a primary, promoting, or at a newer term
+  // of this space. A member that does not answer could be the primary this
+  // directory's owner was a standby of; nothing here can tell, so the
+  // adoption waits for it (or for the map to drop it). The start barrier
+  // runs after this check either way.
+  if (cfg.adopt_role == Engine::Config::AdoptRole::PRIMARY) {
+    if (peer_admin_port != 0) adopt_peers.emplace_back(peer_admin_host, peer_admin_port);
+    const bool by_control = !control_members.empty();
+    const Uuid group_space = cfg.init_uuid;
+    cfg.adopt_primary_check = [adopt_peers, adopt_unknown_peer, adopt_stored_map, by_control, group_space](
+                                  const Uuid& space, u64 my_term) {
+      if (by_control && space != group_space) {
+        throw std::runtime_error("--adopt-role primary: this data directory holds another space than its group's");
+      }
+      if (adopt_peers.empty()) {
+        std::fprintf(stderr, "adopt: WARNING: no other group member is known to ask (no --control placement "
+                             "naming one, no --rejoin): adopting as a primary's on the operator's word alone\n");
+      }
+      if (adopt_stored_map) {
+        throw std::runtime_error("--adopt-role primary: the control plane did not answer (stored map only)");
+      }
+      if (adopt_unknown_peer) {
+        throw std::runtime_error("--adopt-role primary: a member of this group has no admin port in the map, so "
+                                 "its role cannot be asked");
+      }
+      std::string my_uuid;
+      for (u8 b : space) {
+        char h[3];
+        std::snprintf(h, sizeof(h), "%02x", b);
+        my_uuid += h;
+      }
+      for (const auto& [host, port] : adopt_peers) {
+        std::string reply;
+        bool asked = false;
+        for (int i = 0; i < 5 && !asked; ++i) {
+          asked = ha::ask(host, port, "HEALTH", reply, 500);
+          if (asked && reply.rfind("role=", 0) != 0) asked = ha::ask(host, port, "STATUS", reply, 500);
+          if (asked && reply.rfind("role=", 0) != 0) asked = false;
+          if (!asked) ::usleep(100000);
+        }
+        const std::string who = host + ":" + std::to_string(port);
+        if (!asked) {
+          throw std::runtime_error("--adopt-role primary: group member " + who +
+                                   " did not answer; it may be the primary (refused until it answers)");
+        }
+        std::string role, uuid;
+        unsigned long long term = 0;
+        std::istringstream in(reply);
+        for (std::string kv; in >> kv;) {
+          if (kv.rfind("role=", 0) == 0) role = kv.substr(5);
+          else if (kv.rfind("uuid=", 0) == 0) uuid = kv.substr(5);
+          else if (kv.rfind("term=", 0) == 0) term = std::strtoull(kv.c_str() + 5, nullptr, 10);
+        }
+        if (uuid.size() != 32 || role.empty()) {
+          throw std::runtime_error("--adopt-role primary: group member " + who + " gave an unreadable answer: " +
+                                   reply.substr(0, 120));
+        }
+        if (uuid != my_uuid) {
+          std::fprintf(stderr, "adopt: group member %s holds another space (%s); not evidence either way\n",
+                       who.c_str(), uuid.c_str());
+          continue;
+        }
+        // HEALTH says s while a standby is inside its promotion; MOVE ROLE
+        // says m then (answered with --control; an older binary may not).
+        std::string mr;
+        if (ha::ask(host, port, "MOVE ROLE", mr, 500) && mr.rfind("ROLE ", 0) == 0 && mr.size() > 5 &&
+            (mr[5] == 'm' || mr[5] == 'p')) {
+          role = mr[5] == 'm' ? "m" : role == "s" ? "p" : role;
+        }
+        if (role == "p" || role == "n" || role == "m") {
+          throw std::runtime_error("--adopt-role primary: group member " + who + " is serving as primary or " +
+                                   "promoting (role " + role + ") of this space");
+        }
+        // Fenced: it was this space's primary at its term. At this
+        // directory's term or a later one, this directory was not.
+        if (role == "f" && term >= my_term) {
+          throw std::runtime_error("--adopt-role primary: group member " + who + " was this space's primary at term " +
+                                   std::to_string(term) + " (fenced), not older than this directory's " +
+                                   std::to_string(my_term));
+        }
+        if (term > my_term) {
+          throw std::runtime_error("--adopt-role primary: group member " + who + " is at term " +
+                                   std::to_string(term) + ", newer than this directory's " +
+                                   std::to_string(my_term) + " (this directory is stale)");
+        }
+        std::printf("adopt: group member %s is role %s at term %llu (not newer)\n", who.c_str(), role.c_str(), term);
+      }
+      std::fflush(stdout);
+    };
+  }
+
   // Workers inherit this mask, so only the main thread takes the signal.
   sigset_t set;
   sigemptyset(&set);
@@ -403,7 +535,14 @@ int main(int argc, char** argv) {
     cfg.cluster[cfg.group_id].members[cfg.member].client_port = ncfg.base_port;
   }
   Engine eng(cfg);
-  eng.start();
+  try {
+    eng.start();
+  } catch (const std::exception& e) {
+    // A refused start (legacy directory, start barrier, ...): exit cleanly.
+    std::fflush(stdout);
+    std::fprintf(stderr, "snc_server: not started: %s\n", e.what());
+    return 1;
+  }
   if (!control_members.empty() && eng.space_uuid() != cfg.init_uuid) {
     std::fprintf(stderr, "control: this data directory holds another space than its group's\n");
     eng.stop();

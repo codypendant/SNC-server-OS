@@ -103,7 +103,11 @@ Rules:
     `DIR/role` says `primary` (and the admin port `ROLE p`) only once the
     re-seal is durable; a missing or unreadable role after role
     files exist means "run the barrier", and with no control plane the
-    node does not serve.
+    node does not serve. A directory from before role files (no role, no
+    tracking) is never taken for a primary's: it starts only with
+    `--standby` or adopted once with `--adopt-role primary`, checked
+    against the group's other members and still through the barrier
+    ([LEGACY_ROLE.md](LEGACY_ROLE.md)).
   - **MS-4.** A move commits only when no reachable source member is
     promoting (`ROLE m`), one answers as primary, and no reachable primary
     serves S. A source primary the driver cannot reach is not covered
