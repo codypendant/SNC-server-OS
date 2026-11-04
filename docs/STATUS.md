@@ -90,12 +90,21 @@ and the handoff's development sequence (§24).
   that stay on their entry shard, requests to the owner and forwarded
   requests (flagged), reads, unknown targets and ops, a client that
   disconnects with 2,000 requests in flight, and a malformed frame.
-- All 16 ctest tests pass in the RelWithDebInfo build (2026-11-04). The
-  ASan+UBSan and TSan builds were last run on 2026-10-13 (ASan 14/14;
-  TSan, then 10 tests, failed `test_replication`) and need a rerun.
+- All 16 ctest tests pass in the RelWithDebInfo build (2026-11-04).
+- Sanitizers (2026-11-04, Debug): ASan+UBSan 16/16, with 0 reports from
+  server child processes of the Python suites; TSan 16/16 after fixing a
+  data race in `test_cluster`'s own acknowledgement counter (a test
+  defect). Details: [STABILIZATION_REPORT.md](STABILIZATION_REPORT.md),
+  "Sanitizer baseline".
 - Contracts, what each is checked by, and what is still uncertain
   (retry contract, acknowledgement stages, failure detection):
   [EVIDENCE.md](EVIDENCE.md).
+- Core stabilization (2026-11-04, characterization only, no behavior
+  change): [CORE_CONTRACTS.md](CORE_CONTRACTS.md) (draft contracts),
+  [FAILURE_MODEL.md](FAILURE_MODEL.md), [INTERACTION_MATRIX.md](INTERACTION_MATRIX.md),
+  [TRACING.md](TRACING.md) (`SNC_TRACE=1` stopgap tracing, proposed
+  rings), [STABILIZATION_REPORT.md](STABILIZATION_REPORT.md) (the 100K
+  false failover explained, resource inventory, Baseline 0.2 criteria).
 
 ## Benchmark numbers
 

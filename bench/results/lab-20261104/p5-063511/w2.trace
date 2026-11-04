@@ -1,0 +1,507 @@
+T 459829101647 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 459829122554 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 459829159010 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.1 reply=
+T 459829187825 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 459929370369 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 459929421542 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 459929453019 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.1 reply=
+T 459929475633 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460029642214 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 460029693915 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 460029741898 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.1 reply=
+T 460029772933 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460129962745 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 460130033209 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 460130053339 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.0 reply=
+T 460130074028 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460230207426 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 460230232200 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 460230333212 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.1 reply=
+T 460230361559 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460349502565 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 460349537877 13862 witness_status group=0 node=1 port=21180 ok=0 ms=0.0 reply=
+T 460349559649 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.0 reply=
+T 460349570003 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460449748944 13862 witness_status group=1 node=0 port=21220 ok=0 ms=0.1 reply=
+T 460449779657 13862 witness_status group=1 node=1 port=21260 ok=0 ms=0.0 reply=
+T 460449814161 13862 witness_status group=0 node=0 port=21140 ok=0 ms=0.1 reply=
+T 463980444208 13862 witness_status group=1 node=0 port=21220 ok=1 ms=29.4 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 464268449220 13862 witness_status group=1 node=0 port=21220 ok=1 ms=87.2 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 464668475030 13862 witness_status group=1 node=0 port=21220 ok=1 ms=92.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 464953333989 13862 witness_status group=1 node=0 port=21220 ok=1 ms=84.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 465239145026 13862 witness_status group=1 node=0 port=21220 ok=1 ms=82.7 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 465533022305 13862 witness_status group=1 node=0 port=21220 ok=1 ms=92.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 465819673004 13862 witness_status group=1 node=0 port=21220 ok=1 ms=85.9 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 466120380983 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.5 reply=
+T 466428112647 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 466768854198 13862 witness_status group=1 node=0 port=21220 ok=1 ms=35.4 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 467068674066 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 467257331585 13862 witness_status group=0 node=0 port=21140 ok=1 ms=28.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 467403713863 13862 witness_status group=1 node=0 port=21220 ok=1 ms=33.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 467703563964 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 468003634307 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 468284510824 13862 witness_status group=1 node=0 port=21220 ok=1 ms=79.7 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 468577341384 13862 witness_status group=1 node=0 port=21220 ok=1 ms=89.0 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 468845794677 13862 witness_status group=1 node=0 port=21220 ok=1 ms=67.7 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 469045046260 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.1 reply=
+T 469190070400 13862 witness_status group=1 node=0 port=21220 ok=1 ms=44.9 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 469473214913 13862 witness_status group=1 node=0 port=21220 ok=1 ms=82.4 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 469868435073 13862 witness_status group=1 node=0 port=21220 ok=1 ms=93.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 469927171039 13862 witness_status group=0 node=0 port=21140 ok=1 ms=20.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 470271215489 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 470676899090 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.5 reply=
+T 470686381533 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 471180805781 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 471474917960 13862 witness_status group=0 node=0 port=21140 ok=1 ms=27.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 471584064063 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 471988050458 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 472240217690 13862 witness_status group=0 node=0 port=21140 ok=1 ms=41.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 472489138603 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 472977687750 13862 witness_status group=1 node=0 port=21220 ok=1 ms=86.1 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 473378001786 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 473465764405 13862 witness_status group=0 node=0 port=21140 ok=1 ms=20.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 473707900267 13862 witness_status group=0 node=0 port=21140 ok=1 ms=25.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 473778947995 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 473950612836 13862 witness_status group=0 node=0 port=21140 ok=1 ms=23.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 474113396935 13862 witness_status group=0 node=0 port=21140 ok=1 ms=62.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 474284363633 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 474480558932 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 474619956356 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 474784505078 13862 witness_status group=0 node=0 port=21140 ok=1 ms=64.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 474884077769 13862 witness_status group=1 node=0 port=21220 ok=1 ms=79.5 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 474910355671 13862 witness_status group=0 node=0 port=21140 ok=1 ms=25.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475042217724 13862 witness_status group=0 node=0 port=21140 ok=1 ms=31.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475294406977 13862 witness_status group=0 node=0 port=21140 ok=1 ms=50.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475297380063 13862 witness_status group=1 node=0 port=21220 ok=0 ms=108.4 reply=
+T 475416423876 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475566123078 13862 witness_status group=0 node=0 port=21140 ok=1 ms=49.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475800511064 13862 witness_status group=0 node=0 port=21140 ok=1 ms=33.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 475804242222 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 475937829327 13862 witness_status group=0 node=0 port=21140 ok=1 ms=37.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476105747983 13862 witness_status group=0 node=0 port=21140 ok=1 ms=67.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476369270600 13862 witness_status group=0 node=0 port=21140 ok=1 ms=59.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476408602834 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 476512374526 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476683724578 13862 witness_status group=0 node=0 port=21140 ok=1 ms=71.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476826319242 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 476930549482 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 476982432807 13862 witness_status group=0 node=0 port=21140 ok=1 ms=55.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 477130813378 13862 witness_status group=0 node=0 port=21140 ok=1 ms=48.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 477253753402 13862 witness_status group=0 node=0 port=21140 ok=1 ms=22.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 477435713542 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 477521029802 13862 witness_status group=0 node=0 port=21140 ok=1 ms=62.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 477673713319 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 477941419061 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 477954633942 13862 witness_status group=0 node=0 port=21140 ok=1 ms=69.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 478105474444 13862 witness_status group=0 node=0 port=21140 ok=1 ms=50.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 478275237450 13862 witness_status group=0 node=0 port=21140 ok=1 ms=69.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 478522679516 13862 witness_status group=0 node=0 port=21140 ok=1 ms=46.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 478544917954 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 478677748214 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 478867089014 13862 witness_status group=0 node=0 port=21140 ok=1 ms=89.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 479046563344 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 479149897182 13862 witness_status group=0 node=0 port=21140 ok=1 ms=69.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 479333800060 13862 witness_status group=0 node=0 port=21140 ok=1 ms=83.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 479548228879 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 479604917446 13862 witness_status group=0 node=0 port=21140 ok=1 ms=70.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 479774093521 13862 witness_status group=0 node=0 port=21140 ok=1 ms=69.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 479904727146 13862 witness_status group=0 node=0 port=21140 ok=1 ms=30.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 480051013229 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 480148666381 13862 witness_status group=0 node=0 port=21140 ok=1 ms=43.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 480316254966 13862 witness_status group=0 node=0 port=21140 ok=1 ms=67.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 480555729084 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 480696345255 13862 witness_status group=0 node=0 port=21140 ok=1 ms=72.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 480864709008 13862 witness_status group=0 node=0 port=21140 ok=1 ms=68.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 481105237725 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 481149765472 13862 witness_status group=1 node=0 port=21220 ok=1 ms=91.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 481372072543 13862 witness_status group=0 node=0 port=21140 ok=1 ms=59.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 481648892631 13862 witness_status group=0 node=0 port=21140 ok=1 ms=76.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 481651047387 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 481824184107 13862 witness_status group=0 node=0 port=21140 ok=1 ms=75.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 481949580608 13862 witness_status group=0 node=0 port=21140 ok=1 ms=25.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 482153569564 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 482343235991 13862 witness_status group=0 node=0 port=21140 ok=1 ms=82.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 482496577498 13862 witness_status group=0 node=0 port=21140 ok=1 ms=53.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 482618599389 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 482655313746 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 483257512216 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 483441452272 13862 witness_status group=0 node=0 port=21140 ok=1 ms=84.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 483571295791 13862 witness_status group=0 node=0 port=21140 ok=1 ms=29.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 483758811114 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 483988199329 13862 witness_status group=0 node=0 port=21140 ok=1 ms=91.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 484260049216 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 484793468252 13862 witness_status group=0 node=0 port=21140 ok=1 ms=40.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 484862497306 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 485108751745 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 485232705262 13862 witness_status group=0 node=0 port=21140 ok=1 ms=23.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 485367558728 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 485464492760 13862 witness_status group=1 node=0 port=21220 ok=1 ms=99.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 485495681228 13862 witness_status group=0 node=0 port=21140 ok=1 ms=28.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 485854765690 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 485966056018 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 486468120057 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 486482749253 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 486604182559 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 486739020562 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 486871670421 13862 witness_status group=0 node=0 port=21140 ok=1 ms=32.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 486970678961 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 487478335335 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 487497923075 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 487649957206 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 487788820138 13862 witness_status group=0 node=0 port=21140 ok=1 ms=38.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 487980100433 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 488481724079 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 488983506666 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 489051218034 13862 witness_status group=0 node=0 port=21140 ok=1 ms=77.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 489222795519 13862 witness_status group=0 node=0 port=21140 ok=1 ms=71.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 489484724635 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 489553178583 13862 witness_status group=0 node=0 port=21140 ok=1 ms=28.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 489812559998 13862 witness_status group=0 node=0 port=21140 ok=1 ms=47.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 489970116228 13862 witness_status group=0 node=0 port=21140 ok=1 ms=57.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 489986720640 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 490307188474 13862 witness_status group=0 node=0 port=21140 ok=1 ms=33.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 490589340849 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 490650172217 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 490910958842 13862 witness_status group=0 node=0 port=21140 ok=1 ms=50.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491056141295 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491090850573 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 491201474235 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491468970311 13862 witness_status group=0 node=0 port=21140 ok=1 ms=57.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491624094550 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491697087117 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 491761432956 13862 witness_status group=0 node=0 port=21140 ok=1 ms=37.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 491892862053 13862 witness_status group=0 node=0 port=21140 ok=1 ms=31.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492043409873 13862 witness_status group=0 node=0 port=21140 ok=1 ms=50.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492218568349 13862 witness_status group=0 node=0 port=21140 ok=1 ms=75.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492299212176 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 492362828449 13862 witness_status group=0 node=0 port=21140 ok=1 ms=44.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492497328190 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492652342537 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492804726852 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 492902733960 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 492931747940 13862 witness_status group=0 node=0 port=21140 ok=1 ms=26.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493055741769 13862 witness_status group=0 node=0 port=21140 ok=1 ms=23.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493208428145 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493353961475 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493407968152 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 493477908593 13862 witness_status group=0 node=0 port=21140 ok=1 ms=23.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493871795078 13862 witness_status group=0 node=0 port=21140 ok=1 ms=46.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 493924418432 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 494013245778 13862 witness_status group=0 node=0 port=21140 ok=1 ms=41.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 494387555040 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 494426774178 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 494519163428 13862 witness_status group=0 node=0 port=21140 ok=1 ms=31.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 494648705312 13862 witness_status group=0 node=0 port=21140 ok=1 ms=29.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 494800111518 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 494957483798 13862 witness_status group=0 node=0 port=21140 ok=1 ms=57.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495035773828 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 495091281966 13862 witness_status group=0 node=0 port=21140 ok=1 ms=33.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495229247216 13862 witness_status group=0 node=0 port=21140 ok=1 ms=37.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495372155456 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495537145413 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 495537241312 13862 witness_status group=0 node=0 port=21140 ok=1 ms=64.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495665837504 13862 witness_status group=0 node=0 port=21140 ok=1 ms=28.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495789216830 13862 witness_status group=0 node=0 port=21140 ok=1 ms=23.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 495953846538 13862 witness_status group=0 node=0 port=21140 ok=1 ms=64.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496129216172 13862 witness_status group=0 node=0 port=21140 ok=1 ms=75.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496143933014 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 496275373697 13862 witness_status group=0 node=0 port=21140 ok=1 ms=46.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496420774765 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496577266846 13862 witness_status group=0 node=0 port=21140 ok=1 ms=56.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496746608146 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.5 reply=
+T 496749785659 13862 witness_status group=0 node=0 port=21140 ok=1 ms=72.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 496886932682 13862 witness_status group=0 node=0 port=21140 ok=1 ms=37.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497035922107 13862 witness_status group=0 node=0 port=21140 ok=1 ms=48.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497182817874 13862 witness_status group=0 node=0 port=21140 ok=1 ms=46.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497348289487 13862 witness_status group=0 node=0 port=21140 ok=1 ms=65.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497355740417 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 497508061210 13862 witness_status group=0 node=0 port=21140 ok=1 ms=59.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497655439569 13862 witness_status group=0 node=0 port=21140 ok=1 ms=47.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497792261469 13862 witness_status group=0 node=0 port=21140 ok=1 ms=36.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 497960034010 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 497964869252 13862 witness_status group=0 node=0 port=21140 ok=1 ms=72.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498104711509 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498250780856 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498392558762 13862 witness_status group=0 node=0 port=21140 ok=1 ms=41.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498559695943 13862 witness_status group=0 node=0 port=21140 ok=1 ms=67.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498574772602 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 498694525278 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498830366927 13862 witness_status group=0 node=0 port=21140 ok=1 ms=35.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 498984461777 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499167525448 13862 witness_status group=0 node=0 port=21140 ok=1 ms=82.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499177203472 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.5 reply=
+T 499300869344 13862 witness_status group=0 node=0 port=21140 ok=1 ms=33.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499439591724 13862 witness_status group=0 node=0 port=21140 ok=1 ms=38.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499590424567 13862 witness_status group=0 node=0 port=21140 ok=1 ms=29.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499781600275 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 499786084814 13862 witness_status group=0 node=0 port=21140 ok=1 ms=95.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 499929862118 13862 witness_status group=0 node=0 port=21140 ok=1 ms=43.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500080363804 13862 witness_status group=0 node=0 port=21140 ok=1 ms=48.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500231550364 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500430956049 13862 witness_status group=0 node=0 port=21140 ok=1 ms=99.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500485632615 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 500578374870 13862 witness_status group=0 node=0 port=21140 ok=1 ms=47.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500729520809 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 500872758224 13862 witness_status group=0 node=0 port=21140 ok=1 ms=43.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501058158793 13862 witness_status group=0 node=0 port=21140 ok=1 ms=85.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501089886887 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 501200562920 13862 witness_status group=0 node=0 port=21140 ok=1 ms=41.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501352726933 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501516223123 13862 witness_status group=0 node=0 port=21140 ok=1 ms=63.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501714794208 13862 witness_status group=0 node=0 port=21140 ok=1 ms=98.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 501810153140 13862 witness_status group=1 node=0 port=21220 ok=0 ms=116.4 reply=
+T 501857625326 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502008962334 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502160635200 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502351506769 13862 witness_status group=0 node=0 port=21140 ok=1 ms=90.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502416201015 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 502494163388 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502637172698 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502779624096 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 502963810920 13862 witness_status group=0 node=0 port=21140 ok=1 ms=84.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 503017807521 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 503127655397 13862 witness_status group=0 node=0 port=21140 ok=1 ms=63.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 503289479279 13862 witness_status group=0 node=0 port=21140 ok=1 ms=61.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 503589459536 13862 witness_status group=0 node=0 port=21140 ok=1 ms=99.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 503619901437 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 503743833982 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 503903476111 13862 witness_status group=0 node=0 port=21140 ok=1 ms=59.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504055202682 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504250401343 13862 witness_status group=0 node=0 port=21140 ok=1 ms=94.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504324261946 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 504393412675 13862 witness_status group=0 node=0 port=21140 ok=1 ms=42.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504549802342 13862 witness_status group=0 node=0 port=21140 ok=1 ms=56.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504717751434 13862 witness_status group=0 node=0 port=21140 ok=1 ms=67.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 504917290560 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.4 reply=
+T 504932227379 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 505091068425 13862 witness_status group=0 node=0 port=21140 ok=1 ms=73.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 505244476296 13862 witness_status group=0 node=0 port=21140 ok=1 ms=53.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 505532654947 13862 witness_status group=0 node=0 port=21140 ok=1 ms=87.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 505534540983 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 505688337641 13862 witness_status group=0 node=0 port=21140 ok=1 ms=55.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 505842112732 13862 witness_status group=0 node=0 port=21140 ok=1 ms=53.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 506136393603 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 506140395785 13862 witness_status group=0 node=0 port=21140 ok=1 ms=97.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 506292118393 13862 witness_status group=0 node=0 port=21140 ok=1 ms=49.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 506440608056 13862 witness_status group=0 node=0 port=21140 ok=1 ms=48.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 506721331996 13862 witness_status group=0 node=0 port=21140 ok=1 ms=80.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 506742275818 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 506877628064 13862 witness_status group=0 node=0 port=21140 ok=1 ms=56.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507023689967 13862 witness_status group=0 node=0 port=21140 ok=1 ms=45.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507298346678 13862 witness_status group=0 node=0 port=21140 ok=1 ms=73.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507344917407 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 507450574551 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507604941756 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507894763476 13862 witness_status group=0 node=0 port=21140 ok=1 ms=89.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 507947859275 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 508057312317 13862 witness_status group=0 node=0 port=21140 ok=1 ms=62.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 508208528006 13862 witness_status group=0 node=0 port=21140 ok=1 ms=51.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 508480786680 13862 witness_status group=0 node=0 port=21140 ok=1 ms=71.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 508550950729 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 508636476174 13862 witness_status group=0 node=0 port=21140 ok=1 ms=55.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 508789041931 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509071392365 13862 witness_status group=0 node=0 port=21140 ok=1 ms=81.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509155204820 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 509227892196 13862 witness_status group=0 node=0 port=21140 ok=1 ms=56.3 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509372314161 13862 witness_status group=0 node=0 port=21140 ok=1 ms=44.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509657031685 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 509659801383 13862 witness_status group=0 node=0 port=21140 ok=1 ms=86.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509822457292 13862 witness_status group=0 node=0 port=21140 ok=1 ms=62.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 509985520337 13862 witness_status group=0 node=0 port=21140 ok=1 ms=62.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 510255288110 13862 witness_status group=0 node=0 port=21140 ok=1 ms=69.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 510259351348 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 510403537635 13862 witness_status group=0 node=0 port=21140 ok=1 ms=48.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 510527816166 13862 witness_status group=0 node=0 port=21140 ok=1 ms=24.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 510815275387 13862 witness_status group=0 node=0 port=21140 ok=1 ms=81.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 510865050097 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 510967628499 13862 witness_status group=0 node=0 port=21140 ok=1 ms=52.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 511107484398 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 511400968692 13862 witness_status group=0 node=0 port=21140 ok=1 ms=91.1 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 511467791822 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 511558654069 13862 witness_status group=0 node=0 port=21140 ok=1 ms=57.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 511704807277 13862 witness_status group=0 node=0 port=21140 ok=1 ms=46.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 511970154951 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 511997235322 13862 witness_status group=0 node=0 port=21140 ok=1 ms=91.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 512151606334 13862 witness_status group=0 node=0 port=21140 ok=1 ms=54.2 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 512286623868 13862 witness_status group=0 node=0 port=21140 ok=1 ms=34.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 512572224117 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 512578284186 13862 witness_status group=0 node=0 port=21140 ok=1 ms=90.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 512732320340 13862 witness_status group=0 node=0 port=21140 ok=1 ms=53.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 512871605253 13862 witness_status group=0 node=0 port=21140 ok=1 ms=39.0 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513114164529 13862 witness_status group=0 node=0 port=21140 ok=1 ms=41.5 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513176371092 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 513264258550 13862 witness_status group=0 node=0 port=21140 ok=1 ms=49.9 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513386137511 13862 witness_status group=0 node=0 port=21140 ok=1 ms=21.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513670783933 13862 witness_status group=0 node=0 port=21140 ok=1 ms=83.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513681320264 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 513837640813 13862 witness_status group=0 node=0 port=21140 ok=1 ms=66.6 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 513982673584 13862 witness_status group=0 node=0 port=21140 ok=1 ms=44.8 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 514283138348 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.4 reply=
+T 514288081421 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 514487541720 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 514683959158 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.4 reply=
+T 514687007525 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 514883422877 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 514987853039 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 515265680403 13862 witness_status group=0 node=0 port=21140 ok=1 ms=80.7 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 515390328853 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 515589754757 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 515807581291 13862 witness_status group=0 node=0 port=21140 ok=1 ms=38.4 reply=role=p term=0 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 516007136848 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 516191561452 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 516206749195 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.4 reply=
+T 516406203313 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 516605834802 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 516805283140 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 516905412579 13862 witness_suspect group=0 primary=0 term=0 silent_ms=1136.3 degraded=0
+T 516917742087 13862 witness_propose_promote group=0 to=1 term=1 result=OK ours=1 propose_ms=11.8
+T 517029254092 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 517035956916 13862 witness_status group=1 node=0 port=21220 ok=1 ms=26.1 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 518698917656 13862 witness_status group=0 node=1 port=21180 ok=1 ms=40.8 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 518871852022 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 519927340405 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 520064392231 13862 witness_status group=0 node=1 port=21180 ok=1 ms=32.3 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 520178622455 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.5 reply=
+T 520478709115 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 520678299498 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 520844115914 13862 witness_status group=1 node=0 port=21220 ok=1 ms=64.9 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 520869798363 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 521043557143 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 521106050188 13862 witness_status group=0 node=1 port=21180 ok=1 ms=35.4 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 521305531312 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 521504910132 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.2 reply=
+T 521704458750 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 521903946940 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.4 reply=
+T 522103479811 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 522203647366 13862 witness_suspect group=0 primary=1 term=1 silent_ms=1133.0 degraded=0
+T 522305027622 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 522405146786 13862 witness_suspect group=0 primary=1 term=1 silent_ms=1334.5 degraded=0
+T 522505757272 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 522605852093 13862 witness_suspect group=0 primary=1 term=1 silent_ms=1535.2 degraded=0
+T 522706326993 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 522806500114 13862 witness_suspect group=0 primary=1 term=1 silent_ms=1735.9 degraded=0
+T 522908310258 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 523008464573 13862 witness_suspect group=0 primary=1 term=1 silent_ms=1937.9 degraded=0
+T 523109945554 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 523210045180 13862 witness_suspect group=0 primary=1 term=1 silent_ms=2139.4 degraded=0
+T 523312381113 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 523412592783 13862 witness_suspect group=0 primary=1 term=1 silent_ms=2342.0 degraded=0
+T 523513716157 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.3 reply=
+T 523613830091 13862 witness_suspect group=0 primary=1 term=1 silent_ms=2543.2 degraded=0
+T 523672650343 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 523714346660 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.3 reply=
+T 523814461653 13862 witness_suspect group=0 primary=1 term=1 silent_ms=2743.9 degraded=0
+T 523818256299 13862 witness_status group=1 node=0 port=21220 ok=1 ms=45.4 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 523915459815 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 524015665094 13862 witness_suspect group=0 primary=1 term=1 silent_ms=2945.1 degraded=0
+T 524118743665 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 524218935853 13862 witness_suspect group=0 primary=1 term=1 silent_ms=3148.3 degraded=0
+T 524318256257 13862 witness_status group=0 node=0 port=21140 ok=0 ms=99.3 reply=
+T 524418491588 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 524448121478 13862 witness_status group=1 node=0 port=21220 ok=1 ms=23.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 524518724382 13862 witness_suspect group=0 primary=1 term=1 silent_ms=3448.1 degraded=0
+T 524620599029 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 524720714294 13862 witness_suspect group=0 primary=1 term=1 silent_ms=3650.1 degraded=0
+T 524821817955 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 524922038411 13862 witness_suspect group=0 primary=1 term=1 silent_ms=3851.4 degraded=0
+T 525023209963 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.3 reply=
+T 525123399033 13862 witness_suspect group=0 primary=1 term=1 silent_ms=4052.8 degraded=0
+T 525225655103 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 525325800507 13862 witness_suspect group=0 primary=1 term=1 silent_ms=4255.2 degraded=0
+T 525426389058 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.3 reply=
+T 525526588865 13862 witness_suspect group=0 primary=1 term=1 silent_ms=4456.0 degraded=0
+T 525627436145 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.3 reply=
+T 525727556382 13862 witness_suspect group=0 primary=1 term=1 silent_ms=4657.0 degraded=0
+T 525828100302 13862 witness_status group=0 node=1 port=21180 ok=0 ms=100.2 reply=
+T 525928211881 13862 witness_suspect group=0 primary=1 term=1 silent_ms=4857.6 degraded=0
+T 526028539199 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 526128641507 13862 witness_suspect group=0 primary=1 term=1 silent_ms=5058.0 degraded=0
+T 526164279676 13862 witness_status group=0 node=1 port=21180 ok=1 ms=34.6 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 526323415602 13862 witness_status group=0 node=1 port=21180 ok=1 ms=59.0 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 526468638091 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 526523036089 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.4 reply=
+T 526600392191 13862 witness_status group=1 node=0 port=21220 ok=1 ms=31.5 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 527011068554 13862 witness_status group=0 node=1 port=21180 ok=1 ms=86.4 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 527200882044 13862 witness_status group=1 node=0 port=21220 ok=1 ms=96.5 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 527588666327 13862 witness_status group=0 node=1 port=21180 ok=1 ms=74.5 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 527704199049 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 528148844320 13862 witness_status group=0 node=1 port=21180 ok=1 ms=55.1 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 528305841267 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 528720461067 13862 witness_status group=0 node=1 port=21180 ok=1 ms=68.8 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 528882972898 13862 witness_status group=1 node=0 port=21220 ok=1 ms=69.7 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 529383985291 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 529786932873 13862 witness_status group=0 node=1 port=21180 ok=1 ms=41.9 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 529889572138 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 530357364442 13862 witness_status group=0 node=1 port=21180 ok=1 ms=68.2 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 530491418278 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 530919946205 13862 witness_status group=0 node=1 port=21180 ok=1 ms=59.6 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 531093242992 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 531529019073 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.4 reply=
+T 531694699136 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 531894230255 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 532236081194 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 532294853791 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 532435527679 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 532476673154 13862 witness_status group=1 node=0 port=21220 ok=1 ms=81.6 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 532763271079 13862 witness_status group=1 node=0 port=21220 ok=1 ms=85.8 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 532934687519 13862 witness_status group=1 node=0 port=21220 ok=1 ms=71.2 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 533038184010 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.5 reply=
+T 533253623301 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 533394153157 13862 witness_status group=1 node=0 port=21220 ok=1 ms=40.2 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 533712461490 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 533852254875 13862 witness_status group=1 node=0 port=21220 ok=1 ms=39.6 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 533942384844 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.2 reply=
+T 534051745493 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 534251160653 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 534558186375 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 534749783960 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 534757606472 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 534891149226 13862 witness_status group=1 node=0 port=21220 ok=1 ms=33.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 535090588093 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 535390466311 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 535590027484 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 535654791879 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 535789532477 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 535988966983 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 536123070444 13862 witness_status group=1 node=0 port=21220 ok=1 ms=33.9 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 536383341891 13862 witness_status group=1 node=0 port=21220 ok=1 ms=59.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 536574364214 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 536690348959 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 536889837298 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 537042627882 13862 witness_status group=1 node=0 port=21220 ok=1 ms=52.7 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 537307817301 13862 witness_status group=1 node=0 port=21220 ok=1 ms=62.0 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 537507439022 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 537582087380 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.4 reply=
+T 537706892053 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 537965473134 13862 witness_status group=1 node=0 port=21220 ok=1 ms=48.6 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 538164831798 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 538392447500 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.4 reply=
+T 538481217955 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 538680689804 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 539045885016 13862 witness_status group=1 node=0 port=21220 ok=1 ms=62.3 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 539245384692 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 539296755343 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.2 reply=
+T 539444912317 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 539496308714 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 539584898939 13862 witness_status group=1 node=0 port=21220 ok=1 ms=39.6 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 539680789643 13862 witness_status group=0 node=1 port=21180 ok=1 ms=84.3 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 539885544445 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 540129700578 13862 witness_status group=0 node=1 port=21180 ok=1 ms=47.0 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 540287719819 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.1 reply=
+T 540329201673 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 540528655682 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 540702679882 13862 witness_status group=0 node=1 port=21180 ok=1 ms=73.8 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 540896241283 13862 witness_status group=0 node=1 port=21180 ok=1 ms=88.1 reply=role=n term=1 uuid=26e6f33c652b33dae5853ef3b34c5a8d shards=2
+T 540996918680 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=
+T 541196380724 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 541395882097 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 541525976050 13862 witness_status group=1 node=0 port=21220 ok=1 ms=29.9 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 541701126458 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.2 reply=
+T 541725409349 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 541926238665 13862 witness_status group=1 node=0 port=21220 ok=0 ms=100.7 reply=
+T 542125779707 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.3 reply=
+T 542425635372 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.2 reply=
+T 542512915885 13862 witness_status group=0 node=1 port=21180 ok=0 ms=99.3 reply=
+T 542699438680 13862 witness_status group=1 node=0 port=21220 ok=1 ms=73.0 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 542935556372 13862 witness_status group=1 node=0 port=21220 ok=1 ms=35.4 reply=role=p term=0 uuid=bced53528afac1d8a47edbb21e54f4a7 shards=2
+T 543135092048 13862 witness_status group=1 node=0 port=21220 ok=0 ms=99.4 reply=

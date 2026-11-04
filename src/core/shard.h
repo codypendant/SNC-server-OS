@@ -283,6 +283,9 @@ class Shard {
   // Slot states.
   ObjectHeader* slot_state(u16 slot);
   u64 write_slot_state(u16 slot, const struct SlotStateV1& st);
+  // SNC_TRACE=1 only: time inside put_image's index updates and WAL
+  // appends during one stage_slot (docs/TRACING.md).
+  u64 trace_index_ns_ = 0, trace_log_ns_ = 0;
   void resume_slot(u16 slot);
   // Puts an object image (a staged copy) in the map, indexed and logged.
   ObjectHeader* put_image(const SlotObject& so, u64& lsn);

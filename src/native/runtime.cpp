@@ -1,6 +1,7 @@
 // Native SRI backend: one pinned pthread per shard, a full mesh of SPSC rings
 // of 128-byte slots, eventfd wakeup after a short spin (spec sections 5, 7).
 #include "snc/native_runtime.h"
+#include "snc/trace.h"
 
 #include <emmintrin.h>
 #include <liburing.h>
@@ -316,7 +317,14 @@ bool NativeRuntime::Impl::drain(Worker& w, u16 src) {
 void NativeRuntime::Impl::loop(Worker& w) {
   const u16 n = static_cast<u16>(workers.size());
   u64 idle_since = 0;
+  // SNC_TRACE=1: report loop iterations long enough to delay control work
+  // (STATUS, admin requests wait on every shard; docs/TRACING.md).
+  const bool tr = trace::enabled();
+  constexpr u64 kLongIterNs = 20'000'000;
   while (true) {
+    const u64 t_start = tr ? now_ns() : 0;
+    u64 t_drain = 0, t_inject = 0, t_io = 0, t_poll = 0;
+    std::size_t n_injected = 0;
     // Stop once asked and the shard has nothing in flight (e.g. its WAL is
     // flushed), so a clean stop never drops acknowledged-but-pending work.
     if (stopping.load(std::memory_order_relaxed) &&
@@ -328,6 +336,7 @@ void NativeRuntime::Impl::loop(Worker& w) {
     for (u16 s = 0; s < n; ++s) {
       if (s != w.id) did |= drain(w, s);
     }
+    if (tr) t_drain = now_ns();
     if (w.has_injected.load(std::memory_order_acquire)) {
       std::vector<std::function<void()>> fns;
       {
@@ -335,12 +344,26 @@ void NativeRuntime::Impl::loop(Worker& w) {
         fns.swap(w.injected);
         w.has_injected.store(false, std::memory_order_relaxed);
       }
+      n_injected = fns.size();
       for (auto& fn : fns) fn();
       did = true;
     }
+    if (tr) t_inject = now_ns();
     did |= reap_io(w);
+    if (tr) t_io = now_ns();
     if (hooks.poll) did |= hooks.poll(hooks.user);
+    if (tr) t_poll = now_ns();
     publish_all(w);
+    if (tr) {
+      const u64 t_end = now_ns();
+      if (t_end - t_start >= kLongIterNs) {
+        SNC_TRACE("shard_long_iter shard=%u total_ms=%.1f drain_ms=%.1f inject_ms=%.1f injected=%zu io_ms=%.1f "
+                  "poll_ms=%.1f publish_ms=%.1f",
+                  static_cast<unsigned>(w.id), (t_end - t_start) / 1e6, (t_drain - t_start) / 1e6,
+                  (t_inject - t_drain) / 1e6, n_injected, (t_io - t_inject) / 1e6, (t_poll - t_io) / 1e6,
+                  (t_end - t_poll) / 1e6);
+      }
+    }
     if (cfg.io_yield_us && w.io_inflight > 0) {
       u64 now = now_ns();
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {

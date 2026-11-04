@@ -736,7 +736,8 @@ u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& 
   const int rejected = ::open((me.dir + "/rejected." + t).c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
   CHECK(rejected >= 0);
   std::mt19937_64 rng(me.group * 7919 + me.member * 31 + 1);
-  u64 acked = 0;
+  // Completions run on every shard's thread.
+  std::atomic<u64> acked{0};
   for (u32 round = 0; !eng.fenced() && (round < min_rounds || !exists(me.dir + "/finish")); ++round) {
     struct Pick {
       ObjectID from, to;
@@ -780,10 +781,10 @@ u64 transfer_rounds(Engine& eng, const Member& me, const std::vector<ObjectID>& 
           }
           CHECK_EQ(::write(rejected, line.data(), line.size()), static_cast<ssize_t>(line.size()));
         });
-    write_file(progress, std::to_string(acked));
+    write_file(progress, std::to_string(acked.load()));
   }
   ::close(rejected);
-  return acked;
+  return acked.load();
 }
 
 struct Xfer {

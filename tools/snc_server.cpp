@@ -81,6 +81,7 @@
 #include "migrate.h"
 #include "snc/net.h"
 #include "snc/snc.h"
+#include "snc/trace.h"
 #include "snc/types/account.h"
 
 using namespace snc;
@@ -438,14 +439,25 @@ int main(int argc, char** argv) {
         int fd = ::accept4(lfd, nullptr, nullptr, SOCK_CLOEXEC);
         if (fd < 0) continue;
         std::string line, reply;
-        if (ha::read_line(fd, line, 500)) {
+        const u64 t_accept = trace::enabled() ? trace::now_ns() : 0;
+        const bool got = ha::read_line(fd, line, 500);
+        const u64 t_read = trace::enabled() ? trace::now_ns() : 0;
+        if (!got) SNC_TRACE("admin_read_fail read_ms=%.1f bytes=%zu", (t_read - t_accept) / 1e6, line.size());
+        if (got) {
           if (line.rfind("MOVE ", 0) == 0 && mover) {
+            SNC_TRACE("admin_move_in verb=%.24s bytes=%zu read_ms=%.1f", line.c_str() + 5, line.size(),
+                      (t_read - t_accept) / 1e6);
             {
               std::lock_guard<std::mutex> g(move_mu);
               ++moving;
             }
             std::thread([&, fd, line] {
-              ha::write_all(fd, mover->handle(line) + "\n");
+              const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+              const std::string out = mover->handle(line);
+              const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
+              ha::write_all(fd, out + "\n");
+              SNC_TRACE("admin_move_out verb=%.24s handle_ms=%.1f write_ms=%.1f reply=%.40s", line.c_str() + 5,
+                        (t1 - t0) / 1e6, trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0, out.c_str());
               ::close(fd);
               std::lock_guard<std::mutex> g(move_mu);
               --moving;
@@ -454,7 +466,16 @@ int main(int argc, char** argv) {
             continue;
           }
           if (line == "STATUS") {
+            const u64 t_st = trace::enabled() ? trace::now_ns() : 0;
             Engine::ReplStatus st = eng.replication_status();
+            if (trace::enabled()) {
+              const u64 t_done = trace::now_ns();
+              // Only slow answers: a witness polls every few tens of ms.
+              if (t_done - t_accept >= 20'000'000) {
+                SNC_TRACE("admin_status_slow total_ms=%.1f read_ms=%.1f repl_status_ms=%.1f", (t_done - t_accept) / 1e6,
+                          (t_read - t_accept) / 1e6, (t_done - t_st) / 1e6);
+              }
+            }
             char b[256];
             std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu",
                           is_standby.load() ? 's' : eng.fenced() ? 'f' : (st.role == 1 ? 'p' : 'n'),
@@ -485,7 +506,11 @@ int main(int argc, char** argv) {
   // Paxos among its peers before answering, so allow it time.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
     for (const auto& [h, p] : witnesses) {
-      if (ha::ask(h, p, req, reply, 1500)) return true;
+      const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+      const bool ok = ha::ask(h, p, req, reply, 1500);
+      SNC_TRACE("ask_witness port=%u req=%.24s ok=%d ms=%.1f reply=%.40s", p, req.c_str(), ok ? 1 : 0,
+                trace::enabled() ? (trace::now_ns() - t0) / 1e6 : 0.0, reply.c_str());
+      if (ok) return true;
     }
     reply.clear();
     return false;

@@ -37,6 +37,7 @@
 
 #include "control.h"
 #include "ha.h"
+#include "snc/trace.h"
 
 namespace snc::migrate {
 
@@ -230,14 +231,18 @@ class NodeHandler {
       unsigned from = 0;
       int final = 0;
       std::vector<SlotObject> objs;
+      const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
       if (!(in >> std::hex >> move >> std::dec >> from >> epoch >> final >> count >> digest) ||
           !decode_list(in, objs)) {
         return "NO bad request";
       }
+      const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
       std::string why;
-      if (!current(s, move, final ? PlacementMove::State::SEALED : PlacementMove::State::PREPARED, why)) {
-        return "NO " + why;
-      }
+      const bool cur = current(s, move, final ? PlacementMove::State::SEALED : PlacementMove::State::PREPARED, why);
+      SNC_TRACE("move_stage_req slot=%u final=%d objs=%zu decode_ms=%.1f control_check_ms=%.1f current=%d", slot,
+                final, objs.size(), (t1 - t0) / 1e6, trace::enabled() ? (trace::now_ns() - t1) / 1e6 : 0.0,
+                cur ? 1 : 0);
+      if (!cur) return "NO " + why;
       SlotReport r;
       const Status st = eng_.stage_slot(s, move, static_cast<u16>(from), epoch, final != 0, objs, count, digest, r);
       return (st == Status::OK ? "OK " : std::string("NO ") + status_name(st) + " ") + report_text(r);
@@ -368,14 +373,18 @@ class Driver {
   std::string move(u16 slot, u16 to) {
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
     u64 mine = 0;
-    std::string why;
+    std::string why, last_state = "none";
     while (std::chrono::steady_clock::now() < end) {
       Snapshot sn;
       if (!sync(ms_, sn, why)) {
         pause();
         continue;
       }
+      // sync() sets `why` before it tries; once it succeeds that text is
+      // stale, and a STUCK at the deadline must not report it.
+      why.clear();
       const Placement& P = sn.p;
+      last_state = PlacementMove::name(P.move.state);
       if (P.move.state == PlacementMove::State::NONE) {
         if (mine != 0 || P.slots[slot] == to) {
           settle_owner(P, slot, end);
@@ -411,7 +420,8 @@ class Driver {
       if (r.rfind("STOPPED", 0) == 0) return r;
       if (r == "retry") pause();
     }
-    return "STUCK " + why;
+    return "STUCK " + (why.empty() ? std::string("deadline") : why) + " (after " +
+           std::to_string(deadline_ms / 1000) + " s, move state " + last_state + ")";
   }
 
   // Aborts the move of `slot` if it has not committed: ABORTED, NONE (no
@@ -462,13 +472,19 @@ class Driver {
     std::snprintf(t, sizeof(t), "[%8.3f] ",
                   std::chrono::duration<double>(std::chrono::steady_clock::now() - t0_).count());
     log += t + s + "\n";
+    SNC_TRACE("driver %.200s", s.c_str());
   }
   const std::chrono::steady_clock::time_point t0_ = std::chrono::steady_clock::now();
   static void pause() { std::this_thread::sleep_for(std::chrono::milliseconds(50)); }
 
   std::string ask_node(const Node& n, const std::string& line) {
     std::string reply;
-    if (!ha::ask(n.host, n.port, line, reply, 15000)) return "";
+    const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
+    const bool ok = ha::ask(n.host, n.port, line, reply, 15000);
+    SNC_TRACE("driver_ask port=%u req=%.32s bytes=%zu ok=%d ms=%.1f reply_bytes=%zu reply=%.40s", n.port,
+              line.c_str() + (line.rfind("MOVE ", 0) == 0 ? 5 : 0), line.size(), ok ? 1 : 0,
+              trace::enabled() ? (trace::now_ns() - t0) / 1e6 : 0.0, reply.size(), reply.c_str());
+    if (!ok) return "";
     return reply;
   }
 

@@ -4,6 +4,7 @@
 #include "slot_state.h"
 
 #include "snc/sri.h"
+#include "snc/trace.h"
 
 #include <fcntl.h>
 #include <sys/epoll.h>
@@ -2296,12 +2297,16 @@ ObjectHeader* Shard::put_image(const SlotObject& so, u64& lsn) {
   std::memcpy(o->payload(), so.payload.data(), len);
   map_.upsert(o);
   if (t->index_id) {
+    const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
     u8 key[kMaxIndexKey];
     const u32 new_len = extract_key(*t, *o, key);
     if (old_len) index_erase(t->index_id, old_key, old_len, o->id);
     if (new_len) index_insert(t->index_id, key, new_len, o->id);
+    if (trace::enabled()) trace_index_ns_ += trace::now_ns() - t0;
   }
+  const u64 t_log = trace::enabled() ? trace::now_ns() : 0;
   o->last_lsn = lsn = log(type, *o);
+  if (trace::enabled()) trace_log_ns_ += trace::now_ns() - t_log;
   return o;
 }
 
@@ -2342,6 +2347,8 @@ Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, co
   // is the source (serving or sealed), never the destination. A
   // destination's map names the source until the move commits.
   if (!foreign_slot(slot)) return Status::E_MOVED;
+  const u64 t_begin = trace::enabled() ? trace::now_ns() : 0;
+  trace_index_ns_ = trace_log_ns_ = 0;
   std::unordered_map<ObjectID, const SlotObject*, ObjectIdHash> listed;
   for (const SlotObject& x : objs) {
     if (slot_of(x.id) != slot || !moves_with_slot(x.type_id)) return Status::E_BAD_ARGS;
@@ -2363,14 +2370,17 @@ Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, co
     }
     listed[x.id] = &x;
   }
-  u64 at = 0;
+  const u64 t_checked = trace::enabled() ? trace::now_ns() : 0;
+  u64 at = 0, put = 0;
   for (const SlotObject& x : objs) {
     if (!x.has_payload) continue;
     ObjectHeader* o = map_.find(x.id);
     if (o && !o->deleted() && o->version == x.version && image_crc(*o) == x.crc) continue;
     if (put_image(x, at) == nullptr) return Status::E_NO_MEMORY;
     lsn = std::max(lsn, at);
+    ++put;
   }
+  const u64 t_put = trace::enabled() ? trace::now_ns() : 0;
   if (!final) return Status::OK;
   // Final: exactly the source's objects. Anything else staged here for
   // the slot is gone at the source (IDs are never reused).
@@ -2385,6 +2395,11 @@ Status Shard::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, co
     ++n;
     d += slot_object_digest(o->id, o->version, image_crc(*o));
   });
+  const u64 t_scanned = trace::enabled() ? trace::now_ns() : 0;
+  SNC_TRACE("stage_slot_phases shard=%u slot=%u objs=%zu check_ms=%.1f put=%llu put_ms=%.1f (index_ms=%.1f wal_ms=%.1f) "
+            "scan_ms=%.1f map_size=%llu",
+            id_, slot, objs.size(), (t_checked - t_begin) / 1e6, (unsigned long long)put, (t_put - t_checked) / 1e6,
+            trace_index_ns_ / 1e6, trace_log_ns_ / 1e6, (t_scanned - t_put) / 1e6, (unsigned long long)map_.size());
   if (n != count || d != digest) return Status::E_VERSION_CONFLICT;  // nothing recorded as staged
   for (ObjectHeader* o : gone) {
     drop_object(o, at);
