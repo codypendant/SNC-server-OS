@@ -128,6 +128,11 @@ and the handoff's development sequence (§24).
   waits for the source group. Not covered: a second primary the driver
   cannot reach (R08), slots moved under v1 until backfilled; an unproven
   slot stays unavailable (no repair yet).
+- Reference architecture research lane (2026-11-04, **program added, no
+  review started**): [research/README.md](research/README.md). Styx,
+  Restate, Orleans, SpacetimeDB and DBOS, compared mechanism by mechanism
+  against SNC's contracts; runs alongside Core work and changes nothing by
+  itself.
 - Legacy role upgrade hardening (2026-11-04, **implemented, under review;
   S1 waits for that review**): [LEGACY_ROLE.md](LEGACY_ROLE.md). A data
   directory from before role files no longer starts as a primary by

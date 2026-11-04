@@ -867,3 +867,16 @@ or source comments.
     `legacy_stale` (L1-L8), `compat` rewritten against the older build
     (L9); runs, independent review and QA in LEGACY_ROLE.md section 7.
 -   **Next action:** review of this slice. Do NOT start S1 before it.
+
+### 2026-11-04 UTC --- Claude (Claude Code): reference architecture research lane
+
+-   **Classification:** KEEP. Documents only; no code or contract change.
+-   **What:** cody's research program (Styx, Restate, Orleans,
+    SpacetimeDB, DBOS) added as `docs/research/` with a review, a
+    teardown template, and SNC CURRENT mapped per template question.
+-   **Review notes:** S1 is node-local and need not wait for the Styx
+    review; S2/S3 designs should. Use CORE_CONTRACTS' stage names.
+    Benchmark DBOS and SpacetimeDB through the CONVENTIONAL.md harness,
+    with transfers. Pin versions and check licenses per review.
+-   **Next action:** none until a lane is started; the Core order is
+    unchanged (legacy-role review, then S1).
