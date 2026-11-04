@@ -766,3 +766,33 @@ or source comments.
     R08, R11, trace rings.
 -   **Next action:** review of this slice. Bounded/resumable migration
     staging only after that review.
+
+### 2026-11-04 UTC --- Claude (Claude Code): bounded/resumable migration staging (design only)
+
+-   **Classification:** design for review; no code changed. Proposes
+    **REFINE** of CORE_CONTRACTS B-1 (progress durable only as the staged
+    records themselves, no manifest) and **RECONSIDER** of MIGRATION.md's
+    accepted "Chunked migration stream" (no scratch area).
+-   **What:** `docs/MIGRATION_STAGING.md`, sections 1-17 as the work order
+    asked. Three independent steps: S1 the destination's final stage as a
+    chain of bounded units with local fencing guards (node-local, no wire or
+    format change; the proposed next slice); S2 converging copy ahead
+    (driver only); S3 streamed transfer with versioned verbs. Unit bound is
+    shard-thread time plus a byte cap, defaults to be set from a latency
+    sweep.
+-   **Evidence:** independent review against the code (17 findings, all
+    applied). Baseline from `bench/results/lab-20261104/p5-131933`:
+    E_MIGRATING window about 6.75 s for 100K objects (17,874 changed), of
+    which the final stage held the destination shard 4,772.7 ms (index
+    4,347.5 ms); about 2.2 s of window is O(slot) work even with zero
+    changes (the move back).
+-   **Adjacent defects reported, not fixed:** D1 a moved slot can be served
+    from a partial copy after a lossy promotion (async or admin `PROMOTE`;
+    R08/E3 class), and D7 its source-side analogue; D2 the lab's window metric undercounts about 40x; D3
+    every STAGE reply runs an O(map) `slot_report`; D4 a driver timeout loops
+    O(map) HAVE/EXPORT and two drivers can queue duplicate final stages; D5 slot size limit from the 256 MiB line
+    cap; D6 the probe's `INFO` polling loads every node.
+-   **Not changed:** HEALTH and option B (stall stays diagnostic only);
+    the migration stall itself, which is **not fixed**; index, R08, R11.
+-   **Next action:** review of MIGRATION_STAGING.md (decisions 1-5 in its
+    section 0). No implementation before that.
