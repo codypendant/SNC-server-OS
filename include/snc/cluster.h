@@ -30,9 +30,22 @@ struct ClusterGroup {
   std::vector<ClusterMember> members;
 };
 
+// The commit that last gave a slot to its current group
+// (docs/MIGRATION_FAIL_CLOSED.md): the move's ID and the epoch it committed
+// at. {0, 0}: none on record (the slot never moved, or it moved before
+// placement v2).
+struct SlotArrival {
+  u64 move = 0;
+  u64 epoch = 0;
+  bool operator==(const SlotArrival&) const = default;
+};
+
 struct ClusterMap {
   std::vector<ClusterGroup> groups;
   std::array<u8, kSlots> group_of{};
+  // Per slot, the arrival on record (placement v2). Not in crc(): it says
+  // which local evidence proves a slot, not who owns it.
+  std::array<SlotArrival, kSlots> arrived{};
   // Placement epoch (docs/CONTROL_PLANE.md section 5). Changes only when
   // placement does (a slot move, docs/MIGRATION.md); a failover inside a
   // group never changes it.

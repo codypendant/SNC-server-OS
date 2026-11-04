@@ -7,6 +7,7 @@
 
 #include "snc/native_runtime.h"
 #include "snc/cluster.h"
+#include "snc/placement.h"
 #include "snc/local_map.h"
 #include "snc/registry.h"
 #include "snc/slot_map.h"
@@ -175,6 +176,9 @@ struct ShardStats {
   u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
   u64 emits_held_now = 0;        // ... held at this moment
   u64 emits_stale = 0;           // dropped: sent by their source's owner before the source's slot moved
+  // Fail-closed serving (docs/MIGRATION_FAIL_CLOSED.md): slots this shard
+  // owns that the map gives this group but local evidence does not prove.
+  u64 slots_unproven = 0;
   u64 node_connects = 0;         // outbound node links that came up
   u64 node_resumes = 0;          // resume passes run because a link came up
   WalStream::Stats wal;
@@ -213,9 +217,23 @@ struct SlotObject {
 u64 slot_object_digest(const ObjectID& id, u64 version, u32 crc);
 
 // A slot's state in this group (docs/MIGRATION.md).
+// Why a slot is or is not served here (docs/MIGRATION_FAIL_CLOSED.md 13).
+enum class SlotProof : u8 {
+  OK = 0,     // served (or would be, on a primary)
+  FOREIGN,    // another group's by this node's map
+  SEALED,     // sealed here (moving away)
+  STAGED,     // staged here, not active
+  MISSING,    // the map says it arrived by a move this node holds no evidence of
+  STALE_MAP,  // this node's evidence is of a later move than the map's arrival: refresh the map
+};
+const char* slot_proof_name(SlotProof p);
+
 struct SlotReport {
   u16 slot = 0;
   u8 phase = 0;  // SlotPhase: 0 none, 1 active, 2 sealed, 3 staged
+  u16 flags = 0;  // the state's flags (kSlotUnsealed)
+  SlotProof proof = SlotProof::OK;
+  SlotArrival arrived;  // the arrival this node's map has on record
   u16 group = 0;
   u64 move_id = 0, epoch = 0, count = 0, digest = 0;  // as recorded
   bool durable = true;   // the state record is durable
@@ -342,12 +360,28 @@ class Engine {
     // unique only within the space.
     std::function<bool(u64 want, u64& lo, u64& hi)> lease_blocks;
 
+    // Per slot, the arrival on record at start (placement v2; kSlots
+    // entries, or empty: none).
+    std::vector<SlotArrival> cluster_arrived;
+
     // Placement refresh (docs/MIGRATION.md): returns the control plane's
-    // latest slot assignment and epoch (and keeps it where the node starts
-    // from next time). Asked every placement_poll_ms, and at once when a
-    // newer epoch is seen on a node link. Unset: the map never changes.
-    std::function<bool(std::array<u8, kSlots>& slots, u64& epoch)> placement_fetch;
+    // latest placement (and keeps it where the node starts from next
+    // time). Asked every placement_poll_ms, and at once when a newer epoch
+    // is seen on a node link. Unset: the map never changes.
+    std::function<bool(Placement& out)> placement_fetch;
     u32 placement_poll_ms = 1000;
+    // The placement read linearizably (the control plane's latest). Set,
+    // it is the start barrier (docs/MIGRATION_FAIL_CLOSED.md 5a): a
+    // promotion, and any start of a data directory that was last a standby,
+    // read it, adopt it and re-seal a slot this group is moving away
+    // before serving; if it fails they do not happen.
+    std::function<bool(Placement& out)> placement_sync;
+    // Tests only (snc_server --debug-barrier, with --debug-admin): at the
+    // end of the start barrier, after the re-seal is durable and before
+    // role "primary" is written, sleep this long (ROLE m stays visible),
+    // or exit at once as a crash would (no destructors, nothing flushed).
+    u32 debug_barrier_hold_ms = 0;
+    bool debug_barrier_crash = false;
 
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.
@@ -410,12 +444,17 @@ class Engine {
   // ---- Slot moves (docs/MIGRATION.md). Control path; each blocks. ----
   // A newer placement: adopt it (false if `epoch` is not newer than the
   // current map's). Slots staged here that it gives this group activate.
-  bool update_placement(const std::array<u8, kSlots>& slots, u64 epoch);
+  // `arrived`: the placement's arrivals (null: none on record).
+  bool update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
+                        const std::array<SlotArrival, kSlots>* arrived = nullptr);
   // Asks Config::placement_fetch now and adopts what it returns if newer.
   bool refresh_placement();
   // The newest placement epoch seen from another node (0: none newer).
   u64 epoch_seen() const;
   SlotReport slot_report(u16 slot);
+  // Every slot state object this node holds (slot, phase, flags, move_id,
+  // epoch, durable), for snc_ctl placement backfill.
+  std::vector<SlotReport> slot_states();
   // Source: seal `slot` for move `move` (to `to`, committing at `epoch`).
   // OK once the seal is durable; from then on no op on the slot runs here.
   // Idempotent for the same move.
@@ -473,6 +512,9 @@ class Engine {
 
   // Persistence state (control thread only).
   void recover();
+  // The start barrier (docs/MIGRATION_FAIL_CLOSED.md 5a).
+  void reseal_from(const Placement& p);
+  void finish_barrier(bool synced);
   // Seeding standbys (src/core/seed.cpp).
   struct Seeding;
   std::unique_ptr<Seeding> seed_;

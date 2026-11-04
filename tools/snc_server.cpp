@@ -26,7 +26,12 @@
 // created with its primary's space UUID (printed at start). Promote a
 // standby with SIGUSR1 (in place; it then ships to --replica-of if given,
 // and --standby takes the port to listen on), or by stopping it and starting
-// it without --standby on the same --data-dir. Promotion starts a new term:
+// it without --standby on the same --data-dir. Either way the start barrier
+// runs first (docs/MIGRATION_FAIL_CLOSED.md 5a, 8): the placement read
+// linearizably and adopted, a slot this group is moving away re-sealed,
+// and only then role "primary" in DIR/role; a directory last a standby
+// does not start while the control plane cannot be read (ROLE m on the
+// admin port while an in-place promotion runs it). Promotion starts a new term:
 // standbys refuse a primary of an older term, so an old primary that comes
 // back with --replica-timeout-ms 0 can acknowledge no durable write.
 // A primary started with --seed-port serves its latest checkpoint; a
@@ -45,7 +50,8 @@
 // diagnostics; it is the witness's liveness signal and proves nothing
 // about replication or promotion eligibility. STATUS asks every shard for
 // its replication state and may be slow. --debug-admin also accepts DEBUG
-// STALL <shard> <ms> and DEBUG REPL-PAUSE 1|0 (tests only). With --witness, a sync primary past --replica-timeout-ms continues
+// STALL <shard> <ms> and DEBUG REPL-PAUSE 1|0, and --debug-barrier hold:MS|crash
+// (the end of the start barrier, docs/MIGRATION_FAIL_CLOSED.md; tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
 // witness when its standby is back in sync. --witness takes a comma-separated
 // list of replicated witnesses; each request goes to the first that
@@ -227,6 +233,17 @@ int main(int argc, char** argv) {
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--debug-admin") debug_admin = true;
+    else if (k == "--debug-barrier") {
+      // Tests only (needs --debug-admin): hold:MS or crash, at the end of
+      // the start barrier before role "primary" (Engine::Config).
+      const std::string v = val();
+      if (v == "crash") cfg.debug_barrier_crash = true;
+      else if (v.rfind("hold:", 0) == 0) cfg.debug_barrier_hold_ms = static_cast<u32>(std::atoi(v.c_str() + 5));
+      else {
+        std::fprintf(stderr, "--debug-barrier takes hold:MS or crash\n");
+        return 2;
+      }
+    }
     else if (k == "--witness") {
       std::istringstream in(val());
       std::string hp, h;
@@ -275,6 +292,10 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       return 2;
     }
+  }
+  if ((cfg.debug_barrier_crash || cfg.debug_barrier_hold_ms) && !debug_admin) {
+    std::fprintf(stderr, "--debug-barrier is for tests: it needs --debug-admin\n");
+    return 2;
   }
   if (cfg.runtime.n_shards == 0) {
     cfg.runtime.n_shards = cfg.runtime.cpus.empty()
@@ -427,6 +448,10 @@ int main(int argc, char** argv) {
     uuid_hex += h;
   }
   std::atomic<bool> is_standby{cfg.standby};
+  // A promotion in progress (from before its start barrier reads the
+  // placement until it serves): MOVE ROLE answers m, so a move's commit
+  // gate waits (docs/MIGRATION_FAIL_CLOSED.md 5b).
+  std::atomic<bool> promoting{false};
   std::atomic<u64> term{eng.term()};
   // The mint lease block held (0-0 without blocks), for STATUS.
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
@@ -522,7 +547,7 @@ int main(int argc, char** argv) {
   std::unique_ptr<migrate::NodeHandler> mover;
   if (!control_members.empty()) {
     mover = std::make_unique<migrate::NodeHandler>(eng, control_members, my_group, [&] {
-      return is_standby.load() ? 's' : eng.fenced() ? 'f' : 'p';
+      return promoting.load() ? 'm' : is_standby.load() ? 's' : eng.fenced() ? 'f' : 'p';
     });
   }
   std::mutex move_mu;
@@ -583,11 +608,16 @@ int main(int argc, char** argv) {
           const u64 ms = (trace::now_ns() - t_st) / 1000000;
           if (ms >= 20) SNC_TRACE("admin_status_slow repl_status_ms=%llu", (unsigned long long)ms);
         }
-        char b[256];
-        std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu",
+        // Owned slots the map gives this group that fail the serving proof
+        // (docs/MIGRATION_FAIL_CLOSED.md 13).
+        u64 unproven = 0;
+        for (u16 s = 0; s < n_shards; ++s) unproven += eng.stats(s).slots_unproven;
+        char b[320];
+        std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s shards=%u live=%u degraded=%u blocked=%u epoch=%llu leases=%llu-%llu unproven=%llu",
                       role_now(true, st.role), (unsigned long long)term.load(), uuid_hex.c_str(), st.shards, st.live,
                       st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
-                      (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load());
+                      (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load(),
+                      (unsigned long long)unproven);
         return b;
       }
       if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");
@@ -669,11 +699,13 @@ int main(int argc, char** argv) {
       if ((sig = sigtimedwait(&set, nullptr, &ts)) == SIGUSR1) {
         if (cfg.standby) {
           double s = 0;
+          promoting.store(true);
           try {
             s = eng.promote();
           } catch (const std::exception& e) {
-            // Nothing changed (no lease block): still a standby; the
-            // witnesses ask again.
+            // Nothing changed (no placement read or no lease block): still
+            // a standby; the witnesses ask again.
+            promoting.store(false);
             std::printf("promote refused: %s\n", e.what());
             std::fflush(stdout);
             continue;
@@ -683,6 +715,7 @@ int main(int argc, char** argv) {
           lease_lo.store(eng.lease_block().first);
           lease_hi.store(eng.lease_block().second);
           is_standby.store(false);
+          promoting.store(false);
           std::printf("promoted to primary: term %llu, in %.3fs\n",
                       (unsigned long long)eng.term(), s);
         }

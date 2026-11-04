@@ -15,6 +15,15 @@
 //       moves SLOT to replication group GROUP (docs/MIGRATION.md), or
 //       carries on the move of SLOT in progress; prints DONE, ABORTED,
 //       BUSY ..., or STUCK <why> (then run it again: every step resumes).
+//   snc_ctl --control HOST:PORT,... [--placement-v2] placement backfill
+//       sets the arrival (placement v2) of slots that moved before v2, from
+//       unambiguous evidence only (docs/MIGRATION_FAIL_CLOSED.md 15); prints
+//       BACKFILLED N at epoch E, or NOTHING, and the slots it could not
+//       settle (UNRESOLVED). Needs --placement-v2: it writes v2.
+//   --placement-v2 (with move or init): write placement v2, recording each
+//       commit's arrival. Only once every node, driver and snc_ctl reads v2;
+//       a placement already v2 stays v2 whatever the flag. There is no
+//       command back to v1 (docs/MIGRATION_FAIL_CLOSED.md 15, "Rollback").
 //   snc_ctl --control HOST:PORT,... move --abort SLOT
 //       aborts the move of SLOT if it has not committed (ABORTED, NONE,
 //       or "NO committed": then only finishing it with move is possible).
@@ -46,7 +55,8 @@ int usage() {
                "usage: snc_ctl --control HOST:PORT,... get\n"
                "       snc_ctl --control HOST:PORT,... init --nodes ID@HOST:ADMIN,... "
                "--groups SHARDS:NODE/LINK/CLIENT+...,...\n"
-               "       snc_ctl --control HOST:PORT,... move [--stop-after STEP] [--chunk N] SLOT GROUP | move --abort SLOT\n"
+               "       snc_ctl --control HOST:PORT,... [--placement-v2] move [--stop-after STEP] [--chunk N] SLOT GROUP | move --abort SLOT\n"
+               "       snc_ctl --control HOST:PORT,... --placement-v2 placement backfill\n"
                "STEP (for crash tests): prepared copying copied sealed staged committed activated\n"
                "N: objects per request when copying ahead of the seal (default 8)\n");
   return 2;
@@ -58,8 +68,18 @@ int main(int argc, char** argv) {
   control::Members ms;
   std::string cmd, nodes_arg, groups_arg;
   std::vector<std::string> move_args;
+  bool v2 = false;
   for (int i = 1; i < argc; ++i) {
     const std::string k = argv[i];
+    if (k == "--placement-v2") {
+      v2 = true;
+      continue;
+    }
+    if (k == "placement" && i + 1 < argc && std::string(argv[i + 1]) == "backfill") {
+      cmd = "backfill";
+      ++i;
+      continue;
+    }
     if (k == "get" || k == "init") {
       cmd = k;
       continue;
@@ -93,9 +113,23 @@ int main(int argc, char** argv) {
     }
   }
 
+  if (cmd == "backfill") {
+    if (!v2) {
+      std::fprintf(stderr, "snc_ctl: backfill writes placement v2: pass --placement-v2 once every node reads v2\n");
+      return 2;
+    }
+    migrate::Driver d(ms);
+    d.deadline_ms = 60000;
+    const std::string r = d.backfill();
+    std::fputs(d.log.c_str(), stderr);
+    std::printf("%s\n", r.c_str());
+    return r.rfind("BACKFILLED", 0) == 0 || r.rfind("NOTHING", 0) == 0 ? 0 : 1;
+  }
+
   if (cmd == "move") {
     migrate::Driver d(ms);
     d.deadline_ms = 60000;
+    d.placement_v2 = v2;
     while (move_args.size() >= 4 && (move_args[0] == "--stop-after" || move_args[0] == "--chunk")) {
       const std::string v = move_args[1];
       if (move_args[0] == "--chunk") d.chunk = std::max(1, std::atoi(v.c_str()));
@@ -114,7 +148,7 @@ int main(int argc, char** argv) {
     }
     std::fputs(d.log.c_str(), stderr);
     std::printf("%s\n", r.c_str());
-    return r == "DONE" || r == "ABORTED" || r == "NONE" || r.rfind("STOPPED", 0) == 0 ? 0 : 1;
+    return r == "DONE" || r.rfind("ABORTED", 0) == 0 || r == "NONE" || r.rfind("STOPPED", 0) == 0 ? 0 : 1;
   }
 
   // init
@@ -155,6 +189,7 @@ int main(int argc, char** argv) {
   Placement p;
   try {
     p = Placement::initial(random_uuid(), nodes, groups);
+    if (v2) p.version = 2;
   } catch (const std::exception& e) {
     std::fprintf(stderr, "snc_ctl: %s\n", e.what());
     return 2;

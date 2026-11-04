@@ -80,7 +80,10 @@ Placement Placement::initial(const Uuid& cluster_id, std::vector<PlacementNode> 
 
 std::string Placement::encode() const {
   std::ostringstream o;
-  o << "v1 cluster=" << hex(cluster_id) << " epoch=" << epoch << " nodes=";
+  bool any_arrived = false;
+  for (const SlotArrival& a : arrived) any_arrived |= a.move != 0;
+  if (version < 2 && any_arrived) throw std::logic_error("placement: v1 cannot carry arrivals");
+  o << (version >= 2 ? "v2" : "v1") << " cluster=" << hex(cluster_id) << " epoch=" << epoch << " nodes=";
   for (std::size_t i = 0; i < nodes.size(); ++i) {
     o << (i ? "," : "") << nodes[i].id << '@' << nodes[i].host << ':' << nodes[i].admin_port;
   }
@@ -105,6 +108,15 @@ std::string Placement::encode() const {
     o << " move=" << id << ':' << move.slot << ':' << move.from << ':' << move.to << ':' << move.epoch << ':'
       << PlacementMove::name(move.state);
   }
+  if (version >= 2 && any_arrived) {
+    o << " arrived=";
+    bool first = true;
+    for (u32 s = 0; s < kSlots; ++s) {
+      if (arrived[s].move == 0) continue;
+      o << (first ? "" : ",") << s << ':' << std::hex << arrived[s].move << std::dec << ':' << arrived[s].epoch;
+      first = false;
+    }
+  }
   return o.str();
 }
 
@@ -122,9 +134,11 @@ const char* PlacementMove::name(State s) {
 std::optional<Placement> Placement::decode(const std::string& text) {
   std::istringstream in(text);
   std::string tok;
-  if (!(in >> tok) || tok != "v1") return std::nullopt;
+  if (!(in >> tok) || (tok != "v1" && tok != "v2")) return std::nullopt;
   Placement p;
+  p.version = tok == "v2" ? 2 : 1;
   bool have[5] = {};
+  bool seen_arrived = false;
   while (in >> tok) {
     const auto eq = tok.find('=');
     if (eq == std::string::npos) return std::nullopt;
@@ -183,6 +197,26 @@ std::optional<Placement> Placement::decode(const std::string& text) {
         if (f[5] == PlacementMove::name(st)) p.move.state = st;
       }
       if (p.move.state == PlacementMove::State::NONE || p.move.id == 0) return std::nullopt;
+    } else if (k == "arrived") {
+      if (p.version < 2 || seen_arrived) return std::nullopt;
+      seen_arrived = true;
+      long prev = -1;
+      for (const std::string& e : split(v, ',')) {
+        const auto f = split(e, ':');
+        u64 slot = 0, ep = 0;
+        // Canonical only (as encode writes them): no leading zeros.
+        auto canonical = [](const std::string& x) { return x.size() <= 1 || x[0] != '0'; };
+        if (f.size() != 3 || !canonical(f[0]) || !canonical(f[1]) || !canonical(f[2])) return std::nullopt;
+        if (!num(f[0], kSlots - 1, slot) || static_cast<long>(slot) <= prev || f[1].empty() ||
+            f[1].size() > 16 || f[1].find_first_not_of("0123456789abcdef") != std::string::npos ||
+            !num(f[2], ~u64{0}, ep) || ep == 0) {
+          return std::nullopt;
+        }
+        const u64 mv = std::strtoull(f[1].c_str(), nullptr, 16);
+        if (mv == 0) return std::nullopt;
+        p.arrived[slot] = SlotArrival{mv, ep};
+        prev = static_cast<long>(slot);
+      }
     } else if (k == "slots") {
       u32 at = 0;
       for (const std::string& e : split(v, ',')) {
@@ -217,6 +251,9 @@ std::optional<Placement> Placement::decode(const std::string& text) {
   }
   for (u8 g : p.slots) {
     if (g >= p.groups.size()) return std::nullopt;
+  }
+  for (const SlotArrival& a : p.arrived) {
+    if (a.epoch > p.epoch) return std::nullopt;  // a commit is never ahead of the placement
   }
   if (p.move.state != PlacementMove::State::NONE &&
       (p.move.from >= p.groups.size() || p.move.to >= p.groups.size())) {
@@ -259,6 +296,10 @@ std::vector<ClusterGroup> Placement::cluster_groups() const {
   return out;
 }
 
-ClusterMap Placement::map() const { return ClusterMap::assign(cluster_groups(), slots, epoch); }
+ClusterMap Placement::map() const {
+  ClusterMap m = ClusterMap::assign(cluster_groups(), slots, epoch);
+  m.arrived = arrived;
+  return m;
+}
 
 }  // namespace snc

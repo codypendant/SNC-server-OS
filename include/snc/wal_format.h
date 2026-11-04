@@ -16,7 +16,7 @@ u32 crc32c(const void* data, std::size_t len, u32 seed = 0);
 struct Superblock {
   char magic[8];      // "SNCSUPR1"
   u16 format;
-  u16 reserved;
+  u16 flags;          // kSbRoleTracked; 0 before it existed (and older binaries keep what they read)
   u32 crc32c;         // over the 4 KiB block with this field zeroed
   u64 generation;
   u8 space_uuid[16];
@@ -31,6 +31,11 @@ struct Superblock {
   u64 lease_hi;
 };
 static_assert(sizeof(Superblock) == 80);
+// The data directory keeps DIR/role (docs/MIGRATION_FAIL_CLOSED.md 4.3):
+// from then on a missing or unreadable role file reads as "standby", never
+// as a primary's own disk. Without it (a directory from before DIR/role),
+// a missing file is a primary's (legacy).
+inline constexpr u16 kSbRoleTracked = 1;
 
 // First 4 KiB block of every WAL segment and checkpoint part.
 struct FileHeader {

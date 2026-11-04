@@ -42,8 +42,10 @@ class Shard {
   bool foreign(const ObjectID& id) const { return cluster_ != nullptr && foreign_slot(slot_of(id)); }
 
   // ---- Slot moves (docs/MIGRATION.md) ----
-  // This group's map gives it the slot and the slot is neither sealed nor
-  // staged here: ops on its objects may run (on the shard that owns it).
+  // This group's map gives it the slot, the slot is neither sealed nor
+  // staged here, and local evidence proves the arrival the map records
+  // (docs/MIGRATION_FAIL_CLOSED.md 4; the cache holds kCacheUnproven
+  // otherwise): ops on its objects may run (on the shard that owns it).
   bool serving(u16 slot) const {
     if (cluster_ == nullptr) return true;
     const u8 p = phases_ ? phases_[slot].load(std::memory_order_relaxed) : 0;
@@ -53,8 +55,9 @@ class Shard {
   // only by the shard that owns it; others read it to mint.
   void set_phases(std::atomic<u8>* phases) { phases_ = phases; }
   // Placement changed (Engine::update_placement), in two passes over every
-  // shard. set_map: route by `map` from now on, activate slots staged here
-  // that it gives this group, and re-route the follow-ups held.
+  // shard. set_map: route by `map` from now on, recompute the serving
+  // proof of every slot this shard owns, activate slots staged here for the
+  // arrival it records, and re-route the follow-ups held.
   // map_changed, once every shard has it: re-send everything unsettled.
   void set_map(const ClusterMap* map);
   void map_changed();
@@ -62,6 +65,8 @@ class Shard {
   // state objects, then serving, then (a primary) activation.
   void refresh_slots();
   SlotReport slot_report(u16 slot);
+  // Every slot state object here, as reports without the live scan.
+  void slot_states(std::vector<SlotReport>& out);
   // The slot's application objects, with payloads if asked.
   void slot_objects(u16 slot, bool payloads, std::vector<SlotObject>& out);
   // Control-path steps of a move, on the shard owning the slot. Each sets
@@ -72,8 +77,24 @@ class Shard {
                      std::vector<SlotObject>& out, u64& count, u64& digest);
   Status stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
                     u64 count, u64 digest, u64& lsn);
-  // Activates every slot staged here that the map now gives this group.
+  // Activates every slot staged here that the map now gives this group by
+  // exactly that staged move (its arrival on record), or, with no arrival
+  // on record (placement v1), at or past the staged epoch.
   void activate_staged();
+  // The start barrier (docs/MIGRATION_FAIL_CLOSED.md 5a): the placement says
+  // this group is moving `slot` away (move `move`, SEALED or STAGED there).
+  // Seals it here as an ordinary seal if it is not sealed for that move and
+  // its arrival is proven; writes nothing if it is unproven (it does not
+  // serve anyway). OK with `lsn` the seal's record (0: nothing written).
+  Status reseal_slot(u16 slot, u64 move, u16 to, u64 epoch, u64& lsn);
+  // Asks finish_recovery or promote to re-seal before anything serves;
+  // reseal_lsn() then has the record to wait for (0: none).
+  void set_reseal(u16 slot, u64 move, u16 to, u64 epoch) { reseal_ = Reseal{true, slot, to, move, epoch}; }
+  u64 reseal_lsn() const { return reseal_lsn_; }
+  // Durable in this node's own WAL (not waiting for a standby's ack).
+  bool lsn_local_durable(u64 lsn) const { return wal_ == nullptr || lsn <= wal_->durable_lsn(); }
+  // Slots this shard owns that the map gives this group but that are unproven.
+  u64 unproven_count() const;
   bool lsn_durable(u64 lsn) const { return durable(lsn); }
   bool is_standby() const { return repl_cfg_.standby; }
   // A placement epoch newer than this shard's was seen (a node link frame).
@@ -285,6 +306,21 @@ class Shard {
   // Slot states.
   ObjectHeader* slot_state(u16 slot);
   u64 write_slot_state(u16 slot, const struct SlotStateV1& st);
+  // The serving cache's value for `slot` with state `st` (null: none) under
+  // this shard's map: the phase, or kCacheUnproven. Stored by set_cache,
+  // which reports a slot that becomes unproven.
+  u8 cache_value(u16 slot, const struct SlotStateV1* st) const;
+  void set_cache(u16 slot, const struct SlotStateV1* st);
+  void recompute_slot(u16 slot);  // from its state object
+  SlotProof proof_of(u16 slot, const struct SlotStateV1* st) const;
+  struct Reseal {
+    bool on = false;
+    u16 slot = 0, to = 0;
+    u64 move = 0, epoch = 0;
+  };
+  Reseal reseal_;
+  u64 reseal_lsn_ = 0;
+  void apply_reseal();
   // SNC_TRACE=1 only: time inside put_image's index updates and WAL
   // appends during one stage_slot (docs/TRACING.md).
   u64 trace_index_ns_ = 0, trace_log_ns_ = 0;
@@ -469,6 +505,9 @@ class Shard {
   std::unique_ptr<NodeLinks> links_;
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
+  // Slots whose stale STAGED (older than the arrival) was logged, with the
+  // (arrival, staged move) logged: said once per change.
+  std::unordered_map<u16, std::pair<u64, u64>> stale_staged_said_;
   std::vector<Emit> emit_held_;
   std::atomic<u64>* epoch_hint_ = nullptr;
   MovedResult moved_buf_{};

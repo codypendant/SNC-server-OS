@@ -23,6 +23,15 @@ The review's decisions, which override the text below where they differ:
 - **Order of work changed:** the D1/D7 fail-closed migration safety
   ([MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md)) comes before S1.
   Each step needs review before the next.
+- **Since implemented (D1/D7 slice, MIGRATION_FAIL_CLOSED.md section 20,
+  under review):** activation also requires the STAGED record's move to be
+  the placement's arrival for S (section 1.4 below states the older,
+  epoch-only rule); partial staging is now inert unconditionally (section
+  2.2), so the D1 notes on C10-C13 (section 6) are resolved for slots
+  with an arrival on record; appendix A.1's `moved` epoch was replaced by
+  `arrived = (move_id, epoch)` and its D7 idea by the commit gate plus the
+  start barrier; D1 and D7 below are fixed, not open. S1 must use the
+  exact activation and proof semantics (MIGRATION_FAIL_CLOSED.md 17).
 
 Original work order: 2026-11-04 15:57 UTC (review of PR #37).
 
@@ -102,7 +111,7 @@ to the slot or to the map also run:
 
 **Adjacent defects found (appendix A).** None is fixed here.
 
-- **D1 (fail-open serving after a lossy promotion).** A destination
+- **D1 (fail-open serving after a lossy promotion; fixed since, see above).** A destination
   primary that loses an acknowledged STAGED record will serve the slot with
   whatever partial copy it has. This happens through an async promotion
   (R08) or an admin `PROMOTE` of a degraded standby. The placement commits
@@ -244,6 +253,8 @@ One shard task, in order:
 Activation (`activate_staged`, `shard.cpp:2096`) runs at `set_map`, at
 recovery and at promotion. It turns STAGED into ACTIVE when the map gives
 the slot to this group at epoch ≥ `st.epoch`, then runs `resume_slot`.
+(Before the D1/D7 slice. Now also `st.move_id == arrived[S].move` when an
+arrival is on record: MIGRATION_FAIL_CLOSED.md section 20.)
 
 ## 2. Current durability and idempotency (CODE unless marked)
 
@@ -264,6 +275,10 @@ before it** (prefix property). Placement is a separate domain: Paxos at
 the witnesses, read with `PLACEMENT SYNC`.
 
 ### 2.2 Why partial staging is inert today
+
+(Written before the D1/D7 slice; with it, the exception below no longer
+breaks inertness for slots with an arrival on record: an unproven slot is
+never served. MIGRATION_FAIL_CLOSED.md section 20.)
 
 A destination object of slot S is unreachable before activation for four
 reasons:
@@ -640,7 +655,8 @@ foreign to B**. The last column says what happens next.
   primary), unless the original driver survives C9 and does the CAS.
   C10-C13 break: once the commit exists, a promoted node lacking STAGED
   (and ACTIVE) has phase NONE and serves. This is **D1**. S1 does not make
-  it worse and does not fix it.
+  it worse and does not fix it. (Fixed since by the D1/D7 slice: such a
+  node reports `proof=missing` and does not serve.)
 
 The **S3 rows** are the same with requests in place of units:
 

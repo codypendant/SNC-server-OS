@@ -591,3 +591,29 @@ with no replica. Full causal report:
 [STABILIZATION_REPORT.md](STABILIZATION_REPORT.md) section D. The
 contracts this evidence feeds are in [CORE_CONTRACTS.md](CORE_CONTRACTS.md)
 (sections 8-11) and the open contradictions in STABILIZATION_REPORT L.
+
+## 13. Fail-closed migration serving (2026-11-04, after the review of PR #39)
+
+Full record: [MIGRATION_FAIL_CLOSED.md](MIGRATION_FAIL_CLOSED.md) section
+20.
+
+- **D1, D1b, D1c, D1d and D7 confirmed before the fix** (EL2, loopback,
+  real processes): the promoted destination standby served S from a
+  partial copy (31 of 41 accounts; an acked deposit missing; creates in S
+  accepted); the promoted source standby served S and acked a write lost
+  after the commit, with two groups serving; a stale STAGED of an aborted
+  move activated; an earlier-era ACTIVE served; an earlier-era SEALED
+  reopened by UNSEAL served.
+  `bench/results/failclosed-20261104/characterization.txt`.
+- **After the fix** each of the D1 variants fails closed
+  (`proof=missing`, `E_MIGRATING`; never sampled serving where probed:
+  F1, F3, F6, F7, F13) and D7's source is re-sealed at its start barrier
+  (`proof=sealed`); the same holds through witness promotion (F13) and
+  an offline restart of the standby's directory (F17), which does not
+  start while the control plane is down. `test_fail_closed`,
+  `test_proof`, `test_placement`.
+- **Not evidence of:** safety against a source primary the driver cannot
+  reach (R08); protection of slots moved before placement v2 that the
+  backfill could not prove; any recovery of writes an async promotion
+  lost.
+
