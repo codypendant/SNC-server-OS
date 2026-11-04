@@ -54,6 +54,12 @@ sudo apt install build-essential cmake ninja-build git liburing-dev \
                  iperf3 fio iproute2 iptables
 ```
 
+Three fresh Ubuntu 24.04 VPSs with public IPs (the Vultr layout): run
+`bench/lab/vultr_setup.sh A_IP B_IP C_IP` as root on a, then b, then c. It
+installs the packages, opens tcp 21000-21600 between the hosts in ufw, and
+on c clones, builds, installs c's SSH key on a and b, writes the addresses
+into `bench/lab/vultr.toml` and deploys. Otherwise, by hand:
+
 On host C only: clone the repository and build
 (`cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo &&
 cmake --build build`), give it SSH keys to root on A and B, copy
