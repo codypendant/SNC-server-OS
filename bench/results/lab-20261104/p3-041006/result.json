@@ -1,0 +1,124 @@
+{
+  "scenario": "p3",
+  "args": {
+    "inventory": "bench/lab/vultr.toml",
+    "scenario": "p3",
+    "seconds": 30,
+    "accounts": 100000,
+    "threads": 2,
+    "depth": 16,
+    "depths": [
+      1,
+      16,
+      128
+    ],
+    "fault": "partition",
+    "failover_ms": 1000,
+    "delay_ms": 5,
+    "cut_s": 10,
+    "slot_size": 1000,
+    "chunk": 8,
+    "crash": null,
+    "at": "sealed",
+    "minutes": 10,
+    "seed": 3
+  },
+  "hosts": {
+    "a": "149.28.249.82",
+    "b": "107.191.45.215",
+    "c": "155.138.246.227"
+  },
+  "ok": true,
+  "check": "OK: 100000 accounts each served once; balances = acknowledged transfers + 17 of 17 in doubt",
+  "promote_s": 7.742289304733276,
+  "withdraw_s": 0.0014348030090332031,
+  "client_gap_s": 3.5,
+  "load": {
+    "seconds": "30.1101",
+    "acked": "152163",
+    "ops_s": "5053.54",
+    "p50_us": "5120",
+    "p99_us": "10240",
+    "p999_us": "23552",
+    "max_us": "7077888",
+    "unknown": "17",
+    "rejected": "0",
+    "moved": "0",
+    "migrating": "0",
+    "overloaded": "3284",
+    "refreshes": "0",
+    "failovers": "8",
+    "epoch": "1",
+    "error": "-"
+  },
+  "status_samples": 2216,
+  "events": [
+    {
+      "t": 4.838,
+      "event": "cluster up",
+      "groups": 2,
+      "nodes": 4
+    },
+    {
+      "t": 6.671,
+      "event": "created",
+      "out": "created 100000 accounts over 2 groups"
+    },
+    {
+      "t": 6.679,
+      "event": "load started",
+      "name": "load",
+      "seconds": 30
+    },
+    {
+      "t": 16.68,
+      "event": "fault",
+      "kind": "partition",
+      "node": 1,
+      "peer": "b"
+    },
+    {
+      "t": 24.423,
+      "event": "promoted",
+      "node": 2,
+      "seconds": 7.742,
+      "term": "1"
+    },
+    {
+      "t": 25.872,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D OUTPUT -d 107.191.45.215 -j DROP"
+    },
+    {
+      "t": 26.33,
+      "event": "healed",
+      "host": "a",
+      "cmd": "iptables -D INPUT -s 107.191.45.215 -j DROP"
+    },
+    {
+      "t": 26.332,
+      "event": "old primary withdrew",
+      "seconds": 0.001
+    },
+    {
+      "t": 36.893,
+      "event": "load finished",
+      "name": "load",
+      "ops_s": "5053.54",
+      "p99_us": "10240",
+      "error": "-"
+    },
+    {
+      "t": 36.971,
+      "event": "settled",
+      "seconds": 0.08
+    },
+    {
+      "t": 38.51,
+      "event": "check",
+      "ok": true,
+      "out": "OK: 100000 accounts each served once; balances = acknowledged transfers + 17 of 17 in doubt"
+    }
+  ]
+}

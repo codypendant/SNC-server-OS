@@ -4,8 +4,10 @@ Status (2026-11-04): first run on physical hosts — three Vultr VPSs in
 Dallas (`bench/lab/vultr.toml`). P0-P5 and a 20-minute soak ran; results
 and the assumptions they confirmed or changed are in "Vultr run
 (2026-11-04)" below, next to the loopback reference, and in the `AGENTS.md`
-handoff log. One open item (an intermittent balance-check failure under
-the `partition` fault) is flagged there.
+handoff log. The intermittent balance-check failure under the `partition`
+fault has a cause and a fix; 24 of 24 rounds on fresh hosts then passed,
+which is consistent with the fix but does not prove it alone (see that
+section).
 
 Status (2026-10-13): the harness is built and passes on loopback
 (reference numbers below). No physical hosts yet; findings go in the last
@@ -242,6 +244,35 @@ post-mortem.
 | P5 100K / `--chunk 8` | after ~197 s of copy-ahead the driver returned `STUCK no control member answered` and left the slot sealed, not activated (31,295 accounts served by 0 nodes); a retry was refused `BUSY`. Evidence for the chunked stream (assumption #4) — but the failure is a control-plane timeout under the long copy, not the predicted clean 15 s admin-line error |
 | P5 crash matrix | `--crash source`/`dest` `--at sealed`/`committed`, all four: standby promoted, move DONE, never two serving groups, money conserved; E_MIGRATING window widens to ~0.6-0.7 s across a crash |
 | P6 soak (20 min) | 30 rounds of mixed load with random kill/stop and moves back and forth; every round's load clean (~17-19K ops/s), final check OK (101,000 accounts each served once, 77/77 in doubt resolved) |
+| P3 `partition` x24, with the PR #28 fix (`74209a8`, fresh hosts) | **24 of 24 passed.** Promote 7.66-8.41 s (median 7.71); client gap 3.5-7.0 s; every old primary reported fenced; 4,393,822 acknowledged transfers; 14-26 in doubt per round, all resolved. See below |
+
+### Partition re-run with the fix (2026-11-04)
+
+Three new VPSs of the same kind, same layout (a = 149.28.249.82, b =
+107.191.45.215, c = 155.138.246.227), 04:08-04:26 UTC. Results:
+`bench/results/lab-20261104/p3-040835` to `p3-042527`.
+
+**What this shows.** No round reproduced the double-apply. Every round's
+check found 100,000 accounts each served once and balances equal to the
+acknowledged transfers plus the in-doubt ones. Every round also ran under
+overload: clients got 489-4,247 `E_OVERLOADED` per round.
+
+**What it does not show.**
+
+- *It is weak evidence alone.* The old failure was seen about once in 24
+  rounds. At that rate, 0 failures in 24 still has about a 36% chance
+  without any fix, and 0 of 24 only bounds the failure rate below about 12%
+  (95%). The case for the fix rests on the identified cause and on
+  `test_resend_overloaded`, which fails without it.
+- *The trigger's frequency was not measured.* `snc_load` counts every
+  `E_OVERLOADED`, not only refused resends, so these rounds do not show how
+  often a duplicate reached the overload check. The one failing round had
+  10,942 refusals, above this run's maximum of 4,247, so the heaviest
+  overload seen before was not matched here.
+- *The rounds are repeats.* `p3` ignores `--seed` (only `soak` reads it), so
+  they differ by timing alone.
+- *A pass covers the balance check only.* `p3` logs an old primary that does
+  not withdraw without failing the round; none of these logged it.
 
 ## Findings
 
@@ -327,5 +358,5 @@ transfer), more off accounts than in-doubt transfers, and only under
 sequenced mutation checks its session before the overload refusal (the
 same ordering rule `E_MOVED` already follows). Regression test:
 `test_transfer` `test_resend_overloaded` (fails without the fix).
-Not yet re-run on hosts; a confirmation run is ~24 `p3 --fault partition`
-rounds.
+Re-run on fresh hosts: 24 of 24 `p3 --fault partition` rounds passed, with
+the limits given in "Partition re-run with the fix" above.
