@@ -168,7 +168,7 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
       std::memcpy(&flags, rec + offsetof(WalRecord, flags), 2);
       if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) return push();
       return true;
-    });
+    }, cancelled);
     if (!bad && !cancelled()) push();
     if (cancelled()) g_stopped_on_cancel.fetch_add(1, std::memory_order_relaxed);
     std::vector<u8>().swap(f);
@@ -221,7 +221,10 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
     if (disk_off_ < disk_frame_.size()) {
       std::size_t n = disk_frame_.size() - disk_off_;
       if (rate) {
-        if (disk_tokens_ == 0) return false;  // over the rate: wait for tokens
+        if (disk_tokens_ == 0) {
+          progress_ns_ = now_ns;  // our own pacing, not the standby's silence
+          return false;  // over the rate: wait for tokens
+        }
         n = std::min<std::size_t>(n, disk_tokens_);
       }
       long w = write_some(fd_, disk_frame_.data() + disk_off_, n);
@@ -232,6 +235,7 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
       disk_off_ += static_cast<std::size_t>(w);
       stats_.bytes_sent += static_cast<u64>(w);
       stats_.disk_bytes += static_cast<u64>(w);
+      if (w > 0) sent_frame(disk_frame_);
       if (rate) disk_tokens_ -= static_cast<u64>(w);
       if (disk_off_ < disk_frame_.size()) return false;  // socket full or out of tokens
       ++stats_.frames_sent;
@@ -323,8 +327,16 @@ void Sender::trim() {
   stats_.retained_bytes = retained_;
 }
 
+void Sender::sent_frame(const std::vector<u8>& frame) {
+  // The standby owes acks up to the end of any frame it has begun to get.
+  RecordsHeader h;
+  std::memcpy(&h, frame.data(), sizeof(h));
+  if (h.kind == kFrameRecords && h.last_lsn > owed_) owed_ = h.last_lsn;
+}
+
 void Sender::close_link(u64 now_ns) {
   stop_disk();
+  owed_ = 0;
   link_acked_ = 0;
   if (fd_ >= 0) ::close(fd_);
   fd_ = -1;
@@ -529,7 +541,13 @@ bool Sender::poll(u64 now_ns) {
     progress_ns_ = now_ns;  // paused on purpose: not a silent standby
     return advanced;
   }
-  if (advanced || acked_ + 1 >= next_expected_) {
+  // The ack timeout measures the standby, not this primary: it runs only
+  // while the standby owes an ack for a frame it has begun to get. Waiting
+  // on our own disk reader, or on our catch-up rate (send_disk), is not
+  // silence: both used to livelock against this timeout (F3, and TSan).
+  // Bytes accepted by the socket are not progress: a stopped standby's
+  // socket buffer would hide it for as long as it takes to fill.
+  if (advanced || acked_ >= owed_ || acked_ + 1 >= next_expected_) {
     progress_ns_ = now_ns;
   } else if (cfg_.ack_timeout_ns != 0 && now_ns - progress_ns_ >= cfg_.ack_timeout_ns) {
     std::fprintf(stderr, "snc: standby shard %u stopped acking: treating it as down\n", cfg_.shard);
@@ -566,6 +584,7 @@ bool Sender::poll(u64 now_ns) {
     partial_off_ += static_cast<std::size_t>(w);
     stats_.bytes_sent += static_cast<u64>(w);
     if (w == 0) return advanced;
+    sent_frame(partial_);
   }
   while (send_chunk_ < chunks_.size()) {
     Chunk& c = chunks_[send_chunk_];
@@ -576,6 +595,7 @@ bool Sender::poll(u64 now_ns) {
     }
     send_off_ += static_cast<std::size_t>(w);
     stats_.bytes_sent += static_cast<u64>(w);
+    if (w > 0) sent_frame(c.bytes);
     if (send_off_ < c.bytes.size()) break;  // socket full
     ++stats_.frames_sent;
     ++send_chunk_;

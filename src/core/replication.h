@@ -176,13 +176,15 @@ class Sender {
   bool read_acks(u64 now_ns);
   void position_at(u64 next_lsn, u32 tail_crc, u64 now_ns);
   void trim();
+  void sent_frame(const std::vector<u8>& frame);
 
   Config cfg_;
   State state_ = State::DOWN;
   int fd_ = -1;
   u64 retry_at_ = 0;
   u64 down_since_ = 0;
-  u64 progress_ns_ = 0;    // live: last time acks advanced or nothing waited
+  u64 progress_ns_ = 0;    // live: last time acks advanced, bytes went out, or nothing was owed
+  u64 owed_ = 0;           // last LSN of any frame begun on this link
   // Read leases: the latest lease_ts to echo, and the echo frame being sent.
   bool in_sync_ = false;
   u64 lease_until_ = 0;
