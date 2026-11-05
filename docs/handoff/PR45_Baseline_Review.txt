@@ -1,0 +1,112 @@
+PR #45 REVIEW — EXPERIMENTAL BASELINE READINESS
+
+DECISION: PR #45 IS APPROVED WITH CORRECTIONS BEFORE BASELINE FREEZE.
+
+The design/triage is strong. Do not start comparative benchmarks yet.
+
+ACCEPTED:
+- R08: exclude automatic async failover rather than implement it. Profile B is sync HA only. Optional async Profile D is LOCAL_DURABLE/manual only.
+- R11: conditionally non-blocking, but only after T-Q1 proves the shipped client's maximum resend age stays safely below session expiry for every campaign retry/failover path. Do not raise TTL to force this.
+- Profiles A LOCAL_DURABLE, B SYNC HA, C MEMORY CEILING are accepted. D is optional and may be omitted.
+- Row 20 migration × failover can now be TESTED from PR #40/S1 evidence.
+- R640/VPS hardware plan is accepted.
+- S2/S3 remain frozen.
+
+REQUIRED CORRECTIONS / CONDITIONS:
+
+1. T-Q1 is mandatory. If any campaign path can retain/resend an in-doubt sequence near/beyond session expiry, R11 becomes a BLOCKER.
+
+2. T-Q2 is mandatory: lost answer + slot move + resend through ClusterClient. Verify one application, source-session replay, final destination state and no duplicate obligation.
+
+3. T-Q3 checkpoint × lost standby is mandatory. If checkpoint/recovery prevents the primary from obtaining DEGRADE because the same control path is blocked on durability, that is a Profile B BLOCKER. Preserve evidence and return a fix proposal; do not disable checkpoints to benchmark around it.
+
+4. T-Q4 must measure resource growth, not merely say “bounded/unbounded.” Record RSS delta/rate, pending clients, held follow-ups, pipeline/backlog, must-deliver overflow and WAL/backlog where available. Normal-grant growth must stop/drain. Delayed-grant behavior must quantify exhaustion risk. A plausible control-plane outage capable of exhausting the process is a resource-safety defect.
+
+5. T-Q5 two consecutive failovers during a resend storm is required.
+
+6. T-Q10 checkpoint during migration/restart is required.
+
+7. T-H harness guards are required. Reject invalid profile combinations automatically: async+witness HA, STATUS witness, reused data dir, shard-count change across profile restart, standby reads in B, and undeclared profile deviations.
+
+8. X1: APPROVE option B. Add the smallest secondary-index query wire kind required for fair workload-A network comparison. Expose existing index_lookup semantics only. No index redesign, new snapshot semantics, or unrelated protocol work. Preserve durable-only/serving filtering and add compatibility tests. Treat X1 as validation-enabling work.
+
+9. Profile B reporting: healthy HA_DURABLE intervals, degraded LOCAL_DURABLE intervals, and failover/recovery intervals MUST be tagged/reported separately. Never pool degraded fast intervals into healthy sync-HA performance.
+
+10. Network characterization: record RTT p50/p95/p99/max, loss, and iperf3 throughput where available. Ping standard deviation may be recorded but should not be the sole “jitter” metric. Measure paths at start/end of campaign sessions.
+
+11. Pilot noise rule: 5 repetitions and N=3×larger CV is acceptable as a pre-registered noise/materiality guard, NOT a statistical confidence interval. If bare-metal variance is unexpectedly high/non-normal, revise pilot methodology BEFORE viewing cross-system results.
+
+12. MODIFY THE 2× MATERIALITY RULE. Keep 2× as a STRONG PERFORMANCE WIN, not the only possible material win.
+
+Pre-register two paths:
+
+A. STRONG PERFORMANCE WIN:
+>=2× primary throughput/core at matched p99 objective, beyond noise, without a material tail/complexity regression.
+
+OR
+
+B. MULTI-DIMENSIONAL WIN:
+a smaller but still substantial primary-metric advantage beyond noise (exact threshold fixed from pilot BEFORE comparison) PLUS at least one independent material advantage such as memory/object, p99.9, recovery/failover, network/storage amplification, or operational component count, with no critical dimension materially worse.
+
+Do not permit subjective post-hoc scoring.
+
+13. GO rule: do not require operational complexity to be literally “no worse.” Inventory it as a cost. GO requires enough durable-profile advantage across a realistic workload/locality region to justify that cost.
+
+14. NARROW rule is accepted. If SNC wins only at >=95% locality, one workload, Profile C, or one hardware class, narrow the claim/product rather than pretending it is general.
+
+15. REFINE: maximum two bounded rescue rounds. Each names one measured bottleneck and reruns only affected cells under unchanged criteria. A third rescue means NARROW or STOP.
+
+16. STOP rule accepted using the modified materiality definition: no meaningful durable-profile advantage, advantage disappears under realistic coordination, an unfixable declared-contract failure, or competitor parity with materially lower complexity.
+
+BASELINE FREEZE REQUIREMENTS:
+- corrected EXPERIMENTAL_BASELINE.md accepted;
+- T-Q1/Q2/Q3/Q4/Q5/Q10/T-H pass;
+- any reproduced blocker fixed in a separate reviewed slice;
+- RelWithDebInfo/ASan+UBSan/TSan clean;
+- X1 implemented for workload A;
+- first-wave workload drivers exist;
+- main R640 manifest committed; remote/VPS manifests before their runs;
+- within-system pilot complete;
+- CRITERIA.md committed BEFORE comparative results;
+- frozen SHA recorded;
+- no feature work lands on the frozen baseline during campaign.
+
+CLAIMS THE BASELINE MAY NOT MAKE:
+- automatic async HA;
+- async HA_DURABLE;
+- arbitrary exactly-once retry;
+- long-idle/client-rebuild dedupe beyond tested contract;
+- linearizable multi-object reads;
+- excluded standby-read semantics;
+- power-loss durability without evidence;
+- safety under untested multiple simultaneous losses;
+- general performance claims from the 4-vCPU development VM.
+
+IMPLEMENTATION AUTHORIZATION AFTER DOC CORRECTIONS:
+- T-Q1, T-Q2, T-Q3, T-Q4, T-Q5, T-Q10;
+- T-H harness guards;
+- X1 as a separate minimal validation-enabling slice;
+- instrumentation required by those tests;
+- evidence/interaction-matrix updates.
+
+DO NOT automatically fix a blocker discovered by these tests. Characterize it, preserve evidence, stop that baseline branch, propose the smallest fix, and return for review.
+
+ORDER:
+1. Apply these PR #45 corrections to docs.
+2. Implement/run pre-baseline tests and guards.
+3. Implement X1 as its own small slice.
+4. Full suites + independent review + QA.
+5. Return results for review.
+6. If clear, capture main R640 manifest.
+7. Build first-wave workload/competitor harnesses.
+8. Run within-system pilot only.
+9. Commit CRITERIA.md with final pre-registered thresholds.
+10. Freeze baseline SHA.
+11. Only then begin comparative falsification.
+
+FINAL:
+PR #45 APPROVED WITH THESE CORRECTIONS.
+
+The strategic decisions stand: R08 excluded, R11 bounded pending proof, Profile B sync-only, S2/S3 frozen, and experimental falsification—not feature expansion—is now the project milestone.
+
+Proceed with PRE-BASELINE READINESS TESTS / HARNESS GUARDS and minimal X1 only after updating the baseline document. Return results before baseline freeze or competitor runs.
