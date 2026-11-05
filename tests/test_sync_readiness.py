@@ -461,7 +461,13 @@ def s6_writes_catchup(pr):
 SCEN = {
     # Checkpoints every second, so the seed is a large checkpoint (not the
     # empty first one) and still in flight when node 1 dies.
-    "s1_seed_start": lambda: run("s1_seed_start", s1_seed_start, objects="1000000", extra=("--checkpoint-s", "1")),
+    # Under TSan, node 1's two shards share one CPU with a checkpoint that
+    # never stops (1.8 s each, every second): STATUS, which needs every
+    # shard to run a task within the witness's poll, answers in 60-100 ms
+    # and the 100 ms eligibility check sometimes misses. A sanitizer-only
+    # allowance, as RSS_PER_RETAINED is; release keeps --poll-ms 100.
+    "s1_seed_start": lambda: run("s1_seed_start", s1_seed_start, objects="1000000", extra=("--checkpoint-s", "1"),
+                                 poll_ms=300 if th.sanitizer(BUILD) == "thread" else th.POLL_MS),
     "s2_mid_catchup": lambda: run("s2_mid_catchup", s2_mid_catchup, extra=THROTTLED),
     "s3_synced_fail": lambda: run("s3_synced_fail", lambda pr: synced_then_fail(pr, False)),
     "s4_restart_reseed": lambda: run("s4_restart_reseed", s4_restart_reseed, extra=("--replica-timeout-ms", "5000")),
