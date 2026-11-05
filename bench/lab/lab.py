@@ -27,6 +27,7 @@ import argparse
 import json
 import os
 import random
+import secrets
 import shlex
 import shutil
 import socket
@@ -236,11 +237,12 @@ class Lab:
     def probe_witness_state(self, i):
         h = self.witness_hosts[i]
         state = f"{self.run_dir}/w{i}.state"
-        r = h.sh(f"stat -c '%d:%i' {shlex.quote(self.run_dir)}; test -e {shlex.quote(state)} && echo EXISTS "
-                 f"&& cat {shlex.quote(state)}", check=False)
+        r = h.sh(f"stat -c '%d:%i' {shlex.quote(self.run_dir)}; cat {shlex.quote(state)}.run 2>/dev/null || echo -; "
+                 f"test -e {shlex.quote(state)} && echo EXISTS && cat {shlex.quote(state)}", check=False)
         lines = r.stdout.splitlines()
-        exists = len(lines) > 1 and lines[1] == "EXISTS"
-        return {"dir_id": lines[0] if lines else "", "exists": exists, "text": "\n".join(lines[2:]) if exists else ""}
+        exists = len(lines) > 2 and lines[2] == "EXISTS"
+        return {"dir_id": lines[0] if lines else "", "marker": lines[1] if len(lines) > 1 else "",
+                "exists": exists, "text": "\n".join(lines[3:]) if exists else ""}
 
     def check_witness_state(self, stage):
         """G2: every witness's state still there, same directory, chosen
@@ -284,6 +286,8 @@ class Lab:
         time.sleep(0.5)
         # G2: record each witness's state; check_witness_state() compares.
         for i, h in enumerate(self.witness_hosts):
+            # A run nonce beside the state (G2): a recreated directory lacks it.
+            h.sh(f"echo {secrets.token_hex(8)} > {shlex.quote(self.run_dir)}/w{i}.state.run")
             self.wstate.record(i, h.name, i, control, f"{self.run_dir}/w{i}.state", self.probe_witness_state)
         drv = self.client
         init = f"{self.ctl(drv)} init --nodes {nodes_arg} --groups {groups_arg}"

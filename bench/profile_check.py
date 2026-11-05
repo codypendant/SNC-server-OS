@@ -289,7 +289,10 @@ class WitnessStateGuard:
     """G2 (docs/PAXOS_BALLOTS.md 6): a campaign's witness state must never
     disappear, move to a recreated directory, or go back to older chosen
     versions while the run lasts. probe(i) returns {"exists": bool,
-    "dir_id": "dev:ino" of the state file's directory, "text": the file}.
+    "dir_id": "dev:ino" of the state file's directory, "marker": the text of
+    a marker file the harness wrote beside the state at the first start (a
+    random run nonce: a recreated directory lacks it even where the file
+    system reuses the inode number), "text": the state file}.
     Not a general F9 solution: a copy with versions at least as new is not
     seen."""
 
@@ -301,7 +304,8 @@ class WitnessStateGuard:
         if not p["exists"]:
             raise WitnessStateViolation(f"witness {i}: state {state} missing right after its first start")
         self.w[i] = {"host": host, "id": wid, "peers": [normalize_endpoint(x) for x in peers.split(",")],
-                     "state": state, "dir_id": p["dir_id"], "versions": state_versions(p["text"])}
+                     "state": state, "dir_id": p["dir_id"], "marker": p.get("marker"),
+                     "versions": state_versions(p["text"])}
 
     def check(self, i, probe, stage=""):
         rec = self.w[i]
@@ -309,7 +313,7 @@ class WitnessStateGuard:
         where = f"witness {i} ({rec['state']}){' at ' + stage if stage else ''}"
         if not p["exists"]:
             raise WitnessStateViolation(f"{where}: state file gone: the run is invalid")
-        if p["dir_id"] != rec["dir_id"]:
+        if p["dir_id"] != rec["dir_id"] or p.get("marker") != rec["marker"]:
             raise WitnessStateViolation(f"{where}: state directory replaced ({rec['dir_id']} -> {p['dir_id']}): "
                                         "the run is invalid")
         now = state_versions(p["text"])

@@ -103,6 +103,9 @@ if(PYTHON3)
   # F8: Paxos ballots after a witness restart (docs/PAXOS_BALLOTS.md).
   add_test(NAME test_paxos_ballots COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_paxos_ballots.py
            ${CMAKE_BINARY_DIR})
+  # Witness hardening before the baseline freeze (docs/PAXOS_BALLOTS.md 9).
+  add_test(NAME test_witness_hardening COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_witness_hardening.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
 endif()
 
