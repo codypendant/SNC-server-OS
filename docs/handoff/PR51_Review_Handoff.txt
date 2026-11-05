@@ -1,0 +1,560 @@
+PR #51 REVIEW — F8 BALLOT REUSE / F9 ACCEPTOR STATE LOSS
+
+DECISION
+
+PR #51 characterization and design are APPROVED.
+
+I reviewed the PR and the relevant/changed documentation, including:
+- docs/PAXOS_BALLOTS.md
+- docs/BASELINE_READINESS.md
+- docs/EXPERIMENTAL_BASELINE.md
+- docs/STATUS.md
+- AGENTS.md
+- docs/handoff/PR50_Review_Handoff.txt
+- committed characterization/test evidence
+
+F8 is cleared as a safety blocker.
+
+F9 is real and severe: loss or rollback of acceptor state can allow two different values to be chosen in the same Paxos instance.
+
+Do NOT freeze the Experimental Baseline yet.
+
+Do NOT implement the full recovering-acceptor protocol yet.
+
+Authorize one narrow pre-freeze hardening slice described below.
+
+============================================================
+1. F8 — OUTCOME A APPROVED
+============================================================
+
+The F8 concern was:
+
+A restarted witness can reuse ballot numbers because the proposer counter is not persisted and derives from wall-clock milliseconds.
+
+Claude forced the condition.
+
+C1 proves ballot reuse actually occurs:
+- the restarted process generated 149 ballots at or below B;
+- the exact old ballot B was generated again.
+
+However, C2a, C2b and C2l, together with the source-level proof, establish that ballot reuse does NOT violate safety while acceptor state remains intact.
+
+The important invariant is not simply "ballots are globally never reused."
+
+For this implementation the relevant property is:
+
+For a given machine, Paxos instance and ballot, at most one successful phase 1 can authorize an ACCEPT value.
+
+That holds because:
+- PROMISE requires ballot > promised;
+- promised state is persisted before the dependent reply;
+- an acceptor therefore promises a given (instance, ballot) at most once while its state survives;
+- any two majorities intersect;
+- a second phase 1 using the reused ballot cannot obtain a majority;
+- the proposer receives NACKs, advances its counter, and at a higher ballot adopts the previously accepted value as required.
+
+Therefore:
+
+F8 = DOWNGRADE / NON-BLOCKING LIVENESS NOTE.
+
+Do NOT add a durable ballot allocator merely to address F8.
+
+Keep C1-C3 as permanent regressions.
+
+============================================================
+2. C2x — KEEP THE NON-BYZANTINE PROPOSER ASSUMPTION EXPLICIT
+============================================================
+
+C2x demonstrates an important boundary.
+
+The acceptors would accept conflicting ACCEPT messages at the same ballot if a proposer ignored Paxos phase 1 and sent them anyway.
+
+The current implementation remains safe because SNC proposers do not do that.
+
+Therefore the proof assumes:
+- peers run the SNC Paxos implementation;
+- proposers are non-Byzantine;
+- ACCEPT is sent only following successful phase 1.
+
+Keep that assumption explicit in PAXOS_BALLOTS and the baseline claims.
+
+============================================================
+3. F9 — CONFIRMED CONSENSUS SAFETY FAILURE
+============================================================
+
+The F8 investigation discovered the more important defect.
+
+F9:
+
+A witness that previously participated as a Paxos acceptor loses or rolls back its durable acceptor state, then rejoins under the same witness identity.
+
+C4a and C4b demonstrate the failure directly.
+
+C4a:
+- X is chosen at version/instance 1;
+- witness 1's state is restored to a copy from before X;
+- another member of the original choosing majority is unavailable;
+- the restored witness participates with another witness;
+- Y is chosen at version/instance 1.
+
+Result:
+- one witness retains X;
+- two witnesses contain Y;
+- two different values have been chosen for the same Paxos instance.
+
+C4b reproduces the same result after deleting the acceptor state.
+
+This is a real Paxos safety violation.
+
+Persisting the proposer ballot counter would NOT fix F9.
+
+The violated invariant is:
+
+AN ACCEPTOR THAT HAS REPLIED WITH DURABLE PAXOS STATE MUST NEVER REJOIN THE SAME WITNESS IDENTITY WITH AN OLDER OR EMPTY ACCEPTOR HISTORY AS THOUGH THAT HISTORY WERE CURRENT.
+
+============================================================
+4. F9 HISTORIES
+============================================================
+
+The following can create the unsafe history:
+
+- witness disk replaced and the old identity started with empty state;
+- --state accidentally points at a new/wrong path or mount;
+- witness state directory restored from backup;
+- witness VM/container/filesystem snapshot rolled backward;
+- old witness state copied back into place;
+- another witness's state copied into this witness identity;
+- persistence failure causes a rename containing a promise/acceptance to be lost after crash.
+
+Normal process restart with intact durable state does NOT trigger F9.
+
+Clock rollback by itself does NOT trigger F9.
+
+NTP stepping/slewing by itself does NOT trigger F9.
+
+============================================================
+5. E1 IS VALID, BUT G1/G2 ALONE ARE NOT ENOUGH
+============================================================
+
+Claude's proposed E1 exclusion is conceptually valid for the initial experimental profile:
+
+Do not allow a witness to rejoin with older/empty acceptor history.
+
+However, the currently proposed G1/G2 alone are not enough to call the baseline hardened.
+
+G1 can catch a missing file.
+
+G2 can catch some deletion/replacement cases during a campaign.
+
+Neither can reliably detect:
+- a stale state file restored in place;
+- a VM/container snapshot rollback preserving expected paths;
+- a copied but syntactically valid older state;
+- every storage rollback history.
+
+Those remaining histories can be explicitly excluded for the initial experiment.
+
+But cheap ordinary/operator paths into F9 should fail closed before baseline freeze.
+
+============================================================
+6. AUTHORIZE G1 — EXPLICIT FIRST START
+============================================================
+
+Implement:
+
+snc_witness MUST refuse to start when --state does not exist unless:
+
+--new-state 1
+
+is explicitly supplied.
+
+Rules:
+
+A. Missing state + no --new-state:
+REFUSE.
+
+B. Missing state + --new-state 1:
+CREATE and start.
+
+C. Existing valid state + normal start:
+START normally.
+
+D. Existing state + --new-state 1:
+REFUSE.
+
+Do not silently truncate, replace, recreate or reset an existing witness state file.
+
+If destructive witness recreation is ever supported, it must be a separate explicit recovery workflow.
+
+============================================================
+7. AUTHORIZE G2 — CAMPAIGN WITNESS-STATE GUARD
+============================================================
+
+The experimental campaign harness must record each witness's:
+
+- host;
+- witness ID;
+- normalized peer list;
+- state path;
+- initial file identity/metadata sufficient to detect ordinary deletion/replacement during the campaign.
+
+The harness passes --new-state 1 ONLY when initially creating that campaign's witness set.
+
+It must never pass --new-state during an ordinary witness restart.
+
+If witness state disappears or is unexpectedly replaced during a run:
+
+STOP / INVALIDATE THE RUN.
+
+Do not silently recreate the witness.
+
+G2 is a campaign guard.
+
+It is NOT claimed as the general F9 solution.
+
+============================================================
+8. F11 — FIX BEFORE BASELINE FREEZE
+============================================================
+
+Claude's independent review found:
+
+Duplicate --peers endpoints are accepted.
+
+That can cause one acceptor endpoint to be counted more than once toward a quorum.
+
+This directly violates the quorum assumptions used by the Paxos proof.
+
+This is cheap and should NOT remain merely documented.
+
+At witness startup:
+
+- normalize peer endpoints;
+- reject duplicate endpoints;
+- reject an ID that does not correspond consistently to the witness's own endpoint;
+- preserve the existing peer-count/id validation.
+
+Add deterministic startup/config tests.
+
+============================================================
+9. DIRECTORY DURABILITY FAILURE — FIX BEFORE FREEZE
+============================================================
+
+PAXOS_BALLOTS documents another safety-adjacent problem:
+
+The state file is written to a temporary file, fsynced and renamed, but failure to open/fsync the containing directory is currently ignored.
+
+If the directory durability operation fails, a crash may lose the rename.
+
+That can erase a promise/acceptance the witness already relied upon.
+
+That is an F9 path through an ordinary storage/durability failure, not merely an operator restoring a snapshot.
+
+Therefore:
+
+A failure to establish required witness-state durability MUST be fatal/fail-closed.
+
+If SNC cannot guarantee that the durable transition survived, it must NOT emit a reply whose safety depends on that transition.
+
+This includes safety-dependent:
+- PROMISE;
+- ACCEPTED;
+- COMMIT/learning-related acknowledgements where persistence is required;
+- proposer learning/replies that depend on the durable state.
+
+Add failure injection around:
+
+- temporary-file write/fsync;
+- rename;
+- directory open;
+- directory fsync.
+
+Prove that no safety-dependent success reply escapes after persistence failure.
+
+Do not reduce this to a warning log.
+
+============================================================
+10. F10 — FIX BEFORE FREEZE
+============================================================
+
+The independent review found a durable-state parser ambiguity.
+
+An all-digit machine name can be interpreted as an old pre-machine-name state line and mapped to ha/0 on reload.
+
+A stray READ of a numeric machine can therefore create state which, after save/restart/load, can be interpreted as ha/0 under the documented conditions.
+
+Even though current SNC code does not intentionally send that READ, this is a parser ambiguity inside the consensus component.
+
+Close it now.
+
+Preferred direction:
+
+Only perform legacy numeric-line conversion when the state file is unambiguously a legacy-format file with no named-machine records.
+
+An alternative is acceptable if it is smaller and proves the same safety property.
+
+Required:
+- legitimate legacy files still load correctly;
+- modern named-machine files remain modern;
+- all-digit modern machine names cannot be reinterpreted as ha/0;
+- save/restart/load round-trip preserves machine identity;
+- ha/0 cannot be overwritten through this ambiguity.
+
+============================================================
+11. INITIAL PROFILE B F9 EXCLUSION AFTER HARDENING
+============================================================
+
+After G1/G2/F10/F11/durability hardening, I accept F9 as a CONFIGURATION/RECOVERY EXCLUSION for the INITIAL experimental Profile B.
+
+The following are explicitly INVALID / UNSUPPORTED:
+
+- restoring an individual witness state file from backup;
+- restoring an old witness state directory;
+- rolling back an individual witness VM/container/filesystem snapshot;
+- copying an old state file back into the same witness identity;
+- copying another witness's state into this identity;
+- replacing witness storage and starting the replacement as the old witness identity;
+- using --new-state to recreate a member of an existing witness quorum.
+
+If a campaign witness loses trustworthy state:
+
+STOP the run.
+
+For the initial experiment, rebuild the experimental witness set/run rather than resurrecting the old identity.
+
+============================================================
+12. FULL RECOVERING-ACCEPTOR DESIGN — KEEP, DO NOT BUILD YET
+============================================================
+
+PAXOS_BALLOTS section 7 should remain as future design work.
+
+The independent-review correction is important.
+
+A recovering acceptor must:
+- obtain recovery information from a majority composed of OTHER witnesses;
+- enumerate all relevant machines, including promise-only/acceptance-only state;
+- use the maximum reported version, not "the highest version a majority agrees on";
+- persist its recovering boundary before participating.
+
+The proposed:
+
+recovering m H(m)
+
+concept may be a viable future solution.
+
+But it requires:
+- new durable witness format/version;
+- new machine-list/read protocol;
+- downgrade refusal;
+- crash-safe recovery semantics;
+- mixed-version semantics;
+- witness backup/restore integration.
+
+That is beyond the current pre-validation scope.
+
+Do NOT implement it now unless the exclusion proves unenforceable.
+
+============================================================
+13. WITNESS BACKUP/RESTORE SEMANTICS — DOCUMENT NOW
+============================================================
+
+This finding is important to the future SNC backup/snapshot architecture.
+
+An SNC witness's Paxos acceptor state is NOT an ordinary independently restorable data snapshot.
+
+Rolling one consensus member backward while the cluster progressed can violate consensus safety.
+
+Document explicitly:
+
+Until recovering-acceptor support exists, an individual witness state directory/VM must not be restored backward into the same live cluster identity.
+
+This does NOT mean future SNC application-state snapshots, PITR, COW clones or branches are unsafe.
+
+It means consensus-member local metadata has different restore semantics from application state.
+
+Future backup/restore design must preserve this distinction.
+
+============================================================
+14. VM/HYPERVISOR SNAPSHOT WARNING
+============================================================
+
+Explicitly state in operator/profile documentation:
+
+Restoring a hypervisor snapshot of one witness into a quorum that advanced after that snapshot is unsupported and unsafe.
+
+A whole-cluster coordinated disaster-recovery procedure is a different problem.
+
+An individual Paxos acceptor cannot simply be time-travelled backward.
+
+============================================================
+15. REQUIRED HARDENING TESTS
+============================================================
+
+H1:
+missing state without --new-state -> hard refusal.
+
+H2:
+missing state with --new-state -> successful first creation.
+
+H3:
+existing state with --new-state -> refusal.
+
+H4:
+duplicate normalized peer endpoints -> refusal.
+
+H5:
+own witness ID / peer endpoint inconsistency -> refusal.
+
+H6:
+directory open/fsync failure -> fail before safety-dependent reply.
+
+H7:
+temporary-file fsync/rename failure -> fail before safety-dependent reply.
+
+H8:
+legitimate legacy state file still loads correctly.
+
+H9:
+modern numeric/all-digit machine name cannot corrupt/reinterpret ha/0.
+
+H10:
+campaign harness detects witness-state deletion/replacement.
+
+H11:
+C1-C4 characterization remains valid/reproducible where applicable.
+
+H12:
+ordinary witness restart with intact state remains safe.
+
+H13:
+READY causal-order V1-V10 remain passing.
+
+H14:
+witness/control/health/fail-closed regressions remain passing.
+
+Then run fresh:
+
+- RelWithDebInfo full suite;
+- ASan+UBSan full suite;
+- TSan full suite;
+- independent source review;
+- separate QA.
+
+============================================================
+16. BASELINE DOCUMENT RECONCILIATION
+============================================================
+
+After hardening, update:
+
+- docs/PAXOS_BALLOTS.md
+- docs/EXPERIMENTAL_BASELINE.md
+- docs/BASELINE_READINESS.md
+- docs/STATUS.md
+- AGENTS.md
+- campaign harness/profile documentation
+
+Profile B must explicitly require:
+
+- three unique witness endpoints;
+- consistent witness IDs;
+- persistent witness state paths;
+- --new-state only at initial creation;
+- no individual witness rollback/restore;
+- no witness identity reuse after state loss;
+- witness persistence/directory durability errors are fatal;
+- protected READY/NOTREADY protocol versions;
+- campaign witness-state guard active.
+
+============================================================
+17. F8 FINAL DISPOSITION
+============================================================
+
+F8:
+CLEARED AS SAFETY BLOCKER.
+
+Classification:
+NON-BLOCKING / LIVENESS NOTE.
+
+No ballot persistence work.
+
+============================================================
+18. F9 FINAL DISPOSITION FOR INITIAL EXPERIMENT
+============================================================
+
+F9:
+REAL CONSENSUS SAFETY FAILURE under acceptor-state rollback/loss.
+
+For the initial Profile B campaign:
+
+CONFIGURATION / RECOVERY EXCLUSION after the hardening above.
+
+For eventual enterprise SNC:
+
+NOT SOLVED.
+
+Safe witness replacement/recovery must exist before claiming enterprise-grade consensus-member restore/replacement.
+
+The recovering-acceptor design remains a candidate future solution.
+
+============================================================
+19. OTHER OPEN ITEMS
+============================================================
+
+F7:
+non-blocking readiness/proposal-queue liveness.
+
+F1:
+measure retention/resource cost on the R640.
+
+F6:
+degraded-mode catch-up/backpressure remains a liveness/resource refinement.
+
+R08:
+automatic async HA remains excluded.
+
+R11:
+retry claim remains guarded per run by resend age/session expiry.
+
+Wrong/empty standby directory:
+still excluded by Q9/profile discipline.
+
+S2/S3:
+still frozen.
+
+Future backup/snapshot/branch/Agent Runtime architecture:
+documentation only; no implementation authorization.
+
+============================================================
+20. NO BASELINE FREEZE YET
+============================================================
+
+One narrow pre-freeze hardening slice remains:
+
+1. G1 explicit --new-state first-start semantics.
+2. G2 campaign witness-state guard.
+3. F10 parser/legacy-state ambiguity.
+4. F11 duplicate-peer validation.
+5. Fatal witness-state persistence/directory-fsync failures.
+6. Tests H1-H14.
+7. Documentation reconciliation.
+8. Fresh full sanitizer/regression suites.
+9. Independent review + separate QA.
+
+Do NOT implement the full recovering-acceptor protocol.
+
+Do NOT begin comparative benchmarks.
+
+============================================================
+FINAL DECISION
+============================================================
+
+PR #51: APPROVED as characterization/design.
+
+F8 is cleared.
+
+F9 is proven.
+
+Proceed with the narrow pre-freeze hardening slice:
+
+G1 + G2 + F10 + F11 + fatal persistence handling + tests + profile/document reconciliation.
+
+After that work returns clean, perform the FINAL EXPERIMENTAL BASELINE FREEZE REVIEW.

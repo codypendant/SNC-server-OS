@@ -177,7 +177,7 @@ def run(async_replica):
         assert wait_port(p_adm), "primary never opened its admin port\n" + prim.text()
         w = Proc([f"{BUILD}/snc_witness", "--port", str(wit), "--primary", f"127.0.0.1:{p_adm}",
                   "--standby", f"127.0.0.1:{s_adm}", "--state", f"{work}/witness.state",
-                  "--failover-ms", "500", "--poll-ms", "50"])
+                  "--failover-ms", "500", "--poll-ms", "50", "--new-state", "1"])
         procs.append(w)
         assert w.wait_for(r"primary up", 10), "witness never saw the primary\n" + w.text()
 

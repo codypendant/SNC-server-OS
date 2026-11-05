@@ -372,7 +372,8 @@ class Pair:
                         "--standby", f"127.0.0.1:{self.adm[1]}", "--state", f"{self.work}/w{i}.state",
                         "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(poll_ms), "--id", str(i),
                         "--peers", peers, "--health-verb", verbs[i]] +
-                       (list(witness_extra) if witness_bins[i] == f"{BUILD}/snc_witness" else []))
+                       (list(witness_extra) + ["--new-state", "1"] if witness_bins[i] == f"{BUILD}/snc_witness"
+                        else []))
                   for i in range(3)]
         for w in self.w:
             assert w.wait_for(r"primary up|failover learned", 15), (
@@ -798,7 +799,7 @@ def fake_witness(work, prim, sb, verb="health"):
     port = free_block(1)
     w = Proc([f"{BUILD}/snc_witness", "--port", str(port), "--primary", f"127.0.0.1:{prim.port}",
               "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w.{port}.state",
-              "--failover-ms", "300", "--poll-ms", "30", "--health-verb", verb])
+              "--failover-ms", "300", "--poll-ms", "30", "--health-verb", verb, "--new-state", "1"])
     assert w.wait_for(r"primary up", 10), w.text()
     # A learned primary is NOT READY; a real one says SYNCED once its
     # standby is proven (docs/SYNC_READINESS.md). The fakes start READY.

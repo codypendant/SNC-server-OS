@@ -52,7 +52,7 @@ STRUCTURAL = {
 }
 
 WITNESS_STRUCTURAL = {"--port", "--state", "--id", "--peers", "--failover-ms", "--poll-ms", "--group", "--primary",
-                      "--standby", "--health-verb"}
+                      "--standby", "--health-verb", "--new-state"}
 
 
 class ProfileViolation(Exception):
@@ -106,6 +106,7 @@ class Guard:
         self.deviations = list(deviations)
         self.used = set()       # declared deviations a process actually made
         self.dirs = {}          # (host, data dir) -> (--shards, --node-id) at its first start in this run
+        self.witnesses = {}     # (host, --id, peers) -> --state at its first start in this run
 
     def _declared(self, flag, value):
         for d in self.deviations:
@@ -179,8 +180,17 @@ class Guard:
                 self._deviation(flag, value if value is not True else "", f"{flag} is not part of Profile {p}")
         return f
 
-    def witness(self, argv):
+    def witness(self, argv, state_exists=None, host=""):
+        """Checks one snc_witness command line for `host`. state_exists(path)
+        says whether its --state file exists on that host (None: not
+        checked). Profile B witnesses (docs/PAXOS_BALLOTS.md 6, 9): three
+        distinct endpoints, --id naming this witness's own --port,
+        --new-state 1 exactly on a witness's first start in the run (its
+        file absent), never on a restart, and a restart with the same
+        state file and peers."""
         f = parse(argv, "snc_witness")
+        if self.profile == "B":
+            self._witness_identity(f, state_exists, host)
         if f.get("--health-verb", "health") != "health":
             raise ProfileViolation("a witness polling STATUS (--health-verb status) is refused: witnesses poll HEALTH")
         ha = "--group" in f or "--primary" in f
@@ -192,6 +202,40 @@ class Guard:
             if flag not in WITNESS_STRUCTURAL:
                 self._deviation(flag, value if value is not True else "", f"witness {flag} is not part of the profile")
         return f
+
+    def _witness_identity(self, f, state_exists, host):
+        peers = [p for p in str(f.get("--peers", "")).split(",") if p]
+        if len(peers) != 3:
+            raise ProfileViolation(f"Profile B: three witnesses in --peers, got {len(peers)}")
+        norm = [normalize_endpoint(p) for p in peers]
+        if len(set(norm)) != 3:
+            raise ProfileViolation(f"Profile B: --peers names one endpoint twice ({', '.join(norm)})")
+        try:
+            wid = int(f.get("--id", "-1"))
+        except ValueError:
+            wid = -1
+        if not 0 <= wid < 3 or norm[wid].rsplit(":", 1)[1] != str(f.get("--port")):
+            raise ProfileViolation(f"Profile B: --id {f.get('--id')} must name this witness's own --port "
+                                   f"{f.get('--port')} in --peers")
+        new = f.get("--new-state", "0") == "1"
+        key = (host, wid, tuple(norm))
+        state = f.get("--state")
+        seen = self.witnesses.get(key)
+        if seen is None:
+            if not new:
+                raise ProfileViolation("Profile B: a witness's first start in a run creates its state "
+                                       "(--new-state 1)")
+            if state_exists is not None and state_exists(state):
+                raise ProfileViolation(f"Profile B: witness state {state} already exists at its first start")
+            self.witnesses[key] = state
+            return
+        if new:
+            raise ProfileViolation("Profile B: --new-state on a witness restart (a witness that lost its state "
+                                   "must not rejoin as itself; stop the run)")
+        if seen != state:
+            raise ProfileViolation(f"Profile B: witness {wid} restarted on {state}, not {seen}")
+        if state_exists is not None and not state_exists(state):
+            raise ProfileViolation(f"Profile B: witness {wid}'s state {state} is gone: stop the run")
 
     def ctl_init(self, argv):
         """snc_ctl ... init: Profile B writes placement v2."""
@@ -206,3 +250,74 @@ class Guard:
         return {"profile": self.profile, "profile_name": PROFILES[self.profile],
                 "deviations_made": sorted(self.used),
                 "deviations_declared_unused": sorted(set(self.deviations) - self.used)}
+
+
+def normalize_endpoint(hostport):
+    """host:port with the host as an IPv4 address where it resolves (so
+    "localhost:1" and "127.0.0.1:1" are one endpoint)."""
+    import socket
+    host, _, port = str(hostport).strip().rpartition(":")
+    host = host.strip().lower()
+    try:
+        host = socket.gethostbyname(host)
+    except OSError:
+        pass
+    return f"{host}:{int(port)}"
+
+
+class WitnessStateViolation(Exception):
+    pass
+
+
+def state_versions(text):
+    """{machine: chosen version} from a witness state file's text. A legacy
+    file ("open v": two fields) holds ha/0 only."""
+    lines = [l.split() for l in text.splitlines() if l.strip()]
+    legacy = any(t[0] == "open" and len(t) == 2 for t in lines)
+    out = {}
+    for t in lines:
+        if t[0] != "chosen":
+            continue
+        if legacy and len(t) >= 2:
+            out["ha/0"] = int(t[1])
+        elif len(t) >= 3:
+            out[t[1]] = int(t[2])
+    return out
+
+
+class WitnessStateGuard:
+    """G2 (docs/PAXOS_BALLOTS.md 6): a campaign's witness state must never
+    disappear, move to a recreated directory, or go back to older chosen
+    versions while the run lasts. probe(i) returns {"exists": bool,
+    "dir_id": "dev:ino" of the state file's directory, "text": the file}.
+    Not a general F9 solution: a copy with versions at least as new is not
+    seen."""
+
+    def __init__(self):
+        self.w = {}  # i -> {"host", "id", "peers", "state", "dir_id", "versions"}
+
+    def record(self, i, host, wid, peers, state, probe):
+        p = probe(i)
+        if not p["exists"]:
+            raise WitnessStateViolation(f"witness {i}: state {state} missing right after its first start")
+        self.w[i] = {"host": host, "id": wid, "peers": [normalize_endpoint(x) for x in peers.split(",")],
+                     "state": state, "dir_id": p["dir_id"], "versions": state_versions(p["text"])}
+
+    def check(self, i, probe, stage=""):
+        rec = self.w[i]
+        p = probe(i)
+        where = f"witness {i} ({rec['state']}){' at ' + stage if stage else ''}"
+        if not p["exists"]:
+            raise WitnessStateViolation(f"{where}: state file gone: the run is invalid")
+        if p["dir_id"] != rec["dir_id"]:
+            raise WitnessStateViolation(f"{where}: state directory replaced ({rec['dir_id']} -> {p['dir_id']}): "
+                                        "the run is invalid")
+        now = state_versions(p["text"])
+        for m, v in rec["versions"].items():
+            if now.get(m, -1) < v:
+                raise WitnessStateViolation(f"{where}: {m} went back from version {v} to {now.get(m)}: "
+                                            "state replaced or rolled back; the run is invalid")
+        rec["versions"] = {**rec["versions"], **now}
+
+    def manifest(self):
+        return {str(i): {k: v for k, v in r.items()} for i, r in self.w.items()}

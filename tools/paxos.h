@@ -26,7 +26,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <mutex>
 #include <random>
@@ -74,6 +76,18 @@ class Node {
   // stepped back; and every ballot this process puts on the wire, kept in
   // order while recording.
   std::atomic<long long> debug_clock_offset_ms{0};
+  // Tests only (DEBUG FAIL-PERSIST): the save after `debug_fail_skip`
+  // more saves fails at this step (1 temporary file open, 2 write, 3
+  // fsync, 4 rename, 5 directory open, 6 directory fsync), as an I/O
+  // error there would.
+  std::atomic<int> debug_fail_step{0};
+  std::atomic<int> debug_fail_skip{0};
+
+  // A new, empty state file, saved durably (snc_witness --new-state 1).
+  void create() {
+    std::lock_guard<std::mutex> g(mu_);
+    save();
+  }
   std::atomic<bool> debug_record{false};
   u64 debug_next_ballot() { return next_ballot(); }
   void debug_set_counter(u64 c) {
@@ -115,11 +129,13 @@ class Node {
       return true;
     }
     std::lock_guard<std::mutex> g(mu_);
-    Acceptor& a = acc_[m];
     if (verb == "READ") {
-      reply = "STATE " + a.chosen.str();
+      // Never creates an entry: a stray READ leaves the state file alone.
+      auto it = acc_.find(m);
+      reply = "STATE " + (it == acc_.end() ? Value{} : it->second.chosen).str();
       return true;
     }
+    Acceptor& a = acc_[m];
     if (verb == "COMMIT") {
       Value s;
       if (!s.parse(in)) {
@@ -454,7 +470,9 @@ class Node {
   }
 
   // Lines "chosen m <value>", "open m v", "promised m b", "accepted m b
-  // <value>". Caller holds mu_.
+  // <value>". Caller holds mu_. Every reply that depends on this state
+  // comes after it, so a save that cannot be made durable stops the
+  // process: no such reply escapes (docs/PAXOS_BALLOTS.md 9).
   void save() {
     std::ostringstream o;
     for (auto& [m, a] : acc_) {
@@ -462,46 +480,97 @@ class Node {
         << ' ' << a.promised << "\naccepted " << m << ' ' << a.acc_ballot << ' ' << a.acc_value.str() << "\n";
     }
     const std::string s = o.str(), tmp = path_ + ".tmp";
-    int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-    if (fd < 0 || ::write(fd, s.data(), s.size()) != static_cast<ssize_t>(s.size()) || ::fsync(fd) != 0 ||
-        ::close(fd) != 0 || ::rename(tmp.c_str(), path_.c_str()) != 0) {
-      std::perror("paxos: cannot save state");
-      std::exit(1);
-    }
-    std::string dir = path_.rfind('/') == std::string::npos ? "." : path_.substr(0, path_.rfind('/'));
-    int dfd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (dfd >= 0) {
-      ::fsync(dfd);
-      ::close(dfd);
-    }
+    int step = debug_fail_step.load();
+    if (step != 0 && debug_fail_skip.fetch_sub(1) > 0) step = 0;
+    auto failed = [&](int at, bool bad) {
+      if (step == at) {
+        errno = EIO;
+        return true;
+      }
+      return bad;
+    };
+    int fd = failed(1, false) ? -1 : ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    if (fd < 0) fatal("open " + tmp);
+    if (failed(2, ::write(fd, s.data(), s.size()) != static_cast<ssize_t>(s.size()))) fatal("write " + tmp);
+    if (failed(3, ::fsync(fd) != 0)) fatal("fsync " + tmp);
+    if (::close(fd) != 0) fatal("close " + tmp);
+    if (failed(4, false) || ::rename(tmp.c_str(), path_.c_str()) != 0) fatal("rename to " + path_);
+    // The rename is durable only once the directory is.
+    const std::string dir = path_.rfind('/') == std::string::npos ? "." : path_.substr(0, path_.rfind('/'));
+    int dfd = failed(5, false) ? -1 : ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd < 0) fatal("open directory " + dir);
+    if (failed(6, ::fsync(dfd) != 0)) fatal("fsync directory " + dir);
+    ::close(dfd);
+  }
+  [[noreturn]] static void fatal(const std::string& what) {
+    const int e = errno;
+    std::fflush(stdout);
+    std::fprintf(stderr, "paxos: cannot save state: %s: %s; stopping before any reply that depends on it\n",
+                 what.c_str(), std::strerror(e));
+    std::fflush(stderr);
+    ::_exit(3);
   }
 
+  // Reads the state file; any line it cannot read stops the process (a
+  // witness must never run on part of its promises). A file from before
+  // machines had names ("open v", "promised b": two fields) is read as
+  // `legacy`; a file with named machines ("open m v": three) never is,
+  // whatever the names look like. Both kinds in one file: refused.
   void load() {
     FILE* f = std::fopen(path_.c_str(), "r");
-    if (f == nullptr) return;
+    if (f == nullptr) {
+      if (errno == ENOENT) return;  // snc_witness decides whether that is allowed
+      bad_file("cannot open: " + std::string(std::strerror(errno)));
+    }
+    std::vector<std::string> lines;
     char* buf = nullptr;
     std::size_t cap = 0;
-    while (::getline(&buf, &cap, f) > 0) {
-      std::string line(buf);
-      std::istringstream probe(line);
-      std::string k, m;
-      if (!(probe >> k >> m)) continue;
-      if (!legacy_.empty() && m.find_first_not_of("0123456789") == std::string::npos) {
-        line = k + " " + legacy_ + line.substr(k.size());  // "chosen 3 ..." -> "chosen ha/0 3 ..."
-      }
-      std::istringstream in(line);
-      in >> k >> m;
-      Acceptor& a = acc_[m];
-      if (k == "chosen") a.chosen.parse(in);
-      else if (k == "open") in >> a.open_v;
-      else if (k == "promised") in >> a.promised;
-      else if (k == "accepted") {
-        in >> a.acc_ballot;
-        a.acc_value.parse(in);
-      }
+    ssize_t n;
+    while ((n = ::getline(&buf, &cap, f)) > 0) {
+      std::string line(buf, static_cast<std::size_t>(n));
+      if (!line.empty() && line.back() == '\n') line.pop_back();
+      if (!line.empty()) lines.push_back(line);
     }
+    const bool read_error = std::ferror(f) != 0;
     std::free(buf);
     std::fclose(f);
+    if (read_error) bad_file("read error");
+    int old_lines = 0, named_lines = 0;
+    for (const std::string& line : lines) {
+      std::istringstream in(line);
+      std::string k, t;
+      std::size_t fields = 0;
+      while (in >> t) ++fields;
+      std::istringstream kin(line);
+      kin >> k;
+      if (k == "open" || k == "promised") (fields == 2 ? old_lines : named_lines) += 1;
+    }
+    if (old_lines && named_lines) bad_file("both unnamed and named machine lines");
+    if (old_lines && legacy_.empty()) bad_file("unnamed machine lines and no legacy machine");
+    const bool legacy = old_lines > 0;
+    for (std::string line : lines) {
+      std::istringstream probe(line);
+      std::string k;
+      probe >> k;
+      if (legacy) line = k + " " + legacy_ + line.substr(k.size());  // "chosen 3 ..." -> "chosen ha/0 3 ..."
+      std::istringstream in(line);
+      std::string m, rest;
+      in >> k >> m;
+      bool ok = !m.empty();
+      Acceptor& a = acc_[m];
+      if (k == "chosen") ok = ok && a.chosen.parse(in);
+      else if (k == "open") ok = ok && static_cast<bool>(in >> a.open_v) && !(in >> rest);
+      else if (k == "promised") ok = ok && static_cast<bool>(in >> a.promised) && !(in >> rest);
+      else if (k == "accepted") ok = ok && static_cast<bool>(in >> a.acc_ballot) && a.acc_value.parse(in);
+      else ok = false;
+      if (!ok) bad_file("cannot read line: " + line);
+    }
+  }
+  [[noreturn]] void bad_file(const std::string& why) const {
+    std::fprintf(stderr, "paxos: state file %s: %s; not starting (docs/PAXOS_BALLOTS.md 9)\n", path_.c_str(),
+                 why.c_str());
+    std::fflush(stderr);
+    std::exit(2);
   }
 
   std::mutex mu_;

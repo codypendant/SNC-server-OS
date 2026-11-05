@@ -64,12 +64,20 @@
 //                    [--group G=HOST:ADMIN,HOST:ADMIN ...]
 //                    --state FILE [--failover-ms N] [--poll-ms N]
 //                    [--health-verb health|status]
-//                    [--id I --peers HOST:PORT,HOST:PORT,...] [--debug 1]
+//                    [--id I --peers HOST:PORT,HOST:PORT,...] [--new-state 1]
+//                    [--debug 1]
 // --peers lists every witness, this one included at index --id.
+// --new-state 1: this witness's first start (the state file must not
+// exist); without it the state file must exist (docs/PAXOS_BALLOTS.md).
 // --debug 1 (tests only) adds DEBUG requests; --debug-clock-offset-ms N
 // (with it) shifts the clock ballots are taken from (docs/PAXOS_BALLOTS.md).
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -304,6 +312,28 @@ void hold_if_asked() {
   --held_now;
 }
 
+// The IPv4 address a peer's host names (the witnesses speak IPv4).
+bool resolve_ipv4(const std::string& host, in_addr& out) {
+  addrinfo hints{}, *res = nullptr;
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  if (::getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) return false;
+  out = reinterpret_cast<sockaddr_in*>(res->ai_addr)->sin_addr;
+  ::freeaddrinfo(res);
+  return true;
+}
+// Whether this machine has the address (a socket can be bound to it).
+bool is_local_ipv4(const in_addr& ip) {
+  int fd = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  if (fd < 0) return false;
+  sockaddr_in a{};
+  a.sin_family = AF_INET;
+  a.sin_addr = ip;
+  const bool ok = ::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) == 0;
+  ::close(fd);
+  return ok;
+}
+
 std::string debug_verb(std::istream& in) {
   if (!g_debug) return "NO unknown request";
   std::string what;
@@ -338,6 +368,22 @@ std::string debug_verb(std::istream& in) {
     if (!(in >> c)) return "NO bad request";
     px.debug_set_counter(c);
     return "OK";
+  }
+  if (what == "FAIL-PERSIST") {
+    // FAIL-PERSIST STEP [SKIP]: the save after SKIP more fails at STEP.
+    static const char* steps[] = {"tmp-open", "tmp-write", "tmp-fsync", "rename", "dir-open", "dir-fsync"};
+    std::string step;
+    int skip = 0;
+    if (!(in >> step)) return "NO bad request";
+    in >> skip;
+    for (int i = 0; i < 6; ++i) {
+      if (step == steps[i]) {
+        px.debug_fail_skip.store(skip);
+        px.debug_fail_step.store(i + 1);
+        return "OK";
+      }
+    }
+    return "NO bad request";
   }
   if (what == "NEXT-BALLOT") return "BALLOT " + std::to_string(px.debug_next_ballot());
   if (what == "PROPOSE") {
@@ -490,6 +536,7 @@ int main(int argc, char** argv) {
   std::map<unsigned, Pair> pairs;
   unsigned self_id = 0;
   int failover_ms = 1000, poll_ms = 100;
+  bool new_state = false;
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     if (i + 1 >= argc) {
@@ -520,6 +567,7 @@ int main(int argc, char** argv) {
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
     else if (k == "--debug") g_debug = v == "1";
     else if (k == "--debug-clock-offset-ms") px.debug_clock_offset_ms.store(std::atoll(v.c_str()));
+    else if (k == "--new-state" && (v == "0" || v == "1")) new_state = v == "1";
     else {
       std::fprintf(stderr, "bad flag %s %s\n", k.c_str(), v.c_str());
       return 2;
@@ -529,7 +577,7 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "usage: snc_witness --port P [--primary HOST:ADMIN --standby HOST:ADMIN] "
                          "[--group G=PHOST:ADMIN,SHOST:ADMIN ...] --state FILE [--failover-ms N] "
                          "[--health-verb health|status] "
-                         "[--poll-ms N] [--id I --peers H:P,...]\n");
+                         "[--poll-ms N] [--id I --peers H:P,...] [--new-state 1]\n");
     return 2;
   }
   if (px.debug_clock_offset_ms.load() != 0 && !g_debug) {
@@ -557,9 +605,72 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "--id must index this witness (port %u) in --peers\n", port);
       return 2;
     }
+    // One acceptor, one place in the quorum (docs/PAXOS_BALLOTS.md 9):
+    // every entry names a distinct address and port, this witness's entry
+    // is one of this machine's addresses, and no other entry reaches this
+    // witness's port on this machine.
+    std::vector<std::string> norm(peers.size());
+    std::vector<bool> local(peers.size());
+    for (std::size_t i = 0; i < peers.size(); ++i) {
+      in_addr ip{};
+      if (!resolve_ipv4(peers[i].host, ip)) {
+        std::fprintf(stderr, "peer %s:%u: cannot resolve its host\n", peers[i].host.c_str(), peers[i].port);
+        return 2;
+      }
+      char txt[INET_ADDRSTRLEN] = {};
+      ::inet_ntop(AF_INET, &ip, txt, sizeof(txt));
+      norm[i] = std::string(txt) + ":" + std::to_string(peers[i].port);
+      local[i] = is_local_ipv4(ip);
+      for (std::size_t j = 0; j < i; ++j) {
+        if (norm[j] == norm[i]) {
+          std::fprintf(stderr, "--peers names %s twice (entries %zu and %zu): one witness would count twice "
+                               "toward a majority\n", norm[i].c_str(), j, i);
+          return 2;
+        }
+      }
+    }
+    if (!local[self_id]) {
+      std::fprintf(stderr, "--id %u names %s, which is not an address of this machine\n", self_id,
+                   norm[self_id].c_str());
+      return 2;
+    }
+    for (std::size_t i = 0; i < peers.size(); ++i) {
+      if (i != self_id && local[i] && peers[i].port == port) {
+        std::fprintf(stderr, "--peers entry %zu (%s) reaches this witness (port %u on this machine) too: "
+                             "it would count twice toward a majority\n", i, norm[i].c_str(), port);
+        return 2;
+      }
+    }
+  }
+  // The state file: created only on a witness's first start, never
+  // recreated (docs/PAXOS_BALLOTS.md 6 and 9). A witness that answered
+  // Paxos requests and lost its state must not come back as itself.
+  {
+    struct stat st{};
+    const bool exists = ::stat(state_path.c_str(), &st) == 0;
+    if (!exists && errno != ENOENT) {
+      std::fprintf(stderr, "snc_witness: state file %s: %s\n", state_path.c_str(), std::strerror(errno));
+      return 2;
+    }
+    if (exists && !S_ISREG(st.st_mode)) {
+      std::fprintf(stderr, "snc_witness: state file %s is not a regular file\n", state_path.c_str());
+      return 2;
+    }
+    if (exists && new_state) {
+      std::fprintf(stderr, "snc_witness: --new-state 1 but %s exists: refusing to replace a witness's state "
+                           "(a witness that lost its state must not rejoin as itself)\n", state_path.c_str());
+      return 2;
+    }
+    if (!exists && !new_state) {
+      std::fprintf(stderr, "snc_witness: state file %s does not exist. A witness's first start says so with "
+                           "--new-state 1; a witness that ran before and lost its state must not be restarted "
+                           "as itself (docs/PAXOS_BALLOTS.md)\n", state_path.c_str());
+      return 2;
+    }
   }
   ::signal(SIGPIPE, SIG_IGN);
   px.init(state_path, peers, self_id, /*legacy=*/ha_machine(0));  // older state files hold one pair's
+  if (new_state) px.create();
   int lfd = ha::listen_on(port);
   if (lfd < 0) {
     std::fprintf(stderr, "snc_witness: cannot listen on %u\n", port);

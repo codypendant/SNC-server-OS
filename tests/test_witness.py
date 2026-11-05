@@ -26,6 +26,8 @@ import sys
 import tempfile
 import threading
 import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from witness_state import first_start  # noqa: E402
 
 UUID = "ab" * 16
 
@@ -146,7 +148,7 @@ def multi_group(build, work):
                 "--failover-ms", "200", "--poll-ms", "20", "--id", str(i), "--peers", peers]
         for g, (pr, sb) in enumerate(pairs):
             args += ["--group", f"{g}=127.0.0.1:{pr.port},127.0.0.1:{sb.port}"]
-        ws.append(subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+        ws.append(subprocess.Popen(first_start(args), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
 
     def chosen(machine):
         """The machine's chosen value on a majority (READ on every witness)."""
@@ -220,7 +222,7 @@ def trial(build, work, n_down=0, seed=0):
         ws.append(subprocess.Popen(
             [f"{build}/snc_witness", "--port", str(p), "--primary", f"127.0.0.1:{prim.port}",
              "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w{i}.state",
-             "--failover-ms", "200", "--poll-ms", "20", "--id", str(i), "--peers", peers],
+             "--failover-ms", "200", "--poll-ms", "20", "--id", str(i), "--peers", peers, "--new-state", "1"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
     try:
         # Every witness has learned the primary.
@@ -281,7 +283,8 @@ def ready_order(build, work):
         ws.append(subprocess.Popen(
             [f"{build}/snc_witness", "--port", str(p), "--primary", f"127.0.0.1:{prim.port}",
              "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w{i}.state",
-             "--failover-ms", "300", "--poll-ms", "20", "--id", str(i), "--peers", peers, "--debug", "1"],
+             "--failover-ms", "300", "--poll-ms", "20", "--id", str(i), "--peers", peers, "--debug", "1",
+             "--new-state", "1"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
     res = {}
 
