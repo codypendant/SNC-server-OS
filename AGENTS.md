@@ -1071,3 +1071,31 @@ or source comments.
     X1 (the index-query wire kind) goes ahead as its own slice. No
     blocker fix starts without review.
 
+### 2026-11-05 UTC --- Claude (Claude Code): X1, the INDEX wire kind
+
+-   **Classification:** KEEP (validation-enabling slice, approved as
+    option (b) in `docs/EXPERIMENTAL_BASELINE.md` section 4).
+-   **What:** wire kind `INDEX = 6` (`include/snc/wire.h`,
+    `src/net/server.cpp`, `docs/ROUTING.md`). It calls the unchanged
+    `index_lookup`, so the filters are today's: durable only, served
+    slots only, not a snapshot. No index redesign and no other protocol
+    change.
+    - A standby answers E_STANDBY.
+    - An error from any shard is answered with no IDs.
+    - The sequenced flag and a non-zero `reserved` are refused.
+-   **Tests:**
+    - `test_net` covers bounds, refusals, a 40-byte key sent out of line,
+      and equality with the in-process lookup.
+    - `tests/test_index_wire.py` covers `durable` (an applied create hidden
+      until its standby acknowledges it), `serving` (each account listed
+      once across a slot move) and `compat` (an old server answers
+      E_BAD_ARGS and keeps the connection). `compat` needs
+      `SNC_OLD_BUILD`; it was run against `dea7ba5`.
+    - An independent review found nothing blocking. Its test gaps and doc
+      notes are addressed.
+-   **Suites:** release 27/27, ASan 27/27, TSan 26/27. The TSan failure is
+    `q5_kill_kill`, BLOCKER B3 (`docs/BASELINE_READINESS.md` 3b), which
+    is unchanged by X1.
+-   **Next action:** WAIT for cody and Codex to review B1, B2, B3, F1, F2
+    and X1. No blocker fix, freeze, manifest or campaign work starts
+    without review.

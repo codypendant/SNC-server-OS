@@ -413,4 +413,5 @@ Section 11 of the baseline document still holds. In addition:
   client-side cap.
 - **F1:** Profile B declares `--replica-retain-mib`. Should T-H enforce
   it?
-- **X1** comes next, as its own slice. It does not depend on B1 or B2.
+- **X1** is implemented as its own slice (EXPERIMENTAL_BASELINE section
+  4). It does not depend on B1, B2 or B3.

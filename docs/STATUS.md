@@ -56,6 +56,8 @@ Decided by cody on 2026-11-04.
     - F1: replication retention after a grant must be declared.
     - F2: the resend age follows a control-plane outage while a primary
       is blocked.
+  - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
+    semantics unchanged (EXPERIMENTAL_BASELINE section 4).
   - **The freeze waits** for the three fixes and a decision on R11's restated
     bound.
 - **Evidence rules:** every benchmark host has a manifest in

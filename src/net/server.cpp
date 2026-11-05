@@ -3,6 +3,7 @@
 // request for another shard's object takes the cross-shard path (and the
 // response says so); a request sent to the owner never leaves its core.
 #include <atomic>
+#include <cstring>
 #include <memory>
 
 #include "snc/net.h"
@@ -26,6 +27,7 @@ struct NetServer::PerShard {
 
   static void on_request(void* user, ConnSet::Conn* c, const wire::ReqHeader& h, ByteView args);
   static void on_done(void* ctx, const ExecResult& r);
+  static void on_index(void* ctx, Status s, const ObjectID* ids, u32 n);
   Req* get_req() {
     if (free_reqs.empty()) {
       all_reqs.push_back(std::make_unique<Req>());
@@ -103,6 +105,26 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
                    ByteView(body.data(), static_cast<u32>(body.size())));
     return;
   }
+  if (h.kind == wire::Kind::INDEX) {
+    // index_lookup as it is (docs/EXPERIMENTAL_BASELINE.md X1).
+    wire::IndexQueryBody q{};
+    if (args.len >= sizeof(q)) std::memcpy(&q, args.data, sizeof(q));
+    if ((h.flags & wire::kReqSequenced) || args.len < sizeof(q) || q.max_results < 1 ||
+        q.max_results > wire::kMaxIndexResults || q.reserved != 0) {
+      ps->cs.respond(c, resp_header(h.req_id, Status::E_BAD_ARGS, kNullId, 0), {});
+      return;
+    }
+    Req* r = ps->get_req();
+    r->ps = ps;
+    r->conn = c;
+    r->req_id = h.req_id;
+    r->forwarded = false;
+    r->sequenced = false;
+    ConnSet::hold(c);
+    index_lookup(h.op, ByteView(args.data + sizeof(q), args.len - static_cast<u32>(sizeof(q))), q.max_results,
+                 &PerShard::on_index, r);
+    return;
+  }
   ExecOptions opts;
   opts.expected_version = h.expected_version;
   opts.allow_undurable = h.flags & wire::kReqAllowUndurable;
@@ -157,6 +179,17 @@ void NetServer::PerShard::on_done(void* ctx, const ExecResult& r) {
   } else {
     ps->cs.respond(q->conn, h, r.result);
   }
+  ConnSet::release(q->conn);
+  ps->free_reqs.push_back(q);
+}
+
+void NetServer::PerShard::on_index(void* ctx, Status s, const ObjectID* ids, u32 n) {
+  auto* q = static_cast<Req*>(ctx);
+  PerShard* ps = q->ps;
+  // A partial gather (a shard overloaded or out of memory) answers its
+  // error with no IDs, never a silently short list.
+  const u32 len = s == Status::OK ? n * static_cast<u32>(sizeof(ObjectID)) : 0;
+  ps->cs.respond(q->conn, resp_header(q->req_id, s, kNullId, len), ByteView(ids, len));
   ConnSet::release(q->conn);
   ps->free_reqs.push_back(q);
 }

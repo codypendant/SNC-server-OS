@@ -58,7 +58,8 @@ BLOCKERS if their tests reproduce a hazard:
   - T-Q4 is a resource-safety defect if a plausible control-plane outage
     can exhaust the process.
 - **X1 is approved (option b):** a minimal secondary-index query on the
-  wire, as validation-enabling work (section 4).
+  wire, as validation-enabling work (section 4). **Implemented
+  2026-11-05:** wire kind `INDEX` (section 4, X1).
 
 ## 1. Candidate baseline commit and configuration
 
@@ -204,8 +205,8 @@ Matrix row numbers refer to [INTERACTION_MATRIX.md](INTERACTION_MATRIX.md).
 | Q17 | Allocation failure in the session path aborts after apply; disk full or EIO is fail-stop (rows 36, 37, W3, S3) | INFERRED | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | Fail-stop by design. A disk-full run is a characterization, and memory is sized so allocation never fails |
 | Q18 | Index results hide objects with a write in flight; not a snapshot (R-5) | AS-BUILT | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | Stated index semantics (section 9); a competitor's index is compared with them stated |
 | Q19 | Obligation stalls and hot retry: a follow-up dropped until the next trigger; a full inbox re-emits at once (rows 34, 35) | INFERRED | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | NON-BLOCKING | No loss. Settlement lag is a measured metric. Fan-in to one inbox is a named workload, not a default |
-| Q20 | Promotion × index lookup, no client barrier (row 33) | INFERRED | n/a | NON-BLOCKING | n/a | n/a | Index lookups are in-process only (X1) |
-| X1 | **No secondary-index query on the wire**: `index_lookup` is in-process only (`wire.h` kinds: EXEC, CREATE, DELETE, TOPOLOGY, CLUSTER) | OBSERVED | Workload gap | Workload gap | Workload gap | Workload gap | Not a correctness item. Workload A's index queries over the network cannot be run against SNC today. Options in section 4 |
+| Q20 | Promotion × index lookup, no client barrier (row 33) | INFERRED | n/a | NON-BLOCKING | n/a | n/a | Since X1, index lookups are reachable over the wire (`INDEX`); the promotion window stays untested (matrix row 33) |
+| X1 | **No secondary-index query on the wire**: `index_lookup` was in-process only (`wire.h` kinds: EXEC, CREATE, DELETE, TOPOLOGY, CLUSTER) | **RESOLVED 2026-11-05** | n/a | n/a | n/a | n/a | Wire kind `INDEX` (section 4, X1): today's semantics, tested by `test_net` and `test_index_wire.py` |
 
 ## 4. Workload-readiness gaps (not correctness)
 
@@ -223,6 +224,29 @@ needs it runs. None is authorized by this document.
     unrelated protocol work.
   - It needs compatibility tests: an old client or server meeting the
     new kind refuses it cleanly, and the existing kinds are unchanged.
+  - **Implemented (2026-11-05):** wire kind `INDEX = 6`
+    (`include/snc/wire.h`, [ROUTING.md](ROUTING.md)). `op` is the index
+    id; the body is `IndexQueryBody` (max_results 1..4096) and the key.
+    The node gathers from all its shards through the unchanged
+    `index_lookup` and answers up to max_results IDs. A standby answers
+    E_STANDBY, any shard's error answers that status with no IDs, and
+    the sequenced flag and a non-zero `reserved` are refused (a read). In
+    a cluster the client asks every group's primary and merges; during a
+    slot move, between the seal and the activation, neither group lists
+    that slot's objects (not a snapshot). Tests: `test_net` (wire format,
+    bounds, refusals, a 40-byte key sent to the other shards out of line,
+    equality with the in-process lookup, an unknown kind keeps the
+    connection) and `tests/test_index_wire.py`:
+    - `durable`: a create applied but unacknowledged by a SIGSTOPped
+      standby is hidden, then shown once acknowledged;
+    - `serving`: across a slot move, each account is listed once, by the
+      group serving its slot;
+    - `compat` (needs `SNC_OLD_BUILD`, so not in `ctest`): a server from
+      before the kind answers E_BAD_ARGS and keeps the connection;
+      TOPOLOGY and CREATE are unchanged. Run 2026-11-05 against a build of
+      `dea7ba5` (before X1): passed. An old client never sends the kind, and responses
+      keep the RESP format.
+    No benchmark driver uses it yet.
 - **X2. Drivers for workloads B and C** (EXPERIMENTAL_VALIDATION section
   5 table): region movement as slot moves; dormancy approximated by an
   external waker.
