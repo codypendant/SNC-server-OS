@@ -209,7 +209,17 @@ def scenario_q3_runtime(work, trials=3):
             assert err == 0, txt
             probe_id = fc.create_here(g.p_cli)
             load = Load(g.p_cli, ids, 100000, 60)
-            time.sleep(2.0 + 0.37 * trial)  # checkpoints running; vary the phase
+            time.sleep(2.0 + 0.37 * (trial % 3))  # checkpoints running; vary the phase
+            # Kill the standby while a checkpoint is in flight (RESOURCES
+            # ckpt_running, set around Engine::checkpoint on the main loop).
+            ckpt_at_kill, t_look = None, time.time() + 10
+            while time.time() < t_look:
+                rk = kv(af.ask(g.p_adm, "RESOURCES", 1))
+                if rk.get("ckpt_running") == "1":
+                    ckpt_at_kill = rk
+                    break
+                time.sleep(0.002)
+            assert ckpt_at_kill, "no checkpoint in flight to kill the standby under"
             t_kill = time.time()
             g.sb.signal(signal.SIGKILL)
             writes = []
@@ -219,11 +229,21 @@ def scenario_q3_runtime(work, trials=3):
             st = af.ask(g.p_adm, "STATUS", 3)
             res = af.ask(g.p_adm, "RESOURCES", 3)
             resume = first_ok_after(writes, t_kill + 0.6)
+            # Every acknowledged probe deposit (1 each, from 1,000,000) is there.
+            okn = sum(1 for _, _, s in writes if s == fc.OK)
+            try:
+                bst, bal = fc.balance(g.p_cli, probe_id)
+            except (OSError, RuntimeError):
+                bst, bal = None, None  # no answer: a wedged primary
             r = {"trial": trial, "granted": granted is not None, "main_ms_after_15s": int(h["main_ms"]) if "main_ms" in h else None,
                  "status": st, "resources": res,
                  "writes_ok_after_kill": sum(1 for _, _, s in writes if s == fc.OK),
                  "writes_failed_after_kill": sum(1 for _, _, s in writes if s != fc.OK),
                  "resume_s": round(resume - t_kill, 2) if resume else None,
+                 "checkpoint_in_flight_at_kill": True, "ckpts_at_kill": int(ckpt_at_kill.get("ckpts", 0)),
+                 "ckpts_after": int(kv(res).get("ckpts", 0)) if res else None,
+                 "probe_ok": okn, "probe_balance": bal if bst == fc.OK else None,
+                 "acked_writes_kept": bst == fc.OK and bal >= 1000000 + okn,
                  "checkpoint_lines": [l for l in g.prim.lines if l.startswith("checkpoint:")][-3:]}
             # No HEALTH answer counts as wedged, not as a small main_ms.
             r["wedged"] = not r["granted"] and (r["main_ms_after_15s"] is None or r["main_ms_after_15s"] > 5000)
@@ -238,9 +258,12 @@ def scenario_q3_runtime(work, trials=3):
             if load:
                 load.stop()
             g.stop()
+            shutil.rmtree(g.work, ignore_errors=True)  # 20 trials of data dirs fill a disk
     out["wedged_trials"] = sum(t["wedged"] for t in out["trials"])
+    # Checkpoints go on after the kill (ckpts grows), so none is wedged.
     out["pass"] = all(t["granted"] and t["resume_s"] is not None and t["main_ms_after_15s"] is not None
-                      and t["main_ms_after_15s"] < 1000 for t in out["trials"])
+                      and t["main_ms_after_15s"] < 1000 and t["acked_writes_kept"] and
+                      (t["ckpts_after"] or 0) > t["ckpts_at_kill"] for t in out["trials"])
     return out
 
 
@@ -402,6 +425,7 @@ def scenario_q4(work, delay):
 
 SCEN = {
     "q3_runtime": scenario_q3_runtime,
+    "q3_runtime20": lambda work: scenario_q3_runtime(work, trials=20),
     "q3_restart": scenario_q3_restart,
     "q4_normal": lambda w: scenario_q4(w, 0),
     "q4_delayed10": lambda w: scenario_q4(w, 10),

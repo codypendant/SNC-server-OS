@@ -1,0 +1,107 @@
+{
+ "trials": [
+  {
+   "trial": 0,
+   "granted": false,
+   "main_ms_after_15s": 15257,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=0 blocked=2 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=92168 hwm_kb=92168 heap_live=32000320 waiters=69 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=17904 wal_unacked=69 wal_undurable=0 blocked=2 degraded=0 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=1 ckpts=6",
+   "writes_ok_after_kill": 0,
+   "writes_failed_after_kill": 5,
+   "resume_s": null,
+   "checkpoint_in_flight_at_kill": true,
+   "ckpts_at_kill": 6,
+   "ckpts_after": 6,
+   "probe_ok": 0,
+   "probe_balance": null,
+   "acked_writes_kept": false,
+   "checkpoint_lines": [
+    "checkpoint: 98059 objects in 0.13s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.16s, 1 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.15s, 1 WAL segments deleted"
+   ],
+   "wedged": true,
+   "stack_file": "/tmp/snc-base-q3_runtime-rrq08pqr/q3_runtime_t0_stack.txt",
+   "main_thread_stack": [
+    "#0 syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38",
+    "#1 0x000055f1ef31e7d4 in std::__detail::__platform_wait<int> (__val=2, __addr=0x7ffd694bc9e4) at /usr/include/c++/13/bits/atomic_wait.h:111",
+    "#2 std::__detail::__waiter_pool::_M_do_wait (__old=2, __addr=0x7ffd694bc9e4, this=<optimized out>) at /usr/include/c++/13/bits/atomic_wait.h:267",
+    "#3 std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait<std::latch::wait() const::{lambda()#1}>(std::latch::wait() const::{lambda()#1}) (__p",
+    "#4 std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) (__addr=__addr@entry=0x7ffd694bc9",
+    "#5 0x000055f1ef3185dc in std::latch::wait (this=0x7ffd694bc9e4) at /usr/include/c++/13/latch:79",
+    "#6 snc::Engine::checkpoint (this=this@entry=0x7ffd694bf6a0) at /home/claude/snc-server-os/src/core/engine.cpp:882",
+    "#7 0x000055f1ef2de57c in main (argc=<optimized out>, argv=<optimized out>) at /home/claude/snc-server-os/tools/snc_server.cpp:1019"
+   ]
+  },
+  {
+   "trial": 1,
+   "granted": false,
+   "main_ms_after_15s": 15272,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=0 blocked=2 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=92720 hwm_kb=92720 heap_live=32000320 waiters=69 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=17952 wal_unacked=69 wal_undurable=0 blocked=2 degraded=0 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=1 ckpts=6",
+   "writes_ok_after_kill": 0,
+   "writes_failed_after_kill": 5,
+   "resume_s": null,
+   "checkpoint_in_flight_at_kill": true,
+   "ckpts_at_kill": 6,
+   "ckpts_after": 6,
+   "probe_ok": 0,
+   "probe_balance": null,
+   "acked_writes_kept": false,
+   "checkpoint_lines": [
+    "checkpoint: 91531 objects in 0.11s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.12s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.22s, 2 WAL segments deleted"
+   ],
+   "wedged": true,
+   "stack_file": "/tmp/snc-base-q3_runtime-rrq08pqr/q3_runtime_t1_stack.txt",
+   "main_thread_stack": [
+    "#0 syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38",
+    "#1 0x000055f775d547d4 in std::__detail::__platform_wait<int> (__val=2, __addr=0x7ffe2aad1b44) at /usr/include/c++/13/bits/atomic_wait.h:111",
+    "#2 std::__detail::__waiter_pool::_M_do_wait (__old=2, __addr=0x7ffe2aad1b44, this=<optimized out>) at /usr/include/c++/13/bits/atomic_wait.h:267",
+    "#3 std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait<std::latch::wait() const::{lambda()#1}>(std::latch::wait() const::{lambda()#1}) (__p",
+    "#4 std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) (__addr=__addr@entry=0x7ffe2aad1b",
+    "#5 0x000055f775d4e5dc in std::latch::wait (this=0x7ffe2aad1b44) at /usr/include/c++/13/latch:79",
+    "#6 snc::Engine::checkpoint (this=this@entry=0x7ffe2aad4800) at /home/claude/snc-server-os/src/core/engine.cpp:882",
+    "#7 0x000055f775d1457c in main (argc=<optimized out>, argv=<optimized out>) at /home/claude/snc-server-os/tools/snc_server.cpp:1019"
+   ]
+  },
+  {
+   "trial": 2,
+   "granted": false,
+   "main_ms_after_15s": 15270,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=0 blocked=2 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=90436 hwm_kb=90764 heap_live=32000320 waiters=69 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=17952 wal_unacked=69 wal_undurable=0 blocked=2 degraded=0 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=1 ckpts=6",
+   "writes_ok_after_kill": 0,
+   "writes_failed_after_kill": 5,
+   "resume_s": null,
+   "checkpoint_in_flight_at_kill": true,
+   "ckpts_at_kill": 6,
+   "ckpts_after": 6,
+   "probe_ok": 0,
+   "probe_balance": null,
+   "acked_writes_kept": false,
+   "checkpoint_lines": [
+    "checkpoint: 95836 objects in 0.11s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.19s, 2 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.10s, 0 WAL segments deleted"
+   ],
+   "wedged": true,
+   "stack_file": "/tmp/snc-base-q3_runtime-rrq08pqr/q3_runtime_t2_stack.txt",
+   "main_thread_stack": [
+    "#0 syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38",
+    "#1 0x00005614bca617d4 in std::__detail::__platform_wait<int> (__val=2, __addr=0x7ffcd7e03084) at /usr/include/c++/13/bits/atomic_wait.h:111",
+    "#2 std::__detail::__waiter_pool::_M_do_wait (__old=2, __addr=0x7ffcd7e03084, this=<optimized out>) at /usr/include/c++/13/bits/atomic_wait.h:267",
+    "#3 std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait<std::latch::wait() const::{lambda()#1}>(std::latch::wait() const::{lambda()#1}) (__p",
+    "#4 std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) (__addr=__addr@entry=0x7ffcd7e030",
+    "#5 0x00005614bca5b5dc in std::latch::wait (this=0x7ffcd7e03084) at /usr/include/c++/13/latch:79",
+    "#6 snc::Engine::checkpoint (this=this@entry=0x7ffcd7e05d40) at /home/claude/snc-server-os/src/core/engine.cpp:882",
+    "#7 0x00005614bca2157c in main (argc=<optimized out>, argv=<optimized out>) at /home/claude/snc-server-os/tools/snc_server.cpp:1019"
+   ]
+  }
+ ],
+ "wedged_trials": 3,
+ "pass": false,
+ "scenario": "q3_runtime",
+ "seconds": 85.8
+}

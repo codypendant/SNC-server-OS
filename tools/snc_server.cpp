@@ -626,6 +626,10 @@ int main(int argc, char** argv) {
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
   // The main loop's last iteration (admin::mono_ns), for HEALTH's main_ms.
   std::atomic<u64> main_tick{admin::mono_ns()};
+  // Periodic checkpoints (--checkpoint-s) on the main loop: one running now,
+  // and how many completed (RESOURCES; docs/BASELINE_READINESS.md B1).
+  std::atomic<u32> ckpt_running{0};
+  std::atomic<u64> ckpt_done{0};
   // Role: s standby, f fenced, else p (a replication sender exists) or n.
   // A role fact only: p does not say the standby is connected or in sync.
   auto role_now = [&](bool p_from_status, int status_role) {
@@ -857,13 +861,14 @@ int main(int argc, char** argv) {
                       "rss_kb=%ld hwm_kb=%ld heap_live=%llu waiters=%llu overflow=%llu emits_in_flight=%llu "
                       "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u "
                       "disk_readers=%llu disk_queued=%llu disk_queued_hwm=%llu disk_started=%llu "
-                      "disk_stopped_on_cancel=%llu",
+                      "disk_stopped_on_cancel=%llu ckpt_running=%u ckpts=%llu",
                       rss_kb, hwm_kb, (unsigned long long)heap, (unsigned long long)waiters,
                       (unsigned long long)overflow, (unsigned long long)emits, (unsigned long long)held,
                       (unsigned long long)retained, (unsigned long long)unacked, (unsigned long long)undurable,
                       st.blocked, st.degraded, (unsigned long long)dg.readers_live,
                       (unsigned long long)dg.queued_bytes, (unsigned long long)dg.queued_hwm,
-                      (unsigned long long)dg.started, (unsigned long long)dg.stopped_on_cancel);
+                      (unsigned long long)dg.started, (unsigned long long)dg.stopped_on_cancel,
+                      ckpt_running.load(), (unsigned long long)ckpt_done.load());
         return b;
       }
       if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");
@@ -1010,7 +1015,10 @@ int main(int argc, char** argv) {
         }
       }
       if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
+        ckpt_running.store(1);
         CheckpointReport r = eng.checkpoint();
+        ckpt_running.store(0);
+        ckpt_done.fetch_add(1);
         std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
                     (unsigned long long)r.objects, r.seconds,
                     (unsigned long long)r.segments_deleted);

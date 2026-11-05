@@ -1625,8 +1625,14 @@ void Shard::checkpoint_step() {
     }
     return;
   }
-  // Spec C5: the part may only hold state whose WAL record is durable.
-  if (c.writes_inflight == 0 && durable(c.max_lsn)) {
+  // Spec C5: the part may only hold state whose WAL record is durable
+  // here. Local durability, not the standby's acknowledgement: the part is
+  // this node's recovery image and holds nothing its own WAL replay would
+  // not restore. Waiting for the standby wedged the shard's thread when the
+  // standby died mid-checkpoint, so it could never ask for DEGRADE
+  // (docs/BASELINE_READINESS.md B1). The standby's acknowledgement stays
+  // part of a sync client OK (durable()).
+  if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
     c.inflight_bufs.clear();
     c.syncing = true;
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);

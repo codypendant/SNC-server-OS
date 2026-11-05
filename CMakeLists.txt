@@ -89,11 +89,11 @@ if(PYTHON3)
   # q5_catchup_race) and the long ones (q1_blocked, q4_delayed*) run by name.
   add_test(NAME test_profile_check COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_profile_check.py)
   add_test(NAME test_baseline_retry COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_retry.py
-           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill)
+           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill b3_stalled_catchup)
   add_test(NAME test_baseline_move COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_move.py
            ${CMAKE_BINARY_DIR} q2_lost_move q10_sealed q10_committed)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py
-           ${CMAKE_BINARY_DIR} q3_restart q4_normal)
+           ${CMAKE_BINARY_DIR} q3_runtime q3_restart q4_normal)
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
 endif()
 
