@@ -1,0 +1,121 @@
+PR #50 REVIEW — DELAYED READY CAUSAL ORDER
+
+DECISION: PR #50 APPROVED.
+
+The old race was deterministically reproduced before the fix: a delayed READY landed after a later DEGRADE, restored promotion eligibility, and after failover 2,000/2,000 accounts were missing acknowledged deposits.
+
+The new causal rule is approved:
+- every NOT READY gets a fresh chosen per-group Paxos version;
+- NOTREADY returns OK v=N;
+- READY names after=N;
+- READY is accepted only if the latest linearizable state for that group/term is still NOT READY at exactly N;
+- newer NOT READY refuses stale READY;
+- old SYNCED without a causal base is refused.
+
+The first independent-review fix is important: if phase 1 adopts an accepted value, complete it and then propose again into a genuinely fresh instance before returning a NOT READY version.
+
+The second review's linearizable READY read is also correct. READY fails closed if it cannot obtain quorum/current state.
+
+Versions are per ha/G machine, so unrelated placement, lease and other-group proposals do not invalidate the exact-version predicate.
+
+Restart/lost-reply semantics are accepted. A restarted primary records a fresh NOT READY before READY; lost NOTREADY replies cause another fresh NOT READY; lost READY replies retry idempotently.
+
+Mixed versions fail safe in the tested combinations. Protected Profile B requires witnesses upgraded first, then nodes. The campaign harness/manifest must reject unsupported old participants.
+
+V1-V10 are accepted. Final suites:
+- RelWithDebInfo 29/29;
+- ASan+UBSan 29/29;
+- TSan 29/29;
+- zero sanitizer reports.
+
+Keep the unexplained TSan q1_stop startup timeout recorded even though seven repeats and the final suite passed.
+
+F7 (readiness latency/shared proposal queue) is liveness-only and does not block baseline. Measure it later; do not fix now.
+
+ONE NEW ISSUE REQUIRES DISPOSITION BEFORE BASELINE FREEZE: F8
+
+F8: Paxos ballots are derived from wall-clock milliseconds and the highest ballot used is not persisted. After witness restart with clock rollback, a ballot used in an open instance may be reused for another value. That is potentially a Paxos uniqueness/consensus-safety defect.
+
+Because Profile B relies on witness Paxos for authority/promotion/readiness, do not freeze the baseline merely because F8 is pre-existing.
+
+NEXT SLICE: F8 CHARACTERIZATION + DESIGN ONLY
+
+Document:
+- exact ballot construction;
+- persistence behavior;
+- ballot scope (witness-wide/per-machine);
+- promise/accepted state that survives restart;
+- exact rollback/restart history required;
+- whether normal reboot, NTP correction or VM snapshot restore can create it;
+- whether reuse can actually produce two different chosen values;
+- minimum durable information needed to prevent reuse.
+
+Deterministic tests:
+
+F8-C1:
+use ballot B in an open instance, restart witness with synthetic clock below B, test whether B is reused.
+
+F8-C2:
+if reuse occurs, drive competing values and determine whether two different values can actually be chosen.
+
+F8-C3:
+ordinary restart without clock rollback; establish normal behavior.
+
+F8-C4:
+if practical, simulate witness durable-directory/VM snapshot rollback and characterize the stronger case.
+
+Do not call F8 a consensus corruption bug solely from theory if persisted promise/accepted state prevents it. Prove the causal path as far as practical.
+
+If two different values can be chosen, preserve evidence and classify F8 BLOCKER.
+
+LIKELY FIX DIRECTION IF REPRODUCED
+
+A durable monotonic ballot allocator/persisted highest ballot is the likely direction:
+
+next_ballot > max(durable highest ballot ever used, relevant durable promise/accepted ballot, generated clock candidate)
+
+The required monotonic state must be durable BEFORE the ballot is externally usable.
+
+But DO NOT IMPLEMENT THIS YET.
+
+Determine whether one witness-wide durable ballot epoch/counter safely covers every Paxos machine or whether the invariant requires another scope.
+
+Any fix must define crash ordering:
+- crash before ballot persistence;
+- after persistence before PREPARE;
+- after PREPARE;
+- after ACCEPT;
+- restart after clock rollback;
+- repeated restart;
+- restored witness directory;
+- mixed old/new versions.
+
+A ballot allocated but unused may be skipped. A ballot used on the wire must never be reused for a conflicting proposal.
+
+If new durable witness metadata is required, this crosses the previous stop condition. Return the design before changing the format. Specify format/versioning, old-directory upgrade, crash-safe ordering, mixed-version behavior, rollback implications and witness backup/restore behavior.
+
+F8 baseline outcomes:
+
+A. Actual persisted Paxos state prevents chosen-value violation -> document proof/regression; downgrade.
+
+B. Violation requires a cleanly enforceable excluded history -> define explicit profile exclusion + harness guard.
+
+C. Plausible witness restart + clock rollback can violate uniqueness -> BLOCKER; fix before Profile B freeze.
+
+Other decisions unchanged:
+- wrong/empty standby residual excluded by Q9;
+- F7 non-blocking;
+- F1/F6 measurement/refinement only;
+- R08 automatic async HA excluded;
+- R11 per-run resend guard;
+- S2/S3 frozen;
+- no future architecture implementation;
+- no comparative benchmarks.
+
+FINAL
+
+PR #50 APPROVED. The delayed-READY safety window is closed.
+
+Do NOT freeze the Experimental Baseline yet.
+
+Proceed only with F8 PAXOS BALLOT PERSISTENCE characterization/design and return it for review before any durable-format change or baseline freeze.

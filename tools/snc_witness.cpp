@@ -66,6 +66,8 @@
 //                    [--health-verb health|status]
 //                    [--id I --peers HOST:PORT,HOST:PORT,...] [--debug 1]
 // --peers lists every witness, this one included at index --id.
+// --debug 1 (tests only) adds DEBUG requests; --debug-clock-offset-ms N
+// (with it) shifts the clock ballots are taken from (docs/PAXOS_BALLOTS.md).
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
@@ -324,6 +326,37 @@ std::string debug_verb(std::istream& in) {
     px.debug_skip_commits.store(n);
     return "OK";
   }
+  // F8 characterization (docs/PAXOS_BALLOTS.md).
+  if (what == "CLOCK-OFFSET-MS") {
+    long long ms = 0;
+    if (!(in >> ms)) return "NO bad request";
+    px.debug_clock_offset_ms.store(ms);
+    return "OK";
+  }
+  if (what == "SET-COUNTER") {
+    paxos::u64 c = 0;
+    if (!(in >> c)) return "NO bad request";
+    px.debug_set_counter(c);
+    return "OK";
+  }
+  if (what == "NEXT-BALLOT") return "BALLOT " + std::to_string(px.debug_next_ballot());
+  if (what == "PROPOSE") {
+    // PROPOSE debug/NAME BODY: choose BODY in a test machine (never a real
+    // one); answers with the version and every ballot used on the wire.
+    std::string m, body;
+    if (!(in >> m >> body) || m.rfind("debug/", 0) != 0) return "NO bad request";
+    paxos::u64 v = 0;
+    px.debug_take_ballots();
+    px.debug_record.store(true);
+    std::string r = px.propose(
+        m, [&](const paxos::Value&, std::string& want) { want = body; return std::string(); },
+        [](const std::string& a, const std::string& b) { return a == b; }, 3000, &v);
+    px.debug_record.store(false);
+    std::string bs;
+    for (paxos::u64 b : px.debug_take_ballots()) bs += (bs.empty() ? "" : ",") + std::to_string(b);
+    if (r == "OK") r += " v=" + std::to_string(v);
+    return r + " ballots=" + bs;
+  }
   return "NO bad request";
 }
 
@@ -486,6 +519,7 @@ int main(int argc, char** argv) {
     else if (k == "--peers") peer_list = v;
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
     else if (k == "--debug") g_debug = v == "1";
+    else if (k == "--debug-clock-offset-ms") px.debug_clock_offset_ms.store(std::atoll(v.c_str()));
     else {
       std::fprintf(stderr, "bad flag %s %s\n", k.c_str(), v.c_str());
       return 2;
@@ -496,6 +530,10 @@ int main(int argc, char** argv) {
                          "[--group G=PHOST:ADMIN,SHOST:ADMIN ...] --state FILE [--failover-ms N] "
                          "[--health-verb health|status] "
                          "[--poll-ms N] [--id I --peers H:P,...]\n");
+    return 2;
+  }
+  if (px.debug_clock_offset_ms.load() != 0 && !g_debug) {
+    std::fprintf(stderr, "--debug-clock-offset-ms needs --debug 1 (tests only)\n");
     return 2;
   }
   if (pport != 0) pairs[0] = Pair{{phost, shost}, {pport, sport}};
