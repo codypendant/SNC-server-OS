@@ -105,6 +105,16 @@ class Sender {
 
   u64 acked_lsn() const { return acked_; }
   bool live() const { return state_ == State::LIVE; }
+  // Sync readiness (docs/SYNC_READINESS.md 3): what the current link has
+  // proven the standby holds (its verified handshake position, then its
+  // acks; 0 while down). acked_lsn() only grows and may have been earned by
+  // an earlier standby process; this does not.
+  u64 link_acked_lsn() const { return state_ == State::LIVE ? link_acked_ : 0; }
+  // The standby came back without records this primary had counted as
+  // acknowledged (reseeded, wiped or restored): latched until cleared by
+  // the shard once readiness is proven again on a link.
+  bool regressed() const { return regressed_; }
+  void clear_regressed() { regressed_ = false; }
   // Nanoseconds since the link was last live (0 while live).
   u64 down_since_ns() const { return down_since_; }
   // The standby needs records that are neither in memory nor on disk: it
@@ -182,6 +192,8 @@ class Sender {
   bool lost_ = false;
   bool fenced_ = false;
   u64 acked_ = 0;
+  u64 link_acked_ = 0;     // proven on the current link (see link_acked_lsn)
+  bool regressed_ = false;
   std::deque<Chunk> chunks_;
   u64 retained_ = 0;
   // Send position: chunk index and offset within its bytes. A chunk may

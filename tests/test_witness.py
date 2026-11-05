@@ -152,6 +152,9 @@ def multi_group(build, work):
             time.sleep(0.02)
         else:
             raise AssertionError("the witnesses never learned every group's primary")
+        # Learned primaries are NOT READY; each says SYNCED (its standby proven).
+        for g in range(3):
+            assert ask(ports[g], f"SYNCED {uuids[g]} 0 {g}") == "OK"
         assert ask(ports[0], "PLACEMENT INIT v1 test-map epoch=1") == "OK"
         block = ask(ports[1], "LEASES TAKE 65536")
         assert block.startswith("BLOCK "), block
@@ -166,9 +169,12 @@ def multi_group(build, work):
         assert pairs[1][1].role == "p" and pairs[1][1].term == 1, "group 1's standby was not promoted"
         time.sleep(0.5)  # anything else the witnesses would do, they do now
         after = {m: chosen(m) for m in before}
-        # Group 1: a new term, its standby now primary.
+        # Group 1: a new term, its standby now primary, NOT READY until it
+        # has a standby of its own in sync.
         v1, b1 = after["ha/1"]
-        assert b1.split() == [uuids[1], "1", "0", "1"], b1
+        assert b1.split() == [uuids[1], "1", "1", "1"], b1
+        # A stale SYNCED of the replaced term changes nothing.
+        assert ask(ports[1], f"SYNCED {uuids[1]} 0 1").startswith("NO term 0 was replaced")
         # Group 2: degraded, nothing else. Group 0, placement, leases: unchanged.
         assert after["ha/2"][1].split() == [uuids[2], "0", "1", "0"], after["ha/2"]
         assert after["ha/2"][0] == before["ha/2"][0] + 1
@@ -213,6 +219,10 @@ def trial(build, work, n_down=0, seed=0):
             time.sleep(0.02)
         else:
             raise AssertionError(f"the witnesses never learned the primary: {st}")
+        # A learned primary is NOT READY (docs/SYNC_READINESS.md); a real
+        # one says SYNCED once its standby is proven. Do that here, so the
+        # race below is between a grant and a promotion.
+        assert ask(ports[0], f"SYNCED {UUID} 0") == "OK"
         for i in range(n_down):
             ws[i].kill()
             ws[i].wait()

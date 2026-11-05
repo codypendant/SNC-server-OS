@@ -135,6 +135,8 @@ void Engine::serve_seed() {
         h.status = 1;
       } else if (seq == 0) {
         h.status = 2;
+      } else if (cfg_.seed_gate && !cfg_.seed_gate()) {
+        h.status = 3;  // NOT READY not yet on record: the standby retries
       } else {
         // Keep this checkpoint, and the WAL from its start, until the
         // standby has caught up past it (or for an hour).
@@ -194,26 +196,37 @@ void Engine::seed_fetch() {
     throw std::runtime_error("seed: cannot resolve " + from);
   }
   int c = -1;
-  // The primary may still be starting: retry for a while.
-  for (int attempt = 0; attempt < 600; ++attempt) {
-    c = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (::connect(c, res->ai_addr, res->ai_addrlen) == 0) break;
+  SeedHeader h;
+  // Status 3: the primary is recording NOT READY with its witnesses before
+  // it serves a seed (docs/SYNC_READINESS.md 4): ask again, for a minute.
+  for (int round = 0; round < 300; ++round) {
+    // The primary may still be starting: retry for a while.
+    for (int attempt = 0; attempt < 600; ++attempt) {
+      c = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+      if (::connect(c, res->ai_addr, res->ai_addrlen) == 0) break;
+      ::close(c);
+      c = -1;
+      ::usleep(100000);
+    }
+    if (c < 0) break;
+    set_timeouts(c, 60);
+    SeedRequest req{};
+    std::memcpy(req.magic, kSeedMagic, 8);
+    std::memcpy(req.space_uuid, cfg_.init_uuid.data(), 16);
+    if (!send_all(c, &req, sizeof(req)) || !recv_all(c, &h, sizeof(h)) ||
+        std::memcmp(h.magic, kSeedMagic, 8) != 0) {
+      ::close(c);
+      ::freeaddrinfo(res);
+      throw std::runtime_error("seed: no answer from " + from);
+    }
+    if (h.status != 3) break;
     ::close(c);
     c = -1;
-    ::usleep(100000);
+    ::usleep(200000);
   }
   ::freeaddrinfo(res);
-  if (c < 0) throw std::runtime_error("seed: cannot connect to " + from);
+  if (c < 0) throw std::runtime_error("seed: cannot connect to " + from + " (or it never served a seed)");
   FdGuard guard{c};
-  set_timeouts(c, 60);
-  SeedRequest req{};
-  std::memcpy(req.magic, kSeedMagic, 8);
-  std::memcpy(req.space_uuid, cfg_.init_uuid.data(), 16);
-  SeedHeader h;
-  if (!send_all(c, &req, sizeof(req)) || !recv_all(c, &h, sizeof(h)) ||
-      std::memcmp(h.magic, kSeedMagic, 8) != 0) {
-    throw std::runtime_error("seed: no answer from " + from);
-  }
   if (h.status != 0) {
     throw std::runtime_error(h.status == 1 ? "seed: the primary is another space"
                                            : "seed: the primary has no checkpoint yet");

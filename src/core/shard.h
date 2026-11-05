@@ -215,6 +215,7 @@ class Shard {
   struct ReplSummary {
     u8 role;
     bool live, degraded, blocked;
+    bool ready = false, regressed = false;  // docs/SYNC_READINESS.md 3
   };
   ReplSummary repl_summary() const;
   // Promotion, on the shard's thread: stop_standby, then once every shard

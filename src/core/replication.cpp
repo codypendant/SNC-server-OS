@@ -201,6 +201,7 @@ void Sender::apply_verified(bool& advanced) {
     acked_ = verify_ack_;
     advanced = true;
   }
+  link_acked_ = std::max(link_acked_, verify_ack_);
   verify_ack_ = 0;
 }
 
@@ -324,6 +325,7 @@ void Sender::trim() {
 
 void Sender::close_link(u64 now_ns) {
   stop_disk();
+  link_acked_ = 0;
   if (fd_ >= 0) ::close(fd_);
   fd_ = -1;
   if (state_ == State::LIVE) down_since_ = now_ns;
@@ -455,6 +457,16 @@ bool Sender::read_acks(u64 now_ns) {
         return advanced;
       }
       verify_ack_ = 0;
+      link_acked_ = 0;
+      // Below what this primary already counted as acknowledged: the
+      // standby lost records it had acked (docs/SYNC_READINESS.md 4).
+      if (a.next_lsn > 0 && a.next_lsn - 1 < acked_) {
+        std::fprintf(stderr,
+                     "snc: standby shard %u came back at LSN %llu, below the acknowledged %llu: "
+                     "not ready until it catches up\n",
+                     cfg_.shard, (unsigned long long)(a.next_lsn - 1), (unsigned long long)acked_);
+        regressed_ = true;
+      }
       position_at(a.next_lsn, a.last_crc, now_ns);
       if (lost_) return advanced;
       // It already has up to next_lsn - 1 durably: those count as acked once
@@ -474,6 +486,7 @@ bool Sender::read_acks(u64 now_ns) {
         acked_ = k.durable_lsn;
         advanced = true;
       }
+      link_acked_ = std::max(link_acked_, k.durable_lsn);
       if (k.lease_ts != 0 && in_sync_) {
         lease_until_ = std::max(lease_until_, now_ns + k.lease_ns);
         echo_ts_ = std::max(echo_ts_, k.lease_ts);

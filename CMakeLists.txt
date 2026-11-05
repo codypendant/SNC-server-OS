@@ -85,11 +85,14 @@ if(PYTHON3)
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_s1 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s1.py ${CMAKE_BINARY_DIR})
   # Pre-baseline readiness (docs/EXPERIMENTAL_BASELINE.md section 5): the
-  # scenarios that pass. The ones that reproduce a BLOCKER (q3_runtime,
-  # q5_catchup_race) and the long ones (q1_blocked, q4_delayed*) run by name.
+  # scenarios of the fixed code (B1: q3_runtime; B2: q5_catchup_race and
+  # test_sync_readiness; B3: b3_stalled_catchup). The long ones (q1_blocked,
+  # q4_delayed*, q3_runtime20) run by name.
   add_test(NAME test_profile_check COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_profile_check.py)
   add_test(NAME test_baseline_retry COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_retry.py
-           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill b3_stalled_catchup)
+           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill q5_catchup_race b3_stalled_catchup)
+  add_test(NAME test_sync_readiness COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_sync_readiness.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_baseline_move COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_move.py
            ${CMAKE_BINARY_DIR} q2_lost_move q10_sealed q10_committed)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py

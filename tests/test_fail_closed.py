@@ -312,6 +312,12 @@ class Cluster:
             args += ["--replica-of", f"127.0.0.1:{self.repl[self.peer(k)]}", "--replica-timeout-ms", "300"]
             if self.async_replica:
                 args += ["--async-replica"]
+        if self.how == "ha":
+            # Witness HA: a primary tells the witnesses when its standby is
+            # in sync (SYNCED); until then they promote nothing
+            # (docs/SYNC_READINESS.md). A standby ignores the flag until
+            # promoted.
+            args += ["--witness", self.control]
         args += list(extra)
         self.server[k] = subprocess.Popen(args, stdout=open(f"{self.work}/n{k}.log", "a"), stderr=subprocess.STDOUT)
         self.procs.append(self.server[k])
@@ -853,6 +859,83 @@ def scenario_f8_f9(c, ev):
 
 def scenario_f8_f9_cluster():
     return dict(async_replica=False)
+
+
+def ha_state(c, g):
+    """(version, term, degraded, primary member) chosen for group g, read
+    from every witness (the newest)."""
+    best = None
+    for w in c.wports:
+        r = ask(w, f"READ ha/{g}", 1)
+        if r and r.startswith("STATE "):
+            v = r.split()
+            if len(v) >= 6:
+                cand = (int(v[1]), int(v[3]), v[4] == "1", int(v[5]))
+                if best is None or cand[0] > best[0]:
+                    best = cand
+    return best
+
+
+def scenario_f19(c, ev):
+    """F19 (B2 test 9; docs/SYNC_READINESS.md): sync replication, witness
+    HA. A completed move of S to B; B's primary dies and the witnesses
+    promote its standby (term 1, NOT READY); B's old primary rejoins it as
+    a standby, seeded; while it catches up nobody is promotable; once the
+    new primary has said SYNCED (READY), it dies and the witnesses promote
+    the rejoined node (term 2). S serves there with every acked write
+    (D1); A never serves S again (D7); a never-moved slot serves
+    throughout."""
+    ids, S = c.create(1, 1, in_slot=10)
+    a = owner_primary(c, S)
+    b = 3 if a == 1 else 1
+    qa, qb, gb = c.peer(a), c.peer(b), c.group_of(b)
+    other = [create_here(c.client[a])]
+    assert c.ctl("move", S, gb)[0] == "DONE"
+    for i in ids:
+        assert deposit(c.client[b], i, 7) == OK
+    probe = Probe(c, [(a, S), (qa, S)])
+    wait(lambda: (ha_state(c, gb) or (0, 0, True))[2] is False, "B READY at term 0", timeout=30)
+    # 1. B's primary dies: its standby promoted, NOT READY at term 1.
+    c.kill(b)
+    c.failover(b, qb)
+    st1 = ha_state(c, gb)
+    ev["after_first"] = st1
+    assert st1[1] == 1 and st1[2] is True, st1
+    for i in ids:
+        assert deposit(c.client[qb], i, 1) == OK
+    # 2. The promoted standby restarts as a primary shipping to b's
+    #    listener, with a seed port; b rejoins it from an empty directory.
+    seed = free_ports(1)[0]
+    c.kill(qb)
+    c.start(qb, extra=["--seed-port", str(seed)])
+    wait(lambda: c.role(qb) in ("p", "n"), "B's new primary restarted")
+    for i in ids:
+        assert deposit(c.client[qb], i, 1) == OK
+    shutil.move(f"{c.work}/n{b}", f"{c.work}/n{b}.aside")
+    c.start(b, standby_of=qb, extra=["--seed-from", f"127.0.0.1:{seed}"])
+    wait(lambda: c.role(b) == "s", "B's old primary rejoined as a standby", timeout=60)
+    # 3. READY again only once proven; then the new primary dies.
+    wait(lambda: (lambda s: s and s[1] == 1 and s[2] is False)(ha_state(c, gb)), "B READY at term 1", timeout=60)
+    wait(lambda: c.caught_up(b, S, len(ids)) and c.info(b, S)["live_digest"] == c.info(qb, S)["live_digest"],
+         "the rejoined standby in sync")
+    c.kill(qb)
+    c.failover(qb, b)
+    st2 = ha_state(c, gb)
+    ev["after_second"] = st2
+    assert st2[1] == 2, st2
+    wait(lambda: c.info(b, S)["serving"] == 1, "S served at the rejoined node")
+    bals = [balance(c.client[b], i)[1] for i in ids]
+    served = probe.stop()
+    ev.update(slot=S, balances_ok=bals == [1000007 + 2] * len(ids),
+              probe=f"{probe.samples} samples, A served {len(served)}",
+              a_info=c.info(a, S), never_moved=STATUS.get(balance(c.client[a], other[0])[0]))
+    assert ev["balances_ok"], bals
+    assert not served and ev["a_info"]["serving"] == 0, (served, ev["a_info"])
+    assert ev["never_moved"] == "OK"
+
+
+def scenario_f19_cluster():
+    return dict(async_replica=False, ha=True)
 
 
 def scenario_f10(c, ev):
@@ -1421,7 +1504,7 @@ def size_measure():
 # these); compat and f7b need --old.
 ALL = ["f1", "f2", "f3", "f4", "f5", "f5b", "f6", "f7", "f8_f9", "f10", "f11", "f13:f3", "f13:f6", "f15",
        "f17:f1", "f17:f5", "f17:f6", "f18", "role", "backfill", "stuck", "prepared", "f10_reseal", "f7_prepared",
-       "legacy_primary", "legacy_standby", "legacy_stale", "size"]
+       "legacy_primary", "legacy_standby", "legacy_stale", "f19", "size"]
 
 
 def main():

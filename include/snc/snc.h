@@ -14,6 +14,7 @@
 #include "snc/storage.h"
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <thread>
 
@@ -336,6 +337,10 @@ class Engine {
     // Primary: serve seeds on this port (0 = off). A seed is the active
     // checkpoint's files; the standby then catches up from the WAL.
     u16 seed_port = 0;
+    // Primary: when set, a seed is served only while it returns true;
+    // otherwise the standby is told to retry (docs/SYNC_READINESS.md 4).
+    // Called on the seed thread.
+    std::function<bool()> seed_gate;
     // Standby: with no superblock in data_dir, first fetch a seed from this
     // primary ("host:port") instead of starting empty.
     std::string seed_from;
@@ -534,6 +539,12 @@ class Engine {
     u16 degraded = 0;      // primary: shards continuing without the standby
     u16 blocked = 0;       // primary: shards waiting for leave to degrade
     u16 shards = 0;
+    // Primary (docs/SYNC_READINESS.md 3): shards whose current link has
+    // proven the standby holds every durable record (a SYNCED may be sent
+    // when all are), and shards whose standby came back without records it
+    // had acknowledged (readiness lost: NOT READY must be recorded).
+    u16 ready = 0;
+    u16 regressed = 0;
   };
   ReplStatus replication_status() const;
   const RecoveryReport& recovery() const { return recovery_; }

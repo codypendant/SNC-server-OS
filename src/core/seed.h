@@ -25,7 +25,9 @@ struct SeedRequest {
 };
 struct SeedHeader {
   char magic[8];
-  u32 status;         // 0 ok, 1 another space, 2 no checkpoint
+  u32 status;         // 0 ok, 1 another space, 2 no checkpoint, 3 not yet: retry
+                      // (docs/SYNC_READINESS.md: the primary is first
+                      // recording NOT READY with its witnesses)
   u32 n_files;
   u8 space_uuid[16];
   u64 seq;            // the checkpoint's sequence number

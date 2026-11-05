@@ -361,7 +361,21 @@ class Pair:
                         "--peers", peers, "--health-verb", verbs[i]]) for i in range(3)]
         for w in self.w:
             assert w.wait_for(r"primary up|failover learned", 15), "a witness never saw the primary\n" + w.text()
+        # A learned primary is NOT READY until it proves its standby in sync
+        # (docs/SYNC_READINESS.md): tests start from a promotable pair.
+        assert self.wait_ready(30), f"the pair never became READY: {self.state()}\n" + self.nodes[0].text()
         self.load = None
+
+    def wait_ready(self, timeout, term=None):
+        """The witnesses' chosen state once READY (degraded false), at
+        `term` if given; None on timeout."""
+        t_end = time.time() + timeout
+        while time.time() < t_end:
+            st = self.state()
+            if st and not st[3] and (term is None or st[1] == term):
+                return st
+            time.sleep(0.05)
+        return None
 
     def state(self):
         """(version, term, primary node, degraded) chosen on a majority."""
@@ -767,6 +781,9 @@ def fake_witness(work, prim, sb, verb="health"):
               "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w.{port}.state",
               "--failover-ms", "300", "--poll-ms", "30", "--health-verb", verb])
     assert w.wait_for(r"primary up", 10), w.text()
+    # A learned primary is NOT READY; a real one says SYNCED once its
+    # standby is proven (docs/SYNC_READINESS.md). The fakes start READY.
+    assert ask(port, f"SYNCED {UUID} 0", 3)[0] == "OK"
     return w, port
 
 

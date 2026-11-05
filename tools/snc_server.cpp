@@ -564,6 +564,18 @@ int main(int argc, char** argv) {
       cfg.cluster[cfg.group_id].members[cfg.member].client_port == 0) {
     cfg.cluster[cfg.group_id].members[cfg.member].client_port = ncfg.base_port;
   }
+  // Seeds and the witnesses (docs/SYNC_READINESS.md 4): with witnesses, a
+  // seed is served only once this process has seen NOT READY recorded for
+  // its term (a DEGRADE answered OK, since the last SYNCED). A seed asked
+  // for before that makes the main loop record it, and the standby retries.
+  std::atomic<bool> not_ready_on_record{false}, seed_wanted{false};
+  if (!witnesses.empty()) {
+    cfg.seed_gate = [&] {
+      if (not_ready_on_record.load()) return true;
+      seed_wanted.store(true);
+      return false;
+    };
+  }
   Engine eng(cfg);
   try {
     eng.start();
@@ -914,7 +926,10 @@ int main(int argc, char** argv) {
   // The witness's grant to continue without the standby (see the header).
   // After running alone, the primary owes the witnesses a SYNCED: until one
   // is confirmed they keep the grant on record and will not promote.
-  bool granted = false, refused = false, owe_synced = false;
+  // Sync readiness (docs/SYNC_READINESS.md): the witnesses record a new
+  // primary (first learned, or promoted) as NOT READY, so a primary owes a
+  // SYNCED from its start until its standby is proven in sync.
+  bool granted = false, refused = false, owe_synced = true;
   // Asks the witnesses in turn; the first reply decides. A witness runs
   // Paxos among its peers before answering, so allow it time.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
@@ -962,6 +977,8 @@ int main(int argc, char** argv) {
             continue;
           }
           cfg.standby = false;
+          owe_synced = true;  // the promotion recorded NOT READY for the new term
+          not_ready_on_record.store(true);
           term.store(eng.term());
           lease_lo.store(eng.lease_block().first);
           lease_hi.store(eng.lease_block().second);
@@ -986,6 +1003,7 @@ int main(int argc, char** argv) {
           if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
             granted = true;
             refused = false;
+            not_ready_on_record.store(true);
             eng.allow_degrade(true);
             std::printf("witness: granted, continuing without the standby\n");
           } else if (reply.rfind("NO", 0) == 0 && !refused) {
@@ -1004,9 +1022,32 @@ int main(int argc, char** argv) {
           granted = false;
           owe_synced = true;
         }
-        if (owe_synced && !granted && healthy) {
+        // NOT READY to record (docs/SYNC_READINESS.md 4): the standby came
+        // back without records it had acknowledged, or a seed is asked for
+        // while READY may be on record. DEGRADE records it; the degrade
+        // gate stays as it is (this is not a leave to run alone).
+        const bool regressed = st.regressed > 0 && !not_ready_on_record.load();
+        const bool seed = seed_wanted.load() && !not_ready_on_record.load();
+        if (!granted && (regressed || seed)) {
+          if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
+            not_ready_on_record.store(true);
+            seed_wanted.store(false);
+            owe_synced = true;
+            std::printf("witness: recorded NOT READY (%s)\n",
+                        regressed ? "the standby lost acknowledged records" : "a seed is asked for");
+          } else if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
+            eng.withdraw();
+            std::printf("witness: this primary's term was replaced; withdrawn\n");
+          }
+        } else if (seed_wanted.load() && not_ready_on_record.load()) {
+          seed_wanted.store(false);
+        }
+        // SYNCED only once every shard's current link has proven its
+        // standby holds every durable record (st.ready, docs/SYNC_READINESS.md 3).
+        if (owe_synced && !granted && healthy && st.ready == st.shards && st.regressed == 0) {
           if (ask_witness("SYNCED" + tail, reply) && reply == "OK") {
             owe_synced = false;
+            not_ready_on_record.store(false);
             std::printf("witness: standby back in sync\n");
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary

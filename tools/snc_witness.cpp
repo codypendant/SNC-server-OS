@@ -3,15 +3,17 @@
 // --standby name them as they start; the roles then follow the promotions.
 // If the current primary has not answered for --failover-ms and the other
 // node is its standby (same space and term), it promotes that standby,
-// unless the primary has been let continue without it (then the standby
-// may lack acknowledged writes). A sync primary started with --witness asks
-// before continuing without its standby; a primary whose term was replaced
-// is refused.
+// only from READY: the primary of the current term has proven with SYNCED
+// that its standby holds every acknowledged write (docs/SYNC_READINESS.md).
+// A primary first learned, or just promoted, is NOT READY until then, and
+// so is one let continue without its standby (DEGRADE). A sync primary
+// started with --witness asks before continuing without its standby; a
+// primary whose term was replaced is refused.
 //
 // Re-armed after each failover: the old primary, restarted as a standby of
 // the new one (seeded from it), is promoted in turn if the new primary
-// fails once it is back in sync. Until then the new primary runs alone
-// under a grant, and the witnesses do not promote.
+// fails once it has proven the standby back in sync. Until then the
+// witnesses do not promote: the group is unavailable rather than wrong.
 //
 // Replicated (--peers): N witnesses (3 or 5) keep one decision state, and
 // every change to it (learning the primary, a grant to run alone, the
@@ -92,7 +94,11 @@ struct State {
   u64 version = 0;
   std::string uuid;  // the space; empty until learned
   u64 term = 0;      // the current primary's term
-  bool degraded = false;  // the primary may run without the standby
+  // NOT READY (docs/SYNC_READINESS.md): the primary may run without the
+  // standby, or has not yet proven it in sync (first learned, or just
+  // promoted). The witnesses promote only from false (READY), which only a
+  // SYNCED of the current term records.
+  bool degraded = false;
   unsigned primary = 0;   // which node (0: --primary, 1: --standby) holds `term`
 
   std::string str() const {
@@ -424,7 +430,8 @@ int main(int argc, char** argv) {
 namespace {
 
 // Watches one group's pair (its HA machine): learns the primary, and
-// promotes the standby when the primary has been silent for failover_ms.
+// promotes the standby when the primary has been silent for failover_ms,
+// only from READY (docs/SYNC_READINESS.md).
 void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
   using clock = std::chrono::steady_clock;
   const std::string* host = pair.host;
@@ -496,6 +503,9 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
               want.uuid = uuid;
               want.term = term;
               want.primary = n;
+              // NOT READY until the primary proves its standby in sync
+              // (SYNCED; docs/SYNC_READINESS.md 2).
+              want.degraded = true;
               return "";
             }) == "OK") {
           std::printf("t=%.2f group %u primary up: term %llu\n", secs(t0, now), group, term);
@@ -563,6 +573,9 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
       if (suuid != base.uuid || sterm != base.term) return "the standby is not the primary's";
       want.term = base.term + 1;  // promotion bumps the standby's term by one
       want.primary = o;
+      // The new primary has no standby proven in sync: NOT READY until its
+      // SYNCED (docs/SYNC_READINESS.md 2). Never copied from the old term.
+      want.degraded = true;
       ours = true;
       return "";
     });
