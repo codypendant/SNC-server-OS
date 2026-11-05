@@ -12,10 +12,12 @@
   characterized and its evidence kept, and the smallest fix is proposed
   for review.
 - **Results (2026-11-05): [BASELINE_READINESS.md](BASELINE_READINESS.md).**
-  T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Two Profile B BLOCKERS were
+  T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Three Profile B BLOCKERS were
   reproduced and are not fixed: B1, a checkpoint wedges the primary when
   its standby dies (T-Q3); B2, the witnesses promote a standby that is
-  still catching up after a rejoin (T-Q5). T-Q1 also found that section
+  still catching up after a rejoin (T-Q5); B3, a catch-up that keeps
+  dropping its link makes the primary read the remaining WAL range into
+  memory once per attempt (T-Q5 under TSan). T-Q1 also found that section
   7's 35 s bound does not hold while a sync primary is blocked by a
   control-plane outage (F2).
 

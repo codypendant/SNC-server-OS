@@ -1,12 +1,12 @@
 # Baseline readiness: pre-baseline test results
 
-**Status: RESULTS FOR REVIEW. Two Profile B BLOCKERS were reproduced (B1,
-B2), and neither is fixed here.** This is step 2 of the order in
+**Status: RESULTS FOR REVIEW. Three Profile B BLOCKERS were reproduced
+(B1, B2, B3), and none is fixed here.** This is step 2 of the order in
 [EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md) section 13 (the
 review of PR #45, `handoff/PR45_Baseline_Review.txt`). Following that
 review, each blocker is characterized, its evidence is kept, and the
 smallest fix is proposed for a separate reviewed slice. The baseline
-cannot be frozen until both fixes land and their tests pass.
+cannot be frozen until the fixes land and their tests pass.
 
 - **Host:** the 4-vCPU development VM. These are correctness and
   characterization results only, never performance claims (section 12
@@ -27,9 +27,16 @@ cannot be frozen until both fixes land and their tests pass.
 | T-Q3 (run time) | Checkpoint every 1 s, then SIGKILL the standby under load (`test_baseline_ha.py q3_runtime`, 3 trials) | **BLOCKER B1**, reproduced in 1 of 3 trials |
 | T-Q3 (restart) | Standby gone, then the primary crashes and restarts with another shard count (`q3_restart`) | **PASS** (section 2, B1 note) |
 | T-Q4 | Standby SIGSTOPped at full write load; witness grant at once, after 10 s, after 60 s (`q4_normal`, `q4_delayed10`, `q4_delayed60`) | **PASS**. **FINDING F1:** replication retention fills to its cap (shards x 1 GiB) after the grant |
-| T-Q5 | Two consecutive failovers during a resend storm, with exact balances (`test_baseline_retry.py q5_kill_kill`, `q5_kill_stop`) | **PASS** once the rejoined standby has caught up. **BLOCKER B2** if the second failure comes while it is still catching up (`q5_catchup_race`, 3 of 3) |
+| T-Q5 | Two consecutive failovers during a resend storm, with exact balances (`test_baseline_retry.py q5_kill_kill`, `q5_kill_stop`) | **PASS** once the rejoined standby has caught up (release, ASan). **BLOCKER B2** if the second failure comes while it is still catching up (`q5_catchup_race`, 3 of 3). **BLOCKER B3** under TSan: the slowed standby keeps missing the ack timeout during catch-up and the promoted primary's RSS grows until the OOM killer ends it (section 3b; reproduced in release) |
 | T-Q10 | Checkpoint during a move under load, then every node killed and restarted, at copied / sealed / staged / committed / activated (`test_baseline_move.py q10_*`) | **PASS**, 5 of 5 |
 | T-H | `bench/profile_check.py`, used by `bench/lab/lab.py` (`test_profile_check.py`, 10 cases) | **PASS**: each refusal is tested, and a valid Profile B (also as `lab.py` builds it) passes |
+
+**Suites** (this branch, 4-vCPU VM): release 26/26. ASan+UBSan 26/26
+after the `q4_normal` memory criterion took sanitizer shadow memory into
+account. TSan 24/26 on the first run: `q4_normal` (the same shadow-memory
+criterion; TSan measured 3.6x RSS per retained byte, so TSan builds allow
+6x and the rerun passed) and `q5_kill_kill` (BLOCKER B3, section 3b: it
+stays red under TSan until B3 is fixed). No TSan data-race report.
 
 **T-Q2 detail:** the source's answers to sequenced requests were
 discarded (`DEBUG DROP-ANSWERS`) while the slot moved.
@@ -182,6 +189,60 @@ The fix's tests:
 - `q5_kill_kill`, `q5_kill_stop`, `test_witness.py`, `test_health.py`
   and `test_fail_closed.py` still pass.
 - A test of the clustered (`--control`) path does the same.
+
+## 3b. BLOCKER B3: a cancelled catch-up reader keeps reading into memory (T-Q5 under TSan, matrix row 12)
+
+**Observed.** Under TSan, `q5_kill_kill` failed twice in a row: node 0
+"never caught up". Sampling showed why. After node 0 rejoined, node 1 (the
+promoted primary) logged `standby shard N stopped acking: treating it as
+down` again and again, and its RSS grew about 260 MB/s while its
+replication retention stayed small (37 MB at 5.9 GB RSS). The host's OOM
+killer ended it at about 12.7 GB
+(`b3_tsan_q5_rss_samples.txt`). A smaller retention cap
+(`--replica-retain-mib 256`) changed nothing: the memory is not retention.
+
+**Reproduced in release** (`b3_repro.py`; retention capped at 16 MiB per
+shard so the rejoin catches up from disk; node 0 SIGSTOPped 0.7 s of every
+1 s for 30 s, so it misses the 500 ms ack timeout):
+
+| Run | `stopped acking` | Node 1 peak RSS | Retained |
+| --- | --- | --- | --- |
+| Standby stalled (`b3_release_standby_stalled.json`) | 58 | **2,059 MiB** | 31 MiB |
+| Control, no stalls (`b3_release_control.json`) | 0 | 283 MiB | 31 MiB |
+
+In release the memory comes back once the readers finish (RSS falls back to
+about 195 MiB); under TSan, with a slower reader and shadow memory, it
+reached the host's limit first.
+
+**Cause** (`src/core/replication.cpp`, `Sender::start_disk` /
+`stop_disk`). Catch-up from WAL files runs on a detached reader thread that
+queues frames for the shard, at most `kDiskQueued` (16 MiB) ahead.
+`stop_disk()` (every `close_link`: ack timeout, write error, reconnect)
+sets `cancel` and drops the shard's reference. But the reader only looks
+at `cancel` as a reason to stop *waiting* for queue space: it then keeps
+reading the rest of its range and queues all of it, with no limit and no
+consumer, until the range ends. Every reconnect during catch-up starts a
+new reader from the standby's acknowledged LSN, so each failed attempt
+adds another copy of the remaining range to memory, read concurrently.
+
+**Impact on Profile B.** Any standby that catches up from disk and drops
+its link while doing it (slow host, network flap, a standby that is still
+applying when `--replica-timeout-ms` passes) makes the primary hold a
+copy of the remaining catch-up range per attempt. A long outage means a
+large range, so a primary under write load can run out of memory: an
+availability failure on the healthy node, caused by the standby. The
+data stays correct (the shard never sends the abandoned frames).
+
+**Smallest fix proposed** (a separate, reviewed slice; not applied):
+
+- In the reader, treat `cancel` as stop: after the wait in `push()`,
+  drop the frame and stop if `cancel` is set, and make the record callback
+  return at once once stopped (or give `read_stream_range` a stop
+  predicate so it also stops reading the files).
+- Its tests: `b3_repro.py` with the standby stalled stays within the
+  control's peak RSS (plus the 16 MiB read-ahead per live reader), and
+  `q5_kill_kill` passes under TSan; `test_replication`, `test_health`
+  and the T-Q5 scenarios still pass.
 
 ## 4. T-Q1: resend age per path (R11)
 
@@ -346,7 +407,7 @@ run by name. They move into `ctest` with their fixes.
 
 Section 11 of the baseline document still holds. In addition:
 
-- **B1 and B2 must be fixed** in separate reviewed slices, and their
+- **B1, B2 and B3 must be fixed** in separate reviewed slices, and their
   scenarios must pass, before the freeze.
 - **R11 needs a decision** on the restated bound (section 4), or the
   client-side cap.

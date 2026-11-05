@@ -59,6 +59,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import test_async_failover as af  # noqa: E402
 import test_fail_closed as fc  # noqa: E402
+import test_health as th  # noqa: E402
+
+# RSS per retained replication byte: sanitizer shadow memory and redzones
+# (release measured 1.1x, ASan up to 3x, TSan 3.6x: TSan maps about 4x shadow
+# for every application byte it touches).
+RSS_PER_RETAINED = 6 if th.sanitizer(BUILD) == "thread" else 3
 
 UUID = "b7" * 16
 MEM_LIMIT_KB = 4 * 1024 * 1024  # the stated limit for "time to exhaustion": 4 GiB per process
@@ -375,9 +381,8 @@ def scenario_q4(work, delay):
         # below the clients' window (while blocked they sit at it), nothing
         # waits behind full rings, no follow-up is held. Memory: what still
         # grows in the last 5 s is the capped replication retention (it may
-        # still be filling on a slow host): at most 3x its rate (sanitizer
-        # builds add shadow memory and redzones; release measured 1.1x),
-        # plus 5 MiB/s of slack.
+        # still be filling on a slow host): at most RSS_PER_RETAINED times
+        # its rate, plus 5 MiB/s of slack.
         out["checks"] = {
             "granted": bool(out["granted"] and t_grant is not None),
             "waiters_drained": end["waiters"] is not None and end["waiters"] < window,
@@ -385,7 +390,7 @@ def scenario_q4(work, delay):
             "no_overflow": end["overflow"] == 0,
             "no_held_follow_ups": end["emits_held"] == 0,
             "retention_capped": (end["repl_retained"] or 0) <= out["retain_cap_bytes"],
-            "memory_growth_is_retention": rss_rate < 3 * max(ret_rate, 0) + 5 * (1 << 20),
+            "memory_growth_is_retention": rss_rate < RSS_PER_RETAINED * max(ret_rate, 0) + 5 * (1 << 20),
         }
         out["pass"] = all(out["checks"].values())
     finally:

@@ -1025,7 +1025,7 @@ or source comments.
 ### 2026-11-05 UTC --- Claude (Claude Code): pre-baseline readiness tests (T-Q1..T-Q5, T-Q10, T-H)
 
 -   **Classification:** KEEP (tests, harness and instrumentation). Two
-    RECONSIDER items are raised for review, not acted on: B1 and B2.
+    RECONSIDER items are raised for review, not acted on: B1, B2 and B3.
 -   **What:** the pre-baseline tests of `docs/EXPERIMENTAL_BASELINE.md`
     section 5, run as real processes on the development VM. Results and
     evidence: `docs/BASELINE_READINESS.md` and
@@ -1045,6 +1045,15 @@ or source comments.
       is lost. Reproduced 3 of 3. Fails closed when the rejoin is later.
       Proposed fix: a promotion records the term as degraded, and the new
       primary owes SYNCED.
+    - **BLOCKER B3 (T-Q5 under TSan, matrix row 12):** `stop_disk()`
+      cancels the WAL catch-up reader, but the reader only stops waiting
+      for queue space and goes on queuing its whole remaining range. Each
+      reconnect during catch-up adds another copy: 2 GiB peak in release
+      (control 283 MiB), OOM kill under TSan. Proposed fix: the reader
+      stops on `cancel`.
+    - **Suites:** release 26/26; ASan 26/26 and TSan (q4) after the q4
+      memory criterion allowed for sanitizer shadow memory; TSan
+      `q5_kill_kill` stays red until B3 is fixed.
     - **Findings:**
       - F1: retention fills to `--replica-retain-mib` per shard after a
         grant.
@@ -1058,7 +1067,7 @@ or source comments.
     Behaviour is unchanged when they are unused.
 -   **Tests:** new ctest entries for the passing scenarios; the blocker
     scenarios run by name until their fixes.
--   **Next action:** WAIT for cody and Codex to review B1, B2, F1 and F2.
+-   **Next action:** WAIT for cody and Codex to review B1, B2, B3, F1 and F2.
     X1 (the index-query wire kind) goes ahead as its own slice. No
     blocker fix starts without review.
 
