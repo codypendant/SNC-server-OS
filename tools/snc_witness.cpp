@@ -105,7 +105,8 @@ struct State {
   // NOT READY (docs/SYNC_READINESS.md): the primary may run without the
   // standby, or has not yet proven it in sync (first learned, or just
   // promoted). The witnesses promote only from false (READY), which only a
-  // SYNCED of the current term records.
+  // READY of the current term, naming the NOT READY it follows, records
+  // (docs/SYNC_READINESS.md 7).
   bool degraded = false;
   unsigned primary = 0;   // which node (0: --primary, 1: --standby) holds `term`
 
@@ -377,47 +378,48 @@ void serve(int fd) {
       } else {
         if (!d) hold_if_asked();
         u64 v = 0;
-        if (verb == "READY") {
-          // The base must be the latest chosen value, not the newest this
-          // witness or a majority has learned: a NOT READY accepted by a
-          // majority but announced to nobody (a lost COMMIT) is finished
-          // first, else READY could read an older READY and answer OK
-          // while NOT READY is chosen.
-          paxos::Value latest;
-          px.read_linear(ha_machine(group), latest);
+        paxos::Value latest;
+        // The base must be the latest chosen value, not the newest this
+        // witness or a majority has learned: a NOT READY accepted by a
+        // majority but announced to nobody (a lost COMMIT) is finished
+        // first, else READY could read an older READY and answer OK while
+        // NOT READY is chosen. If that read fails, READY is not answered.
+        if (verb == "READY" && !px.read_linear(ha_machine(group), latest)) {
+          reply = "NO no quorum";
+        } else {
+          reply = propose(
+              group,
+              [&](const State& base, State& want) -> std::string {
+                // Not before the primary is learned: learning records which
+                // node is primary (and NOT READY); a grant or READY first
+                // would leave that unset. The primary asks again.
+                if (base.uuid.empty()) return "not learned yet";
+                if (uuid != base.uuid) return "another space";
+                if (term != base.term) {
+                  return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
+                }
+                if (verb == "SYNCED") {
+                  // It names no causal base, so a delayed one could restore
+                  // READY over a later NOT READY (an older primary binary).
+                  return "SYNCED has no causal base: READY uuid term [group] after=N is required";
+                }
+                if (verb == "READY" && base.version < after) {
+                  // Not yet learned here (the linear read failed): ask again.
+                  return "behind v=" + std::to_string(base.version);
+                }
+                if (verb == "READY" && base.degraded && base.version != after) {
+                  // A NOT READY was chosen after the primary's base N: its
+                  // proof does not cover what was acknowledged since.
+                  return "not ready since v=" + std::to_string(base.version);
+                }
+                // READY on a READY state: nothing to choose (want == base).
+                want.uuid = uuid;
+                want.degraded = d;
+                return "";
+              },
+              &v, d);
+          if (reply == "OK" && verb != "DEGRADE") reply += " v=" + std::to_string(v);
         }
-        reply = propose(
-            group,
-            [&](const State& base, State& want) -> std::string {
-              // Not before the primary is learned: learning records which
-              // node is primary (and NOT READY); a grant or READY first
-              // would leave that unset. The primary asks again.
-              if (base.uuid.empty()) return "not learned yet";
-              if (uuid != base.uuid) return "another space";
-              if (term != base.term) {
-                return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
-              }
-              if (verb == "SYNCED") {
-                // It names no causal base, so a delayed one could restore
-                // READY over a later NOT READY (an older primary binary).
-                return "SYNCED has no causal base: READY uuid term [group] after=N is required";
-              }
-              if (verb == "READY" && base.version < after) {
-                // Not yet learned here (the linear read failed): ask again.
-                return "behind v=" + std::to_string(base.version);
-              }
-              if (verb == "READY" && base.degraded && base.version != after) {
-                // A NOT READY was chosen after the primary's base N: its
-                // proof does not cover what was acknowledged since.
-                return "not ready since v=" + std::to_string(base.version);
-              }
-              // READY on a READY state: nothing to choose (want == base).
-              want.uuid = uuid;
-              want.degraded = d;
-              return "";
-            },
-            &v, d);
-        if (reply == "OK" && verb != "DEGRADE") reply += " v=" + std::to_string(v);
       }
       std::printf("t=%.2f group %u %s: primary term %llu %s: %s\n",
                   secs(t0, std::chrono::steady_clock::now()), group, verb.c_str(), term,
@@ -629,7 +631,7 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
               want.term = term;
               want.primary = n;
               // NOT READY until the primary proves its standby in sync
-              // (SYNCED; docs/SYNC_READINESS.md 2).
+              // (READY; docs/SYNC_READINESS.md 2, 7).
               want.degraded = true;
               return "";
             }) == "OK") {

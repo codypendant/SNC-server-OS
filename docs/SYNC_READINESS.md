@@ -272,8 +272,10 @@ it runs, however late.
   after=N delayed from before the grant was then chosen over it.
   Characterized: `bench/results/ready-order-20261105/char/lost_commit_char.txt`.)
 - **The primary checks it too.** It keeps the highest NOT READY version
-  answered to it (never reset) and does not take a NOTREADY answer at or
-  below it as a grant or a base; it asks again.
+  answered to this process (never reset while the process runs; a
+  restarted process starts from 0 and relies on the witness rule above)
+  and does not take a NOTREADY answer at or below it as a grant or a
+  base; it asks again.
 - **READY names its causal base.** The primary sends
   `READY uuid term [group] after=N`. N is the version of the most recent
   NOTREADY this primary process had answered OK *before it read the
@@ -285,12 +287,15 @@ it runs, however late.
     older READY would otherwise answer READY's no-op OK while NOT READY is
     chosen (review finding; the primary then stopped owing READY, so
     failover stayed off until the next outage). If B is still older than
-    N, `NO behind v=B.version` and the primary asks again.
+    N, `NO behind v=B.version` and the primary asks again. If the
+    linearizable read itself fails (no majority answers in time), READY
+    is answered `NO no quorum` and nothing is proposed (second review:
+    otherwise the false no-op came back through a failed read).
   - B.uuid empty: `NO not learned yet`. B.uuid != uuid: `NO another space`.
   - B.term != term: `NO term T was replaced by U` (unchanged).
   - B is READY (degraded false): `OK v=B.version`, nothing chosen. The
-    state already says what READY wants; no transition happens, so no
-    stale base can do harm.
+    state already says what READY wants; no transition happens. (The
+    base is the latest chosen value: see the linearizable read above.)
   - B is NOT READY and **B.version == N**: choose READY (version N+1).
   - B is NOT READY and B.version != N: `NO not ready since v=B.version`.
     Some NOT READY transition for this group and term was chosen after
@@ -418,6 +423,27 @@ not closed: it does not involve a delayed READY. Still excluded by
 EXPERIMENTAL_BASELINE Q9. No witness state format change, no Paxos
 change other than letting a proposal ask for a fresh instance and report
 the version it chose.
+
+**Found by the second review, not fixed here (reported):**
+
+- **F7: readiness latency with a stopped witness, and one proposal
+  queue.** A witness that accepts connections but does not answer costs
+  every broadcast its 300 ms timeout, so a READY (linearizable read plus
+  proposal) takes 1.8 to 2.4 s, longer than the primary's 1.5 s per
+  witness: each attempt times out at every witness, and READY converges a
+  loop later (through the no-op), about 4.5 s per attempt. Every machine
+  of a witness (all groups, placement, leases) shares one proposal lock,
+  and a queued request has no expiry, so with many groups failing
+  together stale queued NOT READYs can refuse a primary's READY and cost
+  more rounds. Liveness only: each refused READY is safe. Options for
+  review: a primary budget at least the witness deadline, or dropping
+  requests queued past it.
+- **F8 (pre-existing, Paxos): ballots are not persisted.** A witness
+  takes ballots from wall-clock milliseconds and does not save the last
+  one it used. Restarted after its clock stepped back, it could reuse a
+  ballot already used in an open instance with another value, which can
+  break Paxos uniqueness. Saving the highest ballot used closes it.
+  Unchanged by this slice; not in its scope (no witness format change).
 
 ### 7.6 Tests (work order V1 to V10)
 
