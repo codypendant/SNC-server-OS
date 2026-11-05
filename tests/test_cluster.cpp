@@ -458,8 +458,11 @@ std::vector<pid_t> start_control(const std::string& dir, u16 port0, std::string&
       ::dup2(null, 1);
       const std::string port = std::to_string(port0 + i), state = dir + "/witness" + std::to_string(i),
                         id = std::to_string(i);
+      // A first start creates the state (--new-state 1); on a restart the
+      // null "fresh" ends the argument list before it.
+      const char* fresh = ::access(state.c_str(), F_OK) == 0 ? nullptr : "--new-state";
       ::execl(exe.c_str(), exe.c_str(), "--port", port.c_str(), "--state", state.c_str(), "--id", id.c_str(),
-              "--peers", members.c_str(), static_cast<char*>(nullptr));
+              "--peers", members.c_str(), fresh, "1", static_cast<char*>(nullptr));
       _exit(127);
     }
     pids.push_back(track(pid));

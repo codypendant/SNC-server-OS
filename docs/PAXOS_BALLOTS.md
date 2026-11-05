@@ -6,9 +6,10 @@ for the initial Profile B after the hardening of section 9 (2026-11-05,
 characterization (work order `handoff/PR50_Review_Handoff.txt`), kept as
 written apart from status notes; section 9 is the hardening that
 followed it. The characterization changed neither the protocol nor the
-state file; it added test hooks behind `snc_witness --debug 1`. Evidence: `bench/results/paxos-ballots-20261105/`.
+state file; it added test hooks behind `snc_witness --debug 1`.
+Characterization evidence: `bench/results/paxos-ballots-20261105/`.
 Test: `tests/test_paxos_ballots.py` (in `ctest`). Suites on the hook
-commit: release `ctest` 30/30; ASan+UBSan and TSan
+commit (before section 9; results for section 9 in 9.5): release `ctest` 30/30; ASan+UBSan and TSan
 `test_paxos_ballots`, `test_witness`, `test_ready_order` 3/3 each, zero
 sanitizer reports (`ctest_*.txt` in the evidence folder).
 
@@ -363,6 +364,9 @@ through `tests/witness_state.py` or the lab).
 
 `tests/test_witness_hardening.py` (H1 to H9, H12), `tests/test_profile_check.py`
 (H10 and the guard's G1/F11 rules); H11, H13, H14 are the existing suites.
+Every witness launch in the tests (Python and C++: `test_cluster`,
+`test_migrate`) and in `bench/` passes `--new-state 1` on a first start
+only.
 Evidence: `bench/results/witness-hardening-20261105/`.
 
 | Test | Claim | Result |
@@ -379,8 +383,8 @@ Evidence: `bench/results/witness-hardening-20261105/`.
 | H10 | Guard: file deleted, directory recreated (even with the same inode number), older copy put back: violation; ordinary rename save: passes; lab command lines pass | PASS |
 | H11 | C1 to C4 (C4b now shows G1 refusing the restart, exit 2, then reproduces F9 only with the forbidden `--new-state 1`) | PASS |
 | H12 | Ordinary restart on an intact file (H2, H8, H9, and every restart in the suites) | PASS |
-| H13 | READY causal order V1 to V10 (`test_ready_order`, m1 to m3 against a pre-READY build) | see 9.4 |
-| H14 | Witness, control, health, fail-closed regressions | see 9.4 |
+| H13 | READY causal order V1 to V10 (`test_ready_order`, m1 to m3 against a pre-READY build) | see 9.5 |
+| H14 | Witness, control, health, fail-closed regressions | see 9.5 |
 
 ### 9.3 Invalid histories for the initial Profile B (F9 exclusion)
 

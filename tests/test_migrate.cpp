@@ -347,9 +347,11 @@ pid_t spawn(const std::vector<std::string>& args, const std::string& log) {
 std::string build_dir() { return g_exe.substr(0, g_exe.rfind('/')); }
 
 pid_t spawn_witness(const Env& e, u32 i) {
-  return spawn({build_dir() + "/snc_witness", "--port", std::to_string(e.witness(i)), "--state",
-                e.dir + "/w" + std::to_string(i), "--id", std::to_string(i), "--peers", e.control()},
-               e.dir + "/w" + std::to_string(i) + ".log");
+  const std::string state = e.dir + "/w" + std::to_string(i);
+  std::vector<std::string> args{build_dir() + "/snc_witness", "--port", std::to_string(e.witness(i)), "--state",
+                                state, "--id", std::to_string(i), "--peers", e.control()};
+  if (!exists(state)) args.insert(args.end(), {"--new-state", "1"});  // first start only
+  return spawn(args, e.dir + "/w" + std::to_string(i) + ".log");
 }
 
 pid_t spawn_node(const Env& e, u32 k, bool restart) {

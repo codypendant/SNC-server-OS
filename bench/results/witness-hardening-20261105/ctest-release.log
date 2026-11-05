@@ -2,54 +2,52 @@ Test project /home/claude/snc-server-os/build
       Start  1: test_object_id
  1/31 Test  #1: test_object_id ...................   Passed    0.01 sec
       Start  2: test_local_map
- 2/31 Test  #2: test_local_map ...................   Passed    1.77 sec
+ 2/31 Test  #2: test_local_map ...................   Passed    1.63 sec
       Start  3: test_pages
- 3/31 Test  #3: test_pages .......................   Passed    1.52 sec
+ 3/31 Test  #3: test_pages .......................   Passed    1.13 sec
       Start  4: test_runtime
- 4/31 Test  #4: test_runtime .....................   Passed    0.12 sec
+ 4/31 Test  #4: test_runtime .....................   Passed    0.14 sec
       Start  5: test_execute
- 5/31 Test  #5: test_execute .....................   Passed    0.07 sec
+ 5/31 Test  #5: test_execute .....................   Passed    0.06 sec
       Start  6: test_persistence
- 6/31 Test  #6: test_persistence .................   Passed    0.61 sec
+ 6/31 Test  #6: test_persistence .................   Passed    0.51 sec
       Start  7: test_crash
- 7/31 Test  #7: test_crash .......................   Passed    0.96 sec
+ 7/31 Test  #7: test_crash .......................   Passed    0.94 sec
       Start  8: test_net
- 8/31 Test  #8: test_net .........................   Passed    0.23 sec
+ 8/31 Test  #8: test_net .........................   Passed    0.04 sec
       Start  9: test_transfer
- 9/31 Test  #9: test_transfer ....................   Passed    3.34 sec
+ 9/31 Test  #9: test_transfer ....................   Passed    3.08 sec
       Start 10: test_replication
-10/31 Test #10: test_replication .................   Passed   17.76 sec
+10/31 Test #10: test_replication .................   Passed   17.39 sec
       Start 11: test_cluster
-11/31 Test #11: test_cluster .....................***Failed   11.10 sec
+11/31 Test #11: test_cluster .....................***Failed   10.79 sec
 map: ok
 routing: 360 reads, each sent to its owner's primary by the cluster map (epoch 1); a misrouted one refused with E_MOVED (its epoch and owner)
-node 0: 30512 follow-ups sent to other nodes, 36087 received, 6538 dropped, 13 resumes, 12 connects
-node 1: 23862 follow-ups sent to other nodes, 20272 received, 867 dropped, 10 resumes, 8 connects
-node 2: 39162 follow-ups sent to other nodes, 38717 received, 3683 dropped, 11 resumes, 12 connects
-kill and restart: 25031 transfers acknowledged, 360 accounts, 0 off the log
-snc_witness: state file /tmp/snc-cluster-51uU9f/witness1 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
-snc_witness: state file /tmp/snc-cluster-51uU9f/witness2 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
-snc_witness: state file /tmp/snc-cluster-51uU9f/witness0 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
+node 0: 37280 follow-ups sent to other nodes, 40032 received, 10784 dropped, 15 resumes, 12 connects
+node 1: 25191 follow-ups sent to other nodes, 20621 received, 2013 dropped, 9 resumes, 8 connects
+node 2: 43824 follow-ups sent to other nodes, 41631 received, 7848 dropped, 12 resumes, 12 connects
+kill and restart: 24087 transfers acknowledged, 360 accounts, 0 off the log
+snc_witness: state file /tmp/snc-cluster-pv0Lyx/witness2 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
+snc_witness: state file /tmp/snc-cluster-pv0Lyx/witness0 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
+snc_witness: state file /tmp/snc-cluster-pv0Lyx/witness1 does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)
 /home/claude/snc-server-os/tests/test_cluster.cpp:494: CHECK failed: std::chrono::steady_clock::now() - t0 < std::chrono::seconds(10)
 
       Start 12: test_migrate
-12/31 Test #12: test_migrate .....................Subprocess killed***Exception:  10.02 sec
-test_migrate: scenario copied/driver: placement init: NO no control member answered (kept /tmp/snc-migrate-TMvQWv)
+12/31 Test #12: test_migrate .....................Subprocess killed***Exception:  10.01 sec
+test_migrate: scenario copying/driver: placement init: NO no control member answered (kept /tmp/snc-migrate-uIiggB)
 
       Start 13: test_resend_refusals
-13/31 Test #13: test_resend_refusals .............   Passed    0.03 sec
+13/31 Test #13: test_resend_refusals .............   Passed    0.04 sec
       Start 14: test_proof
-14/31 Test #14: test_proof .......................   Passed    1.50 sec
+14/31 Test #14: test_proof .......................   Passed    1.49 sec
       Start 15: test_placement
-15/31 Test #15: test_placement ...................   Passed    0.02 sec
+15/31 Test #15: test_placement ...................   Passed    0.03 sec
       Start 16: test_stage_chain
-16/31 Test #16: test_stage_chain .................   Passed    8.51 sec
+16/31 Test #16: test_stage_chain .................   Passed    8.12 sec
       Start 17: test_witness
-17/31 Test #17: test_witness .....................   Passed   24.31 sec
+17/31 Test #17: test_witness .....................   Passed   24.29 sec
       Start 18: test_async_failover
-18/31 Test #18: test_async_failover ..............   Passed   13.75 sec
+18/31 Test #18: test_async_failover ..............   Passed   13.66 sec
       Start 19: test_control
-19/31 Test #19: test_control .....................   Passed    1.52 sec
+19/31 Test #19: test_control .....................   Passed    1.50 sec
       Start 20: test_health
-20/31 Test #20: test_health ......................   Passed  155.73 sec
-      Start 21: test_fail_closed

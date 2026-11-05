@@ -99,7 +99,8 @@ Decided by cody on 2026-11-04.
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
   - **The delayed-SYNCED window fix (PR #50) is approved.** F8/F9 were
     decided in the PR #51 review; the witness hardening slice it
-    authorized is done (PAXOS_BALLOTS section 9). Next: the FINAL
+    authorized is implemented and awaiting review (PAXOS_BALLOTS
+    section 9). Next: the FINAL
     experimental baseline freeze review. No benchmarks before it.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
