@@ -127,6 +127,12 @@ Msg* sri_claim(u16 dst, bool must_deliver) {
   return &ov.emplace_back();
 }
 
+u64 sri_overflow_queued() {
+  u64 n = 0;
+  for (const auto& ov : tl_worker->overflow) n += ov.size();
+  return n;
+}
+
 void sri_publish(u16 dst) {
   Worker& w = *tl_worker;
   Ring& r = *w.outbound[dst];

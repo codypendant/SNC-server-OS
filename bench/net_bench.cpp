@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <sched.h>
 
+#include <algorithm>
 #include <atomic>
 #include <barrier>
 #include <chrono>
@@ -381,7 +382,7 @@ int main(int argc, char** argv) {
 
   Histogram all;
   u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0, replayed = 0,
-      failovers = 0, timeouts = 0;
+      failovers = 0, timeouts = 0, resends = 0, max_resend_age_ms = 0;
   for (auto& t : threads) {
     if (!t.error.empty()) {
       std::fprintf(stderr, "thread %u: %s\n", t.index, t.error.c_str());
@@ -395,6 +396,8 @@ int main(int argc, char** argv) {
     replayed += t.replayed;
     failovers += t.client.failovers();
     timeouts += t.client.timeouts();
+    resends += t.client.resends();
+    max_resend_age_ms = std::max(max_resend_age_ms, t.client.max_resend_age_ms());
     misrouted += t.misrouted;
     forwarded += t.client.forwarded();
   }
@@ -411,8 +414,9 @@ int main(int argc, char** argv) {
   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
               100.0 * misrouted / std::max<u64>(1, ops), 100.0 * forwarded / std::max<u64>(1, ops));
   if (a.session) {
-    std::printf("  failovers %llu  replayed %llu  timeouts %llu\n", (unsigned long long)failovers,
-                (unsigned long long)replayed, (unsigned long long)timeouts);
+    std::printf("  failovers %llu  replayed %llu  timeouts %llu  resends %llu  max_resend_age_ms %llu\n",
+                (unsigned long long)failovers, (unsigned long long)replayed, (unsigned long long)timeouts,
+                (unsigned long long)resends, (unsigned long long)max_resend_age_ms);
   }
   if (a.verify) {
     // Every account's balance is its start (1000) plus the deposits sent.

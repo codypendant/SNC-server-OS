@@ -342,6 +342,12 @@ bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   return true;
 }
 
+u64 sri_overflow_queued() {
+  u64 n = 0;
+  for (const auto& ov : tl->overflow) n += ov.size();
+  return n;
+}
+
 void sri_publish(u16 dst) {
   Shard& s = *tl;
   if (g->rings) {

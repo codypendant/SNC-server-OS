@@ -53,6 +53,10 @@ void sri_commit(u16 dst, Msg* msg);
 // Make what was sent to `dst` visible now rather than at the end of this
 // loop iteration (the wake-up of a sleeping consumer still happens there).
 void sri_publish(u16 dst);
+// Messages this shard has queued behind full rings (the overflow of every
+// destination, `must_deliver` ones included): a resource gauge for tests
+// (docs/EXPERIMENTAL_BASELINE.md T-Q4).
+u64 sri_overflow_queued();
 
 u64 sri_now_ns();
 // Backend name for reports: "native" or "seastar". Valid on any thread.

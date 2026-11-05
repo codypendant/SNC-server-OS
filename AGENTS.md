@@ -1021,3 +1021,44 @@ or source comments.
       11-step order is recorded.
 -   **Next action:** implement the pre-baseline tests and guards, then
     X1. Blockers found are characterized and returned, not fixed.
+
+### 2026-11-05 UTC --- Claude (Claude Code): pre-baseline readiness tests (T-Q1..T-Q5, T-Q10, T-H)
+
+-   **Classification:** KEEP (tests, harness and instrumentation). Two
+    RECONSIDER items are raised for review, not acted on: B1 and B2.
+-   **What:** the pre-baseline tests of `docs/EXPERIMENTAL_BASELINE.md`
+    section 5, run as real processes on the development VM. Results and
+    evidence: `docs/BASELINE_READINESS.md` and
+    `bench/results/baseline-readiness-20261105/`.
+    - **Pass:** T-Q1 (seven resend paths; the oldest resend on a failure
+      path was 10.2 s), T-Q2 (lost answers across a slot move, replayed by
+      the source, exact), T-Q4 (growth bounded while blocked; it drains
+      at the grant), T-Q10 (5 move steps, checkpoint then restart) and T-H.
+    - **BLOCKER B1 (T-Q3, matrix row 13):** a checkpoint in flight when
+      the standby dies holds the main thread on durability that needs the
+      standby, so DEGRADE is never asked. Reproduced 1 of 3, with a gdb
+      stack. Proposed fix: the checkpoint waits for local WAL durability
+      only.
+    - **BLOCKER B2 (T-Q5, matrix rows 5 and 12):** after a failover, an
+      old primary rejoining within `--replica-timeout-ms` is promoted by
+      the witnesses while still catching up, and every acknowledged write
+      is lost. Reproduced 3 of 3. Fails closed when the rejoin is later.
+      Proposed fix: a promotion records the term as degraded, and the new
+      primary owes SYNCED.
+    - **Findings:**
+      - F1: retention fills to `--replica-retain-mib` per shard after a
+        grant.
+      - F2: section 7's 35 s resend bound fails while a primary is
+        blocked by a control-plane outage; a restated bound is proposed.
+-   **Instrumentation:**
+    - the `RESOURCES` admin verb and the `ShardStats` gauges;
+    - `net::Client` resend age;
+    - `DEBUG DROP-ANSWERS` (`--debug-admin` only).
+
+    Behaviour is unchanged when they are unused.
+-   **Tests:** new ctest entries for the passing scenarios; the blocker
+    scenarios run by name until their fixes.
+-   **Next action:** WAIT for cody and Codex to review B1, B2, F1 and F2.
+    X1 (the index-query wire kind) goes ahead as its own slice. No
+    blocker fix starts without review.
+

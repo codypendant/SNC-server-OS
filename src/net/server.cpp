@@ -2,6 +2,7 @@
 // request goes through the ordinary API on the shard that received it, so a
 // request for another shard's object takes the cross-shard path (and the
 // response says so); a request sent to the owner never leaves its core.
+#include <atomic>
 #include <memory>
 
 #include "snc/net.h"
@@ -20,6 +21,7 @@ struct NetServer::PerShard {
     ConnSet::Conn* conn;
     u64 req_id;
     bool forwarded;
+    bool sequenced;
   };
 
   static void on_request(void* user, ConnSet::Conn* c, const wire::ReqHeader& h, ByteView args);
@@ -42,6 +44,9 @@ struct NetServer::PerShard {
 };
 
 namespace {
+std::atomic<bool> g_drop_answers{false};
+std::atomic<u64> g_dropped{0};
+
 wire::RespHeader resp_header(u64 req_id, Status s, const ObjectID& id, u32 body_len) {
   wire::RespHeader h{};
   h.len = static_cast<u32>(sizeof(h)) + body_len;
@@ -114,6 +119,7 @@ void NetServer::PerShard::on_request(void* user, ConnSet::Conn* c, const wire::R
   r->ps = ps;
   r->conn = c;
   r->req_id = h.req_id;
+  r->sequenced = opts.client_id != 0;
   r->forwarded = (h.kind != wire::Kind::CREATE || !h.target.is_null()) &&
                  owner_of(h.target) != sri_shard_id();
   ps->forwarded += r->forwarded;
@@ -146,7 +152,11 @@ void NetServer::PerShard::on_done(void* ctx, const ExecResult& r) {
   if (r.durable) h.flags |= wire::kRespDurable;
   if (q->forwarded) h.flags |= wire::kRespForwarded;
   if (r.replayed) h.flags |= wire::kRespReplayed;
-  ps->cs.respond(q->conn, h, r.result);
+  if (q->sequenced && g_drop_answers.load(std::memory_order_relaxed)) {
+    g_dropped.fetch_add(1, std::memory_order_relaxed);  // tests: the answer is "lost"
+  } else {
+    ps->cs.respond(q->conn, h, r.result);
+  }
   ConnSet::release(q->conn);
   ps->free_reqs.push_back(q);
 }
@@ -158,6 +168,10 @@ NetServer::NetServer(const Config& cfg, u16 n_shards) : cfg_(cfg) {
 }
 
 NetServer::~NetServer() = default;
+
+void NetServer::debug_drop_answers(bool on) { g_drop_answers.store(on, std::memory_order_relaxed); }
+
+u64 NetServer::debug_dropped() { return g_dropped.load(std::memory_order_relaxed); }
 
 bool NetServer::poll_hook(void* self, u16 shard) {
   PerShard& ps = *static_cast<NetServer*>(self)->shards_[shard];

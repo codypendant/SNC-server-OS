@@ -1,0 +1,30 @@
+{
+ "blocked_s": 40.02,
+ "granted": true,
+ "bench": {
+  "rc": 0,
+  "exited_after_s": 65.04,
+  "failovers": 10,
+  "replayed": 124,
+  "timeouts": 10,
+  "resends": 320,
+  "max_resend_age_ms": 35275,
+  "accounts": 2000,
+  "deposits": 1953667,
+  "mismatches": 0,
+  "ops_s": 30056,
+  "errors": 0,
+  "tail": [
+   "run: reads=0% seconds=65.00",
+   "  ops/s 30056  errors 0  overloaded 0  stale 0",
+   "  latency ns  p50 720896  p95 1376256  p99 2031616  p99.9 4325376",
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 10  replayed 124  timeouts 10  resends 320  max_resend_age_ms 35275",
+   "  verify: 2000 accounts, 1953667 deposits, 0 mismatches"
+  ]
+ },
+ "age_over_blocked": -4.73,
+ "pass": true,
+ "scenario": "q1_blocked",
+ "seconds": 66.6
+}

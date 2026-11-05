@@ -40,6 +40,21 @@ Decided by cody on 2026-11-04.
   It found no blocker for these profiles. Two items (checkpoint × lost
   standby, blocked sync × memory) become blockers for Profile B's
   failure runs if their tests reproduce the hazard.
+- **Pre-baseline test results (2026-11-05,
+  [BASELINE_READINESS.md](BASELINE_READINESS.md)).**
+  - **Pass:** T-Q1, T-Q2, T-Q4, T-Q10 and T-H (`bench/profile_check.py`,
+    used by `lab.py`).
+  - **Two Profile B BLOCKERS were reproduced, and neither is fixed.** Each
+    has a proposed fix awaiting review:
+    - B1: a checkpoint wedges a sync primary whose standby dies (T-Q3).
+    - B2: the witnesses promote a standby that is still catching up after
+      a fast rejoin, and acknowledged writes are lost (T-Q5).
+  - **Findings:**
+    - F1: replication retention after a grant must be declared.
+    - F2: the resend age follows a control-plane outage while a primary
+      is blocked.
+  - **The freeze waits** for both fixes and a decision on R11's restated
+    bound.
 - **Evidence rules:** every benchmark host has a manifest in
   [bench/manifests/](../bench/manifests/README.md); raw results go under
   `bench/results/<campaign>/` with the exact configuration and commit

@@ -1,0 +1,56 @@
+==== node 0 (last start) ====
+rejoin: the other node is primary; old data moved to /tmp/snc-health-mj4rwajb/n0.stale-1793838339
+rejoin: starting as its standby, seeded from 127.0.0.1:25992
+snc: seeded from 127.0.0.1:25992: checkpoint 1, 3 files, 0.0 MiB
+snc_server shards=2 ports 25912-25913 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+space uuid c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3  standby, listening on 25972-25973
+snc: start barrier done: serving as a primary
+promoted to primary: term 2, in 0.002s
+witness: granted, continuing without the standby
+snc: shard 1: standby unreachable, continuing without it
+snc: shard 0: standby unreachable, continuing without it
+==== node 1 (last start) ====
+snc_server shards=2 ports 25922-25923 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+space uuid c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3  standby, listening on 25932-25933
+snc: start barrier done: serving as a primary
+promoted to primary: term 1, in 0.003s
+snc: seed of checkpoint 1 sent
+==== witness 0 ====
+snc_witness: port 25942, 3 witnesses
+snc_witness: group 0: state version 0, term 0, primary node 0
+snc_witness: liveness polled with HEALTH (STATUS for nodes without it)
+t=0.00 group 0 primary up: term 0
+t=5.04 group 0 failover learned: node 0 serves as primary, term 2
+t=5.48 group 0 DEGRADE: primary term 2 continues without its standby: OK
+==== witness 1 ====
+snc_witness: port 25943, 3 witnesses
+snc_witness: group 0: state version 0, term 0, primary node 0
+snc_witness: liveness polled with HEALTH (STATUS for nodes without it)
+t=0.00 group 0 primary up: term 0
+t=3.95 group 0 failover: primary silent for 1.00s, standby promoted to term 1 in 0.012s
+t=4.97 group 0 failover learned: node 0 serves as primary, term 2
+==== witness 2 ====
+snc_witness: port 25944, 3 witnesses
+snc_witness: group 0: state version 0, term 0, primary node 0
+snc_witness: liveness polled with HEALTH (STATUS for nodes without it)
+t=0.00 group 0 primary up: term 0
+t=3.95 group 0 failover learned: node 1 serves as primary, term 1
+t=4.96 group 0 failover: primary silent for 1.00s, standby promoted to term 2 in 0.009s
+==== net_bench ====
+net_bench shards=2 threads=2 depth=64/thread route=owner misroute=0%
+load: 2000 objects in 0.04s (45007 creates/s)
+run: reads=0% seconds=45.00
+  ops/s 2404096  errors 107771403  overloaded 0  stale 0
+  latency ns  p50 33792  p95 56320  p99 270336  p99.9 1114112
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  failovers 4  replayed 206  timeouts 0  resends 256  max_resend_age_ms 1940
+  verify: account 0 has -1, expected 55245
+  verify: account 1 has -1, expected 55404
+  verify: account 2 has -1, expected 54784
+  verify: account 3 has -1, expected 55196
+  verify: account 4 has -1, expected 55084
+  verify: 2000 accounts, 108185241 deposits, 2000 mismatches
+==== earlier node process 0 ====
+rejoin: the other node is a standby; starting as primary
+snc_server shards=2 ports 25912-25913 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+space uuid c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3  replicating to 127.0.0.1:25932 (sync)

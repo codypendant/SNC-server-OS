@@ -1651,6 +1651,9 @@ ShardStats Shard::stats() const {
   if (links_) s.node_connects = links_->connects();
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
+  s.waiters_now = waiters_.size();
+  s.overflow_now = sri_overflow_queued();
+  s.wal_next_lsn = wal_ ? wal_->next_lsn() : 0;
   if (sender_) {
     s.repl_role = 1;
     s.repl_live = sender_->live();
