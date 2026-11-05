@@ -44,22 +44,37 @@ Decided by cody on 2026-11-04.
   [BASELINE_READINESS.md](BASELINE_READINESS.md)).**
   - **Pass:** T-Q1, T-Q2, T-Q4, T-Q10 and T-H (`bench/profile_check.py`,
     used by `lab.py`).
-  - **Three Profile B BLOCKERS were reproduced, and none is fixed.** Each
-    has a proposed fix awaiting review:
-    - B1: a checkpoint wedges a sync primary whose standby dies (T-Q3).
-    - B2: the witnesses promote a standby that is still catching up after
-      a fast rejoin, and acknowledged writes are lost (T-Q5).
-    - B3: a cancelled WAL catch-up reader keeps reading its range into
-      memory; repeated link drops during catch-up grow the primary's RSS
-      until the OOM killer ends it (T-Q5 under TSan; 2 GiB in release).
+  - **Three Profile B BLOCKERS were reproduced (B1, B2, B3), and all three
+    are FIXED (2026-11-05,
+    [BASELINE_READINESS.md](BASELINE_READINESS.md) section 10), awaiting
+    cody's and Codex's review:**
+    - B1: a checkpoint waits only for local WAL durability, so a sync
+      primary whose standby dies no longer wedges (q3_runtime20: 20/20).
+    - B2: a standby is promotable only once proven in sync. The witnesses
+      record NOT READY on learn, promotion, grant, reseed, regression and
+      every primary start; only SYNCED from the current term clears it
+      ([SYNC_READINESS.md](SYNC_READINESS.md)). There is no witness state
+      format change.
+    - B3: a cancelled catch-up reader stops producing, and stops scanning
+      too. The ack timeout no longer counts the primary's own disk reads
+      or pacing, which also fixes F5 (catch-up below 2 MiB/s livelocked).
+    - Fresh suites on the final code: release, ASan+UBSan and TSan each
+      28/28, with zero sanitizer reports.
   - **Findings:**
-    - F1: replication retention after a grant must be declared.
-    - F2: the resend age follows a control-plane outage while a primary
-      is blocked.
+    - F1: replication retention after a grant must be declared (to be
+      measured on the R640).
+    - F2: done. The R11 contract is "every in-doubt resend before session
+      expiry", enforced per run by `net_bench --retry-claim-ttl-s`.
+    - F6: degraded mode has no back-pressure, so a group can stay NOT
+      READY (unavailable for failover, never unsafe).
+    - Open proposal (not coded): a delayed same-term SYNCED can land
+      after a later grant (SYNC_READINESS.md 4).
   - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
-  - **The freeze waits** for the three fixes and a decision on R11's restated
-    bound.
+  - **The freeze waits** for the review of these fixes.
+- **Future architecture vision (not authorized):** cody's and Codex's
+  v2 vision is filed with a core review in
+  [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
 - **Evidence rules:** every benchmark host has a manifest in
   [bench/manifests/](../bench/manifests/README.md); raw results go under
   `bench/results/<campaign>/` with the exact configuration and commit

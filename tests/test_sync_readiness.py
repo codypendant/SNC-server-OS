@@ -71,8 +71,8 @@ SESSION = 1000
 WINDOW = 2 * 64 * 2  # the client's requests in flight, as records per shard pair
 # Catch-up from WAL files: little kept in memory, and slowly, so that the
 # windows these tests aim at last seconds.
-# 8 MiB/s: below about 2 MiB/s a 1 MiB disk frame outlasts the 500 ms ack
-# timeout and catch-up restarts forever (docs/BASELINE_READINESS.md F3).
+# 8 MiB/s so the backlog drains in time. (Below about 2 MiB/s catch-up used
+# to livelock against the ack timeout: docs/BASELINE_READINESS.md F5, fixed.)
 THROTTLED = ("--replica-retain-mib", "1", "--catchup-mib-s", "8")
 NO_PROMOTION_S = 8  # well past --failover-ms (1000) and the polls
 

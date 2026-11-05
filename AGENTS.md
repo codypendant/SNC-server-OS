@@ -1099,3 +1099,48 @@ or source comments.
 -   **Next action:** WAIT for cody and Codex to review B1, B2, B3, F1, F2
     and X1. No blocker fix, freeze, manifest or campaign work starts
     without review.
+
+### 2026-11-05 UTC --- Claude (Claude Code): B3, B1, B2 blocker fixes (work order PR47_PR48_Blocker_Fix_Handoff)
+
+-   **Classification:** REFINE (fixes inside the existing design). B2
+    stays narrow: no witness state or Paxos format change, and no R08
+    async policy.
+-   **What:** `docs/BASELINE_READINESS.md` section 10 has the full record.
+    - **B3.** A cancelled catch-up reader stops reading, allocating and
+      queueing, and stops scanning (`read_stream_range` takes a stop
+      predicate). Gauges are in `RESOURCES`.
+    - **B3 (TSan).** The ack timeout runs only while the standby owes an
+      ack for a frame it has begun to get. Neither the primary's own
+      reader nor its pacing counts. This also fixes F5 (catch-up rate floor).
+    - **B1.** A checkpoint waits only for local WAL durability. The client
+      ack contract is unchanged.
+    - **B2.** Readiness is recorded and proven: `degraded` means NOT
+      READY, and only SYNCED from the current term clears it
+      (`docs/SYNC_READINESS.md`).
+      - Protocol additions: seed status 3 "retry", and the witness reply
+        "NO not learned yet".
+      - The receiver answers the handshake only once its position is
+        durable.
+    - **F2/R11.** The contract is stated in EXPERIMENTAL_BASELINE section
+      7, and `net_bench --retry-claim-ttl-s` enforces it per run.
+-   **Tests:**
+    - New: `test_sync_readiness` (work-order tests 1 to 10),
+      `b3_stalled_catchup`, `r11_guard`, `q5_catchup_race`, and the f19
+      log order.
+    - Existing tests wait for READY before killing a primary.
+    - Final suites: release, ASan+UBSan and TSan each 28/28, zero
+      sanitizer reports.
+    - Evidence for every T-Q scenario is in
+      `bench/results/blocker-fixes-20261105/rel/`.
+    - An independent source review found two B2 holes, both fixed.
+-   **Open:** a delayed same-term SYNCED can land after a later DEGRADE
+    grant (proposed `OK v=N` and `SYNCED ... after=N`; not coded, needs
+    a witness protocol change). F6: no back-pressure in degraded mode. F1
+    is to be measured on the R640.
+-   **Also on this branch:** cody's and Codex's future architecture vision
+    v2 is filed with a review (`docs/FUTURE_ARCHITECTURE.md`). It
+    authorizes nothing.
+-   **Next action:** WAIT for cody and Codex to review. No freeze, no
+    benchmark campaign, and none of the not-authorized items (R08 async
+    auto-failover, session incarnation, S2/S3, index redesign) start
+    without review.

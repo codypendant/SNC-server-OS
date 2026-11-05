@@ -548,7 +548,7 @@ bool Sender::poll(u64 now_ns) {
   // The ack timeout measures the standby, not this primary: it runs only
   // while the standby owes an ack for a frame it has begun to get. Waiting
   // on our own disk reader, or on our catch-up rate (send_disk), is not
-  // silence: both used to livelock against this timeout (F3, and TSan).
+  // silence: both used to livelock against this timeout (BASELINE_READINESS F5, and TSan).
   // Bytes accepted by the socket are not progress: a stopped standby's
   // socket buffer would hide it for as long as it takes to fill.
   if (advanced || acked_ >= owed_ || acked_ + 1 >= next_expected_) {

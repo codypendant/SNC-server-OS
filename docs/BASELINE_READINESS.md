@@ -446,7 +446,24 @@ Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fix
   cancel), at most 2 live readers per shard, the read-ahead high water at
   most one queue per reader (2 shards x 2 x 17 MiB), peak RSS under
   512 MiB, the catch-up completed with no reader and no queued bytes left,
-  and a failover to that standby exact. Results: RESULTS-B3 below.
+  and a failover to that standby exact.
+- **Results** (release, final commit, `rel/b3_stalled_catchup.json`):
+  37 ack timeouts, 37 readers stopped on cancel, at most **2 live
+  readers** (one per shard), read-ahead high water **32 MiB** (two full
+  16 MiB queues), peak RSS **316 MiB** (2,059 MiB before the fix), 195 MiB
+  at the end with no reader and no queued byte left; the failover to the
+  caught-up standby exact.
+- **Found under TSan and fixed in this round** (commit 0a1e93c): (a) a
+  cancelled reader checked its flag only from its first delivered record,
+  so it first scanned the rest of a 64 MiB segment; with TSan's slowdown
+  67 such readers were alive at once (6 GB RSS). `read_stream_range` now
+  takes a stop predicate, polled before each segment and every 1024
+  records. (b) The ack timeout ran while the primary waited on its own
+  disk reader or its catch-up rate, so a slow reader livelocked the link
+  (drop, reconnect, restart the reader). It now runs only while the
+  standby owes an ack for a frame it has begun to get; bytes the socket
+  accepted are not counted as progress, so a stopped standby is still
+  detected. This is also the cause of F5 below.
 - **What each work-order item rests on.** "Queued bytes stop promptly"
   and "repeated reconnect does not multiply memory": a cancelled reader
   that kept queueing would push the high-water mark past one queue per
@@ -454,7 +471,8 @@ Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fix
   Time-to-stop is not measured separately. "Cancel near end": the stalls
   fall at random points of the catch-up, so late cancels happen, but no
   scenario aims at the last frame; the exact failover after the final
-  catch-up is the check. TSan `q5_kill_kill`: see the sanitizer results.
+  catch-up is the check. TSan `q5_kill_kill` passes (sanitizer results
+  below).
 
 ### B1: a checkpoint waits for local WAL durability only
 
@@ -467,10 +485,13 @@ Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fix
 - **Gauges:** `RESOURCES ckpt_running`, `ckpts`.
 - **Tests:** `test_baseline_ha.py q3_runtime` (in `ctest`) now kills the
   standby while a checkpoint is in flight (polled through `ckpt_running`).
-  `q3_runtime20`: **20 of 20** trials with a checkpoint in flight at the
-  kill; DEGRADE granted in all 20; writes resumed within 0.62 s; `main_ms`
-  at most 46 ms 15 s later; checkpoints kept completing; every
-  acknowledged write present (a probe deposit's balance). The old code
+  `q3_runtime20` (final commit): **20 of 20** trials with a checkpoint in
+  flight at the kill; DEGRADE granted in all 20; none wedged; writes
+  resumed within 0.62 s; `main_ms` at most 41 ms 15 s later; checkpoints kept completing; every
+  acknowledged write present: a probe deposits for 1 s before the kill,
+  then the primary is SIGKILLed and restarted, and the probe account's
+  balance must lie between the acknowledged and the attempted deposits
+  and be the same after the restart (20 of 20). The old code
   wedged 3 of 3 with the same in-flight kill
   (`b1_q3_runtime_unfixed_inflight_kill.json`).
 - **Recovery checkpoint:** `q3_restart` restarts the primary on 4 shards
@@ -501,8 +522,8 @@ SYNCED only after it has learned the pair.
 | 6 Writes during catch-up | `s6_writes_catchup` | never READY while behind; READY with writes running; exact |
 | 7 Fail right at SYNCED | `s7_fail_at_synced` | promoted, exact |
 | 8 Two failovers with a reseed | `q5_kill_kill`, `q5_kill_stop`, `q5_catchup_race`, `q5_catchup_race_late` | exact after both failovers; in the races no promotion (state `[3, 1, 1, NOT READY]`) |
-| 9 Migration, rejoin, failover | `test_fail_closed.py f19` | S served at the rejoined node with every acked write; A never served it (304 probes) |
-| 10 Witness majority lost while unsynced | `s10_majority_loss` | no promotion; the node stays a standby |
+| 9 Migration, rejoin, failover | `test_fail_closed.py f19` | S served at the rejoined node with every acked write; A never served it (296 probes); the rejoined node's log orders NOT READY, then the seed, then back in sync |
+| 10 Witness majority lost while unsynced | `s10_majority_loss`, `s10b_one_witness_lost` | no promotion; the node stays a standby |
 
 All in `ctest` (`test_sync_readiness`, `test_baseline_retry`,
 `test_fail_closed`). Existing tests that killed a primary right after
@@ -529,28 +550,52 @@ readiness client (`test_baseline_retry`, `test_sync_readiness`) claims
 3600 s. The guard trusts the TTL it is given: a campaign manifest records
 both the claimed TTL and the server's `session_ttl_s`. `r11_guard` shows the refusal.
 
-### Rerun (RelWithDebInfo, this VM)
+### Rerun (RelWithDebInfo, this VM, final commit)
+
+Every scenario below ran on commit a7b70c1 (`rel/run_log.txt`);
+`q5_kill_kill` once failed there because the test let the second failure
+land after catch-up but before SYNCED (READY lags catch-up by up to
+0.3 s). The test now waits for READY (commit ea42b53, test-only) and
+passed 9 of 9 since; its JSON is from that rerun.
 
 | Test | Scenarios | Result |
 | --- | --- | --- |
-| T-Q1 | `q1_kill` 0.9 s, `q1_stop` 10.2 s, `q1_partition` 10.1 s, `q1_flap` 0.5 s, `q1_stall` 7.0 s, `q1_blocked` 35.3 s (40 s outage), `q1_failed` (gives up, error) | PASS; every claim valid (limit 360 s) |
+| T-Q1 | oldest resend: `q1_kill` 1.0 s, `q1_stop` 10.2 s, `q1_partition` 10.1 s, `q1_flap` 0.5 s, `q1_stall` 7.0 s, `q1_blocked` 35.2 s (40 s outage), `q1_failed` (gives up, error) | PASS; every claim valid (limit 360 s) |
 | T-Q2 | `q2_lost_move` | PASS |
 | T-Q3 | `q3_runtime20` 20/20, `q3_restart` | PASS (B1 fixed) |
 | T-Q4 | `q4_normal`, `q4_delayed10` | PASS |
 | T-Q5 | `q5_kill_kill`, `q5_kill_stop`, `q5_catchup_race`, `q5_catchup_race_late` | PASS (B2 fixed) |
 | T-Q10 | `q10_copied`, `q10_sealed`, `q10_staged`, `q10_committed`, `q10_activated` | PASS |
 | T-H | `test_profile_check` 13 cases | PASS |
+| B2 | `test_sync_readiness` s1 to s10b; `test_fail_closed` f13:f3, f13:f6, f19 | PASS |
 
-Full `ctest` (28 tests): see the sanitizer results below.
+### Full suites, fresh builds of the final code
+
+| Build | `ctest` | Sanitizer reports |
+| --- | --- | --- |
+| RelWithDebInfo | 28 / 28 | n/a |
+| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leak check on) | 28 / 28 | 0 |
+| Debug, TSan (`halt_on_error=1`) | 28 / 28 | 0 |
+
+`rel/ctest_rel.txt`, `rel/ctest_asan_summary.txt`,
+`rel/ctest_tsan_summary.txt`. One test allowance is TSan-only:
+`s1_seed_start` runs its witnesses with `--poll-ms 300` under TSan (node
+1's two shards share one CPU with a checkpoint that never stops there,
+so STATUS answered in 60 to 100 ms against a 100 ms eligibility poll).
+Release keeps 100 ms.
 
 ### Findings from this round (not fixed; reported)
 
-- **F3: catch-up rate floor.** With `--catchup-mib-s` below about
-  2 MiB/s, one 1 MiB disk frame takes longer than the 500 ms ack timeout,
-  the primary drops the link and the catch-up restarts forever (seen at
-  1 and 2 MiB/s; 8 MiB/s works). Pre-existing; a configuration rule (rate
-  at least frame size / ack timeout) or smaller frames would close it.
-- **F4: degraded mode has no back-pressure.** A standby slower than the
+- **F5: catch-up rate floor (found, then FIXED in this round).** With
+  `--catchup-mib-s` below about 2 MiB/s, one 1 MiB disk frame took longer
+  than the 500 ms ack timeout, the primary dropped the link and the
+  catch-up restarted forever (seen at 1 and 2 MiB/s). Same cause as the
+  TSan livelock of B3 above: the ack timeout counted the primary's own
+  pacing. Fixed with it (commit d45589f): a write cut short by the
+  rate, not by a full socket, is the primary's pacing. Probe: `s2` at
+  1 MiB/s, 0 ack timeouts (184 before), the backlog falling steadily.
+  The readiness tests keep 8 MiB/s so their backlog drains in time.
+- **F6: degraded mode has no back-pressure.** A standby slower than the
   primary's write rate, or one whose disk catch-up restarts because
   retention is tiny (`--replica-retain-mib 1` under full load), may never
   catch up, so the group stays NOT READY: unavailable for failover, never
