@@ -189,6 +189,7 @@ class Lab:
         self.profile = self.cfg.get("profile")
         self.guard = Guard(self.profile, self.cfg.get("deviations", [])) if self.profile else None
         self.wstate = WitnessStateGuard()
+        self.wstate_checks = []  # the G2 boundary checks made, in order
         if self.profile and self.profile != "B":
             raise RuntimeError(f"profile {self.profile}: lab.py builds Profile B clusters only (replicated "
                                "groups, witness HA); other profiles need their own campaign script")
@@ -245,10 +246,23 @@ class Lab:
                 "exists": exists, "text": "\n".join(lines[3:]) if exists else ""}
 
     def check_witness_state(self, stage):
-        """G2: every witness's state still there, same directory, chosen
-        versions never back. Raises WitnessStateViolation: stop the run."""
+        """G2: every witness's state still there, same directory and run
+        nonce, each machine's (chosen, open, promised, accepted) never back.
+        Each check advances the recorded marks. Raises WitnessStateViolation:
+        stop the run. Called at campaign boundaries (before each fault,
+        after each heal, after each load phase, before the final check, at
+        the end): a point check, not a continuous monitor
+        (docs/PAXOS_BALLOTS.md 9.1)."""
         for i in self.wstate.w:
-            self.wstate.check(i, self.probe_witness_state, stage)
+            try:
+                self.wstate.check(i, self.probe_witness_state, stage)
+            except WitnessStateViolation:
+                raise
+            except Exception as e:  # noqa: BLE001 -- a check that cannot run proves nothing
+                raise WitnessStateViolation(f"witness {i} at {stage}: state could not be checked "
+                                            f"({type(e).__name__}: {e}): the run is invalid") from e
+        if self.wstate.w:
+            self.wstate_checks.append(stage)
 
     def save(self, result):
         result["profile"] = self.guard.report() if self.guard else {"profile": None}
@@ -344,7 +358,7 @@ class Lab:
         return f"{n['host'].addr}:{n['client']}"
 
     def down(self):
-        self.heal()
+        self.heal(check=False)  # the end-of-run check already ran
         for h, pid, name in reversed(self.procs):
             h.signal(pid, "KILL")
         self.procs.clear()
@@ -372,6 +386,7 @@ class Lab:
         """Applies a fault to node k (or between node k's host and `peer`)."""
         n = self.nodes[k]
         h = n["host"]
+        self.check_witness_state(f"before fault {kind} node {k}")
         self.note("fault", kind=kind, node=k, peer=peer.name if peer else None)
         if kind == "kill":
             h.signal(n["pid"], "KILL")
@@ -400,11 +415,14 @@ class Lab:
         if h.local:
             raise RuntimeError("network faults need real hosts (root, a data NIC); loopback supports kill and stop")
 
-    def heal(self):
+    def heal(self, check=True):
+        healed = bool(self.faults)
         while self.faults:
             h, cmd = self.faults.pop()
             h.sh(cmd, check=False)
             self.note("healed", host=h.name, cmd=cmd)
+        if check and healed:
+            self.check_witness_state("after heal")
 
     # ---- Load and checks ----
 
@@ -433,6 +451,7 @@ class Lab:
         wait(lambda: not self.client.alive(pid), f"load {name} finished", timeout=timeout, every=0.5)
         self.client.fetch(f"{self.run_dir}/{name}.log", os.path.join(self.out, f"{name}.log"))
         self.client.fetch(f"{self.run_dir}/{name}.summary", os.path.join(self.out, f"{name}.summary"))
+        self.check_witness_state(f"after load {name}")
         summary = {}
         try:
             for line in open(os.path.join(self.out, f"{name}.summary")):
@@ -463,6 +482,7 @@ class Lab:
 
     def check(self, runs):
         """Balances from every node that serves accounts, against the runs."""
+        self.check_witness_state("before the final check")
         files = []
         for k, n in self.nodes.items():
             path = f"{self.run_dir}/bal.{k}"
@@ -882,6 +902,10 @@ def main():
         fn = {"p0": p0, "p1": lambda l, a: p1_p2(l, a, False), "p2": lambda l, a: p1_p2(l, a, True), "p3": p3,
               "p4": p4, "p5": p5, "soak": soak}[args.scenario]
         result.update(fn(lab, args))
+    except WitnessStateViolation as e:  # G2 at a boundary: stop the run here
+        result["ok"] = False
+        result["invalid"] = str(e)
+        lab.note("invalid", why=str(e))
     except Exception as e:  # keep what was measured
         result["ok"] = False
         result["error"] = f"{type(e).__name__}: {e}"
@@ -894,9 +918,10 @@ def main():
                 why = str(e) if isinstance(e, WitnessStateViolation) else \
                     f"witness state could not be checked ({type(e).__name__}: {e}): the run is invalid"
                 result["ok"] = False
-                result["invalid"] = why
+                result.setdefault("invalid", why)  # the first violation is the one that stopped the run
                 lab.note("invalid", why=why)
             result["witness_state"] = lab.wstate.manifest()
+            result["witness_state_checks"] = lab.wstate_checks
         lab.down()
         lab.save(result)
     print(json.dumps({k: v for k, v in result.items() if k not in ("events", "args", "backlog")}, indent=1))

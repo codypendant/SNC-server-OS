@@ -322,6 +322,43 @@ def witness_state_guard():
         shutil.rmtree(work, ignore_errors=True)
 
 
+@case
+def witness_state_boundaries():
+    """Why the lab checks at boundaries (PR #52 review): a rollback that the
+    witness later carries past the recorded marks is invisible to a check at
+    the end alone, and seen by a check made while it is still behind."""
+    work = tempfile.mkdtemp(prefix="snc-h10b-")
+    try:
+        path = f"{work}/w0.state"
+
+        def write(v):
+            with open(path, "w") as f:
+                f.write(f"chosen ha/0 {v} x\nopen ha/0 {v + 1}\npromised ha/0 0\naccepted ha/0 0 0 -\n")
+        with open(path + ".run", "w") as f:
+            f.write("n")
+
+        def probe(i):
+            st = os.stat(work)
+            with open(path) as f:
+                return {"exists": True, "dir_id": f"{st.st_dev}:{st.st_ino}", "marker": "n", "text": f.read()}
+        history = [1, 5, 2, 9]  # 5 -> 2: rolled back; then on past every mark
+        end_only, boundaries = WitnessStateGuard(), WitnessStateGuard()
+        write(history[0])
+        end_only.record(0, "h1", 0, "h1:1,h2:1,h3:1", path, probe)
+        boundaries.record(0, "h1", 0, "h1:1,h2:1,h3:1", path, probe)
+        seen = None
+        for v in history[1:]:
+            write(v)
+            try:
+                boundaries.check(0, probe, f"boundary v{v}")
+            except WitnessStateViolation as e:
+                seen = seen or str(e)
+        end_only.check(0, probe, "end")  # passes: 9 >= 1
+        assert seen and "boundary v2" in seen and "went back from version 5" in seen, seen
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def refused_state(why, f, *a):
     try:
         f(*a)

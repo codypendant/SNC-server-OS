@@ -331,7 +331,8 @@ class WitnessStateGuard:
         if not p["exists"]:
             raise WitnessStateViolation(f"{where}: state file gone: the run is invalid")
         if p["dir_id"] != rec["dir_id"] or p.get("marker") != rec["marker"]:
-            raise WitnessStateViolation(f"{where}: state directory replaced ({rec['dir_id']} -> {p['dir_id']}): "
+            raise WitnessStateViolation(f"{where}: state directory replaced (directory {rec['dir_id']} -> "
+                                        f"{p['dir_id']}, run nonce {rec['marker']!r} -> {p.get('marker')!r}): "
                                         "the run is invalid")
         now = state_versions(p["text"])
         for m, v in rec["versions"].items():
