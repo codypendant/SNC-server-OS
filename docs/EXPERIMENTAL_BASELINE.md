@@ -133,6 +133,26 @@ contract (section 9's run validity rules).
 - `--move-units on`;
 - `--checkpoint-s` 60.
 
+**Witness requirements** (PAXOS_BALLOTS.md section 9; F9 is excluded
+for this profile only under all of them):
+
+- three unique witness endpoints in `--peers` (normalized: one host
+  under two names counts once), with each witness's `--id` naming its own
+  endpoint; `snc_witness` and the profile guard refuse otherwise;
+- persistent witness state paths that last the whole run;
+- `--new-state 1` only at a witness's initial creation, never on a
+  restart, never to recreate a member of an existing quorum;
+- no individual witness rollback or restore (state file, directory,
+  disk, VM, container or hypervisor snapshot), and no reuse of a witness
+  identity after its state is lost: stop the run and rebuild the witness
+  set (PAXOS_BALLOTS.md 9.3);
+- witness persistence and directory-durability errors are fatal (the
+  witness stops before replying);
+- protected READY/NOT READY protocol versions: every witness of a group
+  runs a binary with the READY causal order (SYNC_READINESS.md section 7);
+- the campaign witness-state guard is active (`bench/lab/lab.py` with
+  `bench/profile_check.py`); a run it marks invalid is not evidence.
+
 | Property | Contract |
 | --- | --- |
 | What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded and caught up, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`). The group is promotable again only once its primary has said READY, naming the NOT READY its proof follows (SYNC_READINESS.md section 7; every witness of the group must run a binary with it) |
@@ -143,7 +163,7 @@ contract (section 9's run validity rules).
 | Retry | At most once for sequenced mutations resent within the retry horizon, across crash, restart and a single failover (EL3-EL4). A second failover during resends needs a test (Q5) |
 | Read consistency | As Profile A at HA_DURABLE, **except** that a cut-off old primary can answer default reads of already-durable objects until it learns the new term (Q7). Standby reads (`--standby-reads`) are excluded |
 | Migration | `snc_ctl move` with placement v2. A slot is never served from two groups, nor from a partial copy (MS-1..MS-4, D1/D7: `test_fail_closed`, `test_migrate`, `test_s1`). Acknowledged writes and follow-ups survive a move, including source or destination failover mid-move. Clients see `E_MIGRATING` for a window (S1: about 2.5-7 s at 100K objects on loopback) |
-| Known exclusions | Async standbys; `STATUS` witnesses; standby reads; a shard-count change within a run; resends that bypass the library; two member losses in one group; witness-majority loss (except as a named fault); legacy or reused data directories |
+| Known exclusions | Async standbys; `STATUS` witnesses; standby reads; a shard-count change within a run; resends that bypass the library; two member losses in one group; witness-majority loss (except as a named fault); legacy or reused data directories; any witness state loss, rollback or restore (F9, PAXOS_BALLOTS.md 9.3) |
 
 ### Profile C: MEMORY CEILING
 
@@ -615,6 +635,12 @@ as one commit plus `bench/results/<campaign>/CRITERIA.md`.
 - **Loopback or 4-vCPU dev-VM numbers** as campaign evidence.
 - **Security, multi-tenancy, or Byzantine tolerance** (FAILURE_MODEL
   "Out of contract").
+- **Consensus safety with a non-SNC or Byzantine proposer** (C2x: the
+  witness Paxos assumes every peer runs this implementation and sends an
+  ACCEPT only after a successful phase 1), or **safety across a witness
+  restored, rolled back or recreated** in its identity (F9). Witness
+  replacement and recovery are not solved; no enterprise claim of
+  consensus-member restore or replacement (PAXOS_BALLOTS.md 9).
 - **Index semantics stronger than as built** (Q18): not a snapshot;
   objects with writes in flight are hidden.
 - **WAN results presented as LAN results**, or the reverse.

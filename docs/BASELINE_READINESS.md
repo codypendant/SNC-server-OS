@@ -426,8 +426,9 @@ Section 11 of the baseline document still holds. In addition:
 - **F8 / F9** (PR #50 review): disposition before the freeze.
   Characterized in [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md): ballot reuse is
   safe (proposed outcome A); acceptor state loss can choose two values
-  (F9, proposed outcome B: exclusion E1 and guards G1, G2). *(For
-  review.)*
+  (F9, proposed outcome B: exclusion E1 and guards G1, G2). *(Decided
+  in the PR #51 review: F8 outcome A approved; F9 a Profile B
+  configuration/recovery exclusion after the hardening of section 12.)*
 
 
 ## 10. The fixes (2026-11-05)
@@ -737,3 +738,29 @@ under test, and none recurred:
   requests. An old node with an old witness is the pre-fix system, so the
   protected Profile B claim needs every node and witness upgraded,
   witnesses first (SYNC_READINESS 7.4 question 10).
+
+## 12. Witness hardening before the freeze (2026-11-05, PR #51 review)
+
+Work order `handoff/PR51_Review_Handoff.txt`; details, tests and the
+invalid-history list in [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md) section 9.
+
+- **G1:** `snc_witness --new-state 1` is required for a first start and
+  refused on an existing state file; a missing file without it is
+  refused. Nothing truncates or recreates witness state.
+- **G2:** the lab's profile guard enforces `--new-state` on first starts
+  only, and checks at the end of every Profile B run that no witness's
+  state was deleted, replaced (directory identity and a run nonce) or
+  rolled back (chosen versions); a violation marks the run invalid.
+- **F10:** legacy state files still load; an all-digit machine name in a
+  modern file can no longer become `ha/0`; ambiguous or unparsable files
+  are refused.
+- **F11:** duplicate witness endpoints and `--id`/endpoint
+  inconsistencies are refused.
+- **Persistence failures are fatal**, the state directory's open and
+  fsync included, before any reply that depends on the save.
+
+Tests H1 to H14 and the suite results: PAXOS_BALLOTS.md 9.2 and
+`bench/results/witness-hardening-20261105/`. No benchmarks ran. The
+baseline is not frozen: this returns for the final experimental
+baseline freeze review.
+

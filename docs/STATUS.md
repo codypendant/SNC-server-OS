@@ -74,12 +74,18 @@ Decided by cody on 2026-11-04.
     - F8 (characterized 2026-11-05, [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md)):
       a restarted witness does reuse ballots (clock stepped back), but the
       acceptors' persisted promises refuse them; no second value can be
-      chosen (proof section 4, tests C1 to C3). Proposed: downgrade.
-    - **F9 (new, reproduced): a witness that loses its acceptor state**
-      (state file deleted or restored from an older copy, restarted in
-      place) **can let two values be chosen** in one instance. Proposed
-      for Profile B: excluded history plus guards (section 6); the real
-      fix needs new durable witness state (section 7), for review.
+      chosen (proof section 4, tests C1 to C3). **Approved (PR #51
+      review): a non-blocking liveness note**; C1 to C3 stay as
+      regressions.
+    - **F9: a witness that loses its acceptor state** (state file
+      deleted or restored from an older copy, restarted in place) **can
+      let two values be chosen** in one instance. For the initial
+      Profile B it is a configuration/recovery exclusion after the
+      hardening of PAXOS_BALLOTS section 9 (G1 `--new-state`, G2
+      campaign guard, F10, F11, fatal persistence; 2026-11-05, for
+      review). **Not solved for enterprise:** witness restore and
+      replacement need the recovering-acceptor design (section 7, not
+      built).
   - **The delayed-SYNCED window (PR #49 review) is CLOSED (2026-11-05,
     [BASELINE_READINESS.md](BASELINE_READINESS.md) section 11), awaiting
     review.** Every NOT READY is a fresh chosen version; READY names it
@@ -91,9 +97,10 @@ Decided by cody on 2026-11-04.
     upgraded, witnesses first.
   - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
-  - **The delayed-SYNCED window fix (PR #50) is approved.** The freeze
-    now waits for the F8/F9 disposition (PAXOS_BALLOTS.md), then a final
-    experimental baseline freeze review.
+  - **The delayed-SYNCED window fix (PR #50) is approved.** F8/F9 were
+    decided in the PR #51 review; the witness hardening slice it
+    authorized is done (PAXOS_BALLOTS section 9). Next: the FINAL
+    experimental baseline freeze review. No benchmarks before it.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
