@@ -237,7 +237,11 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
       stats_.disk_bytes += static_cast<u64>(w);
       if (w > 0) sent_frame(disk_frame_);
       if (rate) disk_tokens_ -= static_cast<u64>(w);
-      if (disk_off_ < disk_frame_.size()) return false;  // socket full or out of tokens
+      if (disk_off_ < disk_frame_.size()) {
+        // Stopped by our rate, not by a full socket: our pacing.
+        if (rate && disk_tokens_ == 0) progress_ns_ = now_ns;
+        return false;  // socket full or out of tokens
+      }
       ++stats_.frames_sent;
     }
     bool done, ok, div;
