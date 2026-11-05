@@ -1,7 +1,16 @@
 # Experimental Baseline: readiness review
 
-**Status: DRAFT FOR REVIEW.** This is design and triage only. It
-implements nothing, and does not begin the comparative campaign.
+**Status: APPROVED WITH CORRECTIONS** (review of PR #45,
+`handoff/PR45_Baseline_Review.txt`). The corrections are applied below.
+
+- **Authorized next:** the pre-baseline tests (T-Q1, T-Q2, T-Q3, T-Q4,
+  T-Q5, T-Q10), the harness guards (T-H), the instrumentation they need,
+  and X1 as its own minimal slice.
+- **Not authorized:** the comparative campaign. It waits for the freeze
+  (section 11).
+- **A blocker found by these tests is not fixed automatically.** It is
+  characterized and its evidence kept, and the smallest fix is proposed
+  for review.
 
 - **Requested by:** cody's review of PR #44
   (`handoff/PR44_S1_and_Experimental_Baseline_Handoff.txt`).
@@ -25,17 +34,22 @@ Triage classes, as the work order defines them:
 | **TEST REQUIRED** | Likely safe, but must be tested before the campaign relies on it |
 | **NON-BLOCKING** | A known limit that may remain if it is explicitly excluded from claims |
 
-**Summary.** No item reviewed here is a BLOCKER for the profiles
-proposed in section 2:
+**Summary.** As reviewed, no item is a BLOCKER for the accepted profiles
+A, B and C (D is optional and may be omitted). Several items become
+BLOCKERS if their tests reproduce a hazard:
 
 - R08 is handled by excluding automatic async failover (section 6).
-- R11 is handled by a bounded retry horizon that the campaign's clients
-  cannot exceed, with a test that proves the bound (section 7).
-- Seven items need a test before the campaign relies on them
-  (section 5). Two of them (Q3 and Q4) become BLOCKERS for Profile B's
-  failure runs if the test reproduces the hazard.
-- There is one **workload-readiness gap** that is not a correctness
-  item: SNC has no secondary-index query on the wire (section 3, X1).
+- R11 is conditionally non-blocking. T-Q1 must prove that the shipped
+  client's largest resend age stays well below session expiry on every
+  campaign retry and failover path. If any path can resend near or past
+  expiry, R11 is a BLOCKER (section 7).
+- Seven tests are mandatory before the freeze (section 5).
+  - T-Q3 is a Profile B BLOCKER if checkpoint or recovery keeps the
+    primary from obtaining DEGRADE.
+  - T-Q4 is a resource-safety defect if a plausible control-plane outage
+    can exhaust the process.
+- **X1 is approved (option b):** a minimal secondary-index query on the
+  wire, as validation-enabling work (section 4).
 
 ## 1. Candidate baseline commit and configuration
 
@@ -161,11 +175,11 @@ Matrix row numbers refer to [INTERACTION_MATRIX.md](INTERACTION_MATRIX.md).
 | ID | Item | Evidence today | A | B | C | D | Why |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | R08 | An async standby is auto-promoted and acknowledged writes are lost (row 10, C7) | MEASURED, EL2 | n/a | **EXCLUSION** | n/a | **EXCLUSION** (no witnesses) | Section 6 |
-| R11 | Resend after session expiry runs again (row 7, W2) | MEASURED, EL2 | **TEST REQUIRED** (Q1) | **TEST REQUIRED** (Q1) | NON-BLOCKING | TEST REQUIRED | Section 7 |
+| R11 | Resend after session expiry runs again (row 7, W2) | MEASURED, EL2 | **TEST REQUIRED → BLOCKER if T-Q1 fails** | **TEST REQUIRED → BLOCKER if T-Q1 fails** | NON-BLOCKING | TEST REQUIRED | Section 7 |
 | Q1 | The retry horizon of the shipped client is far below the TTL | INFERRED | TEST REQUIRED | TEST REQUIRED | n/a | TEST REQUIRED | Section 7 |
 | Q2 | Resend to the new owner after `E_MOVED` (row 3, D-3) | INFERRED: unreachable by the shipped library while the source holds the session | n/a | **TEST REQUIRED** | n/a | n/a | The library resends an in-doubt request to the same group, which deduplicates before `E_MOVED` [INV 18]. It resends to the new group only on an `E_MOVED` answer, which an applied request cannot get while its session exists. So a double apply needs R08 or R11 as well. A test must show it |
 | Q3 | Checkpoint × lost standby with a witness, at run time and at restart (rows 13, 19c) | INFERRED: the main thread waits for durability that needs the standby, and it is also the thread that asks for DEGRADE | n/a | **TEST REQUIRED → BLOCKER if reproduced** | n/a | n/a | Profile B's failure runs kill standbys under load with checkpoints on. A wedged primary would make every such run measure the wedge, not SNC |
-| Q4 | Blocked sync × load and memory growth (row 14) | INFERRED: waiters, held follow-ups and pipelining grow without a bound until the DEGRADE grant | n/a | **TEST REQUIRED → BLOCKER if the growth is unbounded within the grant time** | n/a | n/a | The growth is normally bounded by the grant latency (about 1-2 s). The test measures RSS and queue high-water across a standby loss at full load |
+| Q4 | Blocked sync × load and memory growth (row 14) | INFERRED: waiters, held follow-ups and pipelining grow without a bound until the DEGRADE grant | n/a | **TEST REQUIRED, measured as a time series → resource-safety defect if a plausible control-plane outage can exhaust the process** | n/a | n/a | The growth is normally bounded by the grant latency (about 1-2 s). The test measures RSS and queue high-water across a standby loss at full load |
 | Q5 | Second failover during resends (row 5) | INFERRED: same path as row 4, two terms | n/a | **TEST REQUIRED** | n/a | n/a | The failure program does repeated failovers |
 | Q6 | Witness-majority loss during a move or a failure (rows 19, 26; C6) | INFERRED: no decisions without a majority; a sync primary that also loses its standby blocks | n/a | NON-BLOCKING (named fault only) | n/a | n/a | By design no promotion or grant without a majority. A run that injects it reports it as an availability result, not a safety claim |
 | Q7 | Stale reads from a cut-off old primary (row 19a) | INFERRED, KNOWN GAP | n/a | **NON-BLOCKING**, excluded from claims, characterized | n/a | n/a | It affects read consistency during a partition, not acknowledged durability. No read-linearizability claim is made (section 12) |
@@ -190,25 +204,32 @@ These do not invalidate a contract, but they decide what the campaign
 can measure. Each needs a reviewed decision before the workload that
 needs it runs. None is authorized by this document.
 
-- **X1. Secondary-index query over the wire** (workload A). There are
-  three options:
-  - (a) Measure index queries in process only (`snc_bench`), reported
-    separately and never compared with a networked competitor.
-  - (b) A small wire kind for `index_lookup`. This is "work a
-    validation workload explicitly requires" (EXPERIMENTAL_VALIDATION
-    section 3), and needs its own slice.
-  - (c) Drop index queries from workload A.
-
-  **Recommendation: (b).** Workload A's question includes indexes, and
-  (a) is not a fair comparison.
+- **X1. Secondary-index query over the wire** (workload A). **APPROVED,
+  option (b):** the smallest wire kind that exposes the existing
+  `index_lookup`. It is a separate, minimal, validation-enabling slice.
+  - It exposes today's semantics only: durable-only results, filtered to
+    served slots, not a snapshot, with objects whose write is in flight
+    hidden (R-5).
+  - It makes no index redesign, adds no snapshot semantics, and does no
+    unrelated protocol work.
+  - It needs compatibility tests: an old client or server meeting the
+    new kind refuses it cleanly, and the existing kinds are unchanged.
 - **X2. Drivers for workloads B and C** (EXPERIMENTAL_VALIDATION section
   5 table): region movement as slot moves; dormancy approximated by an
   external waker.
 - **X3. Competitor harnesses:** SpacetimeDB, Orleans, Restate and DBOS.
   The PostgreSQL, Redis and ScyllaDB harnesses exist
   (`bench/conventional/`).
-- **X4. Run tagging:** the harness must sample STATUS to tag degraded,
-  `role=n` and blocked intervals (Q12). `lab.py` already polls every node's
+- **X4. Run tagging (required for Profile B):** the harness samples
+  STATUS to tag every interval as one of:
+  - healthy (HA_DURABLE);
+  - degraded or lost standby (`degraded=1`, `blocked=1` or `role=n`:
+    LOCAL_DURABLE);
+  - failover and recovery (from the fault injection until the group is
+    healthy again).
+
+  Each is reported separately. **Degraded intervals, which are faster,
+  are never pooled into healthy sync-HA performance.** `lab.py` already polls every node's
   STATUS in the background; the tagging rule is new.
 
 ## 5. Required pre-baseline tests
@@ -220,13 +241,13 @@ separate reviewed slice, and the baseline waits for it.
 
 | Test | Settles | Smallest test | Pass condition |
 | --- | --- | --- | --- |
-| T-Q1 | R11 horizon | Instrument `net::Client` to report the age of each resent request at resend (oldest send → resend), then run the Profile B failure program's kill, partition and flap faults | Every resend is younger than `failover_ms` + `request_timeout_ms` (35 s), far below the 3600 s TTL; a client whose failover fails reports an error and resends nothing later |
-| T-Q2 | Row 3 | `test_resend_refusals`: apply a sequenced deposit, drop its answer, move the slot, then resend through `ClusterClient` | The resend is answered from the source's session (replayed OK), and the balance moves once |
-| T-Q3 | Rows 13, 19c | `test_witness.py` with `--checkpoint-s 1`; SIGKILL the standby mid-checkpoint under load; also a restart that forces a recovery checkpoint with the standby gone | The witness grants DEGRADE, writes resume, and `main_ms` returns to normal. Otherwise BLOCKER for Profile B's standby-loss runs |
-| T-Q4 | Row 14 | Standby SIGSTOP at full client load; the witness grants DEGRADE as normal; a second run with the grant delayed (witness majority stopped for 10 s) | RSS and queue high-water are bounded by the grant latency (reported). Unbounded growth inside the normal grant window is a BLOCKER |
+| T-Q1 | R11 horizon | Instrument `net::Client` to report the age of each resent request at resend (first send → this resend). Run every campaign retry and failover path: primary kill, silent partition, one-way partition, flap, request timeout, and a failover that fails | The largest resend age is reported per path, and every one is below `failover_ms` + `request_timeout_ms` (35 s), far below the 3600 s TTL. A client whose failover fails reports an error and resends nothing later. **Any path that can keep or resend an in-doubt sequence near or past expiry makes R11 a BLOCKER** |
+| T-Q2 | Row 3 | Through `ClusterClient`: apply a sequenced transfer whose credit crosses groups, drop its answer, move the source slot, then resend | Applied once; the resend is answered from the source session (replayed OK); the final state at the destination is exact; no duplicate obligation (one follow-up settled, money conserved) |
+| T-Q3 | Rows 13, 19c | `test_witness.py` with `--checkpoint-s 1`; SIGKILL the standby mid-checkpoint under load; also a restart that forces a recovery checkpoint with the standby gone | The witness grants DEGRADE, writes resume, and `main_ms` returns to normal. **If checkpoint or recovery keeps the primary from obtaining DEGRADE because the same control path is blocked on durability, that is a Profile B BLOCKER:** evidence is kept and a fix proposed. Checkpoints are never disabled to benchmark around it |
+| T-Q4 | Row 14 | Standby SIGSTOP at full client load, with the grant as normal; then the same with the grant delayed (witness majority stopped for 10 s, then 60 s) | Reported as time series, not a yes/no: RSS delta and rate; pending client requests; held follow-ups; pipeline and backlog; must-deliver overflow; WAL and replication backlog, where available. **With the normal grant, growth must stop and drain.** With the delayed grant, the exhaustion risk is quantified (time to a stated memory limit at the measured rate). A plausible control-plane outage that could exhaust the process is a resource-safety defect |
 | T-Q5 | Row 5 | `test_replication`: two consecutive primary kills (re-seeding between) during a resend storm | Each sequenced mutation is applied once, and money is conserved |
 | T-Q10 | Row 27 | `test_migrate`: `checkpoint()` between seal and activate, and between stage and commit, then restart each node | Single owner, every acknowledged write present, all settled |
-| T-H | Harness guards | `lab.py`, and the campaign scripts refuse to run: an async group with witnesses; a `STATUS` witness; a reused data directory; a shard-count change across a restart; `--standby-reads` in Profile B | Each refusal is checked by a dry run |
+| T-H | Harness guards | One profile checker used by `lab.py` and the campaign scripts. It rejects automatically: async with witness HA; a `STATUS` witness; a reused data directory; a shard-count change across a restart within a profile; standby reads in Profile B; any deviation from the declared profile that is not named in the run's configuration | Each rejection is checked by a test, and a valid profile passes |
 
 Already evidence, so no new test is needed (the classification is
 updated in INTERACTION_MATRIX):
@@ -239,7 +260,7 @@ updated in INTERACTION_MATRIX):
 
 ## 6. R08 baseline decision
 
-**Proposed decision: EXCLUSION. R08 does not need implementing before
+**Decision (ACCEPTED): EXCLUSION. R08 does not need implementing before
 the campaign.**
 
 - **Profile B uses synchronous replication only.** Its HA_DURABLE claim
@@ -267,9 +288,12 @@ the campaign.**
 
 ## 7. R11 baseline decision
 
-**Proposed decision: not a baseline blocker. Use a bounded retry
-horizon, proven by test T-Q1, and exclude long-idle in-doubt resends
-from every claim.**
+**Decision (ACCEPTED, conditional): non-blocking only once T-Q1 proves
+the bound.** T-Q1 must show that the shipped client's largest resend age
+stays well below session expiry on every campaign retry and failover
+path. If any path can keep or resend an in-doubt sequence near or past
+expiry, R11 is a BLOCKER. The TTL is not raised to make this pass.
+Long-idle in-doubt resends are excluded from every claim.
 
 **Can the campaign meet it? INFERRED from the code: no, with the shipped
 client.** The double apply needs all three of these:
@@ -350,12 +374,13 @@ run.**
 
 **Network measurement, per host pair, recorded with the manifest:**
 
-- RTT and jitter: `ping -c 1000 -i 0.01`, reporting p50, p99 and the
-  standard deviation;
-- throughput: `iperf3`, if installed;
-- loss: the same `ping`.
+- **RTT:** `ping -c 1000 -i 0.01`, reporting p50, p95, p99 and max. The
+  standard deviation may be recorded too, but it is not the only jitter
+  measure: the p99-p50 spread and max are.
+- **Loss:** the same `ping`.
+- **Throughput:** `iperf3` in both directions, where available.
 
-The measurement is repeated at the start and end of each campaign
+Every path is measured at the start and the end of each campaign
 session.
 
 **Allocation rule:** within a comparison, SNC and the competitor get
@@ -368,9 +393,13 @@ reported):
 
 1. The profile's configuration matches section 2, checked by the
    harness guards (T-H).
-2. STATUS is sampled at least once a second on every primary. Intervals
-   with `degraded=1`, `blocked=1` or `role=n` are tagged and reported
-   as LOCAL_DURABLE (Profile B).
+2. STATUS is sampled at least once a second on every primary. Profile
+   B results are reported in three separately tagged classes (X4), and
+   never pooled:
+   - healthy (HA_DURABLE);
+   - degraded or lost standby (LOCAL_DURABLE: `degraded=1`, `blocked=1`
+     or `role=n`);
+   - failover and recovery.
 3. The manifests of every host are committed before the run, and named
    in the run's directory.
 4. The semantics table (durability, replication, ack point, consistency,
@@ -380,7 +409,7 @@ reported):
 
 ## 10. Pre-registered falsification decision rules
 
-These rules are **PROPOSED**. Where a number is not yet defensible,
+These rules are **ACCEPTED with the review's corrections**. Where a number is not yet defensible,
 this section gives the qualitative rule and the pilot that sets the
 number. Every number is committed in `CRITERIA.md` **before any
 comparative result exists**. The pilot measures only the variance of
@@ -397,6 +426,11 @@ For each system, on the host it will run on:
 - **A difference smaller than N is "no difference".** PR #37's T9
   measured 8-16% host noise on the cloud VM; bare metal is expected to be
   lower, but this is not assumed.
+- **N is a pre-registered noise and materiality guard, not a statistical
+  confidence interval.** If bare-metal variance turns out unexpectedly
+  high or non-normal (for example bimodal runs, or a CV above 10%), the
+  pilot method is revised **before** any cross-system result is viewed,
+  and the revision is committed with its reason.
 
 ### 10.2 The primary metric
 
@@ -416,24 +450,46 @@ Secondary metrics:
 
 ### 10.3 Materiality
 
-An SNC advantage is **material** when **both** hold:
+An SNC result in a cell is a **material win** by either of two
+pre-registered paths. There is no subjective or post-hoc scoring.
 
-1. It exceeds the noise floor N.
-2. It is at least **M = 2x** on the primary metric, or 0.5x on memory
-   per object, in that cell.
+**Path A, strong performance win:**
 
-**PROPOSED rationale for M = 2x:** adopting a new substrate costs
-operational complexity that a 20-50% gain does not repay. cody and Codex
-may change M before the campaign, but not after.
+- at least **2x** on the primary metric (throughput per core at the
+  matched p99 objective);
+- beyond the noise floor N;
+- with no material regression in tails (p99.9) or in the complexity
+  inventory.
+
+**Path B, multi-dimensional win:** all of:
+
+- a smaller but substantial primary-metric advantage beyond N, of at
+  least **M_B**. M_B is fixed in `CRITERIA.md` from the pilot before any
+  comparison: at least N, and no lower than a value cody and Codex set
+  there;
+- at least one **independent** material advantage, each with its own
+  threshold fixed in `CRITERIA.md` beforehand:
+  - memory per object;
+  - p99.9 latency;
+  - recovery or failover interruption;
+  - network or storage amplification (bytes per operation);
+  - operational component count;
+- **no critical dimension materially worse.** The critical dimensions
+  are the declared contract (durability, retry, read semantics), p99.9,
+  and recovery/failover interruption. "Materially worse" means beyond N,
+  or beyond the dimension's own threshold.
+
+Each secondary dimension is scored only by the rule fixed for it in
+`CRITERIA.md`.
 
 ### 10.4 Decision rules
 
 | Decision | Rule |
 | --- | --- |
-| **GO** | SNC shows a material advantage in Profile B (or A, with B no worse than parity) on at least one of workloads A, B, C, over a contiguous region of the locality envelope that includes a realistic share of cross-owner work (≥ 10% cross-owner, or the workload's natural share). Its tails (p99.9) are no worse than the best matched competitor's by more than N, its failure semantics hold in every failure-program run, and its operational complexity count is no worse than the competitor stack it beats |
-| **REFINE** | No material advantage, but a profile (perf, traces) attributes the gap to a named SNC bottleneck, and a fix fits one bounded slice (for example S2 if the migration window decides a workload B cell). **At most two REFINE rounds**, each rerunning only the affected cells under the same criteria. A third would mean NARROW or STOP |
-| **NARROW** | A material advantage exists only in a narrow class: ≥ 95% owner-local, Profile C only, one workload, or one hardware class. The architecture and the claims narrow to that class, and STOP applies outside it |
-| **STOP** | Any one of these: no material advantage in any durable profile (A or B) on any workload; the advantage disappears below 90% owner-local on every workload; a failure-program run violates a declared contract that cannot be fixed within one bounded slice; or a matched competitor reaches parity (within N) with a lower operational complexity count on every workload |
+| **GO** | SNC shows a material win (path A or B) in a durable profile (B, or A with B at least at parity) on at least one of workloads A, B, C. The win holds over a contiguous region of the locality envelope that includes a realistic share of cross-owner work (≥ 10% cross-owner, or the workload's natural share), and the failure semantics hold in every failure-program run. Operational complexity is **inventoried as a cost**, not required to be "no worse": the advantage must be large enough, across that region, to justify it |
+| **REFINE** | No material win, but a measured profile (perf, traces) attributes the gap to one named SNC bottleneck, and a fix fits one bounded slice (for example S2 if the migration window decides a workload B cell). **At most two bounded rescue rounds.** Each names one measured bottleneck and reruns only the affected cells under unchanged criteria. A third rescue means NARROW or STOP |
+| **NARROW** | A material win exists only in a narrow class: ≥ 95% owner-local, one workload, Profile C only, or one hardware class. The claim and the product narrow to that class, and STOP applies outside it |
+| **STOP** | Any one of these: no material win (by path A or B) in any durable profile on any workload; the win disappears under realistic coordination (below 90% owner-local on every workload); a failure-program run violates a declared contract that cannot be fixed within one bounded slice; or a matched competitor reaches parity (within N) with materially lower complexity |
 
 Ties and conflicts:
 
@@ -446,16 +502,16 @@ Ties and conflicts:
 The baseline is frozen when all of these hold. The freeze is recorded
 as one commit plus `bench/results/<campaign>/CRITERIA.md`.
 
-1. **Review:** cody and Codex accept this document, including sections
-   2, 6, 7 and 10, with any changes.
+1. **Review:** this corrected document is accepted.
 2. **Tests:** T-Q1, T-Q2, T-Q3, T-Q4, T-Q5, T-Q10 and T-H are written and
    pass. Any that reproduces a hazard has its BLOCKER fixed in a
-   reviewed slice and the test passes after the fix.
+   separate reviewed slice, and the test passes after the fix.
 3. **Full suites** pass at the frozen commit: RelWithDebInfo, ASan+UBSan
    and TSan, with sanitizer-scale tests noted as correctness coverage,
    not scale evidence.
-4. **Workloads:** the X1 decision is made, and the drivers that the
-   first campaign wave needs exist (X2).
+4. **Workloads:** X1 is implemented for workload A, and the drivers and
+   competitor harnesses that the first campaign wave needs exist (X2,
+   X3).
 5. **Manifests and network:** the main R640's manifest is committed,
    and the remote R640's too before any WAN run. Every VPS has one at
    creation. Network measurements are recorded per host pair.
@@ -465,9 +521,11 @@ as one commit plus `bench/results/<campaign>/CRITERIA.md`.
    - the profiles;
    - the competitors' versions and configurations;
    - the semantics tables;
-   - N, M and the p99 objective from the pilot;
+   - N, M_B, each Path B dimension's threshold, and the p99 objective
+     from the pilot;
    - the decision rules of section 10.
-7. **Pilot:** it ran, and its raw output is committed.
+7. **Pilot:** the within-system pilot ran, and its raw output is
+   committed.
 8. **Freeze:** no feature work lands on the baseline branch during the
    campaign. A fix that the campaign forces is a REFINE round, rerun
    under the same criteria.
@@ -498,3 +556,25 @@ as one commit plus `bench/results/<campaign>/CRITERIA.md`.
 - **WAN results presented as LAN results**, or the reverse.
 - **Generality beyond the measured envelope**: a workload, locality
   share, or hardware class not run is not claimed.
+- **Standby-read semantics**, which are excluded from every profile.
+- **Safety under multiple simultaneous losses** that no test has
+  exercised.
+
+## 13. Order of work (from the review of PR #45)
+
+1. Apply the PR #45 corrections to this document.
+2. Implement and run the pre-baseline tests and harness guards (section
+   5).
+3. Implement X1 as its own small slice.
+4. Full suites, independent review and QA.
+5. Return the results for review.
+6. If clear, capture the main R640's manifest.
+7. Build the first-wave workload and competitor harnesses.
+8. Run the within-system pilot only.
+9. Commit `CRITERIA.md` with the final pre-registered thresholds.
+10. Freeze the baseline SHA.
+11. Only then begin the comparative falsification.
+
+A blocker that steps 2-4 find stops this branch of work. It is
+characterized, its evidence kept, and the smallest fix is proposed for
+review; it is not fixed automatically.

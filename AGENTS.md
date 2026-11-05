@@ -993,3 +993,31 @@ or source comments.
 -   **Next action:** WAIT for cody/Codex review of the document. Implement
     nothing (tests, X1, harness guards) and start no campaign until it
     is accepted.
+
+### 2026-11-05 UTC --- Claude (Claude Code): baseline readiness review corrections (PR #45 review)
+
+-   **Classification:** KEEP. Documents only.
+-   **What:** cody's review of PR #45 is applied to
+    `docs/EXPERIMENTAL_BASELINE.md`; the source is
+    `docs/handoff/PR45_Baseline_Review.txt`.
+    - **T-Q1..T-Q10 and T-H are mandatory**, with sharper pass
+      conditions:
+      - T-Q1: largest resend age per path; R11 is a BLOCKER if any path
+        nears expiry.
+      - T-Q2: no duplicate obligation.
+      - T-Q3: DEGRADE blocked by durability is a Profile B BLOCKER.
+      - T-Q4: resource growth measured as time series.
+      - T-H: one profile checker that rejects undeclared deviations.
+    - **X1 approved:** a minimal index-query wire kind.
+    - **Reporting:** Profile B intervals are tagged (healthy, degraded,
+      failover).
+    - **Network:** RTT p50/p95/p99/max.
+    - **Pilot:** N is a guard, not a confidence interval.
+    - **Materiality has two paths:** 2x strong win, or a multi-dimensional
+      win with thresholds fixed from the pilot.
+    - **GO** inventories complexity as a cost.
+    - **REFINE** is capped at two rescue rounds.
+    - **Claims and work order:** the claims list is extended, and the
+      11-step order is recorded.
+-   **Next action:** implement the pre-baseline tests and guards, then
+    X1. Blockers found are characterized and returned, not fixed.
