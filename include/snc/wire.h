@@ -16,6 +16,7 @@ enum class Kind : u8 {
   DELETE = 3,    // remove(target)
   TOPOLOGY = 4,  // returns a TopologyBody: slot map and shard count
   CLUSTER = 5,   // returns a ClusterBody (docs/CLUSTER.md); n_groups 0 when not clustered
+  INDEX = 6,     // secondary-index lookup: op = index id, body IndexQueryBody + key; see below
   RESP = 16,
 };
 
@@ -63,6 +64,25 @@ struct RespHeader {
   u64 version;
 };
 static_assert(sizeof(RespHeader) == 48);
+
+// INDEX (docs/EXPERIMENTAL_BASELINE.md X1): the engine's index_lookup on
+// the wire, with its semantics unchanged. The request body is an
+// IndexQueryBody followed by the key (at most kMaxIndexKey bytes); `op` is
+// the index id. The node asks every one of its shards and answers with up
+// to max_results IDs (the body, n x ObjectID, n = body length / 16):
+// objects whose state is durable, in slots this node serves, not a
+// snapshot across shards. A standby answers E_STANDBY (with or without a
+// read lease). Any shard's error answers that status with no IDs. Not
+// sequenced (a read: kReqSequenced is refused). In a cluster each group
+// answers for its own slots; a client asks every group's primary and
+// merges. During a slot move neither group serves the slot between its
+// seal and its activation, so a merge then misses that slot's objects. A
+// server without this kind answers E_BAD_ARGS, like any unknown kind.
+struct IndexQueryBody {
+  u32 max_results;  // 1 .. kMaxIndexResults
+  u32 reserved;  // 0 (refused otherwise)
+};
+inline constexpr u32 kMaxIndexResults = 4096;
 
 // Body of a TOPOLOGY response.
 struct TopologyBody {

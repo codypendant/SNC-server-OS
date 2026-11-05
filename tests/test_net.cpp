@@ -8,6 +8,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <latch>
+#include <cstring>
 #include <map>
 #include <string>
 
@@ -168,6 +171,150 @@ void run(const std::string& data_dir, u16 port) {
     auto e = collect(c, 2);
     CHECK_EQ(e[1].h.status, u16(Status::E_NOT_FOUND));
     CHECK_EQ(e[2].h.status, u16(Status::E_UNKNOWN_OP));
+  }
+
+  // INDEX (docs/EXPERIMENTAL_BASELINE.md X1): index_lookup on the wire. Ten
+  // accounts share an email, spread over every shard; any shard answers
+  // for the whole node, with the IDs the engine's own lookup returns.
+  {
+    std::vector<ObjectID> shared;
+    for (u64 i = 0; i < 10; ++i) {
+      CreateArgs a = account_args(5000 + i);
+      a.email_len = static_cast<u8>(std::snprintf(a.email, sizeof(a.email), "shared@x"));
+      wire::ReqHeader q{};
+      q.kind = wire::Kind::CREATE;
+      q.op = kTypeId;
+      q.req_id = 100 + i;
+      c.send(static_cast<u16>(i % n), q, ByteView(&a, sizeof(a)));
+    }
+    for (auto& [i, g] : collect(c, 10)) {
+      CHECK_EQ(g.h.status, u16(Status::OK));
+      shared.push_back(g.h.id);
+    }
+    auto query = [&](u64 req_id, u32 index_id, const std::string& key, u32 max, u8 flags = 0,
+                     u32 body_len = ~0u, u32 reserved = 0) {
+      std::vector<u8> body(sizeof(wire::IndexQueryBody) + key.size());
+      wire::IndexQueryBody b{max, reserved};
+      std::memcpy(body.data(), &b, sizeof(b));
+      std::memcpy(body.data() + sizeof(b), key.data(), key.size());
+      wire::ReqHeader q{};
+      q.kind = wire::Kind::INDEX;
+      q.op = index_id;
+      q.flags = flags;
+      q.req_id = req_id;
+      c.send(static_cast<u16>(req_id % n), q,
+             ByteView(body.data(), body_len == ~0u ? static_cast<u32>(body.size()) : body_len));
+    };
+    auto ids_of = [](const Got& g) {
+      std::vector<ObjectID> v(g.body.size() / sizeof(ObjectID));
+      std::memcpy(v.data(), g.body.data(), v.size() * sizeof(ObjectID));
+      std::sort(v.begin(), v.end());
+      return v;
+    };
+    std::sort(shared.begin(), shared.end());
+    // The same answer from every shard; matches the in-process lookup.
+    for (u64 r = 0; r < n; ++r) query(200 + r, kEmailIndex, "shared@x", 100);
+    auto got = collect(c, n);
+    for (u64 r = 0; r < n; ++r) {
+      CHECK_EQ(got[200 + r].h.status, u16(Status::OK));
+      CHECK_EQ(got[200 + r].body.size(), 10 * sizeof(ObjectID));
+      CHECK(ids_of(got[200 + r]) == shared);
+    }
+    std::vector<ObjectID> local;
+    {
+      std::latch done(1);
+      struct L {
+        std::vector<ObjectID>* out;
+        std::latch* done;
+      } l{&local, &done};
+      eng.runtime().submit(0, [&] {
+        index_lookup(kEmailIndex, ByteView("shared@x", 8), 100,
+                     [](void* ctx, Status st, const ObjectID* v, u32 k) {
+                       auto* x = static_cast<L*>(ctx);
+                       CHECK_EQ(st, Status::OK);
+                       x->out->assign(v, v + k);
+                       x->done->count_down();
+                     },
+                     &l);
+      });
+      done.wait();
+    }
+    std::sort(local.begin(), local.end());
+    CHECK(local == shared);
+    // max_results caps the answer; a key nobody has answers OK and empty;
+    // a single-owner email finds its account.
+    query(210, kEmailIndex, "shared@x", 3);
+    query(211, kEmailIndex, "nobody@x", 10);
+    query(212, kEmailIndex, "n7@x", 10);
+    got = collect(c, 3);
+    CHECK_EQ(got[210].h.status, u16(Status::OK));
+    CHECK_EQ(got[210].body.size(), 3 * sizeof(ObjectID));
+    for (const ObjectID& id : ids_of(got[210])) CHECK(std::binary_search(shared.begin(), shared.end(), id));
+    CHECK_EQ(got[211].h.status, u16(Status::OK));
+    CHECK_EQ(got[211].body.size(), 0u);
+    CHECK_EQ(got[212].h.status, u16(Status::OK));
+    CHECK(ids_of(got[212]) == std::vector<ObjectID>{ids[7]});
+    // A key longer than a message's inline bytes (kMsgInlineBytes) goes to
+    // the other shards in an allocated buffer: six accounts with a 40-byte
+    // email, found from every shard.
+    {
+      const std::string longkey = "a-forty-byte-email-address-0123@long.xyz";
+      CHECK_EQ(longkey.size(), 40u);
+      std::vector<ObjectID> lng;
+      for (u64 i = 0; i < 6; ++i) {
+        CreateArgs a = account_args(6000 + i);
+        a.email_len = static_cast<u8>(longkey.size());
+        std::memcpy(a.email, longkey.data(), longkey.size());
+        wire::ReqHeader q{};
+        q.kind = wire::Kind::CREATE;
+        q.op = kTypeId;
+        q.req_id = 300 + i;
+        c.send(static_cast<u16>(i % n), q, ByteView(&a, sizeof(a)));
+      }
+      for (auto& [i, g] : collect(c, 6)) {
+        CHECK_EQ(g.h.status, u16(Status::OK));
+        lng.push_back(g.h.id);
+      }
+      std::sort(lng.begin(), lng.end());
+      for (u64 r = 0; r < n; ++r) query(310 + r, kEmailIndex, longkey, 100);
+      auto lg = collect(c, n);
+      for (u64 r = 0; r < n; ++r) {
+        CHECK_EQ(lg[310 + r].h.status, u16(Status::OK));
+        CHECK(ids_of(lg[310 + r]) == lng);
+      }
+    }
+    // Refused cleanly, the connection kept: an unknown index, a key longer
+    // than kMaxIndexKey, max_results 0 or above kMaxIndexResults, a body
+    // shorter than IndexQueryBody, the sequenced flag, a non-zero reserved.
+    query(220, 999, "shared@x", 10);
+    query(221, kEmailIndex, std::string(kMaxIndexKey + 1, 'k'), 10);
+    query(222, kEmailIndex, "shared@x", 0);
+    query(223, kEmailIndex, "shared@x", wire::kMaxIndexResults + 1);
+    query(224, kEmailIndex, "shared@x", 10, 0, 4);
+    query(225, kEmailIndex, "shared@x", 10, wire::kReqSequenced);
+    query(226, kEmailIndex, "shared@x", 10, 0, ~0u, 1);
+    got = collect(c, 7);
+    for (u64 r = 220; r <= 226; ++r) {
+      CHECK_EQ(got[r].h.status, u16(Status::E_BAD_ARGS));
+      CHECK_EQ(got[r].body.size(), 0u);
+    }
+    // A kind this server does not know (as INDEX is to a server from before
+    // it) is answered E_BAD_ARGS, and the connection stays usable: what an
+    // older server does with INDEX.
+    {
+      wire::ReqHeader q{};
+      q.kind = static_cast<wire::Kind>(7);
+      q.req_id = 230;
+      c.send(0, q, {});
+      q.kind = wire::Kind::EXEC;
+      q.op = kOpGetBalance;
+      q.req_id = 231;
+      q.target = ids[3];
+      c.send(c.owner_of(ids[3]), q, {});
+      got = collect(c, 2);
+      CHECK_EQ(got[230].h.status, u16(Status::E_BAD_ARGS));
+      CHECK_EQ(got[231].h.status, u16(Status::OK));
+    }
   }
 
   // A client that disconnects with requests in flight, and one that sends a

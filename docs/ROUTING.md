@@ -37,7 +37,7 @@ op or type id, client-chosen `req_id`, target ObjectID, expected version)
 followed by the args, and a 48-byte response header (status, app code,
 owner, map epoch, `req_id`, ID, version, flags) followed by the result.
 Responses can arrive out of order; `req_id` pairs them. Kinds are EXEC,
-CREATE, DELETE and TOPOLOGY.
+CREATE, DELETE, TOPOLOGY, CLUSTER and INDEX.
 
 **Routing is a hint, never a requirement.** Any shard accepts any request
 and runs it through the ordinary API, so a request for another shard's
@@ -51,6 +51,19 @@ starts from the current map. Online rebalance would reuse the same signal.
 owners (8 KiB). The client (`snc::net::Client`) fetches it from shard 0,
 connects to every shard and routes with `owner_of(id)`, the same function
 the server uses.
+
+**INDEX** (docs/EXPERIMENTAL_BASELINE.md X1) is `index_lookup` on the
+wire, with its semantics unchanged: `op` is the index id, the body an
+`IndexQueryBody` (max_results 1..4096) followed by the key. The receiving
+shard gathers from every shard of its node and answers up to max_results
+IDs: durable objects only, in slots the node serves, not a snapshot across
+shards. A standby answers E_STANDBY, read lease or not; an error from any
+shard answers that status with no IDs. It is a read: the sequenced flag
+and a non-zero `reserved` are refused. In a cluster a client asks every
+group's primary and merges; while a slot moves, neither group serves it
+between the seal and the activation, so a merge then misses its objects. A server without
+the kind answers E_BAD_ARGS, as for any unknown kind, and keeps the
+connection.
 
 **Creates mint local IDs** (`Engine::Config::mint_local`). A create runs on
 the shard that mints the ID, but the new ID's owner is decided by its hash,

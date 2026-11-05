@@ -94,6 +94,7 @@ if(PYTHON3)
            ${CMAKE_BINARY_DIR} q2_lost_move q10_sealed q10_committed)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py
            ${CMAKE_BINARY_DIR} q3_restart q4_normal)
+  add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
 endif()
 
 add_executable(baseline_server bench/baseline_server.cpp)
