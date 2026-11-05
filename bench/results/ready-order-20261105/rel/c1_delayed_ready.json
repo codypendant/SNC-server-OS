@@ -1,0 +1,52 @@
+{
+ "char": false,
+ "state_after_grant_1": [
+  4,
+  0,
+  0,
+  true
+ ],
+ "held_before_loss": 1,
+ "state_after_grant_2": [
+  5,
+  0,
+  0,
+  true
+ ],
+ "released": [
+  "OK released 1",
+  "OK released 1",
+  "OK released 1"
+ ],
+ "state_after_release": [
+  5,
+  0,
+  0,
+  true
+ ],
+ "ready_restored": false,
+ "witness_lines": [
+  "t=0.05 group 0 READY: primary term 0 READY after=2: OK v=3",
+  "t=2.63 group 0 NOTREADY: primary term 0 NOT READY: OK v=4",
+  "t=8.92 group 0 NOTREADY: primary term 0 NOT READY: OK v=5",
+  "t=10.98 group 0 READY: primary term 0 READY after=4: NO not ready since v=5",
+  "t=10.97 group 0 READY: primary term 0 READY after=4: NO not ready since v=5",
+  "t=10.98 group 0 READY: primary term 0 READY after=4: NO not ready since v=5"
+ ],
+ "primary_lines": [
+  "witness: recorded NOT READY (this primary started) at v=2",
+  "witness: standby back in sync (READY after v=2)",
+  "witness: granted, continuing without the standby",
+  "witness: granted, continuing without the standby"
+ ],
+ "promoted": null,
+ "final_state": [
+  5,
+  0,
+  0,
+  true
+ ],
+ "pass": true,
+ "scenario": "c1_delayed_ready",
+ "seconds": 21.0
+}

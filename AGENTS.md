@@ -1144,3 +1144,34 @@ or source comments.
     benchmark campaign, and none of the not-authorized items (R08 async
     auto-failover, session incarnation, S2/S3, index redesign) start
     without review.
+
+### 2026-11-05 UTC --- Claude (Claude Code): delayed-SYNCED causal order (work order PR49_Review_Handoff)
+
+-   **Classification:** REFINE. A request/reply protocol change inside the
+    existing witness HA state: no new durable witness or Paxos format, no
+    per-group state machine redesign. Paxos only gains "propose at a fresh
+    version" and "report the version chosen".
+-   **What:** `docs/SYNC_READINESS.md` section 7 (rule and the ten
+    questions), `docs/BASELINE_READINESS.md` section 11 (record).
+    - Every NOT READY (`DEGRADE`, new `NOTREADY`) is chosen at a fresh
+      version and answered `OK v=N`.
+    - `READY uuid term group after=N` is chosen only if the group is still
+      NOT READY at exactly version N; otherwise `NO not ready since v=M`.
+      `SYNCED` is refused. READY reads linearizably first.
+    - The primary keeps the last NOT READY version it was answered and
+      never accepts an older one.
+    - `snc_witness --debug 1` adds `DEBUG HOLD/RELEASE/HELD/SKIP-COMMIT`
+      for the forced races; off by default.
+-   **Evidence:** `bench/results/ready-order-20261105/`: pre-fix
+    characterization (READY restored over a grant, 2,000/2,000 accounts
+    lost), V1 to V10 and regressions on 5afa86b, full suites.
+-   **Reviews:** the first independent review found an adoption hole
+    (a fresh NOT READY answering an adopted version), fixed. The second
+    found a stale-read fallback, fixed, and reported F7 (liveness) and F8
+    (ballots not persisted, pre-existing), not fixed.
+-   **Compatibility:** new nodes with old witnesses never become READY;
+    old nodes with new witnesses get DEGRADE but never READY. Fails safe
+    (unavailable for failover). Upgrade witnesses with the nodes.
+-   **Next action:** WAIT for cody and Codex to review. Then the final
+    experimental baseline freeze review. No comparative benchmarks; none
+    of R08, F6, F1, session incarnation, S2/S3 or the vision items start.

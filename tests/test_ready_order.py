@@ -137,8 +137,10 @@ def c1_delayed_ready(pr):
         res["pass"] = res["ready_restored"] and bool(promoted) and res.get("acked_writes_lost", False)
     else:
         fin = res.get("final_state")
+        # And the held READY was refused for the later NOT READY, not lost.
+        res["refused"] = sum("NO not ready since" in l for l in res.get("witness_lines", []))
         res["pass"] = (not res["ready_restored"] and not promoted and bool(fin) and fin[1] == 0 and
-                       fin[3] is True)
+                       fin[3] is True and res["refused"] >= 1)
     return res
 
 

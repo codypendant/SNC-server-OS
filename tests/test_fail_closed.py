@@ -973,6 +973,10 @@ def scenario_f19(c, ev, forced=False):
     # In the new primary's own log: NOT READY recorded at its start, the
     # seed sent after that, READY (SYNCED) only after the seed: while the
     # rejoined node seeded and caught up, the group was not promotable.
+    # The witnesses chose READY before the primary logs its reply: wait for
+    # the line (an ASan run read the log in between).
+    this_start = lambda: (lambda t: t[t.rfind("snc_server shards="):])(open(f"{c.work}/n{qb}.log").read())  # noqa: E731
+    wait(lambda: "standby back in sync" in this_start(), "READY logged by B's primary", timeout=10)
     lines = open(f"{c.work}/n{qb}.log").read().splitlines()
     lines = lines[max(i for i, l in enumerate(lines) if l.startswith("snc_server shards=")):]  # this start
     at = lambda pat: next((i for i, l in enumerate(lines) if pat in l), None)  # noqa: E731

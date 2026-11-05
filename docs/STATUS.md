@@ -52,7 +52,8 @@ Decided by cody on 2026-11-04.
       primary whose standby dies no longer wedges (q3_runtime20: 20/20).
     - B2: a standby is promotable only once proven in sync. The witnesses
       record NOT READY on learn, promotion, grant, reseed, regression and
-      every primary start; only SYNCED from the current term clears it
+      every primary start; only READY from the current term, naming the
+      NOT READY it follows, clears it (section 11)
       ([SYNC_READINESS.md](SYNC_READINESS.md)). There is no witness state
       format change.
     - B3: a cancelled catch-up reader stops producing, and stops scanning
@@ -67,11 +68,24 @@ Decided by cody on 2026-11-04.
       expiry", enforced per run by `net_bench --retry-claim-ttl-s`.
     - F6: degraded mode has no back-pressure, so a group can stay NOT
       READY (unavailable for failover, never unsafe).
-    - Open proposal (not coded): a delayed same-term SYNCED can land
-      after a later grant (SYNC_READINESS.md 4).
+    - F7: with a stopped witness, readiness takes longer (about 4.5 s
+      per READY attempt), and all of a witness's machines share one
+      proposal queue with no expiry. Liveness only (SYNC_READINESS 7.5).
+    - F8 (pre-existing): Paxos ballots are not persisted; a witness
+      restarted after a clock step back could reuse one. Reported only.
+  - **The delayed-SYNCED window (PR #49 review) is CLOSED (2026-11-05,
+    [BASELINE_READINESS.md](BASELINE_READINESS.md) section 11), awaiting
+    review.** Every NOT READY is a fresh chosen version; READY names it
+    (`after=N`) and is chosen only on exactly that state; SYNCED is
+    refused. Characterized before the fix (2,000/2,000 accounts lost
+    acknowledged deposits), V1 to V10 pass, no witness state format
+    change. Mixed versions: new nodes never become READY through old witnesses
+    only (fail safe); the protected claim needs every node and witness
+    upgraded, witnesses first.
   - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
-  - **The freeze waits** for the review of these fixes.
+  - **The freeze waits** for the review of this window's fix, then a
+    final experimental baseline freeze review.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).

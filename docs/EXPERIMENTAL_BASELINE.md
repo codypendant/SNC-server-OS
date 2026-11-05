@@ -135,7 +135,7 @@ contract (section 9's run validity rules).
 
 | Property | Contract |
 | --- | --- |
-| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded and caught up, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`). The group is promotable again only once its primary has said SYNCED (SYNC_READINESS.md) |
+| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded and caught up, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`). The group is promotable again only once its primary has said READY, naming the NOT READY its proof follows (SYNC_READINESS.md section 7; every witness of the group must run a binary with it) |
 | Process crash | Survives |
 | Loss of one member's host or disk | Survives while healthy: the other member holds every HA_DURABLE OK (`test_replication`, `test_witness.py`, Vultr P3: EL2-EL4). A second loss before re-seeding is not covered |
 | Replication | Synchronous; the standby is acked by LSN before the client's OK |

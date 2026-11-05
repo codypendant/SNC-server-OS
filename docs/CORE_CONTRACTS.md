@@ -152,7 +152,7 @@ Verified against the code and tests (work order Part III):
 
 | Claim | Verdict | Evidence |
 | --- | --- | --- |
-| sync replicated DURABLE OK → HA_DURABLE | **holds** while not degraded. While degraded the OK is LOCAL_DURABLE, and the witnesses refuse promotion until SYNCED, so no stale promotion happens | EL2-EL4 (`test_replication`, `test_witness.py`, Vultr P3); `Shard::durable` |
+| sync replicated DURABLE OK → HA_DURABLE | **holds** while not degraded. While degraded the OK is LOCAL_DURABLE, and the witnesses refuse promotion until READY (SYNC_READINESS.md section 7), so no stale promotion happens | EL2-EL4 (`test_replication`, `test_witness.py`, Vultr P3); `Shard::durable` |
 | async replicated DURABLE OK → LOCAL_DURABLE, not necessarily HA_DURABLE | **holds, and is a KNOWN ISSUE**: the witness still auto-promotes, so the OK is not HA_DURABLE but is treated as if it were | `test_async_failover` (EL2) |
 | cross-group transfer OK → durable debit + durable obligation, not SETTLED | **holds** | `test_transfer`, `test_cluster`, P4 (26K unsettled during a cut, all settled after) |
 | a group whose standby was lost (fenced old primary, never rejoined) | every OK is LOCAL_DURABLE, with no fault reported (`role=n`) | MEASURED, STABILIZATION_REPORT D |

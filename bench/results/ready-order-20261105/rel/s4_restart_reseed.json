@@ -1,0 +1,60 @@
+{
+ "restart_states": [
+  [
+   3,
+   0,
+   0,
+   false
+  ]
+ ],
+ "restart_ready": true,
+ "restart_regressed": false,
+ "reseed_states": [
+  [
+   3,
+   0,
+   0,
+   false
+  ],
+  [
+   4,
+   0,
+   0,
+   true
+  ],
+  [
+   5,
+   0,
+   0,
+   false
+  ]
+ ],
+ "seed_gate": [
+  "witness: recorded NOT READY (a seed is asked for) at v=4"
+ ],
+ "not_ready_before_seed": true,
+ "not_ready_seen": true,
+ "ready_again": true,
+ "promoted": [
+  6,
+  1,
+  1,
+  true
+ ],
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 6342969,
+  "mismatches": 0,
+  "failovers": 4,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 4  replayed 470  timeouts 2  resends 256  max_resend_age_ms 6114",
+   "  retry claim: max_resend_age_ms 6114, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 6342969 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "s4_restart_reseed",
+ "seconds": 62.5
+}

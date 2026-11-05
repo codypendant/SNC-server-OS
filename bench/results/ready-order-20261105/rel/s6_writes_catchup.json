@@ -1,0 +1,47 @@
+{
+ "promoted_state": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "series": [
+  [
+   1422686,
+   1,
+   2,
+   2,
+   true
+  ]
+ ],
+ "samples": 18,
+ "ready_at": {
+  "wal_unacked": 0,
+  "disk_readers": 0,
+  "client_running": true
+ },
+ "early_ready": [],
+ "synced_lines": [
+  "witness: recorded NOT READY (this primary was promoted) at v=5",
+  "witness: granted, continuing without the standby",
+  "witness: standby back in sync (READY after v=6)"
+ ],
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 3468138,
+  "mismatches": 0,
+  "failovers": 2,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 2  replayed 57  timeouts 0  resends 128  max_resend_age_ms 1003",
+   "  retry claim: max_resend_age_ms 1003, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 3468138 deposits, 0 mismatches"
+  ]
+ },
+ "promoted_after": true,
+ "pass": true,
+ "scenario": "s6_writes_catchup",
+ "seconds": 43.5
+}

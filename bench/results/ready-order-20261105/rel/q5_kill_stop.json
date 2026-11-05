@@ -1,0 +1,52 @@
+{
+ "second_failure_waits_for_catch_up": true,
+ "first_promoted_s": 0.95,
+ "term_1": 1,
+ "rejoin_delay_s": 0.0,
+ "witness_state_at_rejoin": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "rejoined_standby_s": 0.03,
+ "witness_state_at_second_failure": [
+  6,
+  1,
+  1,
+  false
+ ],
+ "caught_up_s": 1.48,
+ "ready_s": 1.64,
+ "node1_unacked_at_second_failure": 60,
+ "second_promoted_s": 1.3,
+ "term_2": 2,
+ "bench": {
+  "rc": 0,
+  "exited_after_s": 45.05,
+  "failovers": 4,
+  "replayed": 352,
+  "timeouts": 2,
+  "resends": 256,
+  "max_resend_age_ms": 5002,
+  "accounts": 2000,
+  "deposits": 4850904,
+  "mismatches": 0,
+  "ops_s": 107796,
+  "errors": 0,
+  "retry_claim_limit_ms": 360000,
+  "retry_claim": "valid",
+  "tail": [
+   "  ops/s 107796  errors 0  overloaded 0  stale 0",
+   "  latency ns  p50 851968  p95 1769472  p99 3145728  p99.9 7208960",
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 4  replayed 352  timeouts 2  resends 256  max_resend_age_ms 5002",
+   "  retry claim: max_resend_age_ms 5002, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 4850904 deposits, 0 mismatches"
+  ]
+ },
+ "old_primary_role": "f",
+ "pass": true,
+ "scenario": "q5_kill_stop",
+ "seconds": 47.0
+}

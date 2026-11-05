@@ -1,0 +1,22 @@
+{
+ "state": [
+  9,
+  0,
+  0,
+  true
+ ],
+ "synced_refused": true,
+ "granted": true,
+ "no_promotion": true,
+ "states": [
+  [
+   10,
+   0,
+   0,
+   true
+  ]
+ ],
+ "pass": true,
+ "scenario": "m2_old_primary_new_witnesses",
+ "seconds": 12.0
+}

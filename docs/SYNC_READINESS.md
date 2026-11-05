@@ -32,7 +32,7 @@ primary of `term` has proven that its standby is in sync.
 | --- | --- | --- |
 | First learning of a primary (uuid empty) | READY | **NOT READY** |
 | Promotion to term T+1 | copied the old term's bit | **NOT READY** |
-| `DEGRADE uuid T` from the primary of T | NOT READY | NOT READY (unchanged) |
+| `DEGRADE uuid T` from the primary of T | NOT READY | NOT READY (unchanged). **Since section 7: always a fresh chosen version; `NOTREADY uuid T` does the same and answers `OK v=N`** |
 | `SYNCED uuid T` from the primary of T | READY | READY (unchanged; refused unless T is the current term). **Since section 7: refused; `READY uuid T after=N` replaces it** |
 
 The promotion check is unchanged: the witnesses promote only from READY,
@@ -50,8 +50,8 @@ primary of T+1.
 
 ## 3. SYNCED: what the primary must have seen
 
-The primary of term T sends `SYNCED uuid T [group]` only when **every
-shard** is ready. A shard is ready when all of these hold, read on its
+The primary of term T sends `SYNCED uuid T [group]` (since section 7:
+`READY uuid T [group] after=N`) only when **every shard** is ready. A shard is ready when all of these hold, read on its
 own thread:
 
 1. It is a sync primary that is neither degraded nor blocked
@@ -100,12 +100,13 @@ of that moment. Writes still arriving then wait for their acks as usual
   acknowledged write, and the primary holds writes until it acks again.
 - **The standby comes back without data it had acknowledged** (reseeded,
   replaced disk, restored directory). That is a regression (check 5).
-  The primary then asks DEGRADE, which records NOT READY, without
-  opening its own degrade gate. It owes SYNCED until checks 1 to 4 hold
-  on the new link.
+  The primary then asks DEGRADE (since section 7: NOTREADY), which
+  records NOT READY, without opening its own degrade gate. It owes SYNCED
+  (READY) until checks 1 to 4 hold on the new link.
 - **A seed** (a standby fetching a checkpoint from its primary's
   `--seed-port`) is served only while NOT READY is recorded for the
-  primary's term. If READY is on record, the primary first asks DEGRADE,
+  primary's term. If READY is on record, the primary first asks DEGRADE
+  (since section 7: NOTREADY),
   and the seed is refused with "retry" until the witnesses have recorded
   it. The seeding standby retries. So a standby can never become
   reachable as a standby with seeded, partial data while the witnesses
@@ -120,10 +121,14 @@ of that moment. Writes still arriving then wait for their acks as usual
   witness that recorded READY without proof). It does not know what is
   on record, and its new sender's acknowledged frontier starts at 0, so
   it could not detect a regression. It asks DEGRADE once, recording NOT
-  READY, before anything else, and owes SYNCED.
+  READY, before anything else, and owes SYNCED. (Since section 7: it asks
+  NOTREADY, and again before every READY attempt that follows a
+  refusal; 7.3.)
 - **A lost SYNCED reply.** The primary marks "NOT READY on record" false
   *before* it sends SYNCED, so if the witnesses chose READY but the reply
-  was lost, a later seed or regression still asks DEGRADE first.
+  was lost, a later seed or regression still asks DEGRADE first. (Since
+  section 7 the same holds for READY and NOTREADY; a lost READY reply is
+  also retried idempotently, 7.3.)
 
 **The handshake position is durable.** A standby answers a primary's
 handshake only once every record it has written is durable (its durable
@@ -162,12 +167,13 @@ change and is not proposed here.
   Until then a second failure makes the group unavailable, not wrong. This
   extends what Profile B's contract said ("after a failover, until a new
   standby is seeded") to: until it is seeded, caught up and proven.
-- **No new state format.** SYNCED and DEGRADE are the existing verbs. The witness state file is unchanged. An older primary binary
+- **No new state format.** SYNCED and DEGRADE are the existing verbs
+  (section 7 adds NOTREADY and READY, still with no state format change). The witness state file is unchanged. An older primary binary
   never sends SYNCED without a grant first, so with new witnesses its
   group would stay NOT READY: upgrade the witnesses and the nodes
   together.
 - **Witness HA needs the primary started with `--witness`.** Only the
-  primary can say SYNCED. A group whose primary runs without it is never
+  primary can say SYNCED (since section 7: READY). A group whose primary runs without it is never
   READY, so its standby is never promoted (it fails safe). That was
   already required for a sync primary to run alone; the test clusters of
   `test_fail_closed.py` in witness mode now pass it.
@@ -225,7 +231,7 @@ noted.
 
 **Status: IMPLEMENTED 2026-11-05** (work order
 `handoff/PR49_Review_Handoff.txt`; design first, then built as written). This closes the window of section 4
-("Open"): a SYNCED delayed inside a witness was chosen after a later
+(now "Closed"): a SYNCED delayed inside a witness was chosen after a later
 DEGRADE and restored READY while the primary acknowledged writes alone.
 It needs **no new durable state**: the witness state file, its Paxos
 machine and the state body `uuid term degraded primary` are unchanged.
@@ -268,9 +274,10 @@ it runs, however late.
   been chosen before, so N is above every version answered to anyone
   before this request was made. (Found by the independent review of this
   fix: before it, NOTREADY could answer `OK v=N` for an adopted value
-  that an earlier NOTREADY had already been answered with, and a READY
-  after=N delayed from before the grant was then chosen over it.
-  Characterized: `bench/results/ready-order-20261105/char/lost_commit_char.txt`.)
+  that an earlier NOTREADY had already been answered with, so a READY
+  after=N delayed from before the grant would then have been chosen over
+  it. Characterized at the witness (the repeated `OK v=11`; the delayed
+  READY itself was not run): `bench/results/ready-order-20261105/char/lost_commit_char.txt`.)
 - **The primary checks it too.** It keeps the highest NOT READY version
   answered to this process (never reset while the process runs; a
   restarted process starts from 0 and relies on the witness rule above)
@@ -302,7 +309,7 @@ it runs, however late.
     the primary's base: the proof does not cover it.
 - **SYNCED (old verb) is refused** by a new witness (after the space and
   term checks, so a stale-term SYNCED still reads `NO term`): `NO SYNCED
-  has no causal base; READY ... after=N is required`. It can no longer
+  has no causal base: READY uuid term [group] after=N is required`. It can no longer
   move a group to READY.
 
 **Why `B.version == N` is exact, not just sufficient.** Within one group
@@ -450,13 +457,13 @@ the version it chose.
 | # | Case | Test | Result |
 | --- | --- | --- | --- |
 | C | Pre-fix characterization: SYNCED held, later grant, writes alone, released | `test_ready_order.py c1_delayed_ready`, `SNC_CHAR=1`, old protocol | READY restored over the grant, standby promoted, 2,000/2,000 accounts lost acknowledged deposits |
-| V1 | Delayed old READY after a later NOT READY | `c1_delayed_ready`; `test_witness.py` ready order (undelayed and held) | refused (`NO not ready since v=N`), NOT READY kept, nobody promoted |
+| V1 | Delayed old READY after a later NOT READY | `c1_delayed_ready` (asserts the refusal, NOT READY, no promotion); `test_witness.py` ready order (undelayed and held) | refused (`NO not ready since v=N`), NOT READY kept, nobody promoted |
 | V2 | NOT READY, catch-up, READY after it | every READY of every HA test; ready order | READY |
-| V3 | Lost NOT READY reply | ready order: a retry through another witness; and a lost COMMIT (`DEBUG SKIP-COMMIT`, the witness then stopped), where the next NOT READY adopts the unlearned value | a fresh version each time, never one already answered (before the review fix: the adopted version again); a READY read across the lost COMMIT is chosen, not a false no-op |
-| V4 | Lost READY reply | ready order (READY sent twice) | the retry answers `OK` at the same version, nothing chosen |
+| V3 | Lost NOT READY reply | ready order: a repeated NOTREADY through another witness; and a lost COMMIT (`DEBUG SKIP-COMMIT`, the witness then stopped), where the next NOT READY adopts the unlearned value | a fresh version each time, never one already answered (before the review fix: the adopted version again); a READY read across the lost COMMIT is chosen, not a false no-op. Witness level only: the primary's side (READY owed again after a NOTREADY whose reply was lost, 7.3) is by code review, not a test |
+| V4 | Lost READY reply | ready order (READY sent twice) | the retry answers `OK` at the same version, nothing chosen. Witness level only; the primary's retry is by code review |
 | V5 | Unrelated proposals between NOT READY and READY | ready order (placement INIT, a lease block); `multi_group` (other groups) | READY chosen |
 | V6 | Stale old-term requests | ready order (after a promotion: NOTREADY, SYNCED, READY of term 0); `test_sync_readiness.py s5` | `NO term 0 was replaced by 1`, nothing chosen |
-| V7 | Primary restart with a READY held | `c2_restart_held`; ready order (a promoted primary's first READY) | the old process's READY refused; the new process asks NOT READY at start and its READY names it; failover exact |
+| V7 | Primary restart with a READY held | `c2_restart_held`; ready order (a promoted primary's first READY) | the old process's READY refused; the new process asks NOT READY at start (v=5) and its READY names a NOT READY answered to it since (after=6; the test asserts after >= its start version); failover exact |
 | V8 | Two failovers with a forced delay | `c3_two_failovers` | the held READY refused, READY once proven, second failover exact |
 | V9 | Migration with a forced readiness race | `test_fail_closed.py f19r` | the held READY refused; D1 (every acked write, including those acknowledged alone) and D7 (A never served S) hold |
-| V10 | Mixed old and new binaries | `m1` (new nodes, old witnesses), `m2` (old nodes, new witnesses), `m3` (new nodes, one old witness of three), with `SNC_OLD_BUILD` set to a build of e3e0500 | m1: never READY, no grant, no promotion; m2: SYNCED refused, DEGRADE granted, no promotion; m3: READY through the new witnesses, the forced window closed |
+| V10 | Mixed old and new binaries | `m1` (new nodes, old witnesses), `m2` (old nodes, new witnesses), `m3` (new nodes, one old witness of three), with `SNC_OLD_BUILD` set to a build of e3e0500 | m1: never READY, no grant, no promotion; m2: SYNCED refused, DEGRADE granted, no promotion; m3: the held READY refused, no promotion. Not run: an old node with mixed witnesses (an old witness accepts its SYNCED: the pre-fix system, 7.4 question 10) |

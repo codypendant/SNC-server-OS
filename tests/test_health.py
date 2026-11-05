@@ -313,8 +313,18 @@ class Pair:
     rearmed, plus three witnesses. With proxied=True every path to and
     from node 0 goes through a Proxy (T6)."""
 
-    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS,
-                 witness_extra=(), node_bin=None, witness_bins=None, ready=True):
+    def __init__(self, *a, **k):
+        # A failed start stops what it started: a TSan run once left a
+        # half-started pair running (and promoting) for 40 minutes.
+        self.load, self.nodes, self.w, self.proxies, self.work = None, [None, None], [], [], None
+        try:
+            self._start(*a, **k)
+        except BaseException:
+            self.stop()
+            raise
+
+    def _start(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS,
+               witness_extra=(), node_bin=None, witness_bins=None, ready=True):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -365,7 +375,9 @@ class Pair:
                        (list(witness_extra) if witness_bins[i] == f"{BUILD}/snc_witness" else []))
                   for i in range(3)]
         for w in self.w:
-            assert w.wait_for(r"primary up|failover learned", 15), "a witness never saw the primary\n" + w.text()
+            assert w.wait_for(r"primary up|failover learned", 15), (
+                "a witness never saw the primary\n" + "\n".join(f"-- w{i}\n" + x.text() for i, x in enumerate(self.w)) +
+                "\n-- node 0\n" + self.nodes[0].text())
         # A learned primary is NOT READY until it proves its standby in sync
         # (docs/SYNC_READINESS.md): tests start from a promotable pair.
         if ready:
@@ -417,7 +429,8 @@ class Pair:
         for x in self.proxies:
             x.heal()
             x.sock.close()
-        shutil.rmtree(self.work, ignore_errors=True)
+        if self.work:
+            shutil.rmtree(self.work, ignore_errors=True)
 
 
 def role_pairs(pr):

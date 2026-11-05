@@ -1,0 +1,34 @@
+{
+ "promoted_state": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "synced_s": 0.76,
+ "state_at_kill": [
+  6,
+  1,
+  1,
+  false
+ ],
+ "second_promoted_s": 1.04,
+ "term_2": 2,
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 4503834,
+  "mismatches": 0,
+  "failovers": 4,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 4  replayed 262  timeouts 0  resends 256  max_resend_age_ms 1013",
+   "  retry claim: max_resend_age_ms 1013, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 4503834 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "s7_fail_at_synced",
+ "seconds": 41.9
+}
