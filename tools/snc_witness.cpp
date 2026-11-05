@@ -290,7 +290,11 @@ void serve(int fd) {
       const unsigned group = static_cast<unsigned>(g);
       const bool d = verb == "DEGRADE";
       reply = propose(group, [&](const State& base, State& want) -> std::string {
-        if (!base.uuid.empty() && uuid != base.uuid) return "another space";
+        // Not before the primary is learned: learning records which node
+        // is primary (and NOT READY); a grant or SYNCED first would leave
+        // that unset. The primary asks again.
+        if (base.uuid.empty()) return "not learned yet";
+        if (uuid != base.uuid) return "another space";
         if (term != base.term) {
           return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
         }
