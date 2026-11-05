@@ -13,13 +13,15 @@
   for review.
 - **Results (2026-11-05): [BASELINE_READINESS.md](BASELINE_READINESS.md).**
   T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Three Profile B BLOCKERS were
-  reproduced and are not fixed: B1, a checkpoint wedges the primary when
+  reproduced (**fixed 2026-11-05, for review: BASELINE_READINESS section
+  10**): B1, a checkpoint wedges the primary when
   its standby dies (T-Q3); B2, the witnesses promote a standby that is
   still catching up after a rejoin (T-Q5); B3, a catch-up that keeps
   dropping its link makes the primary read the remaining WAL range into
   memory once per attempt (T-Q5 under TSan). T-Q1 also found that section
   7's 35 s bound does not hold while a sync primary is blocked by a
-  control-plane outage (F2).
+  control-plane outage (F2; the R11 contract and its run-validity guard
+  are in section 7).
 
 - **Requested by:** cody's review of PR #44
   (`handoff/PR44_S1_and_Experimental_Baseline_Handoff.txt`).
@@ -133,7 +135,7 @@ contract (section 9's run validity rules).
 
 | Property | Contract |
 | --- | --- |
-| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`) |
+| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded and caught up, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`). The group is promotable again only once its primary has said SYNCED (SYNC_READINESS.md) |
 | Process crash | Survives |
 | Loss of one member's host or disk | Survives while healthy: the other member holds every HA_DURABLE OK (`test_replication`, `test_witness.py`, Vultr P3: EL2-EL4). A second loss before re-seeding is not covered |
 | Replication | Synchronous; the standby is acked by LSN before the client's OK |

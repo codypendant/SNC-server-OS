@@ -1047,6 +1047,7 @@ int main(int argc, char** argv) {
                         regressed ? "the standby lost acknowledged records"
                         : seed    ? "a seed is asked for"
                                   : "this primary started");
+            std::fflush(stdout);  // ordered with the seed's stderr lines (tests read both)
           } else if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
             eng.withdraw();
             std::printf("witness: this primary's term was replaced; withdrawn\n");
@@ -1071,6 +1072,7 @@ int main(int argc, char** argv) {
             owe_synced = false;
             proven_since_start = true;
             std::printf("witness: standby back in sync\n");
+            std::fflush(stdout);
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary
             eng.withdraw();

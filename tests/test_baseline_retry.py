@@ -398,7 +398,11 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
         # The contract: either node 0 is not promoted while it lacks
         # acknowledged writes (the group waits), or it is and every
         # acknowledged write is there. Never acknowledged writes missing.
-        ok = (not st) or exact(r)
+        # B2 fixed (docs/SYNC_READINESS.md): node 0 is not promoted while
+        # it catches up; the witnesses keep NOT READY for term 1.
+        ws = res["witness_state_at_second_failure"]
+        ok = (not st) and bool(ws) and ws[1] == 1 and ws[3] is True
+        res["no_promotion_while_catching_up"] = ok
     if second == "stop":
         pr.nodes[1].signal(signal.SIGCONT)
         r1, _ = th.ask(pr.adm[1], "HEALTH", 1)
@@ -496,8 +500,8 @@ def b3_stalled_catchup(pr):
         "readers_bounded": res["max_disk_readers"] <= 2 * shards,
         "read_ahead_bounded": last.get("disk_queued_hwm", 1 << 62) <= 2 * shards * (17 << 20),
         # Release measured 283 MiB without stalls and 2,059 MiB with them
-        # before the fix; sanitizer builds multiply RSS.
-        "rss_bounded": res["peak_rss_mib"] < (768 if th.sanitizer(BUILD) is None else 4096),
+        # before the fix (289 MiB after); sanitizer builds multiply RSS.
+        "rss_bounded": res["peak_rss_mib"] < (512 if th.sanitizer(BUILD) is None else 4096),
         "caught_up_no_reader_left": res["caught_up"] and last.get("disk_readers") == 0 and
         last.get("disk_queued") == 0,
         "exact_after_failover": res["second_promoted"] and exact(r),

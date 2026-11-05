@@ -35,6 +35,8 @@ node 1 and catches up.
                     promoted, exact (test 7).
   s10_majority_loss two of three witnesses killed while node 0 catches up,
                     then node 1 killed: no promotion (test 10).
+  s10b_one_witness_lost  the same with one witness killed: a majority could
+                    promote, NOT READY stops it.
 
 Test 8 (two failovers with a reseed, exact) is test_baseline_retry.py
 q5_kill_kill / q5_kill_stop / q5_catchup_race(_late); test 9 (migration,
@@ -85,7 +87,7 @@ class Bench:
         args = [f"{BUILD}/net_bench", "--port", str(pr.to0_cli), "--endpoint", f"127.0.0.1:{pr.to0_cli}",
                 "--endpoint", f"127.0.0.1:{pr.cli[1]}", "--session", str(SESSION), "--threads", str(threads),
                 "--depth", str(depth), "--objects", str(objects), "--reads", "0", "--seconds", str(seconds),
-                "--route", "owner", "--verify"]
+                "--route", "owner", "--verify", "--retry-claim-ttl-s", "3600"]
         self.f = open(self.out, "w")
         self.p = subprocess.Popen(args, stdout=self.f, stderr=subprocess.STDOUT)
         pr.bench = self
@@ -216,19 +218,27 @@ def run(name, body, **pair_args):
 
 def s1_seed_start(pr):
     res = {}
-    b = Bench(pr, 60)
-    time.sleep(2)
+    # 200,000 accounts, so node 1's checkpoints (every second) make a seed
+    # of tens of MB: still in flight when node 1 dies.
+    b = Bench(pr, 60, objects=200000)
+    time.sleep(8)
     first_failover(pr, res)
     # The seed starts when node 0 says it rejoins (it then connects to node
     # 1's seed port and copies the checkpoint).
     assert pr.nodes[0].wait_for(r"rejoin: starting as its standby", 30), pr.nodes[0].text()
     pr.nodes[1].signal(signal.SIGKILL)
+    # Was the seed still in flight? Node 1 logs a seed once sent, node 0
+    # once written and synced.
+    time.sleep(0.2)  # let both logs drain up to the kill
     res["node0_lines_at_kill"] = pr.nodes[0].lines[-3:]
+    res["seed_sent"] = any("seed of checkpoint" in l and "sent" in l for l in pr.nodes[1].lines)
+    res["seeded"] = any(l.startswith("snc: seeded from") for l in pr.nodes[0].lines)
     held, seen = no_promotion(pr, 0, NO_PROMOTION_S)
     res["no_promotion"], res["states"] = held, seen
     res["witness_still_not_ready"] = bool(seen) and seen[-1][1] == 1 and seen[-1][3] is True
     b.stop()
-    res["pass"] = res["promotion_not_ready"] and held and res["witness_still_not_ready"]
+    res["pass"] = (res["promotion_not_ready"] and held and res["witness_still_not_ready"] and
+                   not res["seed_sent"] and not res["seeded"])
     return res
 
 
@@ -261,19 +271,22 @@ def s2_mid_catchup(pr):
     pr.nodes[1].signal(signal.SIGKILL)
     held, seen = no_promotion(pr, 0, NO_PROMOTION_S)
     res["no_promotion"], res["states"] = held, seen
+    res["node0_role"] = role(pr, 0)
     b.stop()
-    res["pass"] = res["promotion_not_ready"] and held
+    res["pass"] = res["promotion_not_ready"] and held and res["node0_role"] == "s"
     return res
 
 
-def s10_majority_loss(pr):
-    res = {}
+def s10_majority_loss(pr, n_killed=2):
+    """n_killed witnesses lost: 2 (a majority: nothing can be chosen) or 1
+    (a majority remains, so only NOT READY stops the promotion)."""
+    res = {"witnesses_killed": n_killed}
     b = Bench(pr, 9)
     time.sleep(2)
     first_failover(pr, res, rejoin_delay=4.0)
     res["halfway"] = catching_up(pr, res, 0.2)
     assert res["halfway"], res
-    for w in pr.w[:2]:
+    for w in pr.w[:n_killed]:
         w.signal(signal.SIGKILL)
     pr.nodes[1].signal(signal.SIGKILL)
     held, seen = no_promotion(pr, 0, NO_PROMOTION_S)
@@ -300,8 +313,10 @@ def s5_stale_synced(pr):
     pr.nodes[1].signal(signal.SIGKILL)
     held, seen = no_promotion(pr, 0, NO_PROMOTION_S)
     res["no_promotion"] = held
+    res["node0_role"] = role(pr, 0)
     b.stop()
-    res["pass"] = (res["promotion_not_ready"] and res["refused"] and res["state_after"][3] is True and held)
+    res["pass"] = (res["promotion_not_ready"] and res["refused"] and res["state_after"][3] is True and held and
+                   res["node0_role"] == "s")
     return res
 
 
@@ -383,17 +398,19 @@ def s4_restart_reseed(pr):
         time.sleep(0.05)
     res["reseed_states"] = states
     later = pr.nodes[0].lines[n_lines:]
-    res["seed_gate"] = [l for l in later if "recorded NOT READY" in l or "granted" in l][:3]
-    res["seed_retried"] = any("retry" in l for l in pr.nodes[1].lines)
-    # NOT READY was on record before node 1 had its seed; READY came after.
-    res["not_ready_before_seed"] = seeded_at is not None and any(s[3] for s in states[:max(seeded_at, 1)])
+    gate = [i for i, l in enumerate(later) if "recorded NOT READY (a seed is asked for)" in l]
+    sent = [i for i, l in enumerate(later) if "seed of checkpoint" in l and "sent" in l]
+    res["seed_gate"] = [later[i] for i in gate[:1]]
+    # In node 0's own log: NOT READY recorded before the seed was sent.
+    res["not_ready_before_seed"] = bool(gate) and bool(sent) and gate[0] < sent[0]
+    res["not_ready_seen"] = any(s[3] for s in states)
     res["ready_again"] = bool(states) and not states[-1][3] and states[-1][1] == 0
     # c. The failover now: exact.
     pr.nodes[0].signal(signal.SIGKILL)
     st = wait_state(pr, 1, 20)
     res["promoted"] = st
     res["bench"] = r = b.wait(180)
-    res["pass"] = (res["restart_ready"] and res["not_ready_before_seed"] and bool(res["seed_gate"]) and
+    res["pass"] = (res["restart_ready"] and res["not_ready_before_seed"] and res["not_ready_seen"] and
                    res["ready_again"] and bool(st) and exact(r))
     return res
 
@@ -442,7 +459,9 @@ def s6_writes_catchup(pr):
 
 
 SCEN = {
-    "s1_seed_start": lambda: run("s1_seed_start", s1_seed_start),
+    # Checkpoints every second, so the seed is a large checkpoint (not the
+    # empty first one) and still in flight when node 1 dies.
+    "s1_seed_start": lambda: run("s1_seed_start", s1_seed_start, objects="1000000", extra=("--checkpoint-s", "1")),
     "s2_mid_catchup": lambda: run("s2_mid_catchup", s2_mid_catchup, extra=THROTTLED),
     "s3_synced_fail": lambda: run("s3_synced_fail", lambda pr: synced_then_fail(pr, False)),
     "s4_restart_reseed": lambda: run("s4_restart_reseed", s4_restart_reseed, extra=("--replica-timeout-ms", "5000")),
@@ -450,6 +469,8 @@ SCEN = {
     "s6_writes_catchup": lambda: run("s6_writes_catchup", s6_writes_catchup),
     "s7_fail_at_synced": lambda: run("s7_fail_at_synced", lambda pr: synced_then_fail(pr, True)),
     "s10_majority_loss": lambda: run("s10_majority_loss", s10_majority_loss, extra=THROTTLED),
+    "s10b_one_witness_lost": lambda: run("s10b_one_witness_lost", lambda pr: s10_majority_loss(pr, 1),
+                                         extra=THROTTLED),
 }
 
 

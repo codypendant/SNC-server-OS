@@ -52,7 +52,7 @@ Class, per work order Part IX:
 | 19a | Partition × reads on the old primary | A cut-off sync primary answers default reads of already-durable objects until it learns the new term | single-object read consistency | INFERRED (EL0) | **UNTESTED** (KNOWN GAP) |
 | 19b | WAL bit rot × recovery | A bad record mid-way in the last segment drops the acknowledged records after it silently | G2 | INFERRED (EL0) | **UNTESTED** (KNOWN GAP) |
 | 19c | Restart with a shard-count change × lost standby with a witness | The step-8 recovery checkpoint waits on local WAL durability (B1), so `Engine::start` completes and DEGRADE is asked | G6 before the fix | `q3_restart`: the recovery checkpoint ran (`recovery: checkpoint before serving`), granted, write OK (EL2) | **TESTED** |
-| 19 | Control-plane (witness majority) loss × failover | No promotion and no DEGRADE grant until a majority returns; INFERRED: serving continues, a sync primary that loses its standby blocks | G6 | INFERRED | **UNTESTED** |
+| 19 | Control-plane (witness majority) loss × failover | No promotion and no DEGRADE grant until a majority returns; INFERRED: serving continues, a sync primary that loses its standby blocks | G6 | `test_sync_readiness.py s10_majority_loss` (2 of 3 witnesses lost, primary killed: no promotion; EL2); serving and blocking INFERRED | **PARTIALLY TESTED** |
 
 ### Migration and placement
 

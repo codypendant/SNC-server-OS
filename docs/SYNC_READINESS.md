@@ -3,9 +3,12 @@
 **Status: IMPLEMENTED 2026-11-05** (work order
 `handoff/PR47_PR48_Blocker_Fix_Handoff.txt`, B2). This fixes BLOCKER B2 of
 [BASELINE_READINESS.md](BASELINE_READINESS.md) section 3. It covers Profile
-B (sync replication with witness HA) only. It does not change async
-promotion policy (R08), and it changes no format: the witness state, its
-Paxos machine and the replication wire are as before.
+B (sync replication with witness HA). It changes no state format: the
+witness state file and its Paxos machine are as before. Protocol
+additions: a seed status 3 ("retry") and a witness refusal "NO not
+learned yet" (section 2). It does not implement any async (R08) policy;
+it does touch async groups in one way, which is more conservative
+(section 5).
 
 ## 1. The invariant
 
@@ -33,7 +36,10 @@ primary of `term` has proven that its standby is in sync.
 | `SYNCED uuid T` from the primary of T | READY | READY (unchanged; refused unless T is the current term) |
 
 The promotion check is unchanged: the witnesses promote only from READY,
-and only a standby with the same uuid and term.
+and only a standby with the same uuid and term. A witness answers
+DEGRADE and SYNCED only once it has learned the pair (`NO not learned
+yet` before that; the primary asks again), so learning, which records
+which node is primary, always comes first.
 
 **A stale SYNCED cannot authorize a promotion.** SYNCED names its term.
 The witness accepts it only if that term is the current one (the existing
@@ -159,13 +165,12 @@ change and is not proposed here.
 
 ## 5. Costs
 
-- **After every failover, and at first start**, the group is not
+- **After every failover, and at every primary start**, the group is not
   promotable until the new primary has a standby in sync and has said so.
   Until then a second failure makes the group unavailable, not wrong. This
-  is what Profile B's contract already says for "after a failover, until a
-  new standby is seeded".
-- **No new wire or state format.** SYNCED and DEGRADE are the existing
-  verbs. The witness state file is unchanged. An older primary binary
+  extends what Profile B's contract said ("after a failover, until a new
+  standby is seeded") to: until it is seeded, caught up and proven.
+- **No new state format.** SYNCED and DEGRADE are the existing verbs. The witness state file is unchanged. An older primary binary
   never sends SYNCED without a grant first, so with new witnesses its
   group would stay NOT READY: upgrade the witnesses and the nodes
   together.
@@ -173,13 +178,19 @@ change and is not proposed here.
   primary can say SYNCED. A group whose primary runs without it is never
   READY, so its standby is never promoted (it fails safe). That was
   already required for a sync primary to run alone; the test clusters of
-  `test_fail_closed.py` in witness mode now pass it. An async primary with
-  `--witness` says SYNCED once its link is up, as before (R08 unchanged).
+  `test_fail_closed.py` in witness mode now pass it.
+- **Async groups (an R08-side effect, more conservative).** Before, an
+  async group was READY from the moment the witnesses learned its
+  primary. Now it is NOT READY until its primary (with `--witness`) has
+  said SYNCED, which for async means its link is up (no LSN proof: an
+  async primary acknowledges before its standby has anything). The rest
+  of async promotion is unchanged: a live async standby of the same term
+  is still promoted, and still may lack acknowledged writes (R08).
 - **Liveness under load.** Check 4 compares against the durable LSN of
   the moment, so a shard under constant writes is ready only at an
   instant when its standby's acks have reached it. Measured at full client
-  rate (2 threads x 64 in flight, loopback): SYNCED 0.5 to 1.3 s after the
-  rejoined standby started. A degraded primary has no back-pressure, so a
+  rate (2 threads x 64 in flight, loopback): SYNCED 0.48 s (`s3`) and
+  1.12 s (`s7`) after the rejoined standby started. A degraded primary has no back-pressure, so a
   standby slower than its primary's write rate (or one restarting disk
   catch-up repeatedly, as with `--replica-retain-mib 1`) may never catch
   up: the group then stays NOT READY. That is unavailable for failover,
@@ -198,11 +209,16 @@ noted.
 2. Fail it halfway through catch-up: no promotion.
 3. Reach SYNCED, then fail the primary: the promotion succeeds with an
    exact state.
-4. Restart a SYNCED standby on its own data: it stays READY, and a
-   failover is exact. Reseed it: NOT READY until it is proven again.
+4. Restart a SYNCED standby on its own data (inside the replica
+   timeout): READY on record throughout (polled). Then reseed it: NOT
+   READY recorded before the seed is sent (in the primary's own log),
+   READY again only once proven; then a failover is exact.
 5. A stale SYNCED (an old term's) is refused, and promotes nothing.
 6. Continuous writes at full rate during catch-up: never READY while the
-   standby is behind; READY while the writes continue; then exact.
+   standby is behind (sampled every 50 ms: the check proves no early
+   READY was *seen*, not that none existed between samples; s7 kills the
+   primary at the SYNCED itself); READY while the writes continue; then
+   exact.
 7. Fail the primary immediately after SYNCED: every acknowledged write
    is present.
 8. Two consecutive failovers with a reseed between them: exact state

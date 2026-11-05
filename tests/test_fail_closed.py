@@ -880,7 +880,7 @@ def scenario_f19(c, ev):
     """F19 (B2 test 9; docs/SYNC_READINESS.md): sync replication, witness
     HA. A completed move of S to B; B's primary dies and the witnesses
     promote its standby (term 1, NOT READY); B's old primary rejoins it as
-    a standby, seeded; while it catches up nobody is promotable; once the
+    a standby, seeded; the group is NOT READY as it rejoins; once the
     new primary has said SYNCED (READY), it dies and the witnesses promote
     the rejoined node (term 2). S serves there with every acked write
     (D1); A never serves S again (D7); a never-moved slot serves
@@ -916,6 +916,15 @@ def scenario_f19(c, ev):
     wait(lambda: c.role(b) == "s", "B's old primary rejoined as a standby", timeout=60)
     # 3. READY again only once proven; then the new primary dies.
     wait(lambda: (lambda s: s and s[1] == 1 and s[2] is False)(ha_state(c, gb)), "B READY at term 1", timeout=60)
+    # In the new primary's own log: NOT READY recorded at its start, the
+    # seed sent after that, READY (SYNCED) only after the seed: while the
+    # rejoined node seeded and caught up, the group was not promotable.
+    lines = open(f"{c.work}/n{qb}.log").read().splitlines()
+    lines = lines[max(i for i, l in enumerate(lines) if l.startswith("snc_server shards=")):]  # this start
+    at = lambda pat: next((i for i, l in enumerate(lines) if pat in l), None)  # noqa: E731
+    order = (at("recorded NOT READY"), at("seed of checkpoint"), at("standby back in sync"))
+    ev["log_order"] = order
+    assert None not in order and order[0] < order[1] < order[2], (order, lines[-20:])
     wait(lambda: c.caught_up(b, S, len(ids)) and c.info(b, S)["live_digest"] == c.info(qb, S)["live_digest"],
          "the rejoined standby in sync")
     c.kill(qb)
