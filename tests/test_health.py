@@ -313,7 +313,7 @@ class Pair:
     rearmed, plus three witnesses. With proxied=True every path to and
     from node 0 goes through a Proxy (T6)."""
 
-    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000"):
+    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=()):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -339,7 +339,7 @@ class Pair:
             self.proxies += [Proxy(px + 5 + i, self.wit[i]) for i in range(3)]
         self.to0_adm, self.to0_cli = to0_adm, to0_cli
         common = ["--space-uuid", UUID, "--objects", objects, "--shards", "2", "--debug-admin",
-                  "--replica-timeout-ms", "500"]
+                  "--replica-timeout-ms", "500"] + list(extra)
         self.args = [
             ["--cpus", "0,1", "--port", str(self.cli[0]), "--data-dir", f"{self.work}/n0", "--admin-port",
              str(self.adm[0]), "--replica-of", f"127.0.0.1:{n0_repl_target}", "--witness",

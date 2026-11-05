@@ -9,6 +9,7 @@
 // non-blocking sockets; neither blocks the shard.
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
@@ -141,7 +142,11 @@ class Sender {
     std::condition_variable cv;
     std::deque<std::vector<u8>> frames;
     std::size_t bytes = 0;
-    bool done = false, ok = true, cancel = false, diverged = false;
+    bool done = false, ok = true, diverged = false;
+    // Set by stop_disk(): the reader stops producing at its next record
+    // (docs/BASELINE_READINESS.md B3). Read without the lock per record.
+    std::atomic<bool> cancel{false};
+    ~DiskRead();  // frames never sent leave the process-wide gauge
   };
   // Reads [from, to). With verify_crc, first checks that record from - 1
   // has that crc (the standby's last record matches ours).

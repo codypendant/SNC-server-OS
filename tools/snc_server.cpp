@@ -851,14 +851,19 @@ int main(int argc, char** argv) {
           std::fclose(f);
         }
         const Engine::ReplStatus st = eng.replication_status();
-        char b[512];
+        const ReplDiskGauges dg = repl_disk_gauges();
+        char b[768];
         std::snprintf(b, sizeof(b),
                       "rss_kb=%ld hwm_kb=%ld heap_live=%llu waiters=%llu overflow=%llu emits_in_flight=%llu "
-                      "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u",
+                      "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u "
+                      "disk_readers=%llu disk_queued=%llu disk_queued_hwm=%llu disk_started=%llu "
+                      "disk_stopped_on_cancel=%llu",
                       rss_kb, hwm_kb, (unsigned long long)heap, (unsigned long long)waiters,
                       (unsigned long long)overflow, (unsigned long long)emits, (unsigned long long)held,
                       (unsigned long long)retained, (unsigned long long)unacked, (unsigned long long)undurable,
-                      st.blocked, st.degraded);
+                      st.blocked, st.degraded, (unsigned long long)dg.readers_live,
+                      (unsigned long long)dg.queued_bytes, (unsigned long long)dg.queued_hwm,
+                      (unsigned long long)dg.started, (unsigned long long)dg.stopped_on_cancel);
         return b;
       }
       if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");

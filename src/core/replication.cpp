@@ -1,5 +1,6 @@
 #include "replication.h"
 
+#include "snc/snc.h"
 #include "snc/sri.h"
 
 #include <atomic>
@@ -95,7 +96,20 @@ Sender::~Sender() {
 namespace {
 constexpr std::size_t kDiskFrame = 1u << 20;      // records per frame read from disk
 constexpr std::size_t kDiskQueued = 16u << 20;    // read ahead at most this much
+
+// Process-wide catch-up reader gauges (snc::repl_disk_gauges, RESOURCES).
+std::atomic<u64> g_readers_live{0}, g_queued{0}, g_queued_hwm{0}, g_started{0}, g_stopped_on_cancel{0};
+
+void queued_add(u64 n) {
+  const u64 now = g_queued.fetch_add(n, std::memory_order_relaxed) + n;
+  u64 hwm = g_queued_hwm.load(std::memory_order_relaxed);
+  while (now > hwm && !g_queued_hwm.compare_exchange_weak(hwm, now, std::memory_order_relaxed)) {
+  }
+}
+void queued_sub(u64 n) { g_queued.fetch_sub(n, std::memory_order_relaxed); }
 }  // namespace
+
+Sender::DiskRead::~DiskRead() { queued_sub(bytes); }
 
 void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
   auto d = std::make_shared<DiskRead>();
@@ -111,28 +125,37 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
     }
     pthread_setaffinity_np(pthread_self(), sizeof(all), &all);
     ::setpriority(PRIO_PROCESS, static_cast<id_t>(::gettid()), 10);
+    g_readers_live.fetch_add(1, std::memory_order_relaxed);
+    g_started.fetch_add(1, std::memory_order_relaxed);
     std::vector<u8> f;
     u64 first = 0, last = 0;
     bool checking = verify_crc != 0, bad = false;
+    // Cancellation means stop producing (docs/BASELINE_READINESS.md B3):
+    // once stop_disk() has run, this reader reads, allocates and queues
+    // nothing more. Its queued frames go with the last reference to d.
+    auto cancelled = [&] { return d->cancel.load(std::memory_order_relaxed); };
     auto push = [&] {
-      if (f.empty()) return;
+      if (f.empty()) return true;
       RecordsHeader h{static_cast<u32>(f.size() - sizeof(RecordsHeader)), 0, first, last};
       std::memcpy(f.data(), &h, sizeof(h));
       std::unique_lock<std::mutex> g(d->mu);
-      d->cv.wait(g, [&] { return d->bytes < kDiskQueued || d->cancel; });
+      d->cv.wait(g, [&] { return d->bytes < kDiskQueued || cancelled(); });
+      if (cancelled()) return false;
       d->bytes += f.size();
+      queued_add(f.size());
       d->frames.push_back(std::move(f));
       f.clear();
+      return true;
     };
     bool ok = read_stream_range(dir, shard, checking ? from - 1 : from, to, uuid,
                                 [&](const u8* rec, u32 len) {
-      if (bad) return;
+      if (bad || cancelled()) return false;
       if (checking) {
         u32 crc;
         std::memcpy(&crc, rec, 4);  // WalRecord::crc32c
         bad = crc != verify_crc;
         checking = false;
-        return;
+        return !bad;
       }
       if (f.empty()) {
         f.resize(sizeof(RecordsHeader));
@@ -143,20 +166,26 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
       // Cut frames only between atomic groups: the standby applies whole frames.
       u16 flags;
       std::memcpy(&flags, rec + offsetof(WalRecord, flags), 2);
-      if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) push();
+      if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) return push();
+      return true;
     });
-    if (!bad) push();
-    std::lock_guard<std::mutex> g(d->mu);
-    d->ok = ok && !bad;
-    d->diverged = bad;
-    d->done = true;
+    if (!bad && !cancelled()) push();
+    if (cancelled()) g_stopped_on_cancel.fetch_add(1, std::memory_order_relaxed);
+    std::vector<u8>().swap(f);
+    {
+      std::lock_guard<std::mutex> g(d->mu);
+      d->ok = ok && !bad;
+      d->diverged = bad;
+      d->done = true;
+    }
+    g_readers_live.fetch_sub(1, std::memory_order_relaxed);
   }).detach();
 }
 
 void Sender::stop_disk() {
   if (disk_) {
     std::lock_guard<std::mutex> g(disk_->mu);
-    disk_->cancel = true;
+    disk_->cancel.store(true, std::memory_order_relaxed);
     disk_->cv.notify_all();
   }
   disk_.reset();
@@ -213,6 +242,7 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
         disk_frame_ = std::move(disk_->frames.front());
         disk_->frames.pop_front();
         disk_->bytes -= disk_frame_.size();
+        queued_sub(disk_frame_.size());
         disk_->cv.notify_all();
         disk_off_ = 0;
         apply_verified(advanced);  // the reader checked the tail before the first frame
@@ -707,3 +737,15 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
 }
 
 }  // namespace snc::repl
+
+namespace snc {
+ReplDiskGauges repl_disk_gauges() {
+  ReplDiskGauges g;
+  g.readers_live = repl::g_readers_live.load(std::memory_order_relaxed);
+  g.queued_bytes = repl::g_queued.load(std::memory_order_relaxed);
+  g.queued_hwm = repl::g_queued_hwm.load(std::memory_order_relaxed);
+  g.started = repl::g_started.load(std::memory_order_relaxed);
+  g.stopped_on_cancel = repl::g_stopped_on_cancel.load(std::memory_order_relaxed);
+  return g;
+}
+}  // namespace snc

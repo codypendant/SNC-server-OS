@@ -205,6 +205,19 @@ struct ShardStats {
   u64 wal_next_lsn = 0;   // next LSN this shard's WAL will assign
 };
 
+// Replication catch-up from WAL files, process-wide: reader threads alive,
+// frames read ahead and not yet sent (bytes, now and high-water), readers
+// started, and readers that stopped because their link went
+// (docs/BASELINE_READINESS.md B3). Readable from any thread.
+struct ReplDiskGauges {
+  u64 readers_live = 0;
+  u64 queued_bytes = 0;
+  u64 queued_hwm = 0;
+  u64 started = 0;
+  u64 stopped_on_cancel = 0;
+};
+ReplDiskGauges repl_disk_gauges();
+
 // Slot moves (docs/MIGRATION.md): one object of a slot, as the source
 // exports it and the destination stages it. `crc` covers the type, schema
 // and payload, so (version, crc) names the object's state exactly.

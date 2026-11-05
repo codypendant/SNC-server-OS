@@ -399,7 +399,87 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
     return res, b
 
 
+# ---- B3: catch-up from disk over a link that keeps dropping -----------------------------
+
+def b3_stalled_catchup(pr):
+    """docs/BASELINE_READINESS.md B3. Node 1, promoted, runs alone for 8 s
+    with 16 MiB of in-memory retention per shard, so the rejoined node 0
+    catches up from WAL files. Node 0 is then SIGSTOPped 0.7 s of every
+    1 s for 20 s: it keeps missing the 500 ms ack timeout, so node 1 cancels
+    its catch-up reader and starts another, again and again. The contract:
+    a cancelled reader stops producing, so readers and read-ahead stay
+    bounded (16 MiB per live reader) and so does RSS; once the stalls end
+    the catch-up completes, no reader is left, and a failover to node 0
+    then keeps every acknowledged write."""
+    b = Bench(pr, 75, threads=2, depth=64)
+    started(b)
+    res = {}
+    pr.nodes[0].signal(signal.SIGKILL)
+    pr.nodes[0].p.wait(timeout=30)
+    assert wait_state(pr, 1, 15), "node 1 not promoted"
+    time.sleep(8)
+    pr.old_nodes.append(pr.nodes[0])
+    pr.nodes[0] = th.Proc([f"{BUILD}/snc_server"] + pr.args[0])
+    assert pr.nodes[0].wait_for(r"standby, listening", 30), pr.nodes[0].text()
+    series = []
+
+    def sample():
+        r, _ = th.ask(pr.adm[1], "RESOURCES", 3)
+        f = th.fields(r)
+        if f:
+            series.append({k: int(f[k]) for k in ("rss_kb", "repl_retained", "wal_unacked", "disk_readers",
+                                                  "disk_queued", "disk_queued_hwm", "disk_started",
+                                                  "disk_stopped_on_cancel")})
+        return f
+
+    t_end = time.time() + 20
+    while time.time() < t_end:
+        pr.nodes[0].signal(signal.SIGSTOP)
+        time.sleep(0.7)
+        sample()
+        pr.nodes[0].signal(signal.SIGCONT)
+        time.sleep(0.3)
+        sample()
+    ok_n, t_end = 0, time.time() + 90
+    while ok_n < 3 and time.time() < t_end:
+        f = sample()
+        u = int(f["wal_unacked"]) if f else None
+        ok_n = ok_n + 1 if u is not None and u < 2 * 64 * 2 and int(f["disk_readers"]) == 0 else 0
+        time.sleep(0.2)
+    res["caught_up"] = ok_n >= 3
+    last = series[-1] if series else {}
+    res["peak_rss_mib"] = max(s["rss_kb"] for s in series) // 1024
+    res["max_disk_readers"] = max(s["disk_readers"] for s in series)
+    res["disk_queued_hwm_mib"] = round(last.get("disk_queued_hwm", 0) / (1 << 20), 1)
+    res["disk_started"] = last.get("disk_started")
+    res["disk_stopped_on_cancel"] = last.get("disk_stopped_on_cancel")
+    res["at_end"] = last
+    res["stopped_acking"] = sum("stopped acking" in l for l in pr.nodes[1].lines)
+    pr.nodes[1].signal(signal.SIGKILL)
+    st = wait_state(pr, 0, 20)
+    res["second_promoted"] = bool(st)
+    res["bench"] = r = b.wait(180)
+    shards = 2
+    res["checks"] = {
+        "cancel_path_exercised": res["stopped_acking"] >= 5 and (res["disk_stopped_on_cancel"] or 0) >= 2,
+        # Each shard: its current reader, plus at most one that is stopping.
+        "readers_bounded": res["max_disk_readers"] <= 2 * shards,
+        "read_ahead_bounded": last.get("disk_queued_hwm", 1 << 62) <= 2 * shards * (17 << 20),
+        # Release measured 283 MiB without stalls and 2,059 MiB with them
+        # before the fix; sanitizer builds multiply RSS.
+        "rss_bounded": res["peak_rss_mib"] < (768 if th.sanitizer(BUILD) is None else 4096),
+        "caught_up_no_reader_left": res["caught_up"] and last.get("disk_readers") == 0 and
+        last.get("disk_queued") == 0,
+        "exact_after_failover": res["second_promoted"] and exact(r),
+    }
+    res["series"] = series[::4]
+    res["pass"] = all(res["checks"].values())
+    return res, b
+
+
 SCEN = {
+    "b3_stalled_catchup": lambda: run("b3_stalled_catchup", b3_stalled_catchup,
+                                      extra=("--replica-retain-mib", "16")),
     "q1_kill": lambda: run("q1_kill", q1_kill),
     "q1_stop": lambda: run("q1_stop", q1_stop),
     "q1_partition": lambda: run("q1_partition", q1_partition, proxied=True),

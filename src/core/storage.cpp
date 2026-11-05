@@ -437,7 +437,7 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
 }
 
 bool read_stream_range(const std::string& d, u16 stream, u64 from_lsn, u64 to_lsn,
-                       const Uuid& uuid, const std::function<void(const u8*, u32)>& fn) {
+                       const Uuid& uuid, const std::function<bool(const u8*, u32)>& fn) {
   if (from_lsn >= to_lsn) return true;
   std::vector<u64> segs = list_segments(d, stream);
   u64 next = from_lsn;
@@ -466,7 +466,7 @@ bool read_stream_range(const std::string& d, u16 stream, u64 from_lsn, u64 to_ls
       std::memcpy(&r, buf.data() + off, sizeof(r));
       if (r.lsn > next) return false;  // a hole
       if (r.lsn == next) {
-        fn(buf.data() + off, len);
+        if (!fn(buf.data() + off, len)) return false;  // the caller stopped
         ++next;
       }
       off += len;
