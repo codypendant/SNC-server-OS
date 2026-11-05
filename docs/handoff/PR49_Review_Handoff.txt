@@ -1,0 +1,211 @@
+PR #49 REVIEW — B3 / B1 / B2 BLOCKER FIXES
+
+DECISION
+
+PR #49 blocker fixes are APPROVED.
+
+B3 FIXED. B1 FIXED. B2 core promotion-readiness model APPROVED. F5 FIXED. R11 per-run claim guard APPROVED.
+
+Do NOT freeze the Experimental Baseline yet. Independent review found one remaining known Profile B safety window: a delayed same-term SYNCED can land after a later DEGRADE and incorrectly restore READY.
+
+That narrow witness-ordering hole must be closed before a sync-HA baseline can honestly claim HA_DURABLE promotion safety.
+
+B3
+
+Approved. Cancelled catch-up readers now stop scanning, reading, allocating and queueing. Final evidence: 38 cancellation stops, max 2 live readers, 32 MiB read-ahead HWM, 345 MiB peak RSS versus ~2,059 MiB before, no queued bytes/readers at completion, exact failover, TSan clean.
+
+The ack-timeout correction is also accepted: timeout measures an acknowledgement actually owed by the standby, not time spent in the primary's disk reader/rate pacing.
+
+F5
+
+Approved. The low catch-up-rate reconnect/livelock was caused by the same timeout semantics and is fixed.
+
+B1
+
+Approved. Checkpoint eligibility now depends on local WAL durability, while sync client OK still depends on the declared HA durability/standby acknowledgement.
+
+q3_runtime20 passed 20/20 with checkpoint in flight, DEGRADE granted, no wedge, writes resumed, checkpoints continued and acknowledged writes survived. Recovery-checkpoint path, persistence and crash tests pass.
+
+B2 CORE MODEL
+
+Approved invariant:
+
+A standby is promotion-eligible only after the current-term primary positively proves that standby contains every write covered by the Profile B HA acknowledgement contract.
+
+Connected, started, same-term or HEALTH-responsive are not proof.
+
+Using the existing witness degraded bit as NOT READY/READY is acceptable. Promotion, primary start, reseed/regression and DEGRADE produce NOT READY. Only current-term SYNCED after every shard proves its current link caught up produces READY.
+
+If no proven standby exists: NO PROMOTION. Unavailability is correct; stale promotion is not.
+
+The link-specific acknowledged frontier and durable handshake-position changes are important and accepted.
+
+B2 TESTS
+
+The requested 1-10 matrix is present and passing: seed-start failure, mid-catch-up failure, SYNCED failover, restart/reseed, stale-term SYNCED, writes during catch-up, fail-at-SYNCED, two failovers, migration/rejoin/failover and witness-majority loss.
+
+Full final verification:
+- RelWithDebInfo 28/28 after test-only sampling correction;
+- ASan+UBSan 28/28, zero reports;
+- TSan 28/28, zero reports;
+- readiness scenarios pass;
+- independent source review completed.
+
+The TSan-only 300 ms witness polling allowance is accepted as sanitizer timing accommodation, not production semantics.
+
+R11 / F2
+
+Accepted for baseline with the per-run guard.
+
+The old absolute ~35 s resend claim is gone.
+
+A run may claim session deduplication only when every in-doubt resend occurs safely before the configured session-expiry horizon. TTL/10 is a conservative campaign guard. Manifests must record actual server TTL and claimed TTL. Do not raise TTL merely to manufacture a passing claim. Long-outage/client-rebuild retry remains excluded.
+
+F6
+
+No degraded-mode backpressure is a liveness/resource limitation, not a silent safety defect under the current model. Keep visible and measure on R640. Do not fix before baseline absent physical evidence that it prevents fair evaluation.
+
+F1
+
+Retention remains bounded; measure its real memory/density cost on R640. Do not optimize preemptively.
+
+REMAINING PROFILE B SAFETY WINDOW
+
+Known causal path:
+
+1. Current-term primary sends SYNCED.
+2. SYNCED is delayed inside witness/Paxos processing.
+3. Standby is lost.
+4. A later DEGRADE is chosen.
+5. Primary may acknowledge local-only degraded writes.
+6. Old delayed SYNCED from the SAME uuid/term is later chosen.
+7. Witness state incorrectly returns to READY.
+8. Primary dies.
+9. Witnesses may promote a standby missing those degraded acknowledged writes.
+
+This violates Profile B's declared promotion contract. A narrow timing window is still a known safety hole.
+
+APPROVED DIRECTION
+
+Use causal witness-state versioning for DEGRADE/SYNCED.
+
+Conceptually:
+
+DEGRADE -> OK v=N
+
+Primary retains the chosen NOT-READY version.
+
+Later:
+SYNCED uuid term group after=N
+
+Witness accepts SYNCED only if it is causally based on the latest applicable DEGRADE/NOT-READY state for that group/term.
+
+A delayed SYNCED based on older state MUST NOT overwrite a later DEGRADE.
+
+DESIGN EXACT RULE FIRST
+
+Before coding, update SYNC_READINESS.md and answer:
+
+- Which chosen version does DEGRADE return?
+- Can witness replies expose differing versions and how does the primary reconcile them?
+- What exact predicate applies to SYNCED after=N?
+- What if unrelated proposals advance a global witness version?
+- Is version global or per group?
+- How is the causal base recovered after primary restart?
+- How does a lost DEGRADE reply recover the chosen version?
+- How does a lost SYNCED reply retry idempotently?
+- What is mixed old/new behavior?
+- Can an old primary without after re-open the race?
+
+Do not naively require after == global current_version if unrelated groups can advance it.
+
+The predicate must detect whether a newer NOT READY/DEGRADE transition for THIS group/term occurred after the SYNCED causal base.
+
+If existing state cannot express that without new durable witness/Paxos state, STOP and return the design before changing the state format.
+
+PRE-FIX CHARACTERIZATION
+
+Create a deterministic test/debug hook that forces:
+
+old SYNCED delayed
+-> later DEGRADE chosen
+-> degraded acknowledgements allowed
+-> old SYNCED released
+
+Preserve evidence that old behavior can restore READY incorrectly and create unsafe promotion eligibility.
+
+Do not rely only on source reasoning if the race can reasonably be forced.
+
+POST-FIX TESTS
+
+V1 delayed old SYNCED after later DEGRADE -> refused; remains NOT READY.
+V2 normal DEGRADE -> catch-up -> causally newer SYNCED -> READY.
+V3 lost DEGRADE reply after chosen -> safe recovery/retry.
+V4 lost SYNCED reply -> idempotent retry.
+V5 unrelated witness/Paxos proposal between DEGRADE/SYNCED does not prevent legitimate readiness.
+V6 stale old-term SYNCED remains refused.
+V7 primary restart after NOT READY cannot issue ungrounded SYNCED.
+V8 two failovers with forced delay window -> exact state.
+V9 migration + forced readiness race preserves D1/D7.
+V10 mixed-version compatibility fails safe; an old participant must not silently restore unsafe promotion in protected Profile B.
+
+WRONG/EMPTY STANDBY DIRECTORY RESIDUAL
+
+The documented handshake-to-DEGRADE regression window for an operator-started wrong/empty/restored standby remains excluded by baseline Q9/profile discipline.
+
+Do not solve it in this slice unless the causal-version mechanism closes it naturally without scope expansion.
+
+FUTURE ARCHITECTURE VISION
+
+The Future Architecture Vision v2 committed as documentation is accepted. It authorizes nothing. No backup/snapshot/branch/Agent Runtime implementation enters the baseline work.
+
+AUTHORIZED NEXT SLICE
+
+- exact DEGRADE/SYNCED causal-order design;
+- deterministic pre-fix characterization;
+- smallest request/reply protocol change to reject stale delayed same-term SYNCED;
+- V1-V10;
+- compatibility/fail-safe behavior;
+- evidence/contract reconciliation;
+- fresh RelWithDebInfo/ASan+UBSan/TSan;
+- independent source review and separate QA.
+
+NOT AUTHORIZED
+
+- R08 automatic async HA;
+- broad witness/Paxos redesign;
+- new durable witness format without separate review;
+- F6 backpressure;
+- F1 optimization;
+- R11 session-incarnation redesign;
+- S2/S3;
+- backup/snapshot/branch implementation;
+- Agent Runtime;
+- comparative benchmark campaign.
+
+STOP CONDITION
+
+If the delayed-SYNCED fix requires a new durable witness/Paxos state format, per-group state-machine redesign, material compatibility break or broad HA redesign, STOP after design/characterization and return for review.
+
+AFTER THIS FIX
+
+If V1-V10 pass, readiness regressions remain passing, migration/fail-closed/health tests remain passing, fresh release/ASan/TSan are clean and independent review/QA find no new baseline blocker, return for FINAL EXPERIMENTAL BASELINE FREEZE REVIEW.
+
+Do not automatically start competitor benchmarks.
+
+We still require:
+- main R640 hardware manifest;
+- first-wave workload drivers;
+- within-system pilot;
+- CRITERIA.md committed before comparative results;
+- frozen baseline SHA.
+
+FINAL
+
+PR #49: APPROVED for B3, B1, B2 core readiness, F5 and R11 run guard.
+
+The long verification run produced strong evidence. The independent review also did its job by finding one remaining known same-term ordering hole.
+
+Proceed only with the narrow DEGRADE/SYNCED CAUSAL ORDERING slice.
+
+Return for review before baseline freeze or comparative benchmarking.

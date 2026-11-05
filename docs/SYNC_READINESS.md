@@ -228,3 +228,167 @@ noted.
    (`test_fail_closed.py f19`: sync groups, witness HA, a completed move,
    failover, rejoin by seed, failover again).
 10. Witness majority loss while not ready: no promotion.
+
+## 7. Causal order of NOT READY and READY (PR #49 review)
+
+**Status: DESIGN, 2026-11-05** (work order
+`handoff/PR49_Review_Handoff.txt`). This closes the window of section 4
+("Open"): a SYNCED delayed inside a witness was chosen after a later
+DEGRADE and restored READY while the primary acknowledged writes alone.
+It needs **no new durable state**: the witness state file, its Paxos
+machine and the state body `uuid term degraded primary` are unchanged.
+It adds two request verbs and changes how DEGRADE is chosen.
+
+### 7.1 Why the hole exists
+
+The HA state of a group is one Paxos machine, `ha/G`. Version n is the
+value chosen in instance n, and every proposal for instance n is computed
+from the value chosen in instance n-1. Two things let a stale SYNCED win:
+
+1. **SYNCED names only uuid and term.** Its check passes against any
+   state of that term, so a SYNCED computed from the primary's proof at
+   time t1 is still accepted after a DEGRADE at t2 > t1.
+2. **DEGRADE on a NOT READY state chooses nothing.** `propose` returns
+   OK at once when the wanted body equals the current one, so a DEGRADE
+   while NOT READY leaves the version where it was. A SYNCED computed
+   against that version, held in a witness's queue or accepted by a
+   minority in the next instance (and adopted by the next proposer, as
+   Paxos requires), still applies on top of it.
+
+A request is held in a witness by its serial proposal lock: `propose`
+reads the base version only once it holds the lock, so a SYNCED queued
+behind other proposals is evaluated against whatever state exists when
+it runs, however late.
+
+### 7.2 The rule
+
+- **NOT READY always gets a fresh version.** Every DEGRADE (old verb) and
+  NOTREADY (new verb) chooses a new instance holding NOT READY for the
+  term, even when the state is already NOT READY. The reply to NOTREADY
+  names it: `OK v=N`, where N is the version of the chosen value that
+  holds this NOT READY (the instance this request won, or the one a
+  concurrent equal NOT READY won: either way N is above every version
+  the primary had seen when it asked).
+- **READY names its causal base.** The primary sends
+  `READY uuid term [group] after=N`. N is the version of the most recent
+  NOTREADY this primary process had answered OK *before it read the
+  proof* it is reporting (section 3). The witness's change function,
+  evaluated against the base state B of the instance it proposes in:
+  - B.uuid empty: `NO not learned yet`. B.uuid != uuid: `NO another space`.
+  - B.term != term: `NO term T was replaced by U` (unchanged).
+  - B is READY (degraded false): `OK v=B.version`, nothing chosen. The
+    state already says what READY wants; no transition happens, so no
+    stale base can do harm.
+  - B is NOT READY and **B.version == N**: choose READY (version N+1).
+  - B is NOT READY and B.version != N: `NO not ready since v=B.version`.
+    Some NOT READY transition for this group and term was chosen after
+    the primary's base: the proof does not cover it.
+- **SYNCED (old verb) is refused** by a new witness (after the space and
+  term checks, so a stale-term SYNCED still reads `NO term`): `NO SYNCED
+  has no causal base; READY ... after=N is required`. It can no longer
+  move a group to READY.
+
+**Why `B.version == N` is exact, not just sufficient.** Within one group
+and one term, only four kinds of value are chosen: learning (once per
+group, NOT READY), promotion (starts a term, NOT READY), NOT READY
+(DEGRADE/NOTREADY) and READY. So when B is NOT READY in term T and
+B.version > N, a NOT READY was chosen after N in T (a READY in between
+and a later NOT READY is still a later NOT READY): exactly what must
+refuse. B.version < N is impossible for an honest primary (N came from
+this machine) and is refused too.
+
+**Why it is safe.** Let the primary's proof be read at time t, after it
+received `OK v=N`. Any write acknowledged on local durability alone was
+acknowledged under a grant, and a grant is a NOT READY that the primary
+received before opening its gate. A grant received before t is version
+<= N, and the proof covers every write durable at t (section 3). After
+t, a shard acknowledges alone only after a new grant, which is a new
+version M > N, chosen before the gate opens. READY after=N is chosen
+only in instance N+1, so either it is chosen there (before M exists:
+M is then at least N+2, and the state ends NOT READY) or instance N+1
+holds something else and READY after=N can never be chosen. In every
+order, the latest chosen value is NOT READY whenever a write exists
+that the standby may lack.
+
+**Unrelated proposals do not block legitimate READY.** Versions are per
+machine (`ha/G`): placement, mint leases and other groups are separate
+machines whose decisions never move `ha/G`'s version (tools/paxos.h).
+A failed promotion proposal chooses nothing. So between a NOTREADY and
+the READY that follows it, the version moves only if another NOT READY,
+a READY or a promotion of this group is chosen, and each of those must
+refuse (or makes READY unnecessary).
+
+### 7.3 The primary
+
+- `ready_base` (in memory, this process): 0 at start, after a promotion,
+  and after a refusal `NO not ready since`; set to N by every NOTREADY
+  answered `OK v=N`.
+- With witnesses, every request that records NOT READY uses NOTREADY:
+  the grant to run alone, a regression, a seed, the start. While
+  `ready_base` is 0 and READY is owed, the primary asks NOTREADY first
+  (this replaces "once at start", and adds one Paxos round after a
+  promotion: the promotion's NOT READY version is not known to the new
+  primary).
+- READY is sent only with `after=ready_base`, from a proof read after
+  that NOTREADY was answered: the shards are read again after any
+  NOTREADY in the same loop iteration (the loop already re-reads them).
+- A lost READY reply is retried as is: idempotent (7.2: READY returns OK
+  if already READY; if a NOT READY came between, the retry is refused
+  and the primary starts again from NOTREADY).
+
+### 7.4 The ten questions of the review
+
+1. **Which version does DEGRADE return?** NOTREADY returns the version
+   of the chosen value holding its NOT READY, always a new one. Old-verb
+   DEGRADE also chooses a fresh version but answers plain `OK` (older
+   primaries compare the reply to `OK`).
+2. **Can replies differ, and how does the primary reconcile them?** Each
+   request goes to one witness (the next one only if no answer). Two
+   NOTREADY answered by different witnesses give different versions; the
+   primary keeps the last one answered. A larger N is never wrong: any
+   NOT READY chosen after the one the primary knows makes its READY
+   refused, which only costs another NOTREADY round.
+3. **The exact predicate for READY after=N:** same uuid and term, and
+   either the base is READY (no-op OK) or the base is NOT READY with
+   version exactly N.
+4. **Unrelated proposals:** separate machines, separate versions (7.2).
+5. **Global or per group?** Per group (`ha/G`'s Paxos version).
+6. **The causal base after a primary restart:** not recovered. A new
+   process starts with `ready_base` 0 and asks NOTREADY before any
+   READY, so any READY still in flight from the old process names an
+   older version and is refused.
+7. **A lost DEGRADE reply:** the primary did not open its gate, so no
+   write was acknowledged under that grant. It asks again; the retry
+   chooses another fresh version and returns it. The lost one is just an
+   extra NOT READY.
+8. **A lost SYNCED (READY) reply:** retried with the same `after=N`. If
+   the first one was chosen, the state is READY and the retry answers OK
+   without choosing anything; if a NOT READY came in between, the retry is
+   refused and readiness restarts from NOTREADY.
+9. **Mixed old and new.**
+   - New witnesses, old primary: DEGRADE works (fresh versions, reply
+     `OK`); SYNCED is refused, so the group never becomes READY and is
+     never promoted. Fails safe: failover unavailable, durability intact.
+   - Old witnesses, new primary: NOTREADY and READY are unknown verbs
+     (`NO unknown request`). The primary tries the next witness and
+     logs that the witness is too old; with no new witness it gets no
+     grant (durable writes wait on a lost standby) and never READY.
+     Fails closed.
+   - Mixed witnesses, new primary: safe. Only new witnesses accept its
+     requests; an old witness never proposes READY for it (it only
+     proposes from SYNCED, which the new primary never sends) and old and
+     new witnesses check promotions against the same chosen state.
+10. **Can an old primary without `after` re-open the race?** Only through
+    an old witness, which accepts its SYNCED unconditionally: that is the
+    pre-fix system. New witnesses refuse it. So the protected Profile B
+    claim needs every witness of the group upgraded; the order is
+    witnesses first (old primaries then fail safe), then nodes.
+
+### 7.5 What it does not change
+
+The residual of section 4 (an operator-started wrong, empty or restored
+standby directory, between its handshake and NOT READY being chosen) is
+not closed: it does not involve a delayed READY. Still excluded by
+EXPERIMENTAL_BASELINE Q9. No witness state format change, no Paxos
+change other than letting a proposal ask for a fresh instance and report
+the version it chose.

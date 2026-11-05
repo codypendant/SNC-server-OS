@@ -59,7 +59,7 @@
 //                    [--group G=HOST:ADMIN,HOST:ADMIN ...]
 //                    --state FILE [--failover-ms N] [--poll-ms N]
 //                    [--health-verb health|status]
-//                    [--id I --peers HOST:PORT,HOST:PORT,...]
+//                    [--id I --peers HOST:PORT,HOST:PORT,...] [--debug 1]
 // --peers lists every witness, this one included at index --id.
 #include <fcntl.h>
 #include <signal.h>
@@ -67,6 +67,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -268,6 +269,46 @@ const auto t0 = std::chrono::steady_clock::now();
 // One request on an accepted connection.
 std::vector<unsigned> watched_groups;  // set before any request is served
 
+// --debug 1 (tests only, docs/SYNC_READINESS.md 7): DEBUG HOLD makes every
+// readiness request (SYNCED, READY) that arrives wait, before its
+// proposal, until DEBUG RELEASE: the deterministic form of a request
+// delayed in this witness's proposal queue. DEBUG HELD reports how many
+// wait now and how many have waited.
+bool g_debug = false;
+std::mutex hold_mu;
+std::condition_variable hold_cv;
+bool hold_on = false;
+unsigned held_now = 0, held_total = 0;
+
+void hold_if_asked() {
+  if (!g_debug) return;
+  std::unique_lock<std::mutex> g(hold_mu);
+  if (!hold_on) return;
+  ++held_now;
+  ++held_total;
+  hold_cv.wait(g, [] { return !hold_on; });
+  --held_now;
+}
+
+std::string debug_verb(std::istream& in) {
+  if (!g_debug) return "NO unknown request";
+  std::string what;
+  in >> what;
+  std::lock_guard<std::mutex> g(hold_mu);
+  if (what == "HOLD") {
+    hold_on = true;
+    held_total = 0;
+    return "OK";
+  }
+  if (what == "RELEASE") {
+    hold_on = false;
+    hold_cv.notify_all();
+    return "OK released " + std::to_string(held_now);
+  }
+  if (what == "HELD") return "HELD " + std::to_string(held_now) + " " + std::to_string(held_total);
+  return "NO bad request";
+}
+
 void serve(int fd) {
   std::string line, reply = "NO bad request";
   if (ha::read_line(fd, line, 500)) {
@@ -289,6 +330,7 @@ void serve(int fd) {
       }
       const unsigned group = static_cast<unsigned>(g);
       const bool d = verb == "DEGRADE";
+      if (!d) hold_if_asked();
       reply = propose(group, [&](const State& base, State& want) -> std::string {
         // Not before the primary is learned: learning records which node
         // is primary (and NOT READY); a grant or SYNCED first would leave
@@ -307,6 +349,8 @@ void serve(int fd) {
                   d ? "continues without its standby" : "has its standby back in sync",
                   reply.c_str());
       std::fflush(stdout);
+    } else if (verb == "DEBUG") {
+      reply = debug_verb(in);
     } else if (verb == "PLACEMENT") {
       reply = placement(in);
     } else if (verb == "LEASES") {
@@ -363,6 +407,7 @@ int main(int argc, char** argv) {
     else if (k == "--id") self_id = static_cast<unsigned>(std::atoi(v.c_str()));
     else if (k == "--peers") peer_list = v;
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
+    else if (k == "--debug") g_debug = v == "1";
     else {
       std::fprintf(stderr, "bad flag %s %s\n", k.c_str(), v.c_str());
       return 2;

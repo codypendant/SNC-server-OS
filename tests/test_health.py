@@ -313,7 +313,8 @@ class Pair:
     rearmed, plus three witnesses. With proxied=True every path to and
     from node 0 goes through a Proxy (T6)."""
 
-    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS):
+    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS,
+                 witness_extra=()):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -358,7 +359,7 @@ class Pair:
         self.w = [Proc([f"{BUILD}/snc_witness", "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{to0_adm}",
                         "--standby", f"127.0.0.1:{self.adm[1]}", "--state", f"{self.work}/w{i}.state",
                         "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(poll_ms), "--id", str(i),
-                        "--peers", peers, "--health-verb", verbs[i]]) for i in range(3)]
+                        "--peers", peers, "--health-verb", verbs[i]] + list(witness_extra)) for i in range(3)]
         for w in self.w:
             assert w.wait_for(r"primary up|failover learned", 15), "a witness never saw the primary\n" + w.text()
         # A learned primary is NOT READY until it proves its standby in sync
