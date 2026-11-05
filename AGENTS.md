@@ -1213,9 +1213,10 @@ or source comments.
     format change. KEEP Paxos as built (F8 outcome A approved).
 -   **What:** G1 (`snc_witness --new-state 1` for first starts only;
     missing state refused), G2 (campaign guard in `bench/profile_check.py`
-    and `bench/lab/lab.py`: first-start rules, end-of-run check of state
-    file, directory identity, run nonce and chosen versions; a violation
-    invalidates the run), F10 (legacy files only by shape; strict
+    and `bench/lab/lab.py`: first-start rules, checks at campaign
+    boundaries of state file, directory identity, run nonce and
+    per-machine Paxos marks; a violation stops and invalidates the run;
+    not a continuous monitor), F10 (legacy files only by shape; strict
     parsing; READ creates nothing), F11 (normalized unique peers, `--id`
     names this machine's own endpoint), every save step fatal including
     the directory's open and fsync (`DEBUG FAIL-PERSIST` test hook).

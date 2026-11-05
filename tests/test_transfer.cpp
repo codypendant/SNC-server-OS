@@ -468,6 +468,7 @@ void test_crash() {
     eng.stop();
   }
   std::printf("crash: 4 rounds conserved\n");
+  std::system(("rm -rf " + dir).c_str());  // about 250 MB a run otherwise
 }
 
 }  // namespace

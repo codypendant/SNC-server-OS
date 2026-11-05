@@ -494,6 +494,14 @@ def b3_stalled_catchup(pr):
     res["disk_stopped_on_cancel"] = last.get("disk_stopped_on_cancel")
     res["at_end"] = last
     res["stopped_acking"] = sum("stopped acking" in l for l in pr.nodes[1].lines)
+    # Caught up is not yet READY (docs/SYNC_READINESS.md 7): node 1 must
+    # still prove it, and until then the witnesses rightly refuse to promote
+    # node 0. The failover this scenario checks follows READY, as in q5.
+    res["witness_state_when_caught_up"] = pr.state()
+    t = time.time()
+    res["ready"] = bool(pr.wait_ready(30, term=res["witness_state_when_caught_up"][1]
+                                      if res["witness_state_when_caught_up"] else None))
+    res["ready_after_caught_up_s"] = round(time.time() - t, 2)
     pr.nodes[1].signal(signal.SIGKILL)
     st = wait_state(pr, 0, 20)
     res["second_promoted"] = bool(st)
@@ -509,6 +517,7 @@ def b3_stalled_catchup(pr):
         "rss_bounded": res["peak_rss_mib"] < (512 if th.sanitizer(BUILD) is None else 4096),
         "caught_up_no_reader_left": res["caught_up"] and last.get("disk_readers") == 0 and
         last.get("disk_queued") == 0,
+        "ready_before_failover": res["ready"],
         "exact_after_failover": res["second_promoted"] and exact(r),
     }
     res["series"] = series[::4]
