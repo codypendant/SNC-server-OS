@@ -1,0 +1,35 @@
+{
+ "x": "OK v=1 ballots=114810007274368",
+ "w1_accepted_x": {
+  "chosen": "0 -",
+  "open": "1",
+  "promised": "114810007274368",
+  "accepted": "114810007274368 1 X"
+ },
+ "restored": "snapshot before X",
+ "y": "OK v=1 ballots=114810007281409",
+ "chosen": [
+  [
+   1,
+   "X"
+  ],
+  [
+   1,
+   "Y"
+  ],
+  [
+   1,
+   "Y"
+  ]
+ ],
+ "conflicts": {
+  "1": [
+   "X",
+   "Y"
+  ]
+ },
+ "two_values_chosen": true,
+ "pass": true,
+ "scenario": "c4a_restored_directory",
+ "seconds": 0.3
+}

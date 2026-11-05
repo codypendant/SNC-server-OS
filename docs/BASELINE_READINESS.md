@@ -422,7 +422,12 @@ Section 11 of the baseline document still holds. In addition:
   4). It does not depend on B1, B2 or B3.
 - **The delayed-SYNCED window** (PR #49 review) must be closed before a
   sync-HA baseline claims HA_DURABLE promotion safety. *(Done 2026-11-05,
-  section 11; for review.)*
+  section 11; approved, PR #50.)*
+- **F8 / F9** (PR #50 review): disposition before the freeze.
+  Characterized in [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md): ballot reuse is
+  safe (proposed outcome A); acceptor state loss can choose two values
+  (F9, proposed outcome B: exclusion E1 and guards G1, G2). *(For
+  review.)*
 
 
 ## 10. The fixes (2026-11-05)

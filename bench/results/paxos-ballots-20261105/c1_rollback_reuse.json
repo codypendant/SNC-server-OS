@@ -1,0 +1,32 @@
+{
+ "B": 114810007200192,
+ "B_counter": 1793906362503,
+ "accepted_before_restart": {
+  "0": {
+   "chosen": "1 X",
+   "open": "2",
+   "promised": "0",
+   "accepted": "0 0 -"
+  },
+  "1": {
+   "chosen": "0 -",
+   "open": "1",
+   "promised": "114810007200192",
+   "accepted": "114810007200192 1 X"
+  },
+  "2": {
+   "chosen": "0 -",
+   "open": "1",
+   "promised": "114810007200192",
+   "accepted": "114810007200192 1 X"
+  }
+ },
+ "offset_ms": -206,
+ "first_after_restart": 114810007190720,
+ "generated": 150,
+ "reused_at_or_below_B": 149,
+ "B_itself_generated": true,
+ "pass": true,
+ "scenario": "c1_rollback_reuse",
+ "seconds": 0.3
+}

@@ -100,6 +100,9 @@ if(PYTHON3)
   # The causal order of NOT READY and READY (docs/SYNC_READINESS.md 7).
   add_test(NAME test_ready_order COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_ready_order.py
            ${CMAKE_BINARY_DIR})
+  # F8: Paxos ballots after a witness restart (docs/PAXOS_BALLOTS.md).
+  add_test(NAME test_paxos_ballots COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_paxos_ballots.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
 endif()
 

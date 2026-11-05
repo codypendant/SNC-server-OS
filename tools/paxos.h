@@ -69,6 +69,23 @@ class Node {
   // values this process gets chosen are not announced with COMMIT, so the
   // other acceptors keep them accepted but unlearned.
   std::atomic<int> debug_skip_commits{0};
+  // Tests only (snc_witness --debug 1; docs/PAXOS_BALLOTS.md): added to
+  // the wall clock that ballots are taken from, to stand for a clock that
+  // stepped back; and every ballot this process puts on the wire, kept in
+  // order while recording.
+  std::atomic<long long> debug_clock_offset_ms{0};
+  std::atomic<bool> debug_record{false};
+  u64 debug_next_ballot() { return next_ballot(); }
+  void debug_set_counter(u64 c) {
+    std::lock_guard<std::mutex> g(mu_);
+    ballot_counter_ = c;
+  }
+  std::vector<u64> debug_take_ballots() {
+    std::lock_guard<std::mutex> g(mu_);
+    std::vector<u64> out;
+    out.swap(debug_ballots_);
+    return out;
+  }
 
   // This process is peers[self]. The state file holds every machine; a
   // file from before machines had names holds one, read as `legacy`.
@@ -424,9 +441,12 @@ class Node {
     // Wall-clock based, so a restarted process does not reuse its old ballots.
     u64 now_ms = static_cast<u64>(std::chrono::duration_cast<std::chrono::milliseconds>(
                                       std::chrono::system_clock::now().time_since_epoch())
-                                      .count());
+                                      .count() +
+                                  debug_clock_offset_ms.load());
     ballot_counter_ = std::max(ballot_counter_ + 1, now_ms);
-    return (ballot_counter_ << 6) | self_;
+    const u64 b = (ballot_counter_ << 6) | self_;
+    if (debug_record.load()) debug_ballots_.push_back(b);
+    return b;
   }
   void saw_ballot(u64 b) {
     std::lock_guard<std::mutex> g(mu_);
@@ -491,6 +511,7 @@ class Node {
   std::vector<Peer> peers_;
   unsigned self_ = 0;
   u64 ballot_counter_ = 0;
+  std::vector<u64> debug_ballots_;
 };
 
 }  // namespace snc::paxos

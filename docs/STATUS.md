@@ -71,8 +71,15 @@ Decided by cody on 2026-11-04.
     - F7: with a stopped witness, readiness takes longer (about 4.5 s
       per READY attempt), and all of a witness's machines share one
       proposal queue with no expiry. Liveness only (SYNC_READINESS 7.5).
-    - F8 (pre-existing): Paxos ballots are not persisted; a witness
-      restarted after a clock step back could reuse one. Reported only.
+    - F8 (characterized 2026-11-05, [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md)):
+      a restarted witness does reuse ballots (clock stepped back), but the
+      acceptors' persisted promises refuse them; no second value can be
+      chosen (proof section 4, tests C1 to C3). Proposed: downgrade.
+    - **F9 (new, reproduced): a witness that loses its acceptor state**
+      (state file deleted or restored from an older copy, restarted in
+      place) **can let two values be chosen** in one instance. Proposed
+      for Profile B: excluded history plus guards (section 6); the real
+      fix needs new durable witness state (section 7), for review.
   - **The delayed-SYNCED window (PR #49 review) is CLOSED (2026-11-05,
     [BASELINE_READINESS.md](BASELINE_READINESS.md) section 11), awaiting
     review.** Every NOT READY is a fresh chosen version; READY names it
@@ -84,8 +91,9 @@ Decided by cody on 2026-11-04.
     upgraded, witnesses first.
   - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
-  - **The freeze waits** for the review of this window's fix, then a
-    final experimental baseline freeze review.
+  - **The delayed-SYNCED window fix (PR #50) is approved.** The freeze
+    now waits for the F8/F9 disposition (PAXOS_BALLOTS.md), then a final
+    experimental baseline freeze review.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).

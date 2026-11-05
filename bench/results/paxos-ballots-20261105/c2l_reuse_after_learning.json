@@ -1,0 +1,46 @@
+{
+ "B": 114810007233088,
+ "reply": "OK v=2 ballots=114810007233088",
+ "ballots": [
+  114810007233088
+ ],
+ "first_ballot_is_B": true,
+ "chosen": [
+  [
+   2,
+   "Y"
+  ],
+  [
+   2,
+   "Y"
+  ],
+  [
+   2,
+   "Y"
+  ]
+ ],
+ "acceptors": {
+  "0": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  },
+  "1": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  },
+  "2": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  }
+ },
+ "conflicts": {},
+ "pass": true,
+ "scenario": "c2l_reuse_after_learning",
+ "seconds": 0.2
+}

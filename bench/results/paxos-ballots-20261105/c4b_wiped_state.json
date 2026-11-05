@@ -1,0 +1,35 @@
+{
+ "x": "OK v=1 ballots=114810007295936",
+ "w1_accepted_x": {
+  "chosen": "0 -",
+  "open": "1",
+  "promised": "114810007295936",
+  "accepted": "114810007295936 1 X"
+ },
+ "restored": "deleted",
+ "y": "OK v=1 ballots=114810007302977",
+ "chosen": [
+  [
+   1,
+   "X"
+  ],
+  [
+   1,
+   "Y"
+  ],
+  [
+   1,
+   "Y"
+  ]
+ ],
+ "conflicts": {
+  "1": [
+   "X",
+   "Y"
+  ]
+ },
+ "two_values_chosen": true,
+ "pass": true,
+ "scenario": "c4b_wiped_state",
+ "seconds": 0.3
+}
