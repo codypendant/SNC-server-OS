@@ -448,10 +448,10 @@ Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fix
   512 MiB, the catch-up completed with no reader and no queued bytes left,
   and a failover to that standby exact.
 - **Results** (release, final commit, `rel/b3_stalled_catchup.json`):
-  37 ack timeouts, 37 readers stopped on cancel, at most **2 live
+  38 ack timeouts, 38 readers stopped on cancel, at most **2 live
   readers** (one per shard), read-ahead high water **32 MiB** (two full
-  16 MiB queues), peak RSS **316 MiB** (2,059 MiB before the fix), 195 MiB
-  at the end with no reader and no queued byte left; the failover to the
+  16 MiB queues), peak RSS **345 MiB** (2,059 MiB before the fix), no
+  reader and no queued byte left at the end; the failover to the
   caught-up standby exact.
 - **Found under TSan and fixed in this round** (commit 0a1e93c): (a) a
   cancelled reader checked its flag only from its first delivered record,
@@ -487,7 +487,7 @@ Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fix
   standby while a checkpoint is in flight (polled through `ckpt_running`).
   `q3_runtime20` (final commit): **20 of 20** trials with a checkpoint in
   flight at the kill; DEGRADE granted in all 20; none wedged; writes
-  resumed within 0.62 s; `main_ms` at most 41 ms 15 s later; checkpoints kept completing; every
+  resumed within 0.62 s; `main_ms` at most 171 ms 15 s later (14,762 ms and rising before the fix); checkpoints kept completing; every
   acknowledged write present: a probe deposits for 1 s before the kill,
   then the primary is SIGKILLed and restarted, and the probe account's
   balance must lie between the acknowledged and the attempted deposits
@@ -522,7 +522,7 @@ SYNCED only after it has learned the pair.
 | 6 Writes during catch-up | `s6_writes_catchup` | never READY while behind; READY with writes running; exact |
 | 7 Fail right at SYNCED | `s7_fail_at_synced` | promoted, exact |
 | 8 Two failovers with a reseed | `q5_kill_kill`, `q5_kill_stop`, `q5_catchup_race`, `q5_catchup_race_late` | exact after both failovers; in the races no promotion (state `[3, 1, 1, NOT READY]`) |
-| 9 Migration, rejoin, failover | `test_fail_closed.py f19` | S served at the rejoined node with every acked write; A never served it (296 probes); the rejoined node's log orders NOT READY, then the seed, then back in sync |
+| 9 Migration, rejoin, failover | `test_fail_closed.py f19` | S served at the rejoined node with every acked write; A never served it (294 probes); the rejoined node's log orders NOT READY, then the seed, then back in sync |
 | 10 Witness majority lost while unsynced | `s10_majority_loss`, `s10b_one_witness_lost` | no promotion; the node stays a standby |
 
 All in `ctest` (`test_sync_readiness`, `test_baseline_retry`,
@@ -552,11 +552,11 @@ both the claimed TTL and the server's `session_ttl_s`. `r11_guard` shows the ref
 
 ### Rerun (RelWithDebInfo, this VM, final commit)
 
-Every scenario below ran on commit a7b70c1 (`rel/run_log.txt`);
-`q5_kill_kill` once failed there because the test let the second failure
-land after catch-up but before SYNCED (READY lags catch-up by up to
-0.3 s). The test now waits for READY (commit ea42b53, test-only) and
-passed 9 of 9 since; its JSON is from that rerun.
+Every scenario below ran on commit 39bafa8, all PASS
+(`rel/run_log.txt`). On an earlier rerun `q5_kill_kill` once failed
+because the test let the second failure land after catch-up but before
+SYNCED (READY lags catch-up by up to 0.3 s); the test now waits for
+READY (commit ea42b53, test-only) and has not failed since.
 
 | Test | Scenarios | Result |
 | --- | --- | --- |
@@ -573,12 +573,20 @@ passed 9 of 9 since; its JSON is from that rerun.
 
 | Build | `ctest` | Sanitizer reports |
 | --- | --- | --- |
-| RelWithDebInfo | 28 / 28 | n/a |
+| RelWithDebInfo | 27 / 28, then 28 / 28 (below) | n/a |
 | Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leak check on) | 28 / 28 | 0 |
 | Debug, TSan (`halt_on_error=1`) | 28 / 28 | 0 |
 
 `rel/ctest_rel.txt`, `rel/ctest_asan_summary.txt`,
-`rel/ctest_tsan_summary.txt`. One test allowance is TSan-only:
+`rel/ctest_tsan_summary.txt`, all on commit 39bafa8. The one release
+failure was a test gap, not a safety failure: `test_fail_closed f1`
+requires its probe to have sampled the promoted standby, and under the
+loaded full suite it got no answer in that window (0 samples, so the
+check "never served" had nothing to stand on; no sample served). The
+probe now waits for one sample before the kill and one from the promoted
+node before it stops (test-only commit after 39bafa8); `f1` passed 3 of
+3 alone, again while an ASan `f1` ran beside it (15 samples each, none
+served), and `ctest -R test_fail_closed` passed in release. One test allowance is TSan-only:
 `s1_seed_start` runs its witnesses with `--poll-ms 300` under TSan (node
 1's two shards share one CPU with a checkpoint that never stops there,
 so STATUS answered in 60 to 100 ms against a 100 ms eligibility poll).

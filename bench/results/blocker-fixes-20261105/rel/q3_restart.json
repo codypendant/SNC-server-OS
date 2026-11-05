@@ -1,0 +1,21 @@
+{
+ "admin_port_open_s": 0.61,
+ "granted": true,
+ "write_status": "OK",
+ "client_port_open": true,
+ "log_tail": [
+  "recovery: checkpoint before serving (shard count changed) in 0.02s",
+  "snc_server shards=4 ports 28933-28936 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1",
+  "space uuid b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7  replicating to 127.0.0.1:27071 (sync)",
+  "witness: recorded NOT READY (this primary started)",
+  "witness: granted, continuing without the standby",
+  "snc: shard 3: standby unreachable, continuing without it",
+  "snc: shard 2: standby unreachable, continuing without it",
+  "snc: shard 0: standby unreachable, continuing without it",
+  "snc: shard 1: standby unreachable, continuing without it"
+ ],
+ "recovery_checkpoint": "recovery: checkpoint before serving (shard count changed) in 0.02s",
+ "pass": true,
+ "scenario": "q3_restart",
+ "seconds": 3.5
+}

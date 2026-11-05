@@ -1,0 +1,25 @@
+{
+ "promoted_state": [
+  3,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "backlog_peak": 2254870,
+ "backlog_at_kill": 1124626,
+ "halfway": true,
+ "no_promotion": true,
+ "states": [
+  [
+   3,
+   1,
+   1,
+   true
+  ]
+ ],
+ "node0_role": "s",
+ "pass": true,
+ "scenario": "s2_mid_catchup",
+ "seconds": 30.0
+}

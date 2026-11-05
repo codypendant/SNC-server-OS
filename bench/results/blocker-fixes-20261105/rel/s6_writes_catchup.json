@@ -1,0 +1,53 @@
+{
+ "promoted_state": [
+  3,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "series": [
+  [
+   1575040,
+   0,
+   2,
+   2,
+   true
+  ],
+  [
+   0,
+   0,
+   0,
+   2,
+   false
+  ]
+ ],
+ "samples": 20,
+ "ready_at": {
+  "wal_unacked": 0,
+  "disk_readers": 0,
+  "client_running": true
+ },
+ "early_ready": [],
+ "synced_lines": [
+  "witness: granted, continuing without the standby",
+  "witness: standby back in sync"
+ ],
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 4584143,
+  "mismatches": 0,
+  "failovers": 2,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 2  replayed 234  timeouts 0  resends 128  max_resend_age_ms 1001",
+   "  retry claim: max_resend_age_ms 1001, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 4584143 deposits, 0 mismatches"
+  ]
+ },
+ "promoted_after": true,
+ "pass": true,
+ "scenario": "s6_writes_catchup",
+ "seconds": 44.0
+}

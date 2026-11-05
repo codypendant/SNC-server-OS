@@ -1,0 +1,30 @@
+{
+ "promoted_s": 0.94,
+ "bench": {
+  "rc": 0,
+  "exited_after_s": 15.05,
+  "failovers": 2,
+  "replayed": 44,
+  "timeouts": 0,
+  "resends": 64,
+  "max_resend_age_ms": 937,
+  "accounts": 2000,
+  "deposits": 1422965,
+  "mismatches": 0,
+  "ops_s": 94850,
+  "errors": 0,
+  "retry_claim_limit_ms": 360000,
+  "retry_claim": "valid",
+  "tail": [
+   "  ops/s 94850  errors 0  overloaded 0  stale 0",
+   "  latency ns  p50 491520  p95 1179648  p99 2064384  p99.9 4980736",
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 2  replayed 44  timeouts 0  resends 64  max_resend_age_ms 937",
+   "  retry claim: max_resend_age_ms 937, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 1422965 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "q1_kill",
+ "seconds": 15.8
+}

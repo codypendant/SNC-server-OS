@@ -1,0 +1,697 @@
+{
+ "caught_up": true,
+ "peak_rss_mib": 345,
+ "max_disk_readers": 2,
+ "disk_queued_hwm_mib": 32.0,
+ "disk_started": 673,
+ "disk_stopped_on_cancel": 38,
+ "at_end": {
+  "rss_kb": 196784,
+  "repl_retained": 0,
+  "wal_unacked": 0,
+  "disk_readers": 0,
+  "disk_queued": 0,
+  "disk_queued_hwm": 33558528,
+  "disk_started": 673,
+  "disk_stopped_on_cancel": 38
+ },
+ "stopped_acking": 38,
+ "second_promoted": true,
+ "bench": {
+  "rc": 0,
+  "exited_after_s": 77.12,
+  "failovers": 2,
+  "replayed": 62,
+  "timeouts": 0,
+  "resends": 128,
+  "max_resend_age_ms": 943,
+  "accounts": 2000,
+  "deposits": 8404050,
+  "mismatches": 0,
+  "ops_s": 112052,
+  "errors": 0,
+  "retry_claim_limit_ms": 360000,
+  "retry_claim": "valid",
+  "tail": [
+   "  ops/s 112052  errors 0  overloaded 0  stale 0",
+   "  latency ns  p50 606208  p95 3932160  p99 7995392  p99.9 26738688",
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 2  replayed 62  timeouts 0  resends 128  max_resend_age_ms 943",
+   "  retry claim: max_resend_age_ms 943, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 8404050 deposits, 0 mismatches"
+  ]
+ },
+ "checks": {
+  "cancel_path_exercised": true,
+  "readers_bounded": true,
+  "read_ahead_bounded": true,
+  "rss_bounded": true,
+  "caught_up_no_reader_left": true,
+  "exact_after_failover": true
+ },
+ "series": [
+  {
+   "rss_kb": 58516,
+   "repl_retained": 33536928,
+   "wal_unacked": 4044448,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 0,
+   "disk_started": 0,
+   "disk_stopped_on_cancel": 0
+  },
+  {
+   "rss_kb": 170896,
+   "repl_retained": 33541080,
+   "wal_unacked": 4177850,
+   "disk_readers": 1,
+   "disk_queued": 16779264,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 4,
+   "disk_stopped_on_cancel": 3
+  },
+  {
+   "rss_kb": 148704,
+   "repl_retained": 33539664,
+   "wal_unacked": 4339452,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 8,
+   "disk_stopped_on_cancel": 8
+  },
+  {
+   "rss_kb": 147688,
+   "repl_retained": 33543840,
+   "wal_unacked": 4264498,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 12,
+   "disk_stopped_on_cancel": 12
+  },
+  {
+   "rss_kb": 165368,
+   "repl_retained": 33549552,
+   "wal_unacked": 4136870,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 16,
+   "disk_stopped_on_cancel": 16
+  },
+  {
+   "rss_kb": 167396,
+   "repl_retained": 33534432,
+   "wal_unacked": 4129184,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 20,
+   "disk_stopped_on_cancel": 20
+  },
+  {
+   "rss_kb": 78380,
+   "repl_retained": 33539832,
+   "wal_unacked": 4056324,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 24,
+   "disk_stopped_on_cancel": 24
+  },
+  {
+   "rss_kb": 162048,
+   "repl_retained": 33540552,
+   "wal_unacked": 4216874,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 28,
+   "disk_stopped_on_cancel": 28
+  },
+  {
+   "rss_kb": 227892,
+   "repl_retained": 33541560,
+   "wal_unacked": 3928746,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 32,
+   "disk_stopped_on_cancel": 32
+  },
+  {
+   "rss_kb": 99096,
+   "repl_retained": 33531288,
+   "wal_unacked": 3777500,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 36,
+   "disk_stopped_on_cancel": 36
+  },
+  {
+   "rss_kb": 201952,
+   "repl_retained": 33531240,
+   "wal_unacked": 3434196,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 40,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 209660,
+   "repl_retained": 33542496,
+   "wal_unacked": 2336884,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 40,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 200132,
+   "repl_retained": 33540168,
+   "wal_unacked": 1219890,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 40,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 200552,
+   "repl_retained": 33537096,
+   "wal_unacked": 359730,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 42,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 179988,
+   "repl_retained": 33542688,
+   "wal_unacked": 193888,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 59,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 234168,
+   "repl_retained": 33546240,
+   "wal_unacked": 202550,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 83,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 212412,
+   "repl_retained": 33551040,
+   "wal_unacked": 243292,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 96,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 194028,
+   "repl_retained": 33548400,
+   "wal_unacked": 269270,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 106,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 154112,
+   "repl_retained": 33533376,
+   "wal_unacked": 274144,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 113,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 238668,
+   "repl_retained": 33542376,
+   "wal_unacked": 214970,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 133,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 202620,
+   "repl_retained": 33548184,
+   "wal_unacked": 231630,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 147,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203460,
+   "repl_retained": 33542064,
+   "wal_unacked": 227464,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 158,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201952,
+   "repl_retained": 33546072,
+   "wal_unacked": 236774,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 164,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 208576,
+   "repl_retained": 33531792,
+   "wal_unacked": 200714,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 188,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201932,
+   "repl_retained": 33547512,
+   "wal_unacked": 199034,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 205,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201584,
+   "repl_retained": 33539472,
+   "wal_unacked": 223300,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 217,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201480,
+   "repl_retained": 33541176,
+   "wal_unacked": 256066,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 227,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201792,
+   "repl_retained": 33540384,
+   "wal_unacked": 296166,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 233,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 290352,
+   "repl_retained": 33545016,
+   "wal_unacked": 200620,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 253,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 199356,
+   "repl_retained": 33530352,
+   "wal_unacked": 212652,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 268,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203100,
+   "repl_retained": 33540264,
+   "wal_unacked": 226444,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 279,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203148,
+   "repl_retained": 33543480,
+   "wal_unacked": 231370,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 289,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 201964,
+   "repl_retained": 33531432,
+   "wal_unacked": 224630,
+   "disk_readers": 1,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 298,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 226088,
+   "repl_retained": 33552048,
+   "wal_unacked": 201416,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 322,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 232508,
+   "repl_retained": 33540696,
+   "wal_unacked": 201256,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 337,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203244,
+   "repl_retained": 33541512,
+   "wal_unacked": 229918,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 349,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 204120,
+   "repl_retained": 33543096,
+   "wal_unacked": 250600,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 357,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 171952,
+   "repl_retained": 33541536,
+   "wal_unacked": 207108,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 378,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 234460,
+   "repl_retained": 33544248,
+   "wal_unacked": 224204,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 394,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 202860,
+   "repl_retained": 33523920,
+   "wal_unacked": 253502,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 405,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 159776,
+   "repl_retained": 33546912,
+   "wal_unacked": 237068,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 414,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 156660,
+   "repl_retained": 33541008,
+   "wal_unacked": 215540,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 422,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 233336,
+   "repl_retained": 33551784,
+   "wal_unacked": 223714,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 439,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 202204,
+   "repl_retained": 33542136,
+   "wal_unacked": 206796,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 450,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203004,
+   "repl_retained": 33541200,
+   "wal_unacked": 235950,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 460,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203864,
+   "repl_retained": 33542232,
+   "wal_unacked": 310558,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 468,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 199132,
+   "repl_retained": 33545784,
+   "wal_unacked": 214676,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 481,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 228316,
+   "repl_retained": 33531840,
+   "wal_unacked": 239636,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 495,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 228868,
+   "repl_retained": 33547848,
+   "wal_unacked": 277450,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 504,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 230260,
+   "repl_retained": 33543648,
+   "wal_unacked": 214106,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 512,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 197432,
+   "repl_retained": 33550008,
+   "wal_unacked": 245106,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 528,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 204436,
+   "repl_retained": 33537912,
+   "wal_unacked": 233314,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 539,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203672,
+   "repl_retained": 33544176,
+   "wal_unacked": 253874,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 547,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 236392,
+   "repl_retained": 33547296,
+   "wal_unacked": 203972,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 558,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 195796,
+   "repl_retained": 33536904,
+   "wal_unacked": 210758,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 575,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 199728,
+   "repl_retained": 33532872,
+   "wal_unacked": 212538,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 589,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 202888,
+   "repl_retained": 33549024,
+   "wal_unacked": 232418,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 599,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203512,
+   "repl_retained": 33538512,
+   "wal_unacked": 281768,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 607,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 230440,
+   "repl_retained": 33544968,
+   "wal_unacked": 214786,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 619,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 228460,
+   "repl_retained": 33542232,
+   "wal_unacked": 221976,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 634,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 228364,
+   "repl_retained": 33548976,
+   "wal_unacked": 227938,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 645,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 199320,
+   "repl_retained": 33545520,
+   "wal_unacked": 299838,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 651,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 203928,
+   "repl_retained": 33533640,
+   "wal_unacked": 207836,
+   "disk_readers": 2,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 666,
+   "disk_stopped_on_cancel": 38
+  },
+  {
+   "rss_kb": 196784,
+   "repl_retained": 0,
+   "wal_unacked": 0,
+   "disk_readers": 0,
+   "disk_queued": 0,
+   "disk_queued_hwm": 33558528,
+   "disk_started": 673,
+   "disk_stopped_on_cancel": 38
+  }
+ ],
+ "pass": true,
+ "scenario": "b3_stalled_catchup",
+ "seconds": 81.7
+}

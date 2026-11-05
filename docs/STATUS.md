@@ -59,7 +59,7 @@ Decided by cody on 2026-11-04.
       too. The ack timeout no longer counts the primary's own disk reads
       or pacing, which also fixes F5 (catch-up below 2 MiB/s livelocked).
     - Fresh suites on the final code: release, ASan+UBSan and TSan each
-      28/28, with zero sanitizer reports.
+      28/28 (release after a test-only probe fix), zero sanitizer reports.
   - **Findings:**
     - F1: replication retention after a grant must be declared (to be
       measured on the R640).

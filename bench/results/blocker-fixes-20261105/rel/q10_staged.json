@@ -1,0 +1,73 @@
+{
+ "step": "staged",
+ "slot": 3000,
+ "source": 3,
+ "dest": 1,
+ "checkpoints_after_stop": {
+  "3": 2,
+  "1": 2
+ },
+ "before": {
+  "3": {
+   "phase": 2,
+   "move": 2,
+   "epoch": 2,
+   "serving": 0,
+   "map_group": 1,
+   "map_epoch": 1
+  },
+  "1": {
+   "phase": 3,
+   "move": 2,
+   "epoch": 2,
+   "serving": 0,
+   "map_group": 1,
+   "map_epoch": 1
+  }
+ },
+ "after": {
+  "3": {
+   "phase": 2,
+   "move": 2,
+   "epoch": 2,
+   "serving": 0,
+   "map_group": 1,
+   "map_epoch": 1
+  },
+  "1": {
+   "phase": 3,
+   "move": 2,
+   "epoch": 2,
+   "serving": 0,
+   "map_group": 1,
+   "map_epoch": 1
+  }
+ },
+ "state_as_expected": true,
+ "resume": "DONE",
+ "resume_s": 0.07,
+ "load": {
+  "rc": 0,
+  "acked": "134456",
+  "replayed": "0",
+  "unknown": "0",
+  "moved": "0",
+  "migrating": "1824",
+  "failovers": "4",
+  "resends": "0",
+  "max_resend_age_ms": "0",
+  "epoch": "2",
+  "error": "-"
+ },
+ "pending_at_end": {
+  "1": 0,
+  "3": 0
+ },
+ "check": [
+  "OK: 400 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"
+ ],
+ "placement": "v2 cluster=84196f2dbfada30cc10031495dd636f1 epoch=2 nodes=1@127.0.0.1:25049,2@127.0.0.1:23936,3@127.0.0.1:22247,4@127.0.0.1:23529 groups=2/e093a98540f61b2605164ecc08606a09/1:28070:21342+2:24362:23472,2/e3aaa5867e71ccb878a6e114d7b1199d/3:22970:29395+4:30104:22276 slots=0*2048,1*952,0*1,1*1095 arrived=3000:2:2",
+ "pass": true,
+ "scenario": "q10_staged",
+ "seconds": 40.6
+}

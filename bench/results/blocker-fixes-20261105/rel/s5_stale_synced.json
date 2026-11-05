@@ -1,0 +1,29 @@
+{
+ "promoted_state": [
+  3,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "backlog_peak": 2483858,
+ "backlog_at_kill": 1979752,
+ "halfway": true,
+ "stale_replies": [
+  "NO term 0 was replaced by 1",
+  "NO term 0 was replaced by 1",
+  "NO term 0 was replaced by 1"
+ ],
+ "refused": true,
+ "state_after": [
+  3,
+  1,
+  1,
+  true
+ ],
+ "no_promotion": true,
+ "node0_role": "s",
+ "pass": true,
+ "scenario": "s5_stale_synced",
+ "seconds": 23.1
+}

@@ -184,6 +184,12 @@ class Probe:
                         self.served.append((time.time(), k, slot))
             time.sleep(self.period)
 
+    def sampled(self, what, timeout=20):
+        """Waits for one more answered sample than now: proof the window
+        being watched was actually sampled, even on a loaded host."""
+        n = self.samples
+        wait(lambda: self.samples > n, what, timeout)
+
     def stop(self):
         self.stop_ = True
         self.t.join()
@@ -432,6 +438,8 @@ def scenario_f1(c, ev):
     assert ib["serving"] == 1 and ib["live_count"] == n1, ib
     # 4. B's primary dies; its standby is promoted (sampled throughout: F14).
     probe = None if CHAR else Probe(c, [(qb, S)])
+    if probe:
+        probe.sampled("probe sampled B's standby before the kill")
     c.kill(b)
     c.failover(b, qb)
     wait(lambda: c.info(qb, S)["map_group"] == c.group_of(b), "promoted standby has the committed map")
@@ -455,6 +463,9 @@ def scenario_f1(c, ev):
         assert iq["serving"] == 0 and iq.get("proof") == "missing", iq
         assert st_old == {"E_MIGRATING": n0} and st_new == {"E_MIGRATING": len(more)}, (st_old, st_new)
         assert ev["create_in_slot"] == "E_MIGRATING"
+        # Under a loaded full suite this window once got no sample at all
+        # (BASELINE_READINESS section 10): wait for one from the promoted node.
+        probe.sampled("probe sampled the promoted standby")
         served = probe.stop()
         ev["probe"] = f"{probe.samples} samples, served {len(served)}"
         assert probe.samples > 0 and not served, served
