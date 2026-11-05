@@ -378,6 +378,11 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
             time.sleep(0.2)
         assert ok_n >= 3, ("node 0 never caught up", series[-10:])
         res["caught_up_s"] = round(time.time() - t, 2)
+        # Caught up is not yet READY (docs/SYNC_READINESS.md): node 1 must
+        # still prove it with SYNCED. A second failure before that is the
+        # catching-up case, which q5_catchup_race covers.
+        assert pr.wait_ready(30, term=1), ("never READY at term 1 after catch-up", pr.state())
+        res["ready_s"] = round(time.time() - t, 2)
     res["node1_unacked_at_second_failure"] = unacked(pr, 1)
     res["witness_state_at_second_failure"] = pr.state()
     assert b.running(), "the client finished before the second failover"
