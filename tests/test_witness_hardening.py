@@ -26,6 +26,7 @@ Usage: test_witness_hardening.py BUILD [scenario...] [--json DIR]
 """
 import hashlib
 import json
+import re
 import os
 import shutil
 import signal
@@ -166,9 +167,11 @@ def h2():
                              stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         procs.append(p)
         t = time.time() + 10
-        while time.time() < t and not ask(port, "READ ha/0", 0.5).startswith("STATE"):
+        served_first = False
+        while time.time() < t and not served_first:
+            served_first = ask(port, "READ ha/0", 0.5).startswith("STATE")
             time.sleep(0.05)
-        exists_when_serving = os.path.exists(state)
+        exists_when_serving = served_first and os.path.exists(state)
         p.send_signal(signal.SIGTERM)
         p.wait()
         # h12: an ordinary restart (no flag) runs on the file.
@@ -180,8 +183,9 @@ def h2():
         while time.time() < t and not served:
             served = ask(port, "READ ha/0", 0.5).startswith("STATE")
             time.sleep(0.05)
-        res = {"exists_when_serving": exists_when_serving, "restart_without_flag_serves": served}
-        res["pass"] = exists_when_serving and served
+        res = {"first_start_serves": served_first, "exists_when_serving": exists_when_serving,
+               "restart_without_flag_serves": served}
+        res["pass"] = served_first and exists_when_serving and served
         return res
     finally:
         for p in procs:
@@ -221,7 +225,10 @@ def refused_config(peers, wid, port, why):
 def h4():
     a, b = free_ports(2)
     cases = [refused_config(f"127.0.0.1:{a},127.0.0.1:{b},127.0.0.1:{b}", 0, a, "twice"),
-             refused_config(f"127.0.0.1:{a},localhost:{b},127.0.0.1:{b}", 0, a, "twice")]
+             refused_config(f"127.0.0.1:{a},localhost:{b},127.0.0.1:{b}", 0, a, "twice"),
+             # Two local addresses of another witness on this machine: one
+             # listener (INADDR_ANY), so one acceptor counted twice.
+             refused_config(f"127.0.0.1:{a},127.0.0.1:{b},127.0.0.2:{b}", 0, a, "twice")]
     return {"cases": cases, "pass": all(c["refused"] for c in cases)}
 
 
@@ -233,7 +240,7 @@ def h5():
         # --id names an address that is not this machine's (TEST-NET-1).
         refused_config(f"192.0.2.1:{a},127.0.0.1:{b},127.0.0.1:{c}", 0, a, "not an address of this machine"),
         # Another entry reaches this witness's own port on this machine.
-        refused_config(f"127.0.0.1:{a},127.0.0.2:{a},127.0.0.1:{c}", 0, a, "reaches this witness"),
+        refused_config(f"127.0.0.1:{a},127.0.0.2:{a},127.0.0.1:{c}", 0, a, "twice"),
     ]
     return {"cases": cases, "pass": all(x["refused"] for x in cases)}
 
@@ -265,12 +272,23 @@ def persist_failures(steps):
                     reply = ask(c.ports[w], line)
                 code = c.exited(w)
                 log = c.log(w)
+                if kind == "PROPOSER":
+                    # Proof that the failing save was the learning one: the
+                    # others accepted X (its PROMISE and ACCEPTED saves passed).
+                    acc = []
+                    for o in (1, 2):
+                        with open(c.state(o)) as f:
+                            acc.append(any(re.fullmatch(rf"accepted {m} \d+ 1 X", l) for l in f.read().splitlines()))
+                    r_acc = all(acc)
+                else:
+                    r_acc = True
                 r = {"step": step, "request": kind, "reply": reply, "exit": code,
                      "said": [l for l in log.splitlines() if "cannot save state" in l][-1:]}
                 # Then the witness restarts on what is on disk, whatever made it.
                 c.start(w)
                 r["restarted"] = True
-                r["ok"] = reply == "" and code == 3 and bool(r["said"])
+                r["others_accepted"] = r_acc
+                r["ok"] = reply == "" and code == 3 and bool(r["said"]) and r_acc
                 out.append(r)
             finally:
                 c.close()
@@ -331,7 +349,9 @@ def h9():
         (port,) = free_ports(1)
         refusals = {}
         for name, text in {"mixed": LEGACY + modern, "unreadable line": modern + "promised 5 notanumber\n",
-                           "unknown line": modern + "frobnicate 5 1\n"}.items():
+                           "unknown line": modern + "frobnicate 5 1\n",
+                           "version glued to body": "chosen 5 7x\nopen 5 8\npromised 5 0\naccepted 5 0 0 -\n",
+                           "negative ballot": "chosen 5 7 x\nopen 5 8\npromised 5 -1\naccepted 5 0 0 -\n"}.items():
             with open(f"{work}/w.state", "w") as f:
                 f.write(text)
             code, out = run_once([WIT, "--port", str(port), "--state", f"{work}/w.state"])

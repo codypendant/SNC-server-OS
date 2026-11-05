@@ -11,7 +11,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "bench"))
 from profile_check import (Guard, ProfileViolation, WitnessStateGuard,  # noqa: E402
-                           WitnessStateViolation, state_versions)
+                           WitnessStateViolation, state_marks, state_versions)
 import shutil  # noqa: E402
 import tempfile  # noqa: E402
 
@@ -297,6 +297,13 @@ def witness_state_guard():
         write(old)  # ha/0 2 < 3: an older copy
         refused_state("went back from version 3", g.check, 0, probe)
         write(v3)
+        g.check(0, probe, "v3 back")
+        # Same chosen versions, an older promise (C4a with the COMMIT lost).
+        write(v3.replace("promised ha/0 0", "promised ha/0 900"))
+        g.check(0, probe, "promise")
+        write(v3)
+        refused_state("went back from (chosen, open, promised, accepted)", g.check, 0, probe)
+        write(v3.replace("promised ha/0 0", "promised ha/0 900"))
         os.remove(path)
         refused_state("state file gone", g.check, 0, probe)
         shutil.rmtree(d)
@@ -310,6 +317,7 @@ def witness_state_guard():
         assert state_versions("chosen 7 x 0 1 0\nopen 8\npromised 0\naccepted 0 0 -\n") == {"ha/0": 7}
         assert state_versions("chosen 5 7 x\nopen 5 8\n") == {"5": 7}
         assert g.manifest()["0"]["state"] == path
+        assert state_marks("chosen 7 x 0 1 0\nopen 8\npromised 3\naccepted 2 1 y\n") == {"ha/0": (7, 8, 3, 2)}
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

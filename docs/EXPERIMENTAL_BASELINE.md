@@ -138,8 +138,11 @@ for this profile only under all of them):
 
 - three unique witness endpoints in `--peers` (normalized: one host
   under two names counts once), with each witness's `--id` naming its own
-  endpoint; `snc_witness` and the profile guard refuse otherwise;
-- persistent witness state paths that last the whole run;
+  endpoint; `snc_witness` and the profile guard refuse otherwise; one
+  address per witness host (a remote host named by two addresses cannot
+  be detected);
+- persistent witness state paths (plain files, not symlinks) that last
+  the whole run;
 - `--new-state 1` only at a witness's initial creation, never on a
   restart, never to recreate a member of an existing quorum;
 - no individual witness rollback or restore (state file, directory,

@@ -288,6 +288,7 @@ class Lab:
         for i, h in enumerate(self.witness_hosts):
             # A run nonce beside the state (G2): a recreated directory lacks it.
             h.sh(f"echo {secrets.token_hex(8)} > {shlex.quote(self.run_dir)}/w{i}.state.run")
+            wait(lambda i=i: self.probe_witness_state(i)["exists"], f"witness {i} state file created")
             self.wstate.record(i, h.name, i, control, f"{self.run_dir}/w{i}.state", self.probe_witness_state)
         drv = self.client
         init = f"{self.ctl(drv)} init --nodes {nodes_arg} --groups {groups_arg}"
@@ -889,10 +890,12 @@ def main():
         if lab.wstate.w:
             try:
                 lab.check_witness_state("end of run")
-            except WitnessStateViolation as e:
+            except Exception as e:  # noqa: BLE001 -- a check that cannot run proves nothing
+                why = str(e) if isinstance(e, WitnessStateViolation) else \
+                    f"witness state could not be checked ({type(e).__name__}: {e}): the run is invalid"
                 result["ok"] = False
-                result["invalid"] = str(e)
-                lab.note("invalid", why=str(e))
+                result["invalid"] = why
+                lab.note("invalid", why=why)
             result["witness_state"] = lab.wstate.manifest()
         lab.down()
         lab.save(result)

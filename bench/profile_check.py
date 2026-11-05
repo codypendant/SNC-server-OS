@@ -269,6 +269,23 @@ class WitnessStateViolation(Exception):
     pass
 
 
+def state_marks(text):
+    """{machine: (chosen version, open version, promised ballot, accepted
+    ballot)} from a witness state file's text. Within one witness each
+    tuple only grows (lexicographically): a new instance resets the
+    ballots but raises the versions first. A legacy file ("open v": two
+    fields) holds ha/0 only."""
+    lines = [l.split() for l in text.splitlines() if l.strip()]
+    legacy = any(t[0] == "open" and len(t) == 2 for t in lines)
+    m = {}
+    for t in lines:
+        name, rest = ("ha/0", t[1:]) if legacy else (t[1], t[2:])
+        if not rest:
+            raise ValueError(f"witness state line {' '.join(t)!r}")
+        m.setdefault(name, [0, 0, 0, 0])[{"chosen": 0, "open": 1, "promised": 2, "accepted": 3}[t[0]]] = int(rest[0])
+    return {k: tuple(v) for k, v in m.items()}
+
+
 def state_versions(text):
     """{machine: chosen version} from a witness state file's text. A legacy
     file ("open v": two fields) holds ha/0 only."""
@@ -305,7 +322,7 @@ class WitnessStateGuard:
             raise WitnessStateViolation(f"witness {i}: state {state} missing right after its first start")
         self.w[i] = {"host": host, "id": wid, "peers": [normalize_endpoint(x) for x in peers.split(",")],
                      "state": state, "dir_id": p["dir_id"], "marker": p.get("marker"),
-                     "versions": state_versions(p["text"])}
+                     "versions": state_versions(p["text"]), "marks": state_marks(p["text"])}
 
     def check(self, i, probe, stage=""):
         rec = self.w[i]
@@ -321,7 +338,14 @@ class WitnessStateGuard:
             if now.get(m, -1) < v:
                 raise WitnessStateViolation(f"{where}: {m} went back from version {v} to {now.get(m)}: "
                                             "state replaced or rolled back; the run is invalid")
+        marks = state_marks(p["text"])
+        for m, t in rec["marks"].items():
+            if marks.get(m, (-1,)) < t:
+                raise WitnessStateViolation(f"{where}: {m} went back from (chosen, open, promised, accepted) "
+                                            f"{t} to {marks.get(m)}: state replaced or rolled back; the run is "
+                                            "invalid")
         rec["versions"] = {**rec["versions"], **now}
+        rec["marks"] = {**rec["marks"], **marks}
 
     def manifest(self):
         return {str(i): {k: v for k, v in r.items()} for i, r in self.w.items()}

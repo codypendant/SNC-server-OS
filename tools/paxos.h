@@ -84,9 +84,12 @@ class Node {
   std::atomic<int> debug_fail_skip{0};
 
   // A new, empty state file, saved durably (snc_witness --new-state 1).
+  // Never replaces a file: it is linked into place, so a state file that
+  // appeared since the caller looked for it (another start of the same
+  // witness) stops this one instead of being overwritten.
   void create() {
     std::lock_guard<std::mutex> g(mu_);
-    save();
+    save(/*exclusive=*/true);
   }
   std::atomic<bool> debug_record{false};
   u64 debug_next_ballot() { return next_ballot(); }
@@ -473,13 +476,14 @@ class Node {
   // <value>". Caller holds mu_. Every reply that depends on this state
   // comes after it, so a save that cannot be made durable stops the
   // process: no such reply escapes (docs/PAXOS_BALLOTS.md 9).
-  void save() {
+  void save(bool exclusive = false) {
     std::ostringstream o;
     for (auto& [m, a] : acc_) {
       o << "chosen " << m << ' ' << a.chosen.str() << "\nopen " << m << ' ' << a.open_v << "\npromised " << m
         << ' ' << a.promised << "\naccepted " << m << ' ' << a.acc_ballot << ' ' << a.acc_value.str() << "\n";
     }
-    const std::string s = o.str(), tmp = path_ + ".tmp";
+    const std::string s = o.str(),
+                      tmp = exclusive ? path_ + ".new." + std::to_string(::getpid()) : path_ + ".tmp";
     int step = debug_fail_step.load();
     if (step != 0 && debug_fail_skip.fetch_sub(1) > 0) step = 0;
     auto failed = [&](int at, bool bad) {
@@ -489,14 +493,28 @@ class Node {
       }
       return bad;
     };
-    int fd = failed(1, false) ? -1 : ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+    int fd = failed(1, false) ? -1
+                              : ::open(tmp.c_str(), O_WRONLY | O_CREAT | (exclusive ? O_EXCL : O_TRUNC) | O_CLOEXEC,
+                                       0644);
     if (fd < 0) fatal("open " + tmp);
     if (failed(2, ::write(fd, s.data(), s.size()) != static_cast<ssize_t>(s.size()))) fatal("write " + tmp);
     if (failed(3, ::fsync(fd) != 0)) fatal("fsync " + tmp);
     if (::close(fd) != 0) fatal("close " + tmp);
-    if (failed(4, false) || ::rename(tmp.c_str(), path_.c_str()) != 0) fatal("rename to " + path_);
-    // The rename is durable only once the directory is.
-    const std::string dir = path_.rfind('/') == std::string::npos ? "." : path_.substr(0, path_.rfind('/'));
+    if (exclusive) {
+      if (failed(4, false) || ::link(tmp.c_str(), path_.c_str()) != 0) {
+        const int e = errno;
+        ::unlink(tmp.c_str());
+        errno = e;
+        fatal(e == EEXIST ? "create " + path_ + " (it appeared after this witness looked: refusing to replace it)"
+                          : "link to " + path_);
+      }
+      ::unlink(tmp.c_str());
+    } else if (failed(4, false) || ::rename(tmp.c_str(), path_.c_str()) != 0) {
+      fatal("rename to " + path_);
+    }
+    // The rename (or link) is durable only once the directory is.
+    const auto slash = path_.rfind('/');
+    const std::string dir = slash == std::string::npos ? "." : slash == 0 ? "/" : path_.substr(0, slash);
     int dfd = failed(5, false) ? -1 : ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
     if (dfd < 0) fatal("open directory " + dir);
     if (failed(6, ::fsync(dfd) != 0)) fatal("fsync directory " + dir);
@@ -553,10 +571,21 @@ class Node {
       std::string k;
       probe >> k;
       if (legacy) line = k + " " + legacy_ + line.substr(k.size());  // "chosen 3 ..." -> "chosen ha/0 3 ..."
+      // Versions and ballots are plain decimal numbers ("5abc" or "-1" is
+      // not one), each its own field.
+      std::vector<std::string> tok;
+      {
+        std::istringstream tin(line);
+        for (std::string t; tin >> t;) tok.push_back(t);
+      }
+      auto number = [&](std::size_t i) {
+        return i < tok.size() && !tok[i].empty() && tok[i].size() <= 20 &&
+               tok[i].find_first_not_of("0123456789") == std::string::npos;
+      };
       std::istringstream in(line);
       std::string m, rest;
       in >> k >> m;
-      bool ok = !m.empty();
+      bool ok = !m.empty() && number(2) && (k != "accepted" || number(3));
       Acceptor& a = acc_[m];
       if (k == "chosen") ok = ok && a.chosen.parse(in);
       else if (k == "open") ok = ok && static_cast<bool>(in >> a.open_v) && !(in >> rest);

@@ -319,6 +319,41 @@ Work order `handoff/PR51_Review_Handoff.txt`. Dispositions there:
 | **F11** peers | Each `--peers` entry is resolved to IPv4 `ip:port`. Refused (exit 2): an endpoint named twice (also through another host name, e.g. `localhost` and `127.0.0.1`); an `--id` whose entry is not this witness's `--port` or whose address is not on this machine; another entry that reaches this witness's own port on this machine. The existing checks (63 peers at most, `--id` in range) are kept |
 | **Fatal persistence** | Every step of a save is checked: temporary file open, write, fsync, rename, directory open, directory fsync. Any failure prints `paxos: cannot save state: ...; stopping before any reply that depends on it` and exits (code 3) before the reply. Directory open and fsync failures used to be ignored. Test hook (`--debug 1` only): `DEBUG FAIL-PERSIST <step> [skip]` |
 
+**Independent review of the slice** (read-only, before the suites)
+found no blocking safety defect and these, all fixed:
+
+- F11: two local addresses of *another* co-located witness
+  (`127.0.0.1:B` and `127.0.0.2:B`) passed, and repeated ACCEPTs at one
+  ballot would let one acceptor count twice in phase 2. Now every entry
+  that is an address of this machine is keyed by its port alone (H4
+  third case).
+- F11: "local" was decided by test-binding the address, which every
+  address passes under `net.ipv4.ip_nonlocal_bind=1`. Now: 127/8,
+  0.0.0.0, or an address listed on an interface (`getifaddrs`).
+- G1: `stat` then create could race a second start of the same witness,
+  and `create()` renamed over whatever was there. Now the first state
+  file is written under a unique name and *linked* into place; an
+  existing file stops the start (`EEXIST`) instead of being replaced.
+- A state file in `/` had an empty directory name for its fsync (always
+  fatal); now `/`.
+- F10: numbers in the state file must be plain decimal fields (`7x` or
+  `-1` refused, H9).
+- G2: the end-of-run check failing for any reason (ssh, a file it cannot
+  read) now invalidates the run instead of skipping the save; the lab
+  waits for each state file instead of a fixed sleep; besides chosen
+  versions, each machine's (chosen, open, promised, accepted) may never
+  go back, which sees a restored copy that differs only in a promise
+  (C4a with the COMMIT lost).
+- H2 asserts the first start serves; H6/H7's proposer case asserts the
+  other witnesses accepted X, proving the failing save was the learning
+  one.
+
+**Still not detectable, excluded:** one *remote* host named in
+`--peers` by two of its addresses (two NICs). A witness cannot tell from
+its configuration; Profile B requires one address per witness host. A
+state path that is a symlink is replaced by a regular file at the first
+save (as before this slice); Profile B state paths are plain files.
+
 No protocol message, wire format or state-file format changed. Old
 witness binaries cannot read or write anything new; launch scripts must
 add `--new-state 1` on first starts (all tests and `bench/` scripts do,

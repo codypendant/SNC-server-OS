@@ -73,6 +73,7 @@
 // (with it) shifts the clock ballots are taken from (docs/PAXOS_BALLOTS.md).
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <signal.h>
@@ -322,16 +323,22 @@ bool resolve_ipv4(const std::string& host, in_addr& out) {
   ::freeaddrinfo(res);
   return true;
 }
-// Whether this machine has the address (a socket can be bound to it).
+// Whether a connection to the address reaches this machine: loopback
+// (127/8), 0.0.0.0, or an address on one of its interfaces. Interfaces
+// are listed, not test-bound: with net.ipv4.ip_nonlocal_bind=1 any
+// address binds.
 bool is_local_ipv4(const in_addr& ip) {
-  int fd = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-  if (fd < 0) return false;
-  sockaddr_in a{};
-  a.sin_family = AF_INET;
-  a.sin_addr = ip;
-  const bool ok = ::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) == 0;
-  ::close(fd);
-  return ok;
+  const uint32_t h = ntohl(ip.s_addr);
+  if ((h >> 24) == 127 || h == 0) return true;
+  ifaddrs* list = nullptr;
+  if (::getifaddrs(&list) != 0) return false;
+  bool found = false;
+  for (ifaddrs* i = list; i != nullptr && !found; i = i->ifa_next) {
+    if (i->ifa_addr != nullptr && i->ifa_addr->sa_family == AF_INET)
+      found = reinterpret_cast<sockaddr_in*>(i->ifa_addr)->sin_addr.s_addr == ip.s_addr;
+  }
+  ::freeifaddrs(list);
+  return found;
 }
 
 std::string debug_verb(std::istream& in) {
@@ -606,9 +613,10 @@ int main(int argc, char** argv) {
       return 2;
     }
     // One acceptor, one place in the quorum (docs/PAXOS_BALLOTS.md 9):
-    // every entry names a distinct address and port, this witness's entry
-    // is one of this machine's addresses, and no other entry reaches this
-    // witness's port on this machine.
+    // every entry names a distinct endpoint, this witness's entry is one of
+    // this machine's addresses, and no two entries reach one port on this
+    // machine (it listens on all its addresses). Not detectable here: one
+    // remote host named by two of its addresses (PAXOS_BALLOTS.md 9.1).
     std::vector<std::string> norm(peers.size());
     std::vector<bool> local(peers.size());
     for (std::size_t i = 0; i < peers.size(); ++i) {
@@ -619,8 +627,10 @@ int main(int argc, char** argv) {
       }
       char txt[INET_ADDRSTRLEN] = {};
       ::inet_ntop(AF_INET, &ip, txt, sizeof(txt));
-      norm[i] = std::string(txt) + ":" + std::to_string(peers[i].port);
       local[i] = is_local_ipv4(ip);
+      // Every address of this machine reaches the same listener (it binds
+      // all of them): local entries are one endpoint per port.
+      norm[i] = (local[i] ? std::string("this machine") : std::string(txt)) + ":" + std::to_string(peers[i].port);
       for (std::size_t j = 0; j < i; ++j) {
         if (norm[j] == norm[i]) {
           std::fprintf(stderr, "--peers names %s twice (entries %zu and %zu): one witness would count twice "
@@ -633,13 +643,6 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "--id %u names %s, which is not an address of this machine\n", self_id,
                    norm[self_id].c_str());
       return 2;
-    }
-    for (std::size_t i = 0; i < peers.size(); ++i) {
-      if (i != self_id && local[i] && peers[i].port == port) {
-        std::fprintf(stderr, "--peers entry %zu (%s) reaches this witness (port %u on this machine) too: "
-                             "it would count twice toward a majority\n", i, norm[i].c_str(), port);
-        return 2;
-      }
     }
   }
   // The state file: created only on a witness's first start, never

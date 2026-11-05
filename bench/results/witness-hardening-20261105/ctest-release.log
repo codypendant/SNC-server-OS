@@ -47,3 +47,9 @@ test_migrate: scenario copied/driver: placement init: NO no control member answe
       Start 17: test_witness
 17/31 Test #17: test_witness .....................   Passed   24.31 sec
       Start 18: test_async_failover
+18/31 Test #18: test_async_failover ..............   Passed   13.75 sec
+      Start 19: test_control
+19/31 Test #19: test_control .....................   Passed    1.52 sec
+      Start 20: test_health
+20/31 Test #20: test_health ......................   Passed  155.73 sec
+      Start 21: test_fail_closed
