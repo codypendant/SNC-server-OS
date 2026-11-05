@@ -428,20 +428,39 @@ unsupported and unsafe. A coordinated whole-cluster disaster-recovery
 procedure is a different problem, not covered here. An individual Paxos
 acceptor cannot be time-travelled backwards.
 
-### 9.5 Suites (commit 482958a, fresh builds)
+### 9.5 Suites
 
-| Build | Result | Sanitizer reports |
-| --- | --- | --- |
-| RelWithDebInfo | 31 / 31 (see below) | n/a |
-| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leaks on) | 31 / 31 | 0 |
-| Debug, TSan (`halt_on_error=1`) | 31 / 31 | 0 |
+**Release, the clean full run (PR #52 review correction):** commit
+b622963, RelWithDebInfo, `SNC_OLD_BUILD` set from the start to a build of
+e3e0500: **32 / 32** (`ctest-release-clean.log`, with its header). There
+are 32 tests now: `test_lab_witness_guard` was added for the G2 boundary
+checks. No production code changed after 482958a; the commits since touch
+the lab, the profile guard, tests and docs.
 
-The release `ctest` run was 30 / 31: `test_ready_order` m1 and m2 failed
-because `SNC_OLD_BUILD` pointed at a build of PR #39, older than the
-build of e3e0500 that V10 specifies (SYNC_READINESS 7). Rerun alone with
-the e3e0500 build: all 6 scenarios pass (`test_ready_order-v10.log`); the sanitizer
-suites used that build. Logs: `bench/results/witness-hardening-20261105/`
-(`ctest-*.log`, `hardening-json/`). An earlier release run on the
-pre-QA commit failed `test_cluster` and `test_migrate`: their C++
-launchers started witnesses without `--new-state 1`, fixed in 482958a.
+**Sanitizers (commit 482958a, fresh Debug builds):** ASan + UBSan
+(`-fno-sanitize-recover=undefined`, leaks on) 31 / 31, TSan
+(`halt_on_error=1`) 31 / 31, zero reports each (`ctest-asan.log`,
+`ctest-tsan.log`). Not repeated: since then only Python harness code,
+tests and docs changed (PR #52 review).
 
+**History, kept in `history/`:**
+
+- 482958a, release, 30 / 31: `test_ready_order` m1 and m2 failed because
+  `SNC_OLD_BUILD` pointed at a build of PR #39, older than the e3e0500
+  build V10 specifies. Rerun alone with the right build: all 6 scenarios
+  passed (`history/test_ready_order-v10.log`). That run was not counted as 31 / 31.
+- 2872606, release, 31 / 32: `test_baseline_retry` b3 failed because the
+  disk filled. Directories that earlier test runs had left in `/tmp`
+  (about 12 GiB; `test_transfer`'s crash test left about 250 MB each run)
+  left too little room for b3's WAL. Free space hit 0 during b3, and it
+  then failed 3 times in a row. With the space recovered, b3 passed 3 / 3.
+  Fixed: the crash test now removes its directory. b3 now waits for READY
+  before its failover, as q5 does: failover is only promised after READY
+  (SYNC_READINESS 7). It records how long READY took after catch-up
+  (0.0 s in all three reruns).
+- An earlier release run on the pre-QA commit failed `test_cluster` and
+  `test_migrate`: their C++ launchers started witnesses without
+  `--new-state 1`, fixed in 482958a.
+
+Logs: `bench/results/witness-hardening-20261105/` (`ctest-*.log`,
+`hardening-json/`, `history/`).

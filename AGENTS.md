@@ -1232,3 +1232,30 @@ or source comments.
 -   **Evidence:** `bench/results/witness-hardening-20261105/`.
 -   **Next action:** WAIT for the FINAL EXPERIMENTAL BASELINE FREEZE
     REVIEW. No recovering-acceptor work, no benchmarks, no freeze.
+
+### 2026-11-05 UTC --- Claude (Claude Code): PR #52 review corrections (work order PR52_Review_Handoff)
+
+-   **Classification:** REFINE (campaign harness and tests only). No
+    production code change.
+-   **What:**
+    - G2 now checks every witness's state at the lab's campaign
+      boundaries: before each fault, after each heal, after each load
+      phase, before the final check, and at the end. Each check advances
+      the recorded marks.
+    - A violation stops the run at that boundary and invalidates it.
+    - It is documented as a point check, not a continuous monitor.
+-   **Tests:** `tests/test_lab_witness_guard.py` (loopback Profile B p3:
+    clean, and a violation that stops the run before its fault), and
+    `witness_state_boundaries` in `test_profile_check`.
+-   **Found:**
+    - Old test directories in `/tmp` filled the disk during a full suite,
+      and b3 failed. `test_transfer`'s crash test leaked about 250 MB a
+      run; it now cleans up.
+    - b3 now waits for READY before its failover.
+-   **Evidence:** a clean full Release run, 32 / 32, with
+    `SNC_OLD_BUILD` set correctly from the start
+    (`bench/results/witness-hardening-20261105/ctest-release-clean.log`);
+    the earlier runs are kept in `history/`.
+-   **Next action:** WAIT for the FINAL EXPERIMENTAL BASELINE FREEZE
+    REVIEW. No benchmarks, no freeze.
+

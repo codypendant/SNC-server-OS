@@ -762,8 +762,10 @@ invalid-history list in [PAXOS_BALLOTS.md](PAXOS_BALLOTS.md) section 9.
 - **Persistence failures are fatal**, the state directory's open and
   fsync included, before any reply that depends on the save.
 
-Tests H1 to H14 and the suite results: PAXOS_BALLOTS.md 9.2 and
-`bench/results/witness-hardening-20261105/`. No benchmarks ran. The
+Tests H1 to H14: PAXOS_BALLOTS.md 9.2. Suites (9.5): one clean full
+Release run, 32 / 32, with the right `SNC_OLD_BUILD` from the start;
+ASan + UBSan and TSan 31 / 31 each on the last production-code commit.
+Evidence: `bench/results/witness-hardening-20261105/`. No benchmarks ran. The
 baseline is not frozen: this returns for the final experimental
 baseline freeze review.
 
