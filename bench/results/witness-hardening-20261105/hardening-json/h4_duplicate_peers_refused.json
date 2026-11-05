@@ -1,0 +1,28 @@
+{
+ "cases": [
+  {
+   "peers": "127.0.0.1:51489,127.0.0.1:43131,127.0.0.1:43131",
+   "id": 0,
+   "exit": 2,
+   "message": "--peers names this machine:43131 twice (entries 1 and 2): one witness would count twice toward a majority",
+   "refused": true
+  },
+  {
+   "peers": "127.0.0.1:51489,localhost:43131,127.0.0.1:43131",
+   "id": 0,
+   "exit": 2,
+   "message": "--peers names this machine:43131 twice (entries 1 and 2): one witness would count twice toward a majority",
+   "refused": true
+  },
+  {
+   "peers": "127.0.0.1:51489,127.0.0.1:43131,127.0.0.2:43131",
+   "id": 0,
+   "exit": 2,
+   "message": "--peers names this machine:43131 twice (entries 1 and 2): one witness would count twice toward a majority",
+   "refused": true
+  }
+ ],
+ "pass": true,
+ "scenario": "h4_duplicate_peers_refused",
+ "seconds": 0.0
+}

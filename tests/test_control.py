@@ -24,6 +24,8 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from witness_state import first_start  # noqa: E402
 
 
 def free_ports(n, span=1):
@@ -102,7 +104,8 @@ def main():
                     "--peers", control, "--failover-ms", "400", "--poll-ms", "50"]
             for g in range(2):
                 args += ["--group", f"{g}=127.0.0.1:{admin[2 * g + 1]},127.0.0.1:{admin[2 * g + 2]}"]
-            procs.append(subprocess.Popen(args, stdout=open(f"{work}/w{i}.log", "w"), stderr=subprocess.STDOUT))
+            procs.append(subprocess.Popen(first_start(args), stdout=open(f"{work}/w{i}.log", "w"),
+                                          stderr=subprocess.STDOUT))
         time.sleep(0.3)
         r = subprocess.run([f"{build}/snc_ctl", "--control", control, "init", "--nodes", node_list,
                             "--groups", groups], capture_output=True, text=True)

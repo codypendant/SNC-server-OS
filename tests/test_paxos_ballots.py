@@ -90,12 +90,20 @@ class Witnesses:
     def state(self, i):
         return f"{self.work}/w{i}.state"
 
-    def start(self, i, offset_ms=0):
+    def start(self, i, offset_ms=0, new_state=None, expect_refusal=False):
+        """new_state None: --new-state 1 only on the witness's first start
+        (no state file yet), as a deployment would."""
         args = [f"{BUILD}/snc_witness", "--port", str(self.ports[i]), "--state", self.state(i), "--id", str(i),
                 "--peers", self.peers, "--debug", "1"]
+        if new_state is None:
+            new_state = not os.path.exists(self.state(i))
+        if new_state:
+            args += ["--new-state", "1"]
         if offset_ms:
             args += ["--debug-clock-offset-ms", str(offset_ms)]
         self.p[i] = subprocess.Popen(args, stdout=open(f"{self.work}/w{i}.log", "a"), stderr=subprocess.STDOUT)
+        if expect_refusal:
+            return self.p[i].wait(timeout=10)
         t = time.time() + 10
         while time.time() < t:
             if ask(self.ports[i], "READ debug/ping", 0.5).startswith("STATE"):
@@ -348,15 +356,23 @@ def c4(wipe):
         acc1 = w.acceptor(1, m)
         w.crash(0)
         w.crash(1)
+        refused = None
         if wipe:
             os.remove(w.state(1))
+            # Guard G1: restarted as itself on no state, it refuses to run.
+            refused = w.start(1, new_state=False, expect_refusal=True)
+            assert refused == 2, refused
+            # Only the forbidden operator step gets past it (recreating a
+            # member of a live quorum with --new-state 1).
+            w.start(1, new_state=True)
         else:
             shutil.copy(snap, w.state(1))
-        w.start(1)
+            w.start(1)  # a restored file looks like a witness that was down: no guard sees it
         w.start(2)
         r2, v2, bs2 = propose(w, 1, m, "Y")
         w.start(0)
         res = {"x": r, "w1_accepted_x": acc1, "restored": "deleted" if wipe else "snapshot before X",
+               "restart_without_new_state_exit": refused,
                "y": r2, "chosen": w.chosen(m)}
         res["conflicts"] = two_values_at_one_version(w, m)
         # Characterization: with an acceptor's memory lost, two values can

@@ -1,0 +1,8 @@
+{
+ "exit": 2,
+ "message": "snc_witness: state file /tmp/snc-h-yh721o55/w.state does not exist. A witness's first start says so with --new-state 1; a witness that ran before and lost its state must not be restarted as itself (docs/PAXOS_BALLOTS.md)",
+ "created": false,
+ "pass": true,
+ "scenario": "h1_missing_state_refused",
+ "seconds": 0.0
+}

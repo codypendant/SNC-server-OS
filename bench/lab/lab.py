@@ -27,6 +27,7 @@ import argparse
 import json
 import os
 import random
+import secrets
 import shlex
 import shutil
 import socket
@@ -39,7 +40,7 @@ import tomllib
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.dirname(HERE))
-from profile_check import Guard  # noqa: E402
+from profile_check import Guard, WitnessStateGuard, WitnessStateViolation  # noqa: E402
 
 BINARIES = ["snc_server", "snc_witness", "snc_ctl", "snc_load", "net_bench"]
 WITNESS_STRIDE, NODE_BASE, NODE_STRIDE = 1, 100, 40
@@ -146,9 +147,13 @@ def node_args(bin_path, shards, objects, data_dir, control, node_id, admin, cpus
     return args + list(profile_args)
 
 
-def witness_args(bin_path, port, state, wid, control, failover_ms, poll_ms, groups):
+def witness_args(bin_path, port, state, wid, control, failover_ms, poll_ms, groups, new_state=False):
+    """new_state: only when this run creates the witness (docs/PAXOS_BALLOTS.md
+    6); never on a restart."""
     args = [bin_path, "--port", port, "--state", state, "--id", wid, "--peers", control,
             "--failover-ms", failover_ms, "--poll-ms", poll_ms]
+    if new_state:
+        args += ["--new-state", 1]
     for g in groups:
         args += ["--group", g]
     return args
@@ -183,6 +188,7 @@ class Lab:
         # process is checked before it starts (bench/profile_check.py).
         self.profile = self.cfg.get("profile")
         self.guard = Guard(self.profile, self.cfg.get("deviations", [])) if self.profile else None
+        self.wstate = WitnessStateGuard()
         if self.profile and self.profile != "B":
             raise RuntimeError(f"profile {self.profile}: lab.py builds Profile B clusters only (replicated "
                                "groups, witness HA); other profiles need their own campaign script")
@@ -228,6 +234,22 @@ class Lab:
         """snc_ctl with the control plane and the profile's flags."""
         return " ".join([self.bin(host, "snc_ctl"), "--control", self.control()] + ctl_flags(self.profile))
 
+    def probe_witness_state(self, i):
+        h = self.witness_hosts[i]
+        state = f"{self.run_dir}/w{i}.state"
+        r = h.sh(f"stat -c '%d:%i' {shlex.quote(self.run_dir)}; cat {shlex.quote(state)}.run 2>/dev/null || echo -; "
+                 f"test -e {shlex.quote(state)} && echo EXISTS && cat {shlex.quote(state)}", check=False)
+        lines = r.stdout.splitlines()
+        exists = len(lines) > 2 and lines[2] == "EXISTS"
+        return {"dir_id": lines[0] if lines else "", "marker": lines[1] if len(lines) > 1 else "",
+                "exists": exists, "text": "\n".join(lines[3:]) if exists else ""}
+
+    def check_witness_state(self, stage):
+        """G2: every witness's state still there, same directory, chosen
+        versions never back. Raises WitnessStateViolation: stop the run."""
+        for i in self.wstate.w:
+            self.wstate.check(i, self.probe_witness_state, stage)
+
     def save(self, result):
         result["profile"] = self.guard.report() if self.guard else {"profile": None}
         result["events"] = self.events
@@ -255,12 +277,19 @@ class Lab:
                   for g in range(len(self.groups))]
         for i, h in enumerate(self.witness_hosts):
             args = witness_args(self.bin(h, "snc_witness"), self.witness_port(i), f"{self.run_dir}/w{i}.state", i,
-                                control, failover_ms, poll_ms, groups)
+                                control, failover_ms, poll_ms, groups, new_state=True)
             if self.guard:
-                self.guard.witness(args)
+                self.guard.witness(args, host=h.name, state_exists=lambda p, h=h: h.sh(
+                    f"test -e {shlex.quote(p)}", check=False).returncode == 0)
             h.sh(f"mkdir -p {self.run_dir}")
             self.spawn(h, f"w{i}", " ".join(map(str, args)))
         time.sleep(0.5)
+        # G2: record each witness's state; check_witness_state() compares.
+        for i, h in enumerate(self.witness_hosts):
+            # A run nonce beside the state (G2): a recreated directory lacks it.
+            h.sh(f"echo {secrets.token_hex(8)} > {shlex.quote(self.run_dir)}/w{i}.state.run")
+            wait(lambda i=i: self.probe_witness_state(i)["exists"], f"witness {i} state file created")
+            self.wstate.record(i, h.name, i, control, f"{self.run_dir}/w{i}.state", self.probe_witness_state)
         drv = self.client
         init = f"{self.ctl(drv)} init --nodes {nodes_arg} --groups {groups_arg}"
         if self.guard:
@@ -858,6 +887,16 @@ def main():
         result["error"] = f"{type(e).__name__}: {e}"
         lab.note("error", what=result["error"])
     finally:
+        if lab.wstate.w:
+            try:
+                lab.check_witness_state("end of run")
+            except Exception as e:  # noqa: BLE001 -- a check that cannot run proves nothing
+                why = str(e) if isinstance(e, WitnessStateViolation) else \
+                    f"witness state could not be checked ({type(e).__name__}: {e}): the run is invalid"
+                result["ok"] = False
+                result["invalid"] = why
+                lab.note("invalid", why=why)
+            result["witness_state"] = lab.wstate.manifest()
         lab.down()
         lab.save(result)
     print(json.dumps({k: v for k, v in result.items() if k not in ("events", "args", "backlog")}, indent=1))

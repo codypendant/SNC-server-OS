@@ -1,0 +1,199 @@
+{
+ "cases": [
+  {
+   "step": "tmp-open",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open /tmp/snc-h-hmijsnsa/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-open",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open /tmp/snc-h-dw2o_7wm/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-open",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open /tmp/snc-h-dx4oxms8/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-open",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open /tmp/snc-h-twz45ymx/w0.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-write",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: write /tmp/snc-h-hbykneuk/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-write",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: write /tmp/snc-h-_zl_cxpi/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-write",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: write /tmp/snc-h-wv5ffxyf/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-write",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: write /tmp/snc-h-jpvtoi45/w0.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-fsync",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync /tmp/snc-h-k_4i32un/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-fsync",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync /tmp/snc-h-jgo_xxqq/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-fsync",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync /tmp/snc-h-sufe7s2s/w1.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "tmp-fsync",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync /tmp/snc-h-fcv5zenf/w0.state.tmp: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "rename",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: rename to /tmp/snc-h-i8p06zxh/w1.state: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "rename",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: rename to /tmp/snc-h-1ar2a514/w1.state: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "rename",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: rename to /tmp/snc-h-fo6ls72q/w1.state: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "rename",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: rename to /tmp/snc-h-jnfis0jh/w0.state: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  }
+ ],
+ "pass": true,
+ "scenario": "h7_file_durability_fatal",
+ "seconds": 3.4
+}

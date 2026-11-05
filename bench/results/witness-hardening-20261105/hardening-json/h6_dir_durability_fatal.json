@@ -1,0 +1,103 @@
+{
+ "cases": [
+  {
+   "step": "dir-open",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open directory /tmp/snc-h-gmt87n26: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-open",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open directory /tmp/snc-h-pinpt8ln: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-open",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open directory /tmp/snc-h-hlvrge4v: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-open",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: open directory /tmp/snc-h-899r0hhm: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-fsync",
+   "request": "PREPARE",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync directory /tmp/snc-h-85xcqwyc: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-fsync",
+   "request": "ACCEPT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync directory /tmp/snc-h-61crc5rd: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-fsync",
+   "request": "COMMIT",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync directory /tmp/snc-h-atslg66l: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  },
+  {
+   "step": "dir-fsync",
+   "request": "PROPOSER",
+   "reply": "",
+   "exit": 3,
+   "said": [
+    "paxos: cannot save state: fsync directory /tmp/snc-h-jirwlwim: Input/output error; stopping before any reply that depends on it"
+   ],
+   "restarted": true,
+   "others_accepted": true,
+   "ok": true
+  }
+ ],
+ "pass": true,
+ "scenario": "h6_dir_durability_fatal",
+ "seconds": 1.7
+}

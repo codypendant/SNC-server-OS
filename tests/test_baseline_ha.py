@@ -121,7 +121,8 @@ class Group:
     def start_witness(self):
         self.w = af.Proc([f"{BUILD}/snc_witness", "--port", str(self.wit), "--primary", f"127.0.0.1:{self.p_adm}",
                           "--standby", f"127.0.0.1:{self.s_adm}", "--state", f"{self.work}/witness.state",
-                          "--failover-ms", "500", "--poll-ms", "50"])
+                          "--failover-ms", "500", "--poll-ms", "50"] +
+                         ([] if os.path.exists(f"{self.work}/witness.state") else ["--new-state", "1"]))
         assert self.w.wait_for(r"primary up", 15), "witness never saw the primary\n" + self.w.text()
 
     def start(self):

@@ -1205,3 +1205,29 @@ or source comments.
     failure. All are documented and none fixed.
 -   **Next action:** WAIT for cody's and Codex's review of the F8/F9
     disposition. No freeze, no benchmarks, no format change.
+
+### 2026-11-05 UTC --- Claude (Claude Code): witness hardening before the baseline freeze (work order PR51_Review_Handoff)
+
+-   **Classification:** REFINE (witness start-up, configuration checks
+    and persistence error handling). No protocol, wire or state-file
+    format change. KEEP Paxos as built (F8 outcome A approved).
+-   **What:** G1 (`snc_witness --new-state 1` for first starts only;
+    missing state refused), G2 (campaign guard in `bench/profile_check.py`
+    and `bench/lab/lab.py`: first-start rules, end-of-run check of state
+    file, directory identity, run nonce and chosen versions; a violation
+    invalidates the run), F10 (legacy files only by shape; strict
+    parsing; READ creates nothing), F11 (normalized unique peers, `--id`
+    names this machine's own endpoint), every save step fatal including
+    the directory's open and fsync (`DEBUG FAIL-PERSIST` test hook).
+-   **Tests:** `tests/test_witness_hardening.py` (H1-H9, H12),
+    `tests/test_profile_check.py` (H10), existing suites for H11, H13,
+    H14. Every witness launch in tests and `bench/` passes
+    `--new-state 1` on first start (`tests/witness_state.py`).
+-   **Docs:** PAXOS_BALLOTS section 9 (dispositions, C2x assumption,
+    invalid histories, backup/restore semantics, hypervisor snapshot
+    warning, F9 not solved for enterprise), EXPERIMENTAL_BASELINE
+    Profile B witness requirements and claims, BASELINE_READINESS
+    section 12, STATUS, CLUSTER.md.
+-   **Evidence:** `bench/results/witness-hardening-20261105/`.
+-   **Next action:** WAIT for the FINAL EXPERIMENTAL BASELINE FREEZE
+    REVIEW. No recovering-acceptor work, no benchmarks, no freeze.

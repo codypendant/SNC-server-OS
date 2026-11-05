@@ -178,7 +178,8 @@ def start(port, rearm=False):
         Proc([f"{BUILD}/snc_witness", "--port", str(wit + i), "--primary", f"127.0.0.1:{p_adm}",
               "--standby", f"127.0.0.1:{s_adm}", "--state", f"{WORK}/witness{i}.state",
               "--failover-ms", "500", "--poll-ms", "50"] +
-             (["--id", str(i), "--peers", peers] if WITNESSES > 1 else []))
+             (["--id", str(i), "--peers", peers] if WITNESSES > 1 else []) +
+             ([] if os.path.exists(f"{WORK}/witness{i}.state") else ["--new-state", "1"]))
         for i in range(WITNESSES)])
     if w.wait_for(r"primary up", 10)[0] is None:
         sys.exit("witness never saw the primary\n" + w.text())

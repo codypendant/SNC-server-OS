@@ -43,12 +43,19 @@ Instead of `--cluster` on every node, the map can be written once to the
 control plane and fetched (docs/CONTROL_PLANE.md, step 2):
 
 ```
-snc_witness --port 9000 --state w0 --id 0 --peers H0:9000,H1:9000,H2:9000   # x3
+snc_witness --port 9000 --state w0 --id 0 --peers H0:9000,H1:9000,H2:9000 --new-state 1   # x3, first start only
 snc_ctl --control H0:9000,H1:9000,H2:9000 init \
     --nodes 1@HA:7100,2@HB:7100,3@HC:7100 \
     --groups 4:1/7200/7000+2/7200/7000,4:3/7200/7000
 snc_server --control H0:9000,H1:9000,H2:9000 --node-id 1 --data-dir d1 ...
 ```
+
+A witness's first start creates its state file (`--new-state 1`); every
+later start runs on that file and refuses to start without it. A witness
+whose state file is lost or restored from a copy must not be restarted as
+itself (docs/PAXOS_BALLOTS.md). The same holds for a VM, container or
+hypervisor snapshot of one witness: restoring it into a quorum that went
+on after the snapshot is unsupported and unsafe (PAXOS_BALLOTS.md 9.4).
 
 - `snc_ctl init` writes placement epoch 1: a random cluster ID, the nodes
   (`NodeID@host:admin`), one group per list entry (`SHARDS:` then members

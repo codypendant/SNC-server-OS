@@ -63,6 +63,8 @@ import subprocess
 import sys
 import tempfile
 import time
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from witness_state import first_start  # noqa: E402
 
 BUILD = sys.argv[1] if len(sys.argv) > 1 else "build"
 CHAR = os.environ.get("SNC_CHARACTERIZE") == "1"
@@ -266,7 +268,7 @@ class Cluster:
             wait(lambda: self.role(2 * g + 1) in ("p", "n"), f"primary {2 * g + 1} up")
 
     def start_witness(self, i):
-        self.witness[i] = subprocess.Popen(self.wargs[i], stdout=open(f"{self.work}/w{i}.log", "a"),
+        self.witness[i] = subprocess.Popen(first_start(self.wargs[i]), stdout=open(f"{self.work}/w{i}.log", "a"),
                                            stderr=subprocess.STDOUT)
         self.procs.append(self.witness[i])
 
@@ -1551,8 +1553,8 @@ def size_measure():
     procs = []
     try:
         for i, w in enumerate(ports):
-            procs.append(subprocess.Popen([f"{BUILD}/snc_witness", "--port", str(w), "--state", f"{work}/w{i}",
-                                           "--id", str(i), "--peers", control],
+            procs.append(subprocess.Popen(first_start([f"{BUILD}/snc_witness", "--port", str(w), "--state",
+                                                       f"{work}/w{i}", "--id", str(i), "--peers", control]),
                                           stdout=open(f"{work}/w{i}.log", "a"), stderr=subprocess.STDOUT))
         time.sleep(0.3)
         r = subprocess.run([f"{BUILD}/test_placement", "--cas", control], capture_output=True, text=True,

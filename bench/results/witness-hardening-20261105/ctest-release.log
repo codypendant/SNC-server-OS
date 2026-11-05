@@ -1,0 +1,79 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_object_id
+ 1/31 Test  #1: test_object_id ...................   Passed    0.01 sec
+      Start  2: test_local_map
+ 2/31 Test  #2: test_local_map ...................   Passed    1.58 sec
+      Start  3: test_pages
+ 3/31 Test  #3: test_pages .......................   Passed    1.14 sec
+      Start  4: test_runtime
+ 4/31 Test  #4: test_runtime .....................   Passed    0.15 sec
+      Start  5: test_execute
+ 5/31 Test  #5: test_execute .....................   Passed    0.05 sec
+      Start  6: test_persistence
+ 6/31 Test  #6: test_persistence .................   Passed    0.53 sec
+      Start  7: test_crash
+ 7/31 Test  #7: test_crash .......................   Passed    0.93 sec
+      Start  8: test_net
+ 8/31 Test  #8: test_net .........................   Passed    0.08 sec
+      Start  9: test_transfer
+ 9/31 Test  #9: test_transfer ....................   Passed    3.07 sec
+      Start 10: test_replication
+10/31 Test #10: test_replication .................   Passed   16.68 sec
+      Start 11: test_cluster
+11/31 Test #11: test_cluster .....................   Passed    5.54 sec
+      Start 12: test_migrate
+12/31 Test #12: test_migrate .....................   Passed   36.89 sec
+      Start 13: test_resend_refusals
+13/31 Test #13: test_resend_refusals .............   Passed    0.03 sec
+      Start 14: test_proof
+14/31 Test #14: test_proof .......................   Passed    1.17 sec
+      Start 15: test_placement
+15/31 Test #15: test_placement ...................   Passed    0.01 sec
+      Start 16: test_stage_chain
+16/31 Test #16: test_stage_chain .................   Passed    7.73 sec
+      Start 17: test_witness
+17/31 Test #17: test_witness .....................   Passed   24.07 sec
+      Start 18: test_async_failover
+18/31 Test #18: test_async_failover ..............   Passed   13.66 sec
+      Start 19: test_control
+19/31 Test #19: test_control .....................   Passed    1.53 sec
+      Start 20: test_health
+20/31 Test #20: test_health ......................   Passed  155.49 sec
+      Start 21: test_fail_closed
+21/31 Test #21: test_fail_closed .................   Passed  233.07 sec
+      Start 22: test_s1
+22/31 Test #22: test_s1 ..........................   Passed   68.28 sec
+      Start 23: test_profile_check
+23/31 Test #23: test_profile_check ...............   Passed    0.11 sec
+      Start 24: test_baseline_retry
+24/31 Test #24: test_baseline_retry ..............   Passed  246.93 sec
+      Start 25: test_sync_readiness
+25/31 Test #25: test_sync_readiness ..............   Passed  296.25 sec
+      Start 26: test_baseline_move
+26/31 Test #26: test_baseline_move ...............   Passed  112.53 sec
+      Start 27: test_baseline_ha
+27/31 Test #27: test_baseline_ha .................   Passed  135.12 sec
+      Start 28: test_ready_order
+28/31 Test #28: test_ready_order .................***Failed  183.33 sec
+PASS c1_delayed_ready {"char": false, "state_after_grant_1": [4, 0, 0, true], "held_before_loss": 1, "state_after_grant_2": [5, 0, 0, true], "released": ["OK released 1", "OK released 1", "OK released 1"], "state_after_release": [5, 0, 0, true], "ready_restored": false, "witness_lines": ["t=0.03 group 0 READY: primary term 0 READY after=2: OK v=3", "t=2.55 group 0 NOTREADY: primary term 0 NOT READY: OK v=4", "t=7.51 group 0 NOTREADY: primary term 0 NOT READY: OK v=5", "t=9.55 group 0 READY: primary term 0 READY after=4: NO not ready since v=5", "t=9.55 group 0 READY: primary term 0 READY after=4: NO not ready since v=5", "t=9.55 group 0 READY: primary term 0 READY after=4: NO not ready since v=5"], "primary_lines": ["witness: recorded NOT READY (this primary started) at v=2", "witness: standby back in sync (READY after v=2)", "witness: granted, continuing without the standby", "witness: granted, continuing without the standby"], "promoted": null, "final_state": [5, 0, 0, true], "refused": 3, "pass": true, "scenario": "c1_delayed_ready", "seconds": 19.5}
+PASS c2_restart_held {"old_process_lines": ["witness: recorded NOT READY (this primary started) at v=2", "witness: granted, continuing without the standby"], "new_process_start": "witness: recorded NOT READY (this primary started) at v=5", "released": ["OK released 1", "OK released 0", "OK released 0"], "state_after_release": [6, 0, 0, true], "refusals": 1, "refused": true, "ready_again": [7, 0, 0, false], "new_ready_line": "witness: standby back in sync (READY after v=6)", "grounded": true, "promoted": [8, 1, 1, true], "bench": {"rc": 0, "accounts": 2000, "deposits": 6389742, "mismatches": 0, "failovers": 4, "tail": ["  sent to non-owner 0.0%  forwarded by server 0.0%", "  failovers 4  replayed 407  timeouts 0  resends 256  max_resend_age_ms 5198", "  retry claim: max_resend_age_ms 5198, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 6389742 deposits, 0 mismatches"]}, "pass": true, "scenario": "c2_restart_held", "seconds": 62.7}
+PASS c3_two_failovers {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "released": ["OK released 1", "OK released 1", "OK released 1"], "state_after_release": [6, 1, 1, true], "refusals": 3, "refused": true, "ready_term_1": [7, 1, 1, false], "second_promoted": [8, 2, 0, true], "bench": {"rc": 0, "accounts": 2000, "deposits": 7354817, "mismatches": 0, "failovers": 4, "tail": ["  sent to non-owner 0.0%  forwarded by server 0.0%", "  failovers 4  replayed 308  timeouts 0  resends 256  max_resend_age_ms 988", "  retry claim: max_resend_age_ms 988, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 7354817 deposits, 0 mismatches"]}, "pass": true, "scenario": "c3_two_failovers", "seconds": 62.7}
+FAIL m1_new_primary_old_witnesses {"state": [1, 0, 0, false], "too_old_logged": true, "granted": 0, "no_promotion": false, "states": [[1, 0, 0, false], [2, 1, 1, false]], "pass": false, "scenario": "m1_new_primary_old_witnesses", "seconds": 8.4}
+FAIL m2_old_primary_new_witnesses {"state": [1, 0, 0, true], "synced_refused": false, "granted": true, "no_promotion": true, "states": [[2, 0, 0, true]], "pass": false, "scenario": "m2_old_primary_new_witnesses", "seconds": 12.0}
+PASS m3_new_primary_mixed_witnesses {"too_old_logged": true, "released": ["OK released 1", "OK released 1"], "state_after_release": [5, 0, 0, true], "no_promotion": true, "pass": true, "scenario": "m3_new_primary_mixed_witnesses", "seconds": 18.0}
+test_ready_order: FAILED ['m1_new_primary_old_witnesses', 'm2_old_primary_new_witnesses']
+
+      Start 29: test_paxos_ballots
+29/31 Test #29: test_paxos_ballots ...............   Passed    2.11 sec
+      Start 30: test_witness_hardening
+30/31 Test #30: test_witness_hardening ...........   Passed    5.84 sec
+      Start 31: test_index_wire
+31/31 Test #31: test_index_wire ..................   Passed    1.78 sec
+
+97% tests passed, 1 tests failed out of 31
+
+Total Test time (real) = 1555.70 sec
+
+The following tests FAILED:
+	 28 - test_ready_order (Failed)
+Errors while running CTest

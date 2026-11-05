@@ -10,7 +10,10 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "bench"))
-from profile_check import Guard, ProfileViolation  # noqa: E402
+from profile_check import (Guard, ProfileViolation, WitnessStateGuard,  # noqa: E402
+                           WitnessStateViolation, state_marks, state_versions)
+import shutil  # noqa: E402
+import tempfile  # noqa: E402
 
 SRV, WIT, CTL = "snc_server", "snc_witness", "snc_ctl"
 
@@ -27,8 +30,13 @@ def b_standby(d="/r/n2", shards=4, extra=()):
             "--checkpoint-s", 60] + list(extra)
 
 
-def witness(extra=()):
-    return [WIT, "--port", 21000, "--state", "/r/w0.state", "--id", 0, "--peers", "h:1,h:2,h:3",
+PEERS = "h1:21000,h2:21000,h3:21000"
+
+
+def witness(extra=(), new_state=True, state="/r/w0.state", wid=0, peers=PEERS):
+    """A Profile B witness command line; new_state: its first start."""
+    return [WIT, "--port", 21000, "--state", state, "--id", wid, "--peers", peers] + (
+        ["--new-state", 1] if new_state else []) + [
             "--failover-ms", 1000, "--poll-ms", 100, "--group", "0=h1:21140,h2:21180"] + list(extra)
 
 
@@ -213,9 +221,114 @@ def lab_profile_b():
                              if nodes[k]["member"] else None, replica_of=None if nodes[k]["member"] else "h2:21210",
                              replica_timeout_ms=2000, profile_args=lab.profile_args("B", {}))
         g.server(args)
-    g.witness(lab.witness_args(bin_path=WIT, port=21000, state="/r/w0.state", wid=0, control="h:1,h:2,h:3",
-                               failover_ms=1000, poll_ms=100, groups=["0=h1:21140,h2:21180"]))
+    g.witness(lab.witness_args(bin_path=WIT, port=21000, state="/r/w0.state", wid=0, control=PEERS,
+                               failover_ms=1000, poll_ms=100, groups=["0=h1:21140,h2:21180"], new_state=True),
+              state_exists=lambda path: False, host="h1")
+    # The lab's restart of the same witness: no --new-state, same file, which exists.
+    g.witness(lab.witness_args(bin_path=WIT, port=21000, state="/r/w0.state", wid=0, control=PEERS,
+                               failover_ms=1000, poll_ms=100, groups=["0=h1:21140,h2:21180"]),
+              state_exists=lambda path: True, host="h1")
     g.ctl_init([CTL, "--control", "h:1"] + lab.ctl_flags("B") + ["init"])
+
+
+@case
+def witness_identity_b():
+    """H4/H5 at the campaign guard: three distinct endpoints, --id naming
+    this witness's own port."""
+    refused("three witnesses", Guard("B").witness, witness(peers="h1:21000,h2:21000"))
+    refused("one endpoint twice", Guard("B").witness, witness(peers="h1:21000,h2:21000,h2:21000"))
+    refused("one endpoint twice", Guard("B").witness, witness(peers="127.0.0.1:21000,localhost:21000,h3:21000"))
+    refused("must name this witness's own --port", Guard("B").witness,
+            witness(peers="h1:21001,h2:21000,h3:21000"))
+    refused("must name this witness's own --port", Guard("B").witness, witness(wid=3))
+
+
+@case
+def witness_new_state_b():
+    """G1 at the campaign guard: --new-state exactly on the first start, with
+    the file absent; never on a restart; a restart on the same, present file."""
+    refused("creates its state", Guard("B").witness, witness(new_state=False))
+    refused("already exists at its first start", Guard("B").witness, witness(), state_exists=lambda p: True)
+    g = Guard("B")
+    g.witness(witness(), state_exists=lambda p: False, host="h1")
+    refused("--new-state on a witness restart", g.witness, witness(), state_exists=lambda p: False, host="h1")
+    refused("restarted on /r/other.state", g.witness, witness(new_state=False, state="/r/other.state"), host="h1")
+    refused("is gone: stop the run", g.witness, witness(new_state=False), state_exists=lambda p: False, host="h1")
+    g.witness(witness(new_state=False), state_exists=lambda p: True, host="h1")
+    # The same id and peers on another host is another witness's first start.
+    g.witness(witness(), state_exists=lambda p: False, host="h2")
+
+
+@case
+def witness_state_guard():
+    """H10: the campaign's witness state guard sees the file deleted, its
+    directory recreated, and an older copy put back; an ordinary save
+    (rename over the file, versions up) passes."""
+    work = tempfile.mkdtemp(prefix="snc-h10-")
+    try:
+        d = f"{work}/run"
+        os.mkdir(d)
+        path = f"{d}/w0.state"
+
+        def write(text):
+            with open(path + ".tmp", "w") as f:
+                f.write(text)
+            os.replace(path + ".tmp", path)
+
+        def probe(i):
+            if not os.path.exists(path):
+                return {"exists": False, "dir_id": None, "text": ""}
+            st = os.stat(d)
+            marker = open(path + ".run").read() if os.path.exists(path + ".run") else "-"
+            with open(path) as f:
+                return {"exists": True, "dir_id": f"{st.st_dev}:{st.st_ino}", "marker": marker, "text": f.read()}
+
+        v1 = "chosen ha/0 1 a\nopen ha/0 2\npromised ha/0 0\naccepted ha/0 0 0 -\n"
+        v3 = "chosen ha/0 3 c\nopen ha/0 4\npromised ha/0 0\naccepted ha/0 0 0 -\n" \
+             "chosen placement 2 p\nopen placement 3\npromised placement 0\naccepted placement 0 0 -\n"
+        write(v1)
+        with open(path + ".run", "w") as f:
+            f.write("nonce1")
+        g = WitnessStateGuard()
+        g.record(0, "h1", 0, "h1:21000,h2:21000,h3:21000", path, probe)
+        write(v3)
+        g.check(0, probe, "after a save")
+        old = v1.replace("chosen ha/0 1", "chosen ha/0 2")
+        write(old)  # ha/0 2 < 3: an older copy
+        refused_state("went back from version 3", g.check, 0, probe)
+        write(v3)
+        g.check(0, probe, "v3 back")
+        # Same chosen versions, an older promise (C4a with the COMMIT lost).
+        write(v3.replace("promised ha/0 0", "promised ha/0 900"))
+        g.check(0, probe, "promise")
+        write(v3)
+        refused_state("went back from (chosen, open, promised, accepted)", g.check, 0, probe)
+        write(v3.replace("promised ha/0 0", "promised ha/0 900"))
+        os.remove(path)
+        refused_state("state file gone", g.check, 0, probe)
+        shutil.rmtree(d)
+        os.mkdir(d)
+        write(v3)
+        refused_state("state directory replaced", g.check, 0, probe)
+        g2 = WitnessStateGuard()
+        os.remove(path)
+        refused_state("missing right after its first start", g2.record, 0, "h1", 0, "h1:1,h2:1,h3:1", path, probe)
+        # Legacy files count as ha/0.
+        assert state_versions("chosen 7 x 0 1 0\nopen 8\npromised 0\naccepted 0 0 -\n") == {"ha/0": 7}
+        assert state_versions("chosen 5 7 x\nopen 5 8\n") == {"5": 7}
+        assert g.manifest()["0"]["state"] == path
+        assert state_marks("chosen 7 x 0 1 0\nopen 8\npromised 3\naccepted 2 1 y\n") == {"ha/0": (7, 8, 3, 2)}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def refused_state(why, f, *a):
+    try:
+        f(*a)
+    except WitnessStateViolation as e:
+        assert why in str(e), (why, str(e))
+        return
+    raise AssertionError(f"accepted, expected: {why}")
 
 
 def main():

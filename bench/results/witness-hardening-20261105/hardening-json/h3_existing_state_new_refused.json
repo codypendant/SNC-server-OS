@@ -1,0 +1,8 @@
+{
+ "exit": 2,
+ "message": "snc_witness: --new-state 1 but /tmp/snc-h-jo64fk90/w.state exists: refusing to replace a witness's state (a witness that lost its state must not rejoin as itself)",
+ "unchanged": true,
+ "pass": true,
+ "scenario": "h3_existing_state_new_refused",
+ "seconds": 0.0
+}
