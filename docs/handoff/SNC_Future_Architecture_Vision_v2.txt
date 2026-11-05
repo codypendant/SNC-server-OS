@@ -1,0 +1,689 @@
+State Lineage, Enterprise Platform & Agent Runtime Vision
+
+Conceptual / post-validation architecture record. Not an implementation
+authorization.
+
+Strategic gate
+
+Continue trying to falsify General SNC. Feature expansion remains frozen
+until the Experimental Validation milestone produces GO, REFINE, NARROW
+or STOP. A failure of General SNC does not automatically kill Agent-SNC;
+Agent-SNC is a separate hypothesis with its own falsification gate.
+
+Durable computational state
+
+Think of SNC as managing durable computational state across location
+(core/NUMA/socket/node/site), time
+(current/history/snapshot/PITR/clone), ownership
+(placement/term/fencing/migration), and execution
+(worker/service/agent/model/tool). State should eventually be movable
+through both space and time.
+
+Agent-SNC fallback
+
+If SNC is not compelling as a general enterprise substrate, evaluate a
+specialized persistent-agent platform before STOP. The value proposition
+shifts from generic database speed to continuity, auditability, policy
+enforcement, recovery, context reconstruction, token efficiency,
+dormant-agent efficiency and multi-agent coordination.
+
+The model is not the agent
+
+The persistent state is the agent. GPT, Claude, local models and future
+models are execution resources. Persistent, temporary, specialist and
+one-shot agents can share one abstraction.
+
+Agent memory graph
+
+Memory should be a graph of durable documents/objects, not one
+transcript. Durable events include task accepted, plan change, fact
+learned, decision, artifact, work completed, delegation, valuable tool
+result, failure and validated success.
+
+Current versus historical
+
+SNC should resolve the current authoritative version rather than making
+the LLM choose among conflicting historical retrievals. Historical
+versions remain available for provenance and 'why' traversal without
+poisoning current context.
+
+Dynamic skills
+
+Failures and successes can become evolving skills with provenance. The
+project accumulates institutional knowledge, not merely embeddings of
+old conversations.
+
+Executable policy
+
+Roles, mandatory philosophies, mandatory skills, required/permitted
+tools, plugins and project rules can become executable policy attached
+to durable agent/project state.
+
+Private versus project memory
+
+Keep private agent memory distinct from shared project memory. Both can
+be durable and provenance-bearing, but visibility and authority differ.
+
+Reproducible activations
+
+Record project snapshot, agent-memory snapshot, policy version, skill
+set, code version, model, tools and causal event. If philosophy changes,
+new activations get the new policy while old activations retain the
+policy they actually used.
+
+Corpus snapshots
+
+An activation can run against a stable corpus snapshot so the state it
+saw is reproducible even as the project continues changing.
+
+Durable scheduler
+
+Future Agent Runtime concepts include Durable Events, Durable Timers,
+Wait Conditions/WaitSets and activation. Dormant agents should not
+require resident processes.
+
+Backup is distinct
+
+Replication is availability; checkpoints accelerate recovery; WAL
+provides durable replay; backup is historical disaster recovery. Live
+replication cannot substitute for backup because corruption and operator
+mistakes replicate too.
+
+Native backup
+
+A future backup should establish a logical cut, capture checkpoint/WAL
+positions and required control-plane metadata, seal an immutable
+manifest, then transfer in the background to local storage, object
+storage or another SNC system.
+
+Backup manifest
+
+Potential fields: BackupID, SpaceUUID, snapshot epoch, format version,
+placement/map, group configuration, ownership/arrival provenance,
+checkpoint IDs/LSNs, WAL ranges, terms, hashes and encryption metadata.
+
+Restore verification
+
+A backup never restored is not evidence of recoverability. SNC should
+eventually verify hashes, WAL continuity and compatibility and ideally
+perform automated isolated restore drills.
+
+Point-in-time recovery
+
+Base snapshot plus continuous WAL archival should permit restoration to
+a logical point between snapshots, especially for logical corruption or
+accidental deletion.
+
+Cheap snapshots
+
+Borrow the ZFS philosophy: snapshot creation should be a cheap
+logical-root operation rather than copying the entire dataset
+synchronously. Data cost should primarily follow later divergence.
+
+Snapshot pinning/retention
+
+Snapshots need IDs, logical epochs, integrity and format metadata.
+Consumers should be able to pin snapshots so retention/GC cannot
+invalidate them. Policies can provide hourly/daily/weekly/monthly
+retention.
+
+Copy-on-write clones
+
+A snapshot can parent a writable clone. Initially the clone shares
+immutable state and consumes new storage as it diverges. Uses: QA,
+upgrades, schema tests, DR, analytics, security investigation and agent
+sandboxes.
+
+Branchable state
+
+A branch is a durable lineage with a common immutable ancestor. MAIN,
+Branch A and Branch B can share unchanged state. This is much more
+powerful than ordinary backup.
+
+State lineage/provenance
+
+Record branch origin, snapshot, executor/model, policy, validation and
+promotion. Enterprise users can reconstruct exactly what state an
+execution saw and how a result became authoritative.
+
+Speculative durable computation
+
+Fork one snapshot into multiple candidate branches, let different
+agents/models/algorithms attempt solutions, evaluate them, then promote
+the selected result. All candidates start from exactly the same durable
+state.
+
+Selective promotion, not magic merge
+
+Arbitrary object-graph merging is semantically hard. Prefer explicit
+artifact promotion, decision/fact promotion, selected-object promotion
+with version checks, transaction/replay promotion, or
+object-type-specific merge rules.
+
+Content-addressed immutable storage
+
+Immutable checkpoint/state segments identified by cryptographic digest
+could deduplicate snapshots, backups and branches and provide integrity.
+Backup manifests can reference existing segments and transfer only
+missing content plus WAL.
+
+SNC send/receive
+
+Content-addressed snapshots could eventually support incremental remote
+transfer similar in spirit to ZFS send/receive: compare roots/segments
+and send only missing immutable state and required WAL.
+
+Checksums and scrubbing
+
+Checksum WAL, checkpoint/state segments, manifests and backup objects.
+Background scrub should detect silent corruption; known-good
+replicas/backups may become repair sources.
+
+Authoritative versus derived state
+
+Explicitly classify what must be backed up versus what can be rebuilt.
+Authoritative objects/obligations/provenance are preserved;
+deterministic indexes/caches/runtime structures may be reconstructed.
+
+Restore authority reset
+
+Restoring old data must not resurrect stale HA authority. Restore should
+create a new recovery incarnation, establish fresh terms/placement, seed
+replicas, verify and only then serve.
+
+Enterprise security
+
+Plan for human/service/machine/agent principals, RBAC/ABAC/capabilities,
+encryption at rest/in transit, external KMS/HSM, key rotation and
+tool/data permissions.
+
+Multi-tenancy and isolation
+
+Namespaces/tenant identity, CPU/memory/storage/WAL/network accounting,
+quotas and backpressure should eventually prevent one tenant, backup,
+migration or runaway agent from consuming the system.
+
+Audit/compliance
+
+Eventually answer who changed state, what operation caused it, what
+authority was used, previous state, software/model, policy version and
+downstream effects. Retention, legal hold and deletion policy can build
+on provenance/snapshots.
+
+Disaster recovery
+
+Enterprise DR includes RPO/RTO, geographic copies, restore drills,
+failover/failback and evidence. A future backup-test operation could
+restore into an isolated clone and run integrity/application checks.
+
+Rolling upgrades
+
+Persistent state may outlive software versions. Durable structures need
+explicit format versions; wire/durable compatibility and rollback
+boundaries should support rolling upgrades where practical.
+
+Schema/type evolution
+
+Long-lived objects need schema versions and controlled evolution. Avoid
+forcing an offline full rewrite for every type change; consider
+lazy/online migration and version-aware readers/writers.
+
+Observability
+
+Causal tracing should eventually connect request -> routing -> owner ->
+operation -> WAL -> replication -> ACK -> follow-up -> settlement. This
+supports debugging, audit and agent provenance.
+
+Policy-driven placement
+
+Future placement may incorporate geography/compliance, replica
+requirements, encryption policy and communication/locality relationships
+while remaining subordinate to authority and safety.
+
+QoS and bounded work
+
+S1 showed the value of cooperative bounded work. Backups, checkpoints,
+migration, scrubbing, indexing, branches and agent tasks should be
+resource-bounded so background work cannot destroy foreground p99.
+
+Enterprise sandboxing
+
+Give an autonomous agent a COW branch of production state, not
+production authority. It can experiment, run tools and make mistakes;
+validation/policy/human approval selectively promotes accepted effects.
+
+TM87/MMO/non-agent use
+
+TM87 could branch config/state before complex policy changes. MMO-like
+systems could clone a live world to simulate economy/balance changes.
+Business systems could branch state for upgrades, pricing or analytics.
+
+Logical time domains
+
+Keep wall clock, monotonic time, WAL LSN, placement epoch, HA term,
+snapshot epoch and object version semantically distinct. Never use one
+notion of 'newer' as a substitute for another.
+
+Transactional configuration
+
+Configuration itself may become durable/versioned state, allowing
+snapshots, audit, rollback and association with the state/policy epoch
+it governed.
+
+Core vs platform vs workload
+
+Core should expose identity, authority, durability, versioning,
+snapshot-compatible roots, namespace/security hooks, resource-accounting
+hooks, integrity metadata, bounded work and recovery. Platform layers
+can add backup/PITR, snapshot management, branches, KMS, tenancy,
+quotas, DR, audit and schema tooling. Agent Runtime/MMO/TM87 workflows
+stay above that.
+
+Enterprise requirement envelope
+
+If SNC survives validation, enterprise readiness eventually includes
+backup/restore, PITR, snapshots/clones/branches, integrity/scrub, DR,
+encryption/KMS, identity/capabilities, tenant isolation,
+audit/provenance, retention/legal hold, rolling upgrades, schema
+evolution, observability, placement policy, QoS, diagnostics and
+capacity planning.
+
+Agent enterprise envelope
+
+Add private/project memory separation, executable policies, mandatory
+skills/tools, role/delegation boundaries, model independence, corpus
+snapshots, reproducible activations, provenance, branch sandboxes,
+multi-model speculation, selective promotion, durable
+events/timers/waits and agent/project quotas.
+
+Must-not-architect-ourselves-out-of-this
+
+The current prototype does not need these features now, but
+storage/control-plane choices should avoid making cheap snapshot roots,
+COW/content addressing, PITR, branches, schema versions, namespaces,
+provenance, resource accounting, format versioning, clean restore
+authority and derived-state rebuilding impossible.
+
+Not authorized now
+
+This vision does NOT authorize implementation of backup/PITR,
+snapshots/COW, branches, Agent Runtime, Durable Events/Timers, security,
+multi-tenancy, schema migration, Rust rewrite, DPDK/VPP, S2/S3 or other
+major features. Each requires post-validation review.
+
+Decision after falsification
+
+GO: broad SNC earns continued investment. REFINE: only measured bounded
+bottlenecks are fixed. NARROW: specialize around the workload that
+actually wins, potentially Agent-SNC. STOP: existing approaches are
+equivalent/better/simpler and neither broad nor specialized SNC
+justifies itself.
+
+Guiding principle
+
+The best future SNC is not the one with the most features. It is the one
+whose core primitives make durable state safe, movable, inspectable,
+reproducible and cheap to experiment with while higher layers remain
+modular.
+
+Concept map
+
+The strongest combination from this discussion is:
+
+-   Cheap immutable snapshots
+
+-   Provenance and historical lineage
+
+-   Durable agent/project state
+
+-   Copy-on-write branching
+
+-   Reproducible activation
+
+-   Parallel/speculative model execution
+
+-   Validation
+
+-   Selective promotion into authoritative state
+
+Together these produce a model where an enterprise can branch an exact
+historical state, let one or more agents operate safely in isolation,
+preserve every causal decision, compare outcomes, and promote only
+validated effects. This is potentially much more valuable than
+conventional agent memory or conventional nightly backup.
+
+Addendum - Enterprise State Branching and AI Sandboxing
+
+This addendum incorporates the discussion that followed the first
+architecture-vision draft. It expands branchable state from a storage
+convenience into a general enterprise experimentation, change-control,
+and autonomous-agent safety model. These concepts remain post-validation
+architecture requirements, not current implementation authorization.
+
+Production-state branching as an enterprise primitive
+
+A business should eventually be able to create a writable branch from an
+exact production snapshot without synchronously copying the entire
+production state space. The branch begins as a first-class descendant of
+authoritative state, shares unchanged immutable content, and diverges
+through copy-on-write or equivalent immutable-segment mechanics.
+
+This changes the meaning of a staging environment. Instead of hoping
+that staging resembles production, an enterprise can test against an
+exact durable production ancestor with a recorded snapshot identity and
+lineage.
+
+Production upgrade rehearsal
+
+A future upgrade workflow can snapshot production, create an isolated
+branch, upgrade that exact state, execute schema/data migrations, replay
+a representative workload, validate invariants, measure performance and
+test rollback - all without modifying production.
+
+The result should be auditable: source snapshot, software before/after,
+migration version, test suite, validation result, resource usage and any
+incompatibilities are durable evidence rather than an informal statement
+that an upgrade was tested.
+
+Schema and data migration rehearsal
+
+Large schema or data migrations are dangerous precisely because
+representative staging data is often incomplete. A production branch
+provides a safe place to run the real migration against
+production-realistic state, deliberately inject failures, restart it,
+test rollback/recovery and measure time/storage amplification before
+authorizing production execution.
+
+Enterprise AI sandboxing
+
+The strongest agent-security idea from this session is: do not give
+autonomous AI production authority when it can be given a production
+branch.
+
+An agent can receive production-realistic state with zero authority over
+the authoritative production lineage. Inside its sandbox it may be
+allowed to read, write, execute approved tools, test migrations, change
+configuration and make mistakes. The branch can be destroyed and
+recreated cheaply if the experiment fails.
+
+Branch-aware capabilities and separation of duties
+
+Capabilities should eventually be scoped not only to principal and
+object but also to state lineage.
+
+Example:
+PRODUCTION: read=yes, write=no, execute=no.
+SANDBOX BRANCH: read=yes, write=yes, execute=yes, approved tools only.
+PROMOTION: propose=yes, approve=no.
+
+A separate QA/security agent may validate and approve while still having
+no production mutation capability. A human or privileged policy
+authority can hold final promotion authority. This turns separation of
+duties into an enforceable agent-runtime property rather than prompt
+discipline.
+
+Proposal rather than direct mutation
+
+An enterprise agent should be able to return a structured change
+proposal derived from its sandbox rather than a vague natural-language
+claim that it fixed something.
+
+The proposal can identify the parent snapshot, branch, causal
+operations, changed objects/configuration, generated artifacts,
+validation evidence, policy version and exact effects proposed for
+promotion. Production then receives only explicitly accepted effects.
+
+Multi-agent branch competition
+
+Multiple agents or models can fork from the exact same
+production/project snapshot and attempt independent solutions. Because
+their durable ancestor is identical, the experiments are directly
+comparable.
+
+A QA agent, security agent, policy engine or human can evaluate Branch A
+versus Branch B versus Branch C. The winning result can be selectively
+promoted while the losing branches remain useful historical evidence
+until retention policy removes them.
+
+Failure branches become institutional knowledge
+
+A failed branch is not merely garbage. Before its state is
+garbage-collected, SNC can preserve the causal failure, violated
+invariant, relevant operations, validation evidence and any derived
+lesson or skill candidate.
+
+This connects branching to dynamic skills: successful and failed
+experiments both contribute durable institutional knowledge with
+provenance.
+
+Production change lineage
+
+A production change should eventually be traceable backward through
+promotion, validation, branch, snapshot, agent/model, policy and tool
+context.
+
+Example lineage:
+production change -> promoted from Branch 881 -> created from Snapshot
+S817 -> executed by Engineer-04 -> Policy v34 / Skill Set v19 ->
+validated by QA-02 and Security-01 -> approved by policy/human
+authority.
+
+This is substantially stronger than retaining chat logs. It is
+state-transition-level enterprise AI auditability.
+
+Security and forensic investigation
+
+When suspicious activity occurs, an enterprise can reconstruct or branch
+state immediately before the event using snapshot plus PITR/WAL replay.
+Investigators or security agents can inspect and mutate the forensic
+branch without disturbing production.
+
+The exact historical cut and subsequent investigative actions remain
+provenance-bearing, improving reproducibility and chain-of-custody style
+audit.
+
+Continuous disaster-recovery proof
+
+Branching can turn disaster recovery from a policy document into a
+continuously tested property. Restore the latest backup into an isolated
+branch/environment, boot it, run integrity/application probes, measure
+actual recovery time, compare with RTO/RPO objectives, record PASS/FAIL,
+and destroy the environment.
+
+This makes backup validity and recovery objectives measurable on a
+recurring schedule.
+
+Safe analytics and what-if simulation
+
+Production branches can support destructive analytics, forecasting,
+pricing changes, capacity experiments, configuration changes and
+simulation without production mutation.
+
+For MMO/stateful-world workloads, a live-world snapshot could be
+branched and subjected to synthetic populations or economy changes. For
+TM87, configuration/state can be branched, policy changes applied and
+validation traffic executed before production promotion.
+
+Promotion must be a controlled transaction
+
+Promotion is not synonymous with merging a filesystem tree. The safe
+abstraction is a controlled, provenance-preserving transition from
+validated branch effects into current authoritative state.
+
+Possible promotion types remain: artifact promotion; decision/fact
+promotion; selected-object promotion with version/precondition checks;
+replay of validated operations against current state; and type-specific
+semantic merge. Any promotion must revalidate against current production
+because production may have advanced since the branch ancestor.
+
+Branch staleness and revalidation
+
+A branch created from Snapshot S817 may be perfectly valid in isolation
+while production has advanced to S900. Therefore validation must
+distinguish 'valid against branch ancestor' from 'safe to promote now.'
+
+Promotion should check relevant object versions, policy versions, schema
+versions, authority and other preconditions. If they no longer hold, the
+proposal is stale and must be rebased/replayed/revalidated rather than
+forced.
+
+Branch isolation is an authority boundary
+
+Branch identity must be part of authority. A process or agent holding
+write authority for Branch B must not be able to address MAIN
+accidentally through an ObjectID or stale handle.
+
+Branch/lineage identity should therefore be represented strongly enough
+in execution context, capabilities, routing and audit to prevent
+cross-lineage mutation by accident.
+
+External side effects need sandbox semantics too
+
+State isolation alone is insufficient if a sandboxed agent can send real
+email, charge a credit card, modify a SaaS account, push production code
+or call another production system.
+
+Future enterprise sandboxing needs explicit external-effect policy: deny
+by default, redirect to mocks/test endpoints, require
+idempotency/simulation adapters, or gate real effects behind separate
+approval. Branching SNC state must not create an illusion of safety
+while tools still have production side effects.
+
+Data privacy and branch governance
+
+Production branches may contain sensitive customer or regulated data.
+Branch creation must inherit or strengthen source security policy,
+encryption, retention, residency and access controls. A cheap clone must
+not become a cheap way to bypass data governance.
+
+Enterprises may need masked or policy-transformed branches for some
+developers/agents even when the source is an exact production snapshot.
+
+Branch quotas, TTLs and garbage collection
+
+Cheap branches can still become expensive if thousands are retained
+indefinitely. Branches need quotas, owner/project attribution,
+TTL/retention policy, pinning semantics and garbage collection of
+unreferenced immutable segments.
+
+Pinned evidence branches, legal holds and active investigations must
+prevent GC of required ancestors.
+
+Snapshot and branch graph as a first-class lineage DAG
+
+Rather than treating snapshots as a flat list, SNC may eventually model
+snapshot/clone/branch ancestry as a lineage DAG. This supports ancestry
+queries, retention safety, deduplication, provenance traversal and
+understanding which immutable segments are still reachable.
+
+The DAG itself becomes important durable metadata and must be protected
+against corruption or cycles.
+
+Enterprise change-management workflow
+
+Native branching can support a formal change lifecycle:
+authoritative state -> snapshot -> sandbox branch -> proposed change ->
+automated tests -> QA/security/policy review -> approval -> selective
+promotion -> post-promotion verification -> durable audit record.
+
+This is applicable to human changes, CI/CD, database migrations and
+autonomous agents.
+
+Agent sandboxing as a product-level differentiator
+
+If SNC survives validation, 'production-realistic state without
+production authority' may be a particularly strong enterprise AI
+proposition. It addresses one of the central risks of autonomous agents:
+useful agents need realistic context and powerful tools, while
+enterprises cannot safely grant unconstrained production mutation.
+
+Native snapshots, branches, provenance and capability-scoped promotion
+form a coherent answer rather than a collection of agent guardrails.
+
+Enterprise requirement: evidence, not trust
+
+A recurring philosophy from this session is that enterprise AI should
+not ask users to trust an agent's narrative. SNC should preserve
+evidence: starting snapshot, exact durable state, policy, model, tools,
+operations, branch diff/effects, tests, reviewers, approvals and
+production promotion.
+
+The platform should make 'show me exactly what happened and why this was
+allowed' a normal query.
+
+Additional architectural idea: reversible change windows
+
+For some change classes, a production promotion could record a bounded
+rollback plan tied to the pre-promotion snapshot and the exact promoted
+effects. This does not mean arbitrary rollback is always safe; external
+effects and concurrent production changes complicate reversal. But where
+semantics permit it, SNC can make reversibility explicit and test it in
+the branch before promotion.
+
+Additional architectural idea: policy simulation
+
+Because policy itself can be versioned durable state, an enterprise
+could branch production and test a future security/placement/agent
+policy against real historical workloads before enabling it. This makes
+policy changes experimentally verifiable rather than purely declarative.
+
+Additional architectural idea: shadow execution
+
+A branch can potentially receive a copy of selected production events
+and execute a new software/model/policy version in shadow mode. Its
+outputs are compared with production but never promoted automatically.
+This provides realistic canary evidence without granting authority.
+
+Additional architectural idea: deterministic experiment bundles
+
+A branch experiment can be packaged as an immutable experiment
+descriptor: parent snapshot, code/model/policy/tool versions, input
+event set, environmental constraints and validation criteria. Another
+SNC environment could reproduce the experiment from the same referenced
+immutable state where data policy permits.
+
+Additional architectural idea: promotion receipts
+
+Every accepted promotion could produce a durable receipt containing
+parent snapshot/branch, proposal identity, precondition checks,
+reviewers/approvals, exact effects, resulting authoritative epoch and
+post-promotion validation. This becomes a compact enterprise audit
+artifact.
+
+Relationship to current roadmap
+
+None of these additions change the current falsification roadmap. They
+belong in the future design envelope and the 'must not architect
+ourselves out of this' requirements. Current implementation remains
+focused on baseline correctness and experimental validation.
+Snapshot/branch/agent-sandbox implementation requires a future explicit
+authorization after SNC earns continued investment.
+
+Updated high-value concept chain
+
+-   Immutable snapshot of authoritative state
+
+-   Copy-on-write branch with inherited security policy
+
+-   Branch-scoped capabilities and isolated external-effect policy
+
+-   Agent/model executes against production-realistic state
+
+-   Every operation and decision carries provenance
+
+-   Automated tests, QA, security and policy validation
+
+-   Structured change proposal rather than direct production mutation
+
+-   Revalidation against current production state
+
+-   Selective promotion with explicit authority
+
+-   Post-promotion verification and durable promotion receipt
+
+-   Failures/successes retained as institutional knowledge
+
+This chain unifies the strongest ideas from the session: snapshots,
+provenance, durable agent state, branching, capability isolation,
+reproducibility, multi-agent experimentation, enterprise audit and
+controlled promotion.
