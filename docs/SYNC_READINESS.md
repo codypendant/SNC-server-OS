@@ -33,7 +33,7 @@ primary of `term` has proven that its standby is in sync.
 | First learning of a primary (uuid empty) | READY | **NOT READY** |
 | Promotion to term T+1 | copied the old term's bit | **NOT READY** |
 | `DEGRADE uuid T` from the primary of T | NOT READY | NOT READY (unchanged) |
-| `SYNCED uuid T` from the primary of T | READY | READY (unchanged; refused unless T is the current term) |
+| `SYNCED uuid T` from the primary of T | READY | READY (unchanged; refused unless T is the current term). **Since section 7: refused; `READY uuid T after=N` replaces it** |
 
 The promotion check is unchanged: the witnesses promote only from READY,
 and only a standby with the same uuid and term. A witness answers
@@ -131,26 +131,18 @@ LSN reaches its next LSN), since the primary counts that position as
 acknowledged, for client OKs and for check 4. Before, it answered with
 its next LSN even while its last records waited for their sync.
 
-**Open (found by the independent review; not closed here).** A SYNCED
-can be delayed inside a witness, queued behind another Paxos proposal on
-that witness, after the primary gave up on it. If the standby then drops,
-the primary is granted DEGRADE through another witness and acknowledges
-writes alone, and the delayed SYNCED is then chosen on top of the grant
-(same uuid, same term: the witness checks nothing else), the witnesses
-hold READY while the primary runs alone. A crash of the primary then
-promotes a standby without those writes. The window needs a SYNCED stuck
-more than 1.5 s behind another proposal and a standby loss inside it; it
-existed before B2 (the grant could be closed the same way). Closing it
-needs SYNCED to name the state it follows, which is a change to the
-witness request protocol, so per the work order it is **proposed, not
-coded**:
-
-> PROPOSED: DEGRADE and SYNCED replies carry the chosen state version
-> (`OK v=N`). The primary remembers the version of its last answered
-> DEGRADE and sends `SYNCED uuid term [group] after=N`; the witness
-> refuses a SYNCED whose `after` is below the version of the latest
-> DEGRADE chosen for that term. An old primary (no `after`) is accepted as
-> today. Witness state format: unchanged (the version is already there).
+**Closed: a delayed SYNCED** (found by the independent review of B2;
+closed by section 7 after the PR #49 review). A SYNCED could be delayed
+inside a witness, queued behind another Paxos proposal there, after the
+primary gave up on it. If the standby then dropped, the primary was
+granted DEGRADE and acknowledged writes alone, and the delayed SYNCED
+was then chosen on top of the grant (same uuid, same term), so the
+witnesses held READY while the primary ran alone; a crash then promoted
+a standby without those writes. Characterized on the old protocol
+(`tests/test_ready_order.py c1_delayed_ready` with `SNC_CHAR=1`: READY
+restored, the standby promoted, 2,000 of 2,000 accounts missing
+acknowledged deposits). READY now names the NOT READY its proof follows
+and every NOT READY takes a fresh version (section 7).
 
 **Residual (stated, not closed).** A standby whose data is lost without a
 seed (started empty, or on a restored directory) reaches the primary as a
@@ -231,8 +223,8 @@ noted.
 
 ## 7. Causal order of NOT READY and READY (PR #49 review)
 
-**Status: DESIGN, 2026-11-05** (work order
-`handoff/PR49_Review_Handoff.txt`). This closes the window of section 4
+**Status: IMPLEMENTED 2026-11-05** (work order
+`handoff/PR49_Review_Handoff.txt`; design first, then built as written). This closes the window of section 4
 ("Open"): a SYNCED delayed inside a witness was chosen after a later
 DEGRADE and restored READY while the primary acknowledged writes alone.
 It needs **no new durable state**: the witness state file, its Paxos
@@ -265,15 +257,35 @@ it runs, however late.
 - **NOT READY always gets a fresh version.** Every DEGRADE (old verb) and
   NOTREADY (new verb) chooses a new instance holding NOT READY for the
   term, even when the state is already NOT READY. The reply to NOTREADY
-  names it: `OK v=N`, where N is the version of the chosen value that
-  holds this NOT READY (the instance this request won, or the one a
-  concurrent equal NOT READY won: either way N is above every version
-  the primary had seen when it asked).
+  names it: `OK v=N`, where N is the version of a value **this request
+  proposed itself** in an instance where no value had been accepted
+  before (Paxos phase 1 found none). If phase 1 finds an accepted value,
+  the proposer completes it and then proposes again on top of it, even
+  when that value is an equal NOT READY: an accepted value may already be
+  chosen and answered to an earlier request (a lost COMMIT), so its
+  version may be one the primary already holds. A version proposed into
+  an instance with nothing accepted by a majority's promise cannot have
+  been chosen before, so N is above every version answered to anyone
+  before this request was made. (Found by the independent review of this
+  fix: before it, NOTREADY could answer `OK v=N` for an adopted value
+  that an earlier NOTREADY had already been answered with, and a READY
+  after=N delayed from before the grant was then chosen over it.
+  Characterized: `bench/results/ready-order-20261105/char/lost_commit_char.txt`.)
+- **The primary checks it too.** It keeps the highest NOT READY version
+  answered to it (never reset) and does not take a NOTREADY answer at or
+  below it as a grant or a base; it asks again.
 - **READY names its causal base.** The primary sends
   `READY uuid term [group] after=N`. N is the version of the most recent
   NOTREADY this primary process had answered OK *before it read the
   proof* it is reporting (section 3). The witness's change function,
   evaluated against the base state B of the instance it proposes in:
+  - First the witness runs a linearizable read of the machine
+    (`read_linear`, as placement SYNC), so B is the latest chosen value,
+    not an older one that a lost COMMIT left as the newest learned: an
+    older READY would otherwise answer READY's no-op OK while NOT READY is
+    chosen (review finding; the primary then stopped owing READY, so
+    failover stayed off until the next outage). If B is still older than
+    N, `NO behind v=B.version` and the primary asks again.
   - B.uuid empty: `NO not learned yet`. B.uuid != uuid: `NO another space`.
   - B.term != term: `NO term T was replaced by U` (unchanged).
   - B is READY (degraded false): `OK v=B.version`, nothing chosen. The
@@ -294,8 +306,9 @@ group, NOT READY), promotion (starts a term, NOT READY), NOT READY
 (DEGRADE/NOTREADY) and READY. So when B is NOT READY in term T and
 B.version > N, a NOT READY was chosen after N in T (a READY in between
 and a later NOT READY is still a later NOT READY): exactly what must
-refuse. B.version < N is impossible for an honest primary (N came from
-this machine) and is refused too.
+refuse. B.version < N means this witness has not learned N yet (refused
+as `behind`). The primary takes READY's answer only as `OK v=M` with
+M > N.
 
 **Why it is safe.** Let the primary's proof be read at time t, after it
 received `OK v=N`. Any write acknowledged on local durability alone was
@@ -335,6 +348,16 @@ refuse (or makes READY unnecessary).
 - A lost READY reply is retried as is: idempotent (7.2: READY returns OK
   if already READY; if a NOT READY came between, the retry is refused
   and the primary starts again from NOTREADY).
+- Before every NOTREADY the primary marks READY as owed, so a NOTREADY
+  chosen whose reply was lost (no grant follows if the standby recovers
+  first) still leads to a READY (review finding; this gap predates the
+  change).
+- Witness proposals for the HA machines have 3 s (was 1 s): a witness
+  that accepts connections but does not answer costs each broadcast its
+  300 ms timeout, and a NOT READY that completes an adopted value takes
+  two rounds. The primary still waits 1.5 s per witness; a proposal that
+  finishes after it gave up is an extra NOT READY or a READY that is
+  either still grounded or refused.
 
 ### 7.4 The ten questions of the review
 
@@ -384,6 +407,9 @@ refuse (or makes READY unnecessary).
     claim needs every witness of the group upgraded; the order is
     witnesses first (old primaries then fail safe), then nodes.
 
+Requests are parsed strictly: whole numbers, at most one group and one
+`after=`, and the group must be one this witness watches.
+
 ### 7.5 What it does not change
 
 The residual of section 4 (an operator-started wrong, empty or restored
@@ -392,3 +418,19 @@ not closed: it does not involve a delayed READY. Still excluded by
 EXPERIMENTAL_BASELINE Q9. No witness state format change, no Paxos
 change other than letting a proposal ask for a fresh instance and report
 the version it chose.
+
+### 7.6 Tests (work order V1 to V10)
+
+| # | Case | Test | Result |
+| --- | --- | --- | --- |
+| C | Pre-fix characterization: SYNCED held, later grant, writes alone, released | `test_ready_order.py c1_delayed_ready`, `SNC_CHAR=1`, old protocol | READY restored over the grant, standby promoted, 2,000/2,000 accounts lost acknowledged deposits |
+| V1 | Delayed old READY after a later NOT READY | `c1_delayed_ready`; `test_witness.py` ready order (undelayed and held) | refused (`NO not ready since v=N`), NOT READY kept, nobody promoted |
+| V2 | NOT READY, catch-up, READY after it | every READY of every HA test; ready order | READY |
+| V3 | Lost NOT READY reply | ready order: a retry through another witness; and a lost COMMIT (`DEBUG SKIP-COMMIT`, the witness then stopped), where the next NOT READY adopts the unlearned value | a fresh version each time, never one already answered (before the review fix: the adopted version again); a READY read across the lost COMMIT is chosen, not a false no-op |
+| V4 | Lost READY reply | ready order (READY sent twice) | the retry answers `OK` at the same version, nothing chosen |
+| V5 | Unrelated proposals between NOT READY and READY | ready order (placement INIT, a lease block); `multi_group` (other groups) | READY chosen |
+| V6 | Stale old-term requests | ready order (after a promotion: NOTREADY, SYNCED, READY of term 0); `test_sync_readiness.py s5` | `NO term 0 was replaced by 1`, nothing chosen |
+| V7 | Primary restart with a READY held | `c2_restart_held`; ready order (a promoted primary's first READY) | the old process's READY refused; the new process asks NOT READY at start and its READY names it; failover exact |
+| V8 | Two failovers with a forced delay | `c3_two_failovers` | the held READY refused, READY once proven, second failover exact |
+| V9 | Migration with a forced readiness race | `test_fail_closed.py f19r` | the held READY refused; D1 (every acked write, including those acknowledged alone) and D7 (A never served S) hold |
+| V10 | Mixed old and new binaries | `m1` (new nodes, old witnesses), `m2` (old nodes, new witnesses), `m3` (new nodes, one old witness of three), with `SNC_OLD_BUILD` set to a build of e3e0500 | m1: never READY, no grant, no promotion; m2: SYNCED refused, DEGRADE granted, no promotion; m3: READY through the new witnesses, the forced window closed |

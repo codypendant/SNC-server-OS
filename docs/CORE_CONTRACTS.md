@@ -227,7 +227,7 @@ every mode (`shard.cpp:420`) and is lost by any crash. Creates ignore
 | **Ack point** | LOCAL_DURABLE | **HA_DURABLE** (primary durable + standby acked) | LOCAL_DURABLE | LOCAL_DURABLE | LOCAL_DURABLE |
 | Survives primary process crash + restart | yes (P1) | yes | yes | yes | yes |
 | Survives loss of the primary's host or disk | no | **yes** | no | no (KNOWN ISSUE: and the witness promotes anyway, section 9) | no, and **nothing reports it** |
-| Automatic failover permitted | n/a (no standby) | yes | **no**, until the primary says SYNCED | AS-BUILT yes; [PROPOSED] **no** (section 9) | n/a |
+| Automatic failover permitted | n/a (no standby) | yes | **no**, until the primary says READY (SYNC_READINESS 7) | AS-BUILT yes; [PROPOSED] **no** (section 9) | n/a |
 | Loss on covered single failure | none | none | none, because no promotion happens; the cost is availability | every write not yet on the standby (`test_async_failover`: 500/500) | n/a |
 | Resend after timeout | legal: sequenced resend is deduped (section 7) | legal | legal | legal on the same primary; **after an async failover the session is as old as the standby, so a resend of a lost write applies again: correct, but an in-doubt answer was given as OK** | legal |
 | Obligations created | durable at the ack (outbox in the same WAL group) | HA_DURABLE at the ack | LOCAL_DURABLE | LOCAL_DURABLE | LOCAL_DURABLE |
@@ -358,7 +358,7 @@ Admin `PROMOTE` has no term guard.
 | # | Condition | Holds today? |
 | --- | --- | --- |
 | E1 | The group's mode permits automatic promotion (sync; not async, section 9) | **no**: the witness does not know the mode |
-| E2 | The HA state is READY: the primary of the current term said `SYNCED` after proving its standby in sync, and nothing recorded NOT READY since (a grant, a promotion, a reseed, a regression, a primary start) | yes (B2 fix, [SYNC_READINESS.md](SYNC_READINESS.md); EL2: `test_sync_readiness.py`, `test_witness.py`, `test_fail_closed.py f19`). One same-term window stays open (a delayed SYNCED after a grant; SYNC_READINESS 4, proposed) |
+| E2 | The HA state is READY: the primary of the current term said `READY after=N` after proving its standby in sync, chosen only on the NOT READY state of version N, so nothing recorded NOT READY since (a grant, a promotion, a reseed, a regression, a primary start) | yes (B2 fix, [SYNC_READINESS.md](SYNC_READINESS.md); EL2: `test_sync_readiness.py`, `test_witness.py`, `test_fail_closed.py f19`). The same-term window of a delayed SYNCED after a grant is closed (SYNC_READINESS 7; `test_ready_order.py`, `test_witness.py` ready order, `test_fail_closed.py f19r`; characterized before the fix) |
 | E3 | The candidate's term equals the decided term, and the promotion is chosen by a witness majority for term+1 | witness path only (EL2-EL4); admin `PROMOTE` has no term guard; admin `PROMOTE` now runs the start barrier (MS-3), its missing term guard stays R08 |
 | E4 | The candidate's space UUID equals the group's | yes (EL0, `snc_witness.cpp` STATUS check) |
 | E5 | The candidate's durable LSN, per shard, is at least the primary's last acknowledged LSN | sync: checked when READY is earned (each shard's current link acked at least its durable LSN, SYNC_READINESS 3) and kept by sync acks after; the witness itself compares no LSNs (EL2) |

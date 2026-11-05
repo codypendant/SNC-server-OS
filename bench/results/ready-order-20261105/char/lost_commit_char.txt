@@ -1,0 +1,4 @@
+pre-fix (commit 42b5eee + SKIP-COMMIT hook), test_witness.py ready_order lost-COMMIT steps with asserts disabled: 2026-11-05T14:34:49Z
+CHAR: {'stale_read_ready': (10, 'OK v=9'), 'adopted_not_ready': (11, 'OK v=11')}
+a: READY after=10 through a witness that had not learned v=10 answered 'OK v=9' (a no-op on the older READY): the primary would stop owing READY while the state is NOT READY (liveness).
+b: NOTREADY through w1 adopted w0's unlearned NOT READY at v=11 in phase 1 and answered 'OK v=11', a version the primary already held: a READY after=11 delayed from before the grant would then be chosen over it (safety, independent review finding 1).

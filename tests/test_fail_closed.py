@@ -964,6 +964,9 @@ def scenario_f19(c, ev, forced=False):
         st = ha_state(c, gb)
         ev["after_release"] = st
         assert st[1] == 1 and st[2] is True, st  # the held READY was refused
+        refusals = sum(open(f"{c.work}/w{i}.log").read().count("NO not ready since") for i in range(3))
+        ev["refusals"] = refusals
+        assert refusals >= 1, "no READY was refused"
         c.server[b].send_signal(signal.SIGCONT)
     # 3. READY again only once proven; then the new primary dies.
     wait(lambda: (lambda s: s and s[1] == 1 and s[2] is False)(ha_state(c, gb)), "B READY at term 1", timeout=60)

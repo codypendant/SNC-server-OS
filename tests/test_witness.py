@@ -19,6 +19,7 @@ Usage: test_witness.py BUILD_DIR [TRIALS]
 import os
 import random
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -341,6 +342,28 @@ def ready_order(build, work):
         assert ask(ports[2], "LEASES TAKE 4096").startswith("BLOCK ")
         r = ask(ports[0], f"READY {UUID} 0 after={n4}")
         assert r == f"OK v={n4 + 1}", r
+        # Lost COMMITs (independent review of the fix): a value chosen
+        # through w0 whose COMMIT nobody gets, w0 then unreachable, so w1
+        # and w2 have it accepted but not learned.
+        # a. A READY whose base the reader has not learned: not a false
+        #    no-op on the older READY; the read finishes the instance first.
+        make_ready(ports[0], UUID)
+        assert ask(ports[0], "DEBUG SKIP-COMMIT 1") == "OK"
+        na = nr(ports[0])
+        ws[0].send_signal(signal.SIGSTOP)
+        r = ask(ports[1], f"READY {UUID} 0 after={na}", 10)
+        res["stale_read_ready"] = (na, r)
+        ws[0].send_signal(signal.SIGCONT)
+        assert r == f"OK v={na + 1}", res
+        # b. A NOT READY whose proposer adopts that unlearned value in phase
+        #    1: it must not answer with a version the primary already holds.
+        assert ask(ports[0], "DEBUG SKIP-COMMIT 1") == "OK"
+        na = nr(ports[0])
+        ws[0].send_signal(signal.SIGSTOP)
+        r = ask(ports[1], f"NOTREADY {UUID} 0", 10)
+        res["adopted_not_ready"] = (na, r)
+        ws[0].send_signal(signal.SIGCONT)
+        assert r and r.startswith("OK v=") and int(r[5:]) > na, res
         # V10, new witnesses: an old primary's SYNCED is refused and moves
         # nothing; its DEGRADE still grants (plain OK, a fresh version).
         n5 = nr()
@@ -372,7 +395,8 @@ def ready_order(build, work):
         assert r == f"NO not ready since v={vp}", r
         n6 = int(ask(ports[1], f"NOTREADY {UUID} 1")[5:])
         assert ask(ports[2], f"READY {UUID} 1 after={n6}") == f"OK v={n6 + 1}"
-        print(f"ready order: fresh NOT READY versions {res['fresh_versions']}; delayed READY "
+        print(f"ready order: fresh NOT READY versions {res['fresh_versions']}; lost COMMIT: READY "
+              f"{res['stale_read_ready']}, NOT READY {res['adopted_not_ready']}; delayed READY "
               f"refused ({res['delayed_ready']}); idempotent retry; unrelated machines ignored; old "
               f"SYNCED refused; old-term requests refused after promotion")
     finally:

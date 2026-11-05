@@ -940,6 +940,10 @@ int main(int argc, char** argv) {
   // has none, at start and after a promotion. READY names it (after=N), so
   // the witnesses refuse a READY that a later NOT READY overtook.
   u64 ready_base = 0;
+  // The highest NOT READY version answered to this process, never reset: a
+  // NOTREADY answered with a version at or below it is not a grant (it may
+  // be one an earlier READY already names).
+  u64 max_not_ready = 0;
   const u64 start_term = eng.term();  // promoted later: a higher term
   bool too_old_logged = false;
   // Asks the witnesses in turn; the first reply decides. A witness runs
@@ -967,11 +971,18 @@ int main(int argc, char** argv) {
     return false;
   };
   // NOTREADY: records NOT READY at a fresh version; true once chosen.
+  // Pessimistic first: if the reply is lost, NOT READY may be on record
+  // anyway, so this process owes READY again.
   auto not_ready = [&](const std::string& tail, std::string& reply) {
+    owe_synced = true;
     if (!ask_witness("NOTREADY" + tail, reply) || reply.rfind("OK v=", 0) != 0) return false;
     const u64 v = std::strtoull(reply.c_str() + 5, nullptr, 10);
-    if (v == 0) return false;
-    ready_base = v;
+    if (v <= max_not_ready) {
+      std::printf("witness: NOTREADY answered with v=%llu, not above v=%llu; asking again\n",
+                  (unsigned long long)v, (unsigned long long)max_not_ready);
+      return false;
+    }
+    max_not_ready = ready_base = v;
     return true;
   };
 
@@ -1100,7 +1111,7 @@ int main(int argc, char** argv) {
           // again first.
           not_ready_on_record.store(false);
           if (ask_witness("READY" + tail + " after=" + std::to_string(ready_base), reply) &&
-              reply.rfind("OK", 0) == 0) {
+              reply.rfind("OK v=", 0) == 0 && std::strtoull(reply.c_str() + 5, nullptr, 10) > ready_base) {
             owe_synced = false;
             std::printf("witness: standby back in sync (READY after v=%llu)\n", (unsigned long long)ready_base);
             std::fflush(stdout);

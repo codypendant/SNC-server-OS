@@ -121,7 +121,10 @@ each decision (written and synced) before anyone acts on it:
   that passes its timeout asks the witness (`DEGRADE uuid term`) instead
   of degrading on its own. The witness grants it only to the term it
   considers current. When the standby is back in sync the primary says so
-  (`SYNCED`), closing the grant.
+  (`READY ... after=N`, naming the NOT READY its proof follows;
+  [SYNC_READINESS.md](SYNC_READINESS.md) section 7), closing the grant.
+  The primary asks the grant as `NOTREADY`, answered `OK v=N`; `DEGRADE`
+  is the older form, and older primaries' `SYNCED` is refused.
 - **When to promote the standby.** It polls both nodes' admin ports
   (`snc_server --admin-port`) with `HEALTH`, which the node answers
   without waiting on its shard threads, so a long task on a shard does
@@ -132,7 +135,7 @@ each decision (written and synced) before anyone acts on it:
   term, and the state on record is READY, it records the new term and
   promotes the standby (`PROMOTE`). Otherwise it does not: the standby
   may lack acknowledged writes, so it waits for the primary. READY means
-  the primary of the current term has said `SYNCED` after proving its
+  the primary of the current term has said `READY` after proving its
   standby holds every acknowledged write; a primary first learned, a
   promotion, a grant to run alone, a reseed and a primary restart all
   record NOT READY ([SYNC_READINESS.md](SYNC_READINESS.md), blocker B2). An
@@ -168,7 +171,7 @@ State files from before the split are read as `ha/0`.
 One quorum can serve every group of a cluster: `--group G=PRIMARY:ADMIN,
 STANDBY:ADMIN` (repeated) watches each group's pair on its own machine,
 `ha/G`, with its own terms and grants; `--primary`/`--standby` are group 0.
-A clustered primary names its group in `DEGRADE` and `SYNCED`. The quorum
+A clustered primary names its group in `NOTREADY` and `READY`. The quorum
 also hands out cluster-wide mint lease blocks (`leases`,
 docs/CONTROL_PLANE.md section 11).
 
@@ -193,8 +196,9 @@ of them may be down.
   grant out; a grant needs the term not replaced). Only one value is chosen
   per version, so a primary can never be granted while the standby is
   promoted over it, whichever witnesses each request reached.
-- **Any witness serves.** The primary sends `DEGRADE` and `SYNCED` to the
-  first witness on its `--witness` list that answers; that witness runs the
+- **Any witness serves.** The primary sends `NOTREADY` and `READY` to the
+  first witness on its `--witness` list that answers (one that does not
+  know them, an older binary, is skipped); that witness runs the
   Paxos round and answers `OK` only once the change is chosen. Every
   witness watches the nodes and may propose the promotion; whichever
   witnesses learn it promote the standby (`PROMOTE` is idempotent).

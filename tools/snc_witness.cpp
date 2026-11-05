@@ -72,6 +72,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -167,7 +168,10 @@ std::string propose(unsigned group, F change, u64* version = nullptr, bool fresh
       [](const std::string& a, const std::string& b) {
         return to_state({1, a}).same_decision(to_state({1, b}));
       },
-      1000, version, fresh);
+      // 3 s, as placement: with a witness that accepts connections but
+      // does not answer (stopped), each round takes about 1.2 s, and a NOT
+      // READY that adopts a value needs two (SYNC_READINESS 7.2).
+      3000, version, fresh);
 }
 
 // Placement requests (snc_ctl, nodes):
@@ -313,6 +317,12 @@ std::string debug_verb(std::istream& in) {
     return "OK released " + std::to_string(held_now);
   }
   if (what == "HELD") return "HELD " + std::to_string(held_now) + " " + std::to_string(held_total);
+  if (what == "SKIP-COMMIT") {
+    int n = 0;
+    in >> n;
+    px.debug_skip_commits.store(n);
+    return "OK";
+  }
   return "NO bad request";
 }
 
@@ -328,13 +338,22 @@ void serve(int fd) {
       u64 term = 0, after = 0;
       long long g = -1;
       bool has_after = false, bad = false;
-      if (!(in >> uuid >> term)) bad = true;
-      while (in >> tok) {
-        if (tok.rfind("after=", 0) == 0) {
+      // A whole unsigned number, or false.
+      auto number = [](const std::string& t, u64& out) {
+        if (t.empty() || !std::isdigit(static_cast<unsigned char>(t[0]))) return false;
+        char* end = nullptr;
+        errno = 0;
+        out = std::strtoull(t.c_str(), &end, 10);
+        return errno == 0 && end && *end == '\0';
+      };
+      if (!(in >> uuid >> tok) || !number(tok, term)) bad = true;
+      while (!bad && in >> tok) {
+        u64 n = 0;
+        if (tok.rfind("after=", 0) == 0 && !has_after && number(tok.substr(6), n)) {
           has_after = true;
-          after = std::strtoull(tok.c_str() + 6, nullptr, 10);
-        } else if (!tok.empty() && std::isdigit(static_cast<unsigned char>(tok[0]))) {
-          g = std::atoll(tok.c_str());
+          after = n;
+        } else if (g < 0 && number(tok, n) && n < (u64{1} << 31)) {
+          g = static_cast<long long>(n);
         } else {
           bad = true;
         }
@@ -353,9 +372,20 @@ void serve(int fd) {
       const bool d = verb == "DEGRADE" || verb == "NOTREADY";
       if (bad || (verb == "READY" && !has_after)) {
         reply = "NO bad request";
+      } else if (std::find(watched_groups.begin(), watched_groups.end(), group) == watched_groups.end()) {
+        reply = "NO group " + std::to_string(group) + " is not watched here";
       } else {
         if (!d) hold_if_asked();
         u64 v = 0;
+        if (verb == "READY") {
+          // The base must be the latest chosen value, not the newest this
+          // witness or a majority has learned: a NOT READY accepted by a
+          // majority but announced to nobody (a lost COMMIT) is finished
+          // first, else READY could read an older READY and answer OK
+          // while NOT READY is chosen.
+          paxos::Value latest;
+          px.read_linear(ha_machine(group), latest);
+        }
         reply = propose(
             group,
             [&](const State& base, State& want) -> std::string {
@@ -371,6 +401,10 @@ void serve(int fd) {
                 // It names no causal base, so a delayed one could restore
                 // READY over a later NOT READY (an older primary binary).
                 return "SYNCED has no causal base: READY uuid term [group] after=N is required";
+              }
+              if (verb == "READY" && base.version < after) {
+                // Not yet learned here (the linear read failed): ask again.
+                return "behind v=" + std::to_string(base.version);
               }
               if (verb == "READY" && base.degraded && base.version != after) {
                 // A NOT READY was chosen after the primary's base N: its
