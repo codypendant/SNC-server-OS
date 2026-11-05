@@ -685,6 +685,11 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
   }
   if (!greeted_) {
     if (in_len_ < sizeof(Hello)) return did;
+    // The answer tells the primary this standby holds everything below
+    // next_lsn, and the primary counts that as acknowledged (client OKs,
+    // and sync readiness: docs/SYNC_READINESS.md 3). So answer only once
+    // every record written here is durable.
+    if (durable_lsn + 1 < next_lsn) return true;
     if (!handshake(next_lsn, tail_crc)) {
       write_some(conn_, out_.data(), out_.size());
       drop();

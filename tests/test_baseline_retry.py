@@ -52,6 +52,12 @@ T-Q5: two consecutive failovers during a resend storm.
                promotion, past --replica-timeout-ms (500): node 1 first
                runs alone under a DEGRADE grant.
 
+F2 / R11: every client claims session deduplication against the server's
+TTL (net_bench --retry-claim-ttl-s 3600: the oldest resend must be at most
+a tenth of it, or the run is INVALID, exit 3).
+
+  r11_guard    q1_kill claiming a TTL of 1 s: the guard refuses the run.
+
 Every scenario prints one JSON line (and writes it to --json DIR).
 
 Usage: test_baseline_retry.py BUILD_DIR [SCENARIO ...] [--json DIR]
@@ -78,20 +84,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_health as th  # noqa: E402
 
 TTL_S = 3600
-BOUND_MS = 35000  # failover_ms (30000) + request_timeout_ms (5000)
+# What the failover paths without a control-plane outage are checked
+# against: failover_ms (30000) + request_timeout_ms (5000). It is an expected
+# value for those paths, not the R11 contract: that is "every in-doubt resend
+# before session expiry", checked by net_bench --retry-claim-ttl-s (r11_guard).
+BOUND_MS = 35000
 SESSION = 1000
 
 
 class Bench:
     """net_bench with a session through both nodes, deposits only."""
 
-    def __init__(self, pr, seconds, first_port=None, threads=2, depth=32, objects=2000):
+    def __init__(self, pr, seconds, first_port=None, threads=2, depth=32, objects=2000, claim_ttl_s=TTL_S):
         self.out = f"{pr.work}/bench.out"
         port = first_port or pr.to0_cli
         args = [f"{BUILD}/net_bench", "--port", str(port), "--endpoint", f"127.0.0.1:{pr.to0_cli}",
                 "--endpoint", f"127.0.0.1:{pr.cli[1]}", "--session", str(SESSION), "--threads", str(threads),
                 "--depth", str(depth), "--objects", str(objects), "--reads", "0", "--seconds", str(seconds),
-                "--route", "owner", "--verify"]
+                "--route", "owner", "--verify", "--retry-claim-ttl-s", str(claim_ttl_s)]
         self.f = open(self.out, "w")
         self.p = subprocess.Popen(args, stdout=self.f, stderr=subprocess.STDOUT)
         self.t0 = time.time()
@@ -119,6 +129,9 @@ class Bench:
         m = re.search(r"ops/s (\d+)\s+errors (\d+)", text)
         if m:
             r["ops_s"], r["errors"] = int(m[1]), int(m[2])
+        m = re.search(r"retry claim: max_resend_age_ms \d+, limit (\d+) .*: (\w+)", text)
+        if m:
+            r["retry_claim_limit_ms"], r["retry_claim"] = int(m[1]), m[2]
         r["tail"] = text.strip().splitlines()[-6:]
         return r
 
@@ -399,6 +412,23 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
     return res, b
 
 
+# ---- F2 / R11: the run-validity guard ----------------------------------------------------
+
+def r11_guard(pr):
+    """net_bench --retry-claim-ttl-s refuses a run whose oldest resend is
+    not far below the claimed TTL: q1_kill with a claimed TTL of 1 s (limit
+    100 ms) is INVALID (exit 3) though every balance is exact."""
+    b = Bench(pr, 15, claim_ttl_s=1)
+    started(b)
+    pr.nodes[0].signal(signal.SIGKILL)
+    st = wait_state(pr, 1, 15)
+    res = {"promoted": bool(st)}
+    res["bench"] = r = b.wait(120)
+    res["pass"] = (bool(st) and r.get("rc") == 3 and r.get("retry_claim") == "INVALID" and
+                   r.get("mismatches") == 0 and r.get("max_resend_age_ms", 0) > 100)
+    return res, b
+
+
 # ---- B3: catch-up from disk over a link that keeps dropping -----------------------------
 
 def b3_stalled_catchup(pr):
@@ -481,6 +511,7 @@ SCEN = {
     "b3_stalled_catchup": lambda: run("b3_stalled_catchup", b3_stalled_catchup,
                                       extra=("--replica-retain-mib", "16")),
     "q1_kill": lambda: run("q1_kill", q1_kill),
+    "r11_guard": lambda: run("r11_guard", r11_guard),
     "q1_stop": lambda: run("q1_stop", q1_stop),
     "q1_partition": lambda: run("q1_partition", q1_partition, proxied=True),
     "q1_flap": lambda: run("q1_flap", q1_flap, proxied=True),

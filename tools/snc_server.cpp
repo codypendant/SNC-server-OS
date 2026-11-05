@@ -585,6 +585,11 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "snc_server: not started: %s\n", e.what());
     return 1;
   }
+  if (eng.recovery().final_checkpoint_s > 0 || eng.recovery().remapped) {
+    // The recovery checkpoint (Engine::recover step 8) ran before serving.
+    std::printf("recovery: checkpoint before serving%s in %.2fs\n",
+                eng.recovery().remapped ? " (shard count changed)" : "", eng.recovery().final_checkpoint_s);
+  }
   if (!control_members.empty() && eng.space_uuid() != cfg.init_uuid) {
     std::fprintf(stderr, "control: this data directory holds another space than its group's\n");
     eng.stop();
@@ -930,6 +935,7 @@ int main(int argc, char** argv) {
   // primary (first learned, or promoted) as NOT READY, so a primary owes a
   // SYNCED from its start until its standby is proven in sync.
   bool granted = false, refused = false, owe_synced = true;
+  bool proven_since_start = false;  // a SYNCED of this process answered OK
   // Asks the witnesses in turn; the first reply decides. A witness runs
   // Paxos among its peers before answering, so allow it time.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
@@ -1026,15 +1032,21 @@ int main(int argc, char** argv) {
         // back without records it had acknowledged, or a seed is asked for
         // while READY may be on record. DEGRADE records it; the degrade
         // gate stays as it is (this is not a leave to run alone).
+        // At start, this process does not know what is on record (a READY
+        // from before a restart, or from an older witness), nor what its
+        // standby acknowledged before: it records NOT READY once first.
         const bool regressed = st.regressed > 0 && !not_ready_on_record.load();
         const bool seed = seed_wanted.load() && !not_ready_on_record.load();
-        if (!granted && (regressed || seed)) {
+        const bool at_start = !not_ready_on_record.load() && owe_synced && !proven_since_start;
+        if (!granted && (regressed || seed || at_start)) {
           if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
             not_ready_on_record.store(true);
             seed_wanted.store(false);
             owe_synced = true;
             std::printf("witness: recorded NOT READY (%s)\n",
-                        regressed ? "the standby lost acknowledged records" : "a seed is asked for");
+                        regressed ? "the standby lost acknowledged records"
+                        : seed    ? "a seed is asked for"
+                                  : "this primary started");
           } else if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
             eng.withdraw();
             std::printf("witness: this primary's term was replaced; withdrawn\n");
@@ -1044,10 +1056,20 @@ int main(int argc, char** argv) {
         }
         // SYNCED only once every shard's current link has proven its
         // standby holds every durable record (st.ready, docs/SYNC_READINESS.md 3).
+        // The shards are read again first: a DEGRADE above may have taken
+        // a while.
         if (owe_synced && !granted && healthy && st.ready == st.shards && st.regressed == 0) {
+          st = eng.replication_status();
+        }
+        if (owe_synced && !granted && st.degraded == 0 && st.blocked == 0 && st.live == st.shards &&
+            st.ready == st.shards && st.regressed == 0) {
+          // Pessimistic before asking: if the reply is lost the witnesses
+          // may hold READY, so a seed or a regression must record NOT READY
+          // again first.
+          not_ready_on_record.store(false);
           if (ask_witness("SYNCED" + tail, reply) && reply == "OK") {
             owe_synced = false;
-            not_ready_on_record.store(false);
+            proven_since_start = true;
             std::printf("witness: standby back in sync\n");
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary

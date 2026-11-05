@@ -311,7 +311,10 @@ def scenario_q3_restart(work):
                 f.write(stack_of(g.prim.p.pid))
             out["stack_file"] = ev
             out["main_thread_stack"] = main_frames(open(ev).read())
-        out["pass"] = bool(up and out["granted"] and st == fc.OK)
+        # B1: the recovery checkpoint (shard count 2 -> 4) ran with the
+        # standby gone, and the start still completed.
+        out["recovery_checkpoint"] = next((l for l in g.prim.lines if l.startswith("recovery: checkpoint")), None)
+        out["pass"] = bool(up and out["granted"] and st == fc.OK and out["recovery_checkpoint"])
     finally:
         g.stop()
     return out

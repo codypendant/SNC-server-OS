@@ -90,7 +90,7 @@ if(PYTHON3)
   # q4_delayed*, q3_runtime20) run by name.
   add_test(NAME test_profile_check COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_profile_check.py)
   add_test(NAME test_baseline_retry COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_retry.py
-           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill q5_catchup_race b3_stalled_catchup)
+           ${CMAKE_BINARY_DIR} q1_kill q1_stop q1_stall q5_kill_kill q5_catchup_race b3_stalled_catchup r11_guard)
   add_test(NAME test_sync_readiness COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_sync_readiness.py
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_baseline_move COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_move.py

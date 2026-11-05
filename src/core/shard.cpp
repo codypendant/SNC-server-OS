@@ -1661,7 +1661,9 @@ Shard::ReplSummary Shard::repl_summary() const {
         repl_cfg_.sync ? repl_hold_ && !repl_degraded_ && !repl_blocked_ && sender_->live() && !sender_->catching_up() &&
                              wal_ != nullptr && sender_->link_acked_lsn() >= wal_->durable_lsn() && !sender_->regressed()
                        : sender_->live() && !repl_degraded_ && !repl_blocked_;
-    return {1, sender_->live(), repl_degraded_, repl_blocked_, ready, sender_->regressed()};
+    // A regression only matters to sync readiness; an async primary's is
+    // not reported (R08 unchanged).
+    return {1, sender_->live(), repl_degraded_, repl_blocked_, ready, repl_cfg_.sync && sender_->regressed()};
   }
   if (receiver_) return {2, receiver_->connected(), false, false};
   return {0, false, false, false};

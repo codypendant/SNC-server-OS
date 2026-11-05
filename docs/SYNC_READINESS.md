@@ -110,11 +110,47 @@ of that moment. Writes still arriving then wait for their acks as usual
   gets `NO term` and withdraws (unchanged).
 - **Witness majority loss.** Nothing can be chosen, so no promotion and
   no READY. Unchanged.
+- **A primary process starts** (first start, restart, or upgrade from a
+  witness that recorded READY without proof). It does not know what is
+  on record, and its new sender's acknowledged frontier starts at 0, so
+  it could not detect a regression. It asks DEGRADE once, recording NOT
+  READY, before anything else, and owes SYNCED.
+- **A lost SYNCED reply.** The primary marks "NOT READY on record" false
+  *before* it sends SYNCED, so if the witnesses chose READY but the reply
+  was lost, a later seed or regression still asks DEGRADE first.
+
+**The handshake position is durable.** A standby answers a primary's
+handshake only once every record it has written is durable (its durable
+LSN reaches its next LSN), since the primary counts that position as
+acknowledged, for client OKs and for check 4. Before, it answered with
+its next LSN even while its last records waited for their sync.
+
+**Open (found by the independent review; not closed here).** A SYNCED
+can be delayed inside a witness, queued behind another Paxos proposal on
+that witness, after the primary gave up on it. If the standby then drops,
+the primary is granted DEGRADE through another witness and acknowledges
+writes alone, and the delayed SYNCED is then chosen on top of the grant
+(same uuid, same term: the witness checks nothing else), the witnesses
+hold READY while the primary runs alone. A crash of the primary then
+promotes a standby without those writes. The window needs a SYNCED stuck
+more than 1.5 s behind another proposal and a standby loss inside it; it
+existed before B2 (the grant could be closed the same way). Closing it
+needs SYNCED to name the state it follows, which is a change to the
+witness request protocol, so per the work order it is **proposed, not
+coded**:
+
+> PROPOSED: DEGRADE and SYNCED replies carry the chosen state version
+> (`OK v=N`). The primary remembers the version of its last answered
+> DEGRADE and sends `SYNCED uuid term [group] after=N`; the witness
+> refuses a SYNCED whose `after` is below the version of the latest
+> DEGRADE chosen for that term. An old primary (no `after`) is accepted as
+> today. Witness state format: unchanged (the version is already there).
 
 **Residual (stated, not closed).** A standby whose data is lost without a
 seed (started empty, or on a restored directory) reaches the primary as a
 regression. Between that handshake and DEGRADE being chosen, a few
-milliseconds, a primary crash plus the witness's `--failover-ms` silence
+milliseconds (once this primary process has proven it; a new primary
+process records NOT READY at start), a primary crash plus the witness's `--failover-ms` silence
 could still promote it. This needs operator error: starting a standby on
 the wrong or an empty directory with the same identity, which
 EXPERIMENTAL_BASELINE Q9 already excludes. Closing it fully would need

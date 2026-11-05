@@ -129,9 +129,13 @@ each decision (written and synced) before anyone acts on it:
   without `HEALTH` is polled with `STATUS`). If the primary has not
   answered for `--failover-ms`, and the standby answers `STATUS` (every
   shard of it, within `--poll-ms`) as a standby in the same space and
-  term, and the primary holds no grant, it records the new term and
-  promotes the standby (`PROMOTE`). With a grant out it does not: the
-  standby may lack acknowledged writes, so it waits for the primary. An
+  term, and the state on record is READY, it records the new term and
+  promotes the standby (`PROMOTE`). Otherwise it does not: the standby
+  may lack acknowledged writes, so it waits for the primary. READY means
+  the primary of the current term has said `SYNCED` after proving its
+  standby holds every acknowledged write; a primary first learned, a
+  promotion, a grant to run alone, a reseed and a primary restart all
+  record NOT READY ([SYNC_READINESS.md](SYNC_READINESS.md), blocker B2). An
   answer to `HEALTH` proves the process is alive, nothing more: a primary
   whose shard is stuck but whose process answers is not failed over.
 
@@ -218,9 +222,10 @@ the current term. After a failover:
    own data directory aside (`DIR.stale-TIME`, kept for inspection, never
    deleted) and starts as that node's standby, seeded from it. The seed
    carries the new term, so the new primary's records are accepted.
-3. Once that standby is back in sync, the primary reports `SYNCED`, the
-   grant is closed, and the witnesses will promote the old primary if the
-   new one fails.
+3. Once that standby is back in sync (its link has proven it holds every
+   durable record), the primary reports `SYNCED`, the grant is closed,
+   and the witnesses will promote the old primary if the new one fails.
+   Until then a second failure makes the group unavailable, not wrong.
 
 No witness is restarted and no configuration changes. A supervisor that
 restarts a failed process (systemd's `Restart=always`, for example) is all
