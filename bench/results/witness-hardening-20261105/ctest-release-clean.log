@@ -1,0 +1,69 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_object_id
+ 1/32 Test  #1: test_object_id ...................   Passed    0.01 sec
+      Start  2: test_local_map
+ 2/32 Test  #2: test_local_map ...................   Passed    1.44 sec
+      Start  3: test_pages
+ 3/32 Test  #3: test_pages .......................   Passed    1.03 sec
+      Start  4: test_runtime
+ 4/32 Test  #4: test_runtime .....................   Passed    0.12 sec
+      Start  5: test_execute
+ 5/32 Test  #5: test_execute .....................   Passed    0.05 sec
+      Start  6: test_persistence
+ 6/32 Test  #6: test_persistence .................   Passed    0.48 sec
+      Start  7: test_crash
+ 7/32 Test  #7: test_crash .......................   Passed    0.86 sec
+      Start  8: test_net
+ 8/32 Test  #8: test_net .........................   Passed    0.04 sec
+      Start  9: test_transfer
+ 9/32 Test  #9: test_transfer ....................   Passed    3.30 sec
+      Start 10: test_replication
+10/32 Test #10: test_replication .................   Passed   16.34 sec
+      Start 11: test_cluster
+11/32 Test #11: test_cluster .....................   Passed    5.12 sec
+      Start 12: test_migrate
+12/32 Test #12: test_migrate .....................   Passed   36.45 sec
+      Start 13: test_resend_refusals
+13/32 Test #13: test_resend_refusals .............   Passed    0.03 sec
+      Start 14: test_proof
+14/32 Test #14: test_proof .......................   Passed    1.15 sec
+      Start 15: test_placement
+15/32 Test #15: test_placement ...................   Passed    0.01 sec
+      Start 16: test_stage_chain
+16/32 Test #16: test_stage_chain .................   Passed    7.19 sec
+      Start 17: test_witness
+17/32 Test #17: test_witness .....................   Passed   24.03 sec
+      Start 18: test_async_failover
+18/32 Test #18: test_async_failover ..............   Passed   13.63 sec
+      Start 19: test_control
+19/32 Test #19: test_control .....................   Passed    1.49 sec
+      Start 20: test_health
+20/32 Test #20: test_health ......................   Passed  155.12 sec
+      Start 21: test_fail_closed
+21/32 Test #21: test_fail_closed .................   Passed  228.87 sec
+      Start 22: test_s1
+22/32 Test #22: test_s1 ..........................   Passed   65.48 sec
+      Start 23: test_profile_check
+23/32 Test #23: test_profile_check ...............   Passed    0.08 sec
+      Start 24: test_baseline_retry
+24/32 Test #24: test_baseline_retry ..............   Passed  246.50 sec
+      Start 25: test_sync_readiness
+25/32 Test #25: test_sync_readiness ..............   Passed  305.39 sec
+      Start 26: test_baseline_move
+26/32 Test #26: test_baseline_move ...............   Passed  112.64 sec
+      Start 27: test_baseline_ha
+27/32 Test #27: test_baseline_ha .................   Passed  129.67 sec
+      Start 28: test_ready_order
+28/32 Test #28: test_ready_order .................   Passed  193.26 sec
+      Start 29: test_paxos_ballots
+29/32 Test #29: test_paxos_ballots ...............   Passed    2.03 sec
+      Start 30: test_witness_hardening
+30/32 Test #30: test_witness_hardening ...........   Passed    5.76 sec
+      Start 31: test_lab_witness_guard
+31/32 Test #31: test_lab_witness_guard ...........   Passed   13.81 sec
+      Start 32: test_index_wire
+32/32 Test #32: test_index_wire ..................   Passed    1.70 sec
+
+100% tests passed, 0 tests failed out of 32
+
+Total Test time (real) = 1573.08 sec

@@ -106,6 +106,9 @@ if(PYTHON3)
   # Witness hardening before the baseline freeze (docs/PAXOS_BALLOTS.md 9).
   add_test(NAME test_witness_hardening COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_witness_hardening.py
            ${CMAKE_BINARY_DIR})
+  # G2 at the lab's campaign boundaries (docs/PAXOS_BALLOTS.md 9.1).
+  add_test(NAME test_lab_witness_guard COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_lab_witness_guard.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
 endif()
 

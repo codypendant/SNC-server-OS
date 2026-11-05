@@ -154,7 +154,9 @@ for this profile only under all of them):
 - protected READY/NOT READY protocol versions: every witness of a group
   runs a binary with the READY causal order (SYNC_READINESS.md section 7);
 - the campaign witness-state guard is active (`bench/lab/lab.py` with
-  `bench/profile_check.py`); a run it marks invalid is not evidence.
+  `bench/profile_check.py`), checking at the run's campaign boundaries; a
+  run it marks invalid is not evidence. It is a point check, not
+  continuous anti-rollback protection (PAXOS_BALLOTS.md 9.1).
 
 | Property | Contract |
 | --- | --- |

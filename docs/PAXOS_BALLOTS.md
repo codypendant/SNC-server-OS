@@ -315,7 +315,7 @@ Work order `handoff/PR51_Review_Handoff.txt`. Dispositions there:
 | Item | Change (`tools/snc_witness.cpp`, `tools/paxos.h`) |
 | --- | --- |
 | **G1** explicit first start | `--new-state 1` is required to start without a state file, and refused when the file exists. Missing file, no flag: refused (exit 2), nothing created. Missing, with the flag: the file is written and made durable (file and directory fsync) before the witness serves anything. Existing, no flag: a normal start. Existing, with the flag: refused, file untouched. The witness never truncates or recreates a state file. A path that is not a regular file, or that cannot be checked, is refused |
-| **G2** campaign guard | `bench/profile_check.py` (`Guard.witness`, `WitnessStateGuard`) used by `bench/lab/lab.py`. Profile B: `--new-state 1` exactly on a witness's first start in the run with its file absent; never on a restart; a restart on the same state path, which must exist. At the first start the lab writes a random run nonce beside the state (`wN.state.run`) and records the host, `--id`, normalized peers, state path, the state directory's device and inode, the nonce, and each machine's chosen version. At the end of the run it checks every witness again: the file gone, the directory replaced (other device/inode, or nonce missing), or any machine's chosen version lower than recorded marks the run **invalid** (`result.json`: `ok: false`, `invalid`, and the `witness_state` manifest). It never recreates a state file |
+| **G2** campaign guard | `bench/profile_check.py` (`Guard.witness`, `WitnessStateGuard`) used by `bench/lab/lab.py`. Profile B: `--new-state 1` exactly on a witness's first start in the run with its file absent; never on a restart; a restart on the same state path, which must exist. At the first start the lab writes a random run nonce beside the state (`wN.state.run`) and records the host, `--id`, normalized peers, state path, the state directory's device and inode, the nonce, and each machine's chosen version. It checks every witness again at the run's campaign boundaries: before each fault, after each heal, after each load phase, before the final balance check, and at the end (PR #52 review). Each check advances the recorded marks. The file gone, the directory replaced (other device/inode, or nonce missing), or any machine's (chosen, open, promised, accepted) lower than recorded marks the run **invalid**; a violation at a boundary stops the run there (`result.json`: `ok: false`, `invalid` naming the first violation, the `witness_state` manifest and `witness_state_checks`, the boundaries checked). It never recreates a state file. It is a point check at those boundaries, **not a continuous anti-rollback monitor**: a rollback that the witness carries past the last recorded marks before the next boundary is not seen (test `witness_state_boundaries`). No background watcher (PR #52 review) |
 | **F10** legacy lines | A state file is legacy (pre-machine names) only when its `open`/`promised` lines have two fields; then every line is `ha/0`. Modern files (three fields) keep every name as written, all-digit ones included. A file mixing both, a legacy file without a whole machine, an unknown line or one that does not parse: refused (exit 2, "not starting"). A `READ` of a machine never seen no longer creates an entry, so it is never saved |
 | **F11** peers | Each `--peers` entry is resolved to IPv4 `ip:port`. Refused (exit 2): an endpoint named twice (also through another host name, e.g. `localhost` and `127.0.0.1`); an `--id` whose entry is not this witness's `--port` or whose address is not on this machine; another entry that reaches this witness's own port on this machine. The existing checks (63 peers at most, `--id` in range) are kept |
 | **Fatal persistence** | Every step of a save is checked: temporary file open, write, fsync, rename, directory open, directory fsync. Any failure prints `paxos: cannot save state: ...; stopping before any reply that depends on it` and exits (code 3) before the reply. Directory open and fsync failures used to be ignored. Test hook (`--debug 1` only): `DEBUG FAIL-PERSIST <step> [skip]` |
@@ -401,10 +401,12 @@ and rebuild the experimental witness set, never resurrect the identity:
 - using `--new-state 1` to recreate a member of an existing witness quorum.
 
 G1 catches a deleted file or a wrong path. G2 catches, within a run, a
-deleted file, a replaced directory and an older copy put back. Neither
-can see a copy whose versions are at least as new (a snapshot taken and
-restored with nothing chosen between), nor anything outside a campaign:
-the exclusion is a rule for operators, enforced where it can be.
+deleted file, a replaced directory and an older copy put back, when the
+evidence is still there at one of its boundary checks. Neither can see a
+copy whose versions are at least as new (a snapshot taken and restored
+with nothing chosen between), a rollback carried past the recorded marks
+between two checks, nor anything outside a campaign: the exclusion is a
+rule for operators, enforced where it can be.
 
 ### 9.4 Witness backup and restore semantics
 
@@ -426,20 +428,39 @@ unsupported and unsafe. A coordinated whole-cluster disaster-recovery
 procedure is a different problem, not covered here. An individual Paxos
 acceptor cannot be time-travelled backwards.
 
-### 9.5 Suites (commit 482958a, fresh builds)
+### 9.5 Suites
 
-| Build | Result | Sanitizer reports |
-| --- | --- | --- |
-| RelWithDebInfo | 31 / 31 (see below) | n/a |
-| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leaks on) | 31 / 31 | 0 |
-| Debug, TSan (`halt_on_error=1`) | 31 / 31 | 0 |
+**Release, the clean full run (PR #52 review correction):** commit
+b622963, RelWithDebInfo, `SNC_OLD_BUILD` set from the start to a build of
+e3e0500: **32 / 32** (`ctest-release-clean.log`, with its header). There
+are 32 tests now: `test_lab_witness_guard` was added for the G2 boundary
+checks. No production code changed after 482958a; the commits since touch
+the lab, the profile guard, tests and docs.
 
-The release `ctest` run was 30 / 31: `test_ready_order` m1 and m2 failed
-because `SNC_OLD_BUILD` pointed at a build of PR #39, older than the
-build of e3e0500 that V10 specifies (SYNC_READINESS 7). Rerun alone with
-the e3e0500 build: all 6 scenarios pass (`test_ready_order-v10.log`); the sanitizer
-suites used that build. Logs: `bench/results/witness-hardening-20261105/`
-(`ctest-*.log`, `hardening-json/`). An earlier release run on the
-pre-QA commit failed `test_cluster` and `test_migrate`: their C++
-launchers started witnesses without `--new-state 1`, fixed in 482958a.
+**Sanitizers (commit 482958a, fresh Debug builds):** ASan + UBSan
+(`-fno-sanitize-recover=undefined`, leaks on) 31 / 31, TSan
+(`halt_on_error=1`) 31 / 31, zero reports each (`ctest-asan.log`,
+`ctest-tsan.log`). Not repeated: since then only Python harness code,
+tests and docs changed (PR #52 review).
 
+**History, kept in `history/`:**
+
+- 482958a, release, 30 / 31: `test_ready_order` m1 and m2 failed because
+  `SNC_OLD_BUILD` pointed at a build of PR #39, older than the e3e0500
+  build V10 specifies. Rerun alone with the right build: all 6 scenarios
+  passed (`history/test_ready_order-v10.log`). That run was not counted as 31 / 31.
+- 2872606, release, 31 / 32: `test_baseline_retry` b3 failed because the
+  disk filled. Directories that earlier test runs had left in `/tmp`
+  (about 12 GiB; `test_transfer`'s crash test left about 250 MB each run)
+  left too little room for b3's WAL. Free space hit 0 during b3, and it
+  then failed 3 times in a row. With the space recovered, b3 passed 3 / 3.
+  Fixed: the crash test now removes its directory. b3 now waits for READY
+  before its failover, as q5 does: failover is only promised after READY
+  (SYNC_READINESS 7). It records how long READY took after catch-up
+  (0.0 s in all three reruns).
+- An earlier release run on the pre-QA commit failed `test_cluster` and
+  `test_migrate`: their C++ launchers started witnesses without
+  `--new-state 1`, fixed in 482958a.
+
+Logs: `bench/results/witness-hardening-20261105/` (`ctest-*.log`,
+`hardening-json/`, `history/`).

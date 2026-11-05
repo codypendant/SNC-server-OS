@@ -1,0 +1,177 @@
+PR #52 REVIEW — WITNESS HARDENING / FINAL PRE-FREEZE CORRECTIONS
+
+DECISION
+
+PR #52 is APPROVED IN SUBSTANCE.
+
+I reviewed the PR and all relevant changed documents: PAXOS_BALLOTS, EXPERIMENTAL_BASELINE, BASELINE_READINESS, STATUS, AGENTS, CLUSTER and FUTURE_ARCHITECTURE, plus the committed evidence.
+
+G1, F10, F11, fatal persistence handling, F9's initial Profile B exclusion, witness backup/VM rollback semantics, H1-H14, and the sanitizer evidence are accepted.
+
+Do NOT reopen the architecture.
+
+Two narrow corrections remain before FINAL EXPERIMENTAL BASELINE FREEZE REVIEW:
+
+1. Produce one genuinely clean full Release 31/31 run with the correct SNC_OLD_BUILD configured from the start.
+2. Reconcile G2's check frequency/claim: the lab currently records at start and checks at end, so it is not continuous rollback detection.
+
+G1 — APPROVED
+
+Missing state without --new-state 1: refuse.
+Missing state with --new-state 1: create/durable before serving.
+Existing state normal start: succeed.
+Existing state with --new-state: refuse, untouched.
+
+The unique-temp + link first-creation change correctly closes the stat/create race and prevents replacement of an existing state file.
+
+F11 — APPROVED
+
+Normalized duplicate endpoints are refused; localhost/address aliases and multiple local addresses reaching the same local witness port are caught; --id must identify this witness; local identity uses interface addresses rather than bindability.
+
+Keep the documented residual: a remote witness host named through two NIC addresses cannot be inferred as one physical acceptor. Profile B requires one configured address per witness host.
+
+F10 — APPROVED
+
+Legacy interpretation is now based on unambiguous line shape. Modern numeric machine names remain modern. Unknown READ no longer creates persistent state. Mixed/malformed state fails closed. H8/H9 cover the important round trips.
+
+FATAL PERSISTENCE — APPROVED
+
+Temporary open/write/fsync, rename, directory open and directory fsync are checked. Failure stops the witness before a safety-dependent reply. H6/H7 exercise PREPARE, ACCEPT, COMMIT and proposer-learning paths. This closes the ordinary durability-failure path into F9.
+
+F9 INITIAL PROFILE B EXCLUSION — APPROVED
+
+After this hardening, the remaining deliberate rollback histories may be excluded from the initial experiment.
+
+Unsupported/invalid:
+- individual witness state/directory restore;
+- individual witness VM/container/filesystem/hypervisor rollback;
+- stale/other witness state copied into an identity;
+- storage replacement followed by reuse of the old witness identity;
+- --new-state used to recreate an existing quorum member.
+
+If trustworthy witness state is lost: STOP THE RUN. Do not resurrect that identity.
+
+The full recovering-acceptor protocol remains future work and is NOT authorized now.
+
+WITNESS BACKUP/RESTORE SEMANTICS — APPROVED
+
+Keep the distinction permanently:
+application-state snapshots/PITR/branches are different from Paxos acceptor local state. An individual consensus member cannot be rolled backward into a quorum that continued progressing.
+
+H1-H14 — ACCEPTED
+
+The requested hardening coverage is present. Independent review found six issues and QA found two missed C++ launchers; those were fixed before final code.
+
+SANITIZERS — APPROVED
+
+ASan+UBSan: 31/31, zero reports.
+TSan: 31/31, zero reports.
+
+RELEASE EVIDENCE — ONE CLEAN FULL RUN REQUIRED
+
+The actual full Release ctest run was 30/31.
+
+test_ready_order m1/m2 failed because SNC_OLD_BUILD pointed at the wrong historical build. A targeted rerun with the correct e3e0500 build passed all six scenarios.
+
+I accept the diagnosis, but 30/31 + targeted rerun is not literally a full-suite 31/31 run.
+
+Before freeze:
+- configure SNC_OLD_BUILD correctly from the start;
+- run the complete Release ctest suite on final PR #52 code;
+- require 31/31;
+- preserve the complete log;
+- update PAXOS_BALLOTS 9.5 and any status text to cite that real clean run.
+
+Keep the original 30/31 and diagnostic rerun in the evidence history.
+
+G2 — NARROW CORRECTION
+
+WitnessStateGuard itself updates monotonic marks on every check(). Good.
+
+But bench/lab/lab.py currently records after initial creation and calls check_witness_state() at end of run.
+
+Therefore the lab integration is not a continuous monitor. A rollback that later progresses beyond the initially recorded marks could theoretically be invisible at the end.
+
+This does NOT reopen F9 as a blocker because operator/hypervisor rollback is explicitly excluded. But the documentation must match reality.
+
+Preferred correction:
+call check_witness_state() at meaningful campaign boundaries:
+- before/after any witness restart if one is ever performed;
+- before/after fault/action phases relying on witness authority where practical;
+- scenario/round boundaries;
+- end of run.
+
+Each check advances the recorded monotonic marks and narrows the detection window.
+
+Do NOT build a background watcher.
+
+If periodic checks materially complicate the lab, keep end-only checking but explicitly document that G2 detects rollback/replacement only when the evidence remains observable at the check; it is not continuous anti-rollback protection.
+
+Given the existing helper, periodic boundary checks are preferred.
+
+G2 FILE IDENTITY — ACCEPTED
+
+Do not pin the state-file inode: normal save-by-rename changes it.
+
+Directory device/inode + run nonce + fixed path + monotonic machine state is reasonable for this campaign guard. It is not a general anti-rollback mechanism.
+
+PROFILE B REQUIREMENTS — APPROVED
+
+Keep:
+- three unique endpoints;
+- consistent witness IDs;
+- persistent plain-file state paths;
+- --new-state only on first creation;
+- no individual witness rollback/restore;
+- no identity reuse after state loss;
+- persistence errors fatal;
+- protected READY/NOTREADY protocol;
+- campaign state guard active;
+- one configured address per remote witness host.
+
+DOCUMENT CORRECTIONS
+
+Before freeze:
+A. PAXOS_BALLOTS 9.5 must cite the actual clean full Release 31/31 run.
+B. STATUS/AGENTS/BASELINE_READINESS must not derive “full Release 31/31” from 30/31 + targeted rerun.
+C. G2 language must match its actual check frequency after correction.
+D. F9 remains excluded for initial Profile B but explicitly NOT solved for eventual enterprise witness recovery.
+
+NO NEW FEATURE WORK
+
+Do NOT implement recovering acceptor, new witness state format, durable ballot allocator, F7 redesign, F6 backpressure, F1 optimization, R08 automatic async HA, R11 session incarnation, S2/S3, snapshots/PITR/branching or Agent Runtime.
+
+RETURN EVIDENCE
+
+Return with:
+1. one clean complete Release 31/31 log on final code with correct SNC_OLD_BUILD;
+2. G2 periodic-boundary integration OR corrected end-only claim;
+3. tests for any G2 integration change;
+4. reconciled PAXOS_BALLOTS / BASELINE_READINESS / EXPERIMENTAL_BASELINE / STATUS / AGENTS;
+5. no production semantic change beyond PR #52.
+
+ASan/TSan need not be repeated solely for documentation/Python harness check-frequency changes. If C++ production code changes again, rerun affected sanitizer/full suites.
+
+AFTER THIS RETURN
+
+If Release is genuinely 31/31 and G2/evidence wording is reconciled, return directly for FINAL EXPERIMENTAL BASELINE FREEZE REVIEW.
+
+At that review:
+- identify exact frozen SHA;
+- verify Profile A/B/C contracts and exclusions;
+- verify campaign profile checker/manifest;
+- inventory remaining non-blocking findings;
+- ensure CRITERIA.md is pre-registered before comparative results;
+- authorize the within-system pilot/campaign preparation only if clean.
+
+Do NOT automatically start comparative benchmarks.
+
+FINAL
+
+PR #52 APPROVED IN SUBSTANCE.
+
+Two final corrections:
+1. genuine full Release 31/31;
+2. G2 boundary checks or precise end-only documentation.
+
+Then return for FINAL EXPERIMENTAL BASELINE FREEZE REVIEW.
