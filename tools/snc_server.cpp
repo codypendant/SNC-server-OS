@@ -564,6 +564,18 @@ int main(int argc, char** argv) {
       cfg.cluster[cfg.group_id].members[cfg.member].client_port == 0) {
     cfg.cluster[cfg.group_id].members[cfg.member].client_port = ncfg.base_port;
   }
+  // Seeds and the witnesses (docs/SYNC_READINESS.md 4): with witnesses, a
+  // seed is served only once this process has seen NOT READY recorded for
+  // its term (a DEGRADE answered OK, since the last SYNCED). A seed asked
+  // for before that makes the main loop record it, and the standby retries.
+  std::atomic<bool> not_ready_on_record{false}, seed_wanted{false};
+  if (!witnesses.empty()) {
+    cfg.seed_gate = [&] {
+      if (not_ready_on_record.load()) return true;
+      seed_wanted.store(true);
+      return false;
+    };
+  }
   Engine eng(cfg);
   try {
     eng.start();
@@ -572,6 +584,11 @@ int main(int argc, char** argv) {
     std::fflush(stdout);
     std::fprintf(stderr, "snc_server: not started: %s\n", e.what());
     return 1;
+  }
+  if (eng.recovery().final_checkpoint_s > 0 || eng.recovery().remapped) {
+    // The recovery checkpoint (Engine::recover step 8) ran before serving.
+    std::printf("recovery: checkpoint before serving%s in %.2fs\n",
+                eng.recovery().remapped ? " (shard count changed)" : "", eng.recovery().final_checkpoint_s);
   }
   if (!control_members.empty() && eng.space_uuid() != cfg.init_uuid) {
     std::fprintf(stderr, "control: this data directory holds another space than its group's\n");
@@ -626,6 +643,10 @@ int main(int argc, char** argv) {
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
   // The main loop's last iteration (admin::mono_ns), for HEALTH's main_ms.
   std::atomic<u64> main_tick{admin::mono_ns()};
+  // Periodic checkpoints (--checkpoint-s) on the main loop: one running now,
+  // and how many completed (RESOURCES; docs/BASELINE_READINESS.md B1).
+  std::atomic<u32> ckpt_running{0};
+  std::atomic<u64> ckpt_done{0};
   // Role: s standby, f fenced, else p (a replication sender exists) or n.
   // A role fact only: p does not say the standby is connected or in sync.
   auto role_now = [&](bool p_from_status, int status_role) {
@@ -851,14 +872,20 @@ int main(int argc, char** argv) {
           std::fclose(f);
         }
         const Engine::ReplStatus st = eng.replication_status();
-        char b[512];
+        const ReplDiskGauges dg = repl_disk_gauges();
+        char b[768];
         std::snprintf(b, sizeof(b),
                       "rss_kb=%ld hwm_kb=%ld heap_live=%llu waiters=%llu overflow=%llu emits_in_flight=%llu "
-                      "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u",
+                      "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u "
+                      "disk_readers=%llu disk_queued=%llu disk_queued_hwm=%llu disk_started=%llu "
+                      "disk_stopped_on_cancel=%llu ckpt_running=%u ckpts=%llu",
                       rss_kb, hwm_kb, (unsigned long long)heap, (unsigned long long)waiters,
                       (unsigned long long)overflow, (unsigned long long)emits, (unsigned long long)held,
                       (unsigned long long)retained, (unsigned long long)unacked, (unsigned long long)undurable,
-                      st.blocked, st.degraded);
+                      st.blocked, st.degraded, (unsigned long long)dg.readers_live,
+                      (unsigned long long)dg.queued_bytes, (unsigned long long)dg.queued_hwm,
+                      (unsigned long long)dg.started, (unsigned long long)dg.stopped_on_cancel,
+                      ckpt_running.load(), (unsigned long long)ckpt_done.load());
         return b;
       }
       if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");
@@ -904,7 +931,11 @@ int main(int argc, char** argv) {
   // The witness's grant to continue without the standby (see the header).
   // After running alone, the primary owes the witnesses a SYNCED: until one
   // is confirmed they keep the grant on record and will not promote.
-  bool granted = false, refused = false, owe_synced = false;
+  // Sync readiness (docs/SYNC_READINESS.md): the witnesses record a new
+  // primary (first learned, or promoted) as NOT READY, so a primary owes a
+  // SYNCED from its start until its standby is proven in sync.
+  bool granted = false, refused = false, owe_synced = true;
+  bool proven_since_start = false;  // a SYNCED of this process answered OK
   // Asks the witnesses in turn; the first reply decides. A witness runs
   // Paxos among its peers before answering, so allow it time.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
@@ -952,6 +983,8 @@ int main(int argc, char** argv) {
             continue;
           }
           cfg.standby = false;
+          owe_synced = true;  // the promotion recorded NOT READY for the new term
+          not_ready_on_record.store(true);
           term.store(eng.term());
           lease_lo.store(eng.lease_block().first);
           lease_hi.store(eng.lease_block().second);
@@ -976,6 +1009,7 @@ int main(int argc, char** argv) {
           if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
             granted = true;
             refused = false;
+            not_ready_on_record.store(true);
             eng.allow_degrade(true);
             std::printf("witness: granted, continuing without the standby\n");
           } else if (reply.rfind("NO", 0) == 0 && !refused) {
@@ -994,10 +1028,51 @@ int main(int argc, char** argv) {
           granted = false;
           owe_synced = true;
         }
-        if (owe_synced && !granted && healthy) {
+        // NOT READY to record (docs/SYNC_READINESS.md 4): the standby came
+        // back without records it had acknowledged, or a seed is asked for
+        // while READY may be on record. DEGRADE records it; the degrade
+        // gate stays as it is (this is not a leave to run alone).
+        // At start, this process does not know what is on record (a READY
+        // from before a restart, or from an older witness), nor what its
+        // standby acknowledged before: it records NOT READY once first.
+        const bool regressed = st.regressed > 0 && !not_ready_on_record.load();
+        const bool seed = seed_wanted.load() && !not_ready_on_record.load();
+        const bool at_start = !not_ready_on_record.load() && owe_synced && !proven_since_start;
+        if (!granted && (regressed || seed || at_start)) {
+          if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
+            not_ready_on_record.store(true);
+            seed_wanted.store(false);
+            owe_synced = true;
+            std::printf("witness: recorded NOT READY (%s)\n",
+                        regressed ? "the standby lost acknowledged records"
+                        : seed    ? "a seed is asked for"
+                                  : "this primary started");
+            std::fflush(stdout);  // ordered with the seed's stderr lines (tests read both)
+          } else if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
+            eng.withdraw();
+            std::printf("witness: this primary's term was replaced; withdrawn\n");
+          }
+        } else if (seed_wanted.load() && not_ready_on_record.load()) {
+          seed_wanted.store(false);
+        }
+        // SYNCED only once every shard's current link has proven its
+        // standby holds every durable record (st.ready, docs/SYNC_READINESS.md 3).
+        // The shards are read again first: a DEGRADE above may have taken
+        // a while.
+        if (owe_synced && !granted && healthy && st.ready == st.shards && st.regressed == 0) {
+          st = eng.replication_status();
+        }
+        if (owe_synced && !granted && st.degraded == 0 && st.blocked == 0 && st.live == st.shards &&
+            st.ready == st.shards && st.regressed == 0) {
+          // Pessimistic before asking: if the reply is lost the witnesses
+          // may hold READY, so a seed or a regression must record NOT READY
+          // again first.
+          not_ready_on_record.store(false);
           if (ask_witness("SYNCED" + tail, reply) && reply == "OK") {
             owe_synced = false;
+            proven_since_start = true;
             std::printf("witness: standby back in sync\n");
+            std::fflush(stdout);
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary
             eng.withdraw();
@@ -1005,7 +1080,10 @@ int main(int argc, char** argv) {
         }
       }
       if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
+        ckpt_running.store(1);
         CheckpointReport r = eng.checkpoint();
+        ckpt_running.store(0);
+        ckpt_done.fetch_add(1);
         std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
                     (unsigned long long)r.objects, r.seconds,
                     (unsigned long long)r.segments_deleted);

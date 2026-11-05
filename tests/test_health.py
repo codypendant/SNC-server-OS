@@ -313,7 +313,7 @@ class Pair:
     rearmed, plus three witnesses. With proxied=True every path to and
     from node 0 goes through a Proxy (T6)."""
 
-    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000"):
+    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -339,7 +339,7 @@ class Pair:
             self.proxies += [Proxy(px + 5 + i, self.wit[i]) for i in range(3)]
         self.to0_adm, self.to0_cli = to0_adm, to0_cli
         common = ["--space-uuid", UUID, "--objects", objects, "--shards", "2", "--debug-admin",
-                  "--replica-timeout-ms", "500"]
+                  "--replica-timeout-ms", "500"] + list(extra)
         self.args = [
             ["--cpus", "0,1", "--port", str(self.cli[0]), "--data-dir", f"{self.work}/n0", "--admin-port",
              str(self.adm[0]), "--replica-of", f"127.0.0.1:{n0_repl_target}", "--witness",
@@ -357,11 +357,25 @@ class Pair:
         peers = ",".join(f"127.0.0.1:{p}" for p in self.wit)
         self.w = [Proc([f"{BUILD}/snc_witness", "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{to0_adm}",
                         "--standby", f"127.0.0.1:{self.adm[1]}", "--state", f"{self.work}/w{i}.state",
-                        "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(POLL_MS), "--id", str(i),
+                        "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(poll_ms), "--id", str(i),
                         "--peers", peers, "--health-verb", verbs[i]]) for i in range(3)]
         for w in self.w:
             assert w.wait_for(r"primary up|failover learned", 15), "a witness never saw the primary\n" + w.text()
+        # A learned primary is NOT READY until it proves its standby in sync
+        # (docs/SYNC_READINESS.md): tests start from a promotable pair.
+        assert self.wait_ready(30), f"the pair never became READY: {self.state()}\n" + self.nodes[0].text()
         self.load = None
+
+    def wait_ready(self, timeout, term=None):
+        """The witnesses' chosen state once READY (degraded false), at
+        `term` if given; None on timeout."""
+        t_end = time.time() + timeout
+        while time.time() < t_end:
+            st = self.state()
+            if st and not st[3] and (term is None or st[1] == term):
+                return st
+            time.sleep(0.05)
+        return None
 
     def state(self):
         """(version, term, primary node, degraded) chosen on a majority."""
@@ -767,6 +781,9 @@ def fake_witness(work, prim, sb, verb="health"):
               "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w.{port}.state",
               "--failover-ms", "300", "--poll-ms", "30", "--health-verb", verb])
     assert w.wait_for(r"primary up", 10), w.text()
+    # A learned primary is NOT READY; a real one says SYNCED once its
+    # standby is proven (docs/SYNC_READINESS.md). The fakes start READY.
+    assert ask(port, f"SYNCED {UUID} 0", 3)[0] == "OK"
     return w, port
 
 

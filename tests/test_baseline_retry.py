@@ -52,6 +52,12 @@ T-Q5: two consecutive failovers during a resend storm.
                promotion, past --replica-timeout-ms (500): node 1 first
                runs alone under a DEGRADE grant.
 
+F2 / R11: every client claims session deduplication against the server's
+TTL (net_bench --retry-claim-ttl-s 3600: the oldest resend must be at most
+a tenth of it, or the run is INVALID, exit 3).
+
+  r11_guard    q1_kill claiming a TTL of 1 s: the guard refuses the run.
+
 Every scenario prints one JSON line (and writes it to --json DIR).
 
 Usage: test_baseline_retry.py BUILD_DIR [SCENARIO ...] [--json DIR]
@@ -78,20 +84,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_health as th  # noqa: E402
 
 TTL_S = 3600
-BOUND_MS = 35000  # failover_ms (30000) + request_timeout_ms (5000)
+# What the failover paths without a control-plane outage are checked
+# against: failover_ms (30000) + request_timeout_ms (5000). It is an expected
+# value for those paths, not the R11 contract: that is "every in-doubt resend
+# before session expiry", checked by net_bench --retry-claim-ttl-s (r11_guard).
+BOUND_MS = 35000
 SESSION = 1000
 
 
 class Bench:
     """net_bench with a session through both nodes, deposits only."""
 
-    def __init__(self, pr, seconds, first_port=None, threads=2, depth=32, objects=2000):
+    def __init__(self, pr, seconds, first_port=None, threads=2, depth=32, objects=2000, claim_ttl_s=TTL_S):
         self.out = f"{pr.work}/bench.out"
         port = first_port or pr.to0_cli
         args = [f"{BUILD}/net_bench", "--port", str(port), "--endpoint", f"127.0.0.1:{pr.to0_cli}",
                 "--endpoint", f"127.0.0.1:{pr.cli[1]}", "--session", str(SESSION), "--threads", str(threads),
                 "--depth", str(depth), "--objects", str(objects), "--reads", "0", "--seconds", str(seconds),
-                "--route", "owner", "--verify"]
+                "--route", "owner", "--verify", "--retry-claim-ttl-s", str(claim_ttl_s)]
         self.f = open(self.out, "w")
         self.p = subprocess.Popen(args, stdout=self.f, stderr=subprocess.STDOUT)
         self.t0 = time.time()
@@ -119,6 +129,9 @@ class Bench:
         m = re.search(r"ops/s (\d+)\s+errors (\d+)", text)
         if m:
             r["ops_s"], r["errors"] = int(m[1]), int(m[2])
+        m = re.search(r"retry claim: max_resend_age_ms \d+, limit (\d+) .*: (\w+)", text)
+        if m:
+            r["retry_claim_limit_ms"], r["retry_claim"] = int(m[1]), m[2]
         r["tail"] = text.strip().splitlines()[-6:]
         return r
 
@@ -365,6 +378,11 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
             time.sleep(0.2)
         assert ok_n >= 3, ("node 0 never caught up", series[-10:])
         res["caught_up_s"] = round(time.time() - t, 2)
+        # Caught up is not yet READY (docs/SYNC_READINESS.md): node 1 must
+        # still prove it with SYNCED. A second failure before that is the
+        # catching-up case, which q5_catchup_race covers.
+        assert pr.wait_ready(30, term=1), ("never READY at term 1 after catch-up", pr.state())
+        res["ready_s"] = round(time.time() - t, 2)
     res["node1_unacked_at_second_failure"] = unacked(pr, 1)
     res["witness_state_at_second_failure"] = pr.state()
     assert b.running(), "the client finished before the second failover"
@@ -385,7 +403,11 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
         # The contract: either node 0 is not promoted while it lacks
         # acknowledged writes (the group waits), or it is and every
         # acknowledged write is there. Never acknowledged writes missing.
-        ok = (not st) or exact(r)
+        # B2 fixed (docs/SYNC_READINESS.md): node 0 is not promoted while
+        # it catches up; the witnesses keep NOT READY for term 1.
+        ws = res["witness_state_at_second_failure"]
+        ok = (not st) and bool(ws) and ws[1] == 1 and ws[3] is True
+        res["no_promotion_while_catching_up"] = ok
     if second == "stop":
         pr.nodes[1].signal(signal.SIGCONT)
         r1, _ = th.ask(pr.adm[1], "HEALTH", 1)
@@ -399,8 +421,106 @@ def two_failovers(pr, second, caught_up=True, rejoin_delay=0.0):
     return res, b
 
 
+# ---- F2 / R11: the run-validity guard ----------------------------------------------------
+
+def r11_guard(pr):
+    """net_bench --retry-claim-ttl-s refuses a run whose oldest resend is
+    not far below the claimed TTL: q1_kill with a claimed TTL of 1 s (limit
+    100 ms) is INVALID (exit 3) though every balance is exact."""
+    b = Bench(pr, 15, claim_ttl_s=1)
+    started(b)
+    pr.nodes[0].signal(signal.SIGKILL)
+    st = wait_state(pr, 1, 15)
+    res = {"promoted": bool(st)}
+    res["bench"] = r = b.wait(120)
+    res["pass"] = (bool(st) and r.get("rc") == 3 and r.get("retry_claim") == "INVALID" and
+                   r.get("mismatches") == 0 and r.get("max_resend_age_ms", 0) > 100)
+    return res, b
+
+
+# ---- B3: catch-up from disk over a link that keeps dropping -----------------------------
+
+def b3_stalled_catchup(pr):
+    """docs/BASELINE_READINESS.md B3. Node 1, promoted, runs alone for 8 s
+    with 16 MiB of in-memory retention per shard, so the rejoined node 0
+    catches up from WAL files. Node 0 is then SIGSTOPped 0.7 s of every
+    1 s for 20 s: it keeps missing the 500 ms ack timeout, so node 1 cancels
+    its catch-up reader and starts another, again and again. The contract:
+    a cancelled reader stops producing, so readers and read-ahead stay
+    bounded (16 MiB per live reader) and so does RSS; once the stalls end
+    the catch-up completes, no reader is left, and a failover to node 0
+    then keeps every acknowledged write."""
+    b = Bench(pr, 75, threads=2, depth=64)
+    started(b)
+    res = {}
+    pr.nodes[0].signal(signal.SIGKILL)
+    pr.nodes[0].p.wait(timeout=30)
+    assert wait_state(pr, 1, 15), "node 1 not promoted"
+    time.sleep(8)
+    pr.old_nodes.append(pr.nodes[0])
+    pr.nodes[0] = th.Proc([f"{BUILD}/snc_server"] + pr.args[0])
+    assert pr.nodes[0].wait_for(r"standby, listening", 30), pr.nodes[0].text()
+    series = []
+
+    def sample():
+        r, _ = th.ask(pr.adm[1], "RESOURCES", 3)
+        f = th.fields(r)
+        if f:
+            series.append({k: int(f[k]) for k in ("rss_kb", "repl_retained", "wal_unacked", "disk_readers",
+                                                  "disk_queued", "disk_queued_hwm", "disk_started",
+                                                  "disk_stopped_on_cancel")})
+        return f
+
+    t_end = time.time() + 20
+    while time.time() < t_end:
+        pr.nodes[0].signal(signal.SIGSTOP)
+        time.sleep(0.7)
+        sample()
+        pr.nodes[0].signal(signal.SIGCONT)
+        time.sleep(0.3)
+        sample()
+    ok_n, t_end = 0, time.time() + 90
+    while ok_n < 3 and time.time() < t_end:
+        f = sample()
+        u = int(f["wal_unacked"]) if f else None
+        ok_n = ok_n + 1 if u is not None and u < 2 * 64 * 2 and int(f["disk_readers"]) == 0 else 0
+        time.sleep(0.2)
+    res["caught_up"] = ok_n >= 3
+    last = series[-1] if series else {}
+    res["peak_rss_mib"] = max(s["rss_kb"] for s in series) // 1024
+    res["max_disk_readers"] = max(s["disk_readers"] for s in series)
+    res["disk_queued_hwm_mib"] = round(last.get("disk_queued_hwm", 0) / (1 << 20), 1)
+    res["disk_started"] = last.get("disk_started")
+    res["disk_stopped_on_cancel"] = last.get("disk_stopped_on_cancel")
+    res["at_end"] = last
+    res["stopped_acking"] = sum("stopped acking" in l for l in pr.nodes[1].lines)
+    pr.nodes[1].signal(signal.SIGKILL)
+    st = wait_state(pr, 0, 20)
+    res["second_promoted"] = bool(st)
+    res["bench"] = r = b.wait(180)
+    shards = 2
+    res["checks"] = {
+        "cancel_path_exercised": res["stopped_acking"] >= 5 and (res["disk_stopped_on_cancel"] or 0) >= 2,
+        # Each shard: its current reader, plus at most one that is stopping.
+        "readers_bounded": res["max_disk_readers"] <= 2 * shards,
+        "read_ahead_bounded": last.get("disk_queued_hwm", 1 << 62) <= 2 * shards * (17 << 20),
+        # Release measured 283 MiB without stalls and 2,059 MiB with them
+        # before the fix (289 MiB after); sanitizer builds multiply RSS.
+        "rss_bounded": res["peak_rss_mib"] < (512 if th.sanitizer(BUILD) is None else 4096),
+        "caught_up_no_reader_left": res["caught_up"] and last.get("disk_readers") == 0 and
+        last.get("disk_queued") == 0,
+        "exact_after_failover": res["second_promoted"] and exact(r),
+    }
+    res["series"] = series[::4]
+    res["pass"] = all(res["checks"].values())
+    return res, b
+
+
 SCEN = {
+    "b3_stalled_catchup": lambda: run("b3_stalled_catchup", b3_stalled_catchup,
+                                      extra=("--replica-retain-mib", "16")),
     "q1_kill": lambda: run("q1_kill", q1_kill),
+    "r11_guard": lambda: run("r11_guard", r11_guard),
     "q1_stop": lambda: run("q1_stop", q1_stop),
     "q1_partition": lambda: run("q1_partition", q1_partition, proxied=True),
     "q1_flap": lambda: run("q1_flap", q1_flap, proxied=True),

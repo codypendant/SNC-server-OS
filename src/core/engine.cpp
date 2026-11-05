@@ -1358,6 +1358,8 @@ Engine::ReplStatus Engine::replication_status() const {
         st.live += r.live;
         st.degraded += r.degraded;
         st.blocked += r.blocked;
+        st.ready += r.ready;
+        st.regressed += r.regressed;
       }
       done.count_down();
     });

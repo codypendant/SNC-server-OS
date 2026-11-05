@@ -358,11 +358,11 @@ Admin `PROMOTE` has no term guard.
 | # | Condition | Holds today? |
 | --- | --- | --- |
 | E1 | The group's mode permits automatic promotion (sync; not async, section 9) | **no**: the witness does not know the mode |
-| E2 | The HA state is not degraded (no DEGRADE grant on record) | yes (EL2-EL4: `test_witness.py`, Vultr P3) |
+| E2 | The HA state is READY: the primary of the current term said `SYNCED` after proving its standby in sync, and nothing recorded NOT READY since (a grant, a promotion, a reseed, a regression, a primary start) | yes (B2 fix, [SYNC_READINESS.md](SYNC_READINESS.md); EL2: `test_sync_readiness.py`, `test_witness.py`, `test_fail_closed.py f19`). One same-term window stays open (a delayed SYNCED after a grant; SYNC_READINESS 4, proposed) |
 | E3 | The candidate's term equals the decided term, and the promotion is chosen by a witness majority for term+1 | witness path only (EL2-EL4); admin `PROMOTE` has no term guard; admin `PROMOTE` now runs the start barrier (MS-3), its missing term guard stays R08 |
 | E4 | The candidate's space UUID equals the group's | yes (EL0, `snc_witness.cpp` STATUS check) |
-| E5 | The candidate's durable LSN, per shard, is at least the primary's last acknowledged LSN. In sync healthy mode this follows from E1+E2, because the primary acknowledges nothing the standby has not acked; the witness compares no LSNs | by construction for sync (EL2-EL4); never checked explicitly |
-| E6 | The candidate has finished catch-up (it was in sync, not seeding or catching up from disk) | INFERRED (EL0) yes. Initial seed: the seed fetch runs inside `Engine::recover` (`engine.cpp:327-337`) and the admin thread that answers `STATUS` starts only after `start` returns (`snc_server.cpp:355, 455`), so a seeding node never answers role=s and cannot be promoted. Catch-up of a connected standby: the primary is not in sync, so it degraded or blocked. Not tested |
+| E5 | The candidate's durable LSN, per shard, is at least the primary's last acknowledged LSN | sync: checked when READY is earned (each shard's current link acked at least its durable LSN, SYNC_READINESS 3) and kept by sync acks after; the witness itself compares no LSNs (EL2) |
+| E6 | The candidate has finished catch-up (it was in sync, not seeding or catching up from disk) | yes for sync groups (B2 fix): a seeding or catching-up standby's group is NOT READY, so it is not promoted (EL2: `test_sync_readiness.py` s1, s2, s5, s10; `q5_catchup_race`). Before the fix it was promoted (BASELINE_READINESS 3) |
 | E7 | The candidate is not diverged (no records from a term it did not follow) | yes: the term handshake refuses an older term's stream |
 | E8 | The candidate passed its own recovery barrier (section 12) | INFERRED (EL0) yes, implicitly: the admin port (`HEALTH`, `STATUS`) opens only after `Engine::start` returns (`snc_server.cpp`, kept by the admin loop) |
 | E9 | Placement: the candidate's group still owns the slots it will serve; a move in progress is resumable by the new primary | **COVERED for migration state** (MS-3): promotion reads the placement linearizably, adopts it and re-seals (`test_fail_closed` F6, F7, F13, F17; EL2). A final stage in flight at the old primary is volatile and stops at its next unit once that node knows it is fenced; the new primary's resend starts a new chain (S1: `test_s1` dst_promote, fence; EL2, MIGRATION_STAGING.md 18). Who may be promoted is still R08 |
@@ -577,7 +577,7 @@ EL0 except where named):
 | --- | --- | --- |
 | Superblock read; space UUID; mint leases (`next_lease += n`, superblock written) | start | yes |
 | Checkpoint load, WAL replay per stream (or rerouted on shard-count change) | `recover` | yes |
-| After a shard-count change, orphaned streams or a fresh directory: a full checkpoint (expires sessions; waits on `durable(max_lsn)`) | `recover` step 8 (`engine.cpp:525-529`) | yes |
+| After a shard-count change, orphaned streams or a fresh directory: a full checkpoint (expires sessions; waits on local WAL durability, not the standby: B1) | `recover` step 8 (`engine.cpp:525-529`) | yes |
 | Per shard: `rebuild_index`, `refresh_slots`, `start_serving` / `resume_all` (follow-ups **queued**, held), WAL opened for append, `start_sender` (**replication shipping starts**), `activate_staged`, `start_links` (**node links connect**) | `finish_recovery` | yes |
 | `release_emits` (held follow-ups dispatched), then `serving = true` | `Engine::start` end | **barrier** |
 | Space-UUID check against the control plane; placement watcher | after `start` | **after** |

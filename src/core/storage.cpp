@@ -437,21 +437,26 @@ StreamScan scan_stream(const std::string& d, u16 stream, u64 from_lsn, const Uui
 }
 
 bool read_stream_range(const std::string& d, u16 stream, u64 from_lsn, u64 to_lsn,
-                       const Uuid& uuid, const std::function<void(const u8*, u32)>& fn) {
+                       const Uuid& uuid, const std::function<bool(const u8*, u32)>& fn,
+                       const std::function<bool()>& stop) {
   if (from_lsn >= to_lsn) return true;
+  auto stopped = [&] { return stop && stop(); };
   std::vector<u64> segs = list_segments(d, stream);
   u64 next = from_lsn;
   std::vector<u8> buf;
   for (std::size_t si = 0; si < segs.size() && next < to_lsn; ++si) {
     if (si + 1 < segs.size() && segs[si + 1] <= next) continue;  // all before `next`
     if (segs[si] > next) return false;  // the segment holding `next` is gone
+    if (stopped()) return false;
     if (!read_file(segment_path(d, stream, segs[si]), buf)) return false;  // deleted meanwhile
     FileHeader h{};
     if (buf.size() < kBlock) return false;
     std::memcpy(&h, buf.data(), sizeof(h));
     if (!header_ok(h, kWalMagic, stream, uuid)) return false;
     std::size_t off = kBlock;
+    u32 skipped = 0;
     while (off + sizeof(WalRecord) <= buf.size() && next < to_lsn) {
+      if ((++skipped & 1023) == 0 && stopped()) return false;
       u32 len = check_record(buf.data() + off, buf.size() - off);
       if (len == 0) {
         // Block padding after a flush; anything else ends what is written.
@@ -466,7 +471,7 @@ bool read_stream_range(const std::string& d, u16 stream, u64 from_lsn, u64 to_ls
       std::memcpy(&r, buf.data() + off, sizeof(r));
       if (r.lsn > next) return false;  // a hole
       if (r.lsn == next) {
-        fn(buf.data() + off, len);
+        if (!fn(buf.data() + off, len)) return false;  // the caller stopped
         ++next;
       }
       off += len;

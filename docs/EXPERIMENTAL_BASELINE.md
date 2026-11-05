@@ -13,13 +13,15 @@
   for review.
 - **Results (2026-11-05): [BASELINE_READINESS.md](BASELINE_READINESS.md).**
   T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Three Profile B BLOCKERS were
-  reproduced and are not fixed: B1, a checkpoint wedges the primary when
+  reproduced (**fixed 2026-11-05, for review: BASELINE_READINESS section
+  10**): B1, a checkpoint wedges the primary when
   its standby dies (T-Q3); B2, the witnesses promote a standby that is
   still catching up after a rejoin (T-Q5); B3, a catch-up that keeps
   dropping its link makes the primary read the remaining WAL range into
   memory once per attempt (T-Q5 under TSan). T-Q1 also found that section
   7's 35 s bound does not hold while a sync primary is blocked by a
-  control-plane outage (F2).
+  control-plane outage (F2; the R11 contract and its run-validity guard
+  are in section 7).
 
 - **Requested by:** cody's review of PR #44
   (`handoff/PR44_S1_and_Experimental_Baseline_Handoff.txt`).
@@ -133,7 +135,7 @@ contract (section 9's run validity rules).
 
 | Property | Contract |
 | --- | --- |
-| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`) |
+| What OK means | **HA_DURABLE while the group is healthy**: durable on the primary and acknowledged durable by its standby. While the group is degraded (grant on record), or after a failover until a new standby is seeded and caught up, an OK is **LOCAL_DURABLE** and the run must record it as such (section 9: STATUS `degraded=1` or `role=n`). The group is promotable again only once its primary has said SYNCED (SYNC_READINESS.md) |
 | Process crash | Survives |
 | Loss of one member's host or disk | Survives while healthy: the other member holds every HA_DURABLE OK (`test_replication`, `test_witness.py`, Vultr P3: EL2-EL4). A second loss before re-seeding is not covered |
 | Replication | Synchronous; the standby is acked by LSN before the client's OK |
@@ -346,12 +348,37 @@ The shipped `net::Client` resends unanswered requests only inside
   its caller and keeps nothing to resend later. A campaign client must
   treat that as a failed run (T-H).
 
-So an in-doubt request is resent within about 35 s or never, which is
-100x below the TTL. **Corrected by T-Q1 (BASELINE_READINESS 4, F2):**
-not while a sync primary is blocked by a control-plane outage. It keeps
-answering the client's reconnect, so the client resends to it after
-every request timeout, and the age follows the outage (35.3 s for a 40 s
-outage). A restated bound is proposed there for review. A client that goes idle for an hour and then sends
+~~So an in-doubt request is resent within about 35 s or never.~~
+**Withdrawn (T-Q1, BASELINE_READINESS 4, F2; cody's review of PR #47):**
+that bound does not hold while a sync primary is blocked by a
+control-plane outage. It keeps answering the client's reconnect, so the
+client resends to it after every request timeout, and the age follows
+the outage (35.3 s for a 40 s outage).
+
+**The R11 contract for the campaign:**
+
+> For any run claiming session deduplication, every in-doubt resend must
+> occur before session expiry.
+
+**Run validity (the guard).** A run that makes a retry claim passes
+`net_bench --retry-claim-ttl-s TTL` (the server's `session_ttl_s`,
+default 3600). The run is valid only if `max_resend_age_ms` is at most a
+tenth of the TTL (360 s at the default); otherwise net_bench prints
+`retry claim: INVALID` and exits 3, and the run's retry results are not
+used. The margin is 10x because the real expiry horizon is longer than
+the TTL and the margin must absorb what is not modelled:
+
+- expiry is timed from the session's last applied request, not from the
+  first send of the request being resent;
+- it runs only at a checkpoint, and none completes on a blocked primary;
+- server clocks may slew (the manifest records the NTP setup).
+
+Long-outage retry stays excluded: a run with a control-plane outage long
+enough to break the guard is an R11 characterization, not a retry claim.
+The TTL is not raised to hide this, and session incarnation is not
+required for the initial campaign. (`test_baseline_retry.py r11_guard`
+shows the guard refusing a run.)
+A client that goes idle for an hour and then sends
 its next sequence finds no session and runs it as new work. That is
 correct: it is a new request.
 
@@ -363,9 +390,9 @@ correct: it is a new request.
 | A harness that rebuilds a client and resends with an old `client_id` and sequence | Out of contract today (FAILURE_MODEL: `client_id` reuse). T-H forbids it in campaign scripts |
 | A run longer than the TTL whose clients hold in-doubt requests across an outage longer than the TTL | No campaign fault lasts that long. A run that injects one is a named R11 characterization, not a retry claim |
 
-**Why not "just raise the TTL":** the TTL stays at its default. The
-horizon is set by the client's own behaviour (about 35 s) and proven by
-T-Q1, not by a large number chosen to make the defect unreachable.
+**Why not "just raise the TTL":** the TTL stays at its default. Each
+claiming run proves its own resend ages against it (the guard), not a
+large number chosen to make the defect unreachable.
 
 **What the campaign may not claim** (section 12):
 

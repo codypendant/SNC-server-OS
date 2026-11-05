@@ -1,0 +1,37 @@
+{
+ "slot": 3000,
+ "source": 3,
+ "dest": 1,
+ "move": "DONE",
+ "move_s": 0.24,
+ "answers_dropped": 4,
+ "dest_info_after": {
+  "phase": 1,
+  "serving": 1,
+  "map_epoch": 2
+ },
+ "load": {
+  "rc": 0,
+  "acked": "99429",
+  "replayed": "4",
+  "unknown": "0",
+  "moved": "4",
+  "migrating": "0",
+  "refreshes": "4",
+  "failovers": "4",
+  "resends": "4",
+  "max_resend_age_ms": "3025",
+  "epoch": "2",
+  "error": "-"
+ },
+ "pending_at_end": {
+  "1": 0,
+  "3": 0
+ },
+ "check": [
+  "OK: 400 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"
+ ],
+ "pass": true,
+ "scenario": "q2_lost_move",
+ "seconds": 30.6
+}

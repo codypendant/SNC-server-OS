@@ -18,6 +18,11 @@
 // when a node leaves a request unanswered that long (a hung primary).
 // --verify: after the run, read every account and check its balance is its
 // start plus the deposits sent to it (no transfers, one client process).
+// --retry-claim-ttl-s S (with --session): the run claims session
+// deduplication against a server session TTL of S seconds. It is valid only
+// if every in-doubt resend happened well before session expiry:
+// max_resend_age_ms at most a tenth of S (docs/EXPERIMENTAL_BASELINE.md 7,
+// R11). Otherwise it prints "retry claim: INVALID" and exits 3.
 //
 // --ids FILE: if FILE exists, use the accounts listed in it instead of
 // creating any (for example on a standby serving reads); otherwise create
@@ -73,6 +78,7 @@ struct Args {
   u64 session = 0;
   int request_timeout_ms = 5000;
   bool verify = false;
+  u64 retry_claim_ttl_s = 0;  // --retry-claim-ttl-s (0: no claim)
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -288,6 +294,7 @@ Args parse(int argc, char** argv) {
     } else if (k == "--session") a.session = std::strtoull(val(), nullptr, 10);
     else if (k == "--request-timeout-ms") a.request_timeout_ms = std::atoi(val());
     else if (k == "--verify") a.verify = true;
+    else if (k == "--retry-claim-ttl-s") a.retry_claim_ttl_s = std::strtoull(val(), nullptr, 10);
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
       std::exit(2);
@@ -418,6 +425,19 @@ int main(int argc, char** argv) {
                 (unsigned long long)failovers, (unsigned long long)replayed, (unsigned long long)timeouts,
                 (unsigned long long)resends, (unsigned long long)max_resend_age_ms);
   }
+  // R11 run validity: the margin is 10x. The real horizon is longer than the
+  // TTL (it runs from the session's last applied request, and expiry runs
+  // only at a checkpoint), so a resend inside a tenth of it is before expiry
+  // with room for clock slew and checkpoint timing.
+  bool retry_claim_invalid = false;
+  if (a.retry_claim_ttl_s) {
+    const u64 limit_ms = a.retry_claim_ttl_s * 1000 / 10;
+    retry_claim_invalid = !a.session || max_resend_age_ms > limit_ms;
+    std::printf("  retry claim: max_resend_age_ms %llu, limit %llu (TTL %llu s / 10): %s\n",
+                (unsigned long long)max_resend_age_ms, (unsigned long long)limit_ms,
+                (unsigned long long)a.retry_claim_ttl_s,
+                retry_claim_invalid ? (a.session ? "INVALID" : "INVALID (no --session)") : "valid");
+  }
   if (a.verify) {
     // Every account's balance is its start (1000) plus the deposits sent.
     net::Client& c = threads[0].client;
@@ -470,5 +490,6 @@ int main(int argc, char** argv) {
                 (unsigned long long)sent, (unsigned long long)bad);
     if (bad) return 1;
   }
+  if (retry_claim_invalid) return 3;
   return errors ? 1 : 0;
 }

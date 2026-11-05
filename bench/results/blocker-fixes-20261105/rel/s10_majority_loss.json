@@ -1,0 +1,18 @@
+{
+ "witnesses_killed": 2,
+ "promoted_state": [
+  3,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "backlog_peak": 2259798,
+ "backlog_at_kill": 1805370,
+ "halfway": true,
+ "no_promotion": true,
+ "node0_role": "s",
+ "pass": true,
+ "scenario": "s10_majority_loss",
+ "seconds": 22.7
+}

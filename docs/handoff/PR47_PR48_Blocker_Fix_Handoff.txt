@@ -1,0 +1,166 @@
+PR #47 / #48 REVIEW — NEXT WORK ORDER
+
+DECISION
+PR #47 characterization/readiness evidence: APPROVED.
+PR #48 X1 INDEX wire slice: APPROVED.
+Experimental Baseline is NOT frozen.
+
+PR #47 correctly found and stopped on three real Profile B blockers. Now fix them before comparative benchmarking.
+
+B1 — CHECKPOINT + LOST STANDBY DEADLOCK
+
+Observed causal path:
+checkpoint -> checkpoint_step waits on durable(max_lsn) -> sync durable requires standby ack -> standby dies -> checkpoint blocks main thread -> same main thread cannot request DEGRADE -> permanent wedge.
+
+AUTHORIZED smallest fix:
+Checkpoint eligibility must depend on this node's LOCAL WAL durability, not standby acknowledgement.
+
+Use the local WAL durable frontier (conceptually max_lsn <= wal_->durable_lsn()) for checkpoint serialization. Replica acknowledgement remains part of sync client-OK semantics, not local checkpoint eligibility.
+
+Do not move DEGRADE to another thread unless testing proves the narrow fix insufficient.
+
+Acceptance:
+- q3_runtime >=20/20 with checkpoint actually in flight;
+- DEGRADE occurs;
+- writes resume;
+- main_ms normalizes;
+- recovery-checkpoint path explicitly exercised;
+- test_persistence/test_crash pass;
+- sync acknowledgement contract unchanged;
+- no HA_DURABLE acknowledged write loss.
+
+B2 — CATCHING-UP STANDBY PROMOTED
+
+This is the most serious blocker.
+
+Observed 3/3:
+primary dies -> standby promoted -> old primary rejoins/seeds -> appears as standby before catch-up finishes -> new primary dies -> witness promotes incomplete standby -> acknowledged state disappears.
+
+Required invariant:
+A STANDBY MUST NOT BE PROMOTION-ELIGIBLE UNTIL IT POSITIVELY PROVES CATCH-UP TO THE REQUIRED HA-DURABLE FRONTIER FOR THE CURRENT TERM/REPLICATION RELATIONSHIP.
+
+Connected != promotion-ready.
+Started != promotion-ready.
+Same term != promotion-ready.
+HEALTH responsive != promotion-ready.
+
+Claude's proposed “promotion starts degraded and the new primary owes SYNCED” direction is accepted, but define SYNCED precisely before coding:
+- term/primary relationship;
+- required LSN/frontier;
+- how ongoing writes affect catch-up;
+- when catch-up is complete;
+- what invalidates readiness;
+- reconnect/restart/reseed behavior;
+- term-change behavior;
+- how witness learns readiness;
+- stale SYNCED must never authorize a new-term promotion.
+
+Witness promotion eligibility for Profile B must require positive current-term sync readiness.
+
+If the only standby is still catching up: NO PROMOTION. Unavailability is correct; stale serving is not.
+
+Keep B2 narrow. DO NOT implement general R08 async promotion policy.
+
+Minimum B2 tests:
+1. fail primary immediately after standby seed starts -> no promotion.
+2. fail halfway through catch-up -> no promotion.
+3. reach SYNCED -> fail primary -> promotion succeeds with exact state.
+4. disconnect/restart previously SYNCED standby -> readiness invalidated/re-proven as required.
+5. stale old-term SYNCED cannot authorize promotion.
+6. continuous writes during catch-up cannot produce premature SYNCED.
+7. fail immediately after SYNCED -> every covered HA_DURABLE OK exists.
+8. two consecutive failovers with reseed -> exact state.
+9. migration + rejoin + failover preserves D1/D7.
+10. witness-majority loss while unsynced -> no promotion.
+
+If B2 requires a material witness/Paxos state-format or broad promotion-contract redesign beyond this sync-readiness fact, STOP and return a design proposal first.
+
+B3 — CANCELLED WAL CATCH-UP MEMORY EXPLOSION
+
+Observed:
+cancelled catch-up reader stops waiting for queue space but continues walking/queuing its remaining WAL range; reconnect creates another producer; memory multiplies. Release reached ~2 GiB RSS vs ~283 MiB control; TSan OOM-killed.
+
+AUTHORIZED smallest fix:
+Cancellation means STOP PRODUCING.
+
+At relevant reader loop/batch boundaries:
+if cancelled -> stop reading, allocating and queueing; release temporary state; exit.
+
+A cancelled generation must enqueue no further catch-up records. A new reconnect must not coexist with an old cancelled producer filling the queue.
+
+Do not increase queue/memory limits as the fix.
+
+Minimum B3 tests:
+- cancel large catch-up -> queued bytes stop promptly;
+- repeated reconnect/cancel -> memory does not multiply;
+- SIGSTOP standby during catch-up -> bounded memory;
+- reconnect/resume -> catch-up completes;
+- cancel near end -> next successful catch-up yields exact state;
+- TSan q5_kill_kill passes without OOM;
+- release repro no longer approaches prior ~2 GiB;
+- record RSS/queue high-water.
+
+F1 — RETENTION CAP
+
+Not a baseline blocker yet. It is structurally bounded. Preserve it as resource overhead and measure retention bytes/shard, total memory, time at cap and drain behavior on the R640. Do not optimize before physical-host evidence says it matters.
+
+F2 / R11 — CORRECT THE RETRY CLAIM
+
+The absolute “~35 s maximum resend age” claim is false. PR #47 measured 35.3 s during a 40 s control-plane outage; resend age follows the outage while the primary is blocked.
+
+Replace the contract with:
+For any run claiming session deduplication, every in-doubt resend must occur before session expiry.
+
+Use the new resend-age instrumentation. A campaign run making retry claims must verify max_resend_age is safely below the effective expiry horizon. Choose/document a conservative margin before comparative results.
+
+Long-outage retry remains excluded. Do not increase TTL merely to hide R11. Session incarnation is not required for the initial campaign unless real workload/WAN behavior makes long-dormancy retries necessary.
+
+PR #48 / X1
+
+APPROVED.
+INDEX=6 exposes existing index_lookup semantics only:
+- durable/served objects;
+- no snapshot claim;
+- standby E_STANDBY;
+- sequenced request refused;
+- bounded results;
+- old server E_BAD_ARGS and connection survives;
+- migration/serving and compatibility tests present.
+
+Do not add more index features now.
+
+FIX ORDER
+
+1. B3 cancellation/resource fix.
+2. B1 checkpoint local-durability fix.
+3. B2 promotion-readiness/SYNCED fix.
+4. Re-run T-Q1..T-Q5, T-Q10 and T-H.
+5. Full migration/fail-closed/health suites.
+6. Fresh RelWithDebInfo.
+7. Fresh ASan+UBSan.
+8. Fresh TSan.
+9. Independent source review.
+10. Separate QA.
+11. Reconcile CORE_CONTRACTS, FAILURE_MODEL, INTERACTION_MATRIX, BASELINE_READINESS, EXPERIMENTAL_BASELINE, STATUS and AGENTS.
+12. Return for review.
+
+B3 first because it currently prevents a clean TSan suite.
+B1 second because it is narrow and well characterized.
+B2 third because it changes HA promotion eligibility and requires the most care.
+
+AUTHORIZED:
+B1/B2/B3 fixes, their tests/instrumentation, F2/R11 documentation/run-validity guard, evidence/contract reconciliation.
+
+NOT AUTHORIZED:
+general R08 async automatic failover; session-incarnation redesign absent new evidence; S2/S3; index redesign; Documents/Events/Timers/Agent Runtime; Rust rewrite; competitor campaign; unrelated optimization.
+
+FINAL
+
+PR #47 APPROVED as characterization.
+PR #48 APPROVED.
+
+The readiness program did its job: it found defects that would invalidate Profile B before we published comparative results.
+
+Proceed B3 -> B1 -> B2.
+
+Do not freeze the Experimental Baseline or begin comparative benchmarks until all three are fixed, readiness tests pass, sanitizer suites are clean, and the result returns for review.

@@ -1505,6 +1505,13 @@ bool Shard::poll_replication() {
     busy = true;
     if (repl_hold_) release_waiters();
   }
+  // A regression (the standby lost acknowledged records) stays latched
+  // until this link has proven the standby holds everything durable here
+  // again (docs/SYNC_READINESS.md 4).
+  if (sender_->regressed() && sender_->live() && !sender_->catching_up() && wal_ != nullptr &&
+      sender_->link_acked_lsn() >= wal_->durable_lsn()) {
+    sender_->clear_regressed();
+  }
   if (repl_cfg_.sync) {
     const bool overdue = repl_hold_ && !sender_->live() && repl_cfg_.timeout_ns != 0 &&
                          sender_->down_since_ns() != 0 &&
@@ -1520,7 +1527,8 @@ bool Shard::poll_replication() {
       repl_hold_ = false;
       repl_degraded_ = true;
       release_waiters();
-    } else if (repl_degraded_ && sender_->live() && sender_->acked_lsn() >= wal_->durable_lsn()) {
+    } else if (repl_degraded_ && sender_->live() && !sender_->catching_up() &&
+               sender_->link_acked_lsn() >= wal_->durable_lsn()) {
       std::fprintf(stderr, "snc: shard %u: standby caught up, replication is synchronous again\n",
                    id_);
       repl_hold_ = true;
@@ -1625,8 +1633,14 @@ void Shard::checkpoint_step() {
     }
     return;
   }
-  // Spec C5: the part may only hold state whose WAL record is durable.
-  if (c.writes_inflight == 0 && durable(c.max_lsn)) {
+  // Spec C5: the part may only hold state whose WAL record is durable
+  // here. Local durability, not the standby's acknowledgement: the part is
+  // this node's recovery image and holds nothing its own WAL replay would
+  // not restore. Waiting for the standby wedged the shard's thread when the
+  // standby died mid-checkpoint, so it could never ask for DEGRADE
+  // (docs/BASELINE_READINESS.md B1). The standby's acknowledgement stays
+  // part of a sync client OK (durable()).
+  if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
     c.inflight_bufs.clear();
     c.syncing = true;
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);
@@ -1636,7 +1650,21 @@ void Shard::checkpoint_step() {
 // ---- Stats ---------------------------------------------------------------------------
 
 Shard::ReplSummary Shard::repl_summary() const {
-  if (sender_) return {1, sender_->live(), repl_degraded_, repl_blocked_};
+  if (sender_) {
+    // Ready (docs/SYNC_READINESS.md 3): a sync primary, not degraded or
+    // blocked, whose current link is live, not catching up from disk, and
+    // has itself proven the standby holds every durable record here.
+    // An async primary acknowledges before its standby has anything, so
+    // no link can prove that; its readiness stays what it was (the link is
+    // up), and async promotion policy (R08) is unchanged here.
+    const bool ready =
+        repl_cfg_.sync ? repl_hold_ && !repl_degraded_ && !repl_blocked_ && sender_->live() && !sender_->catching_up() &&
+                             wal_ != nullptr && sender_->link_acked_lsn() >= wal_->durable_lsn() && !sender_->regressed()
+                       : sender_->live() && !repl_degraded_ && !repl_blocked_;
+    // A regression only matters to sync readiness; an async primary's is
+    // not reported (R08 unchanged).
+    return {1, sender_->live(), repl_degraded_, repl_blocked_, ready, repl_cfg_.sync && sender_->regressed()};
+  }
   if (receiver_) return {2, receiver_->connected(), false, false};
   return {0, false, false, false};
 }

@@ -133,6 +133,10 @@ def main():
         # The witnesses learn both primaries, each on its own machine.
         wait(lambda: all((ask(wports[0], f"READ ha/{g}") or "").split()[1:2] != ["0"] for g in range(2)),
              "both groups' primaries learned")
+        # And both primaries prove their standby in sync (READY: degraded 0);
+        # until then no standby may be promoted (docs/SYNC_READINESS.md).
+        wait(lambda: all((ask(wports[0], f"READ ha/{g}") or "").split()[4:5] == ["0"] for g in range(2)),
+             "both groups READY")
         before = {m: ask(wports[0], f"READ {m}") for m in ["ha/0", "ha/1", "placement", "leases"]}
         blocks = {i: tuple(map(int, st[i]["leases"].split("-"))) for i in (1, 3)}
 

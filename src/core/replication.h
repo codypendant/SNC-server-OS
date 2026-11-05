@@ -9,6 +9,7 @@
 // non-blocking sockets; neither blocks the shard.
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
@@ -104,6 +105,16 @@ class Sender {
 
   u64 acked_lsn() const { return acked_; }
   bool live() const { return state_ == State::LIVE; }
+  // Sync readiness (docs/SYNC_READINESS.md 3): what the current link has
+  // proven the standby holds (its verified handshake position, then its
+  // acks; 0 while down). acked_lsn() only grows and may have been earned by
+  // an earlier standby process; this does not.
+  u64 link_acked_lsn() const { return state_ == State::LIVE ? link_acked_ : 0; }
+  // The standby came back without records this primary had counted as
+  // acknowledged (reseeded, wiped or restored): latched until cleared by
+  // the shard once readiness is proven again on a link.
+  bool regressed() const { return regressed_; }
+  void clear_regressed() { regressed_ = false; }
   // Nanoseconds since the link was last live (0 while live).
   u64 down_since_ns() const { return down_since_; }
   // The standby needs records that are neither in memory nor on disk: it
@@ -141,7 +152,11 @@ class Sender {
     std::condition_variable cv;
     std::deque<std::vector<u8>> frames;
     std::size_t bytes = 0;
-    bool done = false, ok = true, cancel = false, diverged = false;
+    bool done = false, ok = true, diverged = false;
+    // Set by stop_disk(): the reader stops producing at its next record
+    // (docs/BASELINE_READINESS.md B3). Read without the lock per record.
+    std::atomic<bool> cancel{false};
+    ~DiskRead();  // frames never sent leave the process-wide gauge
   };
   // Reads [from, to). With verify_crc, first checks that record from - 1
   // has that crc (the standby's last record matches ours).
@@ -161,13 +176,15 @@ class Sender {
   bool read_acks(u64 now_ns);
   void position_at(u64 next_lsn, u32 tail_crc, u64 now_ns);
   void trim();
+  void sent_frame(const std::vector<u8>& frame);
 
   Config cfg_;
   State state_ = State::DOWN;
   int fd_ = -1;
   u64 retry_at_ = 0;
   u64 down_since_ = 0;
-  u64 progress_ns_ = 0;    // live: last time acks advanced or nothing waited
+  u64 progress_ns_ = 0;    // live: last time acks advanced, bytes went out, or nothing was owed
+  u64 owed_ = 0;           // last LSN of any frame begun on this link
   // Read leases: the latest lease_ts to echo, and the echo frame being sent.
   bool in_sync_ = false;
   u64 lease_until_ = 0;
@@ -177,6 +194,8 @@ class Sender {
   bool lost_ = false;
   bool fenced_ = false;
   u64 acked_ = 0;
+  u64 link_acked_ = 0;     // proven on the current link (see link_acked_lsn)
+  bool regressed_ = false;
   std::deque<Chunk> chunks_;
   u64 retained_ = 0;
   // Send position: chunk index and offset within its bytes. A chunk may

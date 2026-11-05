@@ -1,0 +1,14 @@
+  valid_b: ok
+  valid_a_c_d: ok
+  async_with_witness: ok
+  status_witness: ok
+  reused_data_dir: ok
+  shard_change_on_restart: ok
+  standby_reads_in_b: ok
+  undeclared_deviations: ok
+  profile_shapes: ok
+  parsing_as_the_binary_does: ok
+  same_directory_two_nodes: ok
+  lenient_where_harmless: ok
+  lab_profile_b: ok
+test_profile_check: 13 cases ok

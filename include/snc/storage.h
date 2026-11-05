@@ -99,8 +99,13 @@ StreamScan scan_stream(const std::string& data_dir, u16 stream, u64 from_lsn, co
 // stream is being written. Every record in the range must already be on
 // disk. Returns false, possibly after delivering some, if the range is not
 // all there (a segment was deleted, or a gap): the caller cannot use it.
+// fn returns false to stop: the read ends there (no further record, no
+// further segment read) and returns false. stop, if set, is polled before
+// each segment and while skipping records ahead of from_lsn, so a cancelled
+// read ends without delivering anything first (B3).
 bool read_stream_range(const std::string& data_dir, u16 stream, u64 from_lsn, u64 to_lsn,
-                       const Uuid& uuid, const std::function<void(const u8* rec, u32 len)>& fn);
+                       const Uuid& uuid, const std::function<bool(const u8* rec, u32 len)>& fn,
+                       const std::function<bool()>& stop = {});
 
 // Delivers every IMAGE record of a checkpoint part. Aborts on any corruption:
 // a checkpoint named by the superblock must be complete.

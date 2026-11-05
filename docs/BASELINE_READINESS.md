@@ -1,7 +1,10 @@
 # Baseline readiness: pre-baseline test results
 
-**Status: RESULTS FOR REVIEW. Three Profile B BLOCKERS were reproduced
-(B1, B2, B3), and none is fixed here.** This is step 2 of the order in
+**Status: B1, B2 AND B3 FIXED 2026-11-05, FOR REVIEW** (section 10;
+work order `handoff/PR47_PR48_Blocker_Fix_Handoff.txt`). Sections 1 to 9
+are the characterization as reviewed in PR #47, kept unchanged as the
+record of the defects. The baseline is still not frozen: that waits for
+cody's review of the fixes. This is step 2 of the order in
 [EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md) section 13 (the
 review of PR #45, `handoff/PR45_Baseline_Review.txt`). Following that
 review, each blocker is characterized, its evidence is kept, and the
@@ -408,10 +411,201 @@ run by name. They move into `ctest` with their fixes.
 Section 11 of the baseline document still holds. In addition:
 
 - **B1, B2 and B3 must be fixed** in separate reviewed slices, and their
-  scenarios must pass, before the freeze.
-- **R11 needs a decision** on the restated bound (section 4), or the
-  client-side cap.
+  scenarios must pass, before the freeze. *(Done 2026-11-05, section 10;
+  for review.)*
+- **R11:** decided by cody's review of PR #47: the contract and its
+  run-validity guard are in EXPERIMENTAL_BASELINE section 7 (section 10
+  here).
 - **F1:** Profile B declares `--replica-retain-mib`. Should T-H enforce
   it?
 - **X1** is implemented as its own slice (EXPERIMENTAL_BASELINE section
   4). It does not depend on B1, B2 or B3.
+
+
+## 10. The fixes (2026-11-05)
+
+Order as the work order set it: B3, then B1, then B2, then the reruns.
+Evidence: [`bench/results/blocker-fixes-20261105/`](../bench/results/blocker-fixes-20261105/)
+(`rel/` holds one JSON per scenario of the rerun below).
+
+### B3: a cancelled catch-up reader stops producing
+
+- **Fix** (`src/core/replication.cpp`, `src/core/storage.cpp`): the
+  reader checks its generation's cancel flag on every record and before
+  every queue push, under the queue's lock; `stop_disk` sets it and wakes
+  the reader. A cancelled reader reads, allocates and queues nothing more,
+  frees its read-ahead (its destructor subtracts it from the gauge) and
+  exits. The queue limit (16 MiB per reader) is unchanged.
+- **Gauges** (`RESOURCES`): `disk_readers`, `disk_queued`,
+  `disk_queued_hwm`, `disk_started`, `disk_stopped_on_cancel`.
+- **Tests:** `test_baseline_retry.py b3_stalled_catchup` (in `ctest`):
+  the rejoined standby SIGSTOPped 0.7 s of every 1 s for 20 s, so the
+  primary cancels and restarts its reader again and again (before the fix
+  the release repro of section 3b reached 2,059 MiB). It requires: the
+  cancel path taken (at least 5 ack timeouts and 2 readers stopped on
+  cancel), at most 2 live readers per shard, the read-ahead high water at
+  most one queue per reader (2 shards x 2 x 17 MiB), peak RSS under
+  512 MiB, the catch-up completed with no reader and no queued bytes left,
+  and a failover to that standby exact.
+- **Results** (release, final commit, `rel/b3_stalled_catchup.json`):
+  38 ack timeouts, 38 readers stopped on cancel, at most **2 live
+  readers** (one per shard), read-ahead high water **32 MiB** (two full
+  16 MiB queues), peak RSS **345 MiB** (2,059 MiB before the fix), no
+  reader and no queued byte left at the end; the failover to the
+  caught-up standby exact.
+- **Found under TSan and fixed in this round** (commit 0a1e93c): (a) a
+  cancelled reader checked its flag only from its first delivered record,
+  so it first scanned the rest of a 64 MiB segment; with TSan's slowdown
+  67 such readers were alive at once (6 GB RSS). `read_stream_range` now
+  takes a stop predicate, polled before each segment and every 1024
+  records. (b) The ack timeout ran while the primary waited on its own
+  disk reader or its catch-up rate, so a slow reader livelocked the link
+  (drop, reconnect, restart the reader). It now runs only while the
+  standby owes an ack for a frame it has begun to get; bytes the socket
+  accepted are not counted as progress, so a stopped standby is still
+  detected. This is also the cause of F5 below.
+- **What each work-order item rests on.** "Queued bytes stop promptly"
+  and "repeated reconnect does not multiply memory": a cancelled reader
+  that kept queueing would push the high-water mark past one queue per
+  live reader, as before the fix; the high water and RSS bound that.
+  Time-to-stop is not measured separately. "Cancel near end": the stalls
+  fall at random points of the catch-up, so late cancels happen, but no
+  scenario aims at the last frame; the exact failover after the final
+  catch-up is the check. TSan `q5_kill_kill` passes (sanitizer results
+  below).
+
+### B1: a checkpoint waits for local WAL durability only
+
+- **Fix** (`Shard::checkpoint_step`): a shard's checkpoint image is cut
+  once its writes in flight are durable in this node's own WAL
+  (`lsn_local_durable(max_lsn)`), not once the standby acked them. Client
+  OKs still wait on `durable()`, unchanged: the sync acknowledgement
+  contract is the same. A checkpoint holds only records that WAL replay
+  would restore anyway.
+- **Gauges:** `RESOURCES ckpt_running`, `ckpts`.
+- **Tests:** `test_baseline_ha.py q3_runtime` (in `ctest`) now kills the
+  standby while a checkpoint is in flight (polled through `ckpt_running`).
+  `q3_runtime20` (final commit): **20 of 20** trials with a checkpoint in
+  flight at the kill; DEGRADE granted in all 20; none wedged; writes
+  resumed within 0.62 s; `main_ms` at most 171 ms 15 s later (14,762 ms and rising before the fix); checkpoints kept completing; every
+  acknowledged write present: a probe deposits for 1 s before the kill,
+  then the primary is SIGKILLed and restarted, and the probe account's
+  balance must lie between the acknowledged and the attempted deposits
+  and be the same after the restart (20 of 20). The old code
+  wedged 3 of 3 with the same in-flight kill
+  (`b1_q3_runtime_unfixed_inflight_kill.json`).
+- **Recovery checkpoint:** `q3_restart` restarts the primary on 4 shards
+  (was 2) with the standby gone; `snc_server` now prints `recovery:
+  checkpoint before serving (shard count changed)` and the test requires
+  it; the start completes, DEGRADE is granted, a write succeeds.
+  `test_persistence`, `test_crash` pass.
+
+### B2: a standby is promotable only once proven in sync
+
+Design and argument: [SYNC_READINESS.md](SYNC_READINESS.md). In short:
+the witnesses' `degraded` bit now means NOT READY; it is recorded when a
+primary is learned, on every promotion, on a grant, on a reseed or a
+regression, and when a primary process starts; only `SYNCED` from the
+current term's primary clears it, sent once each shard's current link
+proved the standby holds every durable record. No witness state, Paxos or
+state format change (protocol additions: seed status 3 "retry", the
+witness refusal "NO not learned yet"); a witness answers DEGRADE and
+SYNCED only after it has learned the pair.
+
+| Work order test | Where | Result |
+| --- | --- | --- |
+| 1 Fail right after the seed starts | `test_sync_readiness.py s1_seed_start` | no promotion, NOT READY kept |
+| 2 Fail halfway through catch-up | `s2_mid_catchup` (killed at 50% of a 2.9 MB backlog) | no promotion |
+| 3 SYNCED, then fail | `s3_synced_fail` | promoted (term 2), exact |
+| 4 Restart, then reseed, a SYNCED standby | `s4_restart_reseed` | restart on its data: READY kept; reseed: NOT READY recorded before the seed is served, READY after; failover exact |
+| 5 Stale SYNCED | `s5_stale_synced` | refused by all 3 witnesses (`NO term 0 was replaced by 1`), no promotion |
+| 6 Writes during catch-up | `s6_writes_catchup` | never READY while behind; READY with writes running; exact |
+| 7 Fail right at SYNCED | `s7_fail_at_synced` | promoted, exact |
+| 8 Two failovers with a reseed | `q5_kill_kill`, `q5_kill_stop`, `q5_catchup_race`, `q5_catchup_race_late` | exact after both failovers; in the races no promotion (state `[3, 1, 1, NOT READY]`) |
+| 9 Migration, rejoin, failover | `test_fail_closed.py f19` | S served at the rejoined node with every acked write; A never served it (294 probes); the rejoined node's log orders NOT READY, then the seed, then back in sync |
+| 10 Witness majority lost while unsynced | `s10_majority_loss`, `s10b_one_witness_lost` | no promotion; the node stays a standby |
+
+All in `ctest` (`test_sync_readiness`, `test_baseline_retry`,
+`test_fail_closed`). Existing tests that killed a primary right after
+start now wait for READY first (`test_health.Pair`, `test_witness`,
+`test_control`); witness-mode clusters in `test_fail_closed` pass
+`--witness` to their nodes.
+
+**Independent source review** (a separate reviewer reading only the
+source): B3 and B1 no defects. B2: two holes, both fixed and retested (a
+lost SYNCED reply; a standby handshake position that was not yet
+durable), plus hardening (a primary records NOT READY at start; SYNCED
+re-reads the shards). One same-term window existed before B2 and is
+**proposed, not coded**: a SYNCED delayed inside a witness can land on
+top of a later grant (SYNC_READINESS.md 4, with the proposed protocol
+change).
+
+### F2 / R11
+
+EXPERIMENTAL_BASELINE section 7 now states the contract: for a run that
+claims session deduplication, every in-doubt resend occurs before session
+expiry. `net_bench --retry-claim-ttl-s TTL` enforces it per run (the
+oldest resend at most TTL/10, else `retry claim: INVALID`, exit 3); every
+readiness client (`test_baseline_retry`, `test_sync_readiness`) claims
+3600 s. The guard trusts the TTL it is given: a campaign manifest records
+both the claimed TTL and the server's `session_ttl_s`. `r11_guard` shows the refusal.
+
+### Rerun (RelWithDebInfo, this VM, final commit)
+
+Every scenario below ran on commit 39bafa8, all PASS
+(`rel/run_log.txt`). On an earlier rerun `q5_kill_kill` once failed
+because the test let the second failure land after catch-up but before
+SYNCED (READY lags catch-up by up to 0.3 s); the test now waits for
+READY (commit ea42b53, test-only) and has not failed since.
+
+| Test | Scenarios | Result |
+| --- | --- | --- |
+| T-Q1 | oldest resend: `q1_kill` 1.0 s, `q1_stop` 10.2 s, `q1_partition` 10.1 s, `q1_flap` 0.5 s, `q1_stall` 7.0 s, `q1_blocked` 35.2 s (40 s outage), `q1_failed` (gives up, error) | PASS; every claim valid (limit 360 s) |
+| T-Q2 | `q2_lost_move` | PASS |
+| T-Q3 | `q3_runtime20` 20/20, `q3_restart` | PASS (B1 fixed) |
+| T-Q4 | `q4_normal`, `q4_delayed10` | PASS |
+| T-Q5 | `q5_kill_kill`, `q5_kill_stop`, `q5_catchup_race`, `q5_catchup_race_late` | PASS (B2 fixed) |
+| T-Q10 | `q10_copied`, `q10_sealed`, `q10_staged`, `q10_committed`, `q10_activated` | PASS |
+| T-H | `test_profile_check` 13 cases | PASS |
+| B2 | `test_sync_readiness` s1 to s10b; `test_fail_closed` f13:f3, f13:f6, f19 | PASS |
+
+### Full suites, fresh builds of the final code
+
+| Build | `ctest` | Sanitizer reports |
+| --- | --- | --- |
+| RelWithDebInfo | 27 / 28, then 28 / 28 (below) | n/a |
+| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leak check on) | 28 / 28 | 0 |
+| Debug, TSan (`halt_on_error=1`) | 28 / 28 | 0 |
+
+`rel/ctest_rel.txt`, `rel/ctest_asan_summary.txt`,
+`rel/ctest_tsan_summary.txt`, all on commit 39bafa8. The one release
+failure was a test gap, not a safety failure: `test_fail_closed f1`
+requires its probe to have sampled the promoted standby, and under the
+loaded full suite it got no answer in that window (0 samples, so the
+check "never served" had nothing to stand on; no sample served). The
+probe now waits for one sample before the kill and one from the promoted
+node before it stops (test-only commit after 39bafa8); `f1` passed 3 of
+3 alone, again while an ASan `f1` ran beside it (15 samples each, none
+served), and `ctest -R test_fail_closed` passed in release. One test allowance is TSan-only:
+`s1_seed_start` runs its witnesses with `--poll-ms 300` under TSan (node
+1's two shards share one CPU with a checkpoint that never stops there,
+so STATUS answered in 60 to 100 ms against a 100 ms eligibility poll).
+Release keeps 100 ms.
+
+### Findings from this round (not fixed; reported)
+
+- **F5: catch-up rate floor (found, then FIXED in this round).** With
+  `--catchup-mib-s` below about 2 MiB/s, one 1 MiB disk frame took longer
+  than the 500 ms ack timeout, the primary dropped the link and the
+  catch-up restarted forever (seen at 1 and 2 MiB/s). Same cause as the
+  TSan livelock of B3 above: the ack timeout counted the primary's own
+  pacing. Fixed with it (commit d45589f): a write cut short by the
+  rate, not by a full socket, is the primary's pacing. Probe: `s2` at
+  1 MiB/s, 0 ack timeouts (184 before), the backlog falling steadily.
+  The readiness tests keep 8 MiB/s so their backlog drains in time.
+- **F6: degraded mode has no back-pressure.** A standby slower than the
+  primary's write rate, or one whose disk catch-up restarts because
+  retention is tiny (`--replica-retain-mib 1` under full load), may never
+  catch up, so the group stays NOT READY: unavailable for failover, never
+  unsafe. With the default retention SYNCED came 0.5 to 1.3 s after the
+  rejoin at full client rate (0.48 s and 1.12 s in `s3` and `s7`).

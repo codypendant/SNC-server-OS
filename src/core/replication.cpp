@@ -1,5 +1,6 @@
 #include "replication.h"
 
+#include "snc/snc.h"
 #include "snc/sri.h"
 
 #include <atomic>
@@ -95,7 +96,20 @@ Sender::~Sender() {
 namespace {
 constexpr std::size_t kDiskFrame = 1u << 20;      // records per frame read from disk
 constexpr std::size_t kDiskQueued = 16u << 20;    // read ahead at most this much
+
+// Process-wide catch-up reader gauges (snc::repl_disk_gauges, RESOURCES).
+std::atomic<u64> g_readers_live{0}, g_queued{0}, g_queued_hwm{0}, g_started{0}, g_stopped_on_cancel{0};
+
+void queued_add(u64 n) {
+  const u64 now = g_queued.fetch_add(n, std::memory_order_relaxed) + n;
+  u64 hwm = g_queued_hwm.load(std::memory_order_relaxed);
+  while (now > hwm && !g_queued_hwm.compare_exchange_weak(hwm, now, std::memory_order_relaxed)) {
+  }
+}
+void queued_sub(u64 n) { g_queued.fetch_sub(n, std::memory_order_relaxed); }
 }  // namespace
+
+Sender::DiskRead::~DiskRead() { queued_sub(bytes); }
 
 void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
   auto d = std::make_shared<DiskRead>();
@@ -111,28 +125,37 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
     }
     pthread_setaffinity_np(pthread_self(), sizeof(all), &all);
     ::setpriority(PRIO_PROCESS, static_cast<id_t>(::gettid()), 10);
+    g_readers_live.fetch_add(1, std::memory_order_relaxed);
+    g_started.fetch_add(1, std::memory_order_relaxed);
     std::vector<u8> f;
     u64 first = 0, last = 0;
     bool checking = verify_crc != 0, bad = false;
+    // Cancellation means stop producing (docs/BASELINE_READINESS.md B3):
+    // once stop_disk() has run, this reader reads, allocates and queues
+    // nothing more. Its queued frames go with the last reference to d.
+    auto cancelled = [&] { return d->cancel.load(std::memory_order_relaxed); };
     auto push = [&] {
-      if (f.empty()) return;
+      if (f.empty()) return true;
       RecordsHeader h{static_cast<u32>(f.size() - sizeof(RecordsHeader)), 0, first, last};
       std::memcpy(f.data(), &h, sizeof(h));
       std::unique_lock<std::mutex> g(d->mu);
-      d->cv.wait(g, [&] { return d->bytes < kDiskQueued || d->cancel; });
+      d->cv.wait(g, [&] { return d->bytes < kDiskQueued || cancelled(); });
+      if (cancelled()) return false;
       d->bytes += f.size();
+      queued_add(f.size());
       d->frames.push_back(std::move(f));
       f.clear();
+      return true;
     };
     bool ok = read_stream_range(dir, shard, checking ? from - 1 : from, to, uuid,
                                 [&](const u8* rec, u32 len) {
-      if (bad) return;
+      if (bad || cancelled()) return false;
       if (checking) {
         u32 crc;
         std::memcpy(&crc, rec, 4);  // WalRecord::crc32c
         bad = crc != verify_crc;
         checking = false;
-        return;
+        return !bad;
       }
       if (f.empty()) {
         f.resize(sizeof(RecordsHeader));
@@ -143,20 +166,26 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
       // Cut frames only between atomic groups: the standby applies whole frames.
       u16 flags;
       std::memcpy(&flags, rec + offsetof(WalRecord, flags), 2);
-      if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) push();
-    });
-    if (!bad) push();
-    std::lock_guard<std::mutex> g(d->mu);
-    d->ok = ok && !bad;
-    d->diverged = bad;
-    d->done = true;
+      if (f.size() >= kDiskFrame && !(flags & kRecGroupNext)) return push();
+      return true;
+    }, cancelled);
+    if (!bad && !cancelled()) push();
+    if (cancelled()) g_stopped_on_cancel.fetch_add(1, std::memory_order_relaxed);
+    std::vector<u8>().swap(f);
+    {
+      std::lock_guard<std::mutex> g(d->mu);
+      d->ok = ok && !bad;
+      d->diverged = bad;
+      d->done = true;
+    }
+    g_readers_live.fetch_sub(1, std::memory_order_relaxed);
   }).detach();
 }
 
 void Sender::stop_disk() {
   if (disk_) {
     std::lock_guard<std::mutex> g(disk_->mu);
-    disk_->cancel = true;
+    disk_->cancel.store(true, std::memory_order_relaxed);
     disk_->cv.notify_all();
   }
   disk_.reset();
@@ -172,6 +201,7 @@ void Sender::apply_verified(bool& advanced) {
     acked_ = verify_ack_;
     advanced = true;
   }
+  link_acked_ = std::max(link_acked_, verify_ack_);
   verify_ack_ = 0;
 }
 
@@ -191,7 +221,10 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
     if (disk_off_ < disk_frame_.size()) {
       std::size_t n = disk_frame_.size() - disk_off_;
       if (rate) {
-        if (disk_tokens_ == 0) return false;  // over the rate: wait for tokens
+        if (disk_tokens_ == 0) {
+          progress_ns_ = now_ns;  // our own pacing, not the standby's silence
+          return false;  // over the rate: wait for tokens
+        }
         n = std::min<std::size_t>(n, disk_tokens_);
       }
       long w = write_some(fd_, disk_frame_.data() + disk_off_, n);
@@ -202,8 +235,13 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
       disk_off_ += static_cast<std::size_t>(w);
       stats_.bytes_sent += static_cast<u64>(w);
       stats_.disk_bytes += static_cast<u64>(w);
+      if (w > 0) sent_frame(disk_frame_);
       if (rate) disk_tokens_ -= static_cast<u64>(w);
-      if (disk_off_ < disk_frame_.size()) return false;  // socket full or out of tokens
+      if (disk_off_ < disk_frame_.size()) {
+        // Stopped by our rate, not by a full socket: our pacing.
+        if (rate && disk_tokens_ == 0) progress_ns_ = now_ns;
+        return false;  // socket full or out of tokens
+      }
       ++stats_.frames_sent;
     }
     bool done, ok, div;
@@ -213,6 +251,7 @@ bool Sender::send_disk(u64 now_ns, bool& advanced) {
         disk_frame_ = std::move(disk_->frames.front());
         disk_->frames.pop_front();
         disk_->bytes -= disk_frame_.size();
+        queued_sub(disk_frame_.size());
         disk_->cv.notify_all();
         disk_off_ = 0;
         apply_verified(advanced);  // the reader checked the tail before the first frame
@@ -292,8 +331,17 @@ void Sender::trim() {
   stats_.retained_bytes = retained_;
 }
 
+void Sender::sent_frame(const std::vector<u8>& frame) {
+  // The standby owes acks up to the end of any frame it has begun to get.
+  RecordsHeader h;
+  std::memcpy(&h, frame.data(), sizeof(h));
+  if (h.kind == kFrameRecords && h.last_lsn > owed_) owed_ = h.last_lsn;
+}
+
 void Sender::close_link(u64 now_ns) {
   stop_disk();
+  owed_ = 0;
+  link_acked_ = 0;
   if (fd_ >= 0) ::close(fd_);
   fd_ = -1;
   if (state_ == State::LIVE) down_since_ = now_ns;
@@ -425,6 +473,16 @@ bool Sender::read_acks(u64 now_ns) {
         return advanced;
       }
       verify_ack_ = 0;
+      link_acked_ = 0;
+      // Below what this primary already counted as acknowledged: the
+      // standby lost records it had acked (docs/SYNC_READINESS.md 4).
+      if (a.next_lsn > 0 && a.next_lsn - 1 < acked_) {
+        std::fprintf(stderr,
+                     "snc: standby shard %u came back at LSN %llu, below the acknowledged %llu: "
+                     "not ready until it catches up\n",
+                     cfg_.shard, (unsigned long long)(a.next_lsn - 1), (unsigned long long)acked_);
+        regressed_ = true;
+      }
       position_at(a.next_lsn, a.last_crc, now_ns);
       if (lost_) return advanced;
       // It already has up to next_lsn - 1 durably: those count as acked once
@@ -444,6 +502,7 @@ bool Sender::read_acks(u64 now_ns) {
         acked_ = k.durable_lsn;
         advanced = true;
       }
+      link_acked_ = std::max(link_acked_, k.durable_lsn);
       if (k.lease_ts != 0 && in_sync_) {
         lease_until_ = std::max(lease_until_, now_ns + k.lease_ns);
         echo_ts_ = std::max(echo_ts_, k.lease_ts);
@@ -486,7 +545,13 @@ bool Sender::poll(u64 now_ns) {
     progress_ns_ = now_ns;  // paused on purpose: not a silent standby
     return advanced;
   }
-  if (advanced || acked_ + 1 >= next_expected_) {
+  // The ack timeout measures the standby, not this primary: it runs only
+  // while the standby owes an ack for a frame it has begun to get. Waiting
+  // on our own disk reader, or on our catch-up rate (send_disk), is not
+  // silence: both used to livelock against this timeout (BASELINE_READINESS F5, and TSan).
+  // Bytes accepted by the socket are not progress: a stopped standby's
+  // socket buffer would hide it for as long as it takes to fill.
+  if (advanced || acked_ >= owed_ || acked_ + 1 >= next_expected_) {
     progress_ns_ = now_ns;
   } else if (cfg_.ack_timeout_ns != 0 && now_ns - progress_ns_ >= cfg_.ack_timeout_ns) {
     std::fprintf(stderr, "snc: standby shard %u stopped acking: treating it as down\n", cfg_.shard);
@@ -523,6 +588,7 @@ bool Sender::poll(u64 now_ns) {
     partial_off_ += static_cast<std::size_t>(w);
     stats_.bytes_sent += static_cast<u64>(w);
     if (w == 0) return advanced;
+    sent_frame(partial_);
   }
   while (send_chunk_ < chunks_.size()) {
     Chunk& c = chunks_[send_chunk_];
@@ -533,6 +599,7 @@ bool Sender::poll(u64 now_ns) {
     }
     send_off_ += static_cast<std::size_t>(w);
     stats_.bytes_sent += static_cast<u64>(w);
+    if (w > 0) sent_frame(c.bytes);
     if (send_off_ < c.bytes.size()) break;  // socket full
     ++stats_.frames_sent;
     ++send_chunk_;
@@ -642,6 +709,11 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
   }
   if (!greeted_) {
     if (in_len_ < sizeof(Hello)) return did;
+    // The answer tells the primary this standby holds everything below
+    // next_lsn, and the primary counts that as acknowledged (client OKs,
+    // and sync readiness: docs/SYNC_READINESS.md 3). So answer only once
+    // every record written here is durable.
+    if (durable_lsn + 1 < next_lsn) return true;
     if (!handshake(next_lsn, tail_crc)) {
       write_some(conn_, out_.data(), out_.size());
       drop();
@@ -707,3 +779,15 @@ bool Receiver::poll(u64 next_lsn, u64 durable_lsn, u32 tail_crc, u64 now_ns) {
 }
 
 }  // namespace snc::repl
+
+namespace snc {
+ReplDiskGauges repl_disk_gauges() {
+  ReplDiskGauges g;
+  g.readers_live = repl::g_readers_live.load(std::memory_order_relaxed);
+  g.queued_bytes = repl::g_queued.load(std::memory_order_relaxed);
+  g.queued_hwm = repl::g_queued_hwm.load(std::memory_order_relaxed);
+  g.started = repl::g_started.load(std::memory_order_relaxed);
+  g.stopped_on_cancel = repl::g_stopped_on_cancel.load(std::memory_order_relaxed);
+  return g;
+}
+}  // namespace snc
