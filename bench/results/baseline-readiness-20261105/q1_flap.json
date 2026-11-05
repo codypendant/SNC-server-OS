@@ -1,0 +1,29 @@
+{
+ "primary_after": 0,
+ "term_after": 0,
+ "bench": {
+  "rc": 0,
+  "exited_after_s": 20.19,
+  "failovers": 3,
+  "replayed": 154,
+  "timeouts": 0,
+  "resends": 96,
+  "max_resend_age_ms": 577,
+  "accounts": 2000,
+  "deposits": 705052,
+  "mismatches": 0,
+  "ops_s": 35170,
+  "errors": 0,
+  "tail": [
+   "run: reads=0% seconds=20.05",
+   "  ops/s 35170  errors 0  overloaded 0  stale 0",
+   "  latency ns  p50 1343488  p95 2621440  p99 4325376  p99.9 12058624",
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 3  replayed 154  timeouts 0  resends 96  max_resend_age_ms 577",
+   "  verify: 2000 accounts, 705052 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "q1_flap",
+ "seconds": 20.9
+}

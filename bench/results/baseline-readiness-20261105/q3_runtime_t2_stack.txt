@@ -1,0 +1,95 @@
+[New LWP 990]
+[New LWP 989]
+[New LWP 988]
+[New LWP 987]
+[New LWP 986]
+[New LWP 985]
+[New LWP 984]
+[New LWP 983]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+
+Thread 9 (Thread 0x7f7d969ff6c0 (LWP 983) "snc_server"):
+#0  0x00007f7d96b2a2d2 in epoll_wait (epfd=4, events=0x7f7d969fe950, maxevents=64, timeout=0) at ../sysdeps/unix/sysv/linux/epoll_wait.c:30
+#1  0x000055b9957dfa7c in snc::net::ConnSet::poll (this=0x388c61c0100) at /home/claude/snc-server-os/src/net/conn_set.cpp:155
+#2  0x000055b9957a7344 in snc::(anonymous namespace)::hook_poll (user=0x388c60d0000) at /home/claude/snc-server-os/src/core/engine.cpp:84
+#3  0x000055b9957da897 in snc::NativeRuntime::Impl::loop (this=this@entry=0x388c60f00e0, w=...) at /home/claude/snc-server-os/src/native/runtime.cpp:369
+#4  0x000055b9957dbdf5 in snc::NativeRuntime::Impl::run (this=0x388c60f00e0, w=..., rings_ready=..., init_done=...) at /home/claude/snc-server-os/src/native/runtime.cpp:487
+#5  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#6  0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#7  0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 8 (Thread 0x7f7d961fe6c0 (LWP 984) "snc_server"):
+#0  0x00007f7d96b2a2d2 in epoll_wait (epfd=6, events=0x7f7d961fd950, maxevents=64, timeout=0) at ../sysdeps/unix/sysv/linux/epoll_wait.c:30
+#1  0x000055b9957dfa7c in snc::net::ConnSet::poll (this=0x388c61c0200) at /home/claude/snc-server-os/src/net/conn_set.cpp:155
+#2  0x000055b9957a7344 in snc::(anonymous namespace)::hook_poll (user=0x388c60d0000) at /home/claude/snc-server-os/src/core/engine.cpp:84
+#3  0x000055b9957da897 in snc::NativeRuntime::Impl::loop (this=this@entry=0x388c60f00e0, w=...) at /home/claude/snc-server-os/src/native/runtime.cpp:369
+#4  0x000055b9957dbdf5 in snc::NativeRuntime::Impl::run (this=0x388c60f00e0, w=..., rings_ready=..., init_done=...) at /home/claude/snc-server-os/src/native/runtime.cpp:487
+#5  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#6  0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#7  0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 7 (Thread 0x7f7d951fb6c0 (LWP 985) "snc_server"):
+#0  0x00007f7d96a98e51 in __futex_abstimed_wait_common64 (private=24, cancel=true, abstime=0x0, op=393, expected=0, futex_word=0x388c6130150) at ./nptl/futex-internal.c:57
+#1  __futex_abstimed_wait_common (cancel=true, private=24, abstime=0x0, clockid=0, expected=0, futex_word=0x388c6130150) at ./nptl/futex-internal.c:87
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x388c6130150, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x0, private=private@entry=0) at ./nptl/futex-internal.c:139
+#3  0x00007f7d96a9b8cd in __pthread_cond_wait_common (abstime=0x0, clockid=0, mutex=0x388c6130100, cond=0x388c6130128) at ./nptl/pthread_cond_wait.c:503
+#4  ___pthread_cond_wait (cond=0x388c6130128, mutex=0x388c6130100) at ./nptl/pthread_cond_wait.c:627
+#5  0x000055b9957bf2ad in snc::SegmentPreparer::run (this=0x388c61300c0) at /home/claude/snc-server-os/src/core/storage.cpp:734
+#6  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#7  0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#8  0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 6 (Thread 0x7f7d969ff6c0 (LWP 986) "iou-wrk-983"):
+#0  0x0000000000000000 in ?? ()
+Backtrace stopped: Cannot access memory at address 0x0
+
+Thread 5 (Thread 0x7f7d961fe6c0 (LWP 987) "iou-wrk-984"):
+#0  0x0000000000000000 in ?? ()
+Backtrace stopped: Cannot access memory at address 0x0
+
+Thread 4 (Thread 0x7f7d949fa6c0 (LWP 988) "snc_server"):
+#0  0x00007f7d96aecbdf in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7f7d949f9e20, rem=0x7f7d949f9e20) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+#1  0x00007f7d96af9b27 in __GI___nanosleep (req=<optimized out>, rem=<optimized out>) at ../sysdeps/unix/sysv/linux/nanosleep.c:25
+#2  0x000055b99577a7a2 in std::this_thread::sleep_for<long, std::ratio<1l, 1000l> > (__rtime=...) at /usr/include/c++/13/bits/this_thread_sleep.h:80
+#3  operator() (__closure=0x388c60b0408) at /home/claude/snc-server-os/tools/snc_server.cpp:653
+#4  std::__invoke_impl<void, main(int, char**)::<lambda()> > (__f=...) at /usr/include/c++/13/bits/invoke.h:61
+#5  std::__invoke<main(int, char**)::<lambda()> > (__fn=...) at /usr/include/c++/13/bits/invoke.h:96
+#6  std::thread::_Invoker<std::tuple<main(int, char**)::<lambda()> > >::_M_invoke<0> (this=0x388c60b0408) at /usr/include/c++/13/bits/std_thread.h:292
+#7  std::thread::_Invoker<std::tuple<main(int, char**)::<lambda()> > >::operator() (this=0x388c60b0408) at /usr/include/c++/13/bits/std_thread.h:299
+#8  std::thread::_State_impl<std::thread::_Invoker<std::tuple<main(int, char**)::<lambda()> > > >::_M_run(void) (this=0x388c60b0400) at /usr/include/c++/13/bits/std_thread.h:244
+#9  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#10 0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#11 0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 3 (Thread 0x7f7d941f96c0 (LWP 989) "snc_server"):
+#0  0x00007f7d96b1b79d in __GI___poll (fds=fds@entry=0x388ce050030, nfds=nfds@entry=1, timeout=100) at ../sysdeps/unix/sysv/linux/poll.c:29
+#1  0x000055b99578ee1e in poll (__timeout=<optimized out>, __nfds=<optimized out>, __fds=0x388ce050030) at /usr/include/x86_64-linux-gnu/bits/poll2.h:39
+#2  snc::admin::Loop::run (this=<optimized out>) at /home/claude/snc-server-os/tools/admin_loop.h:170
+#3  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#4  0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#5  0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 2 (Thread 0x7f7d939f86c0 (LWP 990) "snc_server"):
+#0  0x00007f7d96a98e51 in __futex_abstimed_wait_common64 (private=0, cancel=true, abstime=0x0, op=393, expected=0, futex_word=0x388c6120878) at ./nptl/futex-internal.c:57
+#1  __futex_abstimed_wait_common (cancel=true, private=0, abstime=0x0, clockid=0, expected=0, futex_word=0x388c6120878) at ./nptl/futex-internal.c:87
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x388c6120878, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x0, private=private@entry=0) at ./nptl/futex-internal.c:139
+#3  0x00007f7d96a9b8cd in __pthread_cond_wait_common (abstime=0x0, clockid=0, mutex=0x388c6120828, cond=0x388c6120850) at ./nptl/pthread_cond_wait.c:503
+#4  ___pthread_cond_wait (cond=0x388c6120850, mutex=0x388c6120828) at ./nptl/pthread_cond_wait.c:627
+#5  0x000055b995786b4d in std::condition_variable::wait<snc::admin::Loop::work()::{lambda()#1}>(std::unique_lock<std::mutex>&, snc::admin::Loop::work()::{lambda()#1}) (__p=..., __lock=..., this=0x388c6120850) at /usr/include/c++/13/condition_variable:105
+#6  snc::admin::Loop::work (this=0x388c6120780) at /home/claude/snc-server-os/tools/admin_loop.h:303
+#7  0x00007f7d96eecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#8  0x00007f7d96a9cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#9  0x00007f7d96b29ecc in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 1 (Thread 0x7f7d9710b340 (LWP 981) "snc_server"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+#1  0x000055b9957b85e4 in std::__detail::__platform_wait<int> (__val=2, __addr=0x7ffce0282f04) at /usr/include/c++/13/bits/atomic_wait.h:111
+#2  std::__detail::__waiter_pool::_M_do_wait (__old=2, __addr=0x7ffce0282f04, this=<optimized out>) at /usr/include/c++/13/bits/atomic_wait.h:267
+#3  std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait<std::latch::wait() const::{lambda()#1}>(std::latch::wait() const::{lambda()#1}) (__pred=..., this=<synthetic pointer>) at /usr/include/c++/13/bits/atomic_wait.h:410
+#4  std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) (__addr=__addr@entry=0x7ffce0282f04, __pred=__pred@entry=...) at /usr/include/c++/13/bits/atomic_wait.h:434
+#5  0x000055b9957b23ec in std::latch::wait (this=0x7ffce0282f04) at /usr/include/c++/13/latch:79
+#6  snc::Engine::checkpoint (this=this@entry=0x7ffce0285ba0) at /home/claude/snc-server-os/src/core/engine.cpp:882
+#7  0x000055b99577852b in main (argc=<optimized out>, argv=<optimized out>) at /home/claude/snc-server-os/tools/snc_server.cpp:998
+[Inferior 1 (process 981) detached]

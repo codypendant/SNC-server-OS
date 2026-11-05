@@ -11,6 +11,15 @@
 - **A blocker found by these tests is not fixed automatically.** It is
   characterized and its evidence kept, and the smallest fix is proposed
   for review.
+- **Results (2026-11-05): [BASELINE_READINESS.md](BASELINE_READINESS.md).**
+  T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Three Profile B BLOCKERS were
+  reproduced and are not fixed: B1, a checkpoint wedges the primary when
+  its standby dies (T-Q3); B2, the witnesses promote a standby that is
+  still catching up after a rejoin (T-Q5); B3, a catch-up that keeps
+  dropping its link makes the primary read the remaining WAL range into
+  memory once per attempt (T-Q5 under TSan). T-Q1 also found that section
+  7's 35 s bound does not hold while a sync primary is blocked by a
+  control-plane outage (F2).
 
 - **Requested by:** cody's review of PR #44
   (`handoff/PR44_S1_and_Experimental_Baseline_Handoff.txt`).
@@ -314,7 +323,11 @@ The shipped `net::Client` resends unanswered requests only inside
   treat that as a failed run (T-H).
 
 So an in-doubt request is resent within about 35 s or never, which is
-100x below the TTL. A client that goes idle for an hour and then sends
+100x below the TTL. **Corrected by T-Q1 (BASELINE_READINESS 4, F2):**
+not while a sync primary is blocked by a control-plane outage. It keeps
+answering the client's reconnect, so the client resends to it after
+every request timeout, and the age follows the outage (35.3 s for a 40 s
+outage). A restated bound is proposed there for review. A client that goes idle for an hour and then sends
 its next sequence finds no session and runs it as new work. That is
 correct: it is a new request.
 

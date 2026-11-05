@@ -95,6 +95,11 @@ class NetServer {
   ~NetServer();
 
   static bool poll_hook(void* self, u16 shard);
+  // Tests only (snc_server --debug-admin, DEBUG DROP-ANSWERS): while on,
+  // the answers to sequenced requests are discarded after they ran, as if
+  // lost on the way back (docs/EXPERIMENTAL_BASELINE.md T-Q2). Process-wide.
+  static void debug_drop_answers(bool on);
+  static u64 debug_dropped();
   // Racy while running.
   Stats stats(u16 shard) const;
 
@@ -136,6 +141,11 @@ class Client {
   void enable_session(u64 client_id, int failover_ms = 30000, int request_timeout_ms = 5000);
   u64 timeouts() const { return timeouts_; }
   u64 failovers() const { return failovers_; }
+  // Requests resent after failovers, and the oldest one's age when resent:
+  // the time since it was first sent (docs/EXPERIMENTAL_BASELINE.md T-Q1;
+  // a resend is answered from the session only while the session lives).
+  u64 resends() const { return resends_; }
+  u64 max_resend_age_ms() const { return max_resend_age_ns_ / 1000000; }
 
   u16 shard_count() const { return map_.n_shards; }
   const SlotMap& slot_map() const { return map_; }
@@ -163,6 +173,7 @@ class Client {
     u64 next_seq = 1;
     u64 base = 0;  // order of unanswered.front()
     std::deque<std::vector<u8>> unanswered;  // emptied once answered
+    std::deque<i64> sent_ns;                 // when each was first sent (steady ns)
     std::unordered_map<u64, u64> order;      // req_id -> its order
   };
   bool flush_all();
@@ -181,6 +192,8 @@ class Client {
   int request_timeout_ms_ = 0;
   u64 failovers_ = 0;
   u64 timeouts_ = 0;
+  u64 resends_ = 0;
+  i64 max_resend_age_ns_ = 0;
   // Last answer, or when the client last had nothing unanswered (steady ns).
   i64 progress_ns_ = 0;
 

@@ -199,6 +199,10 @@ struct ShardStats {
   u64 repl_connects = 0;       // connections made (primary) or accepted (standby)
   u64 repl_disk_bytes = 0;     // primary: shipped from WAL files (catch-up)
   bool wal_direct = false;
+  // Resource gauges at this moment (docs/EXPERIMENTAL_BASELINE.md T-Q4).
+  u64 waiters_now = 0;    // completions waiting for durability (client answers held)
+  u64 overflow_now = 0;   // messages queued behind full rings
+  u64 wal_next_lsn = 0;   // next LSN this shard's WAL will assign
 };
 
 // Slot moves (docs/MIGRATION.md): one object of a slot, as the source

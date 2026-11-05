@@ -299,6 +299,15 @@ class Proxy:
         self.cut_flag = False
 
 
+def sanitizer(build):
+    """"thread", "address" or None: the build's -fsanitize, from its CMake cache."""
+    try:
+        cache = open(os.path.join(build, "CMakeCache.txt")).read()
+    except OSError:
+        return None
+    return "thread" if "fsanitize=thread" in cache else "address" if "fsanitize=address" in cache else None
+
+
 class Pair:
     """Node 0 (starts as primary) and node 1 (its standby), symmetric and
     rearmed, plus three witnesses. With proxied=True every path to and

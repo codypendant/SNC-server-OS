@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <thread>
@@ -200,6 +201,7 @@ void Client::send(u16 shard, const wire::ReqHeader& h, ByteView args) {
     // Kept until answered, to resend after a failover.
     l.order[h.req_id] = l.base + l.unanswered.size();
     l.unanswered.emplace_back(l.out.begin() + static_cast<std::ptrdiff_t>(at), l.out.end());
+    l.sent_ns.push_back(now_ns());
   }
 }
 
@@ -213,9 +215,14 @@ bool Client::fail_over() {
     const Endpoint& e = endpoints_[current_];
     if (open(e.host, e.port)) {
       // Resend what was not answered, in its original order.
+      const i64 now = now_ns();
       for (Link& l : links_) {
-        for (const auto& req : l.unanswered) {
-          if (!req.empty()) l.out.insert(l.out.end(), req.begin(), req.end());
+        for (std::size_t i = 0; i < l.unanswered.size(); ++i) {
+          const auto& req = l.unanswered[i];
+          if (req.empty()) continue;
+          l.out.insert(l.out.end(), req.begin(), req.end());
+          ++resends_;
+          max_resend_age_ns_ = std::max(max_resend_age_ns_, now - l.sent_ns[i]);
         }
       }
       progress_ns_ = now_ns();
@@ -280,6 +287,7 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
         l.order.erase(it);
         while (!l.unanswered.empty() && l.unanswered.front().empty()) {
           l.unanswered.pop_front();
+          l.sent_ns.pop_front();
           ++l.base;
         }
       }

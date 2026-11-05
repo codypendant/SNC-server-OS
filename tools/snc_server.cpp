@@ -69,7 +69,7 @@
 // diagnostics; it is the witness's liveness signal and proves nothing
 // about replication or promotion eligibility. STATUS asks every shard for
 // its replication state and may be slow. --debug-admin also accepts DEBUG
-// STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0 and DEBUG MOVE-STOP <phase> <unit>
+// STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0, DEBUG DROP-ANSWERS 1|0 and DEBUG MOVE-STOP <phase> <unit>
 // hold:MS|crash, and --debug-barrier hold:MS|crash
 // (the end of the start barrier, docs/MIGRATION_FAIL_CLOSED.md; tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
@@ -767,6 +767,16 @@ int main(int argc, char** argv) {
         reply = "OK";
         return true;
       }
+      // DEBUG DROP-ANSWERS 1|0 (tests; docs/EXPERIMENTAL_BASELINE.md T-Q2):
+      // sequenced requests still run, but their answers are discarded, as
+      // if lost on the way back; the reply counts those dropped so far.
+      if (debug_admin && (line == "DEBUG DROP-ANSWERS 1" || line == "DEBUG DROP-ANSWERS 0")) {
+        net::NetServer::debug_drop_answers(line.back() == '1');
+        std::printf("debug: answers %s\n", line.back() == '1' ? "dropped" : "sent");
+        std::fflush(stdout);
+        reply = "OK dropped=" + std::to_string(net::NetServer::debug_dropped());
+        return true;
+      }
       // DEBUG MOVE-STOP <phase> <unit> hold:MS|crash (tests;
       // docs/MIGRATION_STAGING.md 18): the next final stage chain here
       // holds, or the process exits, just before that unit of that phase
@@ -813,6 +823,42 @@ int main(int argc, char** argv) {
                       st.degraded, st.blocked, (unsigned long long)eng.cluster().epoch,
                       (unsigned long long)lease_lo.load(), (unsigned long long)lease_hi.load(),
                       (unsigned long long)unproven);
+        return b;
+      }
+      if (line == "RESOURCES") {
+        // Resource gauges, summed over shards (docs/EXPERIMENTAL_BASELINE.md
+        // T-Q4): what grows while durability waits. Read-only.
+        u64 heap = 0, waiters = 0, overflow = 0, emits = 0, held = 0, retained = 0, unacked = 0,
+            undurable = 0;
+        for (u16 s = 0; s < n_shards; ++s) {
+          const ShardStats ss = eng.stats(s);
+          heap += ss.heap_live_bytes;
+          waiters += ss.waiters_now;
+          overflow += ss.overflow_now;
+          emits += ss.emits_in_flight;
+          held += ss.emits_held_now;
+          retained += ss.repl_retained_bytes;
+          if (ss.repl_role == 1 && ss.wal_durable_lsn > ss.repl_acked_lsn) unacked += ss.wal_durable_lsn - ss.repl_acked_lsn;
+          if (ss.wal_next_lsn > ss.wal_durable_lsn + 1) undurable += ss.wal_next_lsn - ss.wal_durable_lsn - 1;
+        }
+        long rss_kb = -1, hwm_kb = -1;
+        if (FILE* f = std::fopen("/proc/self/status", "r")) {
+          char l[256];
+          while (std::fgets(l, sizeof(l), f)) {
+            if (std::strncmp(l, "VmRSS:", 6) == 0) rss_kb = std::strtol(l + 6, nullptr, 10);
+            if (std::strncmp(l, "VmHWM:", 6) == 0) hwm_kb = std::strtol(l + 6, nullptr, 10);
+          }
+          std::fclose(f);
+        }
+        const Engine::ReplStatus st = eng.replication_status();
+        char b[512];
+        std::snprintf(b, sizeof(b),
+                      "rss_kb=%ld hwm_kb=%ld heap_live=%llu waiters=%llu overflow=%llu emits_in_flight=%llu "
+                      "emits_held=%llu repl_retained=%llu wal_unacked=%llu wal_undurable=%llu blocked=%u degraded=%u",
+                      rss_kb, hwm_kb, (unsigned long long)heap, (unsigned long long)waiters,
+                      (unsigned long long)overflow, (unsigned long long)emits, (unsigned long long)held,
+                      (unsigned long long)retained, (unsigned long long)unacked, (unsigned long long)undurable,
+                      st.blocked, st.degraded);
         return b;
       }
       if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");

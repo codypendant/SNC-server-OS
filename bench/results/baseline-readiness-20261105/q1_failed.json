@@ -1,0 +1,13 @@
+{
+ "bench": {
+  "rc": 1,
+  "exited_after_s": 33.02,
+  "tail": [
+   "thread 0: failover: no primary answered: connect shard 0: Connection refused"
+  ]
+ },
+ "gave_up_after_s": 30.02,
+ "pass": true,
+ "scenario": "q1_failed",
+ "seconds": 33.3
+}

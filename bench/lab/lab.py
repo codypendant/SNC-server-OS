@@ -38,6 +38,9 @@ import tomllib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
+sys.path.insert(0, os.path.dirname(HERE))
+from profile_check import Guard  # noqa: E402
+
 BINARIES = ["snc_server", "snc_witness", "snc_ctl", "snc_load", "net_bench"]
 WITNESS_STRIDE, NODE_BASE, NODE_STRIDE = 1, 100, 40
 
@@ -113,6 +116,44 @@ def wait(cond, what, timeout=30, every=0.05):
     raise RuntimeError(f"timed out: {what}")
 
 
+# ---- Command lines -----------------------------------------------------------------------
+# Built here, apart from starting them, so tests/test_profile_check.py checks
+# the very lines a profile run uses (bench/profile_check.py, T-H).
+
+def profile_args(profile, cfg):
+    """Settings a declared profile fixes that the lab does not otherwise
+    pass: the checkpoint interval (docs/EXPERIMENTAL_BASELINE.md section 1)."""
+    if profile in ("A", "B", "D"):
+        return ["--checkpoint-s", cfg.get("checkpoint_s", 60)]
+    return []
+
+
+def ctl_flags(profile):
+    """snc_ctl flags: Profile B writes placement v2."""
+    return ["--placement-v2"] if profile == "B" else []
+
+
+def node_args(bin_path, shards, objects, data_dir, control, node_id, admin, cpus, standby_port, replica_of,
+              replica_timeout_ms, profile_args=()):
+    args = [bin_path, "--shards", shards, "--objects", objects, "--data-dir", data_dir, "--control", control,
+            "--node-id", node_id, "--admin-port", admin, "--witness", control]
+    if cpus:
+        args += ["--cpus", cpus]
+    if standby_port is not None:
+        args += ["--standby", standby_port]
+    elif replica_of:
+        args += ["--replica-of", replica_of, "--replica-timeout-ms", replica_timeout_ms]
+    return args + list(profile_args)
+
+
+def witness_args(bin_path, port, state, wid, control, failover_ms, poll_ms, groups):
+    args = [bin_path, "--port", port, "--state", state, "--id", wid, "--peers", control,
+            "--failover-ms", failover_ms, "--poll-ms", poll_ms]
+    for g in groups:
+        args += ["--group", g]
+    return args
+
+
 # ---- The lab -----------------------------------------------------------------------------
 
 class Lab:
@@ -138,6 +179,16 @@ class Lab:
         self.faults = []  # undo commands (host, cmd)
         self.events = []
         self.t0 = time.time()
+        # A declared profile (A, B, C, D) and its declared deviations: every
+        # process is checked before it starts (bench/profile_check.py).
+        self.profile = self.cfg.get("profile")
+        self.guard = Guard(self.profile, self.cfg.get("deviations", [])) if self.profile else None
+        if self.profile and self.profile != "B":
+            raise RuntimeError(f"profile {self.profile}: lab.py builds Profile B clusters only (replicated "
+                               "groups, witness HA); other profiles need their own campaign script")
+        if self.profile and scenario in ("p1", "p2"):
+            raise RuntimeError(f"{scenario} starts its nodes outside the profile guard (async and single-node "
+                               "configurations): it is not a profile run; remove `profile` to run it")
 
     def note(self, event, **kv):
         e = {"t": round(time.time() - self.t0, 3), "event": event, **kv}
@@ -173,7 +224,12 @@ class Lab:
     def control(self):
         return ",".join(f"{h.addr}:{self.witness_port(i)}" for i, h in enumerate(self.witness_hosts))
 
+    def ctl(self, host):
+        """snc_ctl with the control plane and the profile's flags."""
+        return " ".join([self.bin(host, "snc_ctl"), "--control", self.control()] + ctl_flags(self.profile))
+
     def save(self, result):
+        result["profile"] = self.guard.report() if self.guard else {"profile": None}
         result["events"] = self.events
         with open(os.path.join(self.out, "result.json"), "w") as f:
             json.dump(result, f, indent=2)
@@ -195,19 +251,21 @@ class Lab:
                                          if n["group"] == g)
             for g in range(len(self.groups)))
         nodes_arg = ",".join(f"{k}@{n['host'].addr}:{n['admin']}" for k, n in self.nodes.items())
+        groups = [f"{g}=" + ",".join(f"{n['host'].addr}:{n['admin']}" for n in self.nodes.values() if n["group"] == g)
+                  for g in range(len(self.groups))]
         for i, h in enumerate(self.witness_hosts):
-            args = [self.bin(h, "snc_witness"), "--port", self.witness_port(i), "--state",
-                    f"{self.run_dir}/w{i}.state", "--id", i, "--peers", control,
-                    "--failover-ms", failover_ms, "--poll-ms", poll_ms]
-            for g in range(len(self.groups)):
-                ms = [n for n in self.nodes.values() if n["group"] == g]
-                args += ["--group", f"{g}=" + ",".join(f"{n['host'].addr}:{n['admin']}" for n in ms)]
+            args = witness_args(self.bin(h, "snc_witness"), self.witness_port(i), f"{self.run_dir}/w{i}.state", i,
+                                control, failover_ms, poll_ms, groups)
+            if self.guard:
+                self.guard.witness(args)
             h.sh(f"mkdir -p {self.run_dir}")
             self.spawn(h, f"w{i}", " ".join(map(str, args)))
         time.sleep(0.5)
         drv = self.client
-        r = drv.sh(f"{self.bin(drv, 'snc_ctl')} --control {control} init --nodes {nodes_arg} --groups {groups_arg}",
-                   check=False)
+        init = f"{self.ctl(drv)} init --nodes {nodes_arg} --groups {groups_arg}"
+        if self.guard:
+            self.guard.ctl_init(init.split())
+        r = drv.sh(init, check=False)
         if r.returncode != 0:
             raise RuntimeError("snc_ctl init: " + r.stdout + r.stderr)
         for k, n in sorted(self.nodes.items(), key=lambda kv: -kv[1]["member"]):
@@ -230,16 +288,16 @@ class Lab:
         h = n["host"]
         g = n["group"]
         members = [(kk, nn) for kk, nn in self.nodes.items() if nn["group"] == g]
-        args = [self.bin(h, "snc_server"), "--shards", self.shards, "--objects", objects,
-                "--data-dir", f"{self.run_dir}/n{k}", "--control", self.control(), "--node-id", k,
-                "--admin-port", n["admin"], "--witness", self.control()]
-        if h.cpus:
-            args += ["--cpus", h.cpus]
-        if n["member"] > 0:
-            args += ["--standby", n["repl"]]
-        elif len(members) > 1:
+        replica_of = None
+        if n["member"] == 0 and len(members) > 1:
             sk, sn = members[1]
-            args += ["--replica-of", f"{sn['host'].addr}:{sn['repl']}", "--replica-timeout-ms", replica_timeout_ms]
+            replica_of = f"{sn['host'].addr}:{sn['repl']}"
+        args = node_args(self.bin(h, "snc_server"), self.shards, objects, f"{self.run_dir}/n{k}", self.control(), k,
+                         n["admin"], h.cpus, n["repl"] if n["member"] > 0 else None, replica_of, replica_timeout_ms,
+                         profile_args(self.profile, self.cfg))
+        if self.guard:
+            self.guard.server(args, dir_exists=lambda p: h.sh(f"test -e {shlex.quote(p)}", check=False).returncode == 0,
+                              host=h.name)
         n["pid"] = self.spawn(h, f"n{k}" + (f"-r{int(time.time())}" if rejoin else ""), " ".join(map(str, args)))
 
     def primary(self, g):
@@ -617,7 +675,7 @@ def p5(lab, args):
     probe.start()
     time.sleep(args.seconds / 4)
     c = lab.client
-    ctl = f"{lab.bin(c, 'snc_ctl')} --control {lab.control()} move"
+    ctl = f"{lab.ctl(c)} move"
     chunk = f"--chunk {args.chunk}"
     steps = {"from": home, "to": dest}
     t = time.time()
@@ -721,7 +779,7 @@ def soak(lab, args):
     end = time.time() + args.minutes * 60
     runs, n, where = [], 0, 0
     rnd = random.Random(args.seed)
-    ctl = f"{lab.bin(lab.client, 'snc_ctl')} --control {lab.control()} move"
+    ctl = f"{lab.ctl(lab.client)} move"
     dead = set()
     while time.time() < end:
         name = f"load{n}"

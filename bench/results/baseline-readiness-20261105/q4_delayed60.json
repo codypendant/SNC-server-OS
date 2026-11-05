@@ -1,0 +1,2316 @@
+{
+ "grant_delay_s": 60,
+ "t_standby_stopped": 3.0,
+ "t_grant": 63.54,
+ "granted": true,
+ "before": {
+  "rss_kb": 63044,
+  "heap_live": 32000000,
+  "waiters": 150,
+  "overflow": 0,
+  "emits_in_flight": 0,
+  "emits_held": 0,
+  "repl_retained": 31048,
+  "wal_unacked": 9,
+  "wal_undurable": 141
+ },
+ "while_blocked": {
+  "rss_kb": {
+   "from": 63044,
+   "to": 68288,
+   "max": 68288,
+   "rate_per_s": 86.6
+  },
+  "heap_live": {
+   "from": 32000000,
+   "to": 32000000,
+   "max": 32000000,
+   "rate_per_s": 0.0
+  },
+  "waiters": {
+   "from": 256,
+   "to": 119,
+   "max": 256,
+   "rate_per_s": -2.3
+  },
+  "overflow": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "emits_in_flight": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "emits_held": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "repl_retained": {
+   "from": 65704,
+   "to": 6156728,
+   "max": 6156728,
+   "rate_per_s": 100644.8
+  },
+  "wal_unacked": {
+   "from": 256,
+   "to": 23942,
+   "max": 23942,
+   "rate_per_s": 391.4
+  },
+  "wal_undurable": {
+   "from": 0,
+   "to": 119,
+   "max": 119,
+   "rate_per_s": 2.0
+  }
+ },
+ "after_grant": {
+  "rss_kb": {
+   "from": 68288,
+   "to": 2406376,
+   "max": 2406680,
+   "rate_per_s": 77677.3
+  },
+  "heap_live": {
+   "from": 32000000,
+   "to": 32000000,
+   "max": 32000000,
+   "rate_per_s": 0.0
+  },
+  "waiters": {
+   "from": 119,
+   "to": 144,
+   "max": 256,
+   "rate_per_s": 0.8
+  },
+  "overflow": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "emits_in_flight": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "emits_held": {
+   "from": 0,
+   "to": 0,
+   "max": 0,
+   "rate_per_s": 0.0
+  },
+  "repl_retained": {
+   "from": 6156728,
+   "to": 2147464216,
+   "max": 2147482320,
+   "rate_per_s": 71139783.7
+  },
+  "wal_unacked": {
+   "from": 23942,
+   "to": 12661129,
+   "max": 12661129,
+   "rate_per_s": 419840.1
+  },
+  "wal_undurable": {
+   "from": 119,
+   "to": 144,
+   "max": 256,
+   "rate_per_s": 0.8
+  }
+ },
+ "at_end": {
+  "rss_kb": 2406376,
+  "heap_live": 32000000,
+  "waiters": 144,
+  "overflow": 0,
+  "emits_in_flight": 0,
+  "emits_held": 0,
+  "repl_retained": 2147464216,
+  "wal_unacked": 12661129,
+  "wal_undurable": 144
+ },
+ "time_to_4GiB_at_blocked_rate_s": 47645,
+ "bench_tail": [],
+ "series": [
+  [
+   0.0,
+   {
+    "rss_kb": 60028,
+    "waiters": 0,
+    "overflow": 0,
+    "wal_unacked": 0,
+    "repl_retained": 0,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   0.52,
+   {
+    "rss_kb": 62492,
+    "waiters": 177,
+    "overflow": 0,
+    "wal_unacked": 91,
+    "repl_retained": 45432,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   1.04,
+   {
+    "rss_kb": 62560,
+    "waiters": 149,
+    "overflow": 0,
+    "wal_unacked": 54,
+    "repl_retained": 29512,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   1.56,
+   {
+    "rss_kb": 62668,
+    "waiters": 146,
+    "overflow": 0,
+    "wal_unacked": 63,
+    "repl_retained": 37472,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   2.09,
+   {
+    "rss_kb": 62960,
+    "waiters": 85,
+    "overflow": 0,
+    "wal_unacked": 9,
+    "repl_retained": 12872,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   2.61,
+   {
+    "rss_kb": 62952,
+    "waiters": 160,
+    "overflow": 0,
+    "wal_unacked": 23,
+    "repl_retained": 38240,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   3.13,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 0,
+    "degraded": 0
+   }
+  ],
+  [
+   3.65,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   4.18,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   4.7,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   5.22,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   5.75,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   6.27,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   6.8,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   7.32,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   7.84,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   8.37,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   8.9,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   9.43,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   9.95,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   10.47,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   10.99,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   11.52,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   12.05,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   12.57,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   13.09,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   13.62,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   14.14,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   14.67,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   15.19,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   15.72,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   16.25,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   16.77,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   17.29,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   17.82,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   18.34,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   18.87,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   19.39,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   19.92,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   20.45,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   20.97,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   21.5,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   22.02,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   22.55,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   23.07,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   23.6,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   24.12,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   24.64,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   25.17,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   25.69,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   26.21,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   26.74,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   27.26,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   27.78,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   28.31,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   28.83,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   29.36,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   29.88,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   30.41,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   30.93,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   31.45,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   31.98,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   32.51,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   33.03,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   33.56,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   34.08,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   34.61,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   35.13,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   35.66,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   36.18,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   36.71,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   37.24,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   37.76,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   38.29,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   38.81,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   39.34,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   39.87,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   40.39,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   40.91,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   41.43,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   41.96,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   42.48,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   43.0,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   43.52,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   44.05,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   44.57,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   45.1,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   45.62,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   46.14,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   46.67,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   47.19,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   47.71,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   48.24,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   48.76,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   49.28,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   49.81,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   50.34,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   50.86,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   51.38,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   51.91,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   52.43,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   52.95,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   53.48,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   54.0,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   54.53,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   55.05,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   55.57,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   56.09,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   56.62,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   57.14,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   57.66,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   58.19,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   58.71,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   59.24,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   59.76,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   60.29,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   60.82,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   61.34,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   61.86,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   62.39,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   62.91,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   63.44,
+   {
+    "rss_kb": 63044,
+    "waiters": 256,
+    "overflow": 0,
+    "wal_unacked": 256,
+    "repl_retained": 65704,
+    "blocked": 2,
+    "degraded": 0
+   }
+  ],
+  [
+   63.96,
+   {
+    "rss_kb": 129836,
+    "waiters": 69,
+    "overflow": 0,
+    "wal_unacked": 246297,
+    "repl_retained": 63162560,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   64.48,
+   {
+    "rss_kb": 208948,
+    "waiters": 100,
+    "overflow": 0,
+    "wal_unacked": 531339,
+    "repl_retained": 136232472,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   65.0,
+   {
+    "rss_kb": 276908,
+    "waiters": 135,
+    "overflow": 0,
+    "wal_unacked": 775892,
+    "repl_retained": 198946360,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   65.53,
+   {
+    "rss_kb": 343452,
+    "waiters": 85,
+    "overflow": 0,
+    "wal_unacked": 1015201,
+    "repl_retained": 260298176,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   66.05,
+   {
+    "rss_kb": 414472,
+    "waiters": 106,
+    "overflow": 0,
+    "wal_unacked": 1269792,
+    "repl_retained": 325575960,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   66.57,
+   {
+    "rss_kb": 477448,
+    "waiters": 49,
+    "overflow": 0,
+    "wal_unacked": 1495920,
+    "repl_retained": 383535192,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   67.1,
+   {
+    "rss_kb": 541616,
+    "waiters": 117,
+    "overflow": 0,
+    "wal_unacked": 1727248,
+    "repl_retained": 442858032,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   67.63,
+   {
+    "rss_kb": 606216,
+    "waiters": 180,
+    "overflow": 0,
+    "wal_unacked": 1959231,
+    "repl_retained": 502340728,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   68.15,
+   {
+    "rss_kb": 670564,
+    "waiters": 136,
+    "overflow": 0,
+    "wal_unacked": 2191140,
+    "repl_retained": 561790360,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   68.68,
+   {
+    "rss_kb": 740600,
+    "waiters": 123,
+    "overflow": 0,
+    "wal_unacked": 2443101,
+    "repl_retained": 626395960,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   69.2,
+   {
+    "rss_kb": 805396,
+    "waiters": 58,
+    "overflow": 0,
+    "wal_unacked": 2675765,
+    "repl_retained": 686038480,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   69.72,
+   {
+    "rss_kb": 868804,
+    "waiters": 115,
+    "overflow": 0,
+    "wal_unacked": 2903972,
+    "repl_retained": 744552072,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   70.24,
+   {
+    "rss_kb": 935704,
+    "waiters": 52,
+    "overflow": 0,
+    "wal_unacked": 3143839,
+    "repl_retained": 806045480,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   70.76,
+   {
+    "rss_kb": 1004756,
+    "waiters": 91,
+    "overflow": 0,
+    "wal_unacked": 3392181,
+    "repl_retained": 869722120,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   71.28,
+   {
+    "rss_kb": 1038156,
+    "waiters": 88,
+    "overflow": 0,
+    "wal_unacked": 3511841,
+    "repl_retained": 900394720,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   71.8,
+   {
+    "rss_kb": 1099060,
+    "waiters": 133,
+    "overflow": 0,
+    "wal_unacked": 3731199,
+    "repl_retained": 956644760,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   72.33,
+   {
+    "rss_kb": 1168284,
+    "waiters": 78,
+    "overflow": 0,
+    "wal_unacked": 3979998,
+    "repl_retained": 1020424848,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   72.85,
+   {
+    "rss_kb": 1231440,
+    "waiters": 85,
+    "overflow": 0,
+    "wal_unacked": 4206882,
+    "repl_retained": 1078598208,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   73.37,
+   {
+    "rss_kb": 1296872,
+    "waiters": 96,
+    "overflow": 0,
+    "wal_unacked": 4441929,
+    "repl_retained": 1138868112,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   73.9,
+   {
+    "rss_kb": 1354984,
+    "waiters": 83,
+    "overflow": 0,
+    "wal_unacked": 4651034,
+    "repl_retained": 1192474512,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   74.42,
+   {
+    "rss_kb": 1405896,
+    "waiters": 105,
+    "overflow": 0,
+    "wal_unacked": 4834203,
+    "repl_retained": 1239427784,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   74.94,
+   {
+    "rss_kb": 1456024,
+    "waiters": 111,
+    "overflow": 0,
+    "wal_unacked": 5014538,
+    "repl_retained": 1285674712,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   75.46,
+   {
+    "rss_kb": 1504932,
+    "waiters": 72,
+    "overflow": 0,
+    "wal_unacked": 5189788,
+    "repl_retained": 1330608448,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   75.98,
+   {
+    "rss_kb": 1555652,
+    "waiters": 150,
+    "overflow": 0,
+    "wal_unacked": 5371975,
+    "repl_retained": 1377321560,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   76.52,
+   {
+    "rss_kb": 1604280,
+    "waiters": 159,
+    "overflow": 0,
+    "wal_unacked": 5546968,
+    "repl_retained": 1422188632,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   77.04,
+   {
+    "rss_kb": 1652560,
+    "waiters": 127,
+    "overflow": 0,
+    "wal_unacked": 5720963,
+    "repl_retained": 1466794104,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   77.57,
+   {
+    "rss_kb": 1698252,
+    "waiters": 102,
+    "overflow": 0,
+    "wal_unacked": 5885094,
+    "repl_retained": 1508885056,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   78.09,
+   {
+    "rss_kb": 1746424,
+    "waiters": 136,
+    "overflow": 0,
+    "wal_unacked": 6057846,
+    "repl_retained": 1553178552,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   78.62,
+   {
+    "rss_kb": 1799652,
+    "waiters": 70,
+    "overflow": 0,
+    "wal_unacked": 6249487,
+    "repl_retained": 1602305712,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   79.14,
+   {
+    "rss_kb": 1851232,
+    "waiters": 76,
+    "overflow": 0,
+    "wal_unacked": 6434593,
+    "repl_retained": 1649767696,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   79.66,
+   {
+    "rss_kb": 1904872,
+    "waiters": 119,
+    "overflow": 0,
+    "wal_unacked": 6627437,
+    "repl_retained": 1699218648,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   80.18,
+   {
+    "rss_kb": 1954280,
+    "waiters": 99,
+    "overflow": 0,
+    "wal_unacked": 6805039,
+    "repl_retained": 1744755296,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   80.7,
+   {
+    "rss_kb": 2009452,
+    "waiters": 85,
+    "overflow": 0,
+    "wal_unacked": 7002724,
+    "repl_retained": 1795433608,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   81.22,
+   {
+    "rss_kb": 2064860,
+    "waiters": 98,
+    "overflow": 0,
+    "wal_unacked": 7201649,
+    "repl_retained": 1846439552,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   81.74,
+   {
+    "rss_kb": 2119396,
+    "waiters": 111,
+    "overflow": 0,
+    "wal_unacked": 7397773,
+    "repl_retained": 1896719624,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   82.26,
+   {
+    "rss_kb": 2169044,
+    "waiters": 59,
+    "overflow": 0,
+    "wal_unacked": 7576491,
+    "repl_retained": 1942542152,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   82.78,
+   {
+    "rss_kb": 2215068,
+    "waiters": 109,
+    "overflow": 0,
+    "wal_unacked": 7741742,
+    "repl_retained": 1984910272,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   83.3,
+   {
+    "rss_kb": 2262744,
+    "waiters": 74,
+    "overflow": 0,
+    "wal_unacked": 7913151,
+    "repl_retained": 2028869328,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   83.82,
+   {
+    "rss_kb": 2309440,
+    "waiters": 103,
+    "overflow": 0,
+    "wal_unacked": 8080733,
+    "repl_retained": 2071841848,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   84.35,
+   {
+    "rss_kb": 2355124,
+    "waiters": 85,
+    "overflow": 0,
+    "wal_unacked": 8245287,
+    "repl_retained": 2114031472,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   84.87,
+   {
+    "rss_kb": 2394272,
+    "waiters": 65,
+    "overflow": 0,
+    "wal_unacked": 8452463,
+    "repl_retained": 2147465040,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   85.39,
+   {
+    "rss_kb": 2394304,
+    "waiters": 75,
+    "overflow": 0,
+    "wal_unacked": 8728342,
+    "repl_retained": 2147447704,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   85.91,
+   {
+    "rss_kb": 2395708,
+    "waiters": 149,
+    "overflow": 0,
+    "wal_unacked": 8968899,
+    "repl_retained": 2147461536,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   86.43,
+   {
+    "rss_kb": 2397624,
+    "waiters": 121,
+    "overflow": 0,
+    "wal_unacked": 9230065,
+    "repl_retained": 2147460464,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   86.95,
+   {
+    "rss_kb": 2397448,
+    "waiters": 136,
+    "overflow": 0,
+    "wal_unacked": 9498349,
+    "repl_retained": 2147470912,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   87.47,
+   {
+    "rss_kb": 2397028,
+    "waiters": 114,
+    "overflow": 0,
+    "wal_unacked": 9744503,
+    "repl_retained": 2147466952,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   88.0,
+   {
+    "rss_kb": 2399460,
+    "waiters": 177,
+    "overflow": 0,
+    "wal_unacked": 9979100,
+    "repl_retained": 2147458224,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   88.52,
+   {
+    "rss_kb": 2401192,
+    "waiters": 125,
+    "overflow": 0,
+    "wal_unacked": 10202385,
+    "repl_retained": 2147467608,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   89.04,
+   {
+    "rss_kb": 2401340,
+    "waiters": 83,
+    "overflow": 0,
+    "wal_unacked": 10459872,
+    "repl_retained": 2147464256,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   89.57,
+   {
+    "rss_kb": 2400768,
+    "waiters": 129,
+    "overflow": 0,
+    "wal_unacked": 10685920,
+    "repl_retained": 2147477240,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   90.09,
+   {
+    "rss_kb": 2402056,
+    "waiters": 145,
+    "overflow": 0,
+    "wal_unacked": 10934771,
+    "repl_retained": 2147468448,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   90.61,
+   {
+    "rss_kb": 2402920,
+    "waiters": 121,
+    "overflow": 0,
+    "wal_unacked": 11188623,
+    "repl_retained": 2147451368,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   91.13,
+   {
+    "rss_kb": 2403016,
+    "waiters": 63,
+    "overflow": 0,
+    "wal_unacked": 11442414,
+    "repl_retained": 2147464024,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   91.65,
+   {
+    "rss_kb": 2403360,
+    "waiters": 125,
+    "overflow": 0,
+    "wal_unacked": 11677476,
+    "repl_retained": 2147462912,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   92.17,
+   {
+    "rss_kb": 2404228,
+    "waiters": 82,
+    "overflow": 0,
+    "wal_unacked": 11913077,
+    "repl_retained": 2147482320,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   92.7,
+   {
+    "rss_kb": 2402812,
+    "waiters": 147,
+    "overflow": 0,
+    "wal_unacked": 12168530,
+    "repl_retained": 2147477424,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ],
+  [
+   93.22,
+   {
+    "rss_kb": 2405516,
+    "waiters": 92,
+    "overflow": 0,
+    "wal_unacked": 12444469,
+    "repl_retained": 2147469992,
+    "blocked": 0,
+    "degraded": 2
+   }
+  ]
+ ],
+ "retain_cap_bytes": 2147483648,
+ "last_5s": {
+  "rss_kb": {
+   "from": 2399944,
+   "to": 2406376,
+   "max": 2406680,
+   "rate_per_s": 1310.0
+  },
+  "repl_retained": {
+   "from": 2147476456,
+   "to": 2147464216,
+   "max": 2147482320,
+   "rate_per_s": -2492.9
+  },
+  "waiters": {
+   "from": 135,
+   "to": 144,
+   "max": 206,
+   "rate_per_s": 1.8
+  }
+ },
+ "pass": true,
+ "scenario": "q4_delayed60",
+ "seconds": 98.3
+}

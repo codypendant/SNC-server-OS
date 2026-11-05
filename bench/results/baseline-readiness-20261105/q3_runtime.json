@@ -1,0 +1,67 @@
+{
+ "trials": [
+  {
+   "trial": 0,
+   "granted": true,
+   "main_ms_after_15s": 0,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=2 blocked=0 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=659320 hwm_kb=659320 heap_live=32000320 waiters=1 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=525414752 wal_unacked=2040610 wal_undurable=1 blocked=0 degraded=2",
+   "writes_ok_after_kill": 667,
+   "writes_failed_after_kill": 0,
+   "resume_s": 0.6,
+   "checkpoint_lines": [
+    "checkpoint: 100001 objects in 0.10s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.10s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.10s, 0 WAL segments deleted"
+   ],
+   "wedged": false
+  },
+  {
+   "trial": 1,
+   "granted": true,
+   "main_ms_after_15s": 17,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=2 blocked=0 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=677348 hwm_kb=677348 heap_live=32000320 waiters=29 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=541849672 wal_unacked=2104474 wal_undurable=29 blocked=0 degraded=2",
+   "writes_ok_after_kill": 684,
+   "writes_failed_after_kill": 0,
+   "resume_s": 0.61,
+   "checkpoint_lines": [
+    "checkpoint: 100001 objects in 0.11s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.11s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.09s, 0 WAL segments deleted"
+   ],
+   "wedged": false
+  },
+  {
+   "trial": 2,
+   "granted": false,
+   "main_ms_after_15s": 14762,
+   "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=0 blocked=2 epoch=1 leases=0-0 unproven=0",
+   "resources": "rss_kb=91168 hwm_kb=91168 heap_live=32000320 waiters=69 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=17928 wal_unacked=69 wal_undurable=0 blocked=2 degraded=0",
+   "writes_ok_after_kill": 0,
+   "writes_failed_after_kill": 5,
+   "resume_s": null,
+   "checkpoint_lines": [
+    "checkpoint: 100000 objects in 0.10s, 0 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.18s, 2 WAL segments deleted",
+    "checkpoint: 100001 objects in 0.10s, 0 WAL segments deleted"
+   ],
+   "wedged": true,
+   "stack_file": "/tmp/snc-base-q3_runtime-cddh1klk/q3_runtime_t2_stack.txt",
+   "main_thread_stack": [
+    "#0 syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38",
+    "#1 0x000055b9957b85e4 in std::__detail::__platform_wait<int> (__val=2, __addr=0x7ffce0282f04) at /usr/include/c++/13/bits/atomic_wait.h:111",
+    "#2 std::__detail::__waiter_pool::_M_do_wait (__old=2, __addr=0x7ffce0282f04, this=<optimized out>) at /usr/include/c++/13/bits/atomic_wait.h:267",
+    "#3 std::__detail::__waiter<std::integral_constant<bool, true> >::_M_do_wait<std::latch::wait() const::{lambda()#1}>(std::latch::wait() const::{lambda()#1}) (__p",
+    "#4 std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) (__addr=__addr@entry=0x7ffce0282f",
+    "#5 0x000055b9957b23ec in std::latch::wait (this=0x7ffce0282f04) at /usr/include/c++/13/latch:79",
+    "#6 snc::Engine::checkpoint (this=this@entry=0x7ffce0285ba0) at /home/claude/snc-server-os/src/core/engine.cpp:882",
+    "#7 0x000055b99577852b in main (argc=<optimized out>, argv=<optimized out>) at /home/claude/snc-server-os/tools/snc_server.cpp:998"
+   ]
+  }
+ ],
+ "wedged_trials": 1,
+ "pass": false,
+ "scenario": "q3_runtime",
+ "seconds": 70.1
+}

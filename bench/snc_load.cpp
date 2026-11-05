@@ -232,7 +232,7 @@ struct Worker {
   Counters c;
   std::unordered_map<ObjectID, i64, IdHash> delta;
   std::vector<Xfer> unknown;
-  u64 refreshes = 0, failovers = 0, epoch = 0;
+  u64 refreshes = 0, failovers = 0, epoch = 0, replayed = 0, resends = 0, max_resend_age_ms = 0;
   std::string error;
 
   struct Pending {
@@ -255,6 +255,7 @@ struct Worker {
     w->inflight.erase(it);
     const auto now = clk::now();
     std::lock_guard<std::mutex> g(w->mu);
+    if (h.flags & wire::kRespReplayed) ++w->replayed;
     switch (static_cast<Status>(h.status)) {
       case Status::OK:
         w->delta[pd.x.from] -= pd.x.amount;
@@ -344,7 +345,11 @@ struct Worker {
     }
     refreshes = client.refreshes();
     epoch = client.epoch();
-    for (u16 g = 0; g < client.group_count(); ++g) failovers += client.group(g).failovers();
+    for (u16 g = 0; g < client.group_count(); ++g) {
+      failovers += client.group(g).failovers();
+      resends += client.group(g).resends();
+      max_resend_age_ms = std::max(max_resend_age_ms, client.group(g).max_resend_age_ms());
+    }
   }
 };
 
@@ -408,7 +413,7 @@ int cmd_run(const std::string& host, unsigned port, const std::string& ids_path,
   std::unordered_map<ObjectID, i64, IdHash> delta;
   std::vector<Xfer> unknown;
   Counters c{};
-  u64 refreshes = 0, failovers = 0, epoch = 0;
+  u64 refreshes = 0, failovers = 0, epoch = 0, replayed = 0, resends = 0, max_resend_age_ms = 0;
   std::string errors;
   for (auto& w : ws) {
     total.merge(w->hist);
@@ -421,6 +426,9 @@ int cmd_run(const std::string& host, unsigned port, const std::string& ids_path,
     c.overloaded += w->c.overloaded;
     refreshes += w->refreshes;
     failovers += w->failovers;
+    replayed += w->replayed;
+    resends += w->resends;
+    max_resend_age_ms = std::max(max_resend_age_ms, w->max_resend_age_ms);
     epoch = std::max(epoch, w->epoch);
     if (!w->error.empty()) errors += (errors.empty() ? "" : "; ") + w->error;
   }
@@ -435,7 +443,8 @@ int cmd_run(const std::string& host, unsigned port, const std::string& ids_path,
     << "\np50_us " << total.pct(0.5) << "\np99_us " << total.pct(0.99) << "\np999_us " << total.pct(0.999)
     << "\nmax_us " << total.pct(1.0) << "\nunknown " << unknown.size() << "\nrejected " << c.rejected << "\nmoved "
     << c.moved << "\nmigrating " << c.migrating << "\noverloaded " << c.overloaded << "\nrefreshes " << refreshes
-    << "\nfailovers " << failovers << "\nepoch " << epoch << "\nerror " << (errors.empty() ? "-" : errors) << "\n";
+    << "\nfailovers " << failovers << "\nreplayed " << replayed << "\nresends " << resends
+    << "\nmax_resend_age_ms " << max_resend_age_ms << "\nepoch " << epoch << "\nerror " << (errors.empty() ? "-" : errors) << "\n";
   std::ofstream(out + ".summary") << s.str();
   std::printf("%s", s.str().c_str());
   return errors.empty() ? 0 : 1;

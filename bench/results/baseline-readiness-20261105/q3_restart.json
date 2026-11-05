@@ -1,0 +1,18 @@
+{
+ "admin_port_open_s": 0.5,
+ "granted": true,
+ "write_status": "OK",
+ "client_port_open": true,
+ "log_tail": [
+  "snc_server shards=4 ports 31719-31722 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1",
+  "space uuid b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7  replicating to 127.0.0.1:29917 (sync)",
+  "witness: granted, continuing without the standby",
+  "snc: shard 0: standby unreachable, continuing without it",
+  "snc: shard 2: standby unreachable, continuing without it",
+  "snc: shard 1: standby unreachable, continuing without it",
+  "snc: shard 3: standby unreachable, continuing without it"
+ ],
+ "pass": true,
+ "scenario": "q3_restart",
+ "seconds": 3.1
+}
