@@ -3,10 +3,15 @@
 // --standby name them as they start; the roles then follow the promotions.
 // If the current primary has not answered for --failover-ms and the other
 // node is its standby (same space and term), it promotes that standby,
-// only from READY: the primary of the current term has proven with SYNCED
+// only from READY: the primary of the current term has proven with READY
 // that its standby holds every acknowledged write (docs/SYNC_READINESS.md).
 // A primary first learned, or just promoted, is NOT READY until then, and
-// so is one let continue without its standby (DEGRADE). A sync primary
+// so is one let continue without its standby (DEGRADE, NOTREADY).
+// Causal order (docs/SYNC_READINESS.md 7): every NOT READY is chosen at a
+// fresh version, which NOTREADY answers ("OK v=N"); READY names the
+// version its proof follows ("after=N") and is chosen only on that very
+// state, so a READY delayed past a later NOT READY is refused. SYNCED
+// (older primaries) names none and is refused. A sync primary
 // started with --witness asks before continuing without its standby; a
 // primary whose term was replaced is refused.
 //
@@ -66,6 +71,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -148,7 +154,7 @@ State chosen_state(unsigned group) { return to_state(px.chosen(ha_machine(group)
 // wanted state, or returns why the change is refused. "OK" once the wanted
 // decision is chosen (or already holds), "NO <why>" otherwise.
 template <class F>
-std::string propose(unsigned group, F change) {
+std::string propose(unsigned group, F change, u64* version = nullptr, bool fresh = false) {
   return px.propose(
       ha_machine(group),
       [&](const paxos::Value& base, std::string& want_body) -> std::string {
@@ -160,7 +166,8 @@ std::string propose(unsigned group, F change) {
       },
       [](const std::string& a, const std::string& b) {
         return to_state({1, a}).same_decision(to_state({1, b}));
-      });
+      },
+      1000, version, fresh);
 }
 
 // Placement requests (snc_ctl, nodes):
@@ -315,38 +322,73 @@ void serve(int fd) {
     std::istringstream in(line);
     std::string verb;
     in >> verb;
-    if (verb == "DEGRADE" || verb == "SYNCED") {
-      std::string uuid;
-      u64 term = 0;
-      in >> uuid >> term;
+    if (verb == "DEGRADE" || verb == "NOTREADY" || verb == "SYNCED" || verb == "READY") {
+      // VERB uuid term [group] [after=N] (docs/SYNC_READINESS.md 7).
+      std::string uuid, tok;
+      u64 term = 0, after = 0;
+      long long g = -1;
+      bool has_after = false, bad = false;
+      if (!(in >> uuid >> term)) bad = true;
+      while (in >> tok) {
+        if (tok.rfind("after=", 0) == 0) {
+          has_after = true;
+          after = std::strtoull(tok.c_str() + 6, nullptr, 10);
+        } else if (!tok.empty() && std::isdigit(static_cast<unsigned char>(tok[0]))) {
+          g = std::atoll(tok.c_str());
+        } else {
+          bad = true;
+        }
+      }
       // The group: given (a clustered node says which), or the one whose
       // space this is, or group 0 (a lone pair).
-      long long g = -1;
-      if (!(in >> g)) {
+      if (g < 0) {
         g = 0;
         for (unsigned w : watched_groups) {
           if (chosen_state(w).uuid == uuid) g = w;
         }
       }
       const unsigned group = static_cast<unsigned>(g);
-      const bool d = verb == "DEGRADE";
-      if (!d) hold_if_asked();
-      reply = propose(group, [&](const State& base, State& want) -> std::string {
-        // Not before the primary is learned: learning records which node
-        // is primary (and NOT READY); a grant or SYNCED first would leave
-        // that unset. The primary asks again.
-        if (base.uuid.empty()) return "not learned yet";
-        if (uuid != base.uuid) return "another space";
-        if (term != base.term) {
-          return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
-        }
-        want.uuid = uuid;
-        want.degraded = d;
-        return "";
-      });
+      // NOT READY (DEGRADE, NOTREADY) always chooses a fresh version: any
+      // READY computed from an older one can then never be chosen.
+      const bool d = verb == "DEGRADE" || verb == "NOTREADY";
+      if (bad || (verb == "READY" && !has_after)) {
+        reply = "NO bad request";
+      } else {
+        if (!d) hold_if_asked();
+        u64 v = 0;
+        reply = propose(
+            group,
+            [&](const State& base, State& want) -> std::string {
+              // Not before the primary is learned: learning records which
+              // node is primary (and NOT READY); a grant or READY first
+              // would leave that unset. The primary asks again.
+              if (base.uuid.empty()) return "not learned yet";
+              if (uuid != base.uuid) return "another space";
+              if (term != base.term) {
+                return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
+              }
+              if (verb == "SYNCED") {
+                // It names no causal base, so a delayed one could restore
+                // READY over a later NOT READY (an older primary binary).
+                return "SYNCED has no causal base: READY uuid term [group] after=N is required";
+              }
+              if (verb == "READY" && base.degraded && base.version != after) {
+                // A NOT READY was chosen after the primary's base N: its
+                // proof does not cover what was acknowledged since.
+                return "not ready since v=" + std::to_string(base.version);
+              }
+              // READY on a READY state: nothing to choose (want == base).
+              want.uuid = uuid;
+              want.degraded = d;
+              return "";
+            },
+            &v, d);
+        if (reply == "OK" && verb != "DEGRADE") reply += " v=" + std::to_string(v);
+      }
       std::printf("t=%.2f group %u %s: primary term %llu %s: %s\n",
                   secs(t0, std::chrono::steady_clock::now()), group, verb.c_str(), term,
-                  d ? "continues without its standby" : "has its standby back in sync",
+                  d ? (verb == "DEGRADE" ? "continues without its standby" : "NOT READY")
+                    : (verb == "READY" ? "READY after=" + std::to_string(after) : "SYNCED (no causal base)").c_str(),
                   reply.c_str());
       std::fflush(stdout);
     } else if (verb == "DEBUG") {

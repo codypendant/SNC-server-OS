@@ -91,6 +91,18 @@ def ask(port, line, timeout=3):
         return None
 
 
+def make_ready(port, uuid, term=0, group=None):
+    """What a primary does once its standby is proven (docs/SYNC_READINESS.md
+    7): NOT READY at a fresh version N, then READY after=N."""
+    g = "" if group is None else f" {group}"
+    r = ask(port, f"NOTREADY {uuid} {term}{g}")
+    assert r and r.startswith("OK v="), r
+    n = int(r[5:])
+    r = ask(port, f"READY {uuid} {term}{g} after={n}")
+    assert r == f"OK v={n + 1}", (n, r)
+    return n + 1
+
+
 def free_ports(n):
     """n ports free to bind now, below the ephemeral range (32768 up), where
     the kernel would also hand them to outgoing connections."""
@@ -152,9 +164,9 @@ def multi_group(build, work):
             time.sleep(0.02)
         else:
             raise AssertionError("the witnesses never learned every group's primary")
-        # Learned primaries are NOT READY; each says SYNCED (its standby proven).
+        # Learned primaries are NOT READY; each says READY (its standby proven).
         for g in range(3):
-            assert ask(ports[g], f"SYNCED {uuids[g]} 0 {g}") == "OK"
+            make_ready(ports[g], uuids[g], 0, g)
         assert ask(ports[0], "PLACEMENT INIT v1 test-map epoch=1") == "OK"
         block = ask(ports[1], "LEASES TAKE 65536")
         assert block.startswith("BLOCK "), block
@@ -174,6 +186,7 @@ def multi_group(build, work):
         v1, b1 = after["ha/1"]
         assert b1.split() == [uuids[1], "1", "1", "1"], b1
         # A stale SYNCED of the replaced term changes nothing.
+        assert ask(ports[1], f"READY {uuids[1]} 0 1 after=1").startswith("NO term 0 was replaced")
         assert ask(ports[1], f"SYNCED {uuids[1]} 0 1").startswith("NO term 0 was replaced")
         # Group 2: degraded, nothing else. Group 0, placement, leases: unchanged.
         assert after["ha/2"][1].split() == [uuids[2], "0", "1", "0"], after["ha/2"]
@@ -183,7 +196,7 @@ def multi_group(build, work):
         assert pairs[0][1].promotes == 0 and pairs[2][1].promotes == 0, "another group's standby promoted"
         # The old term of group 1 is refused; group 0's primary is not.
         assert ask(ports[0], f"DEGRADE {uuids[1]} 0 1").startswith("NO term 0 was replaced")
-        assert ask(ports[0], f"SYNCED {uuids[0]} 0 0") == "OK"
+        make_ready(ports[0], uuids[0], 0, 0)
         print(f"multi-group: 3 groups on one witness quorum; group 1 failed over to term 1, group 2 "
               f"granted to run alone, group 0, placement (version {after['placement'][0]}) and leases "
               f"unchanged")
@@ -220,9 +233,9 @@ def trial(build, work, n_down=0, seed=0):
         else:
             raise AssertionError(f"the witnesses never learned the primary: {st}")
         # A learned primary is NOT READY (docs/SYNC_READINESS.md); a real
-        # one says SYNCED once its standby is proven. Do that here, so the
+        # one says READY once its standby is proven. Do that here, so the
         # race below is between a grant and a promotion.
-        assert ask(ports[0], f"SYNCED {UUID} 0") == "OK"
+        make_ready(ports[0], UUID)
         for i in range(n_down):
             ws[i].kill()
             ws[i].wait()
@@ -254,6 +267,122 @@ def trial(build, work, n_down=0, seed=0):
         prim.stop = sb.stop = True
 
 
+def ready_order(build, work):
+    """The causal order of NOT READY and READY (docs/SYNC_READINESS.md 7),
+    on the witnesses alone: three snc_witness --debug 1 over a fake pair.
+    V1, V3 to V6 and the new-witness half of V10 (the mixed binaries are
+    tests/test_ready_order.py m1 to m3)."""
+    prim, sb = FakeNode("p"), FakeNode("s")
+    ports = free_ports(3)
+    peers = ",".join(f"127.0.0.1:{p}" for p in ports)
+    ws = []
+    for i, p in enumerate(ports):
+        ws.append(subprocess.Popen(
+            [f"{build}/snc_witness", "--port", str(p), "--primary", f"127.0.0.1:{prim.port}",
+             "--standby", f"127.0.0.1:{sb.port}", "--state", f"{work}/w{i}.state",
+             "--failover-ms", "300", "--poll-ms", "20", "--id", str(i), "--peers", peers, "--debug", "1"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+    res = {}
+
+    def chosen():
+        vals = [ask(p, "READ ha/0") for p in ports]
+        vals = [v.split() for v in vals if v and v.startswith("STATE ")]
+        if not vals:
+            return 0, []
+        best = max(vals, key=lambda v: int(v[1]))
+        return int(best[1]), best[2:]  # version, [uuid, term, degraded, primary]
+
+    def nr(port=None):
+        r = ask(port or ports[0], f"NOTREADY {UUID} 0")
+        assert r and r.startswith("OK v="), r
+        return int(r[5:])
+
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline and chosen()[1][:1] != [UUID]:
+            time.sleep(0.02)
+        v0, body = chosen()
+        assert body == [UUID, "0", "1", "0"], body  # learned: NOT READY
+        # NOT READY on NOT READY still chooses a fresh version (7.2), and a
+        # retry after a lost reply gets another (V3).
+        n1 = nr()
+        n2 = nr(ports[1])
+        res["fresh_versions"] = (v0, n1, n2)
+        assert n1 == v0 + 1 and n2 == n1 + 1, res
+        # V1, undelayed: a READY whose base was overtaken is refused.
+        r = ask(ports[2], f"READY {UUID} 0 after={n1}")
+        assert r == f"NO not ready since v={n2}", r
+        assert chosen() == (n2, [UUID, "0", "1", "0"]), chosen()
+        # V1, delayed: READY after=N held in every witness's queue; a NOT
+        # READY chosen meanwhile; released: refused, still NOT READY.
+        assert all(ask(p, "DEBUG HOLD") == "OK" for p in ports)
+        held = {}
+        t = threading.Thread(target=lambda: held.update(r=ask(ports[0], f"READY {UUID} 0 after={n2}", 10)))
+        t.start()
+        deadline = time.time() + 5
+        while time.time() < deadline and ask(ports[0], "DEBUG HELD") != "HELD 1 1":
+            time.sleep(0.01)
+        n3 = nr(ports[1])
+        assert all(ask(p, "DEBUG RELEASE").startswith("OK") for p in ports)
+        t.join()
+        res["delayed_ready"] = held.get("r")
+        assert held.get("r") == f"NO not ready since v={n3}", held
+        assert chosen() == (n3, [UUID, "0", "1", "0"]), chosen()
+        # V2 and V4: READY grounded on the latest NOT READY is chosen; a
+        # retry (a lost reply) answers OK at the same version, nothing new.
+        r = ask(ports[2], f"READY {UUID} 0 after={n3}")
+        assert r == f"OK v={n3 + 1}", r
+        r = ask(ports[0], f"READY {UUID} 0 after={n3}")
+        assert r == f"OK v={n3 + 1}", r
+        assert chosen() == (n3 + 1, [UUID, "0", "0", "0"]), chosen()
+        # V5: unrelated machines between NOT READY and READY.
+        n4 = nr()
+        assert ask(ports[1], "PLACEMENT INIT v1 test-map epoch=1") == "OK"
+        assert ask(ports[2], "LEASES TAKE 4096").startswith("BLOCK ")
+        r = ask(ports[0], f"READY {UUID} 0 after={n4}")
+        assert r == f"OK v={n4 + 1}", r
+        # V10, new witnesses: an old primary's SYNCED is refused and moves
+        # nothing; its DEGRADE still grants (plain OK, a fresh version).
+        n5 = nr()
+        r = ask(ports[1], f"SYNCED {UUID} 0")
+        res["old_synced"] = r
+        assert r.startswith("NO SYNCED has no causal base"), r
+        assert chosen() == (n5, [UUID, "0", "1", "0"]), chosen()
+        assert ask(ports[2], f"DEGRADE {UUID} 0") == "OK"
+        assert chosen() == (n5 + 1, [UUID, "0", "1", "0"]), chosen()
+        # Malformed: READY without its base.
+        assert ask(ports[0], f"READY {UUID} 0") == "NO bad request"
+        # V6: READY, then the primary goes silent: the standby is promoted
+        # (term 1, NOT READY). The old term's NOT READY and READY are refused.
+        make_ready(ports[0], UUID)
+        prim.answering = False
+        deadline = time.time() + 10
+        while time.time() < deadline and sb.role != "p":
+            time.sleep(0.02)
+        assert sb.role == "p" and sb.term == 1, "the standby was not promoted"
+        vp, body = chosen()
+        assert body == [UUID, "1", "1", "1"], body
+        for verb in ("NOTREADY", "SYNCED", "READY"):
+            r = ask(ports[1], f"{verb} {UUID} 0" + (f" after={vp}" if verb == "READY" else ""))
+            assert r.startswith("NO term 0 was replaced by 1"), (verb, r)
+        assert chosen() == (vp, body), chosen()
+        # The new primary has no base of its own: its first READY needs a
+        # NOT READY of term 1 (V7, as the restarted or promoted primary does).
+        r = ask(ports[1], f"READY {UUID} 1 after={vp - 1}")
+        assert r == f"NO not ready since v={vp}", r
+        n6 = int(ask(ports[1], f"NOTREADY {UUID} 1")[5:])
+        assert ask(ports[2], f"READY {UUID} 1 after={n6}") == f"OK v={n6 + 1}"
+        print(f"ready order: fresh NOT READY versions {res['fresh_versions']}; delayed READY "
+              f"refused ({res['delayed_ready']}); idempotent retry; unrelated machines ignored; old "
+              f"SYNCED refused; old-term requests refused after promotion")
+    finally:
+        for w in ws:
+            if w.poll() is None:
+                w.kill()
+            w.wait()
+        prim.stop = sb.stop = True
+
+
 def main():
     build = sys.argv[1] if len(sys.argv) > 1 else "build"
     trials = int(sys.argv[2]) if len(sys.argv) > 2 else 20
@@ -274,6 +403,11 @@ def main():
     work = tempfile.mkdtemp(prefix="snc-witness-")
     try:
         multi_group(build, work)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    work = tempfile.mkdtemp(prefix="snc-witness-")
+    try:
+        ready_order(build, work)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("test_witness: ok")

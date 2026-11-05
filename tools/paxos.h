@@ -269,9 +269,14 @@ class Node {
   // sets the wanted body, or returns why the change is refused. Retries
   // while other proposals win. Returns "OK" once the wanted body is chosen
   // (or already holds), "NO <why>" otherwise. `same(a, b)`: two bodies
-  // record the same decision.
+  // record the same decision. `version`, if given, gets the version of the
+  // chosen value that holds the wanted body (the base's when it already
+  // held). `fresh`: always choose a new instance, even when the base
+  // already holds the wanted body (docs/SYNC_READINESS.md 7: a NOT READY
+  // must move the version past any request computed from the old one).
   template <class F, class Same>
-  std::string propose(const std::string& m, F change, Same same, int deadline_ms = 1000) {
+  std::string propose(const std::string& m, F change, Same same, int deadline_ms = 1000, u64* version = nullptr,
+                      bool fresh = false) {
     std::lock_guard<std::mutex> serial(one_at_a_time_);  // ours do not race each other
     thread_local std::mt19937 rng(std::random_device{}());
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
@@ -286,7 +291,10 @@ class Node {
       want.body = base.body;
       std::string why = change(base, want.body);
       if (!why.empty()) return "NO " + why;
-      if (same(want.body, base.body)) return "OK";
+      if (!fresh && same(want.body, base.body)) {
+        if (version) *version = base.version;
+        return "OK";
+      }
       want.version = base.version + 1;
       const u64 b = next_ballot();
       const std::string vb = " " + m + " " + std::to_string(want.version) + " " + std::to_string(b) + " ";
@@ -343,7 +351,10 @@ class Node {
           save();
         }
       }
-      if (same(value.body, want.body)) return "OK";
+      if (same(value.body, want.body)) {
+        if (version) *version = value.version;
+        return "OK";
+      }
       // Another proposal was chosen in this instance; try again on top of it.
     }
     return "NO no quorum";
