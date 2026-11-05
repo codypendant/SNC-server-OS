@@ -3,10 +3,15 @@
 // --standby name them as they start; the roles then follow the promotions.
 // If the current primary has not answered for --failover-ms and the other
 // node is its standby (same space and term), it promotes that standby,
-// only from READY: the primary of the current term has proven with SYNCED
+// only from READY: the primary of the current term has proven with READY
 // that its standby holds every acknowledged write (docs/SYNC_READINESS.md).
 // A primary first learned, or just promoted, is NOT READY until then, and
-// so is one let continue without its standby (DEGRADE). A sync primary
+// so is one let continue without its standby (DEGRADE, NOTREADY).
+// Causal order (docs/SYNC_READINESS.md 7): every NOT READY is chosen at a
+// fresh version, which NOTREADY answers ("OK v=N"); READY names the
+// version its proof follows ("after=N") and is chosen only on that very
+// state, so a READY delayed past a later NOT READY is refused. SYNCED
+// (older primaries) names none and is refused. A sync primary
 // started with --witness asks before continuing without its standby; a
 // primary whose term was replaced is refused.
 //
@@ -59,14 +64,17 @@
 //                    [--group G=HOST:ADMIN,HOST:ADMIN ...]
 //                    --state FILE [--failover-ms N] [--poll-ms N]
 //                    [--health-verb health|status]
-//                    [--id I --peers HOST:PORT,HOST:PORT,...]
+//                    [--id I --peers HOST:PORT,HOST:PORT,...] [--debug 1]
 // --peers lists every witness, this one included at index --id.
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -97,7 +105,8 @@ struct State {
   // NOT READY (docs/SYNC_READINESS.md): the primary may run without the
   // standby, or has not yet proven it in sync (first learned, or just
   // promoted). The witnesses promote only from false (READY), which only a
-  // SYNCED of the current term records.
+  // READY of the current term, naming the NOT READY it follows, records
+  // (docs/SYNC_READINESS.md 7).
   bool degraded = false;
   unsigned primary = 0;   // which node (0: --primary, 1: --standby) holds `term`
 
@@ -147,7 +156,7 @@ State chosen_state(unsigned group) { return to_state(px.chosen(ha_machine(group)
 // wanted state, or returns why the change is refused. "OK" once the wanted
 // decision is chosen (or already holds), "NO <why>" otherwise.
 template <class F>
-std::string propose(unsigned group, F change) {
+std::string propose(unsigned group, F change, u64* version = nullptr, bool fresh = false) {
   return px.propose(
       ha_machine(group),
       [&](const paxos::Value& base, std::string& want_body) -> std::string {
@@ -159,7 +168,11 @@ std::string propose(unsigned group, F change) {
       },
       [](const std::string& a, const std::string& b) {
         return to_state({1, a}).same_decision(to_state({1, b}));
-      });
+      },
+      // 3 s, as placement: with a witness that accepts connections but
+      // does not answer (stopped), each round takes about 1.2 s, and a NOT
+      // READY that adopts a value needs two (SYNC_READINESS 7.2).
+      3000, version, fresh);
 }
 
 // Placement requests (snc_ctl, nodes):
@@ -268,45 +281,154 @@ const auto t0 = std::chrono::steady_clock::now();
 // One request on an accepted connection.
 std::vector<unsigned> watched_groups;  // set before any request is served
 
+// --debug 1 (tests only, docs/SYNC_READINESS.md 7): DEBUG HOLD makes every
+// readiness request (SYNCED, READY) that arrives wait, before its
+// proposal, until DEBUG RELEASE: the deterministic form of a request
+// delayed in this witness's proposal queue. DEBUG HELD reports how many
+// wait now and how many have waited.
+bool g_debug = false;
+std::mutex hold_mu;
+std::condition_variable hold_cv;
+bool hold_on = false;
+unsigned held_now = 0, held_total = 0;
+
+void hold_if_asked() {
+  if (!g_debug) return;
+  std::unique_lock<std::mutex> g(hold_mu);
+  if (!hold_on) return;
+  ++held_now;
+  ++held_total;
+  hold_cv.wait(g, [] { return !hold_on; });
+  --held_now;
+}
+
+std::string debug_verb(std::istream& in) {
+  if (!g_debug) return "NO unknown request";
+  std::string what;
+  in >> what;
+  std::lock_guard<std::mutex> g(hold_mu);
+  if (what == "HOLD") {
+    hold_on = true;
+    held_total = 0;
+    return "OK";
+  }
+  if (what == "RELEASE") {
+    hold_on = false;
+    hold_cv.notify_all();
+    return "OK released " + std::to_string(held_now);
+  }
+  if (what == "HELD") return "HELD " + std::to_string(held_now) + " " + std::to_string(held_total);
+  if (what == "SKIP-COMMIT") {
+    int n = 0;
+    in >> n;
+    px.debug_skip_commits.store(n);
+    return "OK";
+  }
+  return "NO bad request";
+}
+
 void serve(int fd) {
   std::string line, reply = "NO bad request";
   if (ha::read_line(fd, line, 500)) {
     std::istringstream in(line);
     std::string verb;
     in >> verb;
-    if (verb == "DEGRADE" || verb == "SYNCED") {
-      std::string uuid;
-      u64 term = 0;
-      in >> uuid >> term;
+    if (verb == "DEGRADE" || verb == "NOTREADY" || verb == "SYNCED" || verb == "READY") {
+      // VERB uuid term [group] [after=N] (docs/SYNC_READINESS.md 7).
+      std::string uuid, tok;
+      u64 term = 0, after = 0;
+      long long g = -1;
+      bool has_after = false, bad = false;
+      // A whole unsigned number, or false.
+      auto number = [](const std::string& t, u64& out) {
+        if (t.empty() || !std::isdigit(static_cast<unsigned char>(t[0]))) return false;
+        char* end = nullptr;
+        errno = 0;
+        out = std::strtoull(t.c_str(), &end, 10);
+        return errno == 0 && end && *end == '\0';
+      };
+      if (!(in >> uuid >> tok) || !number(tok, term)) bad = true;
+      while (!bad && in >> tok) {
+        u64 n = 0;
+        if (tok.rfind("after=", 0) == 0 && !has_after && number(tok.substr(6), n)) {
+          has_after = true;
+          after = n;
+        } else if (g < 0 && number(tok, n) && n < (u64{1} << 31)) {
+          g = static_cast<long long>(n);
+        } else {
+          bad = true;
+        }
+      }
       // The group: given (a clustered node says which), or the one whose
       // space this is, or group 0 (a lone pair).
-      long long g = -1;
-      if (!(in >> g)) {
+      if (g < 0) {
         g = 0;
         for (unsigned w : watched_groups) {
           if (chosen_state(w).uuid == uuid) g = w;
         }
       }
       const unsigned group = static_cast<unsigned>(g);
-      const bool d = verb == "DEGRADE";
-      reply = propose(group, [&](const State& base, State& want) -> std::string {
-        // Not before the primary is learned: learning records which node
-        // is primary (and NOT READY); a grant or SYNCED first would leave
-        // that unset. The primary asks again.
-        if (base.uuid.empty()) return "not learned yet";
-        if (uuid != base.uuid) return "another space";
-        if (term != base.term) {
-          return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
+      // NOT READY (DEGRADE, NOTREADY) always chooses a fresh version: any
+      // READY computed from an older one can then never be chosen.
+      const bool d = verb == "DEGRADE" || verb == "NOTREADY";
+      if (bad || (verb == "READY" && !has_after)) {
+        reply = "NO bad request";
+      } else if (std::find(watched_groups.begin(), watched_groups.end(), group) == watched_groups.end()) {
+        reply = "NO group " + std::to_string(group) + " is not watched here";
+      } else {
+        if (!d) hold_if_asked();
+        u64 v = 0;
+        paxos::Value latest;
+        // The base must be the latest chosen value, not the newest this
+        // witness or a majority has learned: a NOT READY accepted by a
+        // majority but announced to nobody (a lost COMMIT) is finished
+        // first, else READY could read an older READY and answer OK while
+        // NOT READY is chosen. If that read fails, READY is not answered.
+        if (verb == "READY" && !px.read_linear(ha_machine(group), latest)) {
+          reply = "NO no quorum";
+        } else {
+          reply = propose(
+              group,
+              [&](const State& base, State& want) -> std::string {
+                // Not before the primary is learned: learning records which
+                // node is primary (and NOT READY); a grant or READY first
+                // would leave that unset. The primary asks again.
+                if (base.uuid.empty()) return "not learned yet";
+                if (uuid != base.uuid) return "another space";
+                if (term != base.term) {
+                  return "term " + std::to_string(term) + " was replaced by " + std::to_string(base.term);
+                }
+                if (verb == "SYNCED") {
+                  // It names no causal base, so a delayed one could restore
+                  // READY over a later NOT READY (an older primary binary).
+                  return "SYNCED has no causal base: READY uuid term [group] after=N is required";
+                }
+                if (verb == "READY" && base.version < after) {
+                  // Not yet learned here (the linear read failed): ask again.
+                  return "behind v=" + std::to_string(base.version);
+                }
+                if (verb == "READY" && base.degraded && base.version != after) {
+                  // A NOT READY was chosen after the primary's base N: its
+                  // proof does not cover what was acknowledged since.
+                  return "not ready since v=" + std::to_string(base.version);
+                }
+                // READY on a READY state: nothing to choose (want == base).
+                want.uuid = uuid;
+                want.degraded = d;
+                return "";
+              },
+              &v, d);
+          if (reply == "OK" && verb != "DEGRADE") reply += " v=" + std::to_string(v);
         }
-        want.uuid = uuid;
-        want.degraded = d;
-        return "";
-      });
+      }
       std::printf("t=%.2f group %u %s: primary term %llu %s: %s\n",
                   secs(t0, std::chrono::steady_clock::now()), group, verb.c_str(), term,
-                  d ? "continues without its standby" : "has its standby back in sync",
+                  d ? (verb == "DEGRADE" ? "continues without its standby" : "NOT READY")
+                    : (verb == "READY" ? "READY after=" + std::to_string(after) : "SYNCED (no causal base)").c_str(),
                   reply.c_str());
       std::fflush(stdout);
+    } else if (verb == "DEBUG") {
+      reply = debug_verb(in);
     } else if (verb == "PLACEMENT") {
       reply = placement(in);
     } else if (verb == "LEASES") {
@@ -363,6 +485,7 @@ int main(int argc, char** argv) {
     else if (k == "--id") self_id = static_cast<unsigned>(std::atoi(v.c_str()));
     else if (k == "--peers") peer_list = v;
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
+    else if (k == "--debug") g_debug = v == "1";
     else {
       std::fprintf(stderr, "bad flag %s %s\n", k.c_str(), v.c_str());
       return 2;
@@ -508,7 +631,7 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
               want.term = term;
               want.primary = n;
               // NOT READY until the primary proves its standby in sync
-              // (SYNCED; docs/SYNC_READINESS.md 2).
+              // (READY; docs/SYNC_READINESS.md 2, 7).
               want.degraded = true;
               return "";
             }) == "OK") {

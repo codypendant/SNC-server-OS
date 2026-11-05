@@ -1,0 +1,50 @@
+{
+ "old_process_lines": [
+  "witness: recorded NOT READY (this primary started) at v=2",
+  "witness: granted, continuing without the standby"
+ ],
+ "new_process_start": "witness: recorded NOT READY (this primary started) at v=5",
+ "released": [
+  "OK released 1",
+  "OK released 0",
+  "OK released 0"
+ ],
+ "state_after_release": [
+  6,
+  0,
+  0,
+  true
+ ],
+ "refusals": 1,
+ "refused": true,
+ "ready_again": [
+  7,
+  0,
+  0,
+  false
+ ],
+ "new_ready_line": "witness: standby back in sync (READY after v=6)",
+ "grounded": true,
+ "promoted": [
+  8,
+  1,
+  1,
+  true
+ ],
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 5973692,
+  "mismatches": 0,
+  "failovers": 4,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 4  replayed 288  timeouts 0  resends 256  max_resend_age_ms 5138",
+   "  retry claim: max_resend_age_ms 5138, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 5973692 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "c2_restart_held",
+ "seconds": 62.3
+}

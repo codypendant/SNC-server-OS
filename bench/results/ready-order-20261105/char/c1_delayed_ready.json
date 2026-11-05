@@ -1,0 +1,63 @@
+{
+ "char": true,
+ "state_after_grant_1": [
+  3,
+  0,
+  0,
+  true
+ ],
+ "held_before_loss": 1,
+ "state_after_grant_2": [
+  3,
+  0,
+  0,
+  true
+ ],
+ "released": [
+  "OK released 1",
+  "OK released 1",
+  "OK released 1"
+ ],
+ "state_after_release": [
+  4,
+  0,
+  0,
+  false
+ ],
+ "ready_restored": true,
+ "witness_lines": [
+  "t=0.03 group 0 SYNCED: primary term 0 has its standby back in sync: OK",
+  "t=11.82 group 0 SYNCED: primary term 0 has its standby back in sync: OK",
+  "t=11.82 group 0 SYNCED: primary term 0 has its standby back in sync: OK",
+  "t=11.81 group 0 SYNCED: primary term 0 has its standby back in sync: OK"
+ ],
+ "primary_lines": [
+  "witness: recorded NOT READY (this primary started)",
+  "witness: standby back in sync",
+  "witness: granted, continuing without the standby",
+  "witness: granted, continuing without the standby"
+ ],
+ "promoted": [
+  5,
+  1,
+  1,
+  true
+ ],
+ "bench": {
+  "rc": 1,
+  "accounts": 2000,
+  "deposits": 5615358,
+  "mismatches": 2000,
+  "failovers": 2,
+  "tail": [
+   "  verify: account 2 has 3549, expected 3776",
+   "  verify: account 3 has 3525, expected 3756",
+   "  verify: account 4 has 3589, expected 3829",
+   "  verify: 2000 accounts, 5615358 deposits, 2000 mismatches"
+  ]
+ },
+ "acked_writes_lost": true,
+ "pass": true,
+ "scenario": "c1_delayed_ready",
+ "seconds": 62.2
+}

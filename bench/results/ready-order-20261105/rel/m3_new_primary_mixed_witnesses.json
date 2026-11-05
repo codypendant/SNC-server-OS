@@ -1,0 +1,17 @@
+{
+ "too_old_logged": true,
+ "released": [
+  "OK released 1",
+  "OK released 1"
+ ],
+ "state_after_release": [
+  5,
+  0,
+  0,
+  true
+ ],
+ "no_promotion": true,
+ "pass": true,
+ "scenario": "m3_new_primary_mixed_witnesses",
+ "seconds": 18.4
+}

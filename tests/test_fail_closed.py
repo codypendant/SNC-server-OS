@@ -216,7 +216,8 @@ def create_near(port, oid):
 class Cluster:
     """Group g: node 2g+1 starts primary, node 2g+2 its async standby."""
 
-    def __init__(self, work, groups=2, ha=False, async_replica=True, v2=None, how="admin", bin_dir=None):
+    def __init__(self, work, groups=2, ha=False, async_replica=True, v2=None, how="admin", bin_dir=None,
+                 debug_witness=False):
         self.work, self.groups, self.procs = work, groups, []
         # How a standby takes over in failover(): admin PROMOTE, the
         # witnesses (ha), or offline: its directory restarted without
@@ -246,6 +247,8 @@ class Cluster:
         for i, w in enumerate(self.wports):
             args = [f"{self.bin}/snc_witness", "--port", str(w), "--state", f"{work}/w{i}", "--id", str(i),
                     "--peers", self.control, "--failover-ms", "500", "--poll-ms", "50"]
+            if debug_witness:
+                args += ["--debug", "1"]  # DEBUG HOLD (docs/SYNC_READINESS.md 7)
             if ha:
                 for g in range(groups):
                     args += ["--group", f"{g}=127.0.0.1:{self.admin[2 * g + 1]},127.0.0.1:{self.admin[2 * g + 2]}"]
@@ -887,7 +890,7 @@ def ha_state(c, g):
     return best
 
 
-def scenario_f19(c, ev):
+def scenario_f19(c, ev, forced=False):
     """F19 (B2 test 9; docs/SYNC_READINESS.md): sync replication, witness
     HA. A completed move of S to B; B's primary dies and the witnesses
     promote its standby (term 1, NOT READY); B's old primary rejoins it as
@@ -895,7 +898,11 @@ def scenario_f19(c, ev):
     new primary has said SYNCED (READY), it dies and the witnesses promote
     the rejoined node (term 2). S serves there with every acked write
     (D1); A never serves S again (D7); a never-moved slot serves
-    throughout."""
+    throughout. forced (f19r, V9 of docs/handoff/PR49_Review_Handoff.txt):
+    the new primary's first READY is held in every witness while the
+    rejoined standby is lost, the primary is granted and acknowledges
+    deposits alone; released, that READY is refused (docs/SYNC_READINESS.md
+    7), and the second failover still has every acked write."""
     ids, S = c.create(1, 1, in_slot=10)
     a = owner_primary(c, S)
     b = 3 if a == 1 else 1
@@ -922,14 +929,54 @@ def scenario_f19(c, ev):
     wait(lambda: c.role(qb) in ("p", "n"), "B's new primary restarted")
     for i in ids:
         assert deposit(c.client[qb], i, 1) == OK
+    if forced:  # before b rejoins: its first proof is the READY held
+        assert all(ask(w, "DEBUG HOLD") == "OK" for w in c.wports), "witnesses without --debug"
     shutil.move(f"{c.work}/n{b}", f"{c.work}/n{b}.aside")
     c.start(b, standby_of=qb, extra=["--seed-from", f"127.0.0.1:{seed}"])
     wait(lambda: c.role(b) == "s", "B's old primary rejoined as a standby", timeout=60)
+    alone = 0
+    if forced:
+        def held():
+            n = 0
+            for w in c.wports:
+                r = ask(w, "DEBUG HELD", 1)
+                n += int(r.split()[2]) if r and r.startswith("HELD ") else 0
+            return n
+
+        def grants():
+            return open(f"{c.work}/n{qb}.log").read().count("witness: granted")
+
+        wait(lambda: held() >= 1, "the new primary's READY held", timeout=60)
+        import threading
+        g0 = grants()
+        c.server[b].send_signal(signal.SIGSTOP)
+        # Writes reveal the lost standby (its acks stop) and wait for the
+        # grant; then they are acknowledged on B's durability alone.
+        oks = []
+        t = threading.Thread(target=lambda: oks.extend(deposit(c.client[qb], i, 1) for i in ids))
+        t.start()
+        wait(lambda: grants() > g0, "B's new primary granted to run alone", timeout=30)
+        t.join()
+        assert oks == [OK] * len(ids), oks
+        alone = 1
+        ev["released"] = [ask(w, "DEBUG RELEASE") for w in c.wports]
+        time.sleep(1.5)
+        st = ha_state(c, gb)
+        ev["after_release"] = st
+        assert st[1] == 1 and st[2] is True, st  # the held READY was refused
+        refusals = sum(open(f"{c.work}/w{i}.log").read().count("NO not ready since") for i in range(3))
+        ev["refusals"] = refusals
+        assert refusals >= 1, "no READY was refused"
+        c.server[b].send_signal(signal.SIGCONT)
     # 3. READY again only once proven; then the new primary dies.
     wait(lambda: (lambda s: s and s[1] == 1 and s[2] is False)(ha_state(c, gb)), "B READY at term 1", timeout=60)
     # In the new primary's own log: NOT READY recorded at its start, the
     # seed sent after that, READY (SYNCED) only after the seed: while the
     # rejoined node seeded and caught up, the group was not promotable.
+    # The witnesses chose READY before the primary logs its reply: wait for
+    # the line (an ASan run read the log in between).
+    this_start = lambda: (lambda t: t[t.rfind("snc_server shards="):])(open(f"{c.work}/n{qb}.log").read())  # noqa: E731
+    wait(lambda: "standby back in sync" in this_start(), "READY logged by B's primary", timeout=10)
     lines = open(f"{c.work}/n{qb}.log").read().splitlines()
     lines = lines[max(i for i, l in enumerate(lines) if l.startswith("snc_server shards=")):]  # this start
     at = lambda pat: next((i for i, l in enumerate(lines) if pat in l), None)  # noqa: E731
@@ -946,7 +993,7 @@ def scenario_f19(c, ev):
     wait(lambda: c.info(b, S)["serving"] == 1, "S served at the rejoined node")
     bals = [balance(c.client[b], i)[1] for i in ids]
     served = probe.stop()
-    ev.update(slot=S, balances_ok=bals == [1000007 + 2] * len(ids),
+    ev.update(slot=S, balances_ok=bals == [1000007 + 2 + alone] * len(ids),
               probe=f"{probe.samples} samples, A served {len(served)}",
               a_info=c.info(a, S), never_moved=STATUS.get(balance(c.client[a], other[0])[0]))
     assert ev["balances_ok"], bals
@@ -956,6 +1003,14 @@ def scenario_f19(c, ev):
 
 def scenario_f19_cluster():
     return dict(async_replica=False, ha=True)
+
+
+def scenario_f19r(c, ev):
+    scenario_f19(c, ev, forced=True)
+
+
+def scenario_f19r_cluster():
+    return dict(async_replica=False, ha=True, debug_witness=True)
 
 
 def scenario_f10(c, ev):
@@ -1524,7 +1579,7 @@ def size_measure():
 # these); compat and f7b need --old.
 ALL = ["f1", "f2", "f3", "f4", "f5", "f5b", "f6", "f7", "f8_f9", "f10", "f11", "f13:f3", "f13:f6", "f15",
        "f17:f1", "f17:f5", "f17:f6", "f18", "role", "backfill", "stuck", "prepared", "f10_reseal", "f7_prepared",
-       "legacy_primary", "legacy_standby", "legacy_stale", "f19", "size"]
+       "legacy_primary", "legacy_standby", "legacy_stale", "f19", "f19r", "size"]
 
 
 def main():

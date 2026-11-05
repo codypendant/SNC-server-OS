@@ -935,19 +935,55 @@ int main(int argc, char** argv) {
   // primary (first learned, or promoted) as NOT READY, so a primary owes a
   // SYNCED from its start until its standby is proven in sync.
   bool granted = false, refused = false, owe_synced = true;
-  bool proven_since_start = false;  // a SYNCED of this process answered OK
+  // Causal order (docs/SYNC_READINESS.md 7): the version of the NOT READY
+  // this process last had chosen (NOTREADY answered "OK v=N"); 0 when it
+  // has none, at start and after a promotion. READY names it (after=N), so
+  // the witnesses refuse a READY that a later NOT READY overtook.
+  u64 ready_base = 0;
+  // The highest NOT READY version answered to this process, never reset: a
+  // NOTREADY answered with a version at or below it is not a grant (it may
+  // be one an earlier READY already names).
+  u64 max_not_ready = 0;
+  const u64 start_term = eng.term();  // promoted later: a higher term
+  bool too_old_logged = false;
   // Asks the witnesses in turn; the first reply decides. A witness runs
-  // Paxos among its peers before answering, so allow it time.
+  // Paxos among its peers before answering, so allow it time. A witness
+  // that does not know the request (an older binary: no NOTREADY or
+  // READY) is skipped: the next one may know it.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
     for (const auto& [h, p] : witnesses) {
       const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
       const bool ok = ha::ask(h, p, req, reply, 1500);
       SNC_TRACE("ask_witness port=%u req=%.24s ok=%d ms=%.1f reply=%.40s", p, req.c_str(), ok ? 1 : 0,
                 trace::enabled() ? (trace::now_ns() - t0) / 1e6 : 0.0, reply.c_str());
+      if (ok && reply.rfind("NO unknown request", 0) == 0) {
+        if (!too_old_logged) {
+          too_old_logged = true;
+          std::printf("witness %s:%u does not know %s (an older binary): asking the next one; this group's "
+                      "readiness is not protected until every witness is upgraded\n",
+                      h.c_str(), p, req.substr(0, req.find(' ')).c_str());
+        }
+        continue;
+      }
       if (ok) return true;
     }
     reply.clear();
     return false;
+  };
+  // NOTREADY: records NOT READY at a fresh version; true once chosen.
+  // Pessimistic first: if the reply is lost, NOT READY may be on record
+  // anyway, so this process owes READY again.
+  auto not_ready = [&](const std::string& tail, std::string& reply) {
+    owe_synced = true;
+    if (!ask_witness("NOTREADY" + tail, reply) || reply.rfind("OK v=", 0) != 0) return false;
+    const u64 v = std::strtoull(reply.c_str() + 5, nullptr, 10);
+    if (v <= max_not_ready) {
+      std::printf("witness: NOTREADY answered with v=%llu, not above v=%llu; asking again\n",
+                  (unsigned long long)v, (unsigned long long)max_not_ready);
+      return false;
+    }
+    max_not_ready = ready_base = v;
+    return true;
   };
 
   int sig = 0;
@@ -984,6 +1020,7 @@ int main(int argc, char** argv) {
           }
           cfg.standby = false;
           owe_synced = true;  // the promotion recorded NOT READY for the new term
+          ready_base = 0;     // at a version this process does not know: NOTREADY first
           not_ready_on_record.store(true);
           term.store(eng.term());
           lease_lo.store(eng.lease_block().first);
@@ -1006,7 +1043,7 @@ int main(int argc, char** argv) {
         const bool healthy = st.degraded == 0 && st.blocked == 0 && st.live == st.shards;
         std::string reply;
         if (!granted && st.blocked > 0) {
-          if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
+          if (not_ready(tail, reply)) {
             granted = true;
             refused = false;
             not_ready_on_record.store(true);
@@ -1035,18 +1072,22 @@ int main(int argc, char** argv) {
         // At start, this process does not know what is on record (a READY
         // from before a restart, or from an older witness), nor what its
         // standby acknowledged before: it records NOT READY once first.
+        // READY needs a causal base: with none (at start, after a
+        // promotion, after a refused READY) NOT READY is recorded first.
         const bool regressed = st.regressed > 0 && !not_ready_on_record.load();
         const bool seed = seed_wanted.load() && !not_ready_on_record.load();
-        const bool at_start = !not_ready_on_record.load() && owe_synced && !proven_since_start;
-        if (!granted && (regressed || seed || at_start)) {
-          if (ask_witness("DEGRADE" + tail, reply) && reply == "OK") {
+        const bool no_base = owe_synced && ready_base == 0;
+        if (!granted && (regressed || seed || no_base)) {
+          if (not_ready(tail, reply)) {
             not_ready_on_record.store(true);
             seed_wanted.store(false);
             owe_synced = true;
-            std::printf("witness: recorded NOT READY (%s)\n",
+            std::printf("witness: recorded NOT READY (%s) at v=%llu\n",
                         regressed ? "the standby lost acknowledged records"
                         : seed    ? "a seed is asked for"
-                                  : "this primary started");
+                        : eng.term() == start_term ? "this primary started"
+                                                   : "this primary was promoted",
+                        (unsigned long long)ready_base);
             std::fflush(stdout);  // ordered with the seed's stderr lines (tests read both)
           } else if (reply.rfind("NO term", 0) == 0 && !eng.fenced()) {
             eng.withdraw();
@@ -1055,24 +1096,31 @@ int main(int argc, char** argv) {
         } else if (seed_wanted.load() && not_ready_on_record.load()) {
           seed_wanted.store(false);
         }
-        // SYNCED only once every shard's current link has proven its
+        // READY only once every shard's current link has proven its
         // standby holds every durable record (st.ready, docs/SYNC_READINESS.md 3).
-        // The shards are read again first: a DEGRADE above may have taken
-        // a while.
-        if (owe_synced && !granted && healthy && st.ready == st.shards && st.regressed == 0) {
+        // The shards are read again first, so the proof is read after the
+        // NOT READY it names (section 7), which may have been asked just above.
+        const bool can_ready = owe_synced && !granted && ready_base != 0;
+        if (can_ready && healthy && st.ready == st.shards && st.regressed == 0) {
           st = eng.replication_status();
         }
-        if (owe_synced && !granted && st.degraded == 0 && st.blocked == 0 && st.live == st.shards &&
+        if (can_ready && st.degraded == 0 && st.blocked == 0 && st.live == st.shards &&
             st.ready == st.shards && st.regressed == 0) {
           // Pessimistic before asking: if the reply is lost the witnesses
           // may hold READY, so a seed or a regression must record NOT READY
           // again first.
           not_ready_on_record.store(false);
-          if (ask_witness("SYNCED" + tail, reply) && reply == "OK") {
+          if (ask_witness("READY" + tail + " after=" + std::to_string(ready_base), reply) &&
+              reply.rfind("OK v=", 0) == 0 && std::strtoull(reply.c_str() + 5, nullptr, 10) > ready_base) {
             owe_synced = false;
-            proven_since_start = true;
-            std::printf("witness: standby back in sync\n");
+            std::printf("witness: standby back in sync (READY after v=%llu)\n", (unsigned long long)ready_base);
             std::fflush(stdout);
+          } else if (reply.rfind("NO not ready since", 0) == 0) {
+            // A NOT READY was chosen after ours (a lost reply, or another
+            // request): record a new one, then prove the standby again.
+            std::printf("witness: READY after v=%llu refused (%s); NOT READY again first\n",
+                        (unsigned long long)ready_base, reply.c_str());
+            ready_base = 0;
           } else if (reply.rfind("NO term", 0) == 0) {
             owe_synced = false;  // replaced: this node is no longer the primary
             eng.withdraw();

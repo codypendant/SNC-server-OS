@@ -1,0 +1,50 @@
+{
+ "promoted_state": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "released": [
+  "OK released 1",
+  "OK released 1",
+  "OK released 1"
+ ],
+ "state_after_release": [
+  6,
+  1,
+  1,
+  true
+ ],
+ "refusals": 3,
+ "refused": true,
+ "ready_term_1": [
+  7,
+  1,
+  1,
+  false
+ ],
+ "second_promoted": [
+  8,
+  2,
+  0,
+  true
+ ],
+ "bench": {
+  "rc": 0,
+  "accounts": 2000,
+  "deposits": 6490336,
+  "mismatches": 0,
+  "failovers": 4,
+  "tail": [
+   "  sent to non-owner 0.0%  forwarded by server 0.0%",
+   "  failovers 4  replayed 320  timeouts 0  resends 256  max_resend_age_ms 1067",
+   "  retry claim: max_resend_age_ms 1067, limit 360000 (TTL 3600 s / 10): valid",
+   "  verify: 2000 accounts, 6490336 deposits, 0 mismatches"
+  ]
+ },
+ "pass": true,
+ "scenario": "c3_two_failovers",
+ "seconds": 62.9
+}

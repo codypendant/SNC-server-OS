@@ -313,7 +313,18 @@ class Pair:
     rearmed, plus three witnesses. With proxied=True every path to and
     from node 0 goes through a Proxy (T6)."""
 
-    def __init__(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS):
+    def __init__(self, *a, **k):
+        # A failed start stops what it started: a TSan run once left a
+        # half-started pair running (and promoting) for 40 minutes.
+        self.load, self.nodes, self.w, self.proxies, self.work = None, [None, None], [], [], None
+        try:
+            self._start(*a, **k)
+        except BaseException:
+            self.stop()
+            raise
+
+    def _start(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS,
+               witness_extra=(), node_bin=None, witness_bins=None, ready=True):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -350,20 +361,27 @@ class Pair:
              ",".join(f"127.0.0.1:{p}" for p in self.wit), "--seed-port", str(b + 80)] + common,
         ]
         self.nodes = [None, None]
-        self.nodes[1] = Proc([f"{BUILD}/snc_server", "--standby", str(b + 20)] + self.args[1])
+        node_bin = node_bin or f"{BUILD}/snc_server"
+        witness_bins = witness_bins or [f"{BUILD}/snc_witness"] * 3
+        self.nodes[1] = Proc([node_bin, "--standby", str(b + 20)] + self.args[1])
         assert wait_port(self.adm[1], proc=self.nodes[1]), "node 1 did not start\n" + self.nodes[1].text()
-        self.nodes[0] = Proc([f"{BUILD}/snc_server"] + self.args[0])
+        self.nodes[0] = Proc([node_bin] + self.args[0])
         assert wait_port(self.adm[0], proc=self.nodes[0]), "node 0 did not start\n" + self.nodes[0].text()
         peers = ",".join(f"127.0.0.1:{p}" for p in self.wit)
-        self.w = [Proc([f"{BUILD}/snc_witness", "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{to0_adm}",
+        self.w = [Proc([witness_bins[i], "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{to0_adm}",
                         "--standby", f"127.0.0.1:{self.adm[1]}", "--state", f"{self.work}/w{i}.state",
                         "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(poll_ms), "--id", str(i),
-                        "--peers", peers, "--health-verb", verbs[i]]) for i in range(3)]
+                        "--peers", peers, "--health-verb", verbs[i]] +
+                       (list(witness_extra) if witness_bins[i] == f"{BUILD}/snc_witness" else []))
+                  for i in range(3)]
         for w in self.w:
-            assert w.wait_for(r"primary up|failover learned", 15), "a witness never saw the primary\n" + w.text()
+            assert w.wait_for(r"primary up|failover learned", 15), (
+                "a witness never saw the primary\n" + "\n".join(f"-- w{i}\n" + x.text() for i, x in enumerate(self.w)) +
+                "\n-- node 0\n" + self.nodes[0].text())
         # A learned primary is NOT READY until it proves its standby in sync
         # (docs/SYNC_READINESS.md): tests start from a promotable pair.
-        assert self.wait_ready(30), f"the pair never became READY: {self.state()}\n" + self.nodes[0].text()
+        if ready:
+            assert self.wait_ready(30), f"the pair never became READY: {self.state()}\n" + self.nodes[0].text()
         self.load = None
 
     def wait_ready(self, timeout, term=None):
@@ -411,7 +429,8 @@ class Pair:
         for x in self.proxies:
             x.heal()
             x.sock.close()
-        shutil.rmtree(self.work, ignore_errors=True)
+        if self.work:
+            shutil.rmtree(self.work, ignore_errors=True)
 
 
 def role_pairs(pr):
@@ -783,7 +802,9 @@ def fake_witness(work, prim, sb, verb="health"):
     assert w.wait_for(r"primary up", 10), w.text()
     # A learned primary is NOT READY; a real one says SYNCED once its
     # standby is proven (docs/SYNC_READINESS.md). The fakes start READY.
-    assert ask(port, f"SYNCED {UUID} 0", 3)[0] == "OK"
+    r = ask(port, f"NOTREADY {UUID} 0", 3)[0]
+    assert r and r.startswith("OK v="), r
+    assert ask(port, f"READY {UUID} 0 after={r[5:]}", 3)[0].startswith("OK v="), r
     return w, port
 
 

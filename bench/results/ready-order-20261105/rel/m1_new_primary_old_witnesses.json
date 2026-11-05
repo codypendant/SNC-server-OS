@@ -1,0 +1,22 @@
+{
+ "state": [
+  1,
+  0,
+  0,
+  true
+ ],
+ "too_old_logged": true,
+ "granted": 0,
+ "no_promotion": true,
+ "states": [
+  [
+   1,
+   0,
+   0,
+   true
+  ]
+ ],
+ "pass": true,
+ "scenario": "m1_new_primary_old_witnesses",
+ "seconds": 15.2
+}

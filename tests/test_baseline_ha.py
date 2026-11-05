@@ -228,7 +228,18 @@ def scenario_q3_runtime(work, trials=3):
             writes = []
             probe_writes(g.p_cli, probe_id, t_kill + 15, writes)
             granted = g.prim.wait_for(r"witness: granted", 0.1)
-            h = kv(af.ask(g.p_adm, "HEALTH", 2))
+            # main_ms is how long ago the main loop last turned. It also
+            # turns slowly while it cuts a checkpoint (Engine::checkpoint runs
+            # on the main loop, every 1 s here; ~1.3 s per cut under TSan), so
+            # one sample can land inside a cut. Take the smallest of several
+            # over 3 s: a wedged loop stays high in all of them.
+            hs = []
+            for _ in range(15):
+                hk = kv(af.ask(g.p_adm, "HEALTH", 2))
+                if "main_ms" in hk:
+                    hs.append(int(hk["main_ms"]))
+                time.sleep(0.2)
+            h = {"main_ms": min(hs)} if hs else {}
             st = af.ask(g.p_adm, "STATUS", 3)
             res = af.ask(g.p_adm, "RESOURCES", 3)
             resume = first_ok_after(writes, t_kill + 0.6)
@@ -258,6 +269,7 @@ def scenario_q3_runtime(work, trials=3):
                         pass
                     time.sleep(0.2)
             r = {"trial": trial, "granted": granted is not None, "main_ms_after_15s": int(h["main_ms"]) if "main_ms" in h else None,
+                 "main_ms_samples": hs,
                  "status": st, "resources": res,
                  "writes_ok_after_kill": sum(1 for _, _, s in writes if s == fc.OK),
                  "writes_failed_after_kill": sum(1 for _, _, s in writes if s != fc.OK),

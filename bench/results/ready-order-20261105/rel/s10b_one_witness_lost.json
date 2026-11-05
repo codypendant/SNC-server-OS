@@ -1,0 +1,18 @@
+{
+ "witnesses_killed": 1,
+ "promoted_state": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "backlog_peak": 1909846,
+ "backlog_at_kill": 1524056,
+ "halfway": true,
+ "no_promotion": true,
+ "node0_role": "s",
+ "pass": true,
+ "scenario": "s10b_one_witness_lost",
+ "seconds": 22.1
+}

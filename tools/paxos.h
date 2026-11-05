@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <map>
@@ -64,6 +65,11 @@ struct Peer {
 
 class Node {
  public:
+  // Tests only (snc_witness --debug 1, DEBUG SKIP-COMMIT n): the next n
+  // values this process gets chosen are not announced with COMMIT, so the
+  // other acceptors keep them accepted but unlearned.
+  std::atomic<int> debug_skip_commits{0};
+
   // This process is peers[self]. The state file holds every machine; a
   // file from before machines had names holds one, read as `legacy`.
   void init(std::string state_path, std::vector<Peer> peers, unsigned self, const std::string& legacy = "") {
@@ -269,9 +275,15 @@ class Node {
   // sets the wanted body, or returns why the change is refused. Retries
   // while other proposals win. Returns "OK" once the wanted body is chosen
   // (or already holds), "NO <why>" otherwise. `same(a, b)`: two bodies
-  // record the same decision.
+  // record the same decision. `version`, if given, gets the version of the
+  // chosen value that holds the wanted body (the base's when it already
+  // held). `fresh`: always choose a new instance, even when the base
+  // already holds the wanted body, and never with the version of a value
+  // adopted in phase 1 (docs/SYNC_READINESS.md 7: a NOT READY must take a
+  // version no earlier request was answered with).
   template <class F, class Same>
-  std::string propose(const std::string& m, F change, Same same, int deadline_ms = 1000) {
+  std::string propose(const std::string& m, F change, Same same, int deadline_ms = 1000, u64* version = nullptr,
+                      bool fresh = false) {
     std::lock_guard<std::mutex> serial(one_at_a_time_);  // ours do not race each other
     thread_local std::mt19937 rng(std::random_device{}());
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
@@ -286,7 +298,10 @@ class Node {
       want.body = base.body;
       std::string why = change(base, want.body);
       if (!why.empty()) return "NO " + why;
-      if (same(want.body, base.body)) return "OK";
+      if (!fresh && same(want.body, base.body)) {
+        if (version) *version = base.version;
+        return "OK";
+      }
       want.version = base.version + 1;
       const u64 b = next_ballot();
       const std::string vb = " " + m + " " + std::to_string(want.version) + " " + std::to_string(b) + " ";
@@ -322,6 +337,9 @@ class Node {
         backoff();
         continue;
       }
+      // A value accepted before in this instance, ours or another's: it may
+      // already be chosen, and its proposer may have answered for it.
+      const bool adopted = best != 0;
       // Phase 2: our value, or the one a majority may already have chosen.
       std::size_t accepted = 0;
       for (const Reply& r : broadcast("ACCEPT" + vb + value.str(), 300)) {
@@ -333,8 +351,12 @@ class Node {
         continue;
       }
       // Chosen. Tell everyone (best effort: one that misses it learns it
-      // from the next proposal or read).
-      broadcast("COMMIT " + m + " " + value.str(), 300);
+      // from the next proposal or read). Tests may drop it (a lost COMMIT).
+      if (debug_skip_commits.load() > 0) {
+        debug_skip_commits.fetch_sub(1);
+      } else {
+        broadcast("COMMIT " + m + " " + value.str(), 300);
+      }
       {
         std::lock_guard<std::mutex> g(mu_);
         Acceptor& a = acc_[m];
@@ -343,7 +365,13 @@ class Node {
           save();
         }
       }
-      if (same(value.body, want.body)) return "OK";
+      // fresh: never answer with an adopted value's version, which another
+      // request may already have been answered with (SYNC_READINESS 7.2):
+      // build a value of our own on top of it.
+      if (same(value.body, want.body) && !(fresh && adopted)) {
+        if (version) *version = value.version;
+        return "OK";
+      }
       // Another proposal was chosen in this instance; try again on top of it.
     }
     return "NO no quorum";

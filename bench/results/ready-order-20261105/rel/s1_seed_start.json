@@ -1,0 +1,29 @@
+{
+ "promoted_state": [
+  4,
+  1,
+  1,
+  true
+ ],
+ "promotion_not_ready": true,
+ "node0_lines_at_kill": [
+  "rejoin: the other node is primary; old data moved to /tmp/snc-health-t9cg00ky/n0.stale-1793895607",
+  "rejoin: starting as its standby, seeded from 127.0.0.1:24805",
+  "snc_server: not started: seed: transfer failed"
+ ],
+ "seed_sent": false,
+ "seeded": false,
+ "no_promotion": true,
+ "states": [
+  [
+   4,
+   1,
+   1,
+   true
+  ]
+ ],
+ "witness_still_not_ready": true,
+ "pass": true,
+ "scenario": "s1_seed_start",
+ "seconds": 17.7
+}

@@ -420,6 +420,9 @@ Section 11 of the baseline document still holds. In addition:
   it?
 - **X1** is implemented as its own slice (EXPERIMENTAL_BASELINE section
   4). It does not depend on B1, B2 or B3.
+- **The delayed-SYNCED window** (PR #49 review) must be closed before a
+  sync-HA baseline claims HA_DURABLE promotion safety. *(Done 2026-11-05,
+  section 11; for review.)*
 
 
 ## 10. The fixes (2026-11-05)
@@ -609,3 +612,123 @@ Release keeps 100 ms.
   catch up, so the group stays NOT READY: unavailable for failover, never
   unsafe. With the default retention SYNCED came 0.5 to 1.3 s after the
   rejoin at full client rate (0.48 s and 1.12 s in `s3` and `s7`).
+
+
+## 11. The delayed-SYNCED window (2026-11-05, PR #49 review)
+
+Work order: `docs/handoff/PR49_Review_Handoff.txt`. Design, rule and the
+ten questions: SYNC_READINESS.md section 7. Evidence:
+`bench/results/ready-order-20261105/` (`char/` before the fix, `rel/`
+after).
+
+### Characterization, before the fix
+
+`test_ready_order.py c1_delayed_ready` with `SNC_CHAR=1` on the old
+protocol (commit f8b39eb, which only adds the debug hook): the
+witnesses hold the primary's SYNCED (`snc_witness --debug 1`,
+`DEBUG HOLD`), the standby is stopped, DEGRADE is granted and the
+primary acknowledges deposits alone, the held SYNCED is released, the
+primary is killed.
+
+- The second DEGRADE chose nothing (state stayed at version 3: DEGRADE on
+  a NOT READY state was a no-op), so nothing marked the later loss.
+- The released SYNCED was chosen: READY at version 4, over the grant.
+- The witnesses promoted the standby (term 1); the bench found
+  **2,000 of 2,000 accounts** missing acknowledged deposits.
+
+A second characterization, `char/lost_commit_char.txt`, came from the
+first independent review of the fix: with a COMMIT lost
+(`DEBUG SKIP-COMMIT`), a NOT READY could adopt an unlearned value and
+answer a version the primary already held, so a READY delayed from
+before it would be chosen. Fixed before merge (SYNC_READINESS 7.2).
+
+### The fix
+
+Every NOT READY is a fresh chosen version and is answered with it
+(`OK v=N`). READY names that version (`READY uuid term group after=N`)
+and is chosen only if the group's state is still exactly that NOT READY
+at version N. A READY delayed past a later NOT READY is refused
+(`NO not ready since v=M`). SYNCED, which names no base, is refused. No
+witness state format change; Paxos only gains "propose at a fresh
+version" and "report the version chosen". Commits f8b39eb (hook and
+characterization), 42b5eee (fix), 278bf1e and 5afa86b (review fixes).
+
+### Reviews
+
+- **First independent review: one safety hole, fixed.** A fresh
+  proposal that adopted another value in phase 1 answered that value's
+  version (above). Now it completes the adopted value and proposes
+  again.
+- **Second review: one liveness fix, two findings reported.** READY
+  first reads the group's state linearizably and answers `NO no quorum`
+  if it cannot (it used to fall back to a possibly stale local copy).
+  F7 (readiness latency with a stopped witness; one shared proposal
+  queue) and F8 (Paxos ballots not persisted, pre-existing) are reported
+  in SYNC_READINESS 7.5, not fixed.
+
+### V1 to V10 (release, commit 5afa86b)
+
+`rel/run_log.txt`, one JSON per scenario. All passed.
+
+| # | Result |
+| --- | --- |
+| V1 | `c1_delayed_ready`: the held READY (after=4) refused by all three witnesses with `NO not ready since v=5`; state stays NOT READY at v=5; no promotion |
+| V2 | every HA test reaches READY; `s3`/`s7` READY 0.68 / 0.76 s after the rejoin |
+| V3 | `test_witness` ready order: lost COMMIT, READY chosen at v=11 (not a false no-op), the next NOT READY at v=13 (not an adopted version). Witness level; the primary's lost-reply path is by code review |
+| V4 | READY sent twice to a witness: the retry answers `OK` at the same version (witness level) |
+| V5 | READY chosen across a placement INIT and a lease block; `multi_group` |
+| V6 | after a promotion, term 0 NOTREADY/SYNCED/READY refused; `s5` `NO term 0 was replaced by 1` x3 |
+| V7 | `c2_restart_held`: old process's READY refused (1); new process NOT READY at v=5, READY after v=6; failover exact, 0 of 2,000 mismatched |
+| V8 | `c3_two_failovers`: held READY refused by 3; READY at term 1 once proven; second failover exact, 0 mismatched |
+| V9 | `test_fail_closed f19r`: held READY refused by 3; D1 balances exact, D7 probe 1,406 samples, A served 0 |
+| V10 | `m1` (new nodes, old witnesses): never READY, no promotion, "too old" logged; `m2` (old nodes, new witnesses): SYNCED refused, DEGRADE granted, no promotion; `m3` (one old witness of three): held READY window closed, no promotion |
+
+Regressions in the same run: `test_sync_readiness` s1 to s10b, `q5_*`
+(four), `q3_runtime`, `q4_normal`, `f19`, `f13:f3`, `f13:f6`,
+`test_witness 20`: all passed.
+
+### Full suites, fresh builds (commit 5afa86b plus test-only fixes)
+
+| Build | Run 1 | Rerun | Sanitizer reports |
+| --- | --- | --- | --- |
+| RelWithDebInfo | 29 / 29 | 29 / 29 | n/a |
+| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leak check on) | 28 / 29 | 29 / 29 | 0 |
+| Debug, TSan (`halt_on_error=1`) | 28 / 29 | 28 / 29, then 29 / 29 | 0 |
+
+`rel/ctest_*_run*.txt`. Every failure was in a test, not in the system
+under test, and none recurred:
+
+- **ASan run 1, `f19`:** the test read the primary's log just before the
+  primary wrote its READY line (the witnesses had already chosen READY).
+  The test now waits for the line.
+- **TSan run 1, `q3_runtime`:** HEALTH `main_ms` was 1,278 and 1,308 ms
+  against a 1,000 ms bound, both sampled with `ckpt_running=1`: the main
+  loop was cutting a checkpoint (400K objects, every 1 s here, about
+  1.3 s per cut under TSan). The test now takes the smallest of 15
+  samples over 3 s; a wedged loop stays high in all of them. Unrelated to
+  this slice (the checkpoint path is unchanged).
+- **TSan rerun, `q1_stop`:** a witness did not learn the primary within
+  15 s of the pair starting (the setup, before the scenario). Not
+  reproduced: 5 runs of `q1_stop` alone and 2 of the whole retry file
+  passed (`rel/tsan_q1_stop_repeats.txt`), then the full TSan suite
+  passed. Its logs were lost because the half-started pair was never
+  stopped: it ran (and kept asking for a promotion) for 40 minutes,
+  loading the machine. `test_health.Pair` now stops whatever it started
+  when its start fails and puts every witness's and node 0's output in
+  the failure message. The primary's start-up requests are the same in
+  number and timing as before this slice (one NOTREADY per loop turn in
+  place of one DEGRADE), so the cause is not established; it is recorded
+  here rather than called a flake.
+
+### Costs and compatibility
+
+- Each NOT READY is now a Paxos round even when the state was already
+  NOT READY (the old no-op), and READY adds a linearizable read. Both
+  happen once per readiness change, not per write.
+- The HA proposal deadline is 3 s (was 1 s), so one stopped witness of
+  three does not fail a round.
+- Mixed versions (V10): new nodes with only old witnesses never become
+  READY (fail safe); with mixed witnesses only the new ones accept their
+  requests. An old node with an old witness is the pre-fix system, so the
+  protected Profile B claim needs every node and witness upgraded,
+  witnesses first (SYNC_READINESS 7.4 question 10).

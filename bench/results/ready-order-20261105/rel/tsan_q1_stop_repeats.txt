@@ -1,0 +1,12 @@
+PASS q1_stop {"promoted_s": 1.15, "bench": {"rc": 0, "exited_after_s": 20.22, "failovers": 2, "replayed": 7, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10259, "accounts": 2000, "deposits": 150829, "mismatches": 0, "ops_s": 7540, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "va
+test_baseline_retry: OK
+PASS q1_stop {"promoted_s": 1.06, "bench": {"rc": 0, "exited_after_s": 20.3, "failovers": 2, "replayed": 52, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10159, "accounts": 2000, "deposits": 139618, "mismatches": 0, "ops_s": 6980, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "va
+test_baseline_retry: OK
+PASS q1_stop {"promoted_s": 1.12, "bench": {"rc": 0, "exited_after_s": 20.3, "failovers": 2, "replayed": 69, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10173, "accounts": 2000, "deposits": 135897, "mismatches": 0, "ops_s": 6794, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "va
+test_baseline_retry: OK
+PASS q1_stop {"promoted_s": 1.16, "bench": {"rc": 0, "exited_after_s": 20.29, "failovers": 2, "replayed": 64, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10233, "accounts": 2000, "deposits": 134970, "mismatches": 0, "ops_s": 6747, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "v
+test_baseline_retry: OK
+PASS q1_stop {"promoted_s": 1.16, "bench": {"rc": 0, "exited_after_s": 20.24, "failovers": 2, "replayed": 65, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10186, "accounts": 2000, "deposits": 147263, "mismatches": 0, "ops_s": 7362, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "v
+test_baseline_retry: OK
+test_baseline_retry: OK
+test_baseline_retry: OK
