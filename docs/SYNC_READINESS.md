@@ -451,6 +451,9 @@ the version it chose.
   ballot already used in an open instance with another value, which can
   break Paxos uniqueness. Saving the highest ballot used closes it.
   Unchanged by this slice; not in its scope (no witness format change).
+  *Characterized since (PAXOS_BALLOTS.md): reuse happens, but persisted
+  promises keep it from choosing a second value. Acceptor state loss
+  (F9) can.*
 
 ### 7.6 Tests (work order V1 to V10)
 

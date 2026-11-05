@@ -1,0 +1,56 @@
+{
+ "B": 114810007216576,
+ "promises": [
+  "PROMISE 0 0 -",
+  "PROMISE 0 0 -"
+ ],
+ "accept_x": [
+  "ACCEPTED",
+  "ACCEPTED"
+ ],
+ "reply": "OK v=2 ballots=114810007216576,114810007216640,114810007216704",
+ "ballots": [
+  114810007216576,
+  114810007216640,
+  114810007216704
+ ],
+ "first_ballot_is_B": true,
+ "chosen": [
+  [
+   2,
+   "Y"
+  ],
+  [
+   2,
+   "Y"
+  ],
+  [
+   2,
+   "Y"
+  ]
+ ],
+ "acceptors": {
+  "0": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  },
+  "1": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  },
+  "2": {
+   "chosen": "2 Y",
+   "open": "3",
+   "promised": "0",
+   "accepted": "0 0 -"
+  }
+ },
+ "conflicts": {},
+ "pass": true,
+ "scenario": "c2a_reuse_over_chosen",
+ "seconds": 0.3
+}

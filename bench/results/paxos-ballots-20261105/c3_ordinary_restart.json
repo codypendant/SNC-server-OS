@@ -1,0 +1,11 @@
+{
+ "before": [
+  114810007185984,
+  114810007186048
+ ],
+ "after_restart": 114810007189952,
+ "above_all": true,
+ "pass": true,
+ "scenario": "c3_ordinary_restart",
+ "seconds": 0.2
+}

@@ -1,0 +1,44 @@
+{
+ "B": 114810007262848,
+ "promises": [
+  "PROMISE 0 0 -",
+  "PROMISE 0 0 -"
+ ],
+ "accept_x": [
+  "ACCEPTED",
+  "ACCEPTED"
+ ],
+ "second_prepare_at_B": [
+  "NACK 114810007262848",
+  "PROMISE 0 0 -"
+ ],
+ "accept_y": [
+  "ACCEPTED",
+  "ACCEPTED"
+ ],
+ "acceptors": {
+  "0": {
+   "chosen": "0 -",
+   "open": "1",
+   "promised": "114810007262848",
+   "accepted": "114810007262848 1 X"
+  },
+  "1": {
+   "chosen": "0 -",
+   "open": "1",
+   "promised": "114810007262848",
+   "accepted": "114810007262848 1 Y"
+  },
+  "2": {
+   "chosen": "0 -",
+   "open": "1",
+   "promised": "114810007262848",
+   "accepted": "114810007262848 1 Y"
+  }
+ },
+ "second_phase1_majority": false,
+ "y_accepted_by_majority": true,
+ "pass": true,
+ "scenario": "c2x_accept_without_phase1",
+ "seconds": 0.2
+}

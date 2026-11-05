@@ -1175,3 +1175,33 @@ or source comments.
 -   **Next action:** WAIT for cody and Codex to review. Then the final
     experimental baseline freeze review. No comparative benchmarks; none
     of R08, F6, F1, session incarnation, S2/S3 or the vision items start.
+
+### 2026-11-05 UTC --- Claude (Claude Code): F8 Paxos ballot characterization (work order PR50_Review_Handoff)
+
+-   **Classification:** KEEP (Paxos as built), plus a new finding F9 for
+    review. No protocol or state format change. Test hooks only:
+    `snc_witness --debug 1` gains `DEBUG CLOCK-OFFSET-MS`, `SET-COUNTER`,
+    `NEXT-BALLOT` and `PROPOSE debug/...`, and
+    `--debug-clock-offset-ms`.
+-   **What:** `docs/PAXOS_BALLOTS.md` covers ballot construction,
+    persistence, scope, the proof, the tests, F9 and the designs.
+-   **Found:**
+    - F8: a restarted witness reuses ballots (C1), but each acceptor
+      promises an (instance, ballot) at most once, durably, so no second
+      value is chosen (C2a, C2b, C2l). Proposed outcome A.
+    - F9: an acceptor that loses its state (state file deleted or
+      restored, restarted in place) lets two values be chosen in one
+      instance (C4a, C4b). Proposed outcome B: exclusion E1, guards G1
+      (`--new-state`) and G2 (harness).
+    - The real fix for F9 is a recovering-acceptor protocol that needs
+      a new durable state line. It is design only and returned before
+      any format change.
+-   **Evidence:** `bench/results/paxos-ballots-20261105/`.
+-   **Review:** an independent review found no counterexample to the
+    proof. It corrected the F9 recovery design's argument (read the
+    maximum from a majority of the *other* witnesses). It reported F10
+    (all-digit machine names in a state file load as `ha/0`), F11
+    (duplicate `--peers` not rejected) and an ignored directory fsync
+    failure. All are documented and none fixed.
+-   **Next action:** WAIT for cody's and Codex's review of the F8/F9
+    disposition. No freeze, no benchmarks, no format change.
