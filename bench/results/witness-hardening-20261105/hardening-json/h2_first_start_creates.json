@@ -1,0 +1,8 @@
+{
+ "first_start_serves": true,
+ "exists_when_serving": true,
+ "restart_without_flag_serves": true,
+ "pass": true,
+ "scenario": "h2_first_start_creates",
+ "seconds": 0.2
+}

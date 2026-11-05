@@ -383,8 +383,8 @@ Evidence: `bench/results/witness-hardening-20261105/`.
 | H10 | Guard: file deleted, directory recreated (even with the same inode number), older copy put back: violation; ordinary rename save: passes; lab command lines pass | PASS |
 | H11 | C1 to C4 (C4b now shows G1 refusing the restart, exit 2, then reproduces F9 only with the forbidden `--new-state 1`) | PASS |
 | H12 | Ordinary restart on an intact file (H2, H8, H9, and every restart in the suites) | PASS |
-| H13 | READY causal order V1 to V10 (`test_ready_order`, m1 to m3 against a pre-READY build) | see 9.5 |
-| H14 | Witness, control, health, fail-closed regressions | see 9.5 |
+| H13 | READY causal order V1 to V10 (`test_ready_order`, m1 to m3 against a build of e3e0500) | PASS (9.5) |
+| H14 | Witness, control, health, fail-closed regressions | PASS (9.5) |
 
 ### 9.3 Invalid histories for the initial Profile B (F9 exclusion)
 
@@ -425,3 +425,21 @@ witness into a quorum that advanced after the snapshot was taken is
 unsupported and unsafe. A coordinated whole-cluster disaster-recovery
 procedure is a different problem, not covered here. An individual Paxos
 acceptor cannot be time-travelled backwards.
+
+### 9.5 Suites (commit 482958a, fresh builds)
+
+| Build | Result | Sanitizer reports |
+| --- | --- | --- |
+| RelWithDebInfo | 31 / 31 (see below) | n/a |
+| Debug, ASan + UBSan (`-fno-sanitize-recover=undefined`, leaks on) | 31 / 31 | 0 |
+| Debug, TSan (`halt_on_error=1`) | 31 / 31 | 0 |
+
+The release `ctest` run was 30 / 31: `test_ready_order` m1 and m2 failed
+because `SNC_OLD_BUILD` pointed at a build of PR #39, older than the
+build of e3e0500 that V10 specifies (SYNC_READINESS 7). Rerun alone with
+the e3e0500 build: all 6 scenarios pass (`test_ready_order-v10.log`); the sanitizer
+suites used that build. Logs: `bench/results/witness-hardening-20261105/`
+(`ctest-*.log`, `hardening-json/`). An earlier release run on the
+pre-QA commit failed `test_cluster` and `test_migrate`: their C++
+launchers started witnesses without `--new-state 1`, fixed in 482958a.
+

@@ -1,0 +1,34 @@
+{
+ "read_ha0": "STATE 0 -",
+ "read_5": "STATE 7 x",
+ "stray_read": "STATE 0 -",
+ "propose": "OK v=1 ballots=114810444979136",
+ "saved": "chosen 5 7 x\nopen 5 8\npromised 5 0\naccepted 5 0 0 -\nchosen debug/x 1 a\nopen debug/x 2\npromised debug/x 0\naccepted debug/x 0 0 -\n",
+ "read_ha0_after": "STATE 0 -",
+ "read_5_after": "STATE 7 x",
+ "refusals": {
+  "mixed": {
+   "exit": 2,
+   "message": "paxos: state file /tmp/snc-h-m7khixdv/w.state: both unnamed and named machine lines; not starting (docs/PAXOS_BALLOTS.md 9)"
+  },
+  "unreadable line": {
+   "exit": 2,
+   "message": "paxos: state file /tmp/snc-h-m7khixdv/w.state: cannot read line: promised 5 notanumber; not starting (docs/PAXOS_BALLOTS.md 9)"
+  },
+  "unknown line": {
+   "exit": 2,
+   "message": "paxos: state file /tmp/snc-h-m7khixdv/w.state: cannot read line: frobnicate 5 1; not starting (docs/PAXOS_BALLOTS.md 9)"
+  },
+  "version glued to body": {
+   "exit": 2,
+   "message": "paxos: state file /tmp/snc-h-m7khixdv/w.state: cannot read line: chosen 5 7x; not starting (docs/PAXOS_BALLOTS.md 9)"
+  },
+  "negative ballot": {
+   "exit": 2,
+   "message": "paxos: state file /tmp/snc-h-m7khixdv/w.state: cannot read line: promised 5 -1; not starting (docs/PAXOS_BALLOTS.md 9)"
+  }
+ },
+ "pass": true,
+ "scenario": "h9_numeric_machine_stays_itself",
+ "seconds": 0.2
+}

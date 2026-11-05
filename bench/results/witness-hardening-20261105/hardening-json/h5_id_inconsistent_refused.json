@@ -1,0 +1,28 @@
+{
+ "cases": [
+  {
+   "peers": "127.0.0.1:56463,127.0.0.1:39277,127.0.0.1:34457",
+   "id": 1,
+   "exit": 2,
+   "message": "--id must index this witness (port 56463) in --peers",
+   "refused": true
+  },
+  {
+   "peers": "192.0.2.1:56463,127.0.0.1:39277,127.0.0.1:34457",
+   "id": 0,
+   "exit": 2,
+   "message": "--id 0 names 192.0.2.1:56463, which is not an address of this machine",
+   "refused": true
+  },
+  {
+   "peers": "127.0.0.1:56463,127.0.0.2:56463,127.0.0.1:34457",
+   "id": 0,
+   "exit": 2,
+   "message": "--peers names this machine:56463 twice (entries 0 and 1): one witness would count twice toward a majority",
+   "refused": true
+  }
+ ],
+ "pass": true,
+ "scenario": "h5_id_inconsistent_refused",
+ "seconds": 0.0
+}

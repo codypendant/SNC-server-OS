@@ -1,0 +1,9 @@
+{
+ "read_legacy": "STATE 2 abcdef 0 1 0",
+ "propose": "OK v=1 ballots=114810444965248",
+ "saved": "chosen debug/x 1 a\nopen debug/x 2\npromised debug/x 0\naccepted debug/x 0 0 -\nchosen ha/0 2 abcdef 0 1 0\nopen ha/0 3\npromised ha/0 4242\naccepted ha/0 0 0 -\n",
+ "read_after_restart": "STATE 2 abcdef 0 1 0",
+ "pass": true,
+ "scenario": "h8_legacy_state_loads",
+ "seconds": 0.2
+}
