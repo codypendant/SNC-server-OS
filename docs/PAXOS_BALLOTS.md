@@ -4,7 +4,10 @@
 order `handoff/PR50_Review_Handoff.txt`. Nothing in the protocol or the
 state file changed; the only code added is test hooks behind
 `snc_witness --debug 1`. Evidence: `bench/results/paxos-ballots-20261105/`.
-Test: `tests/test_paxos_ballots.py` (in `ctest`).
+Test: `tests/test_paxos_ballots.py` (in `ctest`). Suites on the hook
+commit: release `ctest` 30/30; ASan+UBSan and TSan
+`test_paxos_ballots`, `test_witness`, `test_ready_order` 3/3 each, zero
+sanitizer reports (`ctest_*.txt` in the evidence folder).
 
 ## 1. Result
 
