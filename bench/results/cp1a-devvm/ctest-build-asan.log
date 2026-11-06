@@ -1,0 +1,176 @@
+=== build-asan 2026-11-06T08:36:26Z tree: 
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/claude/snc-server-os/build-asan
+[  1%] Building CXX object CMakeFiles/snc_witness.dir/tools/snc_witness.cpp.o
+[  2%] Building CXX object CMakeFiles/snc_core.dir/src/core/shard.cpp.o
+[  5%] Building CXX object CMakeFiles/snc_core.dir/src/core/storage.cpp.o
+[  5%] Building CXX object CMakeFiles/snc_core.dir/src/core/engine.cpp.o
+[  6%] Building CXX object CMakeFiles/snc_core.dir/src/core/replication.cpp.o
+[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/seed.cpp.o
+[  9%] Linking CXX executable snc_witness
+[  9%] Built target snc_witness
+[ 10%] Building CXX object CMakeFiles/snc_core.dir/src/core/slot_state.cpp.o
+[ 12%] Building CXX object CMakeFiles/snc_core.dir/src/core/cluster.cpp.o
+[ 13%] Building CXX object CMakeFiles/snc_core.dir/src/core/placement.cpp.o
+[ 14%] Building CXX object CMakeFiles/snc_core.dir/src/core/node_link.cpp.o
+[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/wal_format.cpp.o
+[ 17%] Building CXX object CMakeFiles/snc_core.dir/src/net/conn_set.cpp.o
+[ 18%] Building CXX object CMakeFiles/snc_core.dir/src/net/server.cpp.o
+[ 20%] Building CXX object CMakeFiles/snc_core.dir/src/net/client.cpp.o
+[ 21%] Building CXX object CMakeFiles/snc_core.dir/src/net/cluster_client.cpp.o
+[ 22%] Building CXX object CMakeFiles/snc_core.dir/src/types/account.cpp.o
+[ 24%] Building CXX object CMakeFiles/snc_core.dir/src/native/runtime.cpp.o
+[ 25%] Linking CXX static library libsnc_core.a
+[ 32%] Built target snc_core
+[ 33%] Building CXX object CMakeFiles/test_rate_schedule.dir/tests/test_rate_schedule.cpp.o
+[ 35%] Building CXX object CMakeFiles/test_pages.dir/tests/test_pages.cpp.o
+[ 36%] Building CXX object CMakeFiles/test_object_id.dir/tests/test_object_id.cpp.o
+[ 37%] Building CXX object CMakeFiles/test_local_map.dir/tests/test_local_map.cpp.o
+[ 39%] Linking CXX executable test_rate_schedule
+[ 39%] Built target test_rate_schedule
+[ 40%] Building CXX object CMakeFiles/test_runtime.dir/tests/test_runtime.cpp.o
+[ 41%] Linking CXX executable test_pages
+[ 43%] Linking CXX executable test_object_id
+[ 43%] Built target test_pages
+[ 44%] Building CXX object CMakeFiles/test_execute.dir/tests/test_execute.cpp.o
+[ 44%] Built target test_object_id
+[ 45%] Building CXX object CMakeFiles/test_persistence.dir/tests/test_persistence.cpp.o
+[ 47%] Linking CXX executable test_local_map
+[ 47%] Built target test_local_map
+[ 48%] Building CXX object CMakeFiles/test_crash.dir/tests/test_crash.cpp.o
+[ 50%] Linking CXX executable test_runtime
+[ 50%] Built target test_runtime
+[ 51%] Building CXX object CMakeFiles/test_net.dir/tests/test_net.cpp.o
+[ 52%] Linking CXX executable test_execute
+[ 52%] Built target test_execute
+[ 54%] Building CXX object CMakeFiles/test_transfer.dir/tests/test_transfer.cpp.o
+[ 55%] Linking CXX executable test_crash
+[ 56%] Linking CXX executable test_persistence
+[ 56%] Built target test_crash
+[ 56%] Built target test_persistence
+[ 58%] Building CXX object CMakeFiles/test_replication.dir/tests/test_replication.cpp.o
+[ 59%] Building CXX object CMakeFiles/test_cluster.dir/tests/test_cluster.cpp.o
+[ 60%] Linking CXX executable test_net
+[ 60%] Built target test_net
+[ 62%] Building CXX object CMakeFiles/test_migrate.dir/tests/test_migrate.cpp.o
+[ 63%] Linking CXX executable test_transfer
+[ 63%] Built target test_transfer
+[ 64%] Building CXX object CMakeFiles/test_resend_refusals.dir/tests/test_resend_refusals.cpp.o
+[ 66%] Linking CXX executable test_resend_refusals
+[ 66%] Built target test_resend_refusals
+[ 67%] Building CXX object CMakeFiles/test_proof.dir/tests/test_proof.cpp.o
+[ 68%] Linking CXX executable test_replication
+[ 68%] Built target test_replication
+[ 70%] Building CXX object CMakeFiles/test_placement.dir/tests/test_placement.cpp.o
+[ 71%] Linking CXX executable test_proof
+[ 71%] Built target test_proof
+[ 72%] Building CXX object CMakeFiles/test_stage_chain.dir/tests/test_stage_chain.cpp.o
+[ 74%] Linking CXX executable test_cluster
+[ 74%] Built target test_cluster
+[ 75%] Building CXX object CMakeFiles/snc_bench.dir/bench/snc_bench.cpp.o
+[ 77%] Linking CXX executable test_migrate
+[ 78%] Linking CXX executable test_placement
+[ 78%] Built target test_placement
+[ 79%] Building CXX object CMakeFiles/baseline_bench.dir/bench/baseline_bench.cpp.o
+[ 79%] Built target test_migrate
+[ 81%] Building CXX object CMakeFiles/snc_server.dir/tools/snc_server.cpp.o
+[ 82%] Linking CXX executable test_stage_chain
+[ 82%] Built target test_stage_chain
+[ 83%] Building CXX object CMakeFiles/snc_ctl.dir/tools/snc_ctl.cpp.o
+[ 85%] Linking CXX executable snc_bench
+[ 85%] Built target snc_bench
+[ 86%] Building CXX object CMakeFiles/baseline_server.dir/bench/baseline_server.cpp.o
+[ 87%] Linking CXX executable baseline_bench
+[ 87%] Built target baseline_bench
+[ 89%] Building CXX object CMakeFiles/net_bench.dir/bench/net_bench.cpp.o
+[ 90%] Linking CXX executable baseline_server
+[ 90%] Built target baseline_server
+[ 91%] Building CXX object CMakeFiles/stage_stall.dir/bench/stage_stall.cpp.o
+[ 93%] Linking CXX executable snc_ctl
+[ 94%] Linking CXX executable snc_server
+[ 94%] Built target snc_ctl
+[ 95%] Building CXX object CMakeFiles/snc_load.dir/bench/snc_load.cpp.o
+[ 95%] Built target snc_server
+[ 97%] Linking CXX executable net_bench
+[ 97%] Built target net_bench
+[ 98%] Linking CXX executable stage_stall
+[ 98%] Built target stage_stall
+[100%] Linking CXX executable snc_load
+[100%] Built target snc_load
+Test project /home/claude/snc-server-os/build-asan
+      Start  1: test_rate_schedule
+ 1/35 Test  #1: test_rate_schedule ...............   Passed    0.03 sec
+      Start  2: test_object_id
+ 2/35 Test  #2: test_object_id ...................   Passed    0.14 sec
+      Start  3: test_local_map
+ 3/35 Test  #3: test_local_map ...................   Passed   12.63 sec
+      Start  4: test_pages
+ 4/35 Test  #4: test_pages .......................   Passed    1.49 sec
+      Start  5: test_runtime
+ 5/35 Test  #5: test_runtime .....................   Passed    0.91 sec
+      Start  6: test_execute
+ 6/35 Test  #6: test_execute .....................   Passed    0.49 sec
+      Start  7: test_persistence
+ 7/35 Test  #7: test_persistence .................   Passed    1.51 sec
+      Start  8: test_crash
+ 8/35 Test  #8: test_crash .......................   Passed    1.75 sec
+      Start  9: test_net
+ 9/35 Test  #9: test_net .........................   Passed    0.30 sec
+      Start 10: test_transfer
+10/35 Test #10: test_transfer ....................   Passed    5.00 sec
+      Start 11: test_replication
+11/35 Test #11: test_replication .................   Passed   20.80 sec
+      Start 12: test_cluster
+12/35 Test #12: test_cluster .....................   Passed    6.99 sec
+      Start 13: test_migrate
+13/35 Test #13: test_migrate .....................   Passed   50.28 sec
+      Start 14: test_resend_refusals
+14/35 Test #14: test_resend_refusals .............   Passed    0.07 sec
+      Start 15: test_proof
+15/35 Test #15: test_proof .......................   Passed    1.01 sec
+      Start 16: test_placement
+16/35 Test #16: test_placement ...................   Passed    0.18 sec
+      Start 17: test_stage_chain
+17/35 Test #17: test_stage_chain .................   Passed   22.91 sec
+      Start 18: test_witness
+18/35 Test #18: test_witness .....................   Passed   25.07 sec
+      Start 19: test_async_failover
+19/35 Test #19: test_async_failover ..............   Passed   13.77 sec
+      Start 20: test_control
+20/35 Test #20: test_control .....................   Passed    1.63 sec
+      Start 21: test_health
+21/35 Test #21: test_health ......................   Passed  157.17 sec
+      Start 22: test_fail_closed
+22/35 Test #22: test_fail_closed .................   Passed  244.40 sec
+      Start 23: test_s1
+23/35 Test #23: test_s1 ..........................   Passed   62.40 sec
+      Start 24: test_profile_check
+24/35 Test #24: test_profile_check ...............   Passed    0.08 sec
+      Start 25: test_baseline_retry
+25/35 Test #25: test_baseline_retry ..............   Passed  244.16 sec
+      Start 26: test_sync_readiness
+26/35 Test #26: test_sync_readiness ..............   Passed  282.51 sec
+      Start 27: test_baseline_move
+27/35 Test #27: test_baseline_move ...............   Passed  113.61 sec
+      Start 28: test_baseline_ha
+28/35 Test #28: test_baseline_ha .................   Passed  131.93 sec
+      Start 29: test_ready_order
+29/35 Test #29: test_ready_order .................   Passed  142.87 sec
+      Start 30: test_paxos_ballots
+30/35 Test #30: test_paxos_ballots ...............   Passed    2.20 sec
+      Start 31: test_witness_hardening
+31/35 Test #31: test_witness_hardening ...........   Passed    6.04 sec
+      Start 32: test_lab_witness_guard
+32/35 Test #32: test_lab_witness_guard ...........   Passed   15.09 sec
+      Start 33: test_index_wire
+33/35 Test #33: test_index_wire ..................   Passed    1.91 sec
+      Start 34: test_pilot
+34/35 Test #34: test_pilot .......................   Passed    0.04 sec
+      Start 35: test_net_bench_rate
+35/35 Test #35: test_net_bench_rate ..............   Passed   15.98 sec
+
+100% tests passed, 0 tests failed out of 35
+
+Total Test time (real) = 1587.38 sec
+=== end 2026-11-06T09:03:29Z rc=0
