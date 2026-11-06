@@ -1,0 +1,137 @@
+diff --git a/bench/net_bench.cpp b/bench/net_bench.cpp
+index 1479f82..9c9edd4 100644
+--- a/bench/net_bench.cpp
++++ b/bench/net_bench.cpp
+@@ -24,6 +24,10 @@
+ // max_resend_age_ms at most a tenth of S (docs/EXPERIMENTAL_BASELINE.md 7,
+ // R11). Otherwise it prints "retry claim: INVALID" and exits 3.
+ //
++// --index PCT: that share of ops are INDEX lookups of a random loaded account's
++// email (--objects and --threads must match the load). They are counted and
++// reported apart from the rest of the mix.
++//
+ // --ids FILE: if FILE exists, use the accounts listed in it instead of
+ // creating any (for example on a standby serving reads); otherwise create
+ // them and write their IDs there.
+@@ -73,6 +77,7 @@ struct Args {
+   double zipf = 0;  // > 0: Zipf key choice over all objects
+   int transfer_pct = 0;  // ops that move 1 cent to a random account
+   int xfer_local = -1;   // % of transfers to an account the source's owner also owns (-1: uniform)
++  int index_pct = 0;     // --index: ops that are INDEX lookups on the email index
+   std::string ids_file;
+   std::vector<std::pair<std::string, u16>> endpoints;
+   u64 session = 0;
+@@ -99,6 +104,10 @@ struct Thread {
+   std::vector<ObjectID> created;
+   Histogram hist;
+   u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, stale = 0, replayed = 0;
++  // --index: reported apart from the rest of the mix (docs/CAMPAIGN_PREP.md G5).
++  Histogram index_hist;
++  std::vector<u8> is_index;  // per slot
++  u64 index_ok = 0, index_empty = 0, index_refused = 0, index_errors = 0;
+   std::vector<u32> deposits;  // --verify: deposits sent, by index into ids
+   u32 outstanding = 0;
+   std::vector<u64> start;  // per slot
+@@ -128,9 +137,26 @@ void on_load(void* ctx, const wire::RespHeader& h, ByteView) {
+   }
+ }
+ 
+-void on_run(void* ctx, const wire::RespHeader& h, ByteView) {
++void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
+   auto* t = static_cast<Thread*>(ctx);
+   u32 slot = static_cast<u32>(h.req_id);
++  if (t->is_index[slot]) {
++    t->is_index[slot] = 0;
++    t->index_hist.add(now_ns() - t->start[slot]);
++    auto st = static_cast<Status>(h.status);
++    if (st == Status::OK) {
++      ++t->index_ok;
++      // Not an error: INDEX hides objects with writes in flight (X1).
++      if (body.len == 0) ++t->index_empty;
++    } else if (st == Status::E_OVERLOADED) {
++      ++t->index_refused;
++    } else {
++      ++t->index_errors;
++    }
++    --t->outstanding;
++    t->free_slots.push_back(slot);
++    return;
++  }
+   t->hist.add(now_ns() - t->start[slot]);
+   // Turned-away requests never ran, so they do not count as ops.
+   auto st = static_cast<Status>(h.status);
+@@ -191,6 +217,27 @@ void run(Thread& t) {
+     while (running && !t.free_slots.empty()) {
+       u32 slot = t.free_slots.back();
+       t.free_slots.pop_back();
++      if (a.index_pct && static_cast<int>(t.rng() % 100) < a.index_pct) {
++        // A random loaded account's email, as load() built it. Any shard
++        // answers for the whole node.
++        const u32 who = static_cast<u32>(t.rng() % a.threads);
++        const u64 per = a.objects / a.threads + (who < a.objects % a.threads);
++        char body[sizeof(wire::IndexQueryBody) + 64];
++        const wire::IndexQueryBody b{8, 0};
++        std::memcpy(body, &b, sizeof(b));
++        const int len = std::snprintf(body + sizeof(b), 64, "user%u.%llu@example.com", who,
++                                      (unsigned long long)(t.rng() % std::max<u64>(1, per)));
++        wire::ReqHeader q{};
++        q.kind = wire::Kind::INDEX;
++        q.op = kEmailIndex;
++        q.req_id = slot;
++        t.start[slot] = now_ns();
++        t.is_index[slot] = 1;
++        ++t.outstanding;
++        t.client.send(static_cast<u16>(t.rng() % n), q,
++                      ByteView(body, static_cast<u32>(sizeof(b) + static_cast<std::size_t>(len))));
++        continue;
++      }
+       const u64 j = a.zipf > 0 ? sh.zipf.next(t.rng) : t.rng() % n_ids;
+       const ObjectID& id = sh.ids[j];
+       u16 dst;
+@@ -286,6 +333,7 @@ Args parse(int argc, char** argv) {
+     else if (k == "--zipf") a.zipf = std::atof(val());
+     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
+     else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
++    else if (k == "--index") a.index_pct = std::atoi(val());
+     else if (k == "--ids") a.ids_file = val();
+     else if (k == "--endpoint") {
+       std::string v = val();
+@@ -325,6 +373,7 @@ int main(int argc, char** argv) {
+     t.sh = &sh;
+     t.rng.seed(4321 + i);
+     t.start.resize(a.depth);
++    t.is_index.assign(a.depth, 0);
+     for (u32 s = 0; s < a.depth; ++s) t.free_slots.push_back(s);
+     t.load_target = given.empty() ? a.objects / a.threads + (i < a.objects % a.threads) : 0;
+     ts.emplace_back([&, i] {
+@@ -420,6 +469,23 @@ int main(int argc, char** argv) {
+               all.percentile(95), all.percentile(99), all.percentile(99.9));
+   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
+               100.0 * misrouted / std::max<u64>(1, ops), 100.0 * forwarded / std::max<u64>(1, ops));
++  u64 index_errors = 0;
++  if (a.index_pct) {
++    Histogram ih;
++    u64 ok = 0, empty = 0, refused = 0;
++    for (auto& t : threads) {
++      ih.merge(t.index_hist);
++      ok += t.index_ok;
++      empty += t.index_empty;
++      refused += t.index_refused;
++      index_errors += t.index_errors;
++    }
++    std::printf("  index ops/s %.0f  ok %llu  empty %llu  refused %llu  errors %llu\n", ok / run_s,
++                (unsigned long long)ok, (unsigned long long)empty, (unsigned long long)refused,
++                (unsigned long long)index_errors);
++    std::printf("  index latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", ih.percentile(50),
++                ih.percentile(95), ih.percentile(99), ih.percentile(99.9));
++  }
+   if (a.session) {
+     std::printf("  failovers %llu  replayed %llu  timeouts %llu  resends %llu  max_resend_age_ms %llu\n",
+                 (unsigned long long)failovers, (unsigned long long)replayed, (unsigned long long)timeouts,
+@@ -491,5 +557,5 @@ int main(int argc, char** argv) {
+     if (bad) return 1;
+   }
+   if (retry_claim_invalid) return 3;
+-  return errors ? 1 : 0;
++  return errors || index_errors ? 1 : 0;
+ }
