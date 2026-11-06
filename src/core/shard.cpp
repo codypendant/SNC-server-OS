@@ -3,6 +3,7 @@
 #include "session.h"
 #include "slot_state.h"
 
+#include "snc/diag.h"
 #include "snc/sri.h"
 #include "snc/trace.h"
 
@@ -614,6 +615,17 @@ bool Shard::poll() {
   if (ckpt_.active) {
     checkpoint_step();
     busy = true;
+  }
+  if (diag::enabled.load(std::memory_order_relaxed) && id_ < diag::kMaxShards) {
+    diag::ShardGauge& g = diag::gauges[id_];
+    const u64 polls = g.polls.load(std::memory_order_relaxed) + 1;
+    g.polls.store(polls, std::memory_order_relaxed);
+    g.emits.store(emits_in_flight(), std::memory_order_relaxed);
+    g.emit_wait.store(emit_wait_.size(), std::memory_order_relaxed);
+    g.waiters.store(waiters_.size(), std::memory_order_relaxed);
+    g.overloaded.store(stats_.overloaded, std::memory_order_relaxed);
+    if (wal_) g.undurable.store(wal_->next_lsn() - wal_->durable_lsn() - 1, std::memory_order_relaxed);
+    if ((polls & 63) == 0) g.overflow.store(sri_overflow_queued(), std::memory_order_relaxed);
   }
   return busy;
 }
@@ -1566,6 +1578,7 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   h.crc32c = crc32c(&h, sizeof(h));
   c.chunk.assign(kBlock, 0);
   std::memcpy(c.chunk.data(), &h, sizeof(h));
+  diag::mark_phase(id_, 1);
 }
 
 void Shard::checkpoint_write_chunk() {
@@ -1598,6 +1611,7 @@ void Shard::checkpoint_sync_done(void* ctx, int result) {
     errno = -result;
     storage_fatal("checkpoint fdatasync failed: " + c.path);
   }
+  diag::mark_phase(s->id_, 4);
   ::close(c.fd);
   c.fd = -1;
   CheckpointResult res{c.start_lsn, c.objects, c.bytes};
@@ -1629,6 +1643,7 @@ void Shard::checkpoint_step() {
     if (c.cursor == c.ids.size()) {
       checkpoint_write_chunk();
       c.walk_done = true;
+      diag::mark_phase(id_, 2);
       std::vector<ObjectID>().swap(c.ids);
     }
     return;
@@ -1643,6 +1658,7 @@ void Shard::checkpoint_step() {
   if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
     c.inflight_bufs.clear();
     c.syncing = true;
+    diag::mark_phase(id_, 3);
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);
   }
 }

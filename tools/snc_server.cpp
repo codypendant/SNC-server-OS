@@ -113,6 +113,7 @@
 #include "control.h"
 #include "ha.h"
 #include "migrate.h"
+#include "snc/diag.h"
 #include "snc/net.h"
 #include "snc/snc.h"
 #include "snc/trace.h"
@@ -192,6 +193,8 @@ int main(int argc, char** argv) {
   bool host_given = false;
   std::vector<std::pair<std::string, unsigned>> witnesses;
   double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
+  std::string diag_path;    // --diag-gauges: non-blocking gauges, written at exit
+  int diag_cpu = 0;
   // Rejoin (see the header): the other node's admin and seed ports, and the
   // port to listen on as its standby.
   std::string peer_admin_host, peer_seed;
@@ -321,6 +324,8 @@ int main(int argc, char** argv) {
       rejoin_port = static_cast<u16>(std::atoi(port.c_str()));
     }
     else if (k == "--checkpoint-s") checkpoint_s = std::atof(val());
+    else if (k == "--diag-gauges") diag_path = val();
+    else if (k == "--diag-cpu") diag_cpu = std::atoi(val());
     else if (k == "--catchup-mib-s") cfg.replica_catchup_bytes_per_s = static_cast<u64>(std::atof(val()) * (1 << 20));
     else if (k == "--replica-retain-mib") cfg.replica_retain_bytes = std::strtoull(val(), nullptr, 10) << 20;
     else if (k == "--space-uuid") {
@@ -986,6 +991,42 @@ int main(int argc, char** argv) {
     return true;
   };
 
+  // Diagnostics: samples every shard's gauges each 50 ms from its own CPU,
+  // never touching a shard thread, and holds them in memory until exit.
+  struct DiagRow {
+    u64 t;
+    u64 v[12];
+    u32 shard;
+  };
+  std::vector<DiagRow> diag_rows;
+  std::atomic<bool> diag_stop{false};
+  std::thread diag_thread;
+  if (!diag_path.empty()) {
+    diag_rows.reserve(400000);
+    diag::enabled.store(true, std::memory_order_relaxed);
+    diag_thread = std::thread([&, n = cfg.runtime.n_shards] {
+      cpu_set_t set;
+      CPU_ZERO(&set);
+      CPU_SET(diag_cpu, &set);
+      pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
+      auto next = std::chrono::steady_clock::now();
+      while (!diag_stop.load(std::memory_order_relaxed)) {
+        const u64 t = diag::mono_ns();
+        for (u32 s = 0; s < n && s < diag::kMaxShards && diag_rows.size() < diag_rows.capacity(); ++s) {
+          const diag::ShardGauge& g = diag::gauges[s];
+          auto rd = [](const std::atomic<u64>& a) { return a.load(std::memory_order_relaxed); };
+          diag_rows.push_back(DiagRow{t,
+                                      {rd(g.polls), rd(g.emits), rd(g.emit_wait), rd(g.waiters), rd(g.undurable),
+                                       rd(g.overloaded), rd(g.overflow), rd(g.ckpt_phase), rd(g.ph_begin),
+                                       rd(g.ph_walked), rd(g.ph_sync), rd(g.ph_done)},
+                                      s});
+        }
+        next += std::chrono::milliseconds(50);
+        std::this_thread::sleep_until(next);
+      }
+    });
+  }
+
   int sig = 0;
   // Wait for a signal, reporting and checkpointing on the way.
   {
@@ -1171,6 +1212,19 @@ int main(int argc, char** argv) {
   {
     std::unique_lock<std::mutex> g(move_mu);
     move_cv.wait(g, [&] { return moving == 0; });
+  }
+  if (diag_thread.joinable()) {
+    diag_stop.store(true);
+    diag_thread.join();
+    if (FILE* f = std::fopen(diag_path.c_str(), "w")) {
+      std::fprintf(f, "t_ns,shard,polls,emits,emit_wait,waiters,undurable,overloaded,overflow,ckpt_phase,ph_begin,ph_walked,ph_sync,ph_done\n");
+      for (const DiagRow& r : diag_rows) {
+        std::fprintf(f, "%llu,%u", (unsigned long long)r.t, r.shard);
+        for (u64 x : r.v) std::fprintf(f, ",%llu", (unsigned long long)x);
+        std::fputc('\n', f);
+      }
+      std::fclose(f);
+    }
   }
   eng.stop();
 

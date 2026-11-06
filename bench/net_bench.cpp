@@ -56,6 +56,7 @@
 #include <sched.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <barrier>
 #include <chrono>
@@ -79,6 +80,12 @@ using namespace snc::account;
 using snc::bench::RateSchedule;
 
 namespace {
+
+// --diag-buckets FILE: per-thread 50 ms counters, written after the run.
+// Diagnostic only; a nonzero t0 means on.
+std::atomic<u64> g_diag_t0{0};
+constexpr u64 kDiagBucketNs = 50000000;
+enum { kDiagServed, kDiagExecRefused, kDiagIndexRefused, kDiagLatOver1ms, kDiagLatOver100ms, kDiagLateOver1ms, kDiagFields };
 
 u64 now_ns() {
   return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -108,6 +115,7 @@ struct Args {
   double warmup = 0;     // --warmup (with --rate)
   double drain_s = 10;   // --drain-s (with --rate)
   std::string ids_file;
+  std::string diag_buckets;
   std::vector<std::pair<std::string, u16>> endpoints;
   u64 session = 0;
   int request_timeout_ms = 5000;
@@ -151,6 +159,7 @@ struct Thread {
   u64 next_k = 0;               // next scheduled op to issue
   Histogram lateness;           // issue time minus intended time
   u64 late_1ms = 0;             // issued more than 1 ms after due
+  std::vector<std::array<u32, kDiagFields>> diag;
   u64 scheduled_by_end = 0, issued_by_end = 0, outstanding_at_end = 0, in_window = 0, in_window_index = 0;
   u64 scheduled_in_window = 0;  // due in [warm-up end, window end): the measured ops
   u64 served_all = 0;           // every served op, measured or not (for per-op costs)
@@ -193,6 +202,16 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
   const u32 slot = static_cast<u32>(h.req_id);
   const u64 now = now_ns();
   const u64 lat = now - t->start[slot];
+  if (const u64 dt0 = g_diag_t0.load(std::memory_order_relaxed); dt0 != 0 && now >= dt0) {
+    const u64 b = (now - dt0) / kDiagBucketNs;
+    if (b < t->diag.size()) {
+      auto& d = t->diag[b];
+      if (static_cast<Status>(h.status) == Status::E_OVERLOADED) ++d[t->is_index[slot] ? kDiagIndexRefused : kDiagExecRefused];
+      else ++d[kDiagServed];
+      if (lat > 1000000) ++d[kDiagLatOver1ms];
+      if (lat > 100000000) ++d[kDiagLatOver100ms];
+    }
+  }
   const bool measured = t->measured[slot];
   const Shared& sh = *t->sh;
   --t->outstanding;
@@ -423,7 +442,13 @@ void run_rate(Thread& t) {
       const u64 intended = t0 + t.sched.at(t.next_k);
       const u64 late = now - intended;  // due means intended < now
       t.lateness.add(late);
-      if (late > 1000000) ++t.late_1ms;
+      if (late > 1000000) {
+        ++t.late_1ms;
+        if (const u64 dt0 = g_diag_t0.load(std::memory_order_relaxed); dt0 != 0 && now >= dt0) {
+          const u64 b = (now - dt0) / kDiagBucketNs;
+          if (b < t.diag.size()) ++t.diag[b][kDiagLateOver1ms];
+        }
+      }
       issue(t, slot, intended, intended >= sh.measure_ns);
       ++t.next_k;
     }
@@ -542,6 +567,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--warmup") a.warmup = std::atof(val());
     else if (k == "--drain-s") a.drain_s = std::atof(val());
     else if (k == "--ids") a.ids_file = val();
+    else if (k == "--diag-buckets") a.diag_buckets = val();
     else if (k == "--endpoint") {
       std::string v = val();
       auto c = v.rfind(':');
@@ -601,6 +627,7 @@ int main(int argc, char** argv) {
     t.measured.assign(a.depth, 1);
     t.load_num.assign(a.depth, 0);
     if (a.rate) t.sched = RateSchedule(a.rate, a.threads, i);
+    if (!a.diag_buckets.empty()) t.diag.assign(static_cast<std::size_t>((a.warmup + a.seconds + a.drain_s + 30) * 20), {});
     for (u32 s = 0; s < a.depth; ++s) t.free_slots.push_back(s);
     t.load_target = given.empty() ? a.objects / a.threads + (i < a.objects % a.threads) : 0;
     ts.emplace_back([&, i] {
@@ -666,12 +693,14 @@ int main(int argc, char** argv) {
     sh.measure_ns = sh.t0_ns + ns(a.warmup);
     sh.end_ns = sh.measure_ns + ns(a.seconds);
     sh.deadline_ns = sh.end_ns + ns(a.drain_s);
+    if (!a.diag_buckets.empty()) g_diag_t0.store(sh.t0_ns, std::memory_order_relaxed);
     sh.phase.store(kRun, std::memory_order_release);
     ready.arrive_and_wait();
     for (auto& th : ts) th.join();
     sh.phase.store(kDrain, std::memory_order_release);
     run_s = static_cast<double>(sh.end_ns - sh.measure_ns) / 1e9;  // the measured window
   } else {
+    if (!a.diag_buckets.empty()) g_diag_t0.store(now_ns(), std::memory_order_relaxed);
     sh.phase.store(kRun, std::memory_order_release);
     auto t1 = std::chrono::steady_clock::now();
     ready.arrive_and_wait();
@@ -701,6 +730,24 @@ int main(int argc, char** argv) {
     max_resend_age_ms = std::max(max_resend_age_ms, t.client.max_resend_age_ms());
     misrouted += t.misrouted;
     forwarded += t.client.forwarded();
+  }
+  if (!a.diag_buckets.empty()) {
+    if (FILE* f = std::fopen(a.diag_buckets.c_str(), "w")) {
+      std::fprintf(f, "t_ns,served,exec_refused,index_refused,lat_over_1ms,lat_over_100ms,late_over_1ms\n");
+      const u64 dt0 = g_diag_t0.load(std::memory_order_relaxed);
+      const std::size_t buckets = threads[0].diag.size();
+      for (std::size_t b = 0; b < buckets; ++b) {
+        u64 sum[kDiagFields] = {};
+        for (auto& t : threads) {
+          for (int k = 0; k < kDiagFields; ++k) sum[k] += t.diag[b][k];
+        }
+        if (!(sum[0] | sum[1] | sum[2] | sum[3] | sum[4] | sum[5])) continue;
+        std::fprintf(f, "%llu", (unsigned long long)(dt0 + b * kDiagBucketNs));
+        for (u64 x : sum) std::fprintf(f, ",%llu", (unsigned long long)x);
+        std::fputc('\n', f);
+      }
+      std::fclose(f);
+    }
   }
   u16 n = threads[0].client.shard_count();
   std::printf("net_bench shards=%u threads=%u depth=%u/thread route=%s misroute=%d%%\n", n,
