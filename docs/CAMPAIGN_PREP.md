@@ -24,10 +24,12 @@ results. Every gap below is read from the repository (INFERRED, EL0).
 
 ## 1. Main R640 manifest
 
-**Not captured yet.** The R640 is cody's physical host, and this
-project's cloud sessions cannot reach it. The manifest is measured on
-the host itself, by `bench/manifest.sh`; nothing here is inferred from
-memory. cody runs the script below and returns its output file.
+**Captured 2026-11-06, untouched:**
+`bench/manifests/r640-main-20261106.txt`, measured on the host itself by
+`bench/manifest.sh` at 58c638f. The topology review and the PROPOSED
+pilot allocation are in [R640_TOPOLOGY.md](R640_TOPOLOGY.md), waiting on
+review. The procedure below stays for the remote R640 and for any
+re-capture after a hardware, BIOS or kernel change.
 
 **What `bench/manifest.sh` records** (extended in this slice to cover
 the work order's list):
