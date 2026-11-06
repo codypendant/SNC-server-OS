@@ -130,7 +130,7 @@ run: reads=50% seconds=3.00
   index ops/s 1008  ok 3024  empty 0  refused 0  errors 0
   index latency ns  p50 36864  p95 151552  p99 2883584  p99.9 4849664
   mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
-  total ops/s 20000  (exec 56976 + index 3024 in 3.00s)
+  total ops/s 20000  (exec 56976 + index 3024 in 3.00s)  served_all 80000
   total latency ns  n 60000  p50 22016  p95 67584  p99 1605632  p99.9 4980736  max 9783481
   read latency ns  n 41917  p50 16896  p95 58368  p99 1507328  p99.9 5111808  max 9783481
   deposit latency ns  n 9062  p50 17408  p95 64512  p99 1703936  p99.9 4587520  max 8285059
@@ -147,6 +147,7 @@ rate: offered 20000 ops/s  warmup 1.00s  window 3.00s  drain limit 10.00s
 def test_parse_report():
     r = pilot.parse_client(REPORT)
     assert r["total_ops_s"] == 20000 and r["exec_ops"] == 56976 and r["index_ok"] == 3024
+    assert r["served_all"] == 80000
     assert r["p99_ns"] == 1605632 and r["n"] == 60000  # total, over every kind
     assert r["index_p99_ns"] == 2883584 and r["transfer_n"] == 5997
     assert r["offered"] == 20000 and r["scheduled"] == 80000 and r["completed_in_window"] == 59999

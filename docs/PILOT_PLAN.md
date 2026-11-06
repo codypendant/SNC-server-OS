@@ -96,7 +96,7 @@ Per profile, in this order. Values are from `bench/pilot_plan.json`.
 | Calibration | 1 closed-loop run, depth 512 per thread, 60 s (A) / 30 s (C). P0 = its total ops/s. P0 is used only to place the grid |
 | Grid | R_k = floor(k · P0 / 20), k = 1…22: 5% to 110% of P0 |
 | Warm-up | 10 s, ops issued but not measured |
-| Window | 60 s (A) / 30 s (C) after the warm-up. Each A run lasts over 60 s from server start, so a checkpoint falls inside it |
+| Window | 60 s (A) / 30 s (C) after the warm-up. Each A sweep run lasts over 60 s from server start, so a checkpoint falls inside it. The duration check's 30 s A run may contain none |
 | Reps | 3 per grid point |
 | Order | all (rate, rep) cells shuffled with seed 20261106 |
 | Drain limit | 10 s after the window |
@@ -116,8 +116,9 @@ Conditions 3 and 4 are exact integer comparisons.
 A **point** is sustained if all 3 of its reps ran and are sustained.
 
 **Stable peak** S = the largest grid rate whose point, and every lower
-point, is sustained. If R_1 is not sustained there is no S, and the
-profile stops for review.
+point, is sustained. If R_1 is not sustained there is no S. If S = R_1
+there is no grid rate ≤ f · S. Either way there is no objective, and the
+pilot aborts for review.
 
 **Objective.** The objective rate is the largest grid rate ≤ f · S, with
 f = 7/10 compared exactly. The objective p99 is the median of the 3 reps'
@@ -146,8 +147,9 @@ pins each step, including the boundaries.
     (the client must out-run the server) instead of counting as
     unsustained.
 - A server that exits during a run, a failed load, or a failed
-  calibration aborts the pilot. The abort reason is written to
-  `pilot.json`, and nothing after it runs.
+  calibration aborts the pilot. So does a missing objective. The abort
+  reason is written to `pilot.json`. Nothing after it runs, including
+  the remaining profiles.
 
 ## 6. The other phases
 
@@ -174,8 +176,10 @@ pins each step, including the boundaries.
   So a reported p99 r means r ≤ p99 < 1.03125 r. No claim is finer than
   that. Max is exact.
 - **CPU per op:** the server's utime + stime (all threads, io_uring
-  workers included), over the measured run, divided by ops completed
-  (EXEC served + INDEX OK).
+  workers included), sampled before and after the whole `net_bench`
+  run. It is divided by every op served in that run: EXEC served plus
+  INDEX OK, warm-up and drain included (`served_all`). The denominator
+  covers the same span as the samples.
 - **Write bytes per op:** the server's `/proc/<pid>/io` `write_bytes`
   over the run, divided the same way.
 - **Loopback RX and TX bytes per op:** reported separately. They are
@@ -185,10 +189,10 @@ pins each step, including the boundaries.
   - steady RSS and PSS 10 s after the load ends;
   - bytes per object = (steady − empty) / objects, for RSS and for PSS;
   - peak (VmHWM) is reported separately, after the run.
-- The measured window counts ops by when they were due, so the warm-up
-  is excluded. CPU and I/O samples bracket the whole `net_bench` run
-  (connect, warm-up, window and drain), so per-op costs are slightly
-  overstated. The bias is the same for every run.
+- Latency and the sustained test count ops by when they were due, in
+  [warm-up end, window end), so the warm-up is excluded. Per-op costs
+  instead use `served_all` over the whole run, as above. The only
+  unmatched part is connect time: well under 0.1 s, with no ops.
 
 ## 8. Run discipline
 
@@ -199,8 +203,18 @@ A real pilot (`pilot.py` without `--quick`) refuses to start unless:
 - the governors are all `performance`;
 - `numa_balancing` is 0.
 
+It also refuses unless:
+- the manifest's SHA-256 equals `approved_manifest_sha256` in the plan.
+  That value is null until manifest d is reviewed, so a real run cannot
+  start yet;
+- the build directory is a plain RelWithDebInfo build (no sanitizer
+  flags).
+
+Before it checks anything, it rebuilds `snc_server` and `net_bench` from
+the tree. With a clean tree, the binaries then match HEAD.
+
 It records the HEAD SHA, the plan's SHA-256 and values, the manifest's
-SHA-256, and the SHA-256 of `snc_server` and `net_bench`.
+SHA-256, the build type, and the SHA-256 of both binaries.
 
 The runner never writes account-ID files under `--out`. It deletes each
 run's data directory after the run. Raw client and server logs of every

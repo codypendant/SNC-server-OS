@@ -143,8 +143,8 @@ def parse_client(out):
     r.update(errors=int(m[1]), overloaded=int(m[2]), stale=int(m[3]))
     m = re.search(r"index ops/s \d+  ok (\d+)  empty (\d+)  refused (\d+)  errors (\d+)", out)
     r.update(index_ok=int(m[1]), index_empty=int(m[2]), index_refused=int(m[3]), index_errors=int(m[4]))
-    m = re.search(r"total ops/s (\d+)  \(exec (\d+) \+ index (\d+) in ([\d.]+)s\)", out)
-    r.update(total_ops_s=int(m[1]), exec_ops=int(m[2]), run_s=float(m[4]))
+    m = re.search(r"total ops/s (\d+)  \(exec (\d+) \+ index (\d+) in ([\d.]+)s\)  served_all (\d+)", out)
+    r.update(total_ops_s=int(m[1]), exec_ops=int(m[2]), run_s=float(m[4]), served_all=int(m[5]))
     for kind in ("total", "read", "deposit", "transfer", "index"):
         m = re.search(rf"\n  {kind} latency ns  n (\d+)  p50 (\d+)  p95 (\d+)  p99 (\d+)  p99.9 (\d+)  max (\d+)", out)
         if not m:
@@ -228,21 +228,36 @@ class Pilot:
 
     def environment(self):
         a = self.a
+        # Build the two binaries from this tree first: with a clean tree the
+        # binaries then match HEAD (ninja rebuilds anything stale).
+        b = subprocess.run(["cmake", "--build", a.build, "--target", "snc_server", "net_bench"],
+                           capture_output=True, text=True)
+        if b.returncode:
+            raise SystemExit(f"build failed:\n{b.stdout}\n{b.stderr}")
+        build_type = sh(f"grep '^CMAKE_BUILD_TYPE:' {a.build}/CMakeCache.txt").split("=")[-1]
+        flags = sh(f"grep '^CMAKE_CXX_FLAGS:' {a.build}/CMakeCache.txt").split("=", 1)[-1]
         govs = sorted(set(sh("cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor").split()))
         env = dict(git_head=sh("git rev-parse HEAD"), git_status=sh("git status --short"),
                    plan=a.plan, plan_sha256=sha(a.plan), plan_values=self.plan,
                    manifest=a.manifest, manifest_sha256=sha(a.manifest) if a.manifest else None,
                    snc_server_sha256=sha(f"{a.build}/snc_server"), net_bench_sha256=sha(f"{a.build}/net_bench"),
                    governors=govs, numa_balancing=sh("cat /proc/sys/kernel/numa_balancing"),
-                   kernel=sh("uname -r"), started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                   build_type=build_type, cxx_flags=flags, kernel=sh("uname -r"), started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    allocation=a.allocation, allocation_values=self.alloc, quick=a.quick,
                    evidence=False if a.quick else None)
         if not a.quick:
             problems = []
             if env["git_status"]:
                 problems.append("the git tree is not clean")
+            want = self.plan.get("approved_manifest_sha256")
             if not a.manifest:
                 problems.append("no --manifest")
+            elif not want:
+                problems.append("the plan has no approved_manifest_sha256 yet")
+            elif env["manifest_sha256"] != want:
+                problems.append(f"{a.manifest} is not the approved manifest")
+            if build_type not in ("", "RelWithDebInfo") or flags:
+                problems.append(f"{a.build} is not a plain RelWithDebInfo build ({build_type!r}, {flags!r})")
             if govs != ["performance"]:
                 problems.append(f"CPU governors are {govs}, not all performance")
             if env["numa_balancing"] != "0":
@@ -342,15 +357,16 @@ class Pilot:
             if os.path.exists(ids):
                 os.remove(ids)
         r["returncode"] = run.returncode
+        if rate:
+            r["window_s"] = window[1]
         try:
             r.update(parse_client(run.stdout))
         except (TypeError, AttributeError):
             r.update(failed=True, why=f"unparsable net_bench output (exit {run.returncode})")
         if not r.get("failed"):
-            if rate:
-                r["window_s"] = window[1]
-            ops = r["exec_ops"] + r["index_ok"]
-            r.update(per_op(before, after, ops))
+            # The samples span the whole net_bench run (warm-up, window and
+            # drain), so divide by every op served in it, not the measured ones.
+            r.update(per_op(before, after, r["served_all"]))
             if memory:
                 n = self.objects()
                 r.update(memory_kb=mem,
@@ -434,6 +450,7 @@ class Pilot:
             sweep.setdefault(n, []).append(self.one(prof, "shards", f"s{n}-r{i}", shards=n,
                                                     depth=plan["calibration_depth"], window=win))
         res["shards"] = [dict(shards=n, median_total_ops_s=statistics.median(r["total_ops_s"] for r in v),
+                              ops_s_per_core=statistics.median(r["total_ops_s"] for r in v) / n,
                               errors=sum(r["errors"] for r in v))
                          for n, v in sorted(sweep.items()) if all(not r.get("failed") for r in v)]
         self.write()

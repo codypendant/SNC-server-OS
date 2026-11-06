@@ -1,5 +1,6 @@
 {
   "_status": "PROPOSED for review (docs/PILOT_PLAN.md). Every value here is a proposal until cody/Codex approve the plan. bench/pilot.py records this file's SHA-256 in every result.",
+  "approved_manifest_sha256": null,
   "objects": 5000000,
   "mix": "read=70,deposit=15,transfer=10,index=5",
   "route": "owner",

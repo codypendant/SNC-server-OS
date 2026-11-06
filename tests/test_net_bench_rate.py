@@ -14,6 +14,7 @@ tests/test_rate_schedule.cpp.
                  issued after the window, and still drains.
   undrained      a stall longer than --drain-s: "drained no" with the
                  remaining work counted, exit 0.
+  idle_thread    a rate below the thread count: idle threads wait, not spin.
   mix            --mix shares are of total ops and are exact; the old
                  nested flags print their effective shares; bad mixes and
                  bad flag combinations are refused.
@@ -147,6 +148,25 @@ def scenario_undrained(s):
     print(f"undrained: remaining unissued {r['unissued']}, in flight {r['left']}")
 
 
+def scenario_idle_thread(s):
+    # 1 op/s over 2 threads: thread 1 has nothing to send, thread 0 one op
+    # per second. Both must wait in 1 ms polls, not spin: a spinning thread
+    # would use about 2 s of CPU in this 2 s run.
+    out = os.path.join(s.work, "idle.out")
+    with open(out, "w") as f:
+        p = subprocess.Popen([f"{BUILD}/net_bench", "--port", str(s.port), "--threads", "2", "--objects",
+                              str(OBJECTS), "--ids", s.ids, "--rate", "1", "--seconds", "2", "--mix", MIX],
+                             stdout=f, stderr=subprocess.STDOUT)
+        _, status, ru = os.wait4(p.pid, 0)
+    text = open(out).read()
+    assert os.waitstatus_to_exitcode(status) == 0, text
+    r = rate_report(text)
+    assert r["scheduled"] == 2 and r["drained"], text
+    cpu = ru.ru_utime + ru.ru_stime
+    assert cpu < 0.8, (cpu, text)
+    print(f"idle_thread: 1 op/s on 2 threads used {cpu:.2f} s CPU in a 2 s run (no spin)")
+
+
 def scenario_mix(s):
     out = s.bench(["--seconds", "1", "--mix", MIX])
     assert "mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%" in out, out
@@ -163,14 +183,15 @@ def scenario_mix(s):
     assert "index ops/s" not in out and "\n  index latency" not in out, out
     for bad in (["--mix", "read=70,deposit=20"], ["--mix", "read=100,read=0"], ["--mix", "write=100"],
                 ["--mix", "read=90,index=10", "--index", "5"], ["--warmup", "1"], ["--rate", "0"],
-                ["--mix", "read=-5,deposit=105"]):
+                ["--mix", "read=-5,deposit=105"], ["--rate", "1e6"], ["--rate", "-5"],
+                ["--mix", "read=100", "--mix", "read=100"]):
         p = subprocess.run([f"{BUILD}/net_bench", "--port", str(s.port)] + bad, capture_output=True, text=True)
         assert p.returncode == 2, (bad, p.returncode, p.stdout, p.stderr)
     print("mix: exact shares of total; nested flags print 59.85/25.65/9.50/5.00; bad input refused")
 
 
 def main():
-    scenarios = [("mix", scenario_mix), ("stall_open", scenario_stall_open), ("stall_closed", scenario_stall_closed),
+    scenarios = [("mix", scenario_mix), ("idle_thread", scenario_idle_thread), ("stall_open", scenario_stall_open), ("stall_closed", scenario_stall_closed),
                  ("owed", scenario_owed), ("undrained", scenario_undrained)]
     s = Server()
     try:

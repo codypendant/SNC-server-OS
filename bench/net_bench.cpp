@@ -151,7 +151,8 @@ struct Thread {
   u64 next_k = 0;               // next scheduled op to issue
   Histogram lateness;           // issue time minus intended time
   u64 late_1ms = 0;             // issued more than 1 ms after due
-  u64 scheduled_by_end = 0, issued_by_end = 0, outstanding_at_end = 0, in_window = 0;
+  u64 scheduled_by_end = 0, issued_by_end = 0, outstanding_at_end = 0, in_window = 0, in_window_index = 0;
+  u64 served_all = 0;           // every served op, measured or not (for per-op costs)
   bool drained = false;
   std::vector<u32> deposits;  // --verify: deposits sent, by index into ids
   u32 outstanding = 0;
@@ -216,8 +217,9 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
     if (measured) {
       t->index_hist.add(lat);
       t->kind_hist[kIndex].add(lat);
-      if (served && sh.args.rate && now < sh.end_ns) ++t->in_window;
+      if (served && sh.args.rate && now < sh.end_ns) ++t->in_window, ++t->in_window_index;
     }
+    t->served_all += served;
     return;
   }
   // Turned-away requests never ran, so they do not count as ops.
@@ -239,6 +241,7 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
     t->kind_hist[t->kind[slot]].add(lat);
     if (served && sh.args.rate && now < sh.end_ns) ++t->in_window;
   }
+  t->served_all += served;
 }
 
 bool load(Thread& t) {
@@ -427,16 +430,13 @@ void run_rate(Thread& t) {
       return;
     }
     if (now >= deadline) return;  // not drained: the report says what is left
-    // Sleep in poll only if the next op is not due within 1.5 ms (and a slot
-    // is free for it); otherwise poll without waiting.
-    int wait_ms = 0;
-    if (t.next_k < total && t.next_k >= due && !t.free_slots.empty()) {
-      const u64 next = t0 + t.sched.at(t.next_k);
-      if (next > now + 1500000) wait_ms = 1;
-    } else if (t.next_k >= total && t.outstanding > 0) {
-      wait_ms = 1;  // only answers left to wait for
-    } else if (t.next_k < due && t.free_slots.empty()) {
-      wait_ms = 1;  // owed work waits for an answer; poll returns on the first one
+    // Poll without waiting only when the next op is due within 1.5 ms and a
+    // slot is free for it. Otherwise wait up to 1 ms: poll returns at the
+    // first answer, which is all that can free a slot.
+    int wait_ms = 1;
+    if (t.next_k < total && t.next_k >= due && !t.free_slots.empty() &&
+        t0 + t.sched.at(t.next_k) <= now + 1500000) {
+      wait_ms = 0;
     }
     if (t.client.poll(on_run, &t, wait_ms) < 0) {
       t.error = t.client.error();
@@ -523,8 +523,20 @@ Args parse(int argc, char** argv) {
     else if (k == "--transfer") a.transfer_pct = std::atoi(val());
     else if (k == "--xfer-local") a.xfer_local = std::atoi(val());
     else if (k == "--index") a.index_pct = std::atoi(val());
-    else if (k == "--mix") parse_mix(val(), a);
-    else if (k == "--rate") a.rate = std::strtoull(val(), nullptr, 10);
+    else if (k == "--mix") {
+      if (a.mix_set) {
+        std::fprintf(stderr, "--mix given twice\n");
+        std::exit(2);
+      }
+      parse_mix(val(), a);
+    } else if (k == "--rate") {
+      const std::string r = val();
+      if (r.empty() || r.size() > 12 || r.find_first_not_of("0123456789") != std::string::npos) {
+        std::fprintf(stderr, "--rate takes a whole number of ops/s, digits only\n");
+        std::exit(2);
+      }
+      a.rate = std::strtoull(r.c_str(), nullptr, 10);
+    }
     else if (k == "--warmup") a.warmup = std::atof(val());
     else if (k == "--drain-s") a.drain_s = std::atof(val());
     else if (k == "--ids") a.ids_file = val();
@@ -693,8 +705,21 @@ int main(int argc, char** argv) {
               a.threads, a.depth, a.route_owner ? "owner" : "any", a.misroute_pct);
   std::printf("load: %zu objects in %.2fs (%.0f creates/s)\n", sh.ids.size(), load_s,
               sh.ids.size() / load_s);
-  std::printf("run: reads=%d%% seconds=%.2f\n", a.reads_pct, run_s);
-  std::printf("  ops/s %.0f  errors %llu  overloaded %llu  stale %llu\n", ops / run_s,
+  // With --rate, the ops/s lines count ops answered within the window only.
+  u64 in_window = 0, in_window_index = 0, served_all = 0;
+  for (auto& t : threads) {
+    in_window += t.in_window;
+    in_window_index += t.in_window_index;
+    served_all += t.served_all;
+  }
+  const u64 exec_shown = a.rate ? in_window - in_window_index : ops;
+  if (a.mix_set) {
+    std::printf("run: mix=read=%d,deposit=%d,transfer=%d,index=%d seconds=%.2f\n", a.mix_read, a.mix_deposit,
+                a.mix_transfer, a.mix_index, run_s);
+  } else {
+    std::printf("run: reads=%d%% seconds=%.2f\n", a.reads_pct, run_s);
+  }
+  std::printf("  ops/s %.0f  errors %llu  overloaded %llu  stale %llu\n", exec_shown / run_s,
               (unsigned long long)errors, (unsigned long long)overloaded, (unsigned long long)stale);
   std::printf("  latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", all.percentile(50),
               all.percentile(95), all.percentile(99), all.percentile(99.9));
@@ -711,7 +736,8 @@ int main(int argc, char** argv) {
       refused += t.index_refused;
       index_errors += t.index_errors;
     }
-    std::printf("  index ops/s %.0f  ok %llu  empty %llu  refused %llu  errors %llu\n", ok / run_s,
+    std::printf("  index ops/s %.0f  ok %llu  empty %llu  refused %llu  errors %llu\n",
+                (a.rate ? in_window_index : ok) / run_s,
                 (unsigned long long)ok, (unsigned long long)empty, (unsigned long long)refused,
                 (unsigned long long)index_errors);
     std::printf("  index latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", ih.percentile(50),
@@ -742,8 +768,14 @@ int main(int argc, char** argv) {
       index_ok += t.index_ok;
     }
     for (auto& h : kinds) total.merge(h);
-    std::printf("  total ops/s %.0f  (exec %llu + index %llu in %.2fs)\n", (ops + index_ok) / run_s,
-                (unsigned long long)ops, (unsigned long long)index_ok, run_s);
+    // Closed loop: every op answered during the run. --rate: the ops
+    // answered within the window. served_all also counts the warm-up and
+    // drain: the denominator for per-op server costs, whose samples span
+    // the whole run.
+    const u64 idx_shown = a.rate ? in_window_index : index_ok;
+    std::printf("  total ops/s %.0f  (exec %llu + index %llu in %.2fs)  served_all %llu\n",
+                (exec_shown + idx_shown) / run_s, (unsigned long long)exec_shown,
+                (unsigned long long)idx_shown, run_s, (unsigned long long)served_all);
     auto line = [](const char* what, const Histogram& h) {
       std::printf("  %s latency ns  n %llu  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f  max %llu\n", what,
                   (unsigned long long)h.count(), h.percentile(50), h.percentile(95), h.percentile(99),
