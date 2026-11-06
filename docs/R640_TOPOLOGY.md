@@ -109,6 +109,26 @@ It keeps turbo on and turns off C-states and C1E, sets uncore to
 maximum, and disables link power management. Changing it needs a reboot
 and a third manifest, and waits for cody's decision.
 
+## 2b. Manifest c: after the BIOS switch to Performance (OBSERVED)
+
+`bench/manifests/r640-main-20261106c.txt` was captured at 06:37 UTC, at
+2e232bf. Before the capture, the R640 session had set
+`kernel.numa_balancing=0`.
+
+- **Frequency is now under OS control.** `intel_pstate` runs in passive
+  mode with the `intel_cpufreq` driver. The governor is `schedutil` on
+  all 72 CPUs, the range is 1.2-3.7 GHz, and turbo is on
+  (`no_turbo=0`). Pinning the frequency policy for the campaign is open
+  (CP1A_DRAFT_REVIEW F2).
+- **Idle states.** C6 is now disabled. POLL, C1 and C1E are still
+  offered to the OS.
+- **Disk names moved at reboot.** The data SSD is now `sda`, the old
+  HDD is `sdb`, and the BOSS is `sdc`. `/srv/snc-data` mounts by UUID,
+  so nothing broke. The `/dev/sdc` in the copied "extra" section refers
+  to the names in manifest b. Name devices by model or UUID, never by
+  letter.
+- Everything else matches manifest b.
+
 ## 3. Locality (OBSERVED, with one inference)
 
 - **OBSERVED (manifest b, sysfs `numa_node`):** the SAS3008 HBA

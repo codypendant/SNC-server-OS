@@ -71,7 +71,7 @@ stays PROPOSED until the criteria review.
 
 **F4, process and housekeeping.**
 - `pilot.json` records the SHA-256 of an earlier manifest capture.
-- Manifest c is still only on the R640 and must be committed.
+- Manifest c is now committed (`bench/manifests/r640-main-20261106c.txt`, R640_TOPOLOGY 2b).
 - The ASan/TSan suites have not been run on the `net_bench` change.
 - `kernel.numa_balancing=0` was set before manifest c; it is a planned
   run-time setting (R640_TOPOLOGY section 4), so it is kept and recorded.
