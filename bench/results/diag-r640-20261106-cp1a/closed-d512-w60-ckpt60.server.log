@@ -1,0 +1,87 @@
+recovery: checkpoint before serving in 0.01s
+snc_server shards=8 ports 23280-23287 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+space uuid 84b1a887bee4426f4f5898b22fa629e7
+report t=1.00 live=0 lost=0 lag=634391 shipped_mib=0.0 from_disk_mib=0.0
+report t=2.00 live=0 lost=0 lag=1211371 shipped_mib=0.0 from_disk_mib=0.0
+report t=3.00 live=0 lost=0 lag=1701340 shipped_mib=0.0 from_disk_mib=0.0
+report t=4.00 live=0 lost=0 lag=2147878 shipped_mib=0.0 from_disk_mib=0.0
+report t=5.00 live=0 lost=0 lag=2545131 shipped_mib=0.0 from_disk_mib=0.0
+report t=6.00 live=0 lost=0 lag=2875671 shipped_mib=0.0 from_disk_mib=0.0
+report t=7.00 live=0 lost=0 lag=3187684 shipped_mib=0.0 from_disk_mib=0.0
+report t=8.00 live=0 lost=0 lag=3476301 shipped_mib=0.0 from_disk_mib=0.0
+report t=9.00 live=0 lost=0 lag=3758734 shipped_mib=0.0 from_disk_mib=0.0
+report t=10.00 live=0 lost=0 lag=4037994 shipped_mib=0.0 from_disk_mib=0.0
+report t=11.00 live=0 lost=0 lag=4304176 shipped_mib=0.0 from_disk_mib=0.0
+report t=12.00 live=0 lost=0 lag=4559079 shipped_mib=0.0 from_disk_mib=0.0
+report t=13.00 live=0 lost=0 lag=4814034 shipped_mib=0.0 from_disk_mib=0.0
+report t=14.00 live=0 lost=0 lag=5000178 shipped_mib=0.0 from_disk_mib=0.0
+report t=15.00 live=0 lost=0 lag=5225241 shipped_mib=0.0 from_disk_mib=0.0
+report t=16.00 live=0 lost=0 lag=5822465 shipped_mib=0.0 from_disk_mib=0.0
+report t=17.00 live=0 lost=0 lag=6427992 shipped_mib=0.0 from_disk_mib=0.0
+report t=18.00 live=0 lost=0 lag=7036349 shipped_mib=0.0 from_disk_mib=0.0
+report t=19.00 live=0 lost=0 lag=7648368 shipped_mib=0.0 from_disk_mib=0.0
+report t=20.00 live=0 lost=0 lag=8262936 shipped_mib=0.0 from_disk_mib=0.0
+report t=21.00 live=0 lost=0 lag=8876850 shipped_mib=0.0 from_disk_mib=0.0
+report t=22.00 live=0 lost=0 lag=9478111 shipped_mib=0.0 from_disk_mib=0.0
+report t=23.00 live=0 lost=0 lag=10094364 shipped_mib=0.0 from_disk_mib=0.0
+report t=24.00 live=0 lost=0 lag=10706488 shipped_mib=0.0 from_disk_mib=0.0
+report t=25.00 live=0 lost=0 lag=11320129 shipped_mib=0.0 from_disk_mib=0.0
+report t=26.00 live=0 lost=0 lag=11925694 shipped_mib=0.0 from_disk_mib=0.0
+report t=27.00 live=0 lost=0 lag=12539053 shipped_mib=0.0 from_disk_mib=0.0
+report t=28.00 live=0 lost=0 lag=13154972 shipped_mib=0.0 from_disk_mib=0.0
+report t=29.00 live=0 lost=0 lag=13770361 shipped_mib=0.0 from_disk_mib=0.0
+report t=30.00 live=0 lost=0 lag=14379143 shipped_mib=0.0 from_disk_mib=0.0
+report t=31.00 live=0 lost=0 lag=14990952 shipped_mib=0.0 from_disk_mib=0.0
+report t=32.00 live=0 lost=0 lag=15606384 shipped_mib=0.0 from_disk_mib=0.0
+report t=33.00 live=0 lost=0 lag=16224435 shipped_mib=0.0 from_disk_mib=0.0
+report t=34.00 live=0 lost=0 lag=16842572 shipped_mib=0.0 from_disk_mib=0.0
+report t=35.00 live=0 lost=0 lag=17455697 shipped_mib=0.0 from_disk_mib=0.0
+report t=36.00 live=0 lost=0 lag=18068749 shipped_mib=0.0 from_disk_mib=0.0
+report t=37.00 live=0 lost=0 lag=18680994 shipped_mib=0.0 from_disk_mib=0.0
+report t=38.00 live=0 lost=0 lag=19285832 shipped_mib=0.0 from_disk_mib=0.0
+report t=39.00 live=0 lost=0 lag=19898291 shipped_mib=0.0 from_disk_mib=0.0
+report t=40.00 live=0 lost=0 lag=20516584 shipped_mib=0.0 from_disk_mib=0.0
+report t=41.00 live=0 lost=0 lag=21128032 shipped_mib=0.0 from_disk_mib=0.0
+report t=42.00 live=0 lost=0 lag=21739405 shipped_mib=0.0 from_disk_mib=0.0
+report t=43.00 live=0 lost=0 lag=22353119 shipped_mib=0.0 from_disk_mib=0.0
+report t=44.00 live=0 lost=0 lag=22963664 shipped_mib=0.0 from_disk_mib=0.0
+report t=45.00 live=0 lost=0 lag=23576181 shipped_mib=0.0 from_disk_mib=0.0
+report t=46.00 live=0 lost=0 lag=24188095 shipped_mib=0.0 from_disk_mib=0.0
+report t=47.00 live=0 lost=0 lag=24803367 shipped_mib=0.0 from_disk_mib=0.0
+report t=48.00 live=0 lost=0 lag=25414341 shipped_mib=0.0 from_disk_mib=0.0
+report t=49.00 live=0 lost=0 lag=26029608 shipped_mib=0.0 from_disk_mib=0.0
+report t=50.00 live=0 lost=0 lag=26633304 shipped_mib=0.0 from_disk_mib=0.0
+report t=51.00 live=0 lost=0 lag=27247360 shipped_mib=0.0 from_disk_mib=0.0
+report t=52.00 live=0 lost=0 lag=27861324 shipped_mib=0.0 from_disk_mib=0.0
+report t=53.00 live=0 lost=0 lag=28471323 shipped_mib=0.0 from_disk_mib=0.0
+report t=54.00 live=0 lost=0 lag=29074223 shipped_mib=0.0 from_disk_mib=0.0
+report t=55.00 live=0 lost=0 lag=29688511 shipped_mib=0.0 from_disk_mib=0.0
+report t=56.00 live=0 lost=0 lag=30301095 shipped_mib=0.0 from_disk_mib=0.0
+report t=57.00 live=0 lost=0 lag=30915552 shipped_mib=0.0 from_disk_mib=0.0
+report t=58.00 live=0 lost=0 lag=31524297 shipped_mib=0.0 from_disk_mib=0.0
+report t=59.00 live=0 lost=0 lag=32138463 shipped_mib=0.0 from_disk_mib=0.0
+checkpoint: 5000000 objects in 2.71s, 160 WAL segments deleted
+report t=60.00 live=0 lost=0 lag=33710414 shipped_mib=0.0 from_disk_mib=0.0
+report t=62.84 live=0 lost=0 lag=33754788 shipped_mib=0.0 from_disk_mib=0.0
+report t=62.98 live=0 lost=0 lag=33796042 shipped_mib=0.0 from_disk_mib=0.0
+report t=63.11 live=0 lost=0 lag=33842399 shipped_mib=0.0 from_disk_mib=0.0
+report t=64.00 live=0 lost=0 lag=34373087 shipped_mib=0.0 from_disk_mib=0.0
+report t=65.00 live=0 lost=0 lag=34979139 shipped_mib=0.0 from_disk_mib=0.0
+report t=66.00 live=0 lost=0 lag=35588613 shipped_mib=0.0 from_disk_mib=0.0
+report t=67.00 live=0 lost=0 lag=36203358 shipped_mib=0.0 from_disk_mib=0.0
+report t=68.00 live=0 lost=0 lag=36815019 shipped_mib=0.0 from_disk_mib=0.0
+report t=69.00 live=0 lost=0 lag=37428019 shipped_mib=0.0 from_disk_mib=0.0
+report t=70.00 live=0 lost=0 lag=38034993 shipped_mib=0.0 from_disk_mib=0.0
+report t=71.00 live=0 lost=0 lag=38651711 shipped_mib=0.0 from_disk_mib=0.0
+report t=72.00 live=0 lost=0 lag=39264493 shipped_mib=0.0 from_disk_mib=0.0
+report t=73.00 live=0 lost=0 lag=39879228 shipped_mib=0.0 from_disk_mib=0.0
+report t=74.00 live=0 lost=0 lag=40492278 shipped_mib=0.0 from_disk_mib=0.0
+shard 0: requests 10864489 forwarded 0.0% ops_local 10351938 ops_remote 0 served 0
+shard 1: requests 10869298 forwarded 0.0% ops_local 10356570 ops_remote 0 served 0
+shard 2: requests 10871251 forwarded 0.0% ops_local 10359420 ops_remote 0 served 0
+shard 3: requests 10867141 forwarded 0.0% ops_local 10354698 ops_remote 0 served 0
+shard 4: requests 10868647 forwarded 0.0% ops_local 10356589 ops_remote 0 served 0
+shard 5: requests 10870103 forwarded 0.0% ops_local 10358070 ops_remote 0 served 0
+shard 6: requests 10872357 forwarded 0.0% ops_local 10359511 ops_remote 0 served 0
+shard 7: requests 10866011 forwarded 0.0% ops_local 10353499 ops_remote 0 served 0
+total: requests 86949297 forwarded 0.0% frames/recv 5.6 frames/send 6.1 ring msgs/request 1.24
