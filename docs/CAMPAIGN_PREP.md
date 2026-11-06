@@ -141,7 +141,9 @@ review.
 
 - G1: `bench/pilot.py`. It runs SNC at fixed settings at least 5 times,
   pinned per section 5. It also runs the offered-load sweep that 10.2's
-  knee rule needs, and that rule is written down before the sweep runs. It keeps every run's raw output and writes
+  knee rule needs. That rule is an exact, deterministic algorithm, written
+  down before the R640 sweep runs, so that the same data always gives the
+  same knee and objective (PR #56 review). It keeps every run's raw output and writes
   `pilot.json`, with per-run throughput, p50, p95, p99, p99.9, the CV of
   throughput and of p99, and the section 4 metrics.
 - G3, SNC side: the section 4 metrics for `snc_server` processes.
