@@ -21,14 +21,16 @@ Decided by cody on 2026-11-04.
 - **Order:**
   1. S1 (approved, PR #44).
   2. The baseline readiness review
-     ([EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md), draft for
-     review), and its review.
-  3. The pre-baseline tests and any blocker fixes they force.
-  4. The SNC Experimental Baseline: a fixed commit, machine manifests,
+     ([EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md)): approved
+     with corrections (PR #45).
+  3. The pre-baseline tests and any blocker fixes they force: done and
+     approved (PRs #47 to #53); the correctness gate is clear.
+  4. **Now: campaign preparation** ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)),
+     then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
   5. The falsification program.
   6. The decision.
-- **Readiness review (draft).** It proposes:
+- **Readiness review (approved with corrections, PR #45).** It set:
   - profiles A (LOCAL_DURABLE), B (SYNC HA), C (memory ceiling) and an
     optional D (async, manual failover);
   - R08 handled by excluding automatic async failover;
@@ -82,13 +84,13 @@ Decided by cody on 2026-11-04.
       let two values be chosen** in one instance. For the initial
       Profile B it is a configuration/recovery exclusion after the
       hardening of PAXOS_BALLOTS section 9 (G1 `--new-state`, G2
-      campaign guard, F10, F11, fatal persistence; 2026-11-05, for
-      review). **Not solved for enterprise:** witness restore and
+      campaign guard, F10, F11, fatal persistence; approved, PRs #52
+      and #53). **Not solved for enterprise:** witness restore and
       replacement need the recovering-acceptor design (section 7, not
       built).
   - **The delayed-SYNCED window (PR #49 review) is CLOSED (2026-11-05,
-    [BASELINE_READINESS.md](BASELINE_READINESS.md) section 11), awaiting
-    review.** Every NOT READY is a fresh chosen version; READY names it
+    [BASELINE_READINESS.md](BASELINE_READINESS.md) section 11), approved
+    (PR #50).** Every NOT READY is a fresh chosen version; READY names it
     (`after=N`) and is chosen only on exactly that state; SYNCED is
     refused. Characterized before the fix (2,000/2,000 accounts lost
     acknowledged deposits), V1 to V10 pass, no witness state format
@@ -98,11 +100,14 @@ Decided by cody on 2026-11-04.
   - **X1 implemented:** wire kind `INDEX` exposes `index_lookup` with its
     semantics unchanged (EXPERIMENTAL_BASELINE section 4).
   - **The delayed-SYNCED window fix (PR #50) is approved.** F8/F9 were
-    decided in the PR #51 review; the witness hardening slice it
-    authorized is merged (PR #52, approved in substance). The two review
-    corrections are done: G2 now checks at campaign boundaries, and
-    there is one clean full Release run, 32 / 32 (PAXOS_BALLOTS 9.5). Next: the FINAL
-    experimental baseline freeze review. No benchmarks before it.
+    decided in the PR #51 review; the witness hardening (PR #52) and its
+    corrections (PR #53: G2 at campaign boundaries, a clean full Release
+    run 32 / 32) are approved.
+  - **CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION (PR #53
+    review, 2026-11-06). FULL EXPERIMENTAL BASELINE: NOT YET FROZEN**
+    (EXPERIMENTAL_BASELINE section 11). Next: the main R640's manifest
+    and the first-wave driver and harness gap inventory
+    ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)). No comparative benchmarks.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).

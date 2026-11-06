@@ -1,10 +1,13 @@
 # Baseline readiness: pre-baseline test results
 
-**Status: B1, B2 AND B3 FIXED 2026-11-05, FOR REVIEW** (section 10;
-work order `handoff/PR47_PR48_Blocker_Fix_Handoff.txt`). Sections 1 to 9
+**Status (2026-11-06): B1, B2 and B3 fixed and APPROVED (PR #49); the
+delayed READY/SYNCED window fixed and approved (PR #50, section 11); the
+witness hardening approved (PRs #52 and #53, section 12). The correctness
+gate is CLEAR; the full Experimental Baseline is not yet frozen
+(EXPERIMENTAL_BASELINE section 11).** Fix work order:
+`handoff/PR47_PR48_Blocker_Fix_Handoff.txt`. Sections 1 to 9
 are the characterization as reviewed in PR #47, kept unchanged as the
-record of the defects. The baseline is still not frozen: that waits for
-cody's review of the fixes. This is step 2 of the order in
+record of the defects. This is step 2 of the order in
 [EXPERIMENTAL_BASELINE.md](EXPERIMENTAL_BASELINE.md) section 13 (the
 review of PR #45, `handoff/PR45_Baseline_Review.txt`). Following that
 review, each blocker is characterized, its evidence is kept, and the
@@ -412,7 +415,7 @@ Section 11 of the baseline document still holds. In addition:
 
 - **B1, B2 and B3 must be fixed** in separate reviewed slices, and their
   scenarios must pass, before the freeze. *(Done 2026-11-05, section 10;
-  for review.)*
+  approved, PR #49.)*
 - **R11:** decided by cody's review of PR #47: the contract and its
   run-validity guard are in EXPERIMENTAL_BASELINE section 7 (section 10
   here).
@@ -768,4 +771,10 @@ ASan + UBSan and TSan 31 / 31 each on the last production-code commit.
 Evidence: `bench/results/witness-hardening-20261105/`. No benchmarks ran. The
 baseline is not frozen: this returns for the final experimental
 baseline freeze review.
+
+**Approved (PR #53 review, 2026-11-06):** the clean full Release run
+(32 / 32, b622963, `SNC_OLD_BUILD` from the start), G2 at campaign
+boundaries as a point check, and b3 waiting for READY. The correctness
+gate is clear; next is campaign preparation
+([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)).
 

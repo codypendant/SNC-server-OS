@@ -1,5 +1,21 @@
 # Experimental Baseline: readiness review
 
+**Current status (2026-11-06, review of PR #53,
+`handoff/PR53_Review_Handoff.txt`):**
+
+- **CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION.** The fixes
+  and dispositions are approved: B1, B2 and B3 (PR #49), the delayed
+  READY/SYNCED window (PR #50), F8/F9 (PR #51), the witness hardening
+  (PR #52) and its corrections (PR #53).
+- **FULL EXPERIMENTAL BASELINE: NOT YET FROZEN.** Section 11 still
+  needs: the main R640's manifest (and the remote R640's before any WAN
+  run), the first-wave drivers and harnesses, the within-system pilot,
+  `CRITERIA.md`, and the exact frozen SHA.
+- **Next:** campaign preparation
+  ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)). No comparative benchmarks.
+
+The record below is kept as written at each review.
+
 **Status: APPROVED WITH CORRECTIONS** (review of PR #45,
 `handoff/PR45_Baseline_Review.txt`). The corrections are applied below.
 
@@ -13,7 +29,7 @@
   for review.
 - **Results (2026-11-05): [BASELINE_READINESS.md](BASELINE_READINESS.md).**
   T-Q1, T-Q2, T-Q4, T-Q10 and T-H pass. Three Profile B BLOCKERS were
-  reproduced (**fixed 2026-11-05, for review: BASELINE_READINESS section
+  reproduced (**fixed 2026-11-05 and approved: BASELINE_READINESS section
   10**): B1, a checkpoint wedges the primary when
   its standby dies (T-Q3); B2, the witnesses promote a standby that is
   still catching up after a rejoin (T-Q5); B3, a catch-up that keeps

@@ -1259,3 +1259,23 @@ or source comments.
 -   **Next action:** WAIT for the FINAL EXPERIMENTAL BASELINE FREEZE
     REVIEW. No benchmarks, no freeze.
 
+### 2026-11-06 UTC --- Claude (Claude Code): campaign preparation, step 1 (work order PR53_Review_Handoff)
+
+-   **Classification:** KEEP. Docs and benchmark tooling only.
+-   **What:**
+    - Status documents reconciled: PRs #49 to #53 approved; the
+      correctness gate is clear; the full Experimental Baseline is not
+      frozen.
+    - `bench/manifest.sh` now records every item of the work order's
+      manifest list: NUMA memory, huge pages, frequency and idle
+      states, kernel knobs, BIOS and DIMMs (root), per-disk write
+      cache and scheduler, `nvme list`, RSS, channels, IRQ affinity,
+      the build environment, and a topology section filled in by hand.
+    - `docs/CAMPAIGN_PREP.md` holds the R640 manifest procedure, the
+      first-wave gap inventory (G1 to G13), the minimal plan CP-1 and
+      decision D1 (SpacetimeDB in the first wave or not).
+-   **Not done:** the main R640's manifest. It must be measured on the
+    host, which this environment cannot reach; cody runs the script.
+-   **Next action:** WAIT for the R640 manifest, the D1 decision and
+    authorization of CP-1. No pilot, no comparative benchmarks.
+

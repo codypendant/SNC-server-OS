@@ -1,0 +1,244 @@
+PR #53 REVIEW — FINAL PRE-FREEZE CORRECTIONS
+
+DECISION: PR #53 APPROVED.
+
+I reviewed the PR, implementation/evidence, and the updated baseline/readiness/status documents.
+
+Both corrections from PR #52 are satisfied:
+
+1. A genuine clean full Release run exists: 32/32, with SNC_OLD_BUILD=e3e0500 configured correctly from the start.
+2. G2 now checks witness state at campaign boundaries and is accurately documented as a point check, not continuous anti-rollback protection.
+
+No production code changed in PR #53.
+
+CLEAN RELEASE EVIDENCE — APPROVED
+
+Clean run:
+- commit b6229634a21f253217faf175e478962f82ede6aa;
+- RelWithDebInfo;
+- SNC_OLD_BUILD=e3e0500 from the start;
+- 32/32 passed;
+- 0 failed.
+
+The earlier 30/31 and 31/32 attempts are correctly retained as history.
+
+The 31/32 attempt exposed disk exhaustion from old /tmp test directories; test_transfer's crash path leaked roughly 250 MB/run. Cleanup was fixed, space restored, b3 passed 3/3, and the full suite then passed 32/32. This is not a new engine blocker.
+
+B3 TEST PRECONDITION — APPROVED
+
+b3 now waits for READY before failover, matching Profile B's actual promotion contract. Failover is promised only after positive readiness.
+
+G2 — APPROVED
+
+The lab checks witness state:
+- before each fault;
+- after each heal;
+- after each load phase;
+- before the final balance check;
+- at end of run.
+
+Each successful check advances the recorded per-machine Paxos marks. A violation stops/invalidates the run at that boundary.
+
+The docs correctly say this is a POINT CHECK, not continuous anti-rollback protection. A rollback carried beyond the previous marks before the next boundary can escape detection. That is acceptable because individual witness rollback/restore remains explicitly excluded.
+
+test_lab_witness_guard and witness_state_boundaries provide the requested integration evidence.
+
+SANITIZERS — ACCEPTED
+
+No production C++ semantic change occurred after the last production-code commit.
+
+Existing final production-code evidence remains accepted:
+- ASan+UBSan 31/31, zero reports;
+- TSan 31/31, zero reports.
+
+WITNESS/PAXOS DISPOSITION
+
+F8: cleared as safety blocker; liveness note only with intact acceptor state.
+F9: real safety failure under acceptor-state loss/rollback; initial Profile B exclusion after hardening; NOT solved for enterprise witness recovery.
+F10: fixed.
+F11: fixed for detectable/configured duplicate endpoints; one configured address per remote witness host remains required.
+Fatal persistence failures: fixed/fail-closed.
+Delayed READY/SYNCED race: fixed.
+B1/B2/B3: fixed.
+R11: per-run retry/session-horizon guard.
+R08 automatic async HA: excluded.
+F7: non-blocking liveness.
+F1/F6: measurement/refinement items.
+
+PROFILE B CONTRACT
+
+Profile B is acceptable for experimental use only under its declared requirements:
+- synchronous standby;
+- three HEALTH witnesses;
+- unique configured witness endpoints;
+- persistent witness state;
+- --new-state only at initial creation;
+- no individual witness state/VM/container/hypervisor rollback or restore;
+- no witness identity reuse after state loss;
+- persistence failures fatal;
+- protected READY/NOTREADY causal protocol;
+- campaign boundary guard active;
+- HA_DURABLE only while healthy/READY;
+- degraded OKs are LOCAL_DURABLE and reported as such;
+- no automatic async-HA claim;
+- no standby-read claim;
+- no Byzantine/non-SNC proposer claim;
+- retry claims only inside the measured R11/session horizon.
+
+CORRECTNESS GATE
+
+The correctness/hardening gate is now CLEAR.
+
+Do not call the entire Experimental Baseline frozen yet.
+
+EXPERIMENTAL_BASELINE section 11 still requires:
+- main physical R640 manifest;
+- remote R640 manifest before WAN runs;
+- first-wave workload drivers / competitor harness readiness (X2/X3 as needed);
+- within-system pilot;
+- pre-registered CRITERIA.md;
+- exact frozen SHA.
+
+Current status should be:
+
+CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION.
+FULL EXPERIMENTAL BASELINE: NOT YET FROZEN.
+
+NEXT AUTHORIZED STEP — MAIN R640 MANIFEST
+
+Capture the main local R640 manifest using repository tooling.
+
+Measure the actual host. Do not infer hardware from memory.
+
+Record at least:
+- CPU model/topology;
+- sockets/cores/threads;
+- NUMA;
+- memory;
+- OS/kernel;
+- storage/filesystem/mount details relevant to SNC;
+- NIC/link information;
+- IRQ/RSS where tooling captures it;
+- THP/huge-page state;
+- governor/frequency settings;
+- compiler/build environment;
+- experiment network topology.
+
+REMOTE R640
+
+Capture its manifest before WAN/remote-site runs, not necessarily before the first local pilot if the pilot does not use it.
+
+FIRST-WAVE HARNESS GAP INVENTORY
+
+After the main R640 manifest, inspect the first-wave validation needs against EXPERIMENTAL_VALIDATION.
+
+Do NOT blindly implement every missing competitor harness.
+
+Identify the minimum first-wave set needed for the within-system pilot and initial criteria-setting.
+
+Workload A docs currently identify potential SNC-side gaps such as:
+- TCP index-query mix;
+- remote-ownership percentage knob where required;
+- RAM/object;
+- WAL/storage bytes/op;
+- network bytes/op.
+
+Workloads B/C still have driver gaps.
+
+If X2/X3 or first-wave drivers require implementation, return a concrete minimal plan before broad construction unless the existing baseline document already authorizes the exact slice.
+
+PILOT
+
+The within-system pilot is not a comparative result.
+
+Its job is to establish practical experimental ranges and inputs such as N, M_B, Path-B thresholds and the p99 objective.
+
+Commit raw pilot output.
+
+Do not use the pilot to opportunistically move decision rules.
+
+CRITERIA.md
+
+Before the first comparative run, commit:
+
+bench/results/<campaign>/CRITERIA.md
+
+It must name:
+- exact frozen SNC SHA;
+- profiles;
+- competitor versions/configurations;
+- semantics/mismatch tables;
+- metrics;
+- N;
+- M_B;
+- each Path-B threshold;
+- p99 objective;
+- GO/REFINE/NARROW/STOP rules.
+
+No comparative results before this file is committed.
+
+FROZEN SHA
+
+PR #53 is not automatically the final campaign SHA because validation-enabling harness/driver work may still be required.
+
+After required X2/X3/drivers are complete, pilot is done and CRITERIA.md is committed, record the exact campaign SHA and freeze it.
+
+No feature work lands on the frozen baseline during the campaign. A campaign-forced correctness fix becomes an explicit REFINE round.
+
+STATUS/DOC RECONCILIATION
+
+Update current-status/front-matter/next-action wording that still says already-approved work is “awaiting review” or “for review.”
+
+Do not rewrite historical evidence.
+
+Current docs should reflect:
+- PR #49 fixes approved;
+- PR #50 delayed READY approved;
+- PR #51 F8/F9 disposition approved;
+- PR #52 hardening approved;
+- PR #53 corrections approved;
+- correctness gate complete;
+- campaign preparation next;
+- full baseline not frozen until section 11 requirements are met.
+
+NO MAJOR FEATURE EXPANSION
+
+Still frozen:
+- Documents;
+- generic Events/Timers;
+- WaitSets;
+- Activation;
+- Agent Runtime;
+- snapshot/PITR/branch implementation;
+- security/capability platform;
+- multi-tenancy;
+- Rust rewrite;
+- DPDK/VPP;
+- S2/S3;
+- recovering-acceptor implementation;
+- unrelated optimization.
+
+RETURN POINT
+
+Do NOT return with competitor benchmark results.
+
+Return after:
+1. current status docs reconciled;
+2. main R640 manifest captured;
+3. first-wave harness/driver gaps inventoried;
+4. any required X2/X3 implementation plan written.
+
+Then review/authorize pilot preparation.
+
+FINAL
+
+PR #53 APPROVED.
+
+Witness-hardening corrections are complete.
+Correctness/hardening baseline is READY.
+Full Experimental Baseline is NOT YET FROZEN.
+
+Proceed to CAMPAIGN PREPARATION:
+main R640 manifest + precise first-wave harness/driver gap inventory.
+
+No comparative benchmarks yet.
