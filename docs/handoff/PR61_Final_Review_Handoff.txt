@@ -1,0 +1,102 @@
+PR #61 CURRENT-HEAD REVIEW — CORRECTED CP-1A
+
+DECISION: CORRECTED CP-1A DESIGN/IMPLEMENTATION APPROVED. THREE SMALL PRE-PILOT CORRECTIONS REMAIN. NO R640 PILOT YET.
+
+I re-reviewed the CURRENT PR #61 head, not the earlier draft. The major issues are fixed: deterministic open-loop --rate; intended-send-time latency; owed work not dropped; exact total-operation --mix; PILOT-L/PILOT-X; invalid stopped run quarantined; manifest d; performance-governor/numa preflight; separate loopback RX/TX; RSS/PSS settling; histogram precision; exact rate-sweep method; Release/ASan/TSan 35/35; independent review fixes.
+
+OPEN LOOP — APPROVED
+The forced 400 ms stall is visible in open-loop p99 (~370 ms) while closed-loop depth=1 hides it at tens of microseconds. This addresses coordinated omission.
+
+MIX — APPROVED
+READ 70%, DEPOSIT 15%, TRANSFER 10%, INDEX 5%, all as shares of total operations.
+
+ALLOCATION — APPROVED
+PILOT-L is baseline: server node0 physical cores 2..16 even; client node0 18..32 even; memory node0; 0/36 housekeeping; measured server SMT siblings idle. PILOT-X remains named cross-socket sensitivity.
+
+MANIFEST D — APPROVED
+All 72 CPUs performance; DIMM population captured. Runner correctly refuses real runs unless manifest hash matches, governors are performance, numa_balancing=0, tree clean and build plain RelWithDebInfo. Reapply governor and numa_balancing after reboot.
+
+RATE GRID — APPROVED
+Calibration closed-loop depth 512 only to estimate P0.
+R_k=floor(k*P0/20), k=1..22 (5%-110%).
+3 reps/point, fixed-seed shuffled, no early stop.
+
+WINDOWS — APPROVED
+A: calibration/window 60s.
+C: calibration/window 30s.
+Warmup 10s.
+Drain 10s.
+Duration-check phase remains.
+
+SUSTAINED RULE — APPROVED WITH C1
+Zero errors/refusals; completed-in-window >=99% offered; backlog <=1%; drained in 10s; stable peak requires every lower point sustained.
+
+C1 REQUIRED:
+Backlog denominator must be MEASURED-WINDOW scheduled operations, not warmup+window operations. Warmup is excluded from measured criteria and must not dilute the 1% threshold. Fix docs/code/tests or prove code already does this and fix wording/tests.
+
+OBJECTIVE FRACTION — APPROVED
+f=0.70 is approved now, before real data.
+Objective rate = largest grid rate <=0.70*S.
+Do not move f after pilot starts.
+
+C2 REQUIRED — P99 DECISION
+TOTAL-operation p99 is the primary objective. READ/DEPOSIT/TRANSFER/INDEX p99 and p99.9 are secondary diagnostics. Close the open item in PILOT_PLAN. Do not select a per-kind primary after seeing results.
+
+C3 REQUIRED — CLIENT LIMIT
+client_limited_suspect cannot merely look like SNC saturation.
+
+If client_limited_suspect occurs at or below the candidate stable-peak boundary, ABORT/INVALIDATE the sweep for review. Do not classify client-generator inability as server unsustainability.
+
+For clearly higher already-unsustainable points above the established boundary, retain the flag diagnostically without changing S.
+
+The current >1 ms issue-lateness-p99 trigger is acceptable if fixed now and covered by tests.
+
+CV_thr — APPROVED
+Use 5 closed-loop capacity reps for CV_thr. CV_p99 comes from 5 fixed open-loop objective-rate reps. Noise input = 3*max(CV_thr,CV_p99), with N_MIN chosen later.
+
+KNEE — APPROVED INFORMATIONAL ONLY
+Smallest sustained rate <=S with median p99 >2x median p99 at R1. It does not move objective/thresholds.
+
+HISTOGRAM — APPROVED
+Percentile bucket resolution <=3.125%; max exact. Claims must respect that precision.
+
+MEMORY — APPROVED
+Empty RSS/PSS after 5s settle; load; steady after 10s; incremental bytes/object; peak separate.
+
+LOOPBACK — APPROVED
+RX/TX separate and diagnostic only, never physical-network evidence.
+
+INVALID RUN — APPROVED QUARANTINE
+Keep INVALID-pilot-r640-20261106-stopped. None of its numbers may influence criteria or claims.
+
+EVIDENCE — APPROVED
+RelWithDebInfo 35/35.
+ASan+UBSan 35/35.
+TSan 35/35.
+New schedule/stall/backlog/mix/pilot-boundary tests and independent review are accepted.
+
+PRE-PILOT WORK ONLY
+Commit:
+C1 measured-window backlog denominator.
+C2 total p99 primary decision.
+C3 client-limit invalidation rule.
+
+Update tests/docs/code as needed.
+
+If only Python/docs change: relevant tests + Release suite.
+If C++ changes: full Release + ASan+UBSan + TSan.
+
+After C1-C3 are committed and clean, PR #61 may be merged, but MERGE DOES NOT AUTOMATICALLY AUTHORIZE THE PILOT. Return the final head/evidence once. If no new finding, next review should be a simple GO for the real SNC-only R640 pilot.
+
+NO OTHER WORK
+No competitor harness/performance.
+No N_MIN/V_MAX/M_B/Path-B numeric thresholds.
+No physical Profile B.
+No unrelated engine features.
+No hardware retuning.
+R640 may remain powered off.
+
+FINAL
+Current PR #61 corrected CP-1A is approved.
+Three small corrections remain: C1 backlog denominator, C2 total-p99 primary, C3 client-generator invalidation.
+NO R640 PILOT YET.

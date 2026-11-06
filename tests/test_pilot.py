@@ -14,7 +14,8 @@ PLAN = json.load(open(os.path.join(HERE, "..", "bench", "pilot_plan.json")))
 
 def rep(rate, p99=100, window=10, **kw):
     """A sustained open-loop rep at `rate`, unless kw changes it."""
-    r = dict(offered=rate, window_s=window, scheduled=rate * (window + 1), completed_in_window=rate * window,
+    r = dict(offered=rate, window_s=window, scheduled=rate * (window + 1), scheduled_in_window=rate * window,
+             completed_in_window=rate * window,
              achieved=rate, end_backlog=0, drained=True, remaining_unissued=0, remaining_in_flight=0,
              errors=0, index_errors=0, stale=0, overloaded=0, index_refused=0, p99_ns=p99)
     r.update(kw)
@@ -40,9 +41,10 @@ def test_sustained_boundaries():
     # completed: >= 99% of offered x window, exactly at the boundary
     assert pilot.sustained(rep(1000, completed_in_window=9900), PLAN)[0]
     assert not pilot.sustained(rep(1000, completed_in_window=9899), PLAN)[0]
-    # end backlog: <= 1% of scheduled (11000 here: warm-up + window)
-    assert pilot.sustained(rep(1000, end_backlog=110), PLAN)[0]
-    assert not pilot.sustained(rep(1000, end_backlog=111), PLAN)[0]
+    # end backlog: <= 1% of the ops scheduled in the measured window (10000
+    # here), not of warm-up + window (11000), which would allow 110 (C1)
+    assert pilot.sustained(rep(1000, end_backlog=100), PLAN)[0]
+    assert not pilot.sustained(rep(1000, end_backlog=101), PLAN)[0]
     for k in ("errors", "index_errors", "stale", "overloaded", "index_refused"):
         assert not pilot.sustained(rep(1000, **{k: 1}), PLAN)[0], k
     ok, why = pilot.sustained(rep(1000, drained=False, remaining_unissued=5), PLAN)
@@ -86,12 +88,49 @@ def test_one_bad_rep_fails_the_point():
     assert pilot.sweep_result(p, PLAN)["stable_peak"] == 100
 
 
-def test_client_limited_flag():
-    # Not refused, but short of its rate with ops issued late: flagged.
-    p = {100: [rep(100, completed_in_window=1, issue_late_p99_ns=5_000_000)] * 3,
-         200: [rep(200, overloaded=1, issue_late_p99_ns=5_000_000)] * 3}
-    rows = pilot.sweep_result(p, PLAN)["points"]
-    assert rows[0]["client_limited_suspect"] and not rows[1]["client_limited_suspect"]
+def suspect(rate):
+    """Short of its rate, nothing refused, ops issued late: client-limited."""
+    return [rep(rate, completed_in_window=1, issue_late_p99_ns=5_000_000)] * 3
+
+
+def server_limited(rate):
+    return [rep(rate, overloaded=1, issue_late_p99_ns=5_000_000)] * 3
+
+
+def test_client_limit_at_boundary_invalidates():
+    # C3: the lowest failing point is client-limited: the sweep is invalid,
+    # not an SNC stable peak at 200.
+    p = points({100: (10, True), 200: (10, True)})
+    p[300] = suspect(300)
+    p[400] = server_limited(400)
+    res = pilot.sweep_result(p, PLAN)
+    rows = {x["rate"]: x for x in res["points"]}
+    assert rows[300]["client_limited_suspect"] and not rows[400]["client_limited_suspect"]
+    assert res["invalid"] and "300" in res["invalid"]
+    assert res["stable_peak"] is None and res["objective_rate"] is None and res["knee_rate"] is None
+    # At R_1 too.
+    res = pilot.sweep_result({100: suspect(100), 200: [rep(200)] * 3}, PLAN)
+    assert res["invalid"] and res["stable_peak"] is None
+
+
+def test_client_limit_above_boundary_is_diagnostic():
+    # The boundary (300) is server-limited; a suspect point above it keeps
+    # its flag and changes nothing.
+    p = points({r: (10, True) for r in range(100, 1001, 100)})
+    p[800] = server_limited(800)
+    p[900] = suspect(900)
+    res = pilot.sweep_result(p, PLAN)
+    rows = {x["rate"]: x for x in res["points"]}
+    assert res["invalid"] is None and res["stable_peak"] == 700 and rows[900]["client_limited_suspect"]
+    assert res["objective_rate"] == 400  # largest grid rate <= 0.7 x 700 = 490
+    # Errors are never client-limited, late issue or not.
+    p[800] = [rep(800, errors=1, completed_in_window=1, issue_late_p99_ns=5_000_000)] * 3
+    assert pilot.sweep_result(p, PLAN)["invalid"] is None
+    # Lateness at 1 ms exactly does not trigger; above it does.
+    p[800] = [rep(800, completed_in_window=1, issue_late_p99_ns=1_000_000)] * 3
+    assert pilot.sweep_result(p, PLAN)["invalid"] is None
+    p[800] = [rep(800, completed_in_window=1, issue_late_p99_ns=1_000_001)] * 3
+    assert pilot.sweep_result(p, PLAN)["invalid"]
 
 
 def test_no_stable_peak():
@@ -137,8 +176,8 @@ run: reads=50% seconds=3.00
   transfer latency ns  n 5997  p50 16384  p95 67584  p99 1409024  p99.9 4587520  max 8584476
   index latency ns  n 3024  p50 36864  p95 151552  p99 2883584  p99.9 4849664  max 8686791
 rate: offered 20000 ops/s  warmup 1.00s  window 3.00s  drain limit 10.00s
-  scheduled 80000  issued_by_end 79990  completed_in_window 59999  achieved 20000 ops/s
-  end_backlog 10 (0.0125% of scheduled)  in_flight_at_end 3
+  scheduled 80000  scheduled_in_window 60000  issued_by_end 79990  completed_in_window 59999  achieved 20000 ops/s
+  end_backlog 10 (0.0167% of scheduled_in_window)  in_flight_at_end 3
   issue lateness ns  p50 96  p99 167936  p99.9 3473408  max 5461402  late_over_1ms 382
   drained yes  remaining_unissued 0  remaining_in_flight 0
 """
@@ -151,6 +190,7 @@ def test_parse_report():
     assert r["p99_ns"] == 1605632 and r["n"] == 60000  # total, over every kind
     assert r["index_p99_ns"] == 2883584 and r["transfer_n"] == 5997
     assert r["offered"] == 20000 and r["scheduled"] == 80000 and r["completed_in_window"] == 59999
+    assert r["scheduled_in_window"] == 60000
     assert r["end_backlog"] == 10 and r["in_flight_at_end"] == 3 and r["drained"]
     assert r["issue_late_max_ns"] == 5461402 and r["late_over_1ms"] == 382
     r["window_s"] = 3

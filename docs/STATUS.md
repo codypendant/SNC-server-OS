@@ -115,8 +115,9 @@ Decided by cody on 2026-11-04.
       [PILOT_PLAN.md](PILOT_PLAN.md), with explicit PILOT-L/PILOT-X
       allocations.
     - The R640 draft's stopped run is quarantined as invalid.
-    - The plan is PROPOSED. **The real pilot is NOT authorized** until
-      the plan, manifest d and the dev-VM evidence are reviewed.
+    - The plan, manifest d and the dev-VM evidence are APPROVED (PR #61
+      final review, with C1-C3 applied). **The real pilot still needs an
+      explicit GO.**
     - No comparative benchmarks before `CRITERIA.md`.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in

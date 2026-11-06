@@ -89,11 +89,12 @@ def latency(out, what="total"):
 
 def rate_report(out):
     r = {}
-    m = re.search(r"scheduled (\d+)  issued_by_end (\d+)  completed_in_window (\d+)  achieved (\d+) ops/s", out)
+    m = re.search(r"scheduled (\d+)  scheduled_in_window (\d+)  issued_by_end (\d+)  completed_in_window (\d+)  "
+                  r"achieved (\d+) ops/s", out)
     assert m, out
-    r.update(zip(["scheduled", "issued_by_end", "in_window", "achieved"], map(int, m.groups())))
-    m = re.search(r"end_backlog (\d+) .*in_flight_at_end (\d+)", out)
-    r.update(backlog=int(m[1]), in_flight=int(m[2]))
+    r.update(zip(["scheduled", "scheduled_in_window", "issued_by_end", "in_window", "achieved"], map(int, m.groups())))
+    m = re.search(r"end_backlog (\d+) \(([\d.]+)% of scheduled_in_window\)  in_flight_at_end (\d+)", out)
+    r.update(backlog=int(m[1]), backlog_pct=float(m[2]), in_flight=int(m[3]))
     m = re.search(r"issue lateness ns  p50 (\d+)  p99 (\d+)  p99.9 (\d+)  max (\d+)  late_over_1ms (\d+)", out)
     r.update(late_p99=int(m[2]), late_max=int(m[4]), late_1ms=int(m[5]))
     m = re.search(r"drained (yes|no)  remaining_unissued (\d+)  remaining_in_flight (\d+)", out)
@@ -115,6 +116,7 @@ def scenario_stall_open(s):
     assert lat["p99"] >= 250 * MS, out
     assert r["drained"] and r["backlog"] == 0, out
     assert r["scheduled"] == 2000 * 3.5, out  # warm-up + window, exact
+    assert r["scheduled_in_window"] == 2000 * 3, out  # the measured window only (review C1)
     assert lat["n"] == 6000, out  # every op due in the window was measured once
     print(f"stall_open: p99 {lat['p99'] / MS:.0f} ms, max {lat['max'] / MS:.0f} ms (stall 400 ms)")
 
@@ -135,6 +137,8 @@ def scenario_owed(s):
     lat, r = latency(out), rate_report(out)
     assert r["late_max"] >= 300 * MS and r["late_1ms"] >= 300, out  # owed ops were issued late
     assert r["backlog"] >= 200, out  # owed and not yet issued when the window ended
+    # No warm-up here, so both denominators are 6000; the share is of the window's ops.
+    assert r["scheduled_in_window"] == 6000 and abs(r["backlog_pct"] - 100 * r["backlog"] / 6000) < 0.001, out
     assert r["drained"] and r["unissued"] == 0 and r["left"] == 0, out
     assert lat["n"] == 6000 and lat["max"] >= 300 * MS, out  # issued after the window, still measured
     print(f"owed: end backlog {r['backlog']}, issue lateness max {r['late_max'] / MS:.0f} ms, drained")

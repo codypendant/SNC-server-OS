@@ -1421,3 +1421,24 @@ or source comments.
 -   **Next action:** manifest d ACCEPTED (handoff/PR61_Addendum_ManifestD.txt); its SHA-256 is now
     in pilot_plan.json. Then review PILOT_PLAN. The real pilot is NOT
     authorized.
+
+### 2026-11-06 UTC --- Claude (Claude Code): PR #61 current-head review, C1-C3
+
+-   **Classification:** REFINE (pilot method; review corrections only).
+-   **What:** the review is filed as `docs/handoff/PR61_Final_Review_Handoff.txt`.
+    It approves the corrected CP-1A, f = 0.70, the grid, the windows,
+    the CV sources, manifest d and the evidence. Corrections:
+    - **C1:** `net_bench` reports `scheduled_in_window`, the ops due in
+      the measured window. The 1% backlog limit is now a share of that,
+      not of warm-up plus window.
+    - **C2:** total-operation p99 is the primary objective. Per-kind
+      p99/p99.9 are diagnostics (PILOT_PLAN, pilot_plan.json).
+    - **C3:** a `client_limited_suspect` boundary point (the lowest
+      unsustained one) makes the sweep INVALID and aborts the pilot. Above
+      the boundary the flag is diagnostic only.
+-   **Evidence:** test_pilot (both C3 cases, R_1, errors, the 1 ms edge,
+    the C1 boundary) and test_net_bench_rate (`scheduled_in_window`).
+    Release, ASan+UBSan and TSan logs are in `bench/results/cp1a-devvm/`.
+-   **Next action:** PR #61 may merge once clean. Merging does NOT
+    authorize the pilot. The next review is GO or not for the real
+    SNC-only R640 pilot.

@@ -1,10 +1,16 @@
 # SNC-only pilot on the main R640: plan (CP-1A)
 
-*Status: **PROPOSED, for cody/Codex review.** Written before any data
-exists for it. Nothing here has run on the R640. Every value is a
-proposal until approved; the approved values are the ones in
-`bench/pilot_plan.json`, which `bench/pilot.py` reads and records by
-SHA-256.*
+*Status: **APPROVED** (PR #61 current-head review,
+`docs/handoff/PR61_Final_Review_Handoff.txt`), with corrections C1-C3
+applied:
+- C1: the backlog denominator is the measured window's scheduled ops;
+- C2: total p99 is the primary objective;
+- C3: a client limit at the boundary invalidates the sweep.
+
+Written before any data exists for it. Nothing here has run on the R640.
+The values are the ones in `bench/pilot_plan.json`, which
+`bench/pilot.py` reads and records by SHA-256. They must not change after
+the pilot starts. **The real pilot still needs an explicit GO.***
 
 This replaces the R640 draft's plan, which is kept under
 `bench/results/INVALID-pilot-r640-20261106-stopped/` and is **invalid for
@@ -75,8 +81,9 @@ It sets no threshold and runs no competitor.
   If all of a thread's slots (`--depth`, 1024 here) are busy when an op is
   due, the op is owed: it waits, and the wait counts in its latency.
   Scheduled work is never dropped.
-- Per run, `net_bench` reports: offered rate; ops scheduled, issued by the
-  window's end and completed in the window; achieved rate; end backlog
+- Per run, `net_bench` reports: offered rate; ops scheduled (warm-up and
+  window), ops scheduled in the measured window, ops issued by the
+  window's end and ops completed in the window; achieved rate; end backlog
   (scheduled but not yet issued at the window's end); ops in flight at the
   end; issue lateness (p50, p99, p99.9, max, count over 1 ms); whether
   everything drained, and what was left if not; errors and refusals; and
@@ -93,7 +100,7 @@ capacity (throughput), never to set a latency objective.
 
 Per profile, in this order. Values are from `bench/pilot_plan.json`.
 
-| Step | Value (PROPOSED) |
+| Step | Value (APPROVED) |
 |---|---|
 | Calibration | 1 closed-loop run, depth 512 per thread, 60 s (A) / 30 s (C). P0 = its total ops/s. P0 is used only to place the grid |
 | Grid | R_k = floor(k · P0 / 20), k = 1…22: 5% to 110% of P0 |
@@ -108,7 +115,10 @@ Per profile, in this order. Values are from `bench/pilot_plan.json`.
 1. 0 errors (EXEC, INDEX, stale);
 2. 0 refusals (E_OVERLOADED on EXEC or INDEX): no dropped work;
 3. completed in the window ≥ 99/100 × offered rate × window;
-4. end backlog ≤ 1/100 × ops scheduled (warm-up and window);
+4. end backlog ≤ 1/100 × the ops scheduled in the measured window
+   (`scheduled_in_window`; C1). The warm-up's ops are left out, so they
+   cannot dilute the 1% threshold. The backlog is all ops owed at the
+   window's end, a lagging warm-up op included;
 5. drained: every owed op was issued and answered within the drain
    limit. If not, the rep is unsustained and the remaining backlog is
    recorded.
@@ -125,10 +135,12 @@ pilot aborts for review.
 **Objective.** The objective rate is the largest grid rate ≤ f · S, with
 f = 7/10 compared exactly. The objective p99 is the median of the 3 reps'
 total p99 at that rate. With 3 reps the median is one measured value.
-- f = 0.70 is PROPOSED and must be approved before data exists.
-- The total p99 covers every kind. The per-kind p99s are reported beside
-  it. *Open for review:* whether the objective should be the total or a
-  per-kind p99.
+- f = 0.70 is APPROVED before any data exists. It does not move after
+  the pilot starts.
+- **The primary objective is the total-operation p99** (every kind
+  together; C2). The READ, DEPOSIT, TRANSFER and INDEX p99 and p99.9 are
+  secondary diagnostics. A per-kind primary may not be chosen after
+  seeing results.
 
 **Knee (reported only).** The smallest rate ≤ S whose median p99 is more
 than 2 × the median p99 at R_1. The objective does not use it.
@@ -141,15 +153,22 @@ pins each step, including the boundaries.
 **Overload and failures.**
 - A rep whose `net_bench` output cannot be parsed counts as failed, which
   makes its point unsustained.
-- A point can fail with no refusal and no error, while its reps' median
-  issue-lateness p99 is over 1 ms. That point is flagged
-  `client_limited_suspect`: the client, not the server, may be what fell
-  behind. The flag is informational and does not change S.
-  - *Open for review:* whether such a point should invalidate the sweep
-    (the client must out-run the server) instead of counting as
-    unsustained.
+- **Client limit (C3).** A point is flagged `client_limited_suspect` when
+  all of these hold: it is unsustained, none of its reps had an error or
+  a refusal, and its reps' median issue-lateness p99 is over 1 ms
+  (strictly). Such a point means the load generator may have fallen
+  behind, not SNC.
+  - If the **boundary point** (the lowest unsustained point, which sets
+    S) is flagged, the sweep is **INVALID**. S, the objective and the knee
+    are not set. `invalid` says why, and the pilot aborts for review. A
+    client limit is never counted as SNC unsustainability.
+  - A flagged point above the boundary keeps its flag as a diagnostic and
+    changes nothing.
+  - `tests/test_pilot.py` covers both cases, R_1 as the boundary, errors
+    (never client-limited), and the 1 ms edge.
 - A server that exits during a run, a failed load, or a failed
-  calibration aborts the pilot. So does a missing objective. The abort
+  calibration aborts the pilot. So does a missing objective or an
+  invalid sweep. The abort
   reason is written to `pilot.json`. Nothing after it runs, including
   the remaining profiles.
 
@@ -165,8 +184,10 @@ pins each step, including the boundaries.
   (throughput) and the median capacity.
 - **Noise input:** 3 × max(CV_thr, CV_p99), for N = max(that, N_MIN)
   (EXPERIMENTAL_BASELINE 10.1). N_MIN is not chosen here.
-  - *Open for review:* CV_thr is taken from closed-loop capacity, because
-    an open-loop run's throughput is the offered rate by construction.
+  - CV_thr is taken from the 5 closed-loop capacity reps, because an
+    open-loop run's throughput is the offered rate by construction.
+    CV_p99 is taken from the 5 fixed open-loop reps at the objective
+    rate. Both are APPROVED.
 - **Shard sweep:** closed-loop capacity at 1, 2, 4 and 8 shards (PILOT-L's
   budget), 3 reps each, throughput only. Each shard count is reported as
   ops/s per core.

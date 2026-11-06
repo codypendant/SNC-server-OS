@@ -55,7 +55,8 @@ def sustained(rep, plan):
     Every condition is exact integer arithmetic on net_bench's counts:
     no errors of any kind (EXEC, INDEX, stale); nothing refused (E_OVERLOADED
     on EXEC or INDEX); completed in the window >= min_completed_fraction of
-    offered x window; end backlog <= max_end_backlog_fraction of scheduled;
+    offered x window; end backlog <= max_end_backlog_fraction of the ops
+    scheduled in the measured window (the warm-up does not dilute it);
     and everything owed was issued and answered within the drain limit."""
     if rep.get("failed"):
         return False, ["run failed: " + rep.get("why", "")]
@@ -67,8 +68,8 @@ def sustained(rep, plan):
     need = Fraction(plan["min_completed_fraction"]) * rep["offered"] * rep["window_s"]
     if rep["completed_in_window"] < need:
         why.append(f"completed {rep['completed_in_window']} < {float(need):.0f}")
-    if rep["end_backlog"] > Fraction(plan["max_end_backlog_fraction"]) * rep["scheduled"]:
-        why.append(f"end backlog {rep['end_backlog']} of {rep['scheduled']}")
+    if rep["end_backlog"] > Fraction(plan["max_end_backlog_fraction"]) * rep["scheduled_in_window"]:
+        why.append(f"end backlog {rep['end_backlog']} of {rep['scheduled_in_window']} scheduled in the window")
     if not rep["drained"]:
         why.append(f"not drained: {rep['remaining_unissued']} unissued, {rep['remaining_in_flight']} in flight")
     return not why, why
@@ -87,6 +88,13 @@ def sweep_result(points, plan):
        the median is one measured value.
     4. Knee (reported only) = the smallest rate <= S whose median p99 is
        more than knee_p99_multiple x the median p99 at the lowest rate.
+    5. Client limit (PR #61 review C3). A failed point is
+       client_limited_suspect if none of its reps had an error or a refusal
+       and their median issue-lateness p99 is over 1 ms: the load generator
+       may have fallen behind, not SNC. If the boundary point (the lowest
+       unsustained one, which sets S) is suspect, the sweep is INVALID: S,
+       objective and knee are None and `invalid` says why. A suspect point
+       above the boundary keeps its flag as a diagnostic and changes nothing.
     Rates are distinct integers, so no step has a tie."""
     f = Fraction(plan["objective_fraction"])
     rows = []
@@ -110,7 +118,13 @@ def sweep_result(points, plan):
             break
         peak = row["rate"]
     out = dict(points=rows, stable_peak=peak, objective_fraction=str(f), objective_rate=None,
-               objective_p99_ns=None, knee_rate=None)
+               objective_p99_ns=None, knee_rate=None, invalid=None)
+    boundary = next((row for row in rows if not row["sustained"]), None)
+    if boundary is not None and boundary["client_limited_suspect"]:
+        out.update(stable_peak=None,
+                   invalid=f"client_limited_suspect at the boundary point {boundary['rate']} ops/s: "
+                           "the load generator, not SNC, may have set S")
+        return out
     if peak is None:
         return out
     below = [row for row in rows if row["rate"] <= peak]
@@ -155,9 +169,11 @@ def parse_client(out):
     m = re.search(r"\nrate: offered (\d+) ops/s  warmup ([\d.]+)s  window ([\d.]+)s", out)
     if m:
         r.update(offered=int(m[1]), warmup_s=float(m[2]))
-        m = re.search(r"scheduled (\d+)  issued_by_end (\d+)  completed_in_window (\d+)  achieved (\d+) ops/s", out)
-        r.update(scheduled=int(m[1]), issued_by_end=int(m[2]), completed_in_window=int(m[3]), achieved=int(m[4]))
-        m = re.search(r"end_backlog (\d+) \([\d.]+% of scheduled\)  in_flight_at_end (\d+)", out)
+        m = re.search(r"scheduled (\d+)  scheduled_in_window (\d+)  issued_by_end (\d+)  completed_in_window (\d+)  "
+                      r"achieved (\d+) ops/s", out)
+        r.update(scheduled=int(m[1]), scheduled_in_window=int(m[2]), issued_by_end=int(m[3]),
+                 completed_in_window=int(m[4]), achieved=int(m[5]))
+        m = re.search(r"end_backlog (\d+) \([\d.]+% of scheduled_in_window\)  in_flight_at_end (\d+)", out)
         r.update(end_backlog=int(m[1]), in_flight_at_end=int(m[2]))
         m = re.search(r"issue lateness ns  p50 (\d+)  p99 (\d+)  p99.9 (\d+)  max (\d+)  late_over_1ms (\d+)", out)
         r.update(issue_late_p50_ns=int(m[1]), issue_late_p99_ns=int(m[2]), issue_late_max_ns=int(m[4]),
@@ -422,6 +438,8 @@ class Pilot:
         res["sweep"] = sweep_result(points, dict(plan, reps=reps))
         self.write()
         obj = res["sweep"]["objective_rate"]
+        if res["sweep"]["invalid"]:
+            raise Abort(f"{prof}: sweep INVALID: {res['sweep']['invalid']}; stop and review")
         if obj is None:
             raise Abort(f"{prof}: no stable peak or objective rate; stop and review")
         # 4. Fixed reps at the objective rate (CV of p99), with memory.

@@ -152,6 +152,7 @@ struct Thread {
   Histogram lateness;           // issue time minus intended time
   u64 late_1ms = 0;             // issued more than 1 ms after due
   u64 scheduled_by_end = 0, issued_by_end = 0, outstanding_at_end = 0, in_window = 0, in_window_index = 0;
+  u64 scheduled_in_window = 0;  // due in [warm-up end, window end): the measured ops
   u64 served_all = 0;           // every served op, measured or not (for per-op costs)
   bool drained = false;
   std::vector<u32> deposits;  // --verify: deposits sent, by index into ids
@@ -411,6 +412,7 @@ void run_rate(Thread& t) {
     if (!past_end && now >= end) {
       past_end = true;
       t.scheduled_by_end = total;
+      t.scheduled_in_window = total - t.sched.due_before(sh.measure_ns - t0);
       t.issued_by_end = t.next_k;
       t.outstanding_at_end = t.outstanding;
     }
@@ -789,11 +791,13 @@ int main(int argc, char** argv) {
   bool undrained = false;
   if (a.rate) {
     Histogram late;
-    u64 scheduled = 0, issued = 0, at_end = 0, in_window = 0, late_1ms = 0, unissued = 0, left = 0;
+    u64 scheduled = 0, in_win_sched = 0, issued = 0, at_end = 0, in_window = 0, late_1ms = 0, unissued = 0,
+        left = 0;
     for (auto& t : threads) {
       late.merge(t.lateness);
       // scheduled: every op due before the window's end, warm-up included.
       scheduled += t.scheduled_by_end;
+      in_win_sched += t.scheduled_in_window;
       issued += t.issued_by_end;
       at_end += t.outstanding_at_end;
       in_window += t.in_window;
@@ -804,12 +808,15 @@ int main(int argc, char** argv) {
     }
     std::printf("rate: offered %llu ops/s  warmup %.2fs  window %.2fs  drain limit %.2fs\n",
                 (unsigned long long)a.rate, a.warmup, run_s, a.drain_s);
-    std::printf("  scheduled %llu  issued_by_end %llu  completed_in_window %llu  achieved %.0f ops/s\n",
-                (unsigned long long)scheduled, (unsigned long long)issued, (unsigned long long)in_window,
-                in_window / run_s);
-    std::printf("  end_backlog %llu (%.4f%% of scheduled)  in_flight_at_end %llu\n",
-                (unsigned long long)(scheduled - issued), 100.0 * (scheduled - issued) / std::max<u64>(1, scheduled),
-                (unsigned long long)at_end);
+    // scheduled covers warm-up and window; scheduled_in_window only the
+    // measured window, the denominator of the backlog share.
+    std::printf("  scheduled %llu  scheduled_in_window %llu  issued_by_end %llu  completed_in_window %llu  "
+                "achieved %.0f ops/s\n",
+                (unsigned long long)scheduled, (unsigned long long)in_win_sched, (unsigned long long)issued,
+                (unsigned long long)in_window, in_window / run_s);
+    std::printf("  end_backlog %llu (%.4f%% of scheduled_in_window)  in_flight_at_end %llu\n",
+                (unsigned long long)(scheduled - issued),
+                100.0 * (scheduled - issued) / std::max<u64>(1, in_win_sched), (unsigned long long)at_end);
     std::printf("  issue lateness ns  p50 %.0f  p99 %.0f  p99.9 %.0f  max %llu  late_over_1ms %llu\n",
                 late.percentile(50), late.percentile(99), late.percentile(99.9), (unsigned long long)late.max(),
                 (unsigned long long)late_1ms);
