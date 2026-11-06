@@ -1,0 +1,162 @@
+PR #55 REVIEW — CAMPAIGN PLAN CORRECTIONS
+
+DECISION: PR #55 APPROVED WITH ONE DOCUMENT-METHODOLOGY RECONCILIATION.
+
+Claude followed the PR #54 work order correctly: documentation only, no CP-1A, no pilot, no comparative benchmark. The pilot is SNC-only; CP-1A/CP-1B are separated; SpacetimeDB remains in Workload A; resource boundaries, NUMA allocation, Redis index semantics and objective complexity counts are documented; work stopped pending the R640.
+
+One conflict remains, and Claude correctly flagged it himself:
+
+EXPERIMENTAL_BASELINE 10.1/10.2 still assumes a pre-comparison pilot of EACH system. It defines N from the larger CV of the two systems and the p99 objective from the slower system. That contradicts the now-approved rule that no competitor performance is observed before CRITERIA.md.
+
+Resolve that contradiction before the R640 pilot.
+
+SNC-ONLY PILOT — APPROVED
+
+The pre-criteria pilot is SNC only. It determines stable duration, object/working-set range, SNC variance, topology/pinning behavior, resource sampling, Profile A/B harness behavior, Path-B ranges and a preliminary p99 operating envelope.
+
+CP-1A / CP-1B — APPROVED
+
+CP-1A = SNC pilot harness only.
+CP-1B = comparative harness preparation after pilot and before CRITERIA.md.
+
+CP-1B may run tiny functional smoke tests on the dev VM, but no cross-system performance comparison.
+
+SPACETIMEDB — APPROVED
+
+SpacetimeDB remains in the complete Workload A comparator set. It does not block the SNC pilot. Its harness must exist before CRITERIA.md / first comparative Workload A results unless a later scientific review explicitly changes the comparator set.
+
+RESOURCE METRICS — APPROVED
+
+CPU/op: server-side system-boundary CPU time / successful operations.
+
+Memory/object: incremental steady-state RSS primary, peak separately; PSS additionally for multiprocess systems.
+
+Storage/op: host-visible process write I/O, explicitly not physical media bytes.
+
+Network/op: test-interface counters minus idle baseline; loopback never presented as physical-NIC evidence.
+
+Future CP-1B caution: PostgreSQL has changing backend PIDs. Measure a stable process-tree/cgroup boundary rather than a static PID list that misses spawned/exited backends.
+
+NUMA ALLOCATION — APPROVED
+
+Record exact logical CPUs, physical cores/socket/NUMA, separate client/server CPUs, explicit memory binding, NIC IRQ placement and automatic NUMA-balancing state. Local-NUMA and cross-NUMA are named configurations, never accidental scheduler placement.
+
+REDIS INDEX SEMANTICS — APPROVED
+
+Before comparison choose explicitly:
+A. service-maintained index with mutation cost included;
+B. semantic mismatch / exclude index cell from matched comparison;
+C. pinned Redis search/index module.
+
+Never present a client-maintained index as equal semantics.
+
+COMPLEXITY INVENTORY — APPROVED
+
+Use observable counts: services/processes, configuration, setup steps, HA components, operator actions, dependencies and workload glue. Keep qualitative judgments separate.
+
+METHODOLOGY CONFLICT
+
+Current EXPERIMENTAL_BASELINE 10.1 says:
+- each system pilots five times;
+- N = 3 x larger CV of the two systems.
+
+10.2 says:
+- p99 objective is the slower system's p99 at 50% of its own peak.
+
+Both require competitor performance before CRITERIA.md.
+
+Do not use Claude's proposed “measure competitor CV at the start of the comparison and then compute N” approach. That leaves a materiality threshold unresolved after preregistration.
+
+APPROVED RECONCILIATION — TWO-STAGE NOISE RULE
+
+PRE-CRITERIA SNC PILOT:
+
+Measure SNC CV_throughput and CV_p99.
+
+CRITERIA.md then fixes:
+
+N = max(
+    3 x max(CV_throughput_SNC, CV_p99_SNC),
+    N_MIN
+)
+
+N_MIN is a fixed minimum materiality/noise floor selected at the formal criteria-setting review after the SNC pilot but before any competitor performance run.
+
+COMPETITOR VARIANCE VALIDITY:
+
+CRITERIA.md also fixes V_MAX.
+
+During comparative repetitions:
+- competitor CV <= V_MAX: cell valid;
+- competitor CV > V_MAX: cell INVALID/TOO NOISY and must be rerun or environment corrected;
+- do not enlarge N after seeing competitor variance;
+- do not weaken materiality thresholds.
+
+N is a preregistered materiality/noise guard, not a per-competitor confidence interval.
+
+Do not choose numeric N_MIN or V_MAX tonight.
+
+P99 OBJECTIVE — RECONCILE TOO
+
+Remove the rule based on “the slower system.”
+
+Set the p99 objective from the SNC-only pilot using a predeclared rule.
+
+Recommended:
+- sweep SNC load in the pilot;
+- identify SNC's stable knee/operating region;
+- choose the p99 objective at a documented fraction of SNC's stable peak/load;
+- record the final objective in CRITERIA.md before any competitor performance run.
+
+Competitors are then asked how much throughput/core they sustain while meeting that fixed preregistered p99 objective.
+
+Do not move the objective based on competitor results.
+
+REQUIRED DOCUMENT-ONLY CHANGE
+
+Update EXPERIMENTAL_BASELINE 10.1/10.2 and CAMPAIGN_PREP so they say:
+
+A. Pilot is SNC-only.
+B. N derives from SNC pilot plus N_MIN, not competitor CV.
+C. Competitor variance is governed by preregistered V_MAX.
+D. A noisy competitor cell is invalid/rerun; N does not move.
+E. p99 objective derives from SNC-only load sweep/knee rule.
+F. Final N, N_MIN, V_MAX, p99 objective, M_B and Path-B thresholds are in CRITERIA.md before any competitor performance run.
+
+Do not select final numeric values yet.
+
+STOP AFTER DOC RECONCILIATION
+
+No code.
+No CP-1A.
+No pilot.
+No hardware assumptions.
+No comparative performance.
+
+Then stop until cody boots the R640 and captures its untouched manifest.
+
+ORDER
+
+1. Reconcile N/p99 methodology in docs.
+2. STOP.
+3. Cody boots R640 when convenient.
+4. Capture untouched manifest.
+5. Review CPU/NUMA/storage/NIC allocation.
+6. Authorize/implement CP-1A.
+7. Run SNC-only pilot.
+8. Formal criteria-setting review chooses final N_MIN/V_MAX/N/M_B/Path-B/p99 values.
+9. Implement/review CP-1B including SpacetimeDB.
+10. Complete semantics/mismatch and complexity documents.
+11. Commit CRITERIA.md.
+12. Freeze exact SHA.
+13. Only then run comparative Workload A.
+
+FINAL
+
+PR #55 APPROVED WITH ONE DOCUMENT-METHODOLOGY RECONCILIATION.
+
+Claude correctly implemented every PR #54 planning correction and stopped.
+
+Resolve EXPERIMENTAL_BASELINE 10.1/10.2 so SNC-only pilot and preregistration are internally consistent.
+
+Then stop until the R640 is available.
