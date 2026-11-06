@@ -110,6 +110,7 @@ if(PYTHON3)
   add_test(NAME test_lab_witness_guard COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_lab_witness_guard.py
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
+  add_test(NAME test_pilot COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_pilot.py)
 endif()
 
 add_executable(baseline_server bench/baseline_server.cpp)

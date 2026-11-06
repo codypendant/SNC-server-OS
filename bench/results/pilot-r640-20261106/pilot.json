@@ -1,0 +1,86 @@
+{
+ "environment": {
+  "git_head": "2e232bfe56d018ad51c82a86b6ecd8494fb2c5ba",
+  "git_status": "M bench/net_bench.cpp\n?? bench/manifests/r640-main-20261106c.txt\n?? bench/pilot.py\n?? bench/results/pilot-r640-20261106/\n?? tests/test_pilot.py",
+  "manifest": "bench/manifests/r640-main-20261106c.txt",
+  "manifest_sha256": "2cba08655168d8ef324a13aa1a511fa28a68f4e36eb46ff32abaa67e2747367a",
+  "snc_server_sha256": "392695b4af55400b2e35aa7a35562ab39a4912f9be8bb0a55c2fc8ad08feed17",
+  "net_bench_sha256": "6b132330151c873cb5c557f122a60ef2de488994e58a0ca7825509b2276d1d1b",
+  "numa_balancing": "0",
+  "governor": "schedutil",
+  "kernel": "6.8.0-149-generic",
+  "started_utc": "2026-11-06T06:33:35Z",
+  "objects": 5000000,
+  "mix": [
+   "--index",
+   "5",
+   "--transfer",
+   "10",
+   "--reads",
+   "70"
+  ],
+  "client_cpus": [
+   1,
+   3,
+   5,
+   7,
+   9,
+   11,
+   13,
+   15
+  ],
+  "memory": "server --membind=0, client --membind=1",
+  "quick": false
+ },
+ "summary": {
+  "A": {
+   "duration": [
+    {
+     "seconds": 60,
+     "total_ops_s": 1278015,
+     "p99_ns": 1015808
+    }
+   ]
+  }
+ },
+ "runs": [
+  {
+   "profile": "A",
+   "phase": "duration",
+   "label": "60s",
+   "shards": 8,
+   "depth": 64,
+   "seconds": 60,
+   "returncode": 0,
+   "server_cpus": "2,4,6,8,10,12,14,16",
+   "run_s": 60.0,
+   "ops_s": 1214114,
+   "errors": 0,
+   "overloaded": 0,
+   "stale": 0,
+   "p50_ns": 212992,
+   "p95_ns": 868352,
+   "p99_ns": 1015808,
+   "p999_ns": 1835008,
+   "index_ops_s": 63901,
+   "index_ok": 3834153,
+   "index_empty": 275,
+   "index_refused": 0,
+   "index_errors": 0,
+   "index_p50_ns": 606208,
+   "index_p95_ns": 770048,
+   "index_p99_ns": 950272,
+   "index_p999_ns": 3407872,
+   "total_ops_s": 1278015,
+   "cpu_us_per_op": 5.692030218737652,
+   "write_bytes_per_op": 197.24294733108243,
+   "loopback_bytes_per_op": 357.2469994744454,
+   "load_cpu_s": 45.31,
+   "empty_rss_kb": 8152,
+   "steady_rss_kb": 2393512,
+   "peak_rss_kb": 3721032,
+   "rss_bytes_per_object": 488.521728,
+   "data_dir_bytes": 3427541839
+  }
+ ]
+}
