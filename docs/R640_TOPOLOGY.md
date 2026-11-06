@@ -109,6 +109,74 @@ It keeps turbo on and turns off C-states and C1E, sets uncore to
 maximum, and disables link power management. Changing it needs a reboot
 and a third manifest, and waits for cody's decision.
 
+## 2b. Manifest c: after the BIOS switch to Performance (OBSERVED)
+
+`bench/manifests/r640-main-20261106c.txt` was captured at 06:37 UTC, at
+2e232bf. Before the capture, the R640 session had set
+`kernel.numa_balancing=0`.
+
+- **Frequency is now under OS control.** `intel_pstate` runs in passive
+  mode with the `intel_cpufreq` driver. The governor is `schedutil` on
+  all 72 CPUs, the range is 1.2-3.7 GHz, and turbo is on
+  (`no_turbo=0`). Pinning the frequency policy for the campaign is open
+  (CP1A_DRAFT_REVIEW F2).
+- **Idle states.** C6 is now disabled. POLL, C1 and C1E are still
+  offered to the OS.
+- **Disk names moved at reboot.** The data SSD is now `sda`, the old
+  HDD is `sdb`, and the BOSS is `sdc`. `/srv/snc-data` mounts by UUID,
+  so nothing broke. The `/dev/sdc` in the copied "extra" section refers
+  to the names in manifest b. Name devices by model or UUID, never by
+  letter.
+- Everything else matches manifest b.
+
+## 2c. Manifest d: governor `performance` (OBSERVED)
+
+`bench/manifests/r640-main-20261106d.txt` was captured at 12:59 UTC at
+5bcaca2 by the R640 session. It ran only the governor change and the
+capture. SHA-256:
+`2784c2e4bf8b0f52b2584a0359509cbe629c65c6ed36c793b49c80a151d8b81b`.
+
+- **Governor:** `performance` on all 72 CPUs, set at run time with
+  sysfs. It does not survive a reboot. Every CPU read 3.4-3.7 GHz at the
+  capture (turbo on).
+- **`kernel.numa_balancing` is 1 again.** It was 0 in manifest c. That
+  setting is also run-time only, so most likely the host rebooted between
+  the captures (inferred: the manifest records no uptime). It must be 0
+  during runs (section 4). `bench/pilot.py` refuses to start otherwise.
+  Like the governor, it is set before each campaign session and checked
+  by the runner; neither is made persistent.
+- **DIMM slots (gap R-G2 closed):** A1-A5 and B1-B5 each hold one 32 GB
+  2-rank DDR4 at 2400 MT/s. A6-A12 and B6-B12 are empty.
+  - INFERRED from Dell's R640 slot layout (A1-A6 and B1-B6 are the first
+    slot of the six channels per socket): five of six memory channels
+    per socket are populated, one DIMM per channel, and one channel per
+    socket is empty.
+  - Memory bandwidth is therefore about 5/6 of a fully populated
+    socket at 2400 MT/s. That is the same for every system compared on
+    this host. cody keeps this configuration fixed for the campaign.
+- Idle states are as in manifest c (C6 disabled; POLL, C1, C1E offered).
+- The disk names are as in manifest c (the SSD is `sda`). Name devices
+  by model or UUID.
+- The hand-filled network section is empty in d. Section 2 and manifest
+  c's notes still apply: eno1 is at 10 Gb/s on a shared LAN, and there
+  is one host.
+
+**ACCEPTED** (docs/handoff/PR61_Addendum_ManifestD.txt): manifest d is
+the campaign manifest, and its SHA-256 is `approved_manifest_sha256` in
+`bench/pilot_plan.json`.
+
+**Before every evidence session**, set and verify the governor and
+`numa_balancing`. Neither survives a reboot:
+
+```
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null
+sudo sysctl -w kernel.numa_balancing=0
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | sort | uniq -c   # 72 performance
+cat /proc/sys/kernel/numa_balancing                                           # 0
+```
+
+`bench/pilot.py` refuses to start if either is wrong.
+
 ## 3. Locality (OBSERVED, with one inference)
 
 - **OBSERVED (manifest b, sysfs `numa_node`):** the SAS3008 HBA
@@ -119,6 +187,11 @@ and a third manifest, and waits for cody's decision.
   **node 0**.
 
 ## 4. PROPOSED pilot allocation (for review)
+
+*Superseded by the PR #61 review.* The table below put the client on
+node 1. That is now the named cross-socket allocation **PILOT-X**. The
+baseline is **PILOT-L**: server and client on disjoint node 0 cores. Both
+are defined in `bench/pilot_plan.json` and `docs/PILOT_PLAN.md` section 2.
 
 For the SNC-only pilot, Profile A (LOCAL_DURABLE) and Profile C (memory),
 on this host only:
@@ -148,9 +221,10 @@ purpose and never left to the scheduler.
 1. **Storage for durable profiles: SETTLED** (cody, 2026-11-06). cody
    added a dedicated 3.84 TB 12 Gb/s SAS SSD ("the fastest you're gonna
    get"; no NVMe is available). Durable claims are labelled "SAS SSD".
-2. **The BIOS System Profile:** recorded (section 2a): DAPC. Claude
-   recommends switching to "Performance" before the pilot, then taking a
-   new manifest. This is waiting on cody.
+2. **The BIOS System Profile: SETTLED.** It was recorded as DAPC
+   (section 2a). cody switched it to "Performance" (manifest c, section
+   2b). The PR #61 review sets the governor to `performance` for the
+   campaign; that change is recorded in manifest d.
 3. **Network:** eno1 is now on a 10 GbE switch. The pilot is still
    loopback-only, because there is one experiment host. Cross-host work
    waits for a second host on that switch, and ideally a dedicated port

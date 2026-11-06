@@ -11,7 +11,12 @@
 
 namespace snc {
 
-// Log-linear latency histogram: 2^-5 relative precision, ns resolution.
+// Log-linear latency histogram. Values under 32 ns are exact; above that each power of
+// two is split into 32 buckets, so a bucket spans at most 1/32 (3.125%) of its
+// lower edge. percentile() returns the LOWER edge of the bucket that holds the
+// percentile: the true value v satisfies r <= v < r * (1 + 1/32). For
+// example a reported p99 of 1,015,808 ns means 1,015,808 <= p99 < 1,032,192.
+// max() is exact.
 class Histogram {
  public:
   Histogram() : counts_(64 * 32, 0) {}
@@ -24,12 +29,15 @@ class Histogram {
       ++counts_[(msb - 4) * 32 + sub];
     }
     ++n_;
+    if (ns > max_) max_ = ns;
   }
   void merge(const Histogram& o) {
     for (std::size_t i = 0; i < counts_.size(); ++i) counts_[i] += o.counts_[i];
     n_ += o.n_;
+    if (o.max_ > max_) max_ = o.max_;
   }
   u64 count() const { return n_; }
+  u64 max() const { return max_; }
   double percentile(double p) const {
     u64 target = static_cast<u64>(std::ceil(p / 100.0 * n_));
     u64 acc = 0;
@@ -49,6 +57,7 @@ class Histogram {
   }
   std::vector<u64> counts_;
   u64 n_ = 0;
+  u64 max_ = 0;
 };
 
 // Resident set size of this process, from /proc/self/statm.

@@ -1,0 +1,97 @@
+=== build 2026-11-06T08:11:50Z tree: 
+ninja: no work to do.
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/35 Test  #1: test_rate_schedule ...............   Passed    0.00 sec
+      Start  2: test_object_id
+ 2/35 Test  #2: test_object_id ...................   Passed    0.00 sec
+      Start  3: test_local_map
+ 3/35 Test  #3: test_local_map ...................   Passed    1.22 sec
+      Start  4: test_pages
+ 4/35 Test  #4: test_pages .......................   Passed    0.63 sec
+      Start  5: test_runtime
+ 5/35 Test  #5: test_runtime .....................   Passed    0.22 sec
+      Start  6: test_execute
+ 6/35 Test  #6: test_execute .....................   Passed    0.06 sec
+      Start  7: test_persistence
+ 7/35 Test  #7: test_persistence .................   Passed    0.42 sec
+      Start  8: test_crash
+ 8/35 Test  #8: test_crash .......................   Passed    0.61 sec
+      Start  9: test_net
+ 9/35 Test  #9: test_net .........................   Passed    0.04 sec
+      Start 10: test_transfer
+10/35 Test #10: test_transfer ....................   Passed    3.22 sec
+      Start 11: test_replication
+11/35 Test #11: test_replication .................   Passed   15.56 sec
+      Start 12: test_cluster
+12/35 Test #12: test_cluster .....................   Passed    5.23 sec
+      Start 13: test_migrate
+13/35 Test #13: test_migrate .....................   Passed   33.01 sec
+      Start 14: test_resend_refusals
+14/35 Test #14: test_resend_refusals .............   Passed    0.02 sec
+      Start 15: test_proof
+15/35 Test #15: test_proof .......................   Passed    0.90 sec
+      Start 16: test_placement
+16/35 Test #16: test_placement ...................   Passed    0.01 sec
+      Start 17: test_stage_chain
+17/35 Test #17: test_stage_chain .................   Passed    7.46 sec
+      Start 18: test_witness
+18/35 Test #18: test_witness .....................   Passed   23.83 sec
+      Start 19: test_async_failover
+19/35 Test #19: test_async_failover ..............   Passed   13.73 sec
+      Start 20: test_control
+20/35 Test #20: test_control .....................   Passed    1.48 sec
+      Start 21: test_health
+21/35 Test #21: test_health ......................   Passed  154.58 sec
+      Start 22: test_fail_closed
+22/35 Test #22: test_fail_closed .................   Passed  222.33 sec
+      Start 23: test_s1
+23/35 Test #23: test_s1 ..........................***Failed    0.37 sec
+Traceback (most recent call last):
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 446, in <module>
+    main()
+    ~~~~^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 440, in main
+    failed = [n for n in names if not run(n)]
+                                      ~~~^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 416, in run
+    c = cls(work)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 263, in __init__
+    assert r.returncode == 0, r.stdout + r.stderr
+           ^^^^^^^^^^^^^^^^^
+AssertionError: NO no control member answered
+
+
+      Start 24: test_profile_check
+24/35 Test #24: test_profile_check ...............   Passed    0.08 sec
+      Start 25: test_baseline_retry
+25/35 Test #25: test_baseline_retry ..............   Passed  248.43 sec
+      Start 26: test_sync_readiness
+26/35 Test #26: test_sync_readiness ..............   Passed  318.50 sec
+      Start 27: test_baseline_move
+27/35 Test #27: test_baseline_move ...............   Passed  112.55 sec
+      Start 28: test_baseline_ha
+28/35 Test #28: test_baseline_ha .................   Passed  124.90 sec
+      Start 29: test_ready_order
+29/35 Test #29: test_ready_order .................   Passed  147.01 sec
+      Start 30: test_paxos_ballots
+30/35 Test #30: test_paxos_ballots ...............   Passed    2.09 sec
+      Start 31: test_witness_hardening
+31/35 Test #31: test_witness_hardening ...........   Passed    5.81 sec
+      Start 32: test_lab_witness_guard
+32/35 Test #32: test_lab_witness_guard ...........   Passed   14.23 sec
+      Start 33: test_index_wire
+33/35 Test #33: test_index_wire ..................   Passed    1.69 sec
+      Start 34: test_pilot
+34/35 Test #34: test_pilot .......................   Passed    0.05 sec
+      Start 35: test_net_bench_rate
+35/35 Test #35: test_net_bench_rate ..............   Passed   15.63 sec
+
+97% tests passed, 1 tests failed out of 35
+
+Total Test time (real) = 1475.93 sec
+
+The following tests FAILED:
+	 23 - test_s1 (Failed)
+Errors while running CTest
+=== end 2026-11-06T08:36:26Z rc=0

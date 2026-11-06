@@ -1362,3 +1362,83 @@ or source comments.
     profile), R-G2 (DIMM slots). The pilot stays loopback-only (one
     host). CP-1A is NOT authorized.
 
+
+### 2026-11-06 UTC --- Claude (Claude Code): CP-1A corrected per the PR #61 review
+
+-   **Classification:** REFINE (benchmark tooling and pilot method);
+    KEEP (manifest c, storage).
+-   **What:** review filed as `docs/handoff/PR61_Review_Handoff.txt`. On PR #61's branch:
+    - `net_bench --rate R` is the open loop (`bench/rate_schedule.h`):
+      - an exact periodic schedule per thread;
+      - latency from the intended send time;
+      - owed work waits for a slot and is never dropped;
+      - it reports offered, achieved, backlog, lateness and drain.
+    - `--mix` gives exact shares of total ops. The draft's nested flags
+      had given read 59.85%, deposit 25.65%, transfer 9.50% and index
+      5.00%.
+    - The load resends a refused create under the same email number.
+    - Each kind's latency and the total are reported. The histogram's
+      bounds are documented.
+    - `bench/pilot.py` is rewritten around `bench/pilot_plan.json`:
+      calibration, duration check, the open-loop grid, the exact sustained
+      / peak / objective / knee rule, fixed and capacity reps, and the
+      shard sweep.
+    - The allocations are explicit: PILOT-L is the baseline (all node 0,
+      disjoint cores), PILOT-X is cross-socket.
+    - Loopback RX and TX are reported apart. Memory is measured after
+      settling (RSS and PSS); the peak is separate.
+    - A real run refuses a dirty tree, a missing manifest, a governor
+      other than performance, or numa_balancing other than 0.
+    - `docs/PILOT_PLAN.md` holds the exact plan (PROPOSED).
+    - The stopped R640 run is renamed
+      `bench/results/INVALID-pilot-r640-20261106-stopped/`.
+    - `manifest.sh` prints one line per DIMM slot.
+-   **Evidence:**
+    - `tests/test_rate_schedule.cpp` checks the schedule arithmetic.
+    - `tests/test_net_bench_rate.py` stops the server for 400 ms: open
+      loop p99 ~370 ms, closed loop at depth 1 p99 ~65 µs. It also covers
+      owed work across the window's end and the undrained case.
+    - `tests/test_pilot.py` pins the rule's boundaries.
+    - A `--quick` pilot ran end to end on the dev VM (not evidence).
+    - Suite logs are in `bench/results/cp1a-devvm/`.
+-   **Next action:** the R640 sets governor=performance and captures
+    manifest d. cody/Codex review the plan's PROPOSED values (grid, f,
+    windows, reps, CV_thr source, total vs per-kind p99). The real pilot
+    is NOT authorized.
+
+### 2026-11-06 UTC --- Claude (Claude Code): R640 manifest d
+
+-   **Classification:** KEEP (evidence).
+-   **What:** the R640 session set the governor to `performance` and
+    captured `bench/manifests/r640-main-20261106d.txt` at 5bcaca2. It
+    ran nothing else.
+    - All 72 CPUs show `performance`.
+    - R-G2 is closed: A1-A5 and B1-B5 are populated, so 5 of 6
+      channels per socket (inferred from the slot layout).
+    - `numa_balancing` read 1, most likely after a reboot (inferred). The
+      runner refuses unless it is 0.
+    - R640_TOPOLOGY section 2c records all of this.
+-   **Next action:** manifest d ACCEPTED (handoff/PR61_Addendum_ManifestD.txt); its SHA-256 is now
+    in pilot_plan.json. Then review PILOT_PLAN. The real pilot is NOT
+    authorized.
+
+### 2026-11-06 UTC --- Claude (Claude Code): PR #61 current-head review, C1-C3
+
+-   **Classification:** REFINE (pilot method; review corrections only).
+-   **What:** the review is filed as `docs/handoff/PR61_Final_Review_Handoff.txt`.
+    It approves the corrected CP-1A, f = 0.70, the grid, the windows,
+    the CV sources, manifest d and the evidence. Corrections:
+    - **C1:** `net_bench` reports `scheduled_in_window`, the ops due in
+      the measured window. The 1% backlog limit is now a share of that,
+      not of warm-up plus window.
+    - **C2:** total-operation p99 is the primary objective. Per-kind
+      p99/p99.9 are diagnostics (PILOT_PLAN, pilot_plan.json).
+    - **C3:** a `client_limited_suspect` boundary point (the lowest
+      unsustained one) makes the sweep INVALID and aborts the pilot. Above
+      the boundary the flag is diagnostic only.
+-   **Evidence:** test_pilot (both C3 cases, R_1, errors, the 1 ms edge,
+    the C1 boundary) and test_net_bench_rate (`scheduled_in_window`).
+    Release, ASan+UBSan and TSan logs are in `bench/results/cp1a-devvm/`.
+-   **Next action:** PR #61 may merge once clean. Merging does NOT
+    authorize the pilot. The next review is GO or not for the real
+    SNC-only R640 pilot.

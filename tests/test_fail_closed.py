@@ -256,6 +256,18 @@ class Cluster:
                     args += ["--group", f"{g}=127.0.0.1:{self.admin[2 * g + 1]},127.0.0.1:{self.admin[2 * g + 2]}"]
             self.wargs.append(args)
             self.start_witness(i)
+        # Wait until every witness listens: a fixed sleep raced witness
+        # startup on a loaded host ("no control member answered", seen once
+        # in a full Release run, bench/results/cp1a-devvm).
+        for w in self.wports:
+            end = time.time() + 15
+            while True:
+                try:
+                    socket.create_connection(("127.0.0.1", w), 0.2).close()
+                    break
+                except OSError:
+                    assert time.time() < end, f"witness on {w} did not listen"
+                    time.sleep(0.05)
         time.sleep(0.3)
         r = subprocess.run([f"{self.bin}/snc_ctl", "--control", self.control] +
                            (["--placement-v2"] if self.v2 else []) + ["init", "--nodes", node_list,
