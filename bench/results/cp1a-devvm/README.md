@@ -10,6 +10,9 @@ evidence.**
 | `ctest-build-asan.log` | Debug, `-fsanitize=address,undefined` | f207aab | 35/35 |
 | `ctest-build-tsan.log` | Debug, `-fsanitize=thread` | f207aab | 35/35 |
 | `ctest-relwithdebinfo-rerun.log` | RelWithDebInfo | f207aab + the witness wait below | 35/35 |
+| `final/ctest-relwithdebinfo.log` | RelWithDebInfo | 2fc46f6 (review C1-C3) | 35/35 |
+| `final/ctest-build-asan.log` | Debug, ASan+UBSan | 2fc46f6 | 35/35 |
+| `final/ctest-build-tsan.log` | Debug, TSan | 2fc46f6 | 35/35 |
 
 The `test_s1` failure was "NO no control member answered" from
 `snc_ctl init`, 0.37 s into the test, before any SNC operation.

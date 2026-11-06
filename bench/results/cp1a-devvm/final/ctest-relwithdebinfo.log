@@ -1,0 +1,78 @@
+=== build 2026-11-06T13:44:05Z tree: 
+ninja: no work to do.
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/35 Test  #1: test_rate_schedule ...............   Passed    0.00 sec
+      Start  2: test_object_id
+ 2/35 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/35 Test  #3: test_local_map ...................   Passed    1.13 sec
+      Start  4: test_pages
+ 4/35 Test  #4: test_pages .......................   Passed    0.55 sec
+      Start  5: test_runtime
+ 5/35 Test  #5: test_runtime .....................   Passed    0.17 sec
+      Start  6: test_execute
+ 6/35 Test  #6: test_execute .....................   Passed    0.36 sec
+      Start  7: test_persistence
+ 7/35 Test  #7: test_persistence .................   Passed    1.04 sec
+      Start  8: test_crash
+ 8/35 Test  #8: test_crash .......................   Passed    0.99 sec
+      Start  9: test_net
+ 9/35 Test  #9: test_net .........................   Passed    0.38 sec
+      Start 10: test_transfer
+10/35 Test #10: test_transfer ....................   Passed    2.95 sec
+      Start 11: test_replication
+11/35 Test #11: test_replication .................   Passed   15.29 sec
+      Start 12: test_cluster
+12/35 Test #12: test_cluster .....................   Passed    5.52 sec
+      Start 13: test_migrate
+13/35 Test #13: test_migrate .....................   Passed   32.43 sec
+      Start 14: test_resend_refusals
+14/35 Test #14: test_resend_refusals .............   Passed    0.22 sec
+      Start 15: test_proof
+15/35 Test #15: test_proof .......................   Passed    1.10 sec
+      Start 16: test_placement
+16/35 Test #16: test_placement ...................   Passed    0.14 sec
+      Start 17: test_stage_chain
+17/35 Test #17: test_stage_chain .................   Passed    9.07 sec
+      Start 18: test_witness
+18/35 Test #18: test_witness .....................   Passed   23.69 sec
+      Start 19: test_async_failover
+19/35 Test #19: test_async_failover ..............   Passed   13.61 sec
+      Start 20: test_control
+20/35 Test #20: test_control .....................   Passed    1.80 sec
+      Start 21: test_health
+21/35 Test #21: test_health ......................   Passed  154.55 sec
+      Start 22: test_fail_closed
+22/35 Test #22: test_fail_closed .................   Passed  223.03 sec
+      Start 23: test_s1
+23/35 Test #23: test_s1 ..........................   Passed   57.76 sec
+      Start 24: test_profile_check
+24/35 Test #24: test_profile_check ...............   Passed    0.14 sec
+      Start 25: test_baseline_retry
+25/35 Test #25: test_baseline_retry ..............   Passed  248.05 sec
+      Start 26: test_sync_readiness
+26/35 Test #26: test_sync_readiness ..............   Passed  315.98 sec
+      Start 27: test_baseline_move
+27/35 Test #27: test_baseline_move ...............   Passed  112.62 sec
+      Start 28: test_baseline_ha
+28/35 Test #28: test_baseline_ha .................   Passed  127.39 sec
+      Start 29: test_ready_order
+29/35 Test #29: test_ready_order .................   Passed  146.19 sec
+      Start 30: test_paxos_ballots
+30/35 Test #30: test_paxos_ballots ...............   Passed    2.06 sec
+      Start 31: test_witness_hardening
+31/35 Test #31: test_witness_hardening ...........   Passed    5.79 sec
+      Start 32: test_lab_witness_guard
+32/35 Test #32: test_lab_witness_guard ...........   Passed   14.20 sec
+      Start 33: test_index_wire
+33/35 Test #33: test_index_wire ..................   Passed    1.73 sec
+      Start 34: test_pilot
+34/35 Test #34: test_pilot .......................   Passed    0.04 sec
+      Start 35: test_net_bench_rate
+35/35 Test #35: test_net_bench_rate ..............   Passed   15.67 sec
+
+100% tests passed, 0 tests failed out of 35
+
+Total Test time (real) = 1535.79 sec
+=== end 2026-11-06T14:09:42Z rc=0

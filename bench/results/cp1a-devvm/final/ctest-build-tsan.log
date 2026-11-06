@@ -1,0 +1,106 @@
+=== build-tsan 2026-11-06T14:36:09Z tree: 
+[  2%] Built target snc_witness
+[ 32%] Built target snc_core
+[ 35%] Built target test_rate_schedule
+[ 37%] Built target test_pages
+[ 40%] Built target test_local_map
+[ 43%] Built target test_object_id
+[ 45%] Built target test_runtime
+[ 48%] Built target test_execute
+[ 51%] Built target test_persistence
+[ 54%] Built target test_crash
+[ 56%] Built target test_net
+[ 59%] Built target test_transfer
+[ 62%] Built target test_cluster
+[ 64%] Built target test_replication
+[ 67%] Built target test_migrate
+[ 70%] Built target test_resend_refusals
+[ 72%] Built target test_proof
+[ 75%] Built target test_placement
+[ 78%] Built target test_stage_chain
+[ 81%] Built target snc_server
+[ 83%] Built target snc_bench
+[ 86%] Built target baseline_bench
+[ 89%] Built target snc_ctl
+[ 90%] Building CXX object CMakeFiles/net_bench.dir/bench/net_bench.cpp.o
+[ 93%] Built target stage_stall
+[ 95%] Built target baseline_server
+[ 98%] Built target snc_load
+[100%] Linking CXX executable net_bench
+[100%] Built target net_bench
+Test project /home/claude/snc-server-os/build-tsan
+      Start  1: test_rate_schedule
+ 1/35 Test  #1: test_rate_schedule ...............   Passed    0.02 sec
+      Start  2: test_object_id
+ 2/35 Test  #2: test_object_id ...................   Passed    0.20 sec
+      Start  3: test_local_map
+ 3/35 Test  #3: test_local_map ...................   Passed   10.52 sec
+      Start  4: test_pages
+ 4/35 Test  #4: test_pages .......................   Passed    2.53 sec
+      Start  5: test_runtime
+ 5/35 Test  #5: test_runtime .....................   Passed    1.37 sec
+      Start  6: test_execute
+ 6/35 Test  #6: test_execute .....................   Passed    1.09 sec
+      Start  7: test_persistence
+ 7/35 Test  #7: test_persistence .................   Passed    3.11 sec
+      Start  8: test_crash
+ 8/35 Test  #8: test_crash .......................   Passed    4.57 sec
+      Start  9: test_net
+ 9/35 Test  #9: test_net .........................   Passed    0.30 sec
+      Start 10: test_transfer
+10/35 Test #10: test_transfer ....................   Passed    9.58 sec
+      Start 11: test_replication
+11/35 Test #11: test_replication .................   Passed   32.94 sec
+      Start 12: test_cluster
+12/35 Test #12: test_cluster .....................   Passed    8.27 sec
+      Start 13: test_migrate
+13/35 Test #13: test_migrate .....................   Passed   53.08 sec
+      Start 14: test_resend_refusals
+14/35 Test #14: test_resend_refusals .............   Passed    0.40 sec
+      Start 15: test_proof
+15/35 Test #15: test_proof .......................   Passed    2.06 sec
+      Start 16: test_placement
+16/35 Test #16: test_placement ...................   Passed    0.50 sec
+      Start 17: test_stage_chain
+17/35 Test #17: test_stage_chain .................   Passed   40.62 sec
+      Start 18: test_witness
+18/35 Test #18: test_witness .....................   Passed   24.90 sec
+      Start 19: test_async_failover
+19/35 Test #19: test_async_failover ..............   Passed   14.06 sec
+      Start 20: test_control
+20/35 Test #20: test_control .....................   Passed    1.95 sec
+      Start 21: test_health
+21/35 Test #21: test_health ......................   Passed  160.16 sec
+      Start 22: test_fail_closed
+22/35 Test #22: test_fail_closed .................   Passed  265.84 sec
+      Start 23: test_s1
+23/35 Test #23: test_s1 ..........................   Passed   97.73 sec
+      Start 24: test_profile_check
+24/35 Test #24: test_profile_check ...............   Passed    0.06 sec
+      Start 25: test_baseline_retry
+25/35 Test #25: test_baseline_retry ..............   Passed  247.72 sec
+      Start 26: test_sync_readiness
+26/35 Test #26: test_sync_readiness ..............   Passed  277.71 sec
+      Start 27: test_baseline_move
+27/35 Test #27: test_baseline_move ...............   Passed  113.99 sec
+      Start 28: test_baseline_ha
+28/35 Test #28: test_baseline_ha .................   Passed  156.62 sec
+      Start 29: test_ready_order
+29/35 Test #29: test_ready_order .................   Passed  142.22 sec
+      Start 30: test_paxos_ballots
+30/35 Test #30: test_paxos_ballots ...............   Passed    2.24 sec
+      Start 31: test_witness_hardening
+31/35 Test #31: test_witness_hardening ...........   Passed   30.09 sec
+      Start 32: test_lab_witness_guard
+32/35 Test #32: test_lab_witness_guard ...........   Passed   14.70 sec
+      Start 33: test_index_wire
+33/35 Test #33: test_index_wire ..................   Passed    2.19 sec
+      Start 34: test_pilot
+34/35 Test #34: test_pilot .......................   Passed    0.04 sec
+      Start 35: test_net_bench_rate
+35/35 Test #35: test_net_bench_rate ..............   Passed   16.16 sec
+
+100% tests passed, 0 tests failed out of 35
+
+Total Test time (real) = 1739.54 sec
+=== end 2026-11-06T15:05:12Z rc=0
