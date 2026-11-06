@@ -94,14 +94,20 @@ remote-site run, not before a local pilot that does not use it.
   - how the resource sampling behaves;
   - whether the Profile A and B harnesses are correct;
   - whether the R640 topology and pinning plan behave as expected.
-- **Competitor variance** is measured under the rules `CRITERIA.md`
-  pre-registers, as part of the comparative runs, not in the pilot.
-  *Note for review:* EXPERIMENTAL_BASELINE 10.1 defines the noise floor
-  N as 3 × the larger CV of the two systems from a per-system pilot.
-  With an SNC-only pilot, `CRITERIA.md` must say how the competitor's CV
-  enters N. Proposed: the same 5-repetition rule, run at the start of
-  each comparison, and N computed by the pre-registered formula before
-  any SNC-versus-competitor number is read.
+- **Noise floor and objective (EXPERIMENTAL_BASELINE 10.1 and 10.2,
+  reconciled in the PR #55 review):**
+  - N = max(3 × max(CV_throughput_SNC, CV_p99_SNC), N_MIN), from the
+    SNC pilot. N_MIN is set at the criteria-setting review, after the
+    pilot and before any competitor run.
+  - Competitor variance is governed by a pre-registered V_MAX. A
+    competitor cell whose CV exceeds V_MAX is invalid, and is rerun or
+    has its environment corrected. N never moves.
+  - The p99 objective comes from an SNC-only load sweep: SNC's p99 at a
+    fraction of its stable peak that is declared before the sweep. It
+    never moves because of a competitor's result.
+  - N, N_MIN, V_MAX, the p99 objective, M_B and the Path B thresholds
+    are all in `CRITERIA.md` before any competitor performance run. No
+    value is chosen yet.
 - **Workload A's comparative set** stays as EXPERIMENTAL_VALIDATION names
   it: SNC, SpacetimeDB, PostgreSQL plus a service, and Redis plus a
   service. SpacetimeDB does not block the pilot; its harness must exist
@@ -133,8 +139,9 @@ No change to `snc_server`, the witness, or the wire in either slice.
 **CP-1A: SNC pilot harness.** May be authorized after the manifest
 review.
 
-- G1: `bench/pilot.py`. It runs SNC at fixed settings N times, pinned
-  per section 5. It keeps every run's raw output and writes
+- G1: `bench/pilot.py`. It runs SNC at fixed settings at least 5 times,
+  pinned per section 5. It also runs the offered-load sweep that 10.2's
+  knee rule needs, and that rule is written down before the sweep runs. It keeps every run's raw output and writes
   `pilot.json`, with per-run throughput, p50, p95, p99, p99.9, the CV of
   throughput and of p99, and the section 4 metrics.
 - G3, SNC side: the section 4 metrics for `snc_server` processes.
@@ -161,6 +168,8 @@ review.
 - G2: PostgreSQL p99 and p99.9 from pgbench's per-transaction log (`-l`),
   and Redis's from its percentile output.
 - G3, competitor side: the same accounting boundary as SNC (section 4).
+  PostgreSQL's backends come and go, so its boundary is a process tree
+  or a cgroup, not a fixed list of PIDs.
 - G7: one allocation wrapper for every system (section 5).
 - G5, competitor side: a PostgreSQL index on email, and the Redis
   decision of section 6.
@@ -253,8 +262,9 @@ Any qualitative judgment is written separately from these counts.
    have it reviewed.
 7. Write the semantics and mismatch table (with the section 6 decision)
    and the complexity inventory.
-8. Use the pilot evidence to choose N, M_B, the Path B thresholds and the
-   p99 objective.
+8. The formal criteria-setting review uses the SNC pilot's evidence to
+   choose N_MIN, V_MAX, N, M_B, the Path B thresholds and the p99
+   objective.
 9. Commit `bench/results/<campaign>/CRITERIA.md`, with exact rules and
    the comparator configurations.
 10. Record and freeze the exact SNC SHA.

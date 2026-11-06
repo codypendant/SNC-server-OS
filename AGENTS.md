@@ -1300,3 +1300,19 @@ or source comments.
     manifest. CP-1A is not authorized yet; no pilot, no comparative
     benchmarks.
 
+### 2026-11-06 UTC --- Claude (Claude Code): N and p99 methodology reconciled (work order PR55_Review_Handoff)
+
+-   **Classification:** REFINE (documentation only).
+-   **What:**
+    - EXPERIMENTAL_BASELINE 10.1 and 10.2, and CAMPAIGN_PREP, now
+      agree: the pilot is SNC-only.
+    - N = max(3 × max(CV_throughput_SNC, CV_p99_SNC), N_MIN).
+    - Competitor noise is governed by a pre-registered V_MAX: a noisy
+      cell is invalid and is rerun, and N never moves.
+    - The p99 objective comes from an SNC-only load sweep, by a knee
+      rule declared before the sweep.
+    - Every final value is set in `CRITERIA.md` before any competitor
+      run. No value was chosen.
+-   **Next action:** STOP until the R640 is booted and its untouched
+    manifest captured. No code, no CP-1A, no pilot.
+

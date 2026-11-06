@@ -520,29 +520,62 @@ number. Every number is committed in `CRITERIA.md` **before any
 comparative result exists**. The pilot measures only the variance of
 each system on its own, never one system against another.
 
-### 10.1 Pilot (before any comparison)
+### 10.1 Pilot (before any comparison): SNC only
 
-For each system, on the host it will run on:
+*Reconciled 2026-11-06 (reviews of PRs #54 and #55,
+`handoff/PR55_Review_Handoff.txt`). The earlier rule piloted every system
+and took N and the p99 objective from competitor runs, which would have
+observed competitor performance before pre-registration. It is
+superseded.*
 
-- Run workload A at one fixed setting **5 times**. Record the
-  coefficient of variation (CV) of throughput and of p99.
-- **Noise floor** N = 3 × the larger CV of the two systems in a
-  comparison.
+- **The pilot runs SNC only**, on the host it will run on. No competitor
+  performance is observed before `CRITERIA.md` is committed.
+- It repeats workload A at fixed settings **at least 5 times** and records
+  SNC's coefficient of variation of throughput (CV_throughput_SNC) and
+  of p99 (CV_p99_SNC).
+- **Noise floor**, fixed in `CRITERIA.md`:
+
+  ```text
+  N = max( 3 × max(CV_throughput_SNC, CV_p99_SNC), N_MIN )
+  ```
+
+  **N_MIN** is a fixed minimum materiality and noise floor. It is
+  chosen at the formal criteria-setting review, after the SNC pilot and
+  before any competitor performance run.
+- **Competitor variance** is governed by **V_MAX**, also fixed in
+  `CRITERIA.md`. In the comparative repetitions:
+  - a competitor CV of at most V_MAX: the cell is valid;
+  - a competitor CV above V_MAX: the cell is **invalid (too noisy)**. It
+    is rerun, or its environment is corrected, and then rerun.
+  - N never grows after competitor variance is seen, and no materiality
+    threshold is weakened.
 - **A difference smaller than N is "no difference".** PR #37's T9
   measured 8-16% host noise on the cloud VM; bare metal is expected to be
   lower, but this is not assumed.
 - **N is a pre-registered noise and materiality guard, not a statistical
-  confidence interval.** If bare-metal variance turns out unexpectedly
-  high or non-normal (for example bimodal runs, or a CV above 10%), the
-  pilot method is revised **before** any cross-system result is viewed,
-  and the revision is committed with its reason.
+  confidence interval**, and not a per-competitor interval. If SNC's
+  pilot variance turns out unexpectedly high or non-normal (for example
+  bimodal runs, or a CV above 10%), the pilot method is revised before
+  `CRITERIA.md`, and the revision is committed with its reason.
+- **Before any competitor performance run**, `CRITERIA.md` holds the
+  final values: N, N_MIN, V_MAX, the p99 objective (10.2), M_B and each
+  Path B threshold (10.3). None is chosen in this document.
 
 ### 10.2 The primary metric
 
 The primary metric is **throughput per core at a p99 latency objective**:
 
-- The objective is set from the pilot: the p99 the slower system reaches
-  at 50% of its own peak.
+- **The objective comes from the SNC-only pilot, by a rule declared
+  before the pilot runs.** The pilot sweeps SNC's offered load and
+  finds SNC's stable knee and operating region. The objective is SNC's
+  p99 at a documented fraction of its stable peak load. The fraction
+  and the knee rule are written in the pilot plan before the sweep, and
+  the resulting objective is recorded in `CRITERIA.md` before any
+  competitor performance run. *(Superseded rule: "the p99 the slower
+  system reaches at 50% of its own peak".)*
+- Each competitor is then measured on how much throughput per core it
+  sustains while meeting that fixed objective. The objective never moves
+  because of competitor results.
 - It is measured under matched semantics in the same profile.
 
 Secondary metrics:
@@ -569,7 +602,7 @@ pre-registered paths. There is no subjective or post-hoc scoring.
 **Path B, multi-dimensional win:** all of:
 
 - a smaller but substantial primary-metric advantage beyond N, of at
-  least **M_B**. M_B is fixed in `CRITERIA.md` from the pilot before any
+  least **M_B**. M_B is fixed in `CRITERIA.md` from the SNC pilot before any
   comparison: at least N, and no lower than a value cody and Codex set
   there;
 - at least one **independent** material advantage, each with its own
