@@ -1405,3 +1405,19 @@ or source comments.
     manifest d. cody/Codex review the plan's PROPOSED values (grid, f,
     windows, reps, CV_thr source, total vs per-kind p99). The real pilot
     is NOT authorized.
+
+### 2026-11-06 UTC --- Claude (Claude Code): R640 manifest d
+
+-   **Classification:** KEEP (evidence).
+-   **What:** the R640 session set the governor to `performance` and
+    captured `bench/manifests/r640-main-20261106d.txt` at 5bcaca2. It
+    ran nothing else.
+    - All 72 CPUs show `performance`.
+    - R-G2 is closed: A1-A5 and B1-B5 are populated, so 5 of 6
+      channels per socket (inferred from the slot layout).
+    - `numa_balancing` read 1, most likely after a reboot (inferred). The
+      runner refuses unless it is 0.
+    - R640_TOPOLOGY section 2c records all of this.
+-   **Next action:** cody/Codex approve manifest d, then its SHA-256 goes
+    into pilot_plan.json. Then review PILOT_PLAN. The real pilot is NOT
+    authorized.

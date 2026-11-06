@@ -129,6 +129,42 @@ and a third manifest, and waits for cody's decision.
   letter.
 - Everything else matches manifest b.
 
+## 2c. Manifest d: governor `performance` (OBSERVED)
+
+`bench/manifests/r640-main-20261106d.txt` was captured at 12:59 UTC at
+5bcaca2 by the R640 session. It ran only the governor change and the
+capture. SHA-256:
+`2784c2e4bf8b0f52b2584a0359509cbe629c65c6ed36c793b49c80a151d8b81b`.
+
+- **Governor:** `performance` on all 72 CPUs, set at run time with
+  sysfs. It does not survive a reboot. Every CPU read 3.4-3.7 GHz at the
+  capture (turbo on).
+- **`kernel.numa_balancing` is 1 again.** It was 0 in manifest c. That
+  setting is also run-time only, so most likely the host rebooted between
+  the captures (inferred: the manifest records no uptime). It must be 0
+  during runs (section 4). `bench/pilot.py` refuses to start otherwise.
+  Like the governor, it is set before each campaign session and checked
+  by the runner; neither is made persistent.
+- **DIMM slots (gap R-G2 closed):** A1-A5 and B1-B5 each hold one 32 GB
+  2-rank DDR4 at 2400 MT/s. A6-A12 and B6-B12 are empty.
+  - INFERRED from Dell's R640 slot layout (A1-A6 and B1-B6 are the first
+    slot of the six channels per socket): five of six memory channels
+    per socket are populated, one DIMM per channel, and one channel per
+    socket is empty.
+  - Memory bandwidth is therefore about 5/6 of a fully populated
+    socket at 2400 MT/s. That is the same for every system compared on
+    this host. cody keeps this configuration fixed for the campaign.
+- Idle states are as in manifest c (C6 disabled; POLL, C1, C1E offered).
+- The disk names are as in manifest c (the SSD is `sda`). Name devices
+  by model or UUID.
+- The hand-filled network section is empty in d. Section 2 and manifest
+  c's notes still apply: eno1 is at 10 Gb/s on a shared LAN, and there
+  is one host.
+
+**PROPOSED:** manifest d is the campaign manifest. Its SHA-256 goes into
+`bench/pilot_plan.json` `approved_manifest_sha256` only after cody/Codex
+approve it.
+
 ## 3. Locality (OBSERVED, with one inference)
 
 - **OBSERVED (manifest b, sysfs `numa_node`):** the SAS3008 HBA
