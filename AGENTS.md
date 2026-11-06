@@ -1279,3 +1279,24 @@ or source comments.
 -   **Next action:** WAIT for the R640 manifest, the D1 decision and
     authorization of CP-1. No pilot, no comparative benchmarks.
 
+### 2026-11-06 UTC --- Claude (Claude Code): campaign plan corrections (work order PR54_Review_Handoff)
+
+-   **Classification:** KEEP. Documentation only.
+-   **What:** `docs/CAMPAIGN_PREP.md` corrected:
+    - The pilot is SNC-only; no competitor numbers come before
+      `CRITERIA.md`.
+    - CP-1 is split into CP-1A (the SNC pilot harness) and CP-1B (the
+      comparative harnesses, built after the pilot).
+    - SpacetimeDB stays in workload A's comparative set. Its harness is
+      required before `CRITERIA.md`, not before the pilot.
+    - Added: resource metric boundaries, NUMA-aware allocation, the
+      Redis index decision (A, B or C) and a count-only complexity
+      inventory.
+-   **Open point for review:** EXPERIMENTAL_BASELINE 10.1 computes N
+    from both systems' pilot CVs. With an SNC-only pilot, `CRITERIA.md`
+    must pre-register how a competitor's CV enters N (proposal in
+    CAMPAIGN_PREP section 2).
+-   **Next action:** STOP until the R640 is available for its untouched
+    manifest. CP-1A is not authorized yet; no pilot, no comparative
+    benchmarks.
+

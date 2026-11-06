@@ -1,0 +1,404 @@
+PR #54 REVIEW — CAMPAIGN PREPARATION
+
+DECISION: PR #54 APPROVED WITH TWO PLAN CORRECTIONS.
+
+I reviewed the PR, manifest tooling, CAMPAIGN_PREP, STATUS, EXPERIMENTAL_BASELINE, BASELINE_READINESS, AGENTS and the related manifest documentation.
+
+Claude correctly did NOT fabricate an R640 manifest and did NOT run unauthorized benchmarks. The R640 remains physically unmeasured until cody boots it and runs the manifest.
+
+The status reconciliation is correct. The expanded manifest tooling is useful. The G1-G13 inventory is a strong starting point.
+
+No engine code changed.
+
+Two campaign-plan corrections are required before CP-1 implementation:
+
+1. The within-system pilot must be SNC-only. Do not run PostgreSQL/Redis/SpacetimeDB in the pilot before CRITERIA.md. The repository's freeze rule says CRITERIA.md is committed before the first comparative run. A “pilot repeated per system” would itself be comparative data and risks contaminating preregistration.
+
+2. SpacetimeDB should remain in the planned Workload A comparative set, but it does NOT block the SNC-only pilot. Build its harness after the pilot and before CRITERIA.md / the first Workload A comparative wave. Do not silently demote a named Workload A comparator merely because its harness does not yet exist.
+
+============================================================
+1. STATUS RECONCILIATION — APPROVED
+============================================================
+
+Correct current state:
+
+CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION.
+FULL EXPERIMENTAL BASELINE: NOT YET FROZEN.
+
+PRs #49-#53 are correctly marked approved in current-status text while historical evidence remains intact.
+
+Approved.
+
+============================================================
+2. R640 MANIFEST — CORRECTLY NOT CAPTURED
+============================================================
+
+The physical R640 is not available to Claude's environment.
+
+No hardware values were fabricated from memory.
+
+That is correct.
+
+The actual manifest must be captured when cody boots the R640.
+
+No need to boot it tonight.
+
+============================================================
+3. MANIFEST.SH EXPANSION — APPROVED
+============================================================
+
+The expanded manifest captures the information we actually need for locality/NUMA/per-core experiments:
+
+- lscpu / per-CPU topology;
+- NUMA topology and per-node memory;
+- total memory and huge-page state;
+- THP;
+- kernel command line and relevant VM/scheduling knobs;
+- cpufreq driver/governor/min/max/turbo;
+- idle states;
+- BIOS/system/DIMM information when root/dmidecode is available;
+- storage devices/filesystem/mount options;
+- block scheduler/write-cache/FUA/queue information;
+- NVMe inventory;
+- NIC speed/driver/firmware;
+- channels/RSS/offloads/coalescing/rings;
+- NIC NUMA node;
+- IRQ affinity;
+- irqbalance state;
+- build environment;
+- virtualization detection;
+- explicit network-topology notes.
+
+This is appropriate.
+
+============================================================
+4. ONE MANIFEST TOOLING CAUTION
+============================================================
+
+The script should be treated as best-effort evidence collection.
+
+Some commands/options vary by NIC driver, distro, kernel and device type.
+
+A missing ethtool capability or absent cpufreq/NVMe/dmidecode output must be recorded as unavailable, not interpreted as a hardware property.
+
+The existing run helper / 2>/dev/null behavior appears aimed in that direction.
+
+Do not make a missing optional command abort the whole manifest.
+
+The operator should still inspect the resulting manifest for obvious omissions before committing it.
+
+============================================================
+5. R640 CAPTURE PROCEDURE — APPROVED
+============================================================
+
+When cody is ready:
+
+- boot the R640;
+- use the actual Linux environment intended for the pilot;
+- identify the actual SNC data filesystem/device;
+- identify the actual test NIC(s);
+- run manifest.sh as root;
+- fill the topology section manually;
+- return/commit the output.
+
+Do not tune CPU/NUMA/IRQ/THP settings before capturing the initial host state.
+
+If tuning is later applied for the experiment, capture the changed settings in the campaign manifest/config as well.
+
+============================================================
+6. REMOTE R640 — DEFER UNTIL WAN
+============================================================
+
+The partner's R640 manifest is not required for the local pilot.
+
+Capture it before WAN/cross-site evidence.
+
+Approved.
+
+============================================================
+7. FIRST-WAVE GAP INVENTORY — GENERALLY APPROVED
+============================================================
+
+G1-G13 is a useful inventory.
+
+Accepted as required before comparative Workload A where applicable:
+
+G1 pilot/runner orchestration.
+G2 competitor tail latency.
+G3 comparable resource metrics.
+G4 Profile B healthy/degraded/failover tagging.
+G5 index-query mix.
+G7 fair allocation rules.
+G8 semantics/mismatch tables.
+G9 complexity inventory.
+
+G6 already exists sufficiently for the pilot's fixed SNC setting.
+
+G11/G12 workloads B/C and Orleans/Restate/DBOS may remain second-wave.
+
+G13 extended fault program may remain later.
+
+============================================================
+8. IMPORTANT CORRECTION — PILOT MUST BE SNC-ONLY
+============================================================
+
+CAMPAIGN_PREP currently says:
+
+“one fixed workload A setting, 5 times per system”
+
+and proposes SNC, PostgreSQL and Redis in the pilot.
+
+Do NOT do that.
+
+EXPERIMENTAL_BASELINE section 11 requires CRITERIA.md before the first comparative run.
+
+Running PostgreSQL/Redis and SNC before criteria are frozen produces comparative information before preregistration, even if we call it a pilot.
+
+That creates avoidable experimenter-bias risk.
+
+The within-system pilot should therefore be SNC-only.
+
+Its purpose is to determine:
+- stable run duration;
+- object count / working-set range;
+- repetitions N needed for acceptable CV;
+- p99 objective that is realistic for SNC's own stable envelope;
+- Path-B dimension ranges;
+- resource-sampling behavior;
+- Profile A/B harness correctness;
+- whether the R640 topology/pinning plan behaves as expected.
+
+Do not inspect competitor performance until the criteria file is committed.
+
+============================================================
+9. CP-1 SHOULD BE SPLIT LOGICALLY
+============================================================
+
+CP-1 currently mixes SNC pilot requirements with competitor measurement work.
+
+Split the plan into:
+
+CP-1A — SNC PILOT HARNESS
+
+Authorized after manifest review:
+- pilot runner for SNC only;
+- repeated SNC runs;
+- raw output preservation;
+- CV calculation;
+- p50/p95/p99/p99.9;
+- SNC CPU/RSS/storage/network metrics;
+- X4 Profile B state tagging;
+- SNC index-query mix;
+- CPU/memory allocation enforcement;
+- tests/smoke runs on dev VM only.
+
+CP-1B — COMPARATIVE HARNESS PREPARATION
+
+After the SNC pilot but BEFORE CRITERIA.md:
+- PostgreSQL p99/p99.9;
+- Redis p99/p99.9;
+- comparable resource accounting;
+- fair allocation wrapper;
+- Workload A semantics/mismatch table;
+- complexity inventory;
+- SpacetimeDB Workload A harness.
+
+CP-1B may be implemented before CRITERIA.md because harness construction is not a comparative result.
+
+But do NOT run cross-system performance comparisons while building it beyond tiny functional smoke tests on the dev VM.
+
+Smoke tests are correctness only and must not be treated as performance evidence.
+
+============================================================
+10. SPACETIMEDB DECISION D1 — MODIFY
+============================================================
+
+I do NOT approve simply removing SpacetimeDB from Workload A's first comparative wave.
+
+EXPERIMENTAL_VALIDATION names SNC, SpacetimeDB, Redis+service and PostgreSQL+service for Workload A.
+
+SpacetimeDB is also one of the systems most architecturally relevant to the SNC thesis.
+
+Therefore:
+
+- SpacetimeDB does NOT block the SNC-only pilot.
+- Its harness DOES need to exist before CRITERIA.md and the first complete Workload A comparative wave, unless a later explicit review changes the comparator set for a scientific reason.
+- Do not defer it merely to save implementation time.
+
+This gives us speed now without weakening the eventual falsification.
+
+============================================================
+11. REDIS INDEX SEMANTICS — DO NOT HIDE THE MISMATCH
+============================================================
+
+Workload A includes secondary-index queries.
+
+Plain Redis does not provide the same secondary-index primitive as SNC/PostgreSQL.
+
+Do not quietly implement a client-maintained index and call the semantics equal.
+
+Before comparative testing, choose and document one of:
+
+A. Redis + an explicitly named indexing component/data structure maintained by the service, with its write/update cost included.
+
+B. Mark Redis's index-query cell as a semantic mismatch and exclude that specific metric from direct matched comparison.
+
+C. Use an appropriate Redis search/index module if the chosen competitor definition explicitly includes it, pinning version/configuration.
+
+The semantics table must make the choice obvious.
+
+============================================================
+12. RESOURCE METRICS — DEFINE BEFORE IMPLEMENTATION
+============================================================
+
+G3 is directionally correct, but avoid ambiguous counters.
+
+Before CP-1A/B implementation, define:
+
+CPU per op:
+process CPU time consumed by server-side processes included in the system boundary / successful measured operations.
+
+Memory per object:
+define whether peak RSS, steady-state RSS, or incremental RSS over empty process is primary. Prefer incremental steady-state plus peak reported separately.
+
+Storage bytes/op:
+do not assume /proc/<pid>/io write_bytes equals physical media bytes. It is useful host-visible I/O accounting, but label it correctly. If device-level bytes are used, isolate the device/system sufficiently to attribute them.
+
+Network bytes/op:
+define interface/device counter boundaries and subtract idle/background traffic where practical. For localhost pilot, network bytes are not physical-NIC evidence.
+
+All systems must use the same accounting boundary as far as practical.
+
+Document unavoidable mismatches.
+
+============================================================
+13. CPU/MEMORY ALLOCATION — NUMA-AWARE ON R640
+============================================================
+
+G7 should not be merely “same CPU count.”
+
+The R640 experiment must record:
+
+- exact logical CPUs assigned;
+- their physical cores;
+- NUMA node/socket;
+- memory binding policy;
+- client CPUs separate from server CPUs;
+- IRQ placement relative to server/client cores where NIC tests are involved.
+
+For single-socket/local-NUMA runs, keep server memory local to its CPU node.
+
+Cross-NUMA is a named experimental dimension, not accidental scheduler placement.
+
+Do not let automatic NUMA balancing silently redefine the experiment.
+
+The manifest tells us the topology; the pilot configuration then pins explicitly.
+
+============================================================
+14. INDEX MIX — APPROVED IN PRINCIPLE
+============================================================
+
+G5 is genuinely needed.
+
+X1 exposed INDEX on the wire, but Workload A cannot test index-query behavior until the driver can issue it.
+
+A net_bench --index PCT style control is reasonable.
+
+Do not change INDEX semantics.
+
+The driver must report index-query count, success/refusal/error counts and latency separately enough that the mixed workload remains interpretable.
+
+============================================================
+15. PROFILE B X4 TAGGING — APPROVED IN PRINCIPLE
+============================================================
+
+Do not pool healthy and degraded Profile B intervals.
+
+The harness should classify intervals using the existing STATUS semantics and report:
+
+- healthy/READY;
+- degraded/lost standby;
+- failover/recovery/not-ready.
+
+The summary must include time/operations per class.
+
+A Profile B “HA_DURABLE” result must be derived only from the interval class whose contract actually provides HA_DURABLE.
+
+Do not relabel LOCAL_DURABLE degraded intervals as HA performance.
+
+============================================================
+16. COMPLEXITY METRIC — KEEP OBJECTIVE
+============================================================
+
+G9 is worth retaining but avoid turning “operational complexity” into a subjective score.
+
+Record observable counts/steps instead:
+
+- required services/processes;
+- configuration files/flags;
+- setup commands/steps;
+- replication/HA components;
+- operator actions for failover/recovery;
+- external dependencies;
+- lines/size of workload service glue where meaningful.
+
+If a qualitative judgment is later made, keep it separate from measured counts.
+
+============================================================
+17. CAMPAIGN ORDER — REVISED
+============================================================
+
+Use this order:
+
+1. Boot main R640 when convenient.
+2. Capture untouched manifest.
+3. Review manifest and define explicit CPU/NUMA/storage/NIC allocation.
+4. Implement/review CP-1A SNC pilot harness.
+5. Run SNC-only within-system pilot on R640; commit raw results.
+6. Implement/review CP-1B comparative harnesses, including SpacetimeDB Workload A.
+7. Write semantics/mismatch table and objective complexity inventory.
+8. Use pilot evidence to choose N/M_B/Path-B/p99 inputs.
+9. Commit CRITERIA.md with exact rules and comparator configurations.
+10. Record/freeze exact SNC SHA.
+11. Only then run PostgreSQL/Redis/SpacetimeDB/SNC comparative Workload A.
+12. Later waves: B/C and Orleans/Restate/DBOS; WAN when remote manifest exists.
+
+============================================================
+18. WHAT CLAUDE SHOULD DO NOW
+============================================================
+
+Because cody does not want to boot the R640 tonight:
+
+Do NOT wait by making up hardware work.
+Do NOT run comparative benchmarks.
+Do NOT implement CP-1 yet unless separately authorized.
+
+Make only the plan corrections in CAMPAIGN_PREP:
+
+- pilot = SNC-only;
+- split CP-1A / CP-1B;
+- SpacetimeDB required before first complete Workload A comparative wave but not before pilot;
+- add NUMA-aware allocation requirements;
+- define resource metric boundaries;
+- make Redis index semantics an explicit decision;
+- make complexity inventory objective/count-based.
+
+Then STOP.
+
+The next material action requiring the physical machine is the R640 manifest.
+
+============================================================
+FINAL
+============================================================
+
+PR #54: APPROVED WITH PLAN CORRECTIONS.
+
+No correctness blocker was found.
+No engine change is needed.
+Manifest tooling is approved.
+Status reconciliation is approved.
+Gap inventory is useful.
+
+Correct CAMPAIGN_PREP as above, then stop until the R640 is available.
+
+No pilot and no comparative benchmarks tonight.

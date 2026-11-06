@@ -105,9 +105,10 @@ Decided by cody on 2026-11-04.
     run 32 / 32) are approved.
   - **CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION (PR #53
     review, 2026-11-06). FULL EXPERIMENTAL BASELINE: NOT YET FROZEN**
-    (EXPERIMENTAL_BASELINE section 11). Next: the main R640's manifest
-    and the first-wave driver and harness gap inventory
-    ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)). No comparative benchmarks.
+    (EXPERIMENTAL_BASELINE section 11). Next: the main R640's untouched
+    manifest, then CP-1A and an SNC-only pilot
+    ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md), corrected per the PR #54
+    review). No comparative benchmarks before `CRITERIA.md`.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
