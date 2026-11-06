@@ -16,7 +16,7 @@ command lines.
 | --- | --- | --- |
 | This project's cloud VM (4 vCPU, 15 GiB, one NUMA node) | Development, loopback regression checks. Not experiment evidence: multi-process runs are CPU-oversubscribed | [dev-vm-4vcpu-20261104.txt](dev-vm-4vcpu-20261104.txt) |
 | Vultr VPSs, 2026-11-04 (three, 2 vCPU) | Lab run P0-P6. Destroyed; no script manifest. What was recorded: [REAL_MACHINES.md](../../docs/REAL_MACHINES.md) | none |
-| Main local server: Dell PowerEdge R640 (dual-socket Xeon Gold, about 384 GB; not the R740xd) | Bare-metal local SNC benchmarks | **to capture before first use**: run as root, steps in [CAMPAIGN_PREP.md](../../docs/CAMPAIGN_PREP.md) section 1 |
+| Main local server: Dell PowerEdge R640 (2 × Xeon Gold 6150, 320 GB, BOSS SATA boot/data, no NVMe; not the R740xd) | Bare-metal local SNC benchmarks | [r640-main-20261106.txt](r640-main-20261106.txt) (untouched, captured on the host by Claude Code; review in [R640_TOPOLOGY.md](../../docs/R640_TOPOLOGY.md)) |
 | R740xd | TrueNAS Scale; not used for bare-metal SNC tests | n/a |
 | Remote physical host: the partner's Dell PowerEdge R640 (Linux) | WAN and cross-site class (kept separate from LAN results) | **to capture before first use**, with RTT, jitter and loss to the main host |
 | VPS nodes | Same-region and WAN fabric, fault injection | at creation, with provider, instance type, region, and RTT, jitter and loss per pair |

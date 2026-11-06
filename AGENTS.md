@@ -1329,3 +1329,21 @@ or source comments.
     the manifest as root before any tuning, fill the network topology,
     review the allocation, and only then is CP-1A authorized.
 
+### 2026-11-06 UTC --- Claude (Claude Code): main R640 untouched manifest and topology review
+
+-   **Classification:** KEEP (evidence). The allocation is PROPOSED only.
+-   **What:**
+    - `bench/manifests/r640-main-20261106.txt` was captured on the host
+      by a local Claude Code session at 58c638f, before any tuning, and
+      relayed by cody.
+    - docs/R640_TOPOLOGY.md records what the host is: 2 × Gold 6150,
+      SMT on, even/odd NUMA split, 320 GB (10 × 32 GB DDR4-2400), no
+      NVMe. Data sits on the BOSS SATA card with the OS. The NICs are
+      X550 10GBASE-T, but eno1 is linked at 1 GbE on a shared LAN.
+      There is no OS cpufreq driver (the BIOS controls frequency).
+    - It also lists the gaps R-G1 to R-G4, a proposed node-0 pilot
+      allocation, and decisions for cody (storage, BIOS profile,
+      network).
+-   **Next action:** review the allocation and the decisions. CP-1A is
+    NOT authorized.
+
