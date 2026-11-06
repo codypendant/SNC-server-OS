@@ -1347,3 +1347,18 @@ or source comments.
 -   **Next action:** review the allocation and the decisions. CP-1A is
     NOT authorized.
 
+### 2026-11-06 UTC --- Claude (Claude Code): R640 manifest b (data SSD, 10 GbE)
+
+-   **Classification:** KEEP (evidence).
+-   **What:**
+    - cody added a dedicated Samsung 3.84 TB 12 Gb/s SAS SSD on the
+      SAS3008 HBA (node 0). It is ext4 with default options at
+      /srv/snc-data, WCE=1, fua=1.
+    - eno1 is now on a 10 GbE switch and links at 10 Gb/s.
+    - `bench/manifests/r640-main-20261106b.txt` was re-captured, with no
+      tuning. R-G4 is closed: all storage and NIC controllers are on
+      node 0. R640_TOPOLOGY's storage decision is settled.
+-   **Next action:** review the allocation. Open gaps: R-G1 (BIOS
+    profile), R-G2 (DIMM slots). The pilot stays loopback-only (one
+    host). CP-1A is NOT authorized.
+
