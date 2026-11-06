@@ -140,6 +140,11 @@ and a third manifest, and waits for cody's decision.
 
 ## 4. PROPOSED pilot allocation (for review)
 
+*Superseded by the PR #61 review.* The table below put the client on
+node 1. That is now the named cross-socket allocation **PILOT-X**. The
+baseline is **PILOT-L**: server and client on disjoint node 0 cores. Both
+are defined in `bench/pilot_plan.json` and `docs/PILOT_PLAN.md` section 2.
+
 For the SNC-only pilot, Profile A (LOCAL_DURABLE) and Profile C (memory),
 on this host only:
 
@@ -168,9 +173,10 @@ purpose and never left to the scheduler.
 1. **Storage for durable profiles: SETTLED** (cody, 2026-11-06). cody
    added a dedicated 3.84 TB 12 Gb/s SAS SSD ("the fastest you're gonna
    get"; no NVMe is available). Durable claims are labelled "SAS SSD".
-2. **The BIOS System Profile:** recorded (section 2a): DAPC. Claude
-   recommends switching to "Performance" before the pilot, then taking a
-   new manifest. This is waiting on cody.
+2. **The BIOS System Profile: SETTLED.** It was recorded as DAPC
+   (section 2a). cody switched it to "Performance" (manifest c, section
+   2b). The PR #61 review sets the governor to `performance` for the
+   campaign; that change is recorded in manifest d.
 3. **Network:** eno1 is now on a 10 GbE switch. The pilot is still
    loopback-only, because there is one experiment host. Cross-host work
    waits for a second host on that switch, and ideally a dedicated port

@@ -1,8 +1,13 @@
 # CP-1A draft (from the R640): review
 
-*Status: REVIEW of a DRAFT. Nothing here is authorized to run as the
-pilot. The draft and this review go to cody/Codex together. The stopped
-pilot's output is **not evidence**.*
+*Status: REVIEW of a DRAFT, **answered** by the PR #61 review
+(`docs/handoff/PR61_Review_Handoff.txt`):
+- F1: the open-loop `--rate` fix is authorized;
+- F2: the governor goes to `performance`.
+
+The corrected harness and plan are `docs/PILOT_PLAN.md`. The stopped
+pilot's output is **invalid for criteria and campaign evidence**. It now
+lives in `bench/results/INVALID-pilot-r640-20261106-stopped/`.*
 
 ## 1. What happened
 
@@ -31,7 +36,7 @@ in ctest.
 | `bench/net_bench.cpp` | `--index PCT`: that share of operations are `INDEX` lookups of a random loaded account's email, reported apart from the mix (gap G5) |
 | `bench/pilot.py` | the runner: phases, pinning (R640_TOPOLOGY section 4), per-run metrics, CV, knee rule |
 | `tests/test_pilot.py` | arithmetic tests: CV, knee rule, per-op metrics, parsing |
-| `bench/results/pilot-r640-20261106/` | `PILOT_PLAN.md` and the stopped pilot's output (one finished run). **Not evidence** |
+| `bench/results/pilot-r640-20261106/` (now `INVALID-pilot-r640-20261106-stopped/`) | `PILOT_PLAN.md` and the stopped pilot's output (one finished run). **Not evidence** |
 
 ## 2. Checked here (dev VM, not performance)
 
@@ -41,7 +46,7 @@ in ctest.
   Every generated email matches what `load()` created, using the same
   `user<thread>.<n>@example.com` scheme.
 - **Full Release ctest with the change: 33/33 passed** on the dev VM
-  (`bench/results/pilot-r640-20261106/review/ctest-release-devvm.log`).
+  (`bench/results/cp1a-devvm/ctest-release-draft-141213c.log`).
   The ASan/TSan suites were not run.
 
 ## 3. Findings

@@ -57,7 +57,7 @@ if(SNC_SEASTAR)
 endif()
 
 enable_testing()
-foreach(t test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster test_migrate test_resend_refusals test_proof test_placement test_stage_chain)
+foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster test_migrate test_resend_refusals test_proof test_placement test_stage_chain)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})
@@ -111,6 +111,9 @@ if(PYTHON3)
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_pilot COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_pilot.py)
+  # net_bench --rate (open loop) and --mix (PR #61 review).
+  add_test(NAME test_net_bench_rate COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_net_bench_rate.py
+           ${CMAKE_BINARY_DIR})
 endif()
 
 add_executable(baseline_server bench/baseline_server.cpp)

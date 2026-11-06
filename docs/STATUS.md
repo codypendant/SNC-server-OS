@@ -105,10 +105,19 @@ Decided by cody on 2026-11-04.
     run 32 / 32) are approved.
   - **CORRECTNESS BASELINE: READY FOR CAMPAIGN PREPARATION (PR #53
     review, 2026-11-06). FULL EXPERIMENTAL BASELINE: NOT YET FROZEN**
-    (EXPERIMENTAL_BASELINE section 11). Next: the main R640's untouched
-    manifest, then CP-1A and an SNC-only pilot
-    ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md), corrected per the PR #54
-    review). No comparative benchmarks before `CRITERIA.md`.
+    (EXPERIMENTAL_BASELINE section 11). The main R640 is described in
+    [R640_TOPOLOGY.md](R640_TOPOLOGY.md) (manifests a-c; d, with the
+    `performance` governor, still to capture).
+  - **CP-1A, corrected per the PR #61 review:**
+    - `net_bench --rate` (open loop, latency from the intended send time)
+      and `--mix` (exact shares of total ops);
+    - `bench/pilot.py` runs an open-loop rate sweep with the exact rule of
+      [PILOT_PLAN.md](PILOT_PLAN.md), with explicit PILOT-L/PILOT-X
+      allocations.
+    - The R640 draft's stopped run is quarantined as invalid.
+    - The plan is PROPOSED. **The real pilot is NOT authorized** until
+      the plan, manifest d and the dev-VM evidence are reviewed.
+    - No comparative benchmarks before `CRITERIA.md`.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).

@@ -1,0 +1,51 @@
+{
+  "_status": "PROPOSED for review (docs/PILOT_PLAN.md). Every value here is a proposal until cody/Codex approve the plan. bench/pilot.py records this file's SHA-256 in every result.",
+  "objects": 5000000,
+  "mix": "read=70,deposit=15,transfer=10,index=5",
+  "route": "owner",
+  "client_threads": 8,
+  "baseline_allocation": "PILOT-L",
+  "allocations": {
+    "PILOT-L": {
+      "what": "server and client on disjoint physical cores of node 0, memory on node 0, CPU 0 for housekeeping, every SMT sibling idle",
+      "server_cpus": [2, 4, 6, 8, 10, 12, 14, 16],
+      "client_cpus": [18, 20, 22, 24, 26, 28, 30, 32],
+      "server_node": 0,
+      "client_node": 0,
+      "housekeeping_cpus": [0, 36]
+    },
+    "PILOT-X": {
+      "what": "server on node 0, client on node 1: every request crosses the socket link (UPI). A named configuration, not the baseline",
+      "server_cpus": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34],
+      "client_cpus": [1, 3, 5, 7, 9, 11, 13, 15],
+      "server_node": 0,
+      "client_node": 1,
+      "housekeeping_cpus": [0, 36]
+    }
+  },
+  "shards": 8,
+  "profiles": {
+    "A": {"window_s": 60, "calibration_s": 60, "duration_check_s": [30, 60, 120, 240]},
+    "C": {"window_s": 30, "calibration_s": 30, "duration_check_s": [15, 30, 60, 120]}
+  },
+  "checkpoint_s": 60,
+  "calibration_depth": 512,
+  "rate_depth": 1024,
+  "warmup_s": 10,
+  "drain_s": 10,
+  "grid_step": "1/20",
+  "grid_points": 22,
+  "reps": 3,
+  "min_completed_fraction": "99/100",
+  "max_end_backlog_fraction": "1/100",
+  "objective_fraction": "7/10",
+  "knee_p99_multiple": 2,
+  "duration_check_rate_fraction": "1/2",
+  "fixed_reps": 5,
+  "capacity_reps": 5,
+  "shard_counts": [1, 2, 4, 8],
+  "shard_reps": 3,
+  "memory_empty_settle_s": 5,
+  "memory_steady_settle_s": 10,
+  "order_seed": 20261106
+}

@@ -1,0 +1,193 @@
+PR #61 REVIEW — CP-1A DRAFT / R640 MANIFEST C
+
+DECISION: DO NOT MERGE PR #61 AS-IS.
+
+Useful work is present, and Claude's own review caught the main methodology defect, but the R640 session crossed scope: CP-1A was not authorized and it started the physical pilot. Cody stopping it after one completed run was correct. That run is NOT campaign evidence and must never feed CRITERIA.md.
+
+MANIFEST C — ACCEPT
+
+Keep manifest c. It records Dell Performance BIOS, intel_pstate passive/intel_cpufreq, schedutil governor, 1.2-3.7 GHz/turbo, C6 disabled, numa_balancing=0, dedicated SAS SSD, and the post-reboot device-name reshuffle. Use model/serial/UUID, never /dev/sdX letters.
+
+STORAGE — ACCEPT
+
+The dedicated 3.84 TB 12 Gb/s SAS SSD is accepted as campaign storage. Durable claims say SAS SSD, not NVMe. Do not claim PLP unless independently verified.
+
+GOVERNOR — CHANGE TO PERFORMANCE
+
+For controlled campaign runs, set all CPUs to governor=performance, verify it before evidence runs, capture manifest d, and keep the same governor/profile for all systems compared on this host.
+
+BLOCKER F1 — CLOSED LOOP
+
+The current depth sweep is closed-loop and subject to coordinated omission. It cannot set the p99 objective. The stopped physical run is invalid for criteria/campaign evidence.
+
+AUTHORIZE NARROW OPEN-LOOP FIX
+
+Add net_bench --rate R:
+- total offered ops/s across threads;
+- deterministic intended issue schedule;
+- latency measured from intended issue time through completion;
+- depth bounds outstanding work/memory, not offered rate;
+- if slots are full, owed work waits and its delay counts;
+- never silently drop scheduled work;
+- report offered/completed/achieved rate, owed/late/backlog, maximum issue lateness, errors and latency percentiles;
+- deterministic thread division/remainder;
+- tests must prove scheduling arithmetic and that forced stalls appear in latency/backlog.
+
+Prefer deterministic periodic arrivals with per-thread phase offsets. Poisson/random arrivals are a later named workload dimension.
+
+RATE SWEEP
+
+Approve the structure:
+calibration only to size grid -> open-loop grid -> 3 reps/point -> fixed-seed shuffled order -> sustained test -> stable peak -> objective at fixed fraction.
+
+Do not freeze the draft's 5% x 1..22 grid or f=0.70 merely because they are written down.
+
+Before real pilot, PILOT_PLAN must fix:
+- calibration duration/depth;
+- offered-rate grid;
+- warm-up;
+- measurement duration;
+- reps;
+- sustained criterion;
+- backlog definition/drain window;
+- overload/error handling;
+- stable-peak rule;
+- objective fraction f;
+- informational knee rule;
+- tie breaking;
+- early-stop rule.
+
+SUSTAINED
+
+Every rep:
+- zero protocol/application errors;
+- completed throughput >=99% offered;
+- end backlog <=1% scheduled;
+- no dropped-work overload counter.
+
+If owed work cannot drain within bounded drain time, mark unsustained and record remaining backlog.
+
+Stable peak = largest rate whose point AND all lower points are sustained.
+
+Keep knee informational. Proposed descriptive knee: smallest sustained rate whose median p99 >2x median p99 at first grid point.
+
+f=0.70 remains PROPOSED and must be approved before data exists.
+
+CPU/NUMA ALLOCATION
+
+Current draft hard-codes server node0 / client node1. That is PILOT-X, not the desired baseline.
+
+CP-1A must support explicit allocation.
+
+PILOT-L:
+server and clients on disjoint physical cores on node0, memory local node0, housekeeping reserved, server SMT siblings idle.
+
+PILOT-X:
+server node0, clients node1, explicitly cross-socket/UPI.
+
+Use the approved baseline allocation for criteria-setting, not forced cross-socket traffic.
+
+Before shard sweep, budget physical cores among server/client/housekeeping. For high server-core counts, a second client host may eventually be necessary. It is acceptable to cap the local-socket primary sweep where client capacity remains sufficient and classify larger runs separately.
+
+INDEX G5
+
+--index PCT is directionally approved. Functional smoke: 315,505 lookups, 0 errors.
+
+Before merge/use:
+- inspect/fix exact percentage semantics;
+- index percentage must be defined against TOTAL operations;
+- verify total_ops_s and latency accounting;
+- keep index latency separate;
+- preserve old behavior at index=0;
+- full Release, ASan+UBSan and TSan because benchmark C++ changed.
+
+WORKLOAD MIX
+
+Do not use nested “of the rest” wording.
+
+State exact effective total percentages, e.g. INDEX 5%, TRANSFER 10%, READ 70%, DEPOSIT 15% if that is the intended mix, and implement exactly those percentages.
+
+LOOPBACK METRIC
+
+Do not combine lo rx+tx into a later physical-network-comparable metric. Report loopback RX and TX separately. Loopback remains diagnostic only.
+
+HISTOGRAM
+
+Document latency bucket resolution/bounds. Do not claim finer p99 precision than the histogram provides. Redesign only if resolution near the objective proves too coarse.
+
+MEMORY METRIC
+
+Add an empty-server stabilization step before empty RSS, then load, allow steady-state stabilization, and measure steady RSS/PSS. Peak remains separate.
+
+STOPPED PILOT
+
+Preserve it but label unmistakably:
+INVALID FOR CRITERIA / INVALID FOR CAMPAIGN EVIDENCE.
+
+Do not use its 1,278,015 ops/s, ~1.016 ms p99, 488.5 bytes/object, or any other number to choose N, f, V_MAX, M_B, grid spacing, thresholds or claims.
+
+REAL PILOT DISCIPLINE
+
+Must run from:
+- committed reviewed SHA;
+- clean git status;
+- approved manifest hash;
+- recorded binary hashes;
+- committed PILOT_PLAN before execution.
+
+SANITIZERS
+
+Because net_bench.cpp changed:
+- full RelWithDebInfo;
+- full ASan+UBSan;
+- full TSan.
+Benchmark-only C++ is not exempt because it determines evidence.
+
+PR #61 STRATEGY
+
+Do not merge this draft as approved CP-1A.
+
+Revise/supersede so it contains:
+- manifest c/topology evidence;
+- quarantined invalid stopped-run evidence;
+- corrected --index + tests;
+- open-loop --rate + tests;
+- corrected pilot runner with PILOT-L/PILOT-X config;
+- revised exact PILOT_PLAN;
+- performance-governor manifest d;
+- loopback/memory metric corrections;
+- full release/ASan/TSan evidence;
+- independent source review/QA.
+
+Then return BEFORE real pilot.
+
+AUTHORIZED NOW
+
+A. set governor=performance and capture manifest d;
+B. complete remaining DIMM/channel evidence if needed;
+C. implement/test --rate narrowly;
+D. correct/review --index;
+E. convert pilot.py to open-loop rate sweep;
+F. explicit PILOT-L/PILOT-X allocation config;
+G. loopback metric labeling;
+H. empty/steady memory stabilization;
+I. rewrite PILOT_PLAN with exact algorithm/effective mix;
+J. dev-VM correctness + full sanitizers;
+K. independent review/QA.
+
+NOT AUTHORIZED
+
+- real R640 pilot;
+- competitor performance;
+- CP-1B;
+- numeric CRITERIA thresholds;
+- physical Profile B campaign;
+- unrelated engine features.
+
+FINAL
+
+PR #61 is useful and salvageable but NOT APPROVED FOR MERGE/USE AS-IS.
+
+The R640 session crossed scope by starting CP-1A before review. Cody stopping it was correct.
+
+Proceed only with the corrected CP-1A implementation/design and return it for review BEFORE running the real SNC-only physical pilot.

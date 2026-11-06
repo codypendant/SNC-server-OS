@@ -1,3 +1,6 @@
+> **INVALID FOR CRITERIA / INVALID FOR CAMPAIGN EVIDENCE.** Superseded by
+> `docs/PILOT_PLAN.md`; see this directory's README.md.
+
 # SNC-only pilot on the main R640: plan
 
 Written before any sweep ran (EXPERIMENTAL_BASELINE 10.2). Run at cody's

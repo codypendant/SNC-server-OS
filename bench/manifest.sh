@@ -74,6 +74,15 @@ echo "### BIOS and memory DIMMs (dmidecode; needs root)"
 if command -v dmidecode >/dev/null 2>&1 && [ "$(id -u)" = 0 ]; then
   dmidecode -t bios -t system 2>/dev/null | grep -E 'Vendor|Version|Release Date|Manufacturer|Product Name' | grep -v 'Serial'
   dmidecode -t memory 2>/dev/null | grep -E '^\s+(Size|Speed|Configured Memory Speed|Type|Locator|Rank):' | grep -v 'No Module' | sort | uniq -c
+  # One line per slot, so populated and empty slots (and channels) show.
+  echo "### DIMM slots (slot: size, configured speed, rank)"
+  dmidecode -t 17 2>/dev/null | awk -F': ' '
+    /^Memory Device/ { if (l != "") print l ": " s ", " c ", rank " r; l = s = c = r = "" }
+    /^\tLocator:/ { l = $2 }
+    /^\tSize:/ { s = $2 }
+    /^\tConfigured Memory Speed:/ { c = $2 }
+    /^\tRank:/ { r = $2 }
+    END { if (l != "") print l ": " s ", " c ", rank " r }' | sort -V
 else
   echo "(run as root with dmidecode for BIOS and DIMM details)"
 fi
