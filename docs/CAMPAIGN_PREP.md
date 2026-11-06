@@ -26,7 +26,7 @@ results. Every gap below is read from the repository (INFERRED, EL0).
 
 **Captured 2026-11-06, untouched:**
 `bench/manifests/r640-main-20261106.txt`, measured on the host itself by
-`bench/manifest.sh` at 58c638f. The topology review and the PROPOSED
+`bench/manifest.sh` at 58c638f. After cody added the data SSD and a 10 GbE switch, it was re-captured as `bench/manifests/r640-main-20261106b.txt`, which is the current manifest. The topology review and the PROPOSED
 pilot allocation are in [R640_TOPOLOGY.md](R640_TOPOLOGY.md), waiting on
 review. The procedure below stays for the remote R640 and for any
 re-capture after a hardware, BIOS or kernel change.

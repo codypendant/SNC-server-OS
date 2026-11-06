@@ -1,14 +1,23 @@
 # Main R640: topology review and proposed pilot allocation
 
-*Status: OBSERVED facts from the untouched manifest
-(`bench/manifests/r640-main-20261106.txt`, captured 2026-11-06 05:17 UTC
-at 58c638f by Claude Code running on the host itself). INFERRED and
+*Status: OBSERVED facts from two manifests, both captured by Claude Code
+running on the host itself:*
+- *`bench/manifests/r640-main-20261106.txt`, untouched, 05:17 UTC at 58c638f;*
+- *`bench/manifests/r640-main-20261106b.txt`, 06:00 UTC at c1a2383, after
+  cody added a SAS SSD as the data disk and moved eno1 to a 10 GbE switch.*
+
+*Nothing was tuned between the two manifests. **Manifest b describes the
+host the campaign uses.*** INFERRED and
 PROPOSED items are marked. **Nothing here is approved.** The allocation
 (section 4) and the decisions (section 5) wait for cody/Codex review.
 CP-1A is not authorized.*
 
 Remembered specifications are not evidence. The manifest shows **320 GB
 of RAM, not the ~384 GB remembered**, and **no NVMe**.
+
+*Update after manifest b, 2026-11-06:* the data dir is now on a dedicated
+3.84 TB 12 Gb/s SAS SSD, and eno1 links at 10 Gb/s. Section 5's storage
+decision is settled, and gap R-G4 is closed.
 
 ## 1. What the host is (OBSERVED)
 
@@ -20,8 +29,9 @@ of RAM, not the ~384 GB remembered**, and **no NVMe**.
 | Caches | L2 1 MiB per core; L3 24.75 MiB per socket |
 | Memory | 314 GiB usable: 10 × 32 GB DDR4-2400, 2-rank, configured at 2400 MT/s; 24 slots, 14 empty; about 161 GB per node |
 | Huge pages | none reserved; THP `madvise` (defrag `madvise`) |
-| Storage | **No NVMe.** `sdb` = DELLBOSS VD 447 GB (the BOSS M.2 card, Marvell 88SE9230 at 5e:00.0), holding `/boot/efi`, `/` (ext4, `rw,relatime`) **and the data dir `/srv/snc-data`**; `write_cache=write back`, `fua=0`, mq-deadline, reports `rotational=1`. `sda` = Seagate ST3000DM008 3 TB 7200 rpm desktop HDD with an old `VMFS_volume_member` partition. An LSI SAS3008 HBA (18:00.0) is present |
-| NICs | 4 × Intel X550 10GBASE-T ports (two dual-port controllers, 1a:00 and 1c:00), ixgbe driver. **`eno1` is linked at 1000 Mb/s** (advertises 10G), MTU 1500, NUMA node 0, 63 combined queues. It carries the default route and management traffic on a shared LAN. `eno2`-`eno4` have no link |
+| Data disk (manifest b) | `sdc` = **Samsung ARFX3840S5xnFTRI, 3.84 TB SAS SSD**, firmware 3P00, SAS link negotiated 12.0 Gbit, 512 B logical / 4096 B physical sectors. It sits on the LSI SAS3008 HBA (18:00.0, root port 17:00.0, NUMA node 0). One GPT partition, ext4 with default options (`rw,relatime,stripe=2`; stripe is ext4's own default from the device geometry), mounted at `/srv/snc-data`. Volatile write cache on (`WCE 1`, the device default), `fua=1`, mq-deadline, `rotational=0` |
+| Storage (manifest a) | **No NVMe.** `sdb` = DELLBOSS VD 447 GB (the BOSS M.2 card, Marvell 88SE9230 at 5e:00.0), holding `/boot/efi`, `/` (ext4, `rw,relatime`) **and the data dir `/srv/snc-data`**; `write_cache=write back`, `fua=0`, mq-deadline, reports `rotational=1`. `sda` = Seagate ST3000DM008 3 TB 7200 rpm desktop HDD with an old `VMFS_volume_member` partition. An LSI SAS3008 HBA (18:00.0) is present |
+| NICs | 4 × Intel X550 10GBASE-T ports (two dual-port controllers, 1a:00 and 1c:00), ixgbe driver. `eno1` linked at 1000 Mb/s in manifest a and **at 10000 Mb/s in manifest b** (now on a 10 GbE switch), MTU 1500, NUMA node 0, 63 combined queues. It carries the default route and management traffic on a shared LAN. `eno2`-`eno4` have no link |
 | IRQs | 64 eno1 IRQ lines, each affinitized to all node 0 CPUs; irqbalance inactive |
 | Frequency | **No cpufreq driver is exposed** (`scaling_driver`, limits, turbo: n/a). cpuidle `intel_idle` with POLL/C1/C1E/C6 (133 µs) all enabled |
 | Kernel | Ubuntu 24.04.5, 6.8.0-149-generic, no extra cmdline; `numa_balancing=1`, `swappiness=60`, `dirty_ratio=20`, `sched_autogroup=1`; no isolcpus or nohz_full |
@@ -44,15 +54,19 @@ of RAM, not the ~384 GB remembered**, and **no NVMe**.
   is the same for every system, but it caps memory-bound results.
   **Gap R-G2:** the manifest does not say which slots are populated; the
   iDRAC hardware inventory does.
-- **Durable profiles would fsync to the BOSS card.** That is a SATA M.2
-  device, probably two SSDs in RAID-1 (the BOSS default; INFERRED,
-  **gap R-G3**), shared with the OS. Durable latency and throughput will
-  be bounded by it, not by an NVMe-class device. It is the same device
-  for every system, so the comparison stays fair, but the claim must say
-  "SATA/BOSS durable", and a later change of device invalidates the
-  durable pilot.
-- **No network evidence is possible on this host as wired.** There is
-  one host, and its only live link is a shared 1 GbE management LAN.
+- **Durable profiles fsync to the SAS SSD** (manifest b), which is
+  dedicated to data and not shared with the OS. Durable claims say
+  "12 Gb/s SAS SSD", not NVMe-class.
+  - INFERRED: an enterprise SAS SSD of this class usually has
+    power-loss protection, which would make its write cache safe for
+    fsync. That is not verified, so the device's flush latency is
+    measured, never assumed.
+  - It is the same device for every system in a comparison. Changing it
+    later invalidates the durable pilot.
+  - Gap R-G3 (the BOSS RAID level) only matters for the OS disk now.
+- **Still no physical-network evidence.** eno1 now links at 10 Gb/s
+  (manifest b), but there is still one experiment host. The link is
+  also shared with the default route and management traffic.
   Pilot client traffic is loopback and is labelled loopback (CAMPAIGN_PREP
   section 4). Profile B (sync HA) and any physical-network number need a
   second host and a dedicated link: a direct cable between an X550 port
@@ -65,13 +79,11 @@ of RAM, not the ~384 GB remembered**, and **no NVMe**.
 
 ## 3. Locality (OBSERVED, with one inference)
 
-- `eno1` reports NUMA node 0.
-- **INFERRED from PCI bus numbers:** the X550s (1a, 1c, under root ports
-  on bus 17), the SAS3008 (18) and the BOSS controller (5e, under bus 5d)
-  all hang off socket 0. Buses 80 and above belong to socket 1. **Gap
-  R-G4:** confirm with `cat /sys/bus/pci/devices/0000:5e:00.0/numa_node`
-  (and 18:00.0, 1c:00.0) on the host.
-- So both I/O paths that matter (storage and the NIC) are local to
+- **OBSERVED (manifest b, sysfs `numa_node`):** the SAS3008 HBA
+  (18:00.0) that carries the data SSD, the BOSS controller (5e:00.0) and
+  both X550 controllers (1a:00.0, 1c:00.0) are all on **node 0**. Gap
+  R-G4 is closed.
+- So both I/O paths that matter (the data disk and the NIC) are local to
   **node 0**.
 
 ## 4. PROPOSED pilot allocation (for review)
@@ -82,7 +94,7 @@ on this host only:
 | Role | CPUs | Memory | Notes |
 |---|---|---|---|
 | Housekeeping, OS, IRQs | 0 and its sibling 36 | - | nothing under test runs here |
-| SNC server shards | node 0 physical cores, one thread each: 2, 4, …, 34 (up to 17 shards) | `--membind=0` | local to the BOSS card and eno1. The shard-count sweep uses 1, 2, 4, 8, 16 |
+| SNC server shards | node 0 physical cores, one thread each: 2, 4, …, 34 (up to 17 shards) | `--membind=0` | local to the data SSD's HBA and to eno1. The shard-count sweep uses 1, 2, 4, 8, 16 |
 | Client load generator (TCP loopback runs) | node 1 physical cores: 1, 3, …, 35 | `--membind=1` | never overlaps the server. Every request crosses the socket link, and the run says so |
 | Unused | node 0 siblings 38-70; node 1 siblings 37-71 | - | SMT on/off is a named dimension, not default |
 
@@ -101,18 +113,15 @@ purpose and never left to the scheduler.
 
 ## 5. Decisions for cody (before CP-1A)
 
-1. **Storage for durable profiles.** Choose one:
-   - accept the BOSS card, and label every durable claim
-     "SATA/BOSS, shared with the OS"; or
-   - add an NVMe device (a U.2 drive if the backplane supports it, or a
-     PCIe add-in card) **before** the pilot, so the pilot is not
-     invalidated later.
-   - *Claude recommends* deciding this before the pilot; NVMe if
-     durable results should say anything about modern hardware.
+1. **Storage for durable profiles: SETTLED** (cody, 2026-11-06). cody
+   added a dedicated 3.84 TB 12 Gb/s SAS SSD ("the fastest you're gonna
+   get"; no NVMe is available). Durable claims are labelled "SAS SSD".
 2. **The BIOS System Profile:** record it (R-G1). If it changes for the
    campaign (for example to "Performance"), take a second manifest.
-3. **Network:** the pilot is loopback-only. Cross-host work waits for a
-   second host and a dedicated 10GbE link.
+3. **Network:** eno1 is now on a 10 GbE switch. The pilot is still
+   loopback-only, because there is one experiment host. Cross-host work
+   waits for a second host on that switch, and ideally a dedicated port
+   (eno2-eno4).
 4. **The `sda` disk** holds an old VMFS volume. It stays untouched and
    is never used by the campaign unless cody says otherwise.
 5. **The deterministic knee algorithm** goes into the CP-1A plan after
