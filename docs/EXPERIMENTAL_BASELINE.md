@@ -517,8 +517,8 @@ reported):
 These rules are **ACCEPTED with the review's corrections**. Where a number is not yet defensible,
 this section gives the qualitative rule and the pilot that sets the
 number. Every number is committed in `CRITERIA.md` **before any
-comparative result exists**. The pilot measures only the variance of
-each system on its own, never one system against another.
+comparative result exists**. The pilot runs SNC only (10.1); no
+competitor performance is observed before `CRITERIA.md`.
 
 ### 10.1 Pilot (before any comparison): SNC only
 
@@ -659,10 +659,10 @@ as one commit plus `bench/results/<campaign>/CRITERIA.md`.
    - the profiles;
    - the competitors' versions and configurations;
    - the semantics tables;
-   - N, M_B, each Path B dimension's threshold, and the p99 objective
-     from the pilot;
+   - N, N_MIN, V_MAX, M_B, each Path B dimension's threshold, and the
+     p99 objective, all from the SNC-only pilot (10.1, 10.2);
    - the decision rules of section 10.
-7. **Pilot:** the within-system pilot ran, and its raw output is
+7. **Pilot:** the SNC-only pilot ran, and its raw output is
    committed.
 8. **Freeze:** no feature work lands on the baseline branch during the
    campaign. A fix that the campaign forces is a REFINE round, rerun
