@@ -77,6 +77,38 @@ decision is settled, and gap R-G4 is closed.
 - **SMT siblings share a core.** Pinning two busy threads to *c* and
   *c*+36 halves each one's core. SMT use must be explicit in every run.
 
+## 2a. BIOS System Profile as found (OBSERVED, 2026-11-06, gap R-G1 closed)
+
+This was read in iDRAC (Configuration → BIOS Settings → System Profile
+Settings) by cody and photographed:
+`bench/manifests/r640-main-20261106-bios-system-profile.jpg`. Nothing
+was changed.
+
+| Setting | Value |
+|---|---|
+| System Profile | **Performance Per Watt (DAPC)** |
+| CPU Power Management | System DBPM (DAPC) |
+| Memory Frequency | Maximum Performance |
+| Turbo Boost | Enabled |
+| C1E | Enabled |
+| C States | Enabled |
+| Write Data CRC | Disabled |
+| Memory Patrol Scrub | Standard |
+| Memory Refresh Rate | 1x |
+| Uncore Frequency | Dynamic |
+| Energy Efficient Policy | Balanced Performance |
+| Turbo Boost enabled cores, processor 1 / 2 | All / All |
+| Monitor/Mwait | Enabled |
+| Workload Profile | Not Available |
+| CPU Interconnect Bus Link Power Management | Enabled |
+| PCI ASPM L1 Link Power Management | Enabled |
+
+DAPC (BIOS-controlled P-states) explains why the OS exposes no cpufreq
+driver. **PROPOSED:** use Dell's "Performance" preset for the campaign.
+It keeps turbo on and turns off C-states and C1E, sets uncore to
+maximum, and disables link power management. Changing it needs a reboot
+and a third manifest, and waits for cody's decision.
+
 ## 3. Locality (OBSERVED, with one inference)
 
 - **OBSERVED (manifest b, sysfs `numa_node`):** the SAS3008 HBA
@@ -116,8 +148,9 @@ purpose and never left to the scheduler.
 1. **Storage for durable profiles: SETTLED** (cody, 2026-11-06). cody
    added a dedicated 3.84 TB 12 Gb/s SAS SSD ("the fastest you're gonna
    get"; no NVMe is available). Durable claims are labelled "SAS SSD".
-2. **The BIOS System Profile:** record it (R-G1). If it changes for the
-   campaign (for example to "Performance"), take a second manifest.
+2. **The BIOS System Profile:** recorded (section 2a): DAPC. Claude
+   recommends switching to "Performance" before the pilot, then taking a
+   new manifest. This is waiting on cody.
 3. **Network:** eno1 is now on a 10 GbE switch. The pilot is still
    loopback-only, because there is one experiment host. Cross-host work
    waits for a second host on that switch, and ideally a dedicated port
