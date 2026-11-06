@@ -40,7 +40,9 @@ in ctest.
   `--index 20`, 2 s. 315,505 index lookups, all OK, 0 empty, 0 errors.
   Every generated email matches what `load()` created, using the same
   `user<thread>.<n>@example.com` scheme.
-- Full Release ctest with the change: see the PR description.
+- **Full Release ctest with the change: 33/33 passed** on the dev VM
+  (`bench/results/pilot-r640-20261106/review/ctest-release-devvm.log`).
+  The ASan/TSan suites were not run.
 
 ## 3. Findings
 
