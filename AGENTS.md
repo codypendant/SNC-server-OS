@@ -1316,3 +1316,16 @@ or source comments.
 -   **Next action:** STOP until the R640 is booted and its untouched
     manifest captured. No code, no CP-1A, no pilot.
 
+### 2026-11-06 UTC --- Claude (Claude Code): PR #56 review filed (handoff/PR56_Review_Handoff.txt)
+
+-   **Classification:** REFINE (wording only).
+-   **What:** PR #56 approved.
+    - A competitor CV at or below V_MAX now reads "the variance criterion
+      is satisfied", not "the cell is valid". Other invalidity reasons
+      are listed.
+    - The knee rule must be an exact algorithm, defined before the R640
+      sweep.
+-   **Next action:** STOP until the R640 untouched manifest. Then run
+    the manifest as root before any tuning, fill the network topology,
+    review the allocation, and only then is CP-1A authorized.
+

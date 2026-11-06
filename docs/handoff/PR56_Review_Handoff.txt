@@ -1,0 +1,226 @@
+PR #56 REVIEW — SNC-ONLY NOISE FLOOR / P99 METHODOLOGY
+
+DECISION: PR #56 APPROVED.
+
+I reviewed the PR and the methodology changes in EXPERIMENTAL_BASELINE, CAMPAIGN_PREP, AGENTS and the filed PR #55 handoff.
+
+Claude followed the work order exactly:
+- documentation only;
+- no CP-1A code;
+- no pilot;
+- no R640 assumptions;
+- no competitor performance;
+- no numeric thresholds selected;
+- stopped pending the physical R640 manifest.
+
+The contradiction between the SNC-only pilot and EXPERIMENTAL_BASELINE 10.1/10.2 is resolved.
+
+============================================================
+1. SNC-ONLY PILOT — APPROVED
+============================================================
+
+EXPERIMENTAL_BASELINE now explicitly supersedes the old per-system pilot.
+
+Before CRITERIA.md:
+- SNC only;
+- at least five fixed-setting repetitions;
+- CV_throughput_SNC recorded;
+- CV_p99_SNC recorded;
+- offered-load sweep for the p99 objective;
+- no competitor performance observed.
+
+This is methodologically consistent with preregistration.
+
+============================================================
+2. NOISE FLOOR N — APPROVED
+============================================================
+
+The rule is now:
+
+N = max(
+    3 x max(CV_throughput_SNC, CV_p99_SNC),
+    N_MIN
+)
+
+N_MIN is selected during the formal criteria-setting review after the SNC pilot and before any competitor performance run.
+
+The final N and N_MIN are written into CRITERIA.md before comparative testing.
+
+Approved.
+
+============================================================
+3. COMPETITOR VARIANCE V_MAX — APPROVED
+============================================================
+
+V_MAX is fixed in CRITERIA.md before competitor performance.
+
+During comparative repetitions:
+- competitor CV <= V_MAX -> cell may be valid;
+- competitor CV > V_MAX -> cell is INVALID/TOO NOISY;
+- correct the environment and/or rerun;
+- N does not grow;
+- materiality thresholds do not move.
+
+This prevents competitor noise from changing the decision boundary after results are visible.
+
+Approved.
+
+============================================================
+4. P99 OBJECTIVE — APPROVED IN PRINCIPLE
+============================================================
+
+The old “slower system at 50% of its own peak” rule is gone.
+
+The objective now comes entirely from the SNC pilot:
+- sweep SNC offered load;
+- identify stable knee / operating region;
+- use SNC's p99 at a documented fraction of stable peak load;
+- knee rule and fraction are written before the sweep;
+- final p99 objective goes into CRITERIA.md before competitor performance.
+
+Competitors are then measured against the same fixed objective.
+
+Approved.
+
+IMPORTANT FOR CP-1A:
+the knee detector/rule must be deterministic enough that two people given the same pilot data select the same knee/objective. Do not leave “stable knee” as a visual judgment.
+
+The pilot plan must define the exact algorithm before the R640 sweep.
+
+============================================================
+5. N_MIN / V_MAX NUMBERS — CORRECTLY NOT CHOSEN
+============================================================
+
+No numeric values were invented.
+
+Correct.
+
+They are chosen at the formal criteria-setting review using the SNC pilot and documented benchmarking practice, before competitor performance.
+
+============================================================
+6. M_B / PATH-B THRESHOLDS — CORRECTLY DEFERRED
+============================================================
+
+M_B and the secondary materiality thresholds remain unresolved until the formal criteria-setting review.
+
+They must be fixed in CRITERIA.md before any comparator performance run.
+
+Correct.
+
+============================================================
+7. CAMPAIGN_PREP — NOW CONSISTENT
+============================================================
+
+CAMPAIGN_PREP correctly states:
+- pilot is SNC-only;
+- N uses SNC variance + N_MIN;
+- V_MAX is a validity threshold, not an input that changes N;
+- p99 objective comes from SNC load sweep;
+- SpacetimeDB remains in Workload A;
+- CP-1A is SNC-only;
+- CP-1B is comparative harness preparation;
+- PostgreSQL process accounting must use a process tree/cgroup rather than a static PID list;
+- final N_MIN/V_MAX/N/M_B/Path-B/p99 values are selected before CRITERIA.md.
+
+Approved.
+
+============================================================
+8. ONE WORDING PRECISION FOR LATER CRITERIA
+============================================================
+
+EXPERIMENTAL_BASELINE says competitor CV <= V_MAX means “the cell is valid.”
+
+For CRITERIA.md, phrase this as:
+
+“the variance criterion is satisfied”
+
+rather than implying that variance alone makes the entire cell valid.
+
+A comparative cell can still be invalid for:
+- semantic mismatch;
+- profile/contract violation;
+- allocation mismatch;
+- failed run guard;
+- hardware/environment deviation;
+- missing measurements.
+
+This does not require another PR tonight unless Claude wants to make the tiny wording correction while filing this review.
+
+It is not a blocker.
+
+============================================================
+9. EXPERIMENTAL_BASELINE SECTION 11 — CONSISTENT
+============================================================
+
+The freeze requirements now correctly list:
+- N;
+- N_MIN;
+- V_MAX;
+- M_B;
+- Path-B thresholds;
+- p99 objective;
+- SNC-only pilot evidence;
+- all before comparative results.
+
+Good.
+
+============================================================
+10. NO FURTHER WORK TONIGHT
+============================================================
+
+STOP.
+
+Do not:
+- implement CP-1A;
+- implement CP-1B;
+- run a pilot;
+- run competitor smoke performance;
+- choose N_MIN/V_MAX;
+- invent the R640 topology;
+- tune hardware;
+- run comparative benchmarks.
+
+The next material evidence is the physical R640's untouched manifest.
+
+============================================================
+11. WHEN THE R640 IS BOOTED
+============================================================
+
+Sequence:
+
+1. Pull current main.
+2. Identify actual SNC data filesystem/device and test NIC(s).
+3. Run the expanded manifest script as root BEFORE CPU/NUMA/IRQ/THP/governor tuning.
+4. Fill the physical network-topology section.
+5. Return/commit the manifest.
+6. Review the actual CPU/socket/NUMA/storage/NIC topology.
+7. Define the pilot's explicit CPU/memory/IRQ allocation.
+8. Only then authorize CP-1A.
+
+Do not use remembered R640 specifications as experiment evidence.
+
+============================================================
+12. CURRENT PROJECT STATE
+============================================================
+
+CORRECTNESS/HARDENING GATE: CLEAR.
+
+CAMPAIGN METHODOLOGY: RECONCILED.
+
+FULL EXPERIMENTAL BASELINE: NOT FROZEN.
+
+WAITING ON: MAIN R640 UNTOUCHED MANIFEST.
+
+No comparative performance exists under the campaign yet.
+
+============================================================
+FINAL
+============================================================
+
+PR #56 APPROVED.
+
+The SNC-only pilot, fixed noise-floor methodology, competitor variance validity rule and SNC-derived p99 objective are now internally consistent.
+
+No further implementation is authorized tonight.
+
+Stop until the R640 is available and its untouched manifest is captured.

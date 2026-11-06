@@ -544,7 +544,11 @@ superseded.*
   before any competitor performance run.
 - **Competitor variance** is governed by **V_MAX**, also fixed in
   `CRITERIA.md`. In the comparative repetitions:
-  - a competitor CV of at most V_MAX: the cell is valid;
+  - a competitor CV of at most V_MAX: the variance criterion is
+    satisfied. The cell can still be invalid for other reasons: a
+    semantic mismatch, a profile or contract violation, an allocation
+    mismatch, a failed run guard, a hardware or environment deviation,
+    or missing measurements;
   - a competitor CV above V_MAX: the cell is **invalid (too noisy)**. It
     is rerun, or its environment is corrected, and then rerun.
   - N never grows after competitor variance is seen, and no materiality
@@ -569,8 +573,10 @@ The primary metric is **throughput per core at a p99 latency objective**:
   before the pilot runs.** The pilot sweeps SNC's offered load and
   finds SNC's stable knee and operating region. The objective is SNC's
   p99 at a documented fraction of its stable peak load. The fraction
-  and the knee rule are written in the pilot plan before the sweep, and
-  the resulting objective is recorded in `CRITERIA.md` before any
+  and the knee rule are written in the pilot plan before the sweep. The
+  knee rule is an exact algorithm, not a visual judgment: two people
+  given the same pilot data must select the same knee and objective. The
+  resulting objective is recorded in `CRITERIA.md` before any
   competitor performance run. *(Superseded rule: "the p99 the slower
   system reaches at 50% of its own peak".)*
 - Each competitor is then measured on how much throughput per core it
