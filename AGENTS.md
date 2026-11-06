@@ -1418,6 +1418,6 @@ or source comments.
     - `numa_balancing` read 1, most likely after a reboot (inferred). The
       runner refuses unless it is 0.
     - R640_TOPOLOGY section 2c records all of this.
--   **Next action:** cody/Codex approve manifest d, then its SHA-256 goes
-    into pilot_plan.json. Then review PILOT_PLAN. The real pilot is NOT
+-   **Next action:** manifest d ACCEPTED (handoff/PR61_Addendum_ManifestD.txt); its SHA-256 is now
+    in pilot_plan.json. Then review PILOT_PLAN. The real pilot is NOT
     authorized.

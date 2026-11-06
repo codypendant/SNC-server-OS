@@ -161,9 +161,21 @@ capture. SHA-256:
   c's notes still apply: eno1 is at 10 Gb/s on a shared LAN, and there
   is one host.
 
-**PROPOSED:** manifest d is the campaign manifest. Its SHA-256 goes into
-`bench/pilot_plan.json` `approved_manifest_sha256` only after cody/Codex
-approve it.
+**ACCEPTED** (docs/handoff/PR61_Addendum_ManifestD.txt): manifest d is
+the campaign manifest, and its SHA-256 is `approved_manifest_sha256` in
+`bench/pilot_plan.json`.
+
+**Before every evidence session**, set and verify the governor and
+`numa_balancing`. Neither survives a reboot:
+
+```
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor > /dev/null
+sudo sysctl -w kernel.numa_balancing=0
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | sort | uniq -c   # 72 performance
+cat /proc/sys/kernel/numa_balancing                                           # 0
+```
+
+`bench/pilot.py` refuses to start if either is wrong.
 
 ## 3. Locality (OBSERVED, with one inference)
 

@@ -1,0 +1,13 @@
+ADDENDUM TO YOUR EXISTING PR #61 HANDOFF (cody, 2026-11-06 13:09 UTC, relayed in the project thread)
+You already have the full PR #61 review/handoff. Do not restart or duplicate that work.
+Codex has now completed the remaining R640 configuration evidence:
+Branch: r640-manifest-d
+Commit: e65a61e
+Manifest D confirms all 72 CPUs use the performance governor.
+DIMM population is now captured: A1–A5 and B1–B5 are populated with 32 GB DDR4-2400 rank-2 DIMMs; remaining slots are empty.
+C6 remains disabled.
+Codex performed no build or benchmark run while capturing this evidence.
+The performance governor is not persistent across reboot, so the future physical-pilot procedure must reapply and verify it before evidence runs.
+Treat the governor/Manifest-D and DIMM-evidence requirements in the existing PR #61 handoff as SATISFIED.
+Continue only with the remaining authorized PR #61 software work: corrected open-loop --rate, CP-1A harness corrections, PILOT-L/PILOT-X allocation support, metric cleanup, exact pre-data pilot methodology, Release/ASan/TSan verification, and independent review/QA.
+Do not run the real R640 pilot.

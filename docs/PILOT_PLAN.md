@@ -24,8 +24,10 @@ It sets no threshold and runs no competitor.
 
 ## 2. Host and allocation
 
-- Host: the R640 as in **manifest d** (performance governor), still to be
-  captured. A real run refuses to start unless every CPU's governor is
+- Host: the R640 as in **manifest d**, accepted
+  (`bench/manifests/r640-main-20261106d.txt`, R640_TOPOLOGY 2c). Before
+  each evidence session, reapply the governor and `numa_balancing`
+  (R640_TOPOLOGY 2c); neither survives a reboot. A real run refuses to start unless every CPU's governor is
   `performance` and `kernel.numa_balancing` is 0 (`pilot.py` checks both).
 - **PILOT-L (the baseline allocation):** all on node 0, local to the data
   SSD's HBA and to eno1.
@@ -204,9 +206,8 @@ A real pilot (`pilot.py` without `--quick`) refuses to start unless:
 - `numa_balancing` is 0.
 
 It also refuses unless:
-- the manifest's SHA-256 equals `approved_manifest_sha256` in the plan.
-  That value is null until manifest d is reviewed, so a real run cannot
-  start yet;
+- the manifest's SHA-256 equals `approved_manifest_sha256` in the plan
+  (manifest d's, accepted in the PR #61 addendum);
 - the build directory is a plain RelWithDebInfo build (no sanitizer
   flags).
 
@@ -220,9 +221,9 @@ The runner never writes account-ID files under `--out`. It deletes each
 run's data directory after the run. Raw client and server logs of every
 run are kept.
 
-The real pilot runs from the reviewed commit. It needs cody's go, after
-this plan, the manifest d review and the dev-VM evidence
-(`bench/results/cp1a-devvm/`) are accepted.
+The real pilot runs from the reviewed commit. Manifest d is accepted.
+The pilot still needs this plan and the dev-VM evidence
+(`bench/results/cp1a-devvm/`) to be accepted, and then cody's go.
 
 ## 9. Estimated duration
 
