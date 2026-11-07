@@ -504,6 +504,12 @@ obligation (the last bullet but one).
 
 ### 6.1 Operation and resource matrix (review §6)
 
+*As built in S1: `docs/S1_ADMISSION.md` section 2. Correction to the
+"Gate today" column below: before S1, CREATE and DELETE had no gate
+(only `execute` checked the follow-up backlog). Forwarded READs keep the
+follow-up gate in S1, because the origin's pending slots are not
+otherwise bounded.*
+
 | Class | Resources consumed | Gate today | PROPOSED gate |
 |---|---|---|---|
 | Pure READ, owner shard, object durable | CPU; memory bandwidth; connection output buffer for the answer | follow-up backlog | foreground time quantum under pressure (6.3); the existing 8 MiB per-connection output limit, at which the connection stops reading (`conn_set.cpp:20,103`) |
@@ -917,7 +923,7 @@ two summed.
 | Field | Meaning | Updated by |
 |---|---|---|
 | `refused_followup`, `refused_ring` | E_OVERLOADED by cause: the follow-up gate in `execute`; a full ring with full overflow in `send_request` / `send_batch` | the refusing code |
-| `refused_waiter`, `refused_wal_buffer` | S1 causes; **always 0 in S0** (no such refusal exists yet) | — |
+| `refused_waiter`, `refused_wal_buffer` | S1 causes (`docs/S1_ADMISSION.md`); 0 in S0 and with `--admission legacy` | `Shard::admit` |
 | `gather_overloaded` | index gather legs dropped because a ring was full (not a client refusal by itself) | `index_lookup` |
 | `waiters_now`, `waiters_peak` | durability waiters held now, most ever held | `defer`, `release_waiters`, `withdraw` |
 | `waiter_bytes_now`, `waiter_bytes_peak` | Σ(`sizeof(Waiter)` + a LOCAL answer's copied result + a REMOTE answer's external result buffer); excludes `std::deque` block overhead | same |

@@ -168,6 +168,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
       // before: only its answer would have needed a waiter.
       out.wait_lsn = 0;
       out.r.result = ByteView{};
+      out.r.durable = false;
     }
     complete_local(out, done, ctx);
     return;
