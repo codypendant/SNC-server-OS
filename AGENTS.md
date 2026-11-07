@@ -1503,7 +1503,8 @@ or source comments.
 -   **What:** per `docs/handoff/PR64_Reconciliation_Review.txt`
     (PR #63 approved, PR #64 accepted, benchmark defect confirmed):
     - PILOT_PLAN section 8: scratch isolation is APPROVED and preregistered.
-    - `r640-diag-telemetry` merged main and gained
+    - main was merged INTO `r640-diag-telemetry` (the branch itself stays
+      off main), which gained
       `bench/results/diag3-r640-20261107-corrected/`: `diag3.py` (both arms
       use one isolated `--scratch`; B and T differ only by telemetry),
       PREREG.md (G0 without the zero-refusal clause, plus identity; G2
@@ -1517,4 +1518,25 @@ or source comments.
 -   **Next action:** review of the frozen harness. Then the corrected B/T
     proof; causal cells follow only if G0-G4 pass. No full pilot,
     competitors, Profile C or engine optimization.
+
+### 2026-11-07 UTC --- Claude (Claude Code): corrected proof and causal cells, for review
+
+-   **Classification:** KEEP (evidence); engine design gap PROPOSED.
+-   **What:** Codex gave GO for the corrected B/T proof from 69d612f. The
+    R640 ran it once (evidence c88cb70 on `r640-diag-telemetry`; report
+    and post-hoc phase analysis at c9537dd,
+    `bench/results/diag3-r640-20261107-corrected/CAUSAL_REPORT.md`).
+    - G0-G4 pass. With scratch isolated, the 2,183,233 w30 cell has 0
+      refusals and 0 late ops in both arms. B closed median 4,338,624.
+    - Causal cells (T): 436,646 with a checkpoint refused in 3/3 reps
+      (2,267-9,455), all during the checkpoint's ~1.2 s fdatasync (WAL
+      await 0.05 -> ~12 ms). Without a checkpoint: 0 refusals and 0 late
+      ops in 3/3. At 2,183,233 the walk refuses too. No refusal outside
+      a checkpoint.
+    - Inferred: a clean CP-1A rerun on this engine would again put S at
+      R_1.
+-   **Next action:** review the report and the classification (Claude
+    proposes a REFINE design gap: an unpaced checkpoint, with reads
+    refused by the EXEC gate). Return before any engine optimization or
+    pilot rerun.
 
