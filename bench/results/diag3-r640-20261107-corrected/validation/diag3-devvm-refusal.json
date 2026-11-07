@@ -1,0 +1,52 @@
+{
+ "git_head": "aff05ea4f1e456823462c475a918bd3cdb68b745",
+ "scratch": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/d3scr",
+ "data": "/srv/snc-data/diag3",
+ "out": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/d3real",
+ "disks": {
+  "data": [
+   "vda"
+  ],
+  "scratch": [
+   "vda"
+  ],
+  "out": [
+   "vda"
+  ]
+ },
+ "identity_checks": {
+  "kernel": false,
+  "cpus": false,
+  "model": false,
+  "node0": false,
+  "memory": false,
+  "governors": false,
+  "numa_balancing": true,
+  "allocation": true,
+  "b_build": false,
+  "data_disk_model": false,
+  "data_disk_scheduler": true,
+  "data_disk_write_cache": true
+ },
+ "identity_values": {
+  "kernel": "6.18.44-fc-v310",
+  "model": "Intel(R) Xeon(R) Processor @ 2.30GHz",
+  "mem_kb": 16472400,
+  "governors": [
+   ""
+  ],
+  "data_disk": "vda",
+  "t_build": {
+   "snc_server": null,
+   "net_bench": null
+  }
+ },
+ "problems": [
+  "the out directory shares disk vda with the data directory",
+  "the scratch directory shares disk vda with the data directory",
+  "the git tree is not clean",
+  "G0 identity: kernel, cpus, model, node0, memory, governors, b_build, data_disk_model"
+ ],
+ "utc": "2026-11-07T05:34:50Z",
+ "note": "dev VM (not the R640): diag3.py refusing before any run; raw/ stayed empty"
+}

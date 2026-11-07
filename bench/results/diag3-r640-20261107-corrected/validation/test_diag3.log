@@ -1,0 +1,11 @@
+ok test_b_and_t_differ_only_by_telemetry
+ok test_cells_are_the_approved_ones
+ok test_isolation_fails_closed
+ok test_all_pass_and_incomplete_fails
+ok test_g0_revised
+ok test_g2_revised_boundaries
+ok test_refusal_fraction_is_exact
+ok test_unchanged_gates
+ok test_parse
+ok test_manifest_values
+test_diag3 ok

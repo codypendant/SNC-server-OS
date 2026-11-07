@@ -1,0 +1,1 @@
+refusing a real pilot: the out directory shares disk vda with the data directory; the scratch directory shares disk vda with the data directory; no --manifest; CPU governors are [], not all performance

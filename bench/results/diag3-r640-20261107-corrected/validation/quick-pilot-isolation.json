@@ -1,0 +1,18 @@
+{
+ "git_head": "4e9cbc374f095f857bbdff7e29dc414b141e3f83",
+ "scratch": "/dev/shm/snc-pilot-qv",
+ "data_root": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/qvdata",
+ "out": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/qv",
+ "disks": {
+  "data": [
+   "vda"
+  ],
+  "scratch": [],
+  "out": [
+   "vda"
+  ]
+ },
+ "isolation_problems": [
+  "the out directory shares disk vda with the data directory"
+ ]
+}
