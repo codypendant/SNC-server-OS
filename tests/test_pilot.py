@@ -2,7 +2,7 @@
 """The exact rules of bench/pilot.py (docs/PILOT_PLAN.md): the rate grid,
 the sustained test, the stable peak, the objective and the knee; per-op
 metrics; parsing net_bench's report. Pure arithmetic: no processes."""
-import json, os, sys
+import json, os, shutil, sys, tempfile
 from fractions import Fraction
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -218,6 +218,77 @@ def test_plan_is_complete():
     assert len(lo["client_cpus"]) >= PLAN["client_threads"]
     x = PLAN["allocations"]["PILOT-X"]
     assert all(c % 2 == 1 for c in x["client_cpus"]) and x["client_node"] == 1
+
+
+# Benchmark scratch isolation (PR62 review, step 1): a fake sysfs.
+MOUNTINFO = """\
+25 24 0:27 / /dev/shm rw,relatime - tmpfs tmpfs rw
+27 1 8:33 / / rw,relatime - ext4 /dev/sdc1 rw
+30 27 8:1 / /srv/snc-data rw,relatime - ext4 /dev/sda1 rw
+31 27 253:0 / /srv/lvm rw,relatime - ext4 /dev/mapper/vg-lv rw
+32 27 0:45 / /srv/btrfs rw,relatime shared:9 - btrfs /dev/sdb2 rw
+33 27 7:0 / /srv/loop rw,relatime - ext4 /dev/loop0 rw
+"""
+
+
+def fake_sysfs():
+    root = tempfile.mkdtemp(prefix="snc-sysfs-")
+    dev = os.path.join(root, "devices")
+
+    def disk(path, part=False, slaves=()):
+        os.makedirs(os.path.join(dev, path), exist_ok=True)
+        if part:
+            open(os.path.join(dev, path, "partition"), "w").close()
+        if slaves:
+            os.makedirs(os.path.join(dev, path, "slaves"))
+            for name, target in slaves:
+                os.symlink(os.path.join(dev, target), os.path.join(dev, path, "slaves", name))
+
+    disk("pci/sda"); disk("pci/sda/sda1", part=True)
+    disk("pci/sdb"); disk("pci/sdb/sdb2", part=True)
+    disk("pci/sdc"); disk("pci/sdc/sdc1", part=True)
+    disk("virtual/dm-0", slaves=[("sda2", "pci/sda/sda2"), ("sdb2", "pci/sdb/sdb2")])
+    disk("pci/sda/sda2", part=True)
+    disk("virtual/loop0")
+    os.makedirs(os.path.join(root, "dev", "block"))
+    for mm, target in (("8:1", "pci/sda/sda1"), ("8:33", "pci/sdc/sdc1"), ("253:0", "virtual/dm-0"),
+                       ("7:0", "virtual/loop0")):
+        os.symlink(os.path.join(dev, target), os.path.join(root, "dev", "block", mm))
+    return root
+
+
+def test_physical_disks():
+    sysfs = fake_sysfs()
+    try:
+        pd = lambda dev, swaps=(): pilot.physical_disks(dev, MOUNTINFO, sysfs, swaps)
+        assert pd((8, 1)) == {"sda"}  # a partition maps to its disk
+        assert pd((8, 33)) == {"sdc"}
+        assert pd((253, 0)) == {"sda", "sdb"}  # device mapper maps to every member's disk
+        assert pd((0, 27)) == frozenset()  # tmpfs with no swap: no disk
+        assert pd((0, 27), swaps={"sda"}) == {"sda"}  # tmpfs can page out to swap
+        assert pd((0, 45)) is None  # btrfs: anonymous device, unknown disk: refuse
+        assert pd((7, 0)) is None  # loop: backing file unknown: refuse
+        assert pd((9, 9)) is None  # not in sysfs: refuse
+    finally:
+        shutil.rmtree(sysfs)
+
+
+def test_isolation_problems():
+    ok = pilot.isolation_problems(frozenset({"sda"}), {"scratch": frozenset(), "out": frozenset({"sdc"})})
+    assert ok == [], ok
+    # The pilot's layout before the fix: ids file next to the data dir.
+    bad = pilot.isolation_problems(frozenset({"sda"}), {"scratch": frozenset({"sda"}), "out": frozenset({"sdc"})})
+    assert bad == ["the scratch directory shares disk sda with the data directory"], bad
+    bad = pilot.isolation_problems(frozenset({"sda"}), {"scratch": frozenset({"sda", "sdb"}), "out": None})
+    assert len(bad) == 2 and "cannot tell" in bad[0] and "shares disk sda" in bad[1], bad
+    assert pilot.isolation_problems(None, {"scratch": frozenset()}) == \
+        ["cannot tell which disk holds the data directory"]
+
+
+def test_disks_of_this_host():
+    # The real resolver on whatever host runs the tests: /dev/shm is memory.
+    d = pilot.disks_of("/dev/shm")
+    assert d is None or all(isinstance(x, str) for x in d)
 
 
 if __name__ == "__main__":

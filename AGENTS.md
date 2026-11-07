@@ -1442,3 +1442,58 @@ or source comments.
 -   **Next action:** PR #61 may merge once clean. Merging does NOT
     authorize the pilot. The next review is GO or not for the real
     SNC-only R640 pilot.
+
+### 2026-11-07 UTC --- Claude (Claude Code): CP-1A R640 pilot abort, for review
+
+-   **Classification:** KEEP (evidence); no code change.
+-   **What:** the real SNC-only R640 pilot ran and aborted under the
+    approved rule (S = R_1 = 218,323; R_2 = 436,646 refused 3/3). The
+    R640 diagnosis (branches `r640-pilot-cp1a`, `r640-diag-telemetry`,
+    not merged) ties the refusals to the checkpoint's unpaced `fdatasync`
+    on the WAL's SSD. The telemetry proof stopped on G0/G2. Summary and
+    questions: `docs/handoff/CP1A_Pilot_Abort_For_Review.md`.
+-   **Next action:** Codex review (step 1, G0/G2, causal cells,
+    classification, telemetry branch). No R640 run until then.
+
+### 2026-11-07 UTC --- Claude (Claude Code): PR #62 review filed
+
+-   **Classification:** REFINE (diagnostic method); no code change.
+-   **What:** Codex's review is `docs/handoff/PR62_Codex_Review.txt`.
+    - Step 1 (2,183,233 w30, `--ids` on `/dev/shm`, 3 reps) approved.
+    - G0 drops its zero-refusal clause; G2 becomes a refusal-fraction
+      tolerance against B (median +0.01%, any rep at most max(B) + 0.02%).
+      Both must be committed before new proof data. G1/G3/G4 unchanged.
+    - Causal cells only after step 1 is resolved and revised G0-G4 pass.
+    - Mechanism is strongly supported. Two design-gap candidates stay open:
+      read admission coupled to durability backpressure, and an unpaced
+      checkpoint burst on the WAL's device. Do not fix yet; do not raise
+      kEmitBacklog.
+    - `r640-diag-telemetry` stays a diagnostic branch, off main.
+-   **Next action:** step 1 on the R640, then follow the review's order.
+    Return before any SNC optimization or full CP-1A rerun.
+
+### 2026-11-07 UTC --- Claude (Claude Code): step 1 result, benchmark scratch isolation
+
+-   **Classification:** REFINE (benchmark harness; BENCHMARK DEFECT fixed).
+-   **What:** R640 step 1 (preregistered at 7977258, result 2a79e80 on
+    `r640-diag-telemetry`): with `--ids` on `/dev/shm`, 3 of 3 runs at
+    2,183,233 w30 had 0 refusals, `late_over_1ms` 0 and no storage event.
+    Under Codex's rule that is ELIMINATED, so a BENCHMARK DEFECT: the
+    pilot wrote the 80 MB ids file buffered onto the data SSD just before
+    each run. Caveat: the 3 reps ran back to back, while the old B-w30 reps
+    each followed a closed-loop rep.
+    - `bench/pilot.py` now needs `--scratch DIR` for a real pilot and
+      refuses unless scratch and out are on no physical disk of the data
+      directory (partitions, dm/md members, tmpfs via swap; unknown is
+      refused). It records the paths and disks.
+    - `tests/test_pilot.py`: a fake sysfs covers partitions, dm, tmpfs
+      with and without swap, btrfs, loop and missing devices.
+    - PILOT_PLAN section 8 states the rule as PROPOSED.
+-   **Evidence:** test_pilot passes; a `--quick` run recorded scratch on
+    memory and out sharing the data disk (dev VM); a real-mode run refused
+    with both isolation problems listed.
+-   **Next action:** Codex reviews the fix and the preregistration of the
+    corrected harness (order step 2). The B/T proof driver (`diag2.py`, on
+    the R640 branch) must apply the same rule before the proof reruns.
+    No R640 run until then.
+

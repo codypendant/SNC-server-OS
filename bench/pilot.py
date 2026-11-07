@@ -18,11 +18,15 @@ profile, in this order:
   capacity     capacity_reps closed-loop runs (CV of throughput)
   shards       closed-loop capacity at each shard count (throughput only)
 
-A real pilot refuses to start unless the tree is clean, a manifest is given
-and every CPU's governor is `performance`. --quick runs a tiny version on
-any host for checking the harness; its output is never evidence.
+A real pilot refuses to start unless the tree is clean, a manifest is given,
+every CPU's governor is `performance`, and --scratch and --out are on no
+physical disk that holds --data-root (a memory filesystem counts as the
+disks its swap is on; a filesystem whose disk cannot be told is refused).
+--quick runs a tiny version on any host for checking the harness; its
+output is never evidence.
 
-  bench/pilot.py --out DIR --manifest FILE [--allocation PILOT-L|PILOT-X]
+  bench/pilot.py --out DIR --manifest FILE --scratch DIR
+                 [--allocation PILOT-L|PILOT-X]
                  [--profiles A,C] [--build build] [--data-root DIR]
                  [--plan bench/pilot_plan.json] [--quick]
 """
@@ -229,6 +233,94 @@ def sha(p):
     return hashlib.sha256(open(p, "rb").read()).hexdigest()
 
 
+MEMORY_FS = ("tmpfs", "ramfs")
+
+
+def mount_fstype(dev, mountinfo):
+    """The filesystem type of the mount whose device is dev (major, minor),
+    from /proc/self/mountinfo text; None if no mount has it."""
+    for line in mountinfo.splitlines():
+        f = line.split()
+        if len(f) > 7 and f[2] == f"{dev[0]}:{dev[1]}" and "-" in f:
+            return f[f.index("-", 6) + 1]
+    return None
+
+
+def physical_disks(dev, mountinfo, sysfs="/sys", swaps=()):
+    """The physical block devices that hold the filesystem on dev (major,
+    minor): partitions map to their disk, device-mapper and md devices to
+    their members. A memory filesystem (tmpfs, ramfs) can only reach a disk
+    through swap, so it maps to the disks of `swaps` (already resolved).
+    Returns a frozenset of disk names, or None when it cannot tell, which the
+    caller must treat as a refusal (fail closed): an anonymous device that
+    is not a memory filesystem (btrfs, overlay, NFS, FUSE) is never assumed
+    to be off the data disk."""
+    if mount_fstype(dev, mountinfo) in MEMORY_FS:
+        return frozenset(swaps)
+    node = os.path.join(sysfs, "dev", "block", f"{dev[0]}:{dev[1]}")
+    if not os.path.exists(node):
+        return None
+
+    def walk(d, depth=0):
+        if depth > 8:
+            return None
+        if os.path.exists(os.path.join(d, "partition")):
+            return walk(os.path.dirname(d), depth + 1)
+        slaves = os.path.join(d, "slaves")
+        members = sorted(os.listdir(slaves)) if os.path.isdir(slaves) else []
+        if not members:
+            name = os.path.basename(d)
+            # A loop device's backing file is on some other filesystem: unknown.
+            return None if name.startswith("loop") else frozenset([name])
+        out = set()
+        for m in members:
+            r = walk(os.path.realpath(os.path.join(slaves, m)), depth + 1)
+            if r is None:
+                return None
+            out |= r
+        return frozenset(out)
+
+    return walk(os.path.realpath(node))
+
+
+def disks_of(path, sysfs="/sys", mountinfo_path="/proc/self/mountinfo", swaps_path="/proc/swaps"):
+    """physical_disks for an existing path on this host, with swap resolved."""
+    mountinfo = open(mountinfo_path).read()
+    swap_disks = set()
+    try:
+        lines = open(swaps_path).read().splitlines()[1:]
+    except OSError:
+        lines = []
+    for line in lines:
+        name = line.split()[0] if line.split() else ""
+        try:
+            st = os.stat(name)
+        except OSError:
+            return None
+        dev = (os.major(st.st_rdev), os.minor(st.st_rdev)) if line.split()[1] == "partition" \
+            else (os.major(st.st_dev), os.minor(st.st_dev))
+        d = physical_disks(dev, mountinfo, sysfs)
+        if d is None:
+            return None
+        swap_disks |= d
+    st = os.stat(path)
+    return physical_disks((os.major(st.st_dev), os.minor(st.st_dev)), mountinfo, sysfs, swap_disks)
+
+
+def isolation_problems(data, others):
+    """others: {role: disks} for paths the harness writes while it measures.
+    data: the disks of the data directory. Both as from disks_of."""
+    problems = []
+    if data is None:
+        problems.append("cannot tell which disk holds the data directory")
+    for role, d in sorted(others.items()):
+        if d is None:
+            problems.append(f"cannot tell which disk holds the {role} directory")
+        elif data and d & data:
+            problems.append(f"the {role} directory shares disk {','.join(sorted(d & data))} with the data directory")
+    return problems
+
+
 class Abort(Exception):
     pass
 
@@ -261,8 +353,26 @@ class Pilot:
                    build_type=build_type, cxx_flags=flags, kernel=sh("uname -r"), started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    allocation=a.allocation, allocation_values=self.alloc, quick=a.quick,
                    evidence=False if a.quick else None)
+        # Benchmark scratch isolation (docs/handoff/PR62_Codex_Review.txt,
+        # step 1): net_bench writes the 80 MB ids file buffered just before
+        # each run. On the data disk its writeback stalled the WAL mid-window
+        # (bench/results/step1-r640-20261107-ids-shm on r640-diag-telemetry).
+        os.makedirs(a.data_root, exist_ok=True)
+        os.makedirs(a.scratch, exist_ok=True)
+        disks = {role: disks_of(path) for role, path in
+                 (("data", a.data_root), ("scratch", a.scratch), ("out", a.out))}
+        env.update(scratch=os.path.realpath(a.scratch), data_root=os.path.realpath(a.data_root),
+                   out=os.path.realpath(a.out),
+                   disks={k: sorted(v) if v is not None else None for k, v in disks.items()})
+        isolation = isolation_problems(disks["data"], {k: disks[k] for k in ("scratch", "out")})
+        env["isolation_problems"] = isolation
         if not a.quick:
-            problems = []
+            problems = list(isolation)
+            if not a.scratch_given:
+                problems.append("no --scratch (benchmark scratch must be named explicitly)")
+            free = os.statvfs(a.scratch)
+            if free.f_bavail * free.f_frsize < 2 * 16 * self.plan["objects"]:
+                problems.append(f"{a.scratch} has less than twice the ids file's size free")
             if env["git_status"]:
                 problems.append("the git tree is not clean")
             want = self.plan.get("approved_manifest_sha256")
@@ -306,7 +416,7 @@ class Pilot:
         self.port += 40
         name = f"{profile}-{phase}-{label}"
         data = os.path.join(a.data_root, name)
-        ids = os.path.join(a.data_root, name + ".ids")  # never under --out
+        ids = os.path.join(a.scratch, name + ".ids")  # off the data disk for evidence (environment())
         srv_cpus = self.alloc["server_cpus"][:shards] if self.alloc else []
         cli_cpus = self.alloc["client_cpus"][:self.threads()] if self.alloc else []
         if self.alloc and len(srv_cpus) < shards:
@@ -479,12 +589,17 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--build", default="build")
     ap.add_argument("--data-root", default="/srv/snc-data/pilot")
+    ap.add_argument("--scratch", default=None,
+                    help="benchmark scratch (the ids files). Required for a real pilot, and must not share a "
+                         "physical disk with --data-root (e.g. /dev/shm/snc-pilot). --quick defaults to --data-root")
     ap.add_argument("--plan", default="bench/pilot_plan.json")
     ap.add_argument("--manifest", default="")
     ap.add_argument("--allocation", default=None, help="PILOT-L (default: the plan's baseline), PILOT-X, or none")
     ap.add_argument("--profiles", default="A,C")
     ap.add_argument("--quick", action="store_true", help="tiny harness check on any host; never evidence")
     a = ap.parse_args()
+    a.scratch_given = a.scratch is not None
+    a.scratch = a.scratch or a.data_root
     plan = json.load(open(a.plan))
     a.allocation = a.allocation or plan["baseline_allocation"]
     if a.allocation == "none" and not a.quick:
@@ -500,6 +615,11 @@ def main():
         return 1
     finally:
         shutil.rmtree(a.data_root, ignore_errors=True)
+        if a.scratch_given:
+            try:
+                os.rmdir(a.scratch)  # only if empty: the ids files are removed after each run
+            except OSError:
+                pass
     print(json.dumps(p.results, indent=1))
     return 0
 
