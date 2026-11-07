@@ -395,6 +395,8 @@ def gauge_sums(g):
         "undurable": sum(u),
         "excess": sum(max(0, a - b) for a, b in zip(w, u)),
         "durable_lsn": sum(int(g.get(f"s{s}.wal_durable_lsn", 0)) for s in range(n)),
+        "shard_waiters": w,
+        "shard_durable_lsn": [int(g.get(f"s{s}.wal_durable_lsn", 0)) for s in range(n)],
         "skew_ms": round((max(pub) - min(pub)) / 1e6, 1) if n and min(pub) > 0 else None,
         "consistent": n > 0 and all(g.get(f"s{s}.consistent") == "1" for s in range(n)),
     }
@@ -415,13 +417,16 @@ def gauge_sums(g):
 # Rule, over the observation interval (the last DRAIN_WINDOW_S seconds, at
 # least DRAIN_MIN_SAMPLES consistent gauge samples):
 #   drained   = median excess == 0, at most DRAIN_MAX_EXCESS_FRAC of the
-#               samples show any excess, and the durable LSN advanced;
+#               samples show any excess, and the durable LSN advanced on
+#               EVERY shard that had waiting answers in the interval (one
+#               shard whose own sync stalls shows no excess; the others'
+#               progress must not hide it);
 #   bounded   = the summed undurable count has median <= the window and
 #               does not grow: its last-half mean <= first-half mean + 10%
 #               of the window.
 # One sample is never a verdict (see h1_measurement).
 DRAIN_WINDOW_S = 5.0
-DRAIN_MIN_SAMPLES = 20
+DRAIN_MIN_SAMPLES = 10            # sampler runs ~10/s in Release; >= 2/s under sanitizers
 DRAIN_MAX_EXCESS_FRAC = 0.2
 
 
@@ -441,9 +446,17 @@ def drain_rule(samples, window):
     with_excess = sum(1 for e in ex if e > 0)
     half = n // 2
     first, last = sum(und[:half]) / half, sum(und[half:]) / (n - half)
-    progressed = samples[-1]["durable_lsn"] > samples[0]["durable_lsn"]
+    first_s, last_s = samples[0], samples[-1]
+    if "shard_durable_lsn" in first_s:
+        ns = len(first_s["shard_durable_lsn"])
+        busy = [i for i in range(ns) if any(r["shard_waiters"][i] > 0 for r in samples)]
+        stalled = [i for i in busy if last_s["shard_durable_lsn"][i] <= first_s["shard_durable_lsn"][i]]
+        progressed = bool(busy) and not stalled
+    else:
+        stalled = []
+        progressed = last_s["durable_lsn"] > first_s["durable_lsn"]
     out = {"n": n, "excess_median": median(ex), "excess_max": max(ex),
-           "frac_with_excess": round(with_excess / n, 3), "durable_progressed": progressed,
+           "frac_with_excess": round(with_excess / n, 3), "durable_progressed": progressed, "stalled_shards": stalled,
            "undurable_median": median(und), "undurable_max": max(und),
            "undurable_first_half_mean": round(first, 1), "undurable_last_half_mean": round(last, 1)}
     out["drained"] = median(ex) == 0 and with_excess / n <= DRAIN_MAX_EXCESS_FRAC and progressed
@@ -468,9 +481,15 @@ def scenario_h1_measurement(work):
     out["sequential_sum"] = read0 + read1
     out["true_total"] = sum(s)
 
-    def sample(i, waiters, undurable):
-        return {"waiters": waiters, "undurable": undurable, "excess": max(0, waiters - undurable),
-                "durable_lsn": 1000 + 50 * i, "skew_ms": 0.3, "consistent": True}
+    def sample(i, waiters, undurable, lsn1=None):
+        # Two shards, the load split evenly; shard 1's durable LSN can be pinned.
+        w = [waiters // 2, waiters - waiters // 2]
+        u = [undurable // 2, undurable - undurable // 2]
+        lsn = [1000 + 25 * i, 1000 + 25 * i if lsn1 is None else lsn1]
+        return {"waiters": waiters, "undurable": undurable,
+                "excess": sum(max(0, a - b) for a, b in zip(w, u)),
+                "durable_lsn": sum(lsn), "shard_waiters": w, "shard_durable_lsn": lsn,
+                "skew_ms": 0.3, "consistent": True}
 
     # 2. Drained but sync-bound: waiters near the window, every one on an
     # undurable record; the last sample at 270 (the failed ASan run's shape).
@@ -478,12 +497,14 @@ def scenario_h1_measurement(work):
     # 3. Blocked: the same counts, but the records are already durable here.
     blocked = [sample(i, 256, i % 9) for i in range(50)]
     # 4. Stalled: no excess, but nothing becomes durable.
-    stalled = [dict(sample(i, 256, 256), durable_lsn=1000) for i in range(50)]
+    stalled = [dict(sample(i, 256, 256), durable_lsn=2000, shard_durable_lsn=[1000, 1000]) for i in range(50)]
     # 5. Growing undurable backlog.
     growing = [sample(i, 3 * i, 3 * i) for i in range(50)]
+    # 6. One shard's own sync stalls: no excess there, the summed LSN still rises.
+    one_stalled = [sample(i, 250, 250, lsn1=1000) for i in range(50)]
     out["old_rule_on_drained"] = drained[-1]["waiters"] < window       # one end sample
     out["rule"] = {k: drain_rule(v, window) for k, v in
-                   (("drained", drained), ("blocked", blocked), ("stalled", stalled), ("growing", growing),
+                   (("drained", drained), ("blocked", blocked), ("stalled", stalled), ("growing", growing), ("one_shard_stalled", one_stalled),
                     ("short", drained[:5]))}
     r = out["rule"]
     out["checks"] = {
@@ -493,6 +514,7 @@ def scenario_h1_measurement(work):
         "rule_fails_blocked_series": r["blocked"]["drained"] is False,
         "rule_fails_stalled_series": r["stalled"]["drained"] is False,
         "rule_fails_growing_series": r["growing"]["bounded"] is False,
+        "rule_fails_one_shard_stalled": r["one_shard_stalled"]["drained"] is False,
         "rule_needs_enough_samples": r["short"]["drained"] is False,
     }
     out["pass"] = all(out["checks"].values())

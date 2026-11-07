@@ -9,6 +9,7 @@
    "excess_max": 0,
    "frac_with_excess": 0.0,
    "durable_progressed": true,
+   "stalled_shards": [],
    "undurable_median": 248.0,
    "undurable_max": 270,
    "undurable_first_half_mean": 246.6,
@@ -22,6 +23,7 @@
    "excess_max": 256,
    "frac_with_excess": 1.0,
    "durable_progressed": true,
+   "stalled_shards": [],
    "undurable_median": 4.0,
    "undurable_max": 8,
    "undurable_first_half_mean": 3.7,
@@ -35,6 +37,10 @@
    "excess_max": 0,
    "frac_with_excess": 0.0,
    "durable_progressed": false,
+   "stalled_shards": [
+    0,
+    1
+   ],
    "undurable_median": 256.0,
    "undurable_max": 256,
    "undurable_first_half_mean": 256.0,
@@ -48,12 +54,29 @@
    "excess_max": 0,
    "frac_with_excess": 0.0,
    "durable_progressed": true,
+   "stalled_shards": [],
    "undurable_median": 73.5,
    "undurable_max": 147,
    "undurable_first_half_mean": 36.0,
    "undurable_last_half_mean": 111.0,
    "drained": true,
    "bounded": false
+  },
+  "one_shard_stalled": {
+   "n": 50,
+   "excess_median": 0.0,
+   "excess_max": 0,
+   "frac_with_excess": 0.0,
+   "durable_progressed": false,
+   "stalled_shards": [
+    1
+   ],
+   "undurable_median": 250.0,
+   "undurable_max": 250,
+   "undurable_first_half_mean": 250.0,
+   "undurable_last_half_mean": 250.0,
+   "drained": false,
+   "bounded": true
   },
   "short": {
    "n": 5,
@@ -69,6 +92,7 @@
   "rule_fails_blocked_series": true,
   "rule_fails_stalled_series": true,
   "rule_fails_growing_series": true,
+  "rule_fails_one_shard_stalled": true,
   "rule_needs_enough_samples": true
  },
  "pass": true,

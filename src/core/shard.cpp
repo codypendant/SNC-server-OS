@@ -225,6 +225,11 @@ void Shard::check_reserved(const OpDescriptor* op) {
 }
 
 bool Shard::admit_answer_wait(RunOut& out) {
+#if !defined(_GLIBCXX_DEBUG)
+  // tests/test_s1_admission.cpp (A2, A13) sizes exact waiter budgets from
+  // this; a layout change must update those tests, not silently shift counts.
+  static_assert(sizeof(Waiter) == 256, "update the waiter budgets in tests/test_s1_admission.cpp");
+#endif
   if (adm_.legacy || out.waiter_reserved || out.wait_lsn == 0 || durable(out.wait_lsn)) return true;
   // REMOTE waiters hold the response (inline up to kMsgInlineBytes) and
   // LOCAL ones a copy of the result: sizeof(Waiter) + the result bounds both.

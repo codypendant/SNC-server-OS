@@ -289,10 +289,13 @@ A6 now fails unless every step happened exactly:
   own WAL. Each q4 deposit is one record with one answer. So drained
   means excess is 0, and blocked on the standby means excess is near the
   window (the answers wait on records already durable here).
-- **Drained**, over the last 5 s with at least 20 consistent samples:
+- **Drained**, over the last 5 s with at least 10 consistent samples
+  (the sampler runs about 10/s in Release, at least 2/s under sanitizers):
   - the median excess is 0;
   - at most 20% of samples show any excess;
-  - the durable LSN advanced.
+  - the durable LSN advanced on **every shard that had waiting answers**
+    in the interval. A shard whose own sync stalls shows no excess, and a
+    summed LSN would let the other shards hide it (independent review).
 - **Bounded:**
   - the summed undurable median is <= the window;
   - it is not growing: the last-half mean is <= the first-half mean plus
@@ -303,14 +306,18 @@ A6 now fails unless every step happened exactly:
 - The sequential sum reads 286 while the true total is 256.
 - The old rule fails a drained series whose last sample is 270, the
   failed ASan run's shape.
-- The rule passes that series, and fails blocked, stalled, growing and
-  too-short series.
+- The rule passes that series, and fails blocked, stalled, growing,
+  one-shard-stalled and too-short series. (The check caught its own
+  fixture once: the stalled series pinned only the summed LSN until it
+  was made per shard.)
+- It feeds hand-made series only; the waiters-versus-undurable premise is
+  checked on the real runs below, not here.
 
 **On real runs (Release, `q4-rule-check/`):**
 - **q4_normal:** drained (excess 0 in 48/48 samples), bounded.
-- **q4_delayed10, while blocked:** 93 samples with excess 256 in every one
-  and no durable progress, so **not drained**. After the grant: excess 0
-  in 48/48, drained.
+- **q4_delayed10, while blocked:** 93 samples, median excess 256 and
+  excess in 98.9% of them, so **not drained**. After the grant: excess 0
+  in 47/47, drained, bounded.
 
 The rule therefore separates the two states on real data. The old
 single-sample values are still recorded (`end_sample_*`).
@@ -328,7 +335,23 @@ single-sample values are still recorded (`end_sample_*`).
 | A15 | A15 internal overshoot | section 3 |
 | H1 | coherent q4 measurement | section 5 |
 
-A1-A9 are unchanged and pass. `test_s1_admission A10 A15` runs only the
+A1-A9 are unchanged and pass.
+
+Review follow-ups in the tests:
+- A10 forks its abort child only after checking that no engine thread
+  survived (`thread_count()`, allowing TSan's own background thread), so
+  TSan's die_after_fork cannot turn the expected SIGABRT into exit 66.
+- A2 and A13 size exact waiter budgets from a 256-byte `Waiter`;
+  `shard.cpp` now `static_assert`s that size (outside `_GLIBCXX_DEBUG`),
+  so a layout change breaks the build instead of shifting the counts.
+
+Gauge layout note: G_REFUSED_PENDING, G_PENDING_NOW and G_PENDING_PEAK
+were inserted before G_PUBLISHED_NS, shifting its index. Every reader in
+the repo goes by name (`kGaugeNames`, the GAUGES verb); a binary reading
+the block by index must be rebuilt with this one.
+
+`pending_budget = 0` refuses every forwarded request (the CLI rejects 0;
+the library accepts it, like the other budgets). `test_s1_admission A10 A15` runs only the
 named tests; the negative logs used that.
 
 ## 7. CC-1..CC-5, loop, checkpoint

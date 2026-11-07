@@ -29,6 +29,7 @@
 //
 // Every refusal is checked against exactly one refused_* cause in both
 // ShardStats and the published gauges.
+#include <dirent.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -836,6 +837,23 @@ Appended appended_by(Engine& eng, u16 s, const std::function<void()>& issue_on_s
   return {g1[G_WAL_ACTIVE_BYTES_NOW] - g0[G_WAL_ACTIVE_BYTES_NOW], g1[G_WAL_NEXT_LSN] - g0[G_WAL_NEXT_LSN]};
 }
 
+// The runtime's own threads: TSan starts one background thread with the
+// first user thread and keeps it (it is stopped around fork).
+#if defined(__SANITIZE_THREAD__)
+constexpr u32 kRuntimeThreads = 1;
+#else
+constexpr u32 kRuntimeThreads = 0;
+#endif
+
+u32 thread_count() {
+  u32 n = 0;
+  if (DIR* d = ::opendir("/proc/self/task")) {
+    while (dirent* e = ::readdir(d)) n += e->d_name[0] != '.';
+    ::closedir(d);
+  }
+  return n;
+}
+
 // ---- A10 ------------------------------------------------------------------------------
 
 // Child process: grow a Blob past max_size within its capacity, without
@@ -894,6 +912,10 @@ void test_reservation_boundary() {
   // violation now, caught at resize, before anything is logged.
   const std::string cdir = temp_dir();
   const std::string err = cdir + ".stderr";
+  // Fork only with no thread left from the engines above (all stopped and
+  // joined): TSan's die_after_fork would otherwise kill the child before it
+  // aborts where this test expects.
+  CHECK_EQ(thread_count(), 1u + kRuntimeThreads);
   std::fflush(nullptr);
   const pid_t pid = ::fork();
   CHECK(pid >= 0);
