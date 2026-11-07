@@ -1,0 +1,257 @@
+PR #70 REVIEW — S0.1 SEQLOCK + FINAL VALIDATION
+
+DECISION
+
+PR #70 / S0.1 is APPROVED.
+
+The seqlock blocker from PR #69 is resolved. The final-code Release, ASan+UBSan and TSan validation is acceptable. S0 observability is now complete.
+
+However, before S1 admission/backpressure implementation begins, fix the TWO now-characterized pre-existing HA test-harness races that contaminated validation runs. These are test defects, not SNC engine defects, but they are now known and should not remain as recurring ambiguity in future evidence.
+
+No R640 load is needed.
+
+1. SEQLOCK MEMORY ORDER — APPROVED
+
+The new ShardGauges publication protocol is acceptable:
+
+Writer:
+- odd seq store: release;
+- every field store: release;
+- final even seq store: release.
+
+Reader:
+- first seq load: acquire;
+- retry immediately if odd;
+- every field load: acquire;
+- second seq load: acquire;
+- accept only if the two sequence values match.
+
+This fixes the PR #69 concern.
+
+The proof in gauges.h is coherent:
+
+A. A reader that acquires completed generation k from the first seq load cannot subsequently accept an older field value because generation-k field stores happen-before the reader through the writer's final release / first acquire relationship and atomic coherence.
+
+B. If any field load observes a later generation j, that acquire synchronizes with the later field's release store. The later generation's odd seq store is sequenced-before that field store, therefore happens-before the reader's second seq load. Atomic coherence on seq prevents that second load from returning the old 2k generation, so the mixed snapshot is rejected.
+
+That is the missing logical guarantee from PR #69.
+
+No seq_cst is required.
+
+2. PORTABILITY NOTE — KEEP FOR LATER, NOT A BLOCKER
+
+The per-field release/acquire operations are cheap on x86-64, but on weaker memory models such as ARM they may carry more cost.
+
+Correctness comes first, so keep the current implementation.
+
+If ARM becomes a measured target later, optimize the publication scheme only with:
+- an equally rigorous C++ memory-model proof;
+- the same TSan/stress coverage;
+- ARM-specific measurement.
+
+Do not simplify the memory orders now.
+
+3. FINAL VALIDATION — ACCEPTED
+
+The final code has clean complete serial-suite evidence:
+
+RelWithDebInfo:
+37/37.
+
+ASan+UBSan:
+37/37, zero reports.
+
+TSan:
+37/37, zero ThreadSanitizer reports, serial from the start.
+
+TSan test_gauges:
+pass; T7 observed 0 torn snapshots.
+
+This satisfies the S0.1 validation requirement.
+
+The raw failed historical runs were preserved rather than hidden. Good.
+
+4. S0 STATUS — COMPLETE
+
+S0 permanent observability is accepted.
+
+Approved features include:
+- per-resource refusal counters;
+- waiter/current/peak gauges;
+- emit backlog current/peak;
+- WAL active-buffer state;
+- actual runtime wal_direct;
+- WAL flush EWMA/max;
+- checkpoint phase/age/duration/bytes/in-flight;
+- non-blocking GAUGES;
+- additive HEALTH checkpoint fields;
+- CC-1..CC-5 in CORE_CONTRACTS.
+
+The old off-main diagnostic telemetry remains unnecessary for normal operation and stays off main.
+
+5. TWO KNOWN TEST-HARNESS RACES MUST NOW BE FIXED
+
+PR #70's evidence identifies two independent pre-existing harness defects.
+
+Do not carry them forward into S1 validation.
+
+A. test_lab_witness_guard / p3
+
+Current defect:
+p3 samples lab.primary(0) once. Under resource contention STATUS can time out and primary() returns None, after which lab.nodes[None] raises KeyError.
+
+Required correction:
+wait for a primary using the existing bounded wait helper rather than one-shot sampling.
+
+The wait must:
+- have a finite explicit timeout;
+- fail with evidence if no primary appears;
+- not silently select a stale node;
+- preserve the scenario's intended semantics.
+
+Claude's proposed:
+  k = wait(lambda: lab.primary(0), "primary known", timeout=30)
+is directionally correct if wait() treats a valid node id of 0 correctly and returns the selected value.
+
+Verify that detail; do not use truthiness if node 0 can be a legitimate return.
+
+B. test_ready_order / c2_restart_held
+
+Current defect:
+the test observes READY committed in witnesses and immediately samples the primary log once for "READY after v=". The witness commit can become visible before the primary receives the reply and emits the line, especially under ASan.
+
+Required correction:
+bounded wait for the expected primary log line after READY is observed.
+
+The wait must:
+- key on the correct term/version/process instance;
+- avoid matching a stale READY line from before restart;
+- have finite timeout;
+- preserve the semantic assertion that the restarted primary became grounded by the NEW READY.
+
+Do not weaken the grounding requirement.
+
+6. VALIDATE THE HARNESS FIXES
+
+Because these are test-only timing fixes, do not run the R640.
+
+Run at minimum:
+
+- each corrected test repeatedly under RelWithDebInfo;
+- each corrected test repeatedly under ASan+UBSan;
+- each corrected test repeatedly under TSan;
+- one parallel/stressed dev-VM run that previously exposed the race, if practical;
+- full Release suite once after the fixes.
+
+The goal is not merely one pass. Demonstrate that the known race condition is eliminated while the test still fails when its actual semantic condition is deliberately absent, if a deterministic negative-path hook exists.
+
+Preserve timeouts; do not make tests wait forever.
+
+7. S1 — DESIGN PREPARATION MAY START, BEHAVIORAL CODE MUST WAIT FOR HARNESS FIX REVIEW
+
+Claude may prepare the S1 implementation plan/document while the harness fixes are made.
+
+Do NOT merge S1 behavior yet.
+
+S1 remains:
+- resource-specific admission;
+- reserve-before-mutate;
+- follow-up backlog applies to new mutation/create work, not unrelated durable reads;
+- waiter and WAL-buffer bounds;
+- already-acknowledged follow-up/internal work remains non-refusable;
+- E_OVERLOADED remains the wire status;
+- refused_by identifies the internal limiting resource.
+
+Numeric budgets remain hypotheses until derived from evidence.
+
+8. S1 BUDGET DERIVATION REQUIREMENT
+
+Do not simply adopt the earlier placeholder values:
+- waiter_budget = 16,384;
+- wal_buffer_budget = 64 MiB;
+- fixed read quantum = 4,096.
+
+Before freezing defaults, derive them from:
+
+A. memory accounting:
+- measured bytes per waiter/result;
+- WAL buffer memory behavior;
+- shards × per-shard worst case;
+- explicit acceptable memory envelope.
+
+B. latency/backpressure:
+- how much queued durability work can drain within a chosen recovery interval;
+- how much buffer can accumulate without making tail latency pathological.
+
+C. protocol correctness:
+- reserve-before-mutate worst-case WAL bytes;
+- sequenced-session behavior;
+- local peer record;
+- follow-up work.
+
+Initial S1 tests may use deliberately tiny configurable limits to exercise gates deterministically.
+
+Production defaults can remain conservative/provisional until the R640 regression phase if necessary, but they must have a documented derivation, not arbitrary constants.
+
+9. S1 LOOP-ORDER DECISION
+
+Do NOT bundle unrelated scheduler-loop reordering into S1 unless required by admission correctness.
+
+Specifically, do not automatically move reap_io before ring drain or checkpoint_step after app_poll in the same behavioral PR.
+
+Keep S1 focused on admission/resource bounds.
+
+If loop ordering later needs modification for fairness or backlog recovery, make it a separate measured slice or explicitly justify it in S2.
+
+10. S1 RESERVATION FORM DECISION
+
+For the current single-threaded, no-yield mutation path, the worst-case preflight check without a held reservation counter is acceptable if the implementation proves:
+
+- the check occurs after validation but before first mutation;
+- there is no yield/re-entry between check and all covered WAL appends;
+- worst-case sizing covers object record + local peer record + session record;
+- internal/follow-up appends that cannot be refused remain outside the client admission limit or have guaranteed headroom;
+- assertions/comments make the no-yield assumption explicit.
+
+If any path can yield or consume the same budget between check and append, use an explicit reservation.
+
+11. HARD-MAX BREACH DECISION REMAINS DIAGNOSTIC
+
+A future checkpoint hard-maximum breach should report HEALTH degradation and retain WAL safely.
+
+It should NOT automatically override the foreground-protection ceiling.
+
+If the system cannot complete checkpoints under sustained foreground pressure while respecting the ceiling, that is an architectural capacity condition to surface, not permission to create an uncontrolled foreground outage.
+
+12. S3-D MICRO-CHARACTERIZATION DECISION
+
+Yes: when S3-D arrives, do a small dev-machine implementation-neutral comparison of C1/C2/C3 if all three can be prototyped cheaply enough.
+
+Do not use the R640 for choosing the mechanism initially.
+
+Selection must still prioritize correctness, bounded writeback, portability and clean failure handling over a noisy dev-VM throughput winner.
+
+13. RETURN POINT
+
+Next immediate work:
+
+1. Fix the two known HA test-harness races only.
+2. Validate those fixes.
+3. Return that PR for review.
+
+S1 design planning may occur in parallel, but no S1 behavioral implementation/merge until the harness-fix review is complete.
+
+FINAL
+
+PR #70 / S0.1: APPROVED.
+S0: COMPLETE.
+SEQLOCK: APPROVED.
+CLEAN RELEASE/ASAN/TSAN: ACCEPTED.
+
+Next:
+FIX THE TWO KNOWN TEST-HARNESS RACES -> REVIEW -> S1.
+
+NO R640 LOAD.
+NO CP-1A.
+NO COMPETITORS.
+NO PROFILE C.

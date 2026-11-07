@@ -352,6 +352,29 @@ class Lab:
                 return k
         return None
 
+    def wait_primary(self, g, timeout=30.0, every=0.05):
+        """Group g's primary: the node id of the one member whose STATUS says
+        primary, once exactly one does. A round where no member answers as
+        primary (a STATUS timed out under load) or more than one does (an old
+        primary not yet withdrawn) is not an answer: wait and ask again. On
+        timeout, raise with every member's last STATUS. Compares with None,
+        never truthiness, so any node id is a valid answer."""
+        end = time.time() + timeout
+        last = {}
+        while True:
+            last = {}
+            for k, n in self.nodes.items():
+                if n["group"] == g:
+                    st = status(n["host"].addr, n["admin"])
+                    last[k] = st.get("role") if st else None
+            found = [k for k, role in last.items() if role in ("p", "n")]
+            if len(found) == 1:
+                return found[0]
+            if time.time() >= end:
+                raise RuntimeError(f"timed out: one primary of group {g} after {timeout} s; "
+                                   f"last roles {last} (None: no STATUS answer)")
+            time.sleep(every)
+
     def connect_arg(self):
         k = self.primary(0)
         n = self.nodes[k]
@@ -639,7 +662,8 @@ def p3(lab, args):
     stop, samples = lab.watch()
     pid = lab.load("load", args.seconds, threads=args.threads, depth=args.depth)
     time.sleep(args.seconds / 3)
-    k = lab.primary(0)
+    # Wait for the primary: one STATUS sample can time out under load (PR #70 review 5A).
+    k = lab.wait_primary(0, timeout=30)
     sk = next(kk for kk, n in lab.nodes.items() if n["group"] == 0 and kk != k)
     t_fault = time.time()
     lab.fault(args.fault, k, peer=lab.nodes[sk]["host"] if args.fault in ("partition", "oneway") else None)
