@@ -153,9 +153,11 @@ struct ShardStats {
   u64 ops_served = 0;       // executed here on behalf of another shard
   u64 creates = 0;
   u64 deletes = 0;
-  u64 overloaded = 0;            // refused_followup + refused_ring
+  u64 overloaded = 0;            // the four refused_* below, summed
   u64 refused_followup = 0;      // follow-up backlog above kEmitBacklog
   u64 refused_ring = 0;          // forward or batch found the ring full
+  u64 refused_waiter = 0;        // S1: waiter budget (Config::waiter_budget_bytes)
+  u64 refused_wal_buffer = 0;    // S1: WAL buffer budget (Config::wal_buffer_budget_bytes)
   u64 gather_overloaded = 0;     // index gather legs dropped: ring full
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
@@ -435,6 +437,16 @@ class Engine {
     // Start with follow-ups held (queued, not run) until release_emits(),
     // so a test can inspect exactly the recovered state.
     bool hold_emits = false;
+
+    // Admission (docs/CHECKPOINT_BACKPRESSURE_DESIGN.md 6, slice S1;
+    // docs/S1_ADMISSION.md). Per shard, checked before an op's first
+    // mutation; a refusal is E_OVERLOADED. The defaults are provisional,
+    // derived in docs/S1_ADMISSION.md section 4; revisit before S6.
+    // admission_legacy: the behaviour before S1 (one follow-up gate on
+    // every execute, none on create or delete, no budgets).
+    bool admission_legacy = false;
+    u64 waiter_budget_bytes = 32ull << 20;      // durability waiters' memory
+    u64 wal_buffer_budget_bytes = 30ull << 20;  // unflushed WAL record bytes
   };
 
   explicit Engine(const Config& cfg);
@@ -482,6 +494,9 @@ class Engine {
   // Tests only: every replication sender in this process stops shipping
   // (on) or resumes (off). See repl::set_debug_pause.
   static void debug_pause_replication(bool on);
+  // Tests only: shard `shard` starts no WAL flush while on, so its appends
+  // stay in the active buffer and its waiters wait (docs/S1_ADMISSION.md 6).
+  static void debug_hold_wal(u16 shard, bool on);
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down

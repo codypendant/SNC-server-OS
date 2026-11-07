@@ -504,12 +504,18 @@ obligation (the last bullet but one).
 
 ### 6.1 Operation and resource matrix (review §6)
 
+*As built in S1: `docs/S1_ADMISSION.md` section 2. Correction to the
+"Gate today" column below: before S1, CREATE and DELETE had no gate
+(only `execute` checked the follow-up backlog). Forwarded READs keep the
+follow-up gate in S1, because the origin's pending slots are not
+otherwise bounded.*
+
 | Class | Resources consumed | Gate today | PROPOSED gate |
 |---|---|---|---|
 | Pure READ, owner shard, object durable | CPU; memory bandwidth; connection output buffer for the answer | follow-up backlog | foreground time quantum under pressure (6.3); the existing 8 MiB per-connection output limit, at which the connection stops reading (`conn_set.cpp:20,103`) |
 | READ of an object whose last write is not yet durable | the above plus one **durability waiter** until the WAL catches up (`complete_local`, `shard.cpp:222-236`) | follow-up backlog | **waiter budget**, checked before the op runs (6.2) |
 | READ with `allow_undurable` | as pure READ | follow-up backlog | as pure READ |
-| Forwarded READ (non-owner origin) | at the origin: a pending slot (`pending_`, `shard.h:500`) and SRI ring or overflow; at the owner: a REMOTE waiter if undurable (`serve`, `shard.cpp:1148-1165`) | follow-up backlog at the origin, then the ring | pending slots and the ring at the origin (existing). The owner's REMOTE waiters are bounded by the origins' pending pools; they are **not** refused at the owner (6.2) |
+| Forwarded READ (non-owner origin) | at the origin: a pending slot (`pending_`, `shard.h:500`) and SRI ring or overflow; at the owner: a REMOTE waiter if undurable (`serve`, `shard.cpp:1148-1165`) | follow-up backlog at the origin, then the ring | pending slots and the ring at the origin (existing). The owner's REMOTE waiters are **not** refused at the owner (6.2). *Correction (S1 review): they are not bounded by the origins' pending pools either, because `pending_` is unbounded (`emplace_back`). This is a known gap, recorded in `docs/S1_ADMISSION.md` section 9.* |
 | INDEX lookup and gather | a gather slot, SRI ring and overflow to every shard (`shard.cpp:785-813`) | ring and overflow (separate path) | unchanged: own gather pool and ring |
 | MUTATE, CREATE, DELETE (client) | WAL active-buffer bytes; a waiter; possibly follow-ups; a session record if sequenced | follow-up backlog | follow-up backlog (**unchanged**, 1,024) **plus** a WAL-buffer reservation **plus** a waiter reservation, both before the op runs (6.2) |
 | Resent sequenced MUTATE already applied | a session read; a waiter until the session record is durable | special-cased (`shard.cpp:111-122`) | unchanged: answered, never refused, before any budget check |
@@ -917,7 +923,7 @@ two summed.
 | Field | Meaning | Updated by |
 |---|---|---|
 | `refused_followup`, `refused_ring` | E_OVERLOADED by cause: the follow-up gate in `execute`; a full ring with full overflow in `send_request` / `send_batch` | the refusing code |
-| `refused_waiter`, `refused_wal_buffer` | S1 causes; **always 0 in S0** (no such refusal exists yet) | — |
+| `refused_waiter`, `refused_wal_buffer` | S1 causes (`docs/S1_ADMISSION.md`); 0 in S0 and with `--admission legacy` | `Shard::admit` |
 | `gather_overloaded` | index gather legs dropped because a ring was full (not a client refusal by itself) | `index_lookup` |
 | `waiters_now`, `waiters_peak` | durability waiters held now, most ever held | `defer`, `release_waiters`, `withdraw` |
 | `waiter_bytes_now`, `waiter_bytes_peak` | Σ(`sizeof(Waiter)` + a LOCAL answer's copied result + a REMOTE answer's external result buffer); excludes `std::deque` block overhead | same |

@@ -1,0 +1,24 @@
+ADD THIS DOCUMENT TO SNC SERVER OS REPOSITORY
+
+Source file:
+STATE_NATIVE_COMPUTING_LINEAGE.md
+
+Target repository:
+codypendant/SNC-server-OS
+
+Target path:
+docs/STATE_NATIVE_COMPUTING_LINEAGE.md
+
+Suggested commit:
+docs: add state-native computing lineage and durable state-machine framing
+
+Suggested PR title:
+Docs: state-native computing lineage and minimal durable state-machine primitive
+
+Scope:
+Documentation/research only. No engine behavior change.
+
+Important:
+Preserve the document as architecture-lineage/hypothesis material. It explicitly distinguishes prior art, implemented SNC behavior, and speculative future primitives. Do not convert speculative sections into implementation authorization.
+
+After adding it, optionally add a short STATUS/AGENTS pointer only. Do not authorize branching, replay, or DSM implementation from this document.

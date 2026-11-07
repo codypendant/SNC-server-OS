@@ -24,6 +24,11 @@ constexpr u32 kCheckpointChunk = 1u << 20;
 
 thread_local Shard* tl_shard = nullptr;
 
+// Tests only (Engine::debug_hold_wal): bit s set = shard s starts no WAL
+// flush from its loop, so nothing it appends becomes durable. Shards s and
+// s+64 share a bit; tests hold shards below 64 only.
+std::atomic<u64> g_debug_hold_wal{0};
+
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
   std::fprintf(stderr, "snc: handler contract violated: %s (op %s)\n", what, op ? op->name : "?");
   std::abort();
@@ -34,6 +39,11 @@ void zero_header(Msg& m) { std::memset(static_cast<void*>(&m), 0, offsetof(Msg, 
 }  // namespace
 
 Shard* current_shard() { return tl_shard; }
+void debug_hold_wal_flush(u16 shard, bool on) {
+  const u64 bit = u64{1} << (shard & 63);
+  if (on) g_debug_hold_wal.fetch_or(bit);
+  else g_debug_hold_wal.fetch_and(~bit);
+}
 void set_current_shard(Shard* s) { tl_shard = s; }
 
 Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
@@ -107,16 +117,24 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   }
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
+  // S1 (docs/S1_ADMISSION.md 2): a READ this shard owns consumes nothing
+  // the backlog drains (no WAL, no follow-up), so it is not refused for
+  // it; one that must wait for durability is bounded by the waiter budget
+  // below. A READ forwarded to another shard keeps the gate: its pending
+  // slot and ring entry are not otherwise bounded here.
   const u64 in_flight = emits_in_flight();
   if (in_flight > emits_peak_) emits_peak_ = in_flight;  // observability (S0)
-  if (in_flight > kEmitBacklog) {
+  const OpDescriptor* desc = registry().op(op);
+  const bool local_read =
+      !adm_.legacy && desc != nullptr && desc->kind == OpKind::READ && slots_.owner[h >> 52] == id_;
+  if (in_flight > kEmitBacklog && !local_read) {
     // A resent sequenced mutation already applied here gets its answer,
     // not E_OVERLOADED: a client told E_OVERLOADED sends it again as a new
     // request, which would apply it twice. Promotion leaves a backlog, and
     // that is exactly when clients resend (found on real hosts,
     // docs/REAL_MACHINES.md).
     if (opts.client_id && slots_.owner[h >> 52] == id_) {
-      const OpDescriptor* d = registry().op(op);
+      const OpDescriptor* d = desc;
       RunOut out;
       out.r.id = target;
       if (d != nullptr && d->kind == OpKind::MUTATE && replay_if_seen(opts, out)) {
@@ -145,6 +163,16 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
     RunOut out;
     out.r.id = target;
     run_exec(target, h, op, args, opts, out);
+    if (local_read && out.wait_lsn != 0 && !durable(out.wait_lsn) &&
+        !admit(0, sizeof(Waiter) + out.r.result.len, out)) {
+      // A READ changes nothing, so refusing it after it ran is the same as
+      // before: only its answer would have needed a waiter.
+      // It still counts in ops_local: it was routed and ran here.
+      out.wait_lsn = 0;
+      out.r.result = ByteView{};
+      out.r.version = 0;
+      out.r.durable = false;
+    }
     complete_local(out, done, ctx);
     return;
   }
@@ -152,9 +180,60 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   send_request(MsgKind::EXEC_REQ, owner, target, op, args, opts, done, ctx);
 }
 
+void Shard::set_admission(const Admission& a) {
+  adm_ = a;
+  peer_record_max_ = 0;
+  for (const TypeDescriptor& t : registry().types()) {
+    peer_record_max_ = std::max<u64>(peer_record_max_, record_size(t.max_size));
+  }
+}
+
+// R1 (docs/S1_ADMISSION.md 3). Changes no state. An empty buffer or an
+// empty waiter list always admits, so an op larger than a budget still
+// runs (alone) and a small budget cannot block a shard for good.
+bool Shard::admit(u64 wal_need, u64 waiter_need, RunOut& out) {
+  if (adm_.legacy || !wal_) return true;
+  Status refuse = Status::OK;
+  if (wal_need != 0 && wal_->active_bytes() != 0 &&
+      wal_->active_bytes() + wal_need > adm_.wal_buffer_budget_bytes) {
+    ++stats_.refused_wal_buffer;
+    refuse = Status::E_OVERLOADED;
+  } else if (waiter_need != 0 && !waiters_.empty() &&
+             waiter_bytes_ + waiter_need > adm_.waiter_budget_bytes) {
+    ++stats_.refused_waiter;
+    refuse = Status::E_OVERLOADED;
+  }
+  if (refuse != Status::OK) {
+    ++stats_.overloaded;
+    out.r.status = refuse;
+    return false;
+  }
+#ifndef NDEBUG
+  adm_active_before_ = wal_->active_bytes();
+  adm_wal_need_ = wal_need;
+#endif
+  return true;
+}
+
+// Debug builds: the op appended at most what admit() reserved, and no flush
+// ran in between (a flush empties the active buffer: then active < before).
+// This is R3's no-yield assumption, checked on every admitted mutation.
+void Shard::check_reserved(const OpDescriptor* op) {
+#ifndef NDEBUG
+  if (adm_.legacy || !wal_) return;
+  const u32 now = wal_->active_bytes();
+  if (now < adm_active_before_ || now - adm_active_before_ > adm_wal_need_) {
+    contract_violation("an admitted op appended more WAL bytes than reserved, or a flush ran inside it", op);
+  }
+#else
+  (void)op;
+#endif
+}
+
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx, const ObjectID* near) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(ObjectID{}, done, ctx);
+  if (!adm_.legacy && followups_refuse(opts, ObjectID{}, true, done, ctx)) return;
   ObjectID id = minter_.next();
   // Skipping sequence numbers keeps IDs unique and never reused (C12); with
   // N shards this takes N hashes per create on average, and kSlots to land
@@ -194,6 +273,8 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(target, done, ctx);
+  // Deletes are never sequenced (no replay), so a refusal is the answer.
+  if (!adm_.legacy && followups_refuse(opts, target, false, done, ctx)) return;
   if (foreign(target)) return refuse_moved(*cluster_, target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
@@ -205,6 +286,30 @@ void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, vo
   }
   ++stats_.ops_remote;
   send_request(MsgKind::DELETE_REQ, owner, target, 0, ByteView{}, opts, done, ctx);
+}
+
+// S1: creates and deletes are new mutation work, gated by the follow-up
+// backlog as execute's mutations are (before S1 they had no gate). A
+// resent sequenced create already applied here is answered, not refused.
+bool Shard::followups_refuse(const ExecOptions& opts, ObjectID target, bool replay,
+                             Completion done, void* ctx) {
+  const u64 in_flight = emits_in_flight();
+  if (in_flight > emits_peak_) emits_peak_ = in_flight;
+  if (in_flight <= kEmitBacklog) return false;
+  if (replay && opts.client_id) {
+    RunOut out;
+    if (replay_if_seen(opts, out)) {
+      complete_local(out, done, ctx);
+      return true;
+    }
+  }
+  ++stats_.overloaded;
+  ++stats_.refused_followup;
+  ExecResult r;
+  r.status = Status::E_OVERLOADED;
+  r.id = target;  // null for a create: the follow-up gate runs before minting
+  done(ctx, r);
+  return true;
 }
 
 void Shard::prefetch(const ObjectID* ids, u32 n) {
@@ -373,6 +478,19 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
 #else
     const bool track = t->index_id != 0;
 #endif
+    // R1 (docs/S1_ADMISSION.md 3): a client's logged mutation reserves its
+    // worst case here, after validate and before apply, its first change.
+    // Follow-ups (client = false) and unlogged ops are not refused.
+    const bool reserve = client && !op->unlogged;
+    if (reserve) {
+      const u64 wal_need = record_size(t->max_size) + peer_record_max_ +
+                           (opts.client_id ? record_size(sizeof(SessionV1)) : 0);
+      const u64 waiter_need = opts.durability == Durability::DURABLE ? sizeof(Waiter) + op->max_result : 0;
+      if (!admit(wal_need, waiter_need, out)) {
+        if (!emit_scratch_.empty()) contract_violation("emit outside apply", op);
+        return;
+      }
+    }
     u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
     u32 old_len = track ? extract_key(*t, *obj, old_key) : 0;
     c.applying_ = true;
@@ -416,6 +534,7 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
                                 ? record_session(opts, o->id, o->version)
                                 : nullptr;
     o->last_lsn = log(RecType::UPDATE, *o);
+    if (reserve) check_reserved(op);
     if (peer != nullptr) peer->last_lsn = o->last_lsn;  // durable with the group
     if (session != nullptr) session->last_lsn = o->last_lsn;
     if (!emit_scratch_.empty()) queue_emits(o->last_lsn);
@@ -446,6 +565,12 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
   if (map_.find(id) != nullptr) {
     std::fprintf(stderr, "snc: ObjectID minted twice: %s\n", id.to_string().c_str());
     std::abort();
+  }
+  // R1: before the object is allocated and inserted, the create's first
+  // change (validate runs on the inserted object; its failure is undone).
+  if (!admit(record_size(t->max_size) + (opts.client_id ? record_size(sizeof(SessionV1)) : 0),
+             sizeof(Waiter) + op->max_result, out)) {
+    return;
   }
   std::size_t bytes = sizeof(ObjectHeader) + t->initial_size;
   auto* obj = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
@@ -483,6 +608,7 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
   }
   ObjectHeader* session = opts.client_id ? record_session(opts, o->id, 1) : nullptr;
   o->last_lsn = log(RecType::CREATE, *o);
+  check_reserved(op);
   if (session) session->last_lsn = o->last_lsn;
   ++stats_.creates;
   out.r.version = 1;
@@ -491,7 +617,7 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
   finish_result(c, op, out.r);
 }
 
-void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
+void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out, bool internal) {
   if (cluster_ && !serving(slot_of(target))) {
     refuse_unserved(slot_of(target), out);
     return;
@@ -508,17 +634,27 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
     return;
   }
   const TypeDescriptor* t = registry().type(obj->type_id);
-  if (t->delete_op != 0) {
-    const OpDescriptor* op = registry().op(t->delete_op);
-    OpCtx c;
-    prepare_ctx(c, obj, t, op);
-    Status s = validate_checked(c, op, ByteView{});
+  const OpDescriptor* dop = t->delete_op != 0 ? registry().op(t->delete_op) : nullptr;
+  OpCtx c;
+  if (dop != nullptr) {
+    prepare_ctx(c, obj, t, dop);
+    Status s = validate_checked(c, dop, ByteView{});
     if (s != Status::OK) {
       out.r.status = s;
       out.r.app_code = c.app_code_;
       return;
     }
-    if (op->apply) op->apply(c, ByteView{});
+  }
+  // R1: after validate, before the delete op's apply or the index erase,
+  // the first change. One DELETE record (no payload); the tombstone's
+  // ERASE waiter, and the answer's waiter if it waits. Internal deletes
+  // (session expiry) are the shard's own work and are not client admission.
+  if (!internal &&
+      !admit(record_size(0), sizeof(Waiter) * (opts.durability == Durability::DURABLE ? 2 : 1), out)) {
+    return;
+  }
+  if (dop != nullptr) {
+    if (dop->apply) dop->apply(c, ByteView{});
     obj = c.obj_;
   }
   if (t->index_id) {
@@ -538,6 +674,7 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
   // Spec section 8: free the payload now, keep a 48-byte tombstone until
   // the DELETE record is durable.
   u64 lsn = log(RecType::DELETE, *obj);
+  if (!internal) check_reserved(dop);
   // Copy the header to a fresh block and swap the map entry before freeing
   // the old one: the map compares IDs through the stored pointer, so it must
   // never hold a freed block (a realloc here once left a stale entry behind).
@@ -616,7 +753,9 @@ bool Shard::poll() {
   }
   bool busy = run_emits();
   if (links_) busy |= poll_links();
-  if (wal_) busy |= wal_->poll(sri_now_ns(), /*force=*/false);
+  if (wal_ && !((g_debug_hold_wal.load(std::memory_order_relaxed) >> (id_ & 63)) & 1)) {
+    busy |= wal_->poll(sri_now_ns(), /*force=*/false);
+  }
   if (sender_ || receiver_) busy |= poll_replication();
   if (fence_listener_) busy |= fence_listener_->poll(0, 0, 0, sri_now_ns());
   if (ckpt_.active) {
@@ -635,6 +774,8 @@ void Shard::publish_gauges(u64 now, bool force) {
   std::array<u64, kGaugeCount> v{};
   v[G_REFUSED_FOLLOWUP] = stats_.refused_followup;
   v[G_REFUSED_RING] = stats_.refused_ring;
+  v[G_REFUSED_WAITER] = stats_.refused_waiter;
+  v[G_REFUSED_WAL_BUFFER] = stats_.refused_wal_buffer;
   v[G_GATHER_OVERLOADED] = stats_.gather_overloaded;
   v[G_WAITERS_NOW] = waiters_.size();
   v[G_WAITERS_PEAK] = waiters_peak_;
@@ -763,12 +904,14 @@ u64 Shard::expire_sessions(u32 now_s, u32 ttl_s) {
     std::memcpy(&v, o->payload(), sizeof(v));
     if (v.touched_s + static_cast<u64>(ttl_s) < now_s) old.push_back(o->id);
   });
+  u64 n = 0;
   for (const ObjectID& id : old) {
     RunOut out;
-    run_delete(id, ExecOptions{}, out);
+    run_delete(id, ExecOptions{}, out, /*internal=*/true);
+    n += out.r.status == Status::OK;
   }
-  stats_.sessions_expired += old.size();
-  return old.size();
+  stats_.sessions_expired += n;
+  return n;
 }
 
 // ---- Index partition (spec section 11) ----------------------------------------------

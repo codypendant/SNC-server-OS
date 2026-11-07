@@ -36,8 +36,8 @@ Decided by cody on 2026-11-04.
      S0 observability (published gauges, no behaviour change) was approved
      in architecture and scope (PR #69). S0.1 (seqlock memory order) was
      approved (PR #70), so S0 is complete. The two known HA test-harness
-     races (lab p3 primary sampling; c2 READY-line read) are fixed and
-     await review; S1 behaviour waits for that review
+     races were fixed (PR #71, approved). S1 resource-specific admission
+     ([S1_ADMISSION.md](S1_ADMISSION.md)) awaits review; S2 is not started
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
@@ -135,6 +135,11 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **State-native computing lineage (research, not authorized):**
+  [STATE_NATIVE_COMPUTING_LINEAGE.md](STATE_NATIVE_COMPUTING_LINEAGE.md)
+  records prior art and frames the minimal durable state-machine contract
+  (DSM-1..DSM-10) as hypotheses. It authorizes no branching, replay or DSM
+  implementation.
 - **Evidence rules:** every benchmark host has a manifest in
   [bench/manifests/](../bench/manifests/README.md); raw results go under
   `bench/results/<campaign>/` with the exact configuration and commit
