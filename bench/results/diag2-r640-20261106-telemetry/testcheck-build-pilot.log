@@ -1,0 +1,97 @@
+Internal ctest changing into directory: /home/solo/SNC-server-OS/build-pilot
+Test project /home/solo/SNC-server-OS/build-pilot
+    Start 22: test_fail_closed
+1/2 Test #22: test_fail_closed .................   Passed  226.37 sec
+    Start 26: test_sync_readiness
+2/2 Test #26: test_sync_readiness ..............   Passed  285.69 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) = 512.06 sec
+
+===== LastTest.log
+Start testing: Nov 07 00:24 UTC
+----------------------------------------------------------
+22/35 Testing: test_fail_closed
+22/35 Test: test_fail_closed
+Command: "/usr/bin/python3" "/home/solo/SNC-server-OS/tests/test_fail_closed.py" "/home/solo/SNC-server-OS/build-pilot"
+Directory: /home/solo/SNC-server-OS/build-pilot
+"test_fail_closed" start time: Nov 07 00:24 UTC
+Output:
+----------------------------------------------------------
+f1: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '15 samples, served 0'}
+f2: ok {'slot': 1326, 'source': 1, 'source_standby': 2, 'dest': 3, 'accounts': 31, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 31, 'digest': 12904129235563988296, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write_at_promoted_source': 'E_MIGRATING', 'commit': 'STOPPED committed', 'dest_activate': 'OK', 'two_serving_after_commit': False, 'write_at_promoted_source_after_commit': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_dest': 1000000}
+f3: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '15 samples, served 0', 'transfer_into_unproven': 'OK', 'slot_unchanged': True, 'status_unproven': ['unproven=1']}
+f4: ok {'slot': 1326, 'm1': '0x2', 'm1_epoch': 2, 'm3': '0x6', 'm3_epoch': 2, 'promoted_info': {'phase': 3, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': '6:2'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f5: ok {'slot': 1326, 'm3': '0x2', 'promoted_info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 4, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': 'c:4'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f5b: ok {'slot': 1326, 'm5': '0x2', 'before_unseal': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 3, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'sealed', 'arrived': '7:3'}, 'driver': 'DONE', 'promoted_info': {'phase': 0, 'group': 1, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 3, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '1', 'proof': 'missing', 'arrived': '7:3'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '8 samples, served 0'}
+f7: ok {'slot': 1326, 'roles_seen': ['m', 'p'], 'driver': 'DONE', 'gate_waited': True, 'probe': '1458 samples'}
+f8_f9: ok {'slot': 1326, 'balances_ok': True, 'a_after_restart': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'foreign', 'arrived': '2:2'}, 'probe': '67 samples, A served 0', 'never_moved': 'OK'}
+f10: ok {'prepared': {'a_serving': 1, 'a_flags': '0', 'b_phase': 0, 'b_serving': 0}, 'sealed': {'a_serving': 1, 'a_flags': '1', 'b_phase': 0, 'b_serving': 0}, 'staged': {'a_serving': 1, 'a_flags': '1', 'b_phase': 3, 'b_serving': 0}, 'final_balance': 1000003}
+f11: ok {'slot': 1326, 'moves': 9, 'arrivals': 1, 'balance': 1000009}
+f13:f3: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '64 samples, served 0', 'transfer_into_unproven': 'OK', 'slot_unchanged': True, 'status_unproven': ['unproven=1']}
+f13:f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '52 samples, served 0'}
+f15: ok {'role_after': 's', 'info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 6, 'live_digest': 10608692316155999574, 'flags': '0', 'proof': 'ok', 'arrived': '0:0'}, 'role_file': 'standby\n'}
+f17:f1: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '12 samples, served 0'}
+f17:f5: ok {'slot': 1326, 'm3': '0x2', 'promoted_info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 4, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': 'c:4'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f17:f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '6 samples, served 0'}
+f18: ok {'slot': 1326, 'info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 6, 'digest': 10608692316155999574, 'durable': 1, 'serving': 1, 'map_group': 1, 'map_epoch': 2, 'live_count': 6, 'live_digest': 10608692316155999574, 'flags': '0', 'proof': 'ok', 'arrived': '2:2'}, 'moved': {'OK': 6}, 'never_moved': 'OK'}
+role: ok {'roles': ('primary\n', 'standby\n'), 'crash_rc': 9, 'final_role': 'primary\n'}
+backfill: ok {'in_progress': 'NO a move is in progress', 'no_primary': 'NO no primary answers in group 1', 'backfill': 'BACKFILLED 1 at epoch 4; UNRESOLVED 2 1314:owner-not-active,1558:owner-unsealed', 'arrived': {1326: ('0x2', 2)}, 'again': 'NOTHING; UNRESOLVED 2 1314:owner-not-active,1558:owner-unsealed', 'v1_epoch_then_v2_epoch': ('epoch=3', 4)}
+stuck: ok {'slot': 1326, 'driver': 'STUCK the destination holds no evidence of move 0000000000000002 (proof=missing): slot 1326 stays unavailable until repaired', 'move_cleared': True, 'arrived': (2, 2), 'source': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'dest': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 0, 'live_digest': 0, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'other_move': 'DONE', 'again': 'DONE'}
+prepared: ok {'slot': 1326, 'restarted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'driver': 'DONE', 'final': {'OK': 11}}
+f10_reseal: ok {'slot': 1326, 'resealed': True, 'promoted': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'abort': 'ABORTED', 'after': {'phase': 0, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 1, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '1', 'proof': 'ok', 'arrived': '0:0'}, 'read': {'OK': 11}}
+f7_prepared: ok {'slot': 1326, 'roles_seen': ['m', 'p'], 'driver': 'DONE', 'probe': '768 samples', 'final': {'OK': 11}}
+legacy_primary: ok {'no_flag': (None, False), 'crash': (9, None, False), 'adopted': ('primary\n', True, {'OK': 6}), 'final': ('primary\n', True)}
+legacy_standby: ok {'refused': 'snc_server: not started: --adopt-role primary: group member 127.0.0.1:23205 is serving as primary or promoting (role p) of this space', 'adopted[]': ('standby\n', True), "adopted['--adopt-role', 'standby']": ('standby\n', True)}
+legacy_stale: ok {'promoting': 'snc_server: not started: --adopt-role primary: group member 127.0.0.1:29740 is serving as primary or promoting (role m) of this space', 'refused': "snc_server: not started: --adopt-role primary: group member 127.0.0.1:29740 is at term 1, newer than this directory's 0 (this directory is stale)"}
+f19: ok {'after_first': (4, 1, True, 1), 'log_order': (3, 7, 10), 'after_second': (8, 2, True, 0), 'slot': 1326, 'balances_ok': True, 'probe': '324 samples, A served 0', 'a_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'foreign', 'arrived': '2:2'}, 'never_moved': 'OK'}
+f19r: ok {'after_first': (4, 1, True, 1), 'released': ['OK released 1', 'OK released 1', 'OK released 1'], 'after_release': (7, 1, True, 1), 'refusals': 3, 'log_order': (3, 7, 14), 'after_second': (9, 2, True, 0), 'slot': 1326, 'balances_ok': True, 'probe': '1494 samples, A served 0', 'a_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'foreign', 'arrived': '2:2'}, 'never_moved': 'OK'}
+CAS with 0 arrivals (267 bytes): CAS 5.68 ms, SYNC 2.24 ms (mean of 20)
+CAS with 256 arrivals (6309 bytes): CAS 5.91 ms, SYNC 2.46 ms (mean of 20)
+CAS with 4096 arrivals (101565 bytes): CAS 16.28 ms, SYNC 6.99 ms (mean of 20)
+test_placement --cas: ok
+witness 0 state on disk: 101664 bytes
+witness 1 state on disk: 101664 bytes
+witness 2 state on disk: 101664 bytes
+placement v1 (2 groups, 4 nodes): 266 bytes
+placement v2, all 4096 slots with an arrival: 146632 bytes (35.7 per arrival)
+  encode 1948 us, decode 3951 us, to ClusterMap 8 us (mean of 200)
+  memory: arrivals 65536 bytes per Placement and per ClusterMap
+test_placement: ok
+test_fail_closed: ok f1 f2 f3 f4 f5 f5b f6 f7 f8_f9 f10 f11 f13:f3 f13:f6 f15 f17:f1 f17:f5 f17:f6 f18 role backfill stuck prepared f10_reseal f7_prepared legacy_primary legacy_standby legacy_stale f19 f19r size
+<end of output>
+Test time = 226.37 sec
+----------------------------------------------------------
+Test Passed.
+"test_fail_closed" end time: Nov 07 00:28 UTC
+"test_fail_closed" time elapsed: 00:03:46
+----------------------------------------------------------
+
+26/35 Testing: test_sync_readiness
+26/35 Test: test_sync_readiness
+Command: "/usr/bin/python3" "/home/solo/SNC-server-OS/tests/test_sync_readiness.py" "/home/solo/SNC-server-OS/build-pilot"
+Directory: /home/solo/SNC-server-OS/build-pilot
+"test_sync_readiness" start time: Nov 07 00:28 UTC
+Output:
+----------------------------------------------------------
+PASS s1_seed_start {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "node0_lines_at_kill": ["rejoin: the other node is primary; old data moved to /tmp/snc-health-ml7qe6mq/n0.stale-1794011303", "rejoin: starting as its standby, seeded from 127.0.0.1:28544", "snc_server: not started: seed: transfer failed"], "seed_sent": false, "seeded": false, "no_promotion": true, "states": [[4, 1, 1, true]], "witness_still_not_ready": true, "pass": true, "scenario": "s1_seed_start", "seconds": 17.4}
+PASS s2_mid_catchup {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "backlog_peak": 1443844, "backlog_at_kill": 721420, "halfway": true, "no_promotion": true, "states": [[6, 1, 1, true]], "node0_role": "s", "pass": true, "scenario": "s2_mid_catchup", "seconds": 25.1}
+PASS s3_synced_fail {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "synced_s": 0.51, "state_at_kill": [6, 1, 1, false], "second_promoted_s": 0.96, "term_2": 2, "bench": {"rc": 0, "accounts": 2000, "deposits": 4409442, "mismatches": 0, "failovers": 4, "tail": ["  deposit latency ns  n 4409442  p50 1081344  p95 1376256  p99 2031616  p99.9 2162688  max 1491478543", "  failovers 4  replayed 394  timeouts 0  resends 256  max_resend_age_ms 989", "  retry claim: max_resend_age_ms 989, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 4409442 deposits, 0 mismatches"]}, "pass": true, "scenario": "s3_synced_fail", "seconds": 40.4}
+PASS s4_restart_reseed {"restart_states": [[3, 0, 0, false]], "restart_ready": true, "restart_regressed": false, "reseed_states": [[3, 0, 0, false], [4, 0, 0, true], [5, 0, 0, false]], "seed_gate": ["witness: recorded NOT READY (a seed is asked for) at v=4"], "not_ready_before_seed": true, "not_ready_seen": true, "ready_again": true, "promoted": [6, 1, 1, true], "bench": {"rc": 0, "accounts": 2000, "deposits": 5700085, "mismatches": 0, "failovers": 4, "tail": ["  deposit latency ns  n 5700085  p50 1179648  p95 1409024  p99 1900544  p99.9 2162688  max 5041962321", "  failovers 4  replayed 504  timeouts 2  resends 256  max_resend_age_ms 5041", "  retry claim: max_resend_age_ms 5041, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 5700085 deposits, 0 mismatches"]}, "pass": true, "scenario": "s4_restart_reseed", "seconds": 60.4}
+PASS s5_stale_synced {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "backlog_peak": 1328840, "backlog_at_kill": 1060844, "halfway": true, "stale_replies": ["NO term 0 was replaced by 1", "NO term 0 was replaced by 1", "NO term 0 was replaced by 1"], "refused": true, "state_after": [6, 1, 1, true], "no_promotion": true, "node0_role": "s", "pass": true, "scenario": "s5_stale_synced", "seconds": 20.2}
+PASS s6_writes_catchup {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "series": [[1075056, 0, 2, 2, true], [66, 0, 0, 2, true]], "samples": 24, "ready_at": {"wal_unacked": 100, "disk_readers": 0, "client_running": true}, "early_ready": [], "synced_lines": ["witness: recorded NOT READY (this primary was promoted) at v=5", "witness: granted, continuing without the standby", "witness: standby back in sync (READY after v=6)"], "bench": {"rc": 0, "accounts": 2000, "deposits": 3155653, "mismatches": 0, "failovers": 2, "tail": ["  deposit latency ns  n 3155653  p50 1376256  p95 2064384  p99 2162688  p99.9 7208960  max 1504797899", "  failovers 2  replayed 170  timeouts 0  resends 128  max_resend_age_ms 1051", "  retry claim: max_resend_age_ms 1051, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 3155653 deposits, 0 mismatches"]}, "promoted_after": true, "pass": true, "scenario": "s6_writes_catchup", "seconds": 41.2}
+PASS s7_fail_at_synced {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "synced_s": 0.47, "state_at_kill": [6, 1, 1, false], "second_promoted_s": 1.12, "term_2": 2, "bench": {"rc": 0, "accounts": 2000, "deposits": 4657531, "mismatches": 0, "failovers": 4, "tail": ["  deposit latency ns  n 4657531  p50 999424  p95 1245184  p99 1998848  p99.9 2097152  max 1605214783", "  failovers 4  replayed 332  timeouts 0  resends 256  max_resend_age_ms 1106", "  retry claim: max_resend_age_ms 1106, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 4657531 deposits, 0 mismatches"]}, "pass": true, "scenario": "s7_fail_at_synced", "seconds": 40.4}
+PASS s10_majority_loss {"witnesses_killed": 2, "promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "backlog_peak": 1319602, "backlog_at_kill": 1044614, "halfway": true, "no_promotion": true, "node0_role": "s", "pass": true, "scenario": "s10_majority_loss", "seconds": 20.3}
+PASS s10b_one_witness_lost {"witnesses_killed": 1, "promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "backlog_peak": 1312378, "backlog_at_kill": 1044382, "halfway": true, "no_promotion": true, "node0_role": "s", "pass": true, "scenario": "s10b_one_witness_lost", "seconds": 20.2}
+test_sync_readiness: OK
+<end of output>
+Test time = 285.69 sec
+----------------------------------------------------------
+Test Passed.
+"test_sync_readiness" end time: Nov 07 00:32 UTC
+"test_sync_readiness" time elapsed: 00:04:45
+----------------------------------------------------------
+
+End testing: Nov 07 00:32 UTC

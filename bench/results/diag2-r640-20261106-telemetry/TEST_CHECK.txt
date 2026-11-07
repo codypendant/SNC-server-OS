@@ -1,0 +1,4 @@
+build-pilot fails []; build-diag fails []; on build-diag alone []
+Rule, approved by the user: proceed unless a scenario fails on build-diag alone.
+Proceed: True
+The proof then runs with diag2.py --skip-ctest. The full suite was not rerun.
