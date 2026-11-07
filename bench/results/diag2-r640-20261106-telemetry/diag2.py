@@ -79,10 +79,11 @@ def main():
     if gov != "performance" or nb != "0": raise SystemExit("settings differ from the pilot's")
     if SMOKE:
         cell("T", "smoke", 0, 218323, 3, 60); return
-    t = subprocess.run(["ctest", "--test-dir", "build-diag", "-j", "8", "--timeout", "600"], capture_output=True, text=True)
-    open(f"{OUT}/ctest-build-diag.log", "w").write(t.stdout + t.stderr)
-    print("ctest exit", t.returncode, t.stdout.strip().splitlines()[-3:] if t.stdout else "", flush=True)
-    if t.returncode: raise SystemExit("STOP: tests failed on build-diag")
+    if "--skip-ctest" not in sys.argv:  # see test_check.py and TEST_CHECK.txt
+        t = subprocess.run(["ctest", "--test-dir", "build-diag", "-j", "8", "--timeout", "600"], capture_output=True, text=True)
+        open(f"{OUT}/ctest-build-diag.log", "w").write(t.stdout + t.stderr)
+        print("ctest exit", t.returncode, t.stdout.strip().splitlines()[-3:] if t.stdout else "", flush=True)
+        if t.returncode: raise SystemExit("STOP: tests failed on build-diag")
     for rep in range(3):
         for arm in "BT":
             cell(arm, "closed", rep, None, 60, 60); cell(arm, "w30", rep, 2183233, 30, 60)
