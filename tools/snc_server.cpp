@@ -13,6 +13,8 @@
 //                   [--adopt-role primary|standby]
 //                   [--move-units on|off] [--move-unit-us N] [--move-unit-bytes N]
 //                   [--move-window-bytes N]
+//                   [--admission s1|legacy] [--waiter-budget-bytes N]
+//                   [--wal-buffer-budget-bytes N]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -320,6 +322,26 @@ int main(int argc, char** argv) {
       if (k == "--move-unit-us") cfg.move_unit_us = static_cast<u32>(n);
       else if (k == "--move-unit-bytes") cfg.move_unit_bytes = n;
       else cfg.move_window_bytes = n;
+    }
+    else if (k == "--admission") {
+      // docs/S1_ADMISSION.md: s1 (default) or legacy, the gate before S1.
+      const std::string v = val();
+      if (v != "s1" && v != "legacy") {
+        std::fprintf(stderr, "--admission takes s1 or legacy\n");
+        return 2;
+      }
+      cfg.admission_legacy = v == "legacy";
+    }
+    else if (k == "--waiter-budget-bytes" || k == "--wal-buffer-budget-bytes") {
+      const char* v = val();
+      char* end = nullptr;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (end == v || *end != '\0' || n == 0) {
+        std::fprintf(stderr, "%s takes a positive number\n", k.c_str());
+        return 2;
+      }
+      if (k == "--waiter-budget-bytes") cfg.waiter_budget_bytes = n;
+      else cfg.wal_buffer_budget_bytes = n;
     }
     else if (k == "--adopt-role") {
       // docs/LEGACY_ROLE.md: once, for a data directory from before role files.

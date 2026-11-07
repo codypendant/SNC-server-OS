@@ -164,6 +164,14 @@ class Shard {
   void set_epoch_hint(std::atomic<u64>* hint) { epoch_hint_ = hint; }
   // Published gauges (include/snc/gauges.h, S0). Observability only.
   void set_gauges(ShardGauges* g) { gauges_ = g; }
+  // Admission budgets (S1, docs/S1_ADMISSION.md). Set before the runtime
+  // runs ops; legacy restores the gate as it was before S1.
+  struct Admission {
+    bool legacy = false;
+    u64 waiter_budget_bytes = 0;
+    u64 wal_buffer_budget_bytes = 0;
+  };
+  void set_admission(const Admission& a);
   // Copies this shard's counters into its gauge block: at most every
   // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
   // phase change. Shard thread only.
@@ -585,6 +593,21 @@ class Shard {
     if (w.kind == Waiter::Kind::REMOTE && w.resp.len > kMsgInlineBytes) b += w.resp.len;
     return b;
   }
+  // S1 admission (docs/S1_ADMISSION.md). admit() is the R1 check: called
+  // after an op's validation and before its first mutation, with the
+  // op's worst-case WAL bytes and waiter bytes. It changes no state; a
+  // refusal sets E_OVERLOADED and counts its cause.
+  bool admit(u64 wal_need, u64 waiter_need, RunOut& out);
+  bool followups_refuse(const ExecOptions& opts, Completion done, void* ctx);
+  // Worst-case bytes of a mutation's local() peer record: the largest
+  // registered type's record (the peer's type is chosen inside apply).
+  u64 peer_record_max_ = 0;
+  Admission adm_{true, 0, 0};  // legacy until set_admission
+  // Debug builds: WAL active bytes when admit() last passed, to check
+  // that the op appended no more than it reserved (no flush runs between).
+  u32 adm_active_before_ = 0;
+  u64 adm_wal_need_ = 0;
+  void check_reserved(const OpDescriptor* op);
   ShardGauges* gauges_ = nullptr;
   u64 gauges_published_ns_ = 0;
   bool gauges_dirty_ = false;
@@ -615,6 +638,7 @@ class Shard {
 
 // The Shard running on the current worker thread.
 Shard* current_shard();
+void debug_hold_wal_flush(u16 shard, bool on);  // tests only (Engine::debug_hold_wal)
 void set_current_shard(Shard* s);
 
 }  // namespace snc

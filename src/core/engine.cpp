@@ -58,6 +58,8 @@ void hook_init(void* user) {
   s->set_phases(h->phases);
   s->set_epoch_hint(h->epoch_hint);
   s->set_gauges(&h->gauges[id]);
+  s->set_admission(Shard::Admission{h->cfg->admission_legacy, h->cfg->waiter_budget_bytes,
+                                    h->cfg->wal_buffer_budget_bytes});
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -1374,6 +1376,7 @@ void Engine::withdraw() {
 bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
 
 void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
+void Engine::debug_hold_wal(u16 shard, bool on) { debug_hold_wal_flush(shard, on); }
 
 bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 

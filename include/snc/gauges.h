@@ -62,12 +62,12 @@ struct Ewma {
 
 // Field ids of a shard's block. Names in kGaugeNames, same order.
 enum Gauge : u32 {
-  // Refusals by cause (cumulative). waiter and wal_buffer have no refusal
-  // path before S1 and stay 0.
+  // Refusals by cause (cumulative). waiter and wal_buffer are S1's budgets
+  // (docs/S1_ADMISSION.md); 0 with --admission legacy.
   G_REFUSED_FOLLOWUP,       // follow-up backlog above kEmitBacklog (shard.cpp execute)
   G_REFUSED_RING,           // forward or batch found the ring full
-  G_REFUSED_WAITER,         // S1 (always 0 in S0)
-  G_REFUSED_WAL_BUFFER,     // S1 (always 0 in S0)
+  G_REFUSED_WAITER,         // waiter budget (S1 admit)
+  G_REFUSED_WAL_BUFFER,     // WAL buffer budget (S1 admit)
   G_GATHER_OVERLOADED,      // index gather legs dropped: ring full
   // Durability waiters.
   G_WAITERS_NOW,
