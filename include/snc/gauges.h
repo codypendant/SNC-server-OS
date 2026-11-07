@@ -113,6 +113,7 @@ enum Gauge : u32 {
   G_REFUSED_PENDING,
   G_PENDING_NOW,
   G_PENDING_PEAK,
+  G_REFUSED_REPLAY,          // S1.2: duplicates refused for waiter room (within refused_waiter)
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -129,7 +130,7 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_bytes_issued", "ckpt_bytes_written", "ckpt_writes_inflight", "ckpt_writes_inflight_peak",
     "ckpt_last_snapshot_us", "ckpt_last_walk_us", "ckpt_last_drain_us", "ckpt_last_durable_wait_us",
     "ckpt_last_sync_us", "ckpt_last_total_us", "ckpt_last_result", "ckpt_completed",
-    "refused_pending", "pending_now", "pending_peak",
+    "refused_pending", "pending_now", "pending_peak", "refused_replay",
     "published_ns",
 };
 

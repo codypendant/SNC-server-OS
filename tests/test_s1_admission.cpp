@@ -37,6 +37,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 
 #include <atomic>
@@ -1524,7 +1525,9 @@ void test_client_replay_retry() {
     CHECK(first.connect("127.0.0.1", port));
     CHECK(second.connect("127.0.0.1", port));
     first.enable_session(kClient);
-    second.enable_session(kClient);  // the same session: its seq 1 is first's
+    // The same session: its seq 1 is first's. A short request timeout, so a
+    // replay refused that long fails over (and is resent there).
+    second.enable_session(kClient, 30000, 300);
     Engine::debug_hold_wal(0, true);
     Answers fa, sa;
     send_deposit(first);
@@ -1534,6 +1537,19 @@ void test_client_replay_retry() {
     for (int i = 0; i < 100 && second.replay_retries() < 3; ++i) CHECK(second.poll(&Answers::on, &sa, 5) >= 0);
     CHECK(second.replay_retries() >= 3);  // refused, resent with seq 1, refused again
     CHECK(sa.got.empty());                // and never handed to the caller
+    // A caller blocking without a timeout still wakes to send the resend.
+    const u64 r0 = second.replay_retries();
+    for (int i = 0; i < 3; ++i) CHECK(second.poll(&Answers::on, &sa, -1) >= 0);
+    for (int i = 0; i < 200 && second.replay_retries() == r0; ++i) CHECK(second.poll(&Answers::on, &sa, -1) >= 0);
+    CHECK(second.replay_retries() > r0);
+    CHECK(second.next_retry_ms() >= 0);
+    // Refused for longer than the request timeout: it fails over (here, to
+    // the same node) and resends; the resend is still not handed over.
+    const auto t_end = std::chrono::steady_clock::now() + std::chrono::milliseconds(1000);
+    while (std::chrono::steady_clock::now() < t_end) CHECK(second.poll(&Answers::on, &sa, 5) >= 0);
+    CHECK(second.timeouts() >= 1);
+    CHECK(second.failovers() >= 1);
+    CHECK(sa.got.empty());
     CHECK(eng.stats(0).refused_replay >= 3);
     CHECK_EQ(balance(eng, 0, a, true).balance_cents, b0 + 10);
     Engine::debug_hold_wal(0, false);
@@ -1557,7 +1573,8 @@ void test_client_replay_retry() {
   eng.stop();
   rm_rf(dir);
   std::printf("A21 client retry: a resend refused for waiter room was resent %llu times with its "
-              "sequence and answered once, replayed (version %llu); applied once\n",
+              "sequence (backing off; a blocking poll wakes for it; refused past the request timeout it "
+              "failed over and resent), and answered once, replayed (version %llu); applied once\n",
               (unsigned long long)retries, (unsigned long long)version);
 }
 

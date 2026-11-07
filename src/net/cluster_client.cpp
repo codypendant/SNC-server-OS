@@ -188,6 +188,11 @@ int ClusterClient::poll(Client::OnResponse on, void* ctx, int timeout_ms) {
     got += r;
   }
   if (got > 0 || timeout_ms == 0) return got;
+  // A refused replay waits in its group's client: wake to resend it.
+  for (auto& c : groups_) {
+    const int wake = c->next_retry_ms();
+    if (wake >= 0 && (timeout_ms < 0 || timeout_ms > wake)) timeout_ms = wake;
+  }
   epoll_event evs[16];
   const int n = ::epoll_wait(epfd_, evs, 16, timeout_ms);
   for (int i = 0; i < n; ++i) {

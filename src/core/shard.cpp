@@ -827,6 +827,7 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_REFUSED_PENDING] = stats_.refused_pending;
   v[G_PENDING_NOW] = pending_live();
   v[G_PENDING_PEAK] = stats_.pending_peak;
+  v[G_REFUSED_REPLAY] = stats_.refused_replay;
   v[G_GATHER_OVERLOADED] = stats_.gather_overloaded;
   v[G_WAITERS_NOW] = waiters_.size();
   v[G_WAITERS_PEAK] = waiters_peak_;

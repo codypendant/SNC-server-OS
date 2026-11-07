@@ -44,8 +44,8 @@ could hold any number of them. A20 builds exactly that case.
     the record is durable;
   - **undurable, no room:** `E_OVERLOADED` with `replayed` set. It counts
     under `refused_waiter`, like any other waiter refusal, and also under
-    the new `ShardStats::refused_replay` (a subset, so not in the
-    `overloaded` sum).
+    the new `refused_replay` (STATS and the GAUGES gauge
+    `refused_replay`; a subset, so not in the `overloaded` sum).
 - `stats.replayed` still counts every duplicate detected, refused or
   not.
 - A refused replay changes nothing. `replay_if_seen` only reads the
@@ -73,25 +73,40 @@ The client half was not true:
   ready; resend this request as it is":
   - it keeps the request in its unanswered list;
   - it does not hand the answer to the caller;
-  - it resends the same bytes (same `req_id`, same sequence) every 2 ms
-    (`kReplayRetryNs`) until a real answer comes;
+  - it resends the same bytes (same `req_id`, same sequence) with
+    backoff, 2 ms doubling to 64 ms, until a real answer comes;
   - it counts `replay_retries()`;
-  - it counts the refusal as progress, so `request_timeout_ms` does not
-    fire on a live node.
+  - a refusal is **not** progress. A replay refused for longer than
+    `request_timeout_ms` counts as a failed node, as an unanswered request
+    does: the client fails over and resends (A21 checks this).
+  - `poll` caps its wait at the next resend, including `poll(-1)`.
+    `next_retry_ms()` exposes it, and `ClusterClient::poll` and any caller
+    waiting on `wait_fd()` must wake by then.
+  - A refusal whose request is no longer unanswered (a late copy) is
+    dropped, never handed to the caller.
   - A failover clears the retry list; the request is resent with the
     other unanswered ones anyway.
 - `docs/RETRIES.md` records the rule for any other client: on
   `E_OVERLOADED` with `replayed`, resend the same request; never reissue
   it.
 
-**Edge case (no double apply; outcome may be lost):**
+**Edge case (no double apply; the outcome may be lost):**
 - If a later sequenced request from the same client is applied before
   the retry lands, the retry is answered `E_REPLAYED_OLD`: decided
   earlier, outcome not kept.
-- `net::Client` resends refused replays after the rest of its batch, so
-  this can happen after a failover with several requests in flight.
+- This happens whenever seq m+1 is applied during m's backoff, not only
+  in a failover batch. Examples: m+1 was already in flight; m+1 is
+  `APPLIED` (no waiter needed); or the budget drained before m's resend.
+  Refusals happen only when the budget is full, so this is the overload
+  case.
+- For a create, the caller then never learns the new object's ID. The
+  object exists but is unreferenced. This is the existing meaning of
+  `E_REPLAYED_OLD` for any create resent behind a newer request.
 - It is the documented meaning of `E_REPLAYED_OLD`, and the op is never
   applied twice.
+- Not built: holding a link's newer sends while a replay waits would
+  close it, but it would serialize the client and change ordering. It is
+  recorded for review.
 
 This was raised as a decision before the merge, since it changes a
 client contract (not the wire format).
@@ -179,9 +194,25 @@ here for this wording.
 | A18 | backlog fast path | gate closed (1,025 held transfers; a new deposit gets `refused_followup`); 3 resends of an applied seq: 1 waits (empty-list rule), 2 are refused by the waiter budget, not the gate; nothing re-applied |
 | A19 | remote replay | sequenced requests are never forwarded (section 4) |
 | A20 | aggregate pressure | 64 clients × 3 rounds: waiters stop at the budget (4, 1,024 B); 188 refused marked replayed; every deposit applied once |
-| A21 | client contract | through the socket front end, a second client on the same session resends seq 1. It is refused, resent 3+ times with its sequence, never handed to the caller, and finally answered once, `OK` replayed and durable, with the original's version; applied once |
+| A21 | client contract | through the socket front end, a second client on the same session resends seq 1. It is refused and resent with its sequence (backing off), never handed to the caller. A `poll(-1)` still wakes for the resend. Refused past a 300 ms request timeout, the client fails over and resends. Finally it is answered once, `OK` replayed and durable, with the original's version; applied once |
 
 **Negative checks** (`bench/results/s12-validation-devvm-20261107/negative/`):
 - With the S1.1 exemption restored in `replay_if_seen`, A16, A18, A20
   and A21 fail.
 - With `net::Client`'s retry disabled, A21 fails.
+
+## 8. Independent review
+
+One read-only source review: APPROVE on the server side, which it proved
+site by site. It made five client and observability findings, fixed
+before the headline runs:
+- a blocking `poll(-1)` (and `ClusterClient::poll`) never woke to resend;
+- counting refusals as progress meant a replay refused forever never
+  timed out or failed over;
+- the fixed 2 ms resend interval had no backoff;
+- a late copy's refusal could reach the caller as plain `E_OVERLOADED`;
+- `refused_replay` was not a gauge. G_REFUSED_REPLAY is added before
+  G_PUBLISHED_NS, which shifts its index again; all readers go by name.
+
+Its finding on the outcome-loss edge case is documented in section 2,
+and not built.

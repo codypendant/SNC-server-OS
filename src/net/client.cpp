@@ -282,11 +282,22 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
       // answer: resent later with the same sequence, so the node answers it
       // from its session. Handing it to the caller would invite a resend as
       // a new request, which applies it twice (docs/RETRIES.md).
-      if (static_cast<Status>(h.status) == Status::E_OVERLOADED && (h.flags & wire::kRespReplayed) &&
-          l.order.count(h.req_id)) {
-        l.retry.emplace_back(now_ns() + kReplayRetryNs, h.req_id);
-        ++replay_retries_;
-        progress_ns_ = now_ns();  // the node is alive and answering
+      // It never reaches the caller: one whose request was already
+      // answered (a late copy) is dropped. A refusal is not progress: a
+      // replay refused for request_timeout_ms counts as a failed node.
+      if (static_cast<Status>(h.status) == Status::E_OVERLOADED && (h.flags & wire::kRespReplayed)) {
+        if (l.order.count(h.req_id)) {
+          const i64 now = now_ns();
+          auto [rt, fresh] = l.retry.try_emplace(h.req_id);
+          if (fresh) {
+            rt->second.first_ns = now;
+            rt->second.backoff_ns = kReplayRetryNs;
+          } else {
+            rt->second.backoff_ns = std::min(rt->second.backoff_ns * 2, kReplayRetryMaxNs);
+          }
+          rt->second.due_ns = now + rt->second.backoff_ns;
+          ++replay_retries_;
+        }
         pos += h.len;
         continue;
       }
@@ -296,6 +307,7 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
         return -1;  // fail over; the request is resent
       }
       auto it = l.order.find(h.req_id);
+      l.retry.erase(h.req_id);
       if (it != l.order.end()) {
         l.unanswered[it->second - l.base].clear();
         l.order.erase(it);
@@ -316,24 +328,45 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
   return got;
 }
 
+int Client::next_retry_ms() const {
+  i64 due = INT64_MAX;
+  for (const Link& l : links_)
+    for (const auto& [req_id, rt] : l.retry) due = std::min(due, rt.due_ns);
+  if (due == INT64_MAX) return -1;
+  const i64 left = due - now_ns();
+  return left <= 0 ? 0 : static_cast<int>((left + 999999) / 1000000);
+}
+
 int Client::poll(OnResponse on, void* ctx, int timeout_ms) {
-  bool retrying = false;
   if (client_id_ != 0) {
     const i64 now = now_ns();
     for (Link& l : links_) {
-      while (!l.retry.empty() && l.retry.front().first <= now) {
-        auto it = l.order.find(l.retry.front().second);
-        if (it != l.order.end()) {
-          const auto& req = l.unanswered[it->second - l.base];
-          l.out.insert(l.out.end(), req.begin(), req.end());
-          ++resends_;
-        }
-        l.retry.pop_front();
+      for (auto& [req_id, rt] : l.retry) {
+        if (rt.due_ns > now) continue;
+        auto it = l.order.find(req_id);
+        if (it == l.order.end()) continue;  // answered meanwhile; erased on its answer
+        const auto& req = l.unanswered[it->second - l.base];
+        l.out.insert(l.out.end(), req.begin(), req.end());
+        ++resends_;
+        rt.due_ns = INT64_MAX;  // until its next refusal or answer
       }
-      retrying |= !l.retry.empty();
     }
+    // A replay refused for request_timeout_ms: the node is not making it
+    // durable. Fail over, as for a request left unanswered that long.
+    if (request_timeout_ms_ > 0) {
+      for (const Link& l : links_) {
+        for (const auto& [req_id, rt] : l.retry) {
+          if (now - rt.first_ns > i64(request_timeout_ms_) * 1000000) {
+            ++timeouts_;
+            error_ = "a replay refused for " + std::to_string(request_timeout_ms_) + " ms";
+            return fail_over() ? 0 : -1;
+          }
+        }
+      }
+    }
+    const int wake = next_retry_ms();
+    if (wake >= 0 && (timeout_ms < 0 || timeout_ms > wake)) timeout_ms = wake;
   }
-  if (retrying && timeout_ms > kReplayRetryNs / 1000000) timeout_ms = static_cast<int>(kReplayRetryNs / 1000000);
   if (!flush_all()) return fail_over() ? 0 : -1;
   const bool timed = client_id_ != 0 && request_timeout_ms_ > 0;
   if (timed && timeout_ms > request_timeout_ms_) timeout_ms = request_timeout_ms_;

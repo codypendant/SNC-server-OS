@@ -149,6 +149,10 @@ class Client {
   // Duplicates the node refused for waiter room (E_OVERLOADED marked
   // replayed), each resent with its sequence instead of being answered.
   u64 replay_retries() const { return replay_retries_; }
+  // Milliseconds until the next such resend is due (0 = now), or -1 if
+  // none is queued. A caller that waits on wait_fd() itself must wake by
+  // then: poll() sends the resend.
+  int next_retry_ms() const;
 
   u16 shard_count() const { return map_.n_shards; }
   const SlotMap& slot_map() const { return map_; }
@@ -178,10 +182,18 @@ class Client {
     std::deque<std::vector<u8>> unanswered;  // emptied once answered
     std::deque<i64> sent_ns;                 // when each was first sent (steady ns)
     std::unordered_map<u64, u64> order;      // req_id -> its order
-    // S1.2: refused replays to resend with the same sequence: (due ns, req_id).
-    std::deque<std::pair<i64, u64>> retry;
+    // S1.2: refused replays to resend with the same sequence, by req_id:
+    // when first refused, the next resend, and the current backoff.
+    struct Retry {
+      i64 first_ns = 0;
+      i64 due_ns = 0;
+      i64 backoff_ns = 0;
+    };
+    std::unordered_map<u64, Retry> retry;
   };
-  static constexpr i64 kReplayRetryNs = 2000000;  // 2 ms between resends of a refused replay
+  // Backoff between resends of a refused replay: 2 ms, doubling to 64 ms.
+  static constexpr i64 kReplayRetryNs = 2000000;
+  static constexpr i64 kReplayRetryMaxNs = 64000000;
   bool flush_all();
   int read_link(Link& l, OnResponse on, void* ctx);
   bool open(const std::string& host, u16 base_port);
