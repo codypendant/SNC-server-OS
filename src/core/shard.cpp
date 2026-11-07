@@ -307,7 +307,7 @@ bool Shard::followups_refuse(const ExecOptions& opts, ObjectID target, bool repl
   ++stats_.refused_followup;
   ExecResult r;
   r.status = Status::E_OVERLOADED;
-  r.id = target;  // null for a create: no ID is minted for a refused one
+  r.id = target;  // null for a create: the follow-up gate runs before minting
   done(ctx, r);
   return true;
 }

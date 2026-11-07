@@ -137,11 +137,15 @@ counted:
   `OpCtx::resize` can, without a `reserve` call, grow the object past
   `max_size` up to its capacity. This is pre-existing behaviour, not
   changed by S1. The bytes past `max_size` are less than one allocator
-  size class, and the local-peer term below (the largest record of any
-  type, 33 KB) is reserved for every mutation, used or not. Debug builds
-  check the total on every admitted op (`check_reserved`), and no test
-  or suite has hit it. Making `max_size` a hard cap in `resize` is a
-  later fix, outside S1.
+  size class. When the op has no local peer, the unused local-peer term
+  (33 KB) absorbs them. **It does not when the op also uses a near-max
+  local peer, or for a create** (no peer term): then the reservation can
+  be short by less than one size class. In a release build that
+  overshoots the WAL budget by that much; in a debug build
+  `check_reserved` aborts. No test or suite has hit it (accounts stay far
+  below `max_size` here). The fix, outside S1 and before S6, is to
+  reserve `record_size(capacity)` or make `max_size` a hard cap in
+  `resize`.
 - **Local peer:** `peer_record_max_`, the largest registered type's
   record. The peer's type is chosen inside `apply` (`OpCtx::local(id,
   type_id)`), and its length cannot change: `OpCtx::resize` acts only on
@@ -372,7 +376,19 @@ modified.
   client retries either way; the retry gets `E_MOVED` once the backlog
   drains.
 - **A refused owner-local READ still counts in `ops_local`**: it was
-  routed and ran here. Its answer carries no result and version 0.
+  routed and ran here. Its answer carries no result and version 0. A
+  refused mutation's answer carries the object's current version (read
+  before `admit`); neither is a new version.
+- **A refused create still uses up its minted ID**, and the answer
+  carries that ID for an object that does not exist. IDs are never
+  reused, so this is safe; clients must ignore the ID of a non-OK answer.
+  Under pressure a create that would fail validation answers
+  `E_OVERLOADED`, since `admit` runs before the create's `validate`.
+- **`Shard::poll` reads one relaxed atomic per iteration** for the
+  tests-only WAL hold, in release builds too. It reorders nothing.
+- **A6's buffer bound has a small margin** (it relies on each credit's
+  record plus its InEntry); it should assert all 200 transfers were sent.
+  A test-only tightening for the next change.
 
 ## 10. Independent review
 
@@ -388,4 +404,5 @@ and several minor ones. All are fixed or recorded here:
 | `followups_refuse` tried a replay for deletes, which are never sequenced | It replays only for creates; a refusal carries the target's ID where known |
 | A2 refused the delete even at one waiter; A8 set no tiny budgets | A2's budget admits one waiter and refuses two, with an APPLIED delete admitted; A8 uses 1-byte budgets with the WAL held |
 | `--waiter-budget-bytes` and `--wal-buffer-budget-bytes` accepted `-5` and overflow | Leading `-` and `ERANGE` are rejected |
+| Re-review (second independent pass): APPROVE. Minor findings: the reservation can be short by under one size class with a near-max peer or on create; a refused create reports its minted ID; A6's margin; the poll atomic; refused-version rule | Recorded in sections 3 and 9; code fixes deferred so the validated commit stays the tested one |
 | Nits: refused READ kept its version; hard-coded `record_size(48)`; redundant `wal_ ?` ternary; the debug hold bit aliases at 64 shards | Fixed, or documented in the code |
