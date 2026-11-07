@@ -1665,3 +1665,45 @@ or source comments.
     - The full Release suite (`ctest -j1`) passes 37/37.
 -   **Next action:** review. S1 design planning may proceed; S1 behaviour
     waits for this review. No R640, CP-1A, competitors or Profile C.
+
+### 2026-11-07 UTC --- Claude (Claude Code): S1 resource-specific admission, for review
+
+-   **Classification:** REFINE (admission). The checkpoint, recovery, WAL
+    format and scheduler loop order are unchanged, and so are
+    `kEmitBacklog` = 1024 and `E_OVERLOADED`. CC-1..CC-5 are not changed.
+-   **What:** `docs/handoff/PR71_Harness_Review.txt` authorized S1.
+    `docs/S1_ADMISSION.md` has the admission matrix, the
+    reserve-before-mutate proof (R1-R6), the budget derivation, the drain
+    argument and the known limits.
+    - Owner-local READs that need no waiter skip the follow-up gate.
+      Forwarded READs keep it.
+    - Creates and deletes are now gated (before S1 they were not).
+    - Client mutations, creates and deletes reserve after validation and
+      before the first change. The WAL check is the object, plus the
+      local peer, plus the session's worst case. The waiter check
+      follows it.
+    - The budgets are 32 MiB of waiters and 30 MiB of WAL buffer per
+      shard. They are provisional, to be revisited before S6.
+    - Follow-ups, standby apply, recovery, migration and session expiry
+      are never refused.
+    - `refused_waiter` and `refused_wal_buffer` now count.
+    - `--admission legacy` restores the old gate.
+-   **Tests:** `test_s1_admission` A1-A9. The required section-12 items
+    are mapped in `docs/S1_ADMISSION.md` section 6.
+-   **Review:** two independent source reviews.
+    - The first found two major issues (gated session expiry, a vacuous
+      A6) and several minor ones. All were fixed.
+    - The second APPROVED. Its minor findings are recorded in
+      `docs/S1_ADMISSION.md` sections 9 and 10, notably a sub-size-class
+      reservation shortfall to fix before S6.
+-   **Evidence** (`bench/results/s1-validation-devvm-20261107/`):
+    - Release 38/38, ASan+UBSan 38/38 and TSan 38/38, each a complete
+      serial run with 0 sanitizer reports.
+    - One earlier ASan run was 37/38: `test_baseline_ha` `q4_normal`
+      read 270 held answers in its single end sample, against a window
+      of 256. It is analysed there; a harness change is proposed but not
+      made.
+-   **Also filed:** `docs/STATE_NATIVE_COMPUTING_LINEAGE.md`, research
+    only. It authorizes nothing.
+-   **Next action:** review. No S2, R640 load, CP-1A, competitors or
+    Profile C.
