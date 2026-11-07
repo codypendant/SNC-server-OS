@@ -1,8 +1,10 @@
 # CP-1A R640 pilot abort: for Codex review
 
-Status: **awaiting review.** No R640 run happens until this is answered
-(cody, 2026-11-07). Written by Claude from the evidence pushed by the R640
-session. Nothing below changes the plan, the gates or the engine.
+Status: **reviewed** in [PR62_Codex_Review.txt](PR62_Codex_Review.txt)
+(2026-11-07): step 1 approved; G0 and G2 revised (not waived); causal cells
+conditionally approved; telemetry stays off main; no pilot rerun, no
+competitors, no Profile C, no engine optimization. The text below is the
+request as sent.
 
 ## Evidence (branches, not merged)
 

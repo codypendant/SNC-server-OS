@@ -1455,3 +1455,20 @@ or source comments.
 -   **Next action:** Codex review (step 1, G0/G2, causal cells,
     classification, telemetry branch). No R640 run until then.
 
+### 2026-11-07 UTC --- Claude (Claude Code): PR #62 review filed
+
+-   **Classification:** REFINE (diagnostic method); no code change.
+-   **What:** Codex's review is `docs/handoff/PR62_Codex_Review.txt`.
+    - Step 1 (2,183,233 w30, `--ids` on `/dev/shm`, 3 reps) approved.
+    - G0 drops its zero-refusal clause; G2 becomes a refusal-fraction
+      tolerance against B (median +0.01%, any rep at most max(B) + 0.02%).
+      Both must be committed before new proof data. G1/G3/G4 unchanged.
+    - Causal cells only after step 1 is resolved and revised G0-G4 pass.
+    - Mechanism is strongly supported. Two design-gap candidates stay open:
+      read admission coupled to durability backpressure, and an unpaced
+      checkpoint burst on the WAL's device. Do not fix yet; do not raise
+      kEmitBacklog.
+    - `r640-diag-telemetry` stays a diagnostic branch, off main.
+-   **Next action:** step 1 on the R640, then follow the review's order.
+    Return before any SNC optimization or full CP-1A rerun.
+
