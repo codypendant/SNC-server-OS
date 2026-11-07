@@ -1497,3 +1497,24 @@ or source comments.
     the R640 branch) must apply the same rule before the proof reruns.
     No R640 run until then.
 
+### 2026-11-07 UTC --- Claude (Claude Code): corrected diagnostic harness frozen for review
+
+-   **Classification:** REFINE (benchmark and diagnostic harness).
+-   **What:** per `docs/handoff/PR64_Reconciliation_Review.txt`
+    (PR #63 approved, PR #64 accepted, benchmark defect confirmed):
+    - PILOT_PLAN section 8: scratch isolation is APPROVED and preregistered.
+    - `r640-diag-telemetry` merged main and gained
+      `bench/results/diag3-r640-20261107-corrected/`: `diag3.py` (both arms
+      use one isolated `--scratch`; B and T differ only by telemetry),
+      PREREG.md (G0 without the zero-refusal clause, plus identity; G2
+      refusal-fraction tolerance; G1/G3/G4 unchanged; causal cells only if
+      all pass), `test_diag3.py`, VALIDATION.md.
+    - The original pilot and the diag2 proof are labelled historical.
+-   **Evidence:** test_pilot and test_diag3 pass; quick-run isolation
+    metadata and fail-closed refusals are logged (diag3 `validation/`).
+    No production C++ change; no R640 load.
+-   **Frozen:** `r640-diag-telemetry` at 69d612fa9b4b4ba697575bd001df5b340da22993.
+-   **Next action:** review of the frozen harness. Then the corrected B/T
+    proof; causal cells follow only if G0-G4 pass. No full pilot,
+    competitors, Profile C or engine optimization.
+

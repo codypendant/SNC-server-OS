@@ -242,28 +242,36 @@ The runner never writes account-ID files under `--out`. It deletes each
 run's data directory after the run. Raw client and server logs of every
 run are kept.
 
-**Benchmark scratch isolation (PROPOSED for review, 2026-11-07).** The
-first pilot wrote each run's 80 MB account-ID file next to the data
+**Benchmark scratch isolation (APPROVED and preregistered for the
+corrected CP-1A harness, `docs/handoff/PR64_Reconciliation_Review.txt`).**
+The first pilot wrote each run's 80 MB account-ID file next to the data
 directory, on the data SSD, buffered and just before the run. Its
-writeback stalled the WAL once per run (R640 step 1,
-`bench/results/step1-r640-20261107-ids-shm/` on `r640-diag-telemetry`:
-with the file on `/dev/shm`, 0 refusals and no storage event in 3 of 3
-runs, against 0/256/1,016 refusals before). So a real pilot also refuses
-to start unless:
-- `--scratch DIR` names the benchmark scratch explicitly (the ID files go
-  there; there is no default for a real run);
-- neither `--scratch` nor `--out` is on a physical disk that holds
-  `--data-root`. Partitions resolve to their disk, device-mapper and md
-  devices to all their members. A memory filesystem (tmpfs, ramfs)
-  counts as the disks its swap is on. A filesystem whose disk cannot be
-  told (btrfs, overlay, loop, network, FUSE) is refused;
-- `--scratch` has at least twice the ID file's size free.
+writeback disturbed the storage being measured: a BENCHMARK DEFECT (R640
+step 1, `bench/results/step1-r640-20261107-ids-shm/` on
+`r640-diag-telemetry`. With the file on `/dev/shm`, 3 of 3 runs had 0
+refusals and no storage event, against 0/256/1,016 refusals before).
 
-The scratch path, the data, scratch and out disks, and any isolation
-problem are recorded in `pilot.json`. On the R640: `--scratch
-/dev/shm/snc-pilot` (memory; check that swap is not on the data SSD) with
-`--out` in the repo on the BOSS disk. Results of the first pilot carry the
-stall and are not comparable with a run under this rule.
+For evidence runs:
+- `--scratch DIR` is mandatory. The ID files go there. There is no default.
+- Neither `--scratch` nor `--out` may resolve to a physical disk used by
+  `--data-root`.
+  - Partitions resolve to their disk, device-mapper and md devices to all
+    their members.
+  - A memory filesystem (tmpfs, ramfs) counts as the disks its swap is on.
+- An unresolved or ambiguous device mapping (btrfs, overlay, loop,
+  network, FUSE) refuses execution.
+- The scratch, data and out paths and their resolved physical disks are
+  recorded in `pilot.json`.
+- `--scratch` must have at least twice the ID file's size free.
+
+On the R640, `/dev/shm/snc-pilot` is an acceptable scratch location only
+if the resolver confirms that its swap backing does not use the SNC data
+SSD. `/dev/shm` is not part of the method; isolation is the rule.
+
+The first pilot's results carry the defect. They are diagnostic history
+only (their `STATUS.md` on `r640-diag-telemetry`). No CRITERIA threshold
+or competitor comparison may come from them. A clean CP-1A rerun from the
+beginning is needed later and is not yet authorized.
 
 The real pilot runs from the reviewed commit. Manifest d is accepted.
 The pilot still needs this plan and the dev-VM evidence

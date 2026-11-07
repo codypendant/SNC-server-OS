@@ -3,8 +3,9 @@
 Status: **reviewed** in [PR62_Codex_Review.txt](PR62_Codex_Review.txt)
 (2026-11-07): step 1 approved; G0 and G2 revised (not waived); causal cells
 conditionally approved; telemetry stays off main; no pilot rerun, no
-competitors, no Profile C, no engine optimization. The text below is the
-request as sent.
+competitors, no Profile C, no engine optimization. Follow-up:
+[PR64_Reconciliation_Review.txt](PR64_Reconciliation_Review.txt). The text
+below is the request as sent.
 
 ## Evidence (branches, not merged)
 
