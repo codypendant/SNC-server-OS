@@ -6,8 +6,8 @@
 //      forwarded to another shard keeps the gate (refused_followup)
 //   A2 waiter budget: refuses before admission (refused_waiter); a refused
 //      mutation changes nothing; a mutation forwarded to the shard is refused
-//      there; a READ that would wait is refused, one with allow_undurable is
-//      answered
+//      there; a READ that would wait is refused; a durable delete (two
+//      waiters) is refused where an APPLIED one (one waiter) is admitted
 //   A3 WAL buffer budget: refuses before the first mutation
 //      (refused_wal_buffer); object, version, WAL, session and follow-ups
 //      unchanged; a create is refused too
@@ -17,12 +17,15 @@
 //      (local peer + session + object) appends exactly its three records,
 //      within the reservation (debug builds also check every admitted op)
 //   A6 internal work drains while client admission is closed: follow-ups
-//      are applied on a shard whose budgets refuse clients, and everything
+//      are applied on a shard whose WAL budget refuses clients (its WAL held,
+//      so each credit grows the buffer past the budget), and everything
 //      settles once durability resumes; money is conserved
-//   A7 read flood: a follow-up backlog above the gate drains while owner-
-//      local reads flood both shards, and every read is answered
+//   A7 read flood: shard 0's follow-up backlog above the gate drains while
+//      owner-local reads flood both shards, and every read is answered
 //   A8 --admission legacy: the gate as before S1 (local reads refused,
-//      creates not gated, budgets ignored)
+//      creates and deletes not gated, tiny budgets ignored with the WAL held)
+//   A9 session expiry is the shard's own work: its deletes run while the
+//      WAL budget refuses clients, and count as no refusal
 //
 // Every refusal is checked against exactly one refused_* cause in both
 // ShardStats and the published gauges.
@@ -36,6 +39,7 @@
 #include <thread>
 #include <vector>
 
+#include "../src/core/session.h"  // SessionV1: the session record admit() reserves
 #include "harness.h"
 #include "snc/gauges.h"
 #include "snc/slot_map.h"
@@ -217,7 +221,7 @@ void deposit(const ObjectID& id, i64 amount, const ExecOptions& o, Async& a) {
 u64 mutation_wal_need(bool sequenced) {
   u64 peer = 0;
   for (const TypeDescriptor& t : registry().types()) peer = std::max<u64>(peer, record_size(t.max_size));
-  return record_size(registry().type(kTypeId)->max_size) + peer + (sequenced ? record_size(48) : 0);
+  return record_size(registry().type(kTypeId)->max_size) + peer + (sequenced ? record_size(sizeof(SessionV1)) : 0);
 }
 constexpr u32 kDepositRecord = 256;  // record_size(200): an account without entries
 
@@ -244,6 +248,10 @@ void test_followup_gate(bool legacy) {
   Engine::Config c = config(2, dir);
   c.hold_emits = true;
   c.admission_legacy = legacy;
+  if (legacy) {
+    c.waiter_budget_bytes = 1;  // would refuse almost everything under s1
+    c.wal_buffer_budget_bytes = 1;
+  }
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 40);
@@ -293,6 +301,22 @@ void test_followup_gate(bool legacy) {
   }
   eng.release_emits();
   CHECK(eng.wait_emits());
+  if (legacy) {
+    // A8: with the WAL held, waiters and active bytes pile up past the tiny
+    // budgets; legacy admission refuses none of these.
+    const Causes held = causes(eng, 0);
+    Engine::debug_hold_wal(0, true);
+    Async as;
+    on_shard(eng, 0, [&] {
+      for (int i = 0; i < 8; ++i) deposit(own[0][i], 1, {}, as);
+    });
+    CHECK_EQ(as.done.load(), 0u);  // all admitted, all waiting
+    CHECK(fresh(eng, 0)[G_WAITERS_NOW] >= 8u);
+    expect_causes(held, causes(eng, 0), WAITER, 0);
+    Engine::debug_hold_wal(0, false);
+    CHECK(as.wait(8));
+    CHECK_EQ(as.count(Status::OK), 8u);
+  }
   eng.stop();
   rm_rf(dir);
   std::printf("A%s follow-up gate (%s): %u local reads answered, %u refused; deposit %s, create %s, delete %s, "
@@ -306,12 +330,15 @@ void test_followup_gate(bool legacy) {
 void test_waiter_budget() {
   const std::string dir = temp_dir();
   Engine::Config c = config(2, dir);
-  // Room for 4 deposit waiters (256 + 16 bytes each): the 5th is refused.
-  c.waiter_budget_bytes = 4 * (256 + sizeof(BalanceResult)) + 8;
+  // Room for 4 deposit waiters (256 + 16 bytes each) plus 260 bytes: the
+  // 5th deposit (272) is refused, a delete's one ERASE waiter (256) fits,
+  // a durable delete's two (512) do not.
+  c.waiter_budget_bytes = 4 * (256 + sizeof(BalanceResult)) + 260;
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 8);
   const ObjectID gone = empty_account(eng, 0);
+  const ObjectID gone2 = empty_account(eng, 0);
   const ObjectID a = own[0][0];
   const BalanceResult b0 = balance(eng, 0, a);
   const u64 v0 = version_of(eng, 0, a);
@@ -347,6 +374,16 @@ void test_waiter_budget() {
   // A delete needs two waiters (the tombstone's and the answer's): refused.
   OneResult del = one(eng, 0, [&](Completion cb, void* ctx) { remove(gone, {}, cb, ctx); });
   CHECK_EQ(del.r.status, Status::E_OVERLOADED);
+  // An APPLIED delete needs only the tombstone's waiter: admitted.
+  const Causes pre_del1 = causes(eng, 0);
+  OneResult del1 = one(eng, 0, [&](Completion cb, void* ctx) {
+    ExecOptions o;
+    o.durability = Durability::APPLIED;
+    remove(gone2, o, cb, ctx);
+  });
+  CHECK_EQ(del1.r.status, Status::OK);
+  expect_causes(pre_del1, causes(eng, 0), WAITER, 0);
+  CHECK_EQ(fresh(eng, 0)[G_WAITERS_NOW], 5u);  // 4 deposits + the tombstone
   // A sequenced create (it runs here) waits too: refused, with no object or session.
   const u64 objects0 = eng.stats(0).objects;
   OneResult cr = one(eng, 0, [&](Completion cb, void* ctx) {
@@ -383,7 +420,8 @@ void test_waiter_budget() {
   eng.stop();
   rm_rf(dir);
   std::printf("A2 waiter budget: 4 admitted, 2 refused before any change; undurable read, forwarded deposit, "
-              "delete and sequenced create refused; all refused_waiter; A4 create retry ran once\n");
+              "durable delete and sequenced create refused (all refused_waiter); APPLIED delete admitted; "
+              "A4 create retry ran once\n");
 }
 
 // ---- A3, A4 ---------------------------------------------------------------------------
@@ -493,7 +531,7 @@ void test_wal_sizing() {
   const u64 appended = g[G_WAL_ACTIVE_BYTES_NOW] - active0;
   // Peer (UPDATE), session (CREATE), object (UPDATE).
   CHECK_EQ(g[G_WAL_NEXT_LSN] - lsn0, 3u);
-  CHECK_EQ(appended, u64{kDepositRecord} + kDepositRecord + record_size(48));
+  CHECK_EQ(appended, u64{kDepositRecord} + kDepositRecord + record_size(sizeof(SessionV1)));
   CHECK(appended <= mutation_wal_need(true));
   Engine::debug_hold_wal(0, false);
   CHECK(as.wait(1));
@@ -511,7 +549,10 @@ void test_internal_drains() {
   const std::string dir = temp_dir();
   Engine::Config c = config(2, dir);
   c.hold_emits = true;
-  c.waiter_budget_bytes = 2 * (256 + sizeof(BalanceResult)) + 8;  // 2 client waiters
+  // Shard 1's clients are closed by the WAL budget: with its WAL held,
+  // deposits are admitted at 0 and 256 active bytes and refused from 512.
+  // Each credit appends 256 bytes more, so a gated follow-up would be refused.
+  c.wal_buffer_budget_bytes = mutation_wal_need(false) + 300;
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 16);
@@ -528,27 +569,31 @@ void test_internal_drains() {
     if (r.r.status == Status::OK) ++sent;
   }
   CHECK(sent > 100);
-  // Close shard 1's client admission: its WAL held, its waiter budget full.
+  // Close shard 1's client admission: its WAL held, its WAL budget full.
   Engine::debug_hold_wal(1, true);
+  CHECK_EQ(fresh(eng, 1)[G_WAL_ACTIVE_BYTES_NOW], 0u);  // nothing appended since the accounts
   Async fill;
   on_shard(eng, 1, [&] {
     for (int i = 0; i < 4; ++i) deposit(own[1][i], 1, {}, fill);
   });
   CHECK_EQ(fill.count(Status::E_OVERLOADED), 2u);
   const Causes closed = causes(eng, 1);
-  CHECK(closed.waiter >= 2);
+  CHECK_EQ(closed.wal, 2u);
+  CHECK_EQ(closed.overloaded, 2u);
   // Release the follow-ups: shard 1 applies every credit (never refused)
   // although its clients are refused.
   const u64 lsn1 = fresh(eng, 1)[G_WAL_NEXT_LSN];
   eng.release_emits();
   for (int i = 0; i < 20000 && fresh(eng, 1)[G_WAL_NEXT_LSN] - lsn1 < sent; ++i) ::usleep(500);
   CHECK(fresh(eng, 1)[G_WAL_NEXT_LSN] - lsn1 >= sent);  // a credit record each
+  // The buffer now holds far more than the budget: every credit went past it.
+  CHECK(fresh(eng, 1)[G_WAL_ACTIVE_BYTES_NOW] > mutation_wal_need(false) + 300 + 100u * kDepositRecord);
   OneResult refused = one(eng, 1, [&](Completion cb, void* ctx) {
     AmountArgs d{1, 7};
     execute(own[1][5], kOpDeposit, ByteView(&d, sizeof(d)), {}, cb, ctx);
   });
   CHECK_EQ(refused.r.status, Status::E_OVERLOADED);
-  expect_causes(closed, causes(eng, 1), WAITER, 1);
+  expect_causes(closed, causes(eng, 1), WAL, 1);
   // Durability resumes: everything settles, nothing is lost or doubled.
   Engine::debug_hold_wal(1, false);
   CHECK(fill.wait(4));
@@ -559,7 +604,8 @@ void test_internal_drains() {
   CHECK_EQ(after, total + 2);  // the 2 admitted deposits of 1
   eng.stop();
   rm_rf(dir);
-  std::printf("A6 internal work: %u credits applied on a shard refusing clients; all settled, money conserved\n",
+  std::printf("A6 internal work: %u credits applied past the WAL budget on a shard refusing clients "
+              "(refused_wal_buffer); all settled, money conserved\n",
               sent);
 }
 
@@ -609,6 +655,54 @@ void test_read_flood() {
               (unsigned long long)backlog, drain_ms, (unsigned long long)during);
 }
 
+// ---- A9 -------------------------------------------------------------------------------
+
+void test_expiry_internal() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  c.session_ttl_s = 1;
+  // Below one DELETE record: once anything is active, every client op,
+  // a client delete included, is refused.
+  c.wal_buffer_budget_bytes = 100;
+  Engine eng(c);
+  eng.start();
+  auto own = accounts(eng, 4);
+  for (u64 client = 100; client < 104; ++client) {
+    OneResult r = one(eng, 0, [&](Completion cb, void* ctx) {
+      ExecOptions o;
+      o.client_id = client;
+      o.seq = 1;
+      AmountArgs d{1, 7};
+      execute(own[0][0], kOpDeposit, ByteView(&d, sizeof(d)), o, cb, ctx);
+    });
+    CHECK_EQ(r.r.status, Status::OK);
+  }
+  ::usleep(2500 * 1000);  // past the TTL (expiry needs touched + ttl < now)
+  Engine::debug_hold_wal(0, true);
+  Async fill;
+  on_shard(eng, 0, [&] {
+    for (int i = 0; i < 4; ++i) deposit(own[0][1], 1, {}, fill);
+  });
+  CHECK_EQ(fill.count(Status::E_OVERLOADED), 3u);  // client admission closed (the first ran at 0 active)
+  const Causes closed = causes(eng, 0);
+  const ShardStats st0 = eng.stats(0);
+  // The checkpoint expires the 4 sessions first; it may then wait for the
+  // held WAL, so it runs on its own thread.
+  std::thread ck([&] { eng.checkpoint(); });
+  for (int i = 0; i < 20000 && eng.stats(0).sessions_expired < st0.sessions_expired + 4; ++i) ::usleep(500);
+  const ShardStats st1 = eng.stats(0);
+  CHECK_EQ(st1.sessions_expired - st0.sessions_expired, 4u);
+  CHECK_EQ(st1.deletes - st0.deletes, 4u);  // every expiry delete ran
+  expect_causes(closed, causes(eng, 0), WAL, 0);
+  Engine::debug_hold_wal(0, false);
+  ck.join();
+  CHECK(fill.wait(4));
+  CHECK_EQ(fill.count(Status::OK), 1u);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A9 session expiry: 4 sessions expired while the WAL budget refused clients; 0 refusals counted\n");
+}
+
 }  // namespace
 
 int main() {
@@ -620,6 +714,7 @@ int main() {
   test_wal_sizing();
   test_internal_drains();
   test_read_flood();
+  test_expiry_internal();
   std::printf("test_s1_admission: all passed\n");
   return 0;
 }

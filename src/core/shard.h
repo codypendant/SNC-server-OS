@@ -446,7 +446,7 @@ class Shard {
   // Logs the op's session record, first in its atomic group; returns the
   // session so the caller can set its last_lsn with the group's.
   ObjectHeader* record_session(const ExecOptions& opts, const ObjectID& id, u64 version);
-  void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out);
+  void run_delete(ObjectID target, const ExecOptions& opts, RunOut& out, bool internal = false);
 
   void prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t, const OpDescriptor* op);
   Status validate_checked(OpCtx& c, const OpDescriptor* op, ByteView args);
@@ -598,7 +598,8 @@ class Shard {
   // op's worst-case WAL bytes and waiter bytes. It changes no state; a
   // refusal sets E_OVERLOADED and counts its cause.
   bool admit(u64 wal_need, u64 waiter_need, RunOut& out);
-  bool followups_refuse(const ExecOptions& opts, Completion done, void* ctx);
+  bool followups_refuse(const ExecOptions& opts, ObjectID target, bool replay, Completion done,
+                        void* ctx);
   // Worst-case bytes of a mutation's local() peer record: the largest
   // registered type's record (the peer's type is chosen inside apply).
   u64 peer_record_max_ = 0;

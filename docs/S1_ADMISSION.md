@@ -64,7 +64,7 @@ S1 (section 11 there). No R640 run.
 | READ, owner shard, no wait (object durable, or `allow_undurable`) | follow-up gate | **admitted** | CPU; the connection's 8 MiB output limit |
 | READ, owner shard, object not yet durable | follow-up gate | **waiter budget** (`refused_waiter`) | waiter bytes |
 | READ forwarded to another shard | follow-up gate at the origin | follow-up gate at the origin (**unchanged**) | the origin's ring and overflow (`refused_ring`). The pending slot is not otherwise bounded, so the gate stays |
-| READ served for another shard | never refused at the owner | never refused at the owner | the origins' gates; a REMOTE waiter is not refused |
+| READ served for another shard | never refused at the owner | never refused at the owner | **not bounded** (known gap, section 9): the REMOTE waiter it may add is not refused, and the origin's pending slots are unbounded |
 | MUTATE, client (local or forwarded) | follow-up gate at the origin | follow-up gate at the origin, **plus R1 at the owner** (WAL, then waiter) | backlog, WAL buffer bytes, waiter bytes |
 | Resent sequenced MUTATE already applied | answered from its session | unchanged (answered before any gate) | n/a |
 | CREATE, client | **no gate** | follow-up gate, **plus R1** | as MUTATE |
@@ -72,7 +72,8 @@ S1 (section 11 there). No R640 run.
 | DELETE, client | **no gate** | follow-up gate, **plus R1** (one DELETE record; the tombstone's ERASE waiter and the answer's waiter) | as MUTATE |
 | Unlogged MUTATE (`OpDescriptor::unlogged`) | follow-up gate | follow-up gate; no R1 (no record, no waiter) | backlog |
 | Follow-up apply (`run_emit`, `client = false`) | never refused | never refused | the senders' follow-up gate |
-| Standby apply, recovery replay, migration install, session expiry, slot seal and unseal | never refused | never refused (they do not pass through `admit`) | their own protocols |
+| Standby apply, recovery replay, migration install, slot seal and unseal | never refused | never refused (they do not pass through `admit`) | their own protocols |
+| Session expiry (`expire_sessions`, at checkpoint start) | never refused | never refused: its deletes call `run_delete` with `internal = true`, which skips `admit` (test A9) | the TTL |
 | INDEX lookup and gather | gather pool and ring | unchanged | gather pool, ring |
 
 Where several checks apply, the first that refuses names the cause, in
@@ -120,6 +121,8 @@ check and before its first change:
     the delete op's `validate_checked`.
   - The first change is the delete op's `apply` or the index erase,
     after `admit`.
+  - Session expiry calls it with `internal = true`: no `admit`, no
+    `check_reserved` (section 5).
 - Owner-local READ: a READ changes nothing (`validate` cannot, and a READ
   op's `apply` only writes its result). So refusing it after it ran is the
   same as refusing it before. Only the answer would have needed a waiter.
@@ -128,9 +131,17 @@ check and before its first change:
 
 **R2: the worst case.** Every record the call appends synchronously is
 counted:
-- **Object:** `record_size(type.max_size)`. `apply` may grow the object
-  up to `max_size` and no further (`OpCtx::reserve` refuses more, and
-  `OpCtx::resize` cannot pass what was reserved).
+- **Object:** `record_size(type.max_size)`. `OpCtx::reserve` refuses
+  growth past `max_size`, but `prepare_ctx` sets the reservation to the
+  object's allocated `capacity`, which the allocator rounds up. So
+  `OpCtx::resize` can, without a `reserve` call, grow the object past
+  `max_size` up to its capacity. This is pre-existing behaviour, not
+  changed by S1. The bytes past `max_size` are less than one allocator
+  size class, and the local-peer term below (the largest record of any
+  type, 33 KB) is reserved for every mutation, used or not. Debug builds
+  check the total on every admitted op (`check_reserved`), and no test
+  or suite has hit it. Making `max_size` a hard cap in `resize` is a
+  later fix, outside S1.
 - **Local peer:** `peer_record_max_`, the largest registered type's
   record. The peer's type is chosen inside `apply` (`OpCtx::local(id,
   type_id)`), and its length cannot change: `OpCtx::resize` acts only on
@@ -278,26 +289,31 @@ None of the paths that drain a constrained resource passes through
 - `release_waiters`;
 - follow-up dispatch and apply: `run_emits`, `serve_emit`, `run_emit`
   with `client = false`;
-- standby apply, recovery, migration and session expiry.
+- standby apply, recovery and migration;
+- session expiry: its deletes pass `internal = true` to `run_delete`,
+  which skips `admit` (they are the shard's own work, counted in
+  `sessions_expired` only when they succeed).
 
 Client refusals do not consume these resources: a refused op adds no
 record, waiter or follow-up. So a closed admission cannot keep the
 backlog, the buffer or the waiters from draining. A6 shows follow-ups
-applied on a shard whose clients are refused, and everything settling
-once durability resumes.
+applied on a shard whose WAL budget refuses clients, past that budget,
+and everything settling once durability resumes. A9 shows the same for
+session expiry.
 
 ## 6. Tests (`tests/test_s1_admission.cpp`)
 
 | Test | Review section 12 item | What it shows |
 |---|---|---|
 | A1 | owner-local reads while backlog > 1,024; mutation and create refused | 20/20 local reads answered. Deposit, create, delete and a forwarded read are refused, all as `refused_followup` |
-| A2 | waiter budget refuses before admission | 4 deposits admitted, 2 refused with no record and no version change. Also refused: an undurable read (allow_undurable answered), a deposit forwarded from shard 1 (refused at the owner), a delete (2 waiters), a sequenced create (no object, no session). All `refused_waiter`; the budget reopens after the release |
+| A2 | waiter budget refuses before admission | Budget: 4 deposit waiters plus 260 B. 4 deposits admitted, 2 refused with no record and no version change. Also refused: an undurable read, a deposit forwarded from shard 1 (refused at the owner), a durable delete (2 waiters, 512 B), a sequenced create (no object, no session). An APPLIED delete (1 waiter, 256 B) is admitted, which shows the delete sizing. All refusals `refused_waiter`; the budget reopens after the release |
 | A3 | WAL budget refuses before the first mutation; refused mutation leaves all state untouched | 4 admitted (1,024 B active). A deposit, a cross-shard transfer and a sequenced deposit are refused. No new record, version, object, session or follow-up; all `refused_wal_buffer` |
 | A4 | sequenced retry survives refusal | the refused sequenced deposit and create each run once on retry (`replayed` false); a resend is replayed |
 | A5 | local-peer + session + object sizing | a sequenced local transfer appends exactly 3 records, 616 B, within its 66,152 B reservation. Debug builds check every admitted op (`check_reserved`) |
-| A6 | internal work drains while admission is closed | 200 credits applied on a shard refusing clients; all settle once durability resumes; money conserved |
-| A7 | read flood does not starve backlog progress | a backlog of 1,025 drains while owner-local reads flood both shards; 0 reads refused |
-| A8 | legacy switch restores old behaviour | local reads refused, create and delete not gated, as before S1 |
+| A6 | internal work drains while admission is closed | Shard 1's WAL held and its WAL budget refusing clients (`refused_wal_buffer`). 200 credits are applied anyway and grow the buffer far past the budget, so a gated follow-up would have been refused. All settle once durability resumes; money conserved |
+| A7 | read flood does not starve backlog progress | shard 0's backlog of 1,025 drains while owner-local reads flood both shards; 0 reads refused |
+| A8 | legacy switch restores old behaviour | local reads refused, create and delete not gated, as before S1. With 1-byte budgets and the WAL held, 8 deposits are all admitted: no `refused_waiter` or `refused_wal_buffer` |
+| A9 | internal work: session expiry | 4 expired sessions are deleted at checkpoint start while the WAL budget refuses clients; 0 refusals counted. With expiry gated (the reviewed draft), the test fails |
 | All | refused_by identifies the cause | every refusal is matched to exactly one `refused_*` counter, in ShardStats and in the gauges |
 
 **The rest of the review's item 12:** the persistence, session,
@@ -335,6 +351,14 @@ modified.
 - **Forwarded READs keep the follow-up gate.** Their origin's pending
   slots are not otherwise bounded, so removing the gate would remove
   their only bound. A pending-slot budget is a later step.
+- **Known gap: a READ served for another shard is not bounded at the
+  owner.** `serve` and `serve_multi` may add a REMOTE waiter for an
+  undurable object, and the owner does not refuse it. The origin's
+  `pending_` is unbounded (`emplace_back`), so the origins' gates do not
+  bound it either: the follow-up gate counts the origin's follow-ups,
+  not its pending reads. This is unchanged from before S1. Bounding it
+  needs a pending-slot or remote-waiter budget, a protocol change for a
+  later slice.
 - **The local-peer reservation is the largest registered type** (33 KB
   for accounts), not the op's actual peer. Ops do not declare a peer
   type. This is conservative: it refuses at most 66 KB early in a 30 MiB
@@ -342,3 +366,26 @@ modified.
 - **The waiter budget counts `Waiter` and result bytes, not the deque's
   block overhead**, as the S0 gauge does.
 - **The defaults are provisional (section 4).**
+- **Under a backlog, a create near a moved object, and a delete of one,
+  answer `E_OVERLOADED` before `E_MOVED`.** The follow-up gate in
+  `create` and `remove` runs before the slot check, as in `execute`. A
+  client retries either way; the retry gets `E_MOVED` once the backlog
+  drains.
+- **A refused owner-local READ still counts in `ops_local`**: it was
+  routed and ran here. Its answer carries no result and version 0.
+
+## 10. Independent review
+
+An independent source review of the first draft found two major issues
+and several minor ones. All are fixed or recorded here:
+
+| Finding | Resolution |
+|---|---|
+| Session expiry deletes went through `admit`: they could be refused, counted as client refusals, and `sessions_expired` overcounted | `run_delete(..., internal = true)` skips `admit` and `check_reserved`; `sessions_expired` counts only deletes that succeed. Test A9 (fails on the draft) |
+| A6 passed vacuously: follow-ups are APPLIED and need no waiter | A6 now closes shard 1 by its WAL budget with the WAL held, so each credit grows the buffer past the budget |
+| Forwarded reads at the owner add unbounded REMOTE waiters; the design doc's "bounded by the origins' pending pools" was wrong | Recorded as a known gap (section 9); design doc 6.1 corrected |
+| R2 said an object cannot pass `max_size`; `resize` can grow to the allocator-rounded capacity | R2 corrected (section 3); the peer slack covers it; a hard cap is a later fix |
+| `followups_refuse` tried a replay for deletes, which are never sequenced | It replays only for creates; a refusal carries the target's ID where known |
+| A2 refused the delete even at one waiter; A8 set no tiny budgets | A2's budget admits one waiter and refuses two, with an APPLIED delete admitted; A8 uses 1-byte budgets with the WAL held |
+| `--waiter-budget-bytes` and `--wal-buffer-budget-bytes` accepted `-5` and overflow | Leading `-` and `ERANGE` are rejected |
+| Nits: refused READ kept its version; hard-coded `record_size(48)`; redundant `wal_ ?` ternary; the debug hold bit aliases at 64 shards | Fixed, or documented in the code |

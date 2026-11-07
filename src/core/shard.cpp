@@ -25,7 +25,8 @@ constexpr u32 kCheckpointChunk = 1u << 20;
 thread_local Shard* tl_shard = nullptr;
 
 // Tests only (Engine::debug_hold_wal): bit s set = shard s starts no WAL
-// flush from its loop, so nothing it appends becomes durable.
+// flush from its loop, so nothing it appends becomes durable. Shards s and
+// s+64 share a bit; tests hold shards below 64 only.
 std::atomic<u64> g_debug_hold_wal{0};
 
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
@@ -166,8 +167,10 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
         !admit(0, sizeof(Waiter) + out.r.result.len, out)) {
       // A READ changes nothing, so refusing it after it ran is the same as
       // before: only its answer would have needed a waiter.
+      // It still counts in ops_local: it was routed and ran here.
       out.wait_lsn = 0;
       out.r.result = ByteView{};
+      out.r.version = 0;
       out.r.durable = false;
     }
     complete_local(out, done, ctx);
@@ -230,7 +233,7 @@ void Shard::check_reserved(const OpDescriptor* op) {
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx, const ObjectID* near) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(ObjectID{}, done, ctx);
-  if (!adm_.legacy && followups_refuse(opts, done, ctx)) return;
+  if (!adm_.legacy && followups_refuse(opts, ObjectID{}, true, done, ctx)) return;
   ObjectID id = minter_.next();
   // Skipping sequence numbers keeps IDs unique and never reused (C12); with
   // N shards this takes N hashes per create on average, and kSlots to land
@@ -270,7 +273,8 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
 
 void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, void* ctx) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(target, done, ctx);
-  if (!adm_.legacy && followups_refuse(opts, done, ctx)) return;
+  // Deletes are never sequenced (no replay), so a refusal is the answer.
+  if (!adm_.legacy && followups_refuse(opts, target, false, done, ctx)) return;
   if (foreign(target)) return refuse_moved(*cluster_, target, done, ctx);
   u16 owner = owner_of(target);
   if (owner == id_) {
@@ -287,11 +291,12 @@ void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, vo
 // S1: creates and deletes are new mutation work, gated by the follow-up
 // backlog as execute's mutations are (before S1 they had no gate). A
 // resent sequenced create already applied here is answered, not refused.
-bool Shard::followups_refuse(const ExecOptions& opts, Completion done, void* ctx) {
+bool Shard::followups_refuse(const ExecOptions& opts, ObjectID target, bool replay,
+                             Completion done, void* ctx) {
   const u64 in_flight = emits_in_flight();
   if (in_flight > emits_peak_) emits_peak_ = in_flight;
   if (in_flight <= kEmitBacklog) return false;
-  if (opts.client_id) {
+  if (replay && opts.client_id) {
     RunOut out;
     if (replay_if_seen(opts, out)) {
       complete_local(out, done, ctx);
@@ -302,6 +307,7 @@ bool Shard::followups_refuse(const ExecOptions& opts, Completion done, void* ctx
   ++stats_.refused_followup;
   ExecResult r;
   r.status = Status::E_OVERLOADED;
+  r.id = target;  // null for a create: no ID is minted for a refused one
   done(ctx, r);
   return true;
 }
@@ -611,7 +617,7 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
   finish_result(c, op, out.r);
 }
 
-void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
+void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out, bool internal) {
   if (cluster_ && !serving(slot_of(target))) {
     refuse_unserved(slot_of(target), out);
     return;
@@ -641,9 +647,10 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
   }
   // R1: after validate, before the delete op's apply or the index erase,
   // the first change. One DELETE record (no payload); the tombstone's
-  // ERASE waiter, and the answer's waiter if it waits.
-  if (!admit(wal_ ? record_size(0) : 0,
-             sizeof(Waiter) * (opts.durability == Durability::DURABLE ? 2 : 1), out)) {
+  // ERASE waiter, and the answer's waiter if it waits. Internal deletes
+  // (session expiry) are the shard's own work and are not client admission.
+  if (!internal &&
+      !admit(record_size(0), sizeof(Waiter) * (opts.durability == Durability::DURABLE ? 2 : 1), out)) {
     return;
   }
   if (dop != nullptr) {
@@ -667,7 +674,7 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
   // Spec section 8: free the payload now, keep a 48-byte tombstone until
   // the DELETE record is durable.
   u64 lsn = log(RecType::DELETE, *obj);
-  check_reserved(dop);
+  if (!internal) check_reserved(dop);
   // Copy the header to a fresh block and swap the map entry before freeing
   // the old one: the map compares IDs through the stored pointer, so it must
   // never hold a freed block (a realloc here once left a stale entry behind).
@@ -897,12 +904,14 @@ u64 Shard::expire_sessions(u32 now_s, u32 ttl_s) {
     std::memcpy(&v, o->payload(), sizeof(v));
     if (v.touched_s + static_cast<u64>(ttl_s) < now_s) old.push_back(o->id);
   });
+  u64 n = 0;
   for (const ObjectID& id : old) {
     RunOut out;
-    run_delete(id, ExecOptions{}, out);
+    run_delete(id, ExecOptions{}, out, /*internal=*/true);
+    n += out.r.status == Status::OK;
   }
-  stats_.sessions_expired += old.size();
-  return old.size();
+  stats_.sessions_expired += n;
+  return n;
 }
 
 // ---- Index partition (spec section 11) ----------------------------------------------

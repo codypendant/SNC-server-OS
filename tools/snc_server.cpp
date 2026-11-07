@@ -103,6 +103,7 @@
 #include <mutex>
 #include <memory>
 #include <condition_variable>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -335,8 +336,10 @@ int main(int argc, char** argv) {
     else if (k == "--waiter-budget-bytes" || k == "--wal-buffer-budget-bytes") {
       const char* v = val();
       char* end = nullptr;
+      errno = 0;
       const unsigned long long n = std::strtoull(v, &end, 10);
-      if (end == v || *end != '\0' || n == 0) {
+      // strtoull accepts "-5" (as a huge number) and saturates on overflow.
+      if (v[0] < '0' || v[0] > '9' || end == v || *end != '\0' || errno == ERANGE || n == 0) {
         std::fprintf(stderr, "%s takes a positive number\n", k.c_str());
         return 2;
       }
