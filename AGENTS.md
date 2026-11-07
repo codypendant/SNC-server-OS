@@ -1472,3 +1472,28 @@ or source comments.
 -   **Next action:** step 1 on the R640, then follow the review's order.
     Return before any SNC optimization or full CP-1A rerun.
 
+### 2026-11-07 UTC --- Claude (Claude Code): step 1 result, benchmark scratch isolation
+
+-   **Classification:** REFINE (benchmark harness; BENCHMARK DEFECT fixed).
+-   **What:** R640 step 1 (preregistered at 7977258, result 2a79e80 on
+    `r640-diag-telemetry`): with `--ids` on `/dev/shm`, 3 of 3 runs at
+    2,183,233 w30 had 0 refusals, `late_over_1ms` 0 and no storage event.
+    Under Codex's rule that is ELIMINATED, so a BENCHMARK DEFECT: the
+    pilot wrote the 80 MB ids file buffered onto the data SSD just before
+    each run. Caveat: the 3 reps ran back to back, while the old B-w30 reps
+    each followed a closed-loop rep.
+    - `bench/pilot.py` now needs `--scratch DIR` for a real pilot and
+      refuses unless scratch and out are on no physical disk of the data
+      directory (partitions, dm/md members, tmpfs via swap; unknown is
+      refused). It records the paths and disks.
+    - `tests/test_pilot.py`: a fake sysfs covers partitions, dm, tmpfs
+      with and without swap, btrfs, loop and missing devices.
+    - PILOT_PLAN section 8 states the rule as PROPOSED.
+-   **Evidence:** test_pilot passes; a `--quick` run recorded scratch on
+    memory and out sharing the data disk (dev VM); a real-mode run refused
+    with both isolation problems listed.
+-   **Next action:** Codex reviews the fix and the preregistration of the
+    corrected harness (order step 2). The B/T proof driver (`diag2.py`, on
+    the R640 branch) must apply the same rule before the proof reruns.
+    No R640 run until then.
+
