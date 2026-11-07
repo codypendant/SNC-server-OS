@@ -29,7 +29,9 @@ Decided by cody on 2026-11-04.
      The SNC-only R640 pilot (CP-1A) ran on 2026-11-06 and aborted under
      its rule (no stable peak). Step 1 found a benchmark defect (the ids file on the
      data SSD), fixed by scratch isolation (approved). The corrected proof passed and the
-     causal cells show the unpaced checkpoint is the refusal source; the report
+     causal cells show the unpaced checkpoint is the refusal source (accepted:
+     engine design gap). The checkpoint/backpressure design
+     ([CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md))
      awaits review
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

@@ -1540,3 +1540,18 @@ or source comments.
     refused by the EXEC gate). Return before any engine optimization or
     pilot rerun.
 
+### 2026-11-07 UTC --- Claude (Claude Code): checkpoint/backpressure design, for review
+
+-   **Classification:** REFINE (design only; no code).
+-   **What:** `docs/handoff/PR66_Checkpoint_Design_Review.txt` accepted the
+    causal proof and classified checkpoint-induced refusal as an ENGINE
+    DESIGN GAP. `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` answers it:
+    as-built snapshot/recovery semantics and invariants I1-I5; both
+    measured bottlenecks; options A-F compared; preferred A + B1 + C2 + D
+    (E switchable, B2 later, F deferred); proof sketch; resource bounds
+    (two are unbounded today: `waiters_`, WAL active buffer); adaptive
+    AIMD pacing on SNC signals; tests T1-T13; R640 regression; slices
+    S0-S6 with switches.
+-   **Next action:** design review. No engine implementation, CP-1A
+    rerun, competitors or Profile C before it.
+
