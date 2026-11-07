@@ -1,0 +1,176 @@
+PR #66 REVIEW — CLEAN CAUSAL PROOF
+
+DECISION: PR #66 ACCEPTED.
+
+The corrected proof is valid. G0-G4 passed. The benchmark scratch defect is resolved. Open-loop causality is now established strongly enough to classify checkpoint-induced refusal as an SNC ENGINE DESIGN GAP / REFINE item.
+
+DO NOT rerun CP-1A yet. Design the engine correction first.
+
+EVIDENCE ACCEPTED
+
+Frozen driver 69d612f; evidence c88cb70; report c9537dd.
+
+At 436,646 open-loop ops/s:
+- checkpoint ON: refusals in 3/3 (2,267 / 6,488 / 9,455), p99 ~1.61-1.97 ms;
+- checkpoint OFF: 0/0/0 refusals, 0 late ops, p99 ~0.64-0.66 ms;
+- all checkpoint-ON refusals occur during fdatasync.
+
+Checkpoint walk ~1.17-1.20 s; fdatasync ~1.13-1.21 s. WAL-device await rises from ~0.05-0.065 ms to ~10.7-12.1 ms.
+
+At 2,183,233 ops/s the checkpoint walk itself also causes backpressure/refusal, so there are TWO measured bottlenecks:
+1. O(map) checkpoint walk consumes shard CPU.
+2. Unpaced synchronized checkpoint write/fdatasync interferes with WAL durability.
+
+CLASSIFICATION
+
+ID-file interference: BENCHMARK DEFECT — FIXED.
+
+Checkpoint-induced refusal: ENGINE DESIGN GAP — REFINE.
+
+This is not a correctness failure, but do not dismiss it as an unavoidable expected limit. Under the current implementation, periodic checkpoint work collapses the refusal-free open-loop envelope to roughly one tenth of average closed-loop capacity.
+
+DO NOT CHANGE kEmitBacklog=1024
+
+It exposed the durability stall. Raising it would mostly trade refusal for more memory, queueing and tail latency. Queue sizing comes after architecture.
+
+ARCHITECTURAL GOAL
+
+Background checkpoint work must not cause large periodic interference with foreground service or WAL durability.
+
+Specifically:
+- reads should remain serviceable when only durability-dependent mutation follow-ups are backpressured;
+- checkpoint CPU work should be bounded/paced;
+- checkpoint storage work should not synchronize all shards into a WAL-starving burst;
+- durability semantics must not be weakened.
+
+AUTHORIZED NEXT: DESIGN ONLY
+
+Produce a CHECKPOINT/BACKPRESSURE ARCHITECTURE DESIGN. Do NOT implement yet.
+
+Compare at least:
+
+A. READ/MUTATION ADMISSION SEPARATION
+Define which operations can continue under durability backlog. Analyze correctness, memory bounds, fairness/starvation, index/SRI resources and whether reads can delay recovery.
+
+B. PACED / INCREMENTAL CHECKPOINT WALK
+Replace long O(map) shard monopolization with bounded work quanta. Analyze per-poll object/time budget, snapshot consistency, concurrent mutations, completion bound and CPU overhead.
+
+C. PACED CHECKPOINT WRITES
+Bound checkpoint storage consumption instead of saturating the WAL device. Prefer adaptive control over a hardware-specific fixed MB/s number.
+
+D. STAGGERED SHARD SYNC
+Avoid all shards entering fdatasync together. Analyze coordinator/staggering, global checkpoint atomicity, crash/recovery and total checkpoint duration.
+
+E. I/O PRIORITIZATION / ISOLATION
+Evaluate WAL vs checkpoint I/O priority/classes without requiring a second physical device.
+
+F. INCREMENTAL / COW CHECKPOINTING
+Evaluate as longer-term architecture to avoid periodic full-state walk/write events. Compare complexity and recovery implications with nearer-term pacing.
+
+PREFERRED DIRECTION TO EVALUATE
+
+Evaluate a combination:
+1. separate read admission from mutation durability backpressure;
+2. bounded incremental checkpoint walk;
+3. adaptive checkpoint I/O pacing using SNC-owned pressure signals;
+4. stagger shard fdatasync;
+5. preserve the existing durability contract.
+
+Do not implement until snapshot/recovery semantics prove this safe.
+
+ADAPTIVE PACING
+
+Avoid “checkpoint at X MB/s” tied to the R640 SAS SSD.
+
+Consider feedback from:
+- WAL durability latency;
+- emit_wait/backlog;
+- checkpoint queue depth;
+- foreground service latency;
+- storage completion latency.
+
+Checkpoint should consume spare capacity and back off as foreground WAL durability approaches a defined latency/backlog budget.
+
+SNAPSHOT/RECOVERY SEMANTICS FIRST
+
+Document precisely:
+- what logical state/instant a checkpoint represents;
+- how concurrent mutations are handled;
+- associated WAL position/LSN;
+- what makes shard parts one recoverable checkpoint;
+- what must be durable before WAL reclamation;
+- crash behavior during staggered write/sync;
+- whether shard parts may become durable at different times safely.
+
+Do not optimize checkpoint execution until these are explicit.
+
+READ ADMISSION SAFETY
+
+Do not merely move the overload check below dispatch.
+
+Define:
+- pure reads;
+- mutation/cross-shard operations;
+- index reads/gathers and SRI backpressure;
+- resources reads consume;
+- fairness so reads cannot starve mutation backlog recovery.
+
+TEST PLAN REQUIRED
+
+Design must include deterministic tests for:
+- checkpoint consistency under concurrent mutation;
+- crash at every checkpoint phase;
+- WAL replay from partial/staggered checkpoint;
+- read service during mutation backpressure;
+- bounded checkpoint CPU quantum;
+- bounded checkpoint I/O issuance;
+- backpressure recovery;
+- no starvation;
+- multi-shard checkpoint completion;
+- unchanged durability/profile semantics.
+
+Physical regression:
+436,646 open-loop with checkpoint enabled currently refuses 3/3 while no-checkpoint refuses 0/3. Preserve this as the R640 regression. Success must include latency/WAL/backlog behavior, not merely zero refusals.
+
+CP-1A STATUS
+
+Do NOT rerun CP-1A on the current engine. Clean causal evidence already shows it would hit the same R2 checkpoint failure.
+
+After the design gap is fixed and correctness/hardening passes:
+- freeze a new SNC SHA;
+- preregister regression/pilot procedure;
+- rerun full SNC-only CP-1A from the beginning.
+
+TELEMETRY
+
+Keep r640-diag-telemetry off main. It served its diagnostic purpose. Permanent observability, if desired, should be proposed separately or as part of the engine design.
+
+NEXT DELIVERABLE
+
+Return a CHECKPOINT/BACKPRESSURE ARCHITECTURE DESIGN containing:
+1. current snapshot/recovery semantics;
+2. both measured bottlenecks;
+3. comparison of A-F;
+4. coherent preferred design;
+5. conceptual durability/recovery proof;
+6. admission/backpressure resource boundaries;
+7. adaptive pacing signals/control;
+8. deterministic correctness/crash tests;
+9. physical R640 regression plan;
+10. implementation slices and rollback points.
+
+RETURN DESIGN FOR REVIEW BEFORE ENGINE IMPLEMENTATION.
+
+FINAL
+
+PR #66 ACCEPTED.
+Corrected proof VALID.
+G0-G4 PASS.
+Checkpoint causality ESTABLISHED.
+Benchmark ID-file defect FIXED.
+Checkpoint behavior = ENGINE DESIGN GAP / REFINE.
+
+NO CP-1A RERUN YET.
+NO ENGINE IMPLEMENTATION UNTIL DESIGN REVIEW.
+NO COMPETITORS.
+NO PROFILE C.
