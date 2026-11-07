@@ -1,0 +1,1 @@
+/home/claude/snc-server-os/tests/test_s1_admission.cpp:1535: CHECK failed: second.replay_retries() >= 3

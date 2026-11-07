@@ -217,6 +217,7 @@ bool Client::fail_over() {
       // Resend what was not answered, in its original order.
       const i64 now = now_ns();
       for (Link& l : links_) {
+        l.retry.clear();  // a refused replay is among the unanswered
         for (std::size_t i = 0; i < l.unanswered.size(); ++i) {
           const auto& req = l.unanswered[i];
           if (req.empty()) continue;
@@ -276,6 +277,19 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
     }
     if (l.in_len - pos < h.len) break;
     if (client_id_ != 0) {
+      // S1.2: a duplicate of a request the node already applied, refused
+      // only for waiter room (E_OVERLOADED marked replayed). It is not an
+      // answer: resent later with the same sequence, so the node answers it
+      // from its session. Handing it to the caller would invite a resend as
+      // a new request, which applies it twice (docs/RETRIES.md).
+      if (static_cast<Status>(h.status) == Status::E_OVERLOADED && (h.flags & wire::kRespReplayed) &&
+          l.order.count(h.req_id)) {
+        l.retry.emplace_back(now_ns() + kReplayRetryNs, h.req_id);
+        ++replay_retries_;
+        progress_ns_ = now_ns();  // the node is alive and answering
+        pos += h.len;
+        continue;
+      }
       if (static_cast<Status>(h.status) == Status::E_STANDBY ||
           static_cast<Status>(h.status) == Status::E_FENCED) {
         error_ = "the node is no longer the primary";
@@ -303,6 +317,23 @@ int Client::read_link(Link& l, OnResponse on, void* ctx) {
 }
 
 int Client::poll(OnResponse on, void* ctx, int timeout_ms) {
+  bool retrying = false;
+  if (client_id_ != 0) {
+    const i64 now = now_ns();
+    for (Link& l : links_) {
+      while (!l.retry.empty() && l.retry.front().first <= now) {
+        auto it = l.order.find(l.retry.front().second);
+        if (it != l.order.end()) {
+          const auto& req = l.unanswered[it->second - l.base];
+          l.out.insert(l.out.end(), req.begin(), req.end());
+          ++resends_;
+        }
+        l.retry.pop_front();
+      }
+      retrying |= !l.retry.empty();
+    }
+  }
+  if (retrying && timeout_ms > kReplayRetryNs / 1000000) timeout_ms = static_cast<int>(kReplayRetryNs / 1000000);
   if (!flush_all()) return fail_over() ? 0 : -1;
   const bool timed = client_id_ != 0 && request_timeout_ms_ > 0;
   if (timed && timeout_ms > request_timeout_ms_) timeout_ms = request_timeout_ms_;

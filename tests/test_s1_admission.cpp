@@ -49,6 +49,7 @@
 #include "../src/core/session.h"  // SessionV1: the session record admit() reserves
 #include "harness.h"
 #include "snc/gauges.h"
+#include "snc/net.h"
 #include "snc/slot_map.h"
 #include "snc/types/account.h"
 #include "snc/wal_format.h"
@@ -1184,9 +1185,385 @@ void test_internal_overshoot() {
               (unsigned long long)budget, (unsigned long long)sent, (unsigned long long)rmax, kMaxEntries);
 }
 
+// ---- S1.2: replays take the waiter budget ----------------------------------------------
+
+void seq_deposit(const ObjectID& id, i64 amount, u64 client, u64 seq, Durability d, Async& a) {
+  ExecOptions o;
+  o.client_id = client;
+  o.seq = seq;
+  o.durability = d;
+  deposit(id, amount, o, a);
+}
+u64 replay_refusals(Engine& eng, u16 s) { return eng.stats(s).refused_replay; }
+u64 replays(Engine& eng, u16 s) { return eng.stats(s).replayed; }
+u32 count_replayed(Async& a, Status st) {
+  std::lock_guard<std::mutex> g(a.mu);
+  u32 n = 0;
+  for (const ExecResult& r : a.results) n += r.status == st && r.replayed;
+  return n;
+}
+constexpr u32 kReplayWaiter = 256;  // sizeof(Waiter) + an empty result
+OneResult resend(Engine& eng, u16 s, const ObjectID& a, u64 client, u64 seq) {
+  return one(eng, s, [&](Completion cb, void* ctx) {
+    ExecOptions o;
+    o.client_id = client;
+    o.seq = seq;
+    AmountArgs d{10, 7};
+    execute(a, kOpDeposit, ByteView(&d, sizeof(d)), o, cb, ctx);
+  });
+}
+
+// ---- A16, A17 ---------------------------------------------------------------------------
+
+void test_local_replay_bound() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  // The original deposit's waiter (256 + 16) and one replay waiter (256).
+  c.waiter_budget_bytes = 256 + sizeof(BalanceResult) + kReplayWaiter + 8;
+  Engine eng(c);
+  eng.start();
+  const ObjectID a = accounts(eng, 1)[0][0];
+  const i64 b0 = balance(eng, 0, a).balance_cents;
+  constexpr u64 kClient = 0x5eed;
+  Engine::debug_hold_wal(0, true);
+  Async orig;
+  on_shard(eng, 0, [&] { seq_deposit(a, 10, kClient, 1, Durability::DURABLE, orig); });
+  CHECK_EQ(orig.done.load(), 0u);  // applied, waiting for the WAL
+  const u64 v1 = version_of(eng, 0, a);
+  const GaugeSnapshot g0 = fresh(eng, 0);
+  CHECK_EQ(g0[G_WAITERS_NOW], 1u);
+  const Causes c0 = causes(eng, 0);
+  const u64 rr0 = replay_refusals(eng, 0), rp0 = replays(eng, 0);
+  // A16: the resend of seq 1, twice. The first fits and waits; the second
+  // finds the budget full and is refused, marked replayed.
+  Async re;
+  on_shard(eng, 0, [&] {
+    seq_deposit(a, 10, kClient, 1, Durability::DURABLE, re);
+    seq_deposit(a, 10, kClient, 1, Durability::DURABLE, re);
+  });
+  CHECK_EQ(re.done.load(), 1u);
+  CHECK_EQ(count_replayed(re, Status::E_OVERLOADED), 1u);
+  expect_causes(c0, causes(eng, 0), WAITER, 1);
+  CHECK_EQ(replay_refusals(eng, 0) - rr0, 1u);
+  CHECK_EQ(replays(eng, 0) - rp0, 2u);  // both detected as duplicates
+  const GaugeSnapshot g1 = fresh(eng, 0);
+  CHECK_EQ(g1[G_WAITERS_NOW], 2u);
+  CHECK_EQ(g1[G_WAITER_BYTES_NOW], 256 + sizeof(BalanceResult) + kReplayWaiter);
+  CHECK(g1[G_WAITER_BYTES_NOW] <= c.waiter_budget_bytes);
+  // Nothing changed: no record, same version and balance.
+  CHECK_EQ(g1[G_WAL_NEXT_LSN], g0[G_WAL_NEXT_LSN]);
+  CHECK_EQ(g1[G_WAL_ACTIVE_BYTES_NOW], g0[G_WAL_ACTIVE_BYTES_NOW]);
+  CHECK_EQ(version_of(eng, 0, a), v1);
+  CHECK_EQ(balance(eng, 0, a, true).balance_cents, b0 + 10);
+  // A17: durability resumes. The original and the admitted replay answer
+  // once each, with the same version; nothing is applied again.
+  Engine::debug_hold_wal(0, false);
+  CHECK(orig.wait(1));
+  CHECK(re.wait(2));
+  ::usleep(20000);
+  CHECK_EQ(orig.done.load(), 1u);
+  CHECK_EQ(re.done.load(), 2u);
+  {
+    std::lock_guard<std::mutex> lk(orig.mu);
+    CHECK_EQ(orig.results[0].status, Status::OK);
+    CHECK(!orig.results[0].replayed);
+    CHECK_EQ(orig.results[0].version, v1);
+  }
+  {
+    std::lock_guard<std::mutex> lk(re.mu);
+    CHECK_EQ(re.results[1].status, Status::OK);
+    CHECK(re.results[1].replayed && re.results[1].durable);
+    CHECK_EQ(re.results[1].version, v1);
+  }
+  // The refused resend, sent again with its sequence, gets the answer.
+  OneResult again = resend(eng, 0, a, kClient, 1);
+  CHECK_EQ(again.r.status, Status::OK);
+  CHECK(again.r.replayed && again.r.durable);
+  CHECK_EQ(again.r.version, v1);
+  CHECK_EQ(balance(eng, 0, a).balance_cents, b0 + 10);
+  CHECK_EQ(fresh(eng, 0)[G_WAITERS_NOW], 0u);
+  // The session moves on normally.
+  Async next;
+  on_shard(eng, 0, [&] { seq_deposit(a, 10, kClient, 2, Durability::DURABLE, next); });
+  CHECK(next.wait(1));
+  CHECK_EQ(next.count(Status::OK), 1u);
+  CHECK_EQ(balance(eng, 0, a).balance_cents, b0 + 20);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A16 local replay bound: with the session undurable, one resend waits and the next is "
+              "E_OVERLOADED marked replayed (refused_waiter +1, refused_replay +1); no record, version or "
+              "balance changed\n"
+              "A17 replay recovery: after durability the original and the admitted replay answer once each "
+              "(version %llu); the refused one resent gets the same answer; applied once\n",
+              (unsigned long long)v1);
+}
+
+// ---- A18 --------------------------------------------------------------------------------
+
+void test_backlog_replay() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(2, dir);
+  c.hold_emits = true;
+  c.waiter_budget_bytes = kReplayWaiter + 8;  // one replay waiter
+  Engine eng(c);
+  eng.start();
+  auto own = accounts(eng, 40);  // 39 sources x kMaxOutbox 64 > the gate
+  const ObjectID a = own[0][0], dst = own[1][0];
+  const i64 b0 = balance(eng, 0, a).balance_cents;
+  constexpr u64 kClient = 0xbac1;
+  Engine::debug_hold_wal(0, true);
+  // Applied, its session undurable; no waiter (APPLIED).
+  Async orig;
+  on_shard(eng, 0, [&] { seq_deposit(a, 10, kClient, 1, Durability::APPLIED, orig); });
+  CHECK(orig.wait(1));
+  CHECK_EQ(orig.count(Status::OK), 1u);
+  const u64 v1 = version_of(eng, 0, a);
+  // Close shard 0's follow-up gate.
+  Async xfers;
+  u64 issued = 0;
+  while (eng.stats(0).emits_in_flight <= kGate) {
+    CHECK(issued < 100000);
+    on_shard(eng, 0, [&] {
+      ExecOptions o;
+      o.durability = Durability::APPLIED;
+      TransferArgs t{dst, 1, 7};
+      execute(own[0][1 + issued % (own[0].size() - 1)], kOpTransfer, ByteView(&t, sizeof(t)), o, &Async::cb,
+              &xfers);
+    });
+    ++issued;
+  }
+  CHECK(eng.stats(0).emits_in_flight > kGate);
+  CHECK_EQ(fresh(eng, 0)[G_WAITERS_NOW], 0u);
+  // A new request is refused by the gate.
+  const Causes c0 = causes(eng, 0);
+  Async fresh_req;
+  on_shard(eng, 0, [&] { deposit(own[0][1], 1, {}, fresh_req); });
+  CHECK_EQ(fresh_req.count(Status::E_OVERLOADED), 1u);
+  expect_causes(c0, causes(eng, 0), FOLLOWUP, 1);
+  // Three resends of seq 1: the gate does not refuse them (they were
+  // applied), but their waits take the waiter budget: one waits (the empty
+  // list admits one), two are refused marked replayed.
+  const Causes c1 = causes(eng, 0);
+  const u64 rr0 = replay_refusals(eng, 0);
+  const GaugeSnapshot g0 = fresh(eng, 0);
+  Async re;
+  on_shard(eng, 0, [&] {
+    for (int i = 0; i < 3; ++i) seq_deposit(a, 10, kClient, 1, Durability::DURABLE, re);
+  });
+  CHECK_EQ(re.done.load(), 2u);
+  CHECK_EQ(count_replayed(re, Status::E_OVERLOADED), 2u);
+  expect_causes(c1, causes(eng, 0), WAITER, 2);
+  CHECK_EQ(replay_refusals(eng, 0) - rr0, 2u);
+  const GaugeSnapshot g1 = fresh(eng, 0);
+  CHECK_EQ(g1[G_WAITERS_NOW], 1u);
+  CHECK_EQ(g1[G_WAITER_BYTES_NOW], kReplayWaiter);
+  CHECK_EQ(g1[G_WAL_NEXT_LSN], g0[G_WAL_NEXT_LSN]);
+  CHECK_EQ(version_of(eng, 0, a), v1);
+  CHECK_EQ(balance(eng, 0, a, true).balance_cents, b0 + 10);
+  // Durability and emits resume; the held replay answers once.
+  Engine::debug_hold_wal(0, false);
+  CHECK(re.wait(3));
+  eng.release_emits();
+  CHECK(eng.wait_emits(120));
+  ::usleep(20000);
+  CHECK_EQ(re.done.load(), 3u);
+  CHECK_EQ(count_replayed(re, Status::OK), 1u);
+  OneResult again = resend(eng, 0, a, kClient, 1);
+  CHECK_EQ(again.r.status, Status::OK);
+  CHECK(again.r.replayed);
+  CHECK_EQ(again.r.version, v1);
+  CHECK_EQ(balance(eng, 0, a).balance_cents, b0 + 10);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A18 backlog replay: gate closed (%llu transfers held), a new deposit refused_followup; 3 "
+              "resends of an applied seq: 1 waits, 2 refused_waiter marked replayed; nothing re-applied\n",
+              (unsigned long long)issued);
+}
+
+// ---- A19 --------------------------------------------------------------------------------
+
+void test_no_sequenced_forwarding() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(2, dir);
+  Engine eng(c);
+  eng.start();
+  auto own = accounts(eng, 2);
+  const ObjectID remote = own[1][0];
+  const i64 b0 = balance(eng, 1, remote).balance_cents;
+  const ShardStats s0 = eng.stats(0);
+  const ShardStats s1 = eng.stats(1);
+  // A sequenced deposit and a sequenced create near an object shard 1
+  // owns, sent to shard 0: refused there, never forwarded.
+  OneResult r = resend(eng, 0, remote, 0xf0, 1);
+  CHECK_EQ(r.r.status, Status::E_NOT_OWNER);
+  OneResult cr = one(eng, 0, [&](Completion cb, void* ctx) {
+    ExecOptions o;
+    o.client_id = 0xf0;
+    o.seq = 2;
+    CreateArgs ca = account_args();
+    create_near(remote, kTypeId, ByteView(&ca, sizeof(ca)), o, cb, ctx);
+  });
+  CHECK_EQ(cr.r.status, Status::E_NOT_OWNER);
+  const ShardStats t0 = eng.stats(0);
+  const ShardStats t1 = eng.stats(1);
+  CHECK_EQ(t0.ops_remote, s0.ops_remote);
+  CHECK_EQ(t0.pending_peak, s0.pending_peak);
+  CHECK_EQ(t1.replayed, s1.replayed);
+  CHECK_EQ(t1.ops_local, s1.ops_local);
+  CHECK_EQ(balance(eng, 1, remote).balance_cents, b0);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A19 remote replay: sequenced requests are never forwarded (E_NOT_OWNER at the entry "
+              "shard, no pending slot, nothing at the owner), so a replay waiter is always LOCAL; the "
+              "REMOTE answer path is A13's\n");
+}
+
+// ---- A20 --------------------------------------------------------------------------------
+
+void test_aggregate_replays() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  constexpr u32 kHeld = 4;
+  c.waiter_budget_bytes = kHeld * kReplayWaiter + 8;
+  Engine eng(c);
+  eng.start();
+  const ObjectID a = accounts(eng, 1)[0][0];
+  const i64 b0 = balance(eng, 0, a).balance_cents;
+  constexpr u32 kClients = 64, kRounds = 3;
+  Engine::debug_hold_wal(0, true);
+  // 64 clients each apply seq 1 (APPLIED: no waiter); every session is undurable.
+  Async orig;
+  on_shard(eng, 0, [&] {
+    for (u32 k = 0; k < kClients; ++k) seq_deposit(a, 10, 1000 + k, 1, Durability::APPLIED, orig);
+  });
+  CHECK(orig.wait(kClients));
+  CHECK_EQ(orig.count(Status::OK), kClients);
+  const GaugeSnapshot g0 = fresh(eng, 0);
+  CHECK_EQ(g0[G_WAITERS_NOW], 0u);
+  const u64 rr0 = replay_refusals(eng, 0);
+  // Every client resends, three rounds: the waiters stop at the budget.
+  Async re;
+  u64 peak = 0;
+  for (u32 round = 0; round < kRounds; ++round) {
+    on_shard(eng, 0, [&] {
+      for (u32 k = 0; k < kClients; ++k) seq_deposit(a, 10, 1000 + k, 1, Durability::DURABLE, re);
+    });
+    peak = std::max<u64>(peak, fresh(eng, 0)[G_WAITER_BYTES_NOW]);
+  }
+  constexpr u32 kSent = kClients * kRounds;
+  CHECK_EQ(re.done.load(), kSent - kHeld);
+  CHECK_EQ(count_replayed(re, Status::E_OVERLOADED), kSent - kHeld);
+  CHECK_EQ(replay_refusals(eng, 0) - rr0, kSent - kHeld);
+  const GaugeSnapshot g1 = fresh(eng, 0);
+  CHECK_EQ(g1[G_WAITERS_NOW], kHeld);
+  CHECK_EQ(peak, kHeld * kReplayWaiter);
+  // The bound: the budget, plus at most one admitted op (the empty-list rule).
+  CHECK(peak <= c.waiter_budget_bytes + kReplayWaiter);
+  CHECK_EQ(g1[G_WAL_NEXT_LSN], g0[G_WAL_NEXT_LSN]);
+  CHECK_EQ(balance(eng, 0, a, true).balance_cents, b0 + 10 * kClients);
+  Engine::debug_hold_wal(0, false);
+  CHECK(re.wait(kSent));
+  CHECK_EQ(count_replayed(re, Status::OK), kHeld);
+  // Each client's resend now gets its answer at once.
+  Async last;
+  on_shard(eng, 0, [&] {
+    for (u32 k = 0; k < kClients; ++k) seq_deposit(a, 10, 1000 + k, 1, Durability::DURABLE, last);
+  });
+  CHECK(last.wait(kClients));
+  CHECK_EQ(count_replayed(last, Status::OK), kClients);
+  CHECK_EQ(balance(eng, 0, a).balance_cents, b0 + 10 * kClients);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A20 aggregate replays: %u clients x %u resends with undurable sessions held %u replay "
+              "waiters (%llu bytes, budget %llu); %u refused marked replayed; each deposit applied once\n",
+              kClients, kRounds, kHeld, (unsigned long long)peak, (unsigned long long)c.waiter_budget_bytes,
+              kSent - kHeld);
+}
+
+// ---- A21 --------------------------------------------------------------------------------
+
+// Through the socket front end: a client that resends an applied request
+// (as after a failover) and is refused for waiter room keeps it and resends
+// it with its sequence; its caller sees one answer, the replayed result.
+void test_client_replay_retry() {
+  const std::string dir = temp_dir();
+  const u16 port = test::free_ports(26000, 32000, 2);
+  Engine::Config c = config(1, dir);
+  c.runtime.pin = false;
+  c.mint_local = true;
+  // The original deposit's waiter only: a replay waiter does not fit.
+  c.waiter_budget_bytes = 256 + sizeof(BalanceResult) + 8;
+  net::NetServer::Config ncfg;
+  ncfg.base_port = port;
+  net::NetServer server(ncfg, 1);
+  c.app_poll = net::NetServer::poll_hook;
+  c.app_user = &server;
+  Engine eng(c);
+  eng.start();
+  const ObjectID a = accounts(eng, 1)[0][0];
+  const i64 b0 = balance(eng, 0, a).balance_cents;
+  constexpr u64 kClient = 0xc11e;
+  struct Answers {
+    std::vector<wire::RespHeader> got;
+    static void on(void* p, const wire::RespHeader& h, ByteView) {
+      static_cast<Answers*>(p)->got.push_back(h);
+    }
+  };
+  auto send_deposit = [&](net::Client& cl) {
+    wire::ReqHeader q{};
+    q.kind = wire::Kind::EXEC;
+    q.op = kOpDeposit;
+    q.req_id = 1;
+    q.target = a;
+    AmountArgs d{10, 7};
+    cl.send(0, q, ByteView(&d, sizeof(d)));
+  };
+  u64 retries = 0, version = 0;
+  {
+    net::Client first, second;
+    CHECK(first.connect("127.0.0.1", port));
+    CHECK(second.connect("127.0.0.1", port));
+    first.enable_session(kClient);
+    second.enable_session(kClient);  // the same session: its seq 1 is first's
+    Engine::debug_hold_wal(0, true);
+    Answers fa, sa;
+    send_deposit(first);
+    for (int i = 0; i < 20; ++i) CHECK(first.poll(&Answers::on, &fa, 5) >= 0);
+    CHECK(fa.got.empty());  // applied, waiting for the WAL
+    send_deposit(second);
+    for (int i = 0; i < 100 && second.replay_retries() < 3; ++i) CHECK(second.poll(&Answers::on, &sa, 5) >= 0);
+    CHECK(second.replay_retries() >= 3);  // refused, resent with seq 1, refused again
+    CHECK(sa.got.empty());                // and never handed to the caller
+    CHECK(eng.stats(0).refused_replay >= 3);
+    CHECK_EQ(balance(eng, 0, a, true).balance_cents, b0 + 10);
+    Engine::debug_hold_wal(0, false);
+    for (int i = 0; i < 2000 && (fa.got.empty() || sa.got.empty()); ++i) {
+      CHECK(first.poll(&Answers::on, &fa, 5) >= 0);
+      CHECK(second.poll(&Answers::on, &sa, 5) >= 0);
+    }
+    for (int i = 0; i < 10; ++i) CHECK(second.poll(&Answers::on, &sa, 5) >= 0);  // nothing more
+    CHECK_EQ(fa.got.size(), 1u);
+    CHECK_EQ(sa.got.size(), 1u);
+    CHECK_EQ(fa.got[0].status, u16(Status::OK));
+    CHECK(!(fa.got[0].flags & wire::kRespReplayed));
+    CHECK_EQ(sa.got[0].status, u16(Status::OK));
+    CHECK(sa.got[0].flags & wire::kRespReplayed);
+    CHECK(sa.got[0].flags & wire::kRespDurable);
+    CHECK_EQ(sa.got[0].version, fa.got[0].version);
+    CHECK_EQ(balance(eng, 0, a).balance_cents, b0 + 10);
+    retries = second.replay_retries();
+    version = fa.got[0].version;
+  }  // the clients disconnect before the engine stops
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A21 client retry: a resend refused for waiter room was resent %llu times with its "
+              "sequence and answered once, replayed (version %llu); applied once\n",
+              (unsigned long long)retries, (unsigned long long)version);
+}
+
 }  // namespace
 
-// With arguments, runs only the named tests (A1 ... A15), for negative
+// With arguments, runs only the named tests (A1 ... A21), for negative
 // checks against a reverted engine; ctest runs them all.
 int main(int argc, char** argv) {
   register_type();
@@ -1205,6 +1582,11 @@ int main(int argc, char** argv) {
       {"A12", test_peer_session_boundary},
       {"A13", test_remote_read_bound},
       {"A15", test_internal_overshoot},
+      {"A16", test_local_replay_bound},
+      {"A18", test_backlog_replay},
+      {"A19", test_no_sequenced_forwarding},
+      {"A20", test_aggregate_replays},
+      {"A21", test_client_replay_retry},
   };
   for (const auto& [name, fn] : tests) {
     bool run = argc == 1;

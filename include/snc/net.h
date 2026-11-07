@@ -146,6 +146,9 @@ class Client {
   // a resend is answered from the session only while the session lives).
   u64 resends() const { return resends_; }
   u64 max_resend_age_ms() const { return max_resend_age_ns_ / 1000000; }
+  // Duplicates the node refused for waiter room (E_OVERLOADED marked
+  // replayed), each resent with its sequence instead of being answered.
+  u64 replay_retries() const { return replay_retries_; }
 
   u16 shard_count() const { return map_.n_shards; }
   const SlotMap& slot_map() const { return map_; }
@@ -175,7 +178,10 @@ class Client {
     std::deque<std::vector<u8>> unanswered;  // emptied once answered
     std::deque<i64> sent_ns;                 // when each was first sent (steady ns)
     std::unordered_map<u64, u64> order;      // req_id -> its order
+    // S1.2: refused replays to resend with the same sequence: (due ns, req_id).
+    std::deque<std::pair<i64, u64>> retry;
   };
+  static constexpr i64 kReplayRetryNs = 2000000;  // 2 ms between resends of a refused replay
   bool flush_all();
   int read_link(Link& l, OnResponse on, void* ctx);
   bool open(const std::string& host, u16 base_port);
@@ -193,6 +199,7 @@ class Client {
   u64 failovers_ = 0;
   u64 timeouts_ = 0;
   u64 resends_ = 0;
+  u64 replay_retries_ = 0;
   i64 max_resend_age_ns_ = 0;
   // Last answer, or when the client last had nothing unanswered (steady ns).
   i64 progress_ns_ = 0;

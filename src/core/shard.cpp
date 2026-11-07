@@ -129,15 +129,18 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
       !adm_.legacy && desc != nullptr && desc->kind == OpKind::READ && slots_.owner[h >> 52] == id_;
   if (in_flight > kEmitBacklog && !local_read) {
     // A resent sequenced mutation already applied here gets its answer,
-    // not E_OVERLOADED: a client told E_OVERLOADED sends it again as a new
-    // request, which would apply it twice. Promotion leaves a backlog, and
-    // that is exactly when clients resend (found on real hosts,
-    // docs/REAL_MACHINES.md).
+    // not the follow-up refusal: a client told plain E_OVERLOADED sends it
+    // again as a new request, which would apply it twice. Promotion leaves
+    // a backlog, and that is exactly when clients resend (found on real
+    // hosts, docs/REAL_MACHINES.md). Its wait still takes the waiter budget
+    // (S1.2): refused, it is E_OVERLOADED marked replayed, which a client
+    // resends with the same sequence (docs/RETRIES.md).
     if (opts.client_id && slots_.owner[h >> 52] == id_) {
       const OpDescriptor* d = desc;
       RunOut out;
       out.r.id = target;
       if (d != nullptr && d->kind == OpKind::MUTATE && replay_if_seen(opts, out)) {
+        (void)admit_answer_wait(out);
         return complete_local(out, done, ctx);
       }
     }
@@ -237,6 +240,9 @@ bool Shard::admit_answer_wait(RunOut& out) {
     out.waiter_reserved = true;
     return true;
   }
+  // A refused replay keeps replayed = true: the op was applied and must be
+  // resent with the same sequence, never as a new request (docs/RETRIES.md).
+  if (out.r.replayed) ++stats_.refused_replay;
   out.wait_lsn = 0;
   out.r.result = ByteView{};
   out.r.version = 0;
@@ -270,7 +276,10 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
       // A resend of a create applied here before the slot moved gets its
       // answer, not E_MOVED (see execute).
       RunOut out;
-      if (replay_if_seen(opts, out)) return complete_local(out, done, ctx);
+      if (replay_if_seen(opts, out)) {
+        (void)admit_answer_wait(out);
+        return complete_local(out, done, ctx);
+      }
     }
     if (foreign_slot(slot)) return refuse_moved(*cluster_, *near, done, ctx);
     while (slot_of(id) != slot) id = minter_.next();
@@ -329,6 +338,7 @@ bool Shard::followups_refuse(const ExecOptions& opts, ObjectID target, bool repl
   if (replay && opts.client_id) {
     RunOut out;
     if (replay_if_seen(opts, out)) {
+      (void)admit_answer_wait(out);
       complete_local(out, done, ctx);
       return true;
     }
@@ -901,9 +911,11 @@ bool Shard::replay_if_seen(const ExecOptions& opts, RunOut& out) {
   }
   out.r.durable = durable(s->last_lsn);
   out.wait_lsn = s->last_lsn;
-  // Never refused: a client told E_OVERLOADED would send it again as a
-  // new request (see execute). Resends are bounded by the clients' windows.
-  out.waiter_reserved = true;
+  // S1.2: no waiter is reserved here (waiter_reserved stays false). Every
+  // caller passes the answer through admit_answer_wait, which takes the
+  // waiter budget if the session record is not yet durable, or refuses
+  // with E_OVERLOADED and replayed kept set. Nothing here changes state,
+  // so a refused replay leaves object, session and WAL as they were.
   ++stats_.replayed;
   return true;
 }

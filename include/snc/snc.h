@@ -159,6 +159,7 @@ struct ShardStats {
   u64 refused_waiter = 0;        // S1: waiter budget (Config::waiter_budget_bytes)
   u64 refused_wal_buffer = 0;    // S1: WAL buffer budget (Config::wal_buffer_budget_bytes)
   u64 refused_pending = 0;       // S1.1: pending budget (Config::pending_budget)
+  u64 refused_replay = 0;        // S1.2: duplicates refused for waiter room (a subset of refused_waiter)
   u64 pending_now = 0;           // forwarded client requests awaiting an answer
   u64 pending_peak = 0;
   u64 gather_overloaded = 0;     // index gather legs dropped: ring full

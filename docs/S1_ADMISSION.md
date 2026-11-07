@@ -4,6 +4,11 @@
 > caps every object at `max_size`, which makes R2 worst-case, and bounds
 > forwarded requests and every waiting answer. It also states the real
 > WAL memory bound. Where this note and S1.1 differ, S1.1 holds.
+>
+> **S1.2 (after the PR #73 review):** [S1_2_REPLAY.md](S1_2_REPLAY.md)
+> puts replay waits under the waiter budget too. Every bound here is the
+> budget plus at most one admitted op's worst case (the empty-list rule
+> below), not the budget alone.
 
 *Authorized by `docs/handoff/PR71_Harness_Review.txt` sections 6-15.
 Design: `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` section 6 (approved

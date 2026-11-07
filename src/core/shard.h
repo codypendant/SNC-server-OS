@@ -291,8 +291,10 @@ class Shard {
   struct RunOut {
     ExecResult r;
     u64 wait_lsn = 0;  // completion must wait until this LSN is durable (0 = no wait)
-    // S1.1: the answer's waiter is already accounted for (admitted by R1,
-    // or a replay, which is never refused: docs/S1_ADMISSION.md 3).
+    // True only when a successful admit() already counted this answer's
+    // waiter bytes (R1 in run_exec, run_create, a client run_delete, or
+    // admit_answer_wait itself). Never an exemption: a replay leaves it
+    // false (S1.2, docs/S1_2_REPLAY.md).
     bool waiter_reserved = false;
   };
 

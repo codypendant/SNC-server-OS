@@ -1,0 +1,291 @@
+PR #73 REVIEW — S1.1 CORRECTIONS
+
+DECISION
+
+PR #73 resolves the major PR #72 blockers correctly, but S1 is still NOT complete.
+
+I found one remaining resource-bound hole in the sequenced replay/resend path:
+
+`replay_if_seen()` marks `out.waiter_reserved = true` even though no waiter-budget reservation has occurred. If the session record is still undurable, the replay can therefore create a waiter outside the waiter budget. In the high-backlog fast path, the replay is sent directly to `complete_local()` and bypasses `admit_answer_wait()` entirely.
+
+The code comments justify this by saying resends are bounded by client windows. That is not a server-side resource bound: multiple clients/connections can create an arbitrarily large aggregate number of replay waiters.
+
+Fix this narrowly as S1.2. Do NOT start S2.
+
+1. PR #72 BLOCKERS — RESOLVED
+
+The following corrections are accepted:
+
+A. WAL reservation / max_size:
+APPROVED.
+
+Making `type.max_size` a true runtime hard cap is the correct fix because recovery already rejects images larger than max_size. The negative test proving the old behavior could create an unrecoverable image is significant: this was a real pre-existing recovery bug, not merely S1 accounting.
+
+A10-A12 provide good boundary evidence:
+- object at max_size;
+- create at max_size;
+- near-max object + near-max local peer + session;
+- exact reservation accounting;
+- restart recovery.
+
+B. Remote forwarded-read bound:
+APPROVED.
+
+The combination of origin-side pending budget, owner-side waiter admission, immediate E_OVERLOADED response on owner refusal, and a response path not subject to pending admission provides a real bounded remote-read path without a protocol change.
+
+A13/A14 and the negative checks are good evidence.
+
+C. A6:
+APPROVED.
+
+The tightened exact-count version now proves the internal work actually happened and crossed the client WAL budget.
+
+D. q4 measurement:
+APPROVED.
+
+The gauge-based rule is materially better than the old sequential RESOURCES sum. The self-test reproduces the impossible 286-vs-256 sequential sum and distinguishes drained, blocked, stalled and growing cases.
+
+E. Internal WAL growth:
+ACCEPTED AS AN EXPLICIT KNOWN ARCHITECTURAL GAP.
+
+The document now states honestly that client admission is not a hard memory bound for non-refusable follow-up work.
+
+The proposed future solution — follow-up intake backpressure before ring draining — requires loop/scheduling changes and is correctly deferred.
+
+This is not a blocker to finishing S1 because the PR #72 review explicitly allowed a non-finite internal bound if it was identified honestly and the next required architectural bound was named.
+
+2. NEW REMAINING BLOCKER — REPLAY WAITERS BYPASS THE WAITER BUDGET
+
+Current `replay_if_seen()` does:
+
+- loads the durable session result;
+- sets `out.wait_lsn = session.last_lsn`;
+- sets `out.waiter_reserved = true`;
+- returns true.
+
+But no waiter reservation was actually made.
+
+If `session.last_lsn` is not yet durable, later completion can create a LOCAL or REMOTE waiter.
+
+For the normal owner-local path, `admit_answer_wait()` sees `waiter_reserved == true` and skips the budget.
+
+For the follow-up-backlog replay fast path in `execute()` and `followups_refuse()`, the code can call `complete_local()` directly, bypassing `admit_answer_wait()` entirely.
+
+Therefore replay waiters are outside the S1 waiter bound.
+
+The comment “Resends are bounded by the clients' windows” is not sufficient for SNC's resource-bound contract.
+
+A single client has a window, but aggregate clients/connections are not a server-enforced global bound.
+
+This can become arbitrarily large under:
+- slow WAL durability;
+- repeated sequenced retries/resends;
+- many client IDs/connections.
+
+3. REQUIRED S1.2 REPLAY DESIGN
+
+Preserve the essential idempotency property:
+
+A sequenced request that was already applied MUST NOT be re-applied merely because admission is under pressure.
+
+But “must not re-apply” does not imply “must allocate an unbounded waiter.”
+
+Choose a bounded design.
+
+Preferred semantics:
+
+A. If the replayed session result is already durable:
+- answer it immediately;
+- no waiter required.
+
+B. If the replayed session result is not yet durable:
+- attempt waiter admission using the same waiter budget as any other deferred answer;
+- if admitted, wait and return the replayed result normally;
+- if the waiter budget is full, return E_OVERLOADED WITHOUT re-applying the operation.
+
+The client's subsequent retry remains safe because the session record still proves the operation was already applied.
+
+This preserves idempotency and bounds server memory.
+
+Do not clear/rewrite the session or treat the retry as a new mutation.
+
+4. `waiter_reserved` SEMANTICS MUST BECOME PRECISE
+
+`RunOut::waiter_reserved` should mean:
+
+this result's future waiter bytes were actually accounted for by a successful admission reservation/check.
+
+It must NOT mean:
+
+this path is exempt from waiter admission.
+
+Audit every assignment of `waiter_reserved = true`.
+
+For each assignment, prove that a matching waiter budget reservation/check occurred or that no waiter can ever be created.
+
+If the field is really being used for two meanings, split it into clearer state.
+
+5. LOCAL AND REMOTE REPLAY PATHS BOTH NEED COVERAGE
+
+Test both:
+
+1. owner-local replay while the session WAL record is undurable;
+2. forwarded/remote replay where the owner would need a REMOTE waiter.
+
+Also test the backlog fast path where replay is checked before E_OVERLOADED.
+
+The replay must:
+- never execute the mutation twice;
+- never create a waiter beyond budget;
+- return E_OVERLOADED when no waiter capacity exists;
+- later succeed/replay once durability progresses and capacity reopens.
+
+6. REQUIRED S1.2 TESTS
+
+Add at least:
+
+A16 — local replay waiter bound
+- apply one sequenced mutation;
+- hold WAL durability so its session remains undurable;
+- fill waiter budget;
+- resend the same sequence;
+- verify E_OVERLOADED;
+- verify object/version/session/WAL are not changed by the replay attempt;
+- verify replay counter/cause semantics are defined and correct.
+
+A17 — replay recovers after durability
+- release WAL;
+- existing waiters drain;
+- resend same sequence;
+- receive the original replayed result exactly once;
+- mutation is not re-applied.
+
+A18 — backlog replay fast path
+- force `emits_in_flight > kEmitBacklog`;
+- resend an already-applied sequenced mutation whose session is undurable;
+- prove the follow-up gate does not cause re-application;
+- prove waiter admission still applies;
+- prove no unbounded bypass through direct `complete_local()`.
+
+A19 — remote replay
+If sequenced forwarding can occur in any supported path, exercise it. If protocol semantics prohibit sequenced forwarding, document/prove that and test the actual relevant remote response path instead.
+
+A20 — aggregate replay pressure
+Use multiple client IDs/connections with undurable replay results and prove `waiter_bytes` remains at or below the configured bound plus the documented one-op exception, rather than scaling with client count.
+
+7. ONE-OP EMPTY-LIST EXCEPTION — KEEP VISIBLE
+
+`admit()` intentionally allows one operation when the waiter list or WAL active buffer is empty even if that single op exceeds the configured budget.
+
+That liveness exception is acceptable.
+
+But all S1 docs should define the real bound as:
+
+budget + at most one admitted operation's worst-case resource,
+
+not simply “<= budget.”
+
+Apply the same language consistently to replay tests.
+
+8. MAX_SIZE HARD CAP — APPROVED AS A CORRECTNESS FIX
+
+The broader semantic change in S1.1 is acceptable because the old larger-than-max_size states were unrecoverable and therefore invalid by the existing persistence contract.
+
+Keep the negative recovery reproduction in the evidence permanently.
+
+This should be referenced as a correctness fix, not merely admission tuning.
+
+9. PENDING BUDGET DEFAULT — PROVISIONAL
+
+131,072 pending requests per shard is acceptable as a provisional software-work default.
+
+Do not freeze it as production policy until physical/campaign evidence.
+
+The derived ~10.5 MB/vector estimate should continue to distinguish live slots from vector capacity.
+
+10. FOLLOW-UP INTAKE BACKPRESSURE — FUTURE REQUIRED SLICE
+
+The S1.1 analysis found an important deeper issue:
+
+a destination WAL stall can continue receiving non-refusable follow-up writes even after client admission closes.
+
+At campaign scale this can materially exceed the client WAL budget.
+
+The proposed architecture:
+- stop consuming follow-up messages when a destination hard WAL cap is reached;
+- leave them queued/unsent at senders;
+- sender emit gates then provide the distributed bound;
+
+is promising.
+
+But it changes ring draining and scheduling, so do NOT mix it into S1.2.
+
+Record it explicitly as a required pre-S6 architectural slice, likely between S2 and S3 or as its own reviewed slice.
+
+11. q4 HARNESS — ACCEPTED
+
+The new measurement rule is accepted for the current HA test purpose.
+
+Important distinction:
+it is a harness semantic for q4, NOT a general SNC “drained” definition.
+
+Do not reuse `waiters_now - wal_undurable` as a universal resource metric outside the q4 deposit-only workload without re-deriving the relationship.
+
+12. CLEAN VALIDATION — ACCEPTED
+
+The current S1.1 code has:
+
+- Release 38/38;
+- ASan+UBSan 38/38, zero reports;
+- TSan 38/38, zero reports.
+
+The stopped pre-review run is correctly preserved and not used as headline evidence.
+
+Good.
+
+S1.2 changes admission C++, so rerun the clean suites after the replay fix.
+
+13. S1.2 VALIDATION
+
+Required:
+
+- clean full RelWithDebInfo 38/38;
+- clean full ASan+UBSan 38/38, zero reports;
+- clean full serial TSan 38/38, zero reports;
+- A1-A20 as applicable;
+- negative test removing replay waiter admission must fail;
+- independent source review focused on replay/idempotency/admission interaction;
+- no R640 load.
+
+14. S2 STATUS
+
+S2 remains NOT authorized.
+
+Once S1.2 closes the replay waiter bypass, S1 can be considered complete.
+
+Then the next architectural work is S2 paced checkpoint walk.
+
+Do not start S2 automatically until review.
+
+FINAL
+
+PR #73:
+
+PR #72 BLOCKERS: RESOLVED.
+MAX_SIZE / RECOVERY BUG: FIXED.
+REMOTE READ BOUND: FIXED.
+A6: FIXED.
+q4 MEASUREMENT: FIXED.
+INTERNAL FOLLOW-UP WAL GAP: HONESTLY CHARACTERIZED / FUTURE SLICE.
+CLEAN SUITES: ACCEPTED.
+
+REMAINING BLOCKER:
+sequenced replay/resend can create durability waiters outside the waiter budget because `replay_if_seen()` marks `waiter_reserved=true` without admission and some replay fast paths bypass `admit_answer_wait()`.
+
+NEXT:
+S1.2 replay-waiter bound only -> review.
+
+NO S2.
+NO R640.
+NO CP-1A.
+NO COMPETITORS.
