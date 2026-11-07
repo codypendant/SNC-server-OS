@@ -1,7 +1,8 @@
 // Published gauges (docs/CHECKPOINT_BACKPRESSURE_DESIGN.md section 11, S0).
 //
 // Each shard owns one block. Only its own thread writes it, copying
-// counters it already keeps into relaxed atomics, at most every
+// counters it already keeps into atomics (release/acquire, see
+// ShardGauges), at most every
 // kPublishNs and on checkpoint phase changes. Any thread may read it
 // without a shard task, a lock a shard holds or an allocation, so
 // HEALTH and the GAUGES verb never wait on a shard (docs/HEALTH_DECOUPLING.md
@@ -162,15 +163,21 @@ struct GaugeSnapshot {
 //     store of publish k (the last write to seq before 2k+1), so the field
 //     stores of publish k happen-before the reader's field loads; by
 //     coherence each load returns generation k's value or a later one.
-//  2. No field is newer than k. Suppose a field load returned generation
-//     j > k. That load is an acquire of the writer's release store of the
-//     field in publish j, so it synchronizes with it; the store of 2j-1 to
-//     seq precedes that field store in the writer's program order, so it
-//     happens-before the reader's later s2 load. By coherence s2 then
-//     returns 2j-1 or later, which is not 2k: the snapshot is rejected.
+//  2. No field is newer than k. Suppose a field load read the store made
+//     by publish j > k (the argument is about which store a load reads,
+//     since values can repeat across generations). That acquire load
+//     synchronizes with the writer's release field store of publish j; the
+//     store of 2j-1 to seq is sequenced before that field store, so it
+//     happens-before the reader's later s2 load. By coherence s2 reads
+//     2j-1 or a later value of seq; seq only grows (single writer) and
+//     2j-1 > 2k, so s2 != s1 and the snapshot is rejected.
 // The final release store of 2k+2 is what case 1 acquires; the per-field
 // release/acquire pairs are what case 2 needs (a relaxed field load could
-// return a new value without making the odd seq visible). On x86-64 every
+// read a newer store without making the odd seq visible, and an acquire
+// on s2 alone orders only what follows it, not the earlier field loads).
+// The release on the odd store and the acquire on s2 are not needed by
+// this proof; they are kept so the pattern reads as the conventional one,
+// at no cost on x86-64. On x86-64 every
 // one of these is a plain load or store; no fence or locked instruction
 // is emitted.
 //
