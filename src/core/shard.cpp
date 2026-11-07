@@ -567,7 +567,7 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
 void Shard::defer(Waiter&& w) {
   ++stats_.deferred_completions;
   // Observability (S0): what held answers cost, for the waiter budget (S1).
-  waiter_bytes_ += sizeof(Waiter) + w.result.size();
+  waiter_bytes_ += waiter_cost(w);
   if (waiter_bytes_ > waiter_bytes_peak_) waiter_bytes_peak_ = waiter_bytes_;
   if (waiters_.size() + 1 > waiters_peak_) waiters_peak_ = waiters_.size() + 1;
   // Mostly appended in LSN order; reads of older writes insert a little earlier.
@@ -586,7 +586,7 @@ void Shard::release_waiters() {
   while (!waiters_.empty() && durable(waiters_.front().lsn)) {
     Waiter w = std::move(waiters_.front());
     waiters_.pop_front();
-    waiter_bytes_ -= sizeof(Waiter) + w.result.size();
+    waiter_bytes_ -= waiter_cost(w);
     switch (w.kind) {
       case Waiter::Kind::LOCAL:
         w.r.durable = true;
@@ -1490,7 +1490,7 @@ void Shard::withdraw() {
   while (!waiters_.empty()) {
     Waiter w = std::move(waiters_.front());
     waiters_.pop_front();
-    waiter_bytes_ -= sizeof(Waiter) + w.result.size();
+    waiter_bytes_ -= waiter_cost(w);
     switch (w.kind) {
       case Waiter::Kind::LOCAL:
         w.r.status = Status::E_FENCED;

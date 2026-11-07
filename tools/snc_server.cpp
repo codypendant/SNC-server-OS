@@ -128,6 +128,9 @@ namespace {
 std::string gauges_line(const Engine& eng, const std::string& arg) {
   const u16 n = eng.shard_count();
   u16 lo = 0, hi = n;
+  // The answer goes out in one non-blocking send (inline verbs never wait):
+  // about 1.7 KB per shard, so beyond 8 shards ask for one at a time.
+  if (arg.empty() && n > 8) return "NO GAUGES <shard> needed above 8 shards, shard < " + std::to_string(n);
   if (!arg.empty()) {
     char* end = nullptr;
     const unsigned long v = std::strtoul(arg.c_str(), &end, 10);
@@ -766,6 +769,14 @@ int main(int argc, char** argv) {
     const u64 tick = main_tick.load();
     n += std::snprintf(b + n, sizeof(b) - n, " main_ms=%llu", (unsigned long long)(now > tick ? (now - tick) / 1000000 : 0));
     clamp();
+    if (const admin::Loop* al = admin_loop.load()) {
+      const admin::Counters& c = al->counters();
+      n += std::snprintf(b + n, sizeof(b) - n, " adm_q=%llu adm_q_hw=%llu adm_busy=%llu adm_half=%llu adm_half_hw=%llu "
+                    "adm_evicted=%llu adm_timeouts=%llu",
+                    c.queue_depth.load(), c.queue_hw.load(), c.busy.load(), c.half.load(), c.half_hw.load(),
+                    c.evicted.load(), c.timeouts.load());
+      clamp();
+    }
     {
       // Checkpoint progress (S0, docs/CHECKPOINT_BACKPRESSURE_DESIGN.md 7.4):
       // published values only. Diagnostic: drives no decision (HL-4).
@@ -793,13 +804,6 @@ int main(int argc, char** argv) {
                            ckpt_phase_name(slow_phase));
         clamp();
       }
-    }
-    if (const admin::Loop* al = admin_loop.load()) {
-      const admin::Counters& c = al->counters();
-      std::snprintf(b + n, sizeof(b) - n, " adm_q=%llu adm_q_hw=%llu adm_busy=%llu adm_half=%llu adm_half_hw=%llu "
-                    "adm_evicted=%llu adm_timeouts=%llu",
-                    c.queue_depth.load(), c.queue_hw.load(), c.busy.load(), c.half.load(), c.half_hw.load(),
-                    c.evicted.load(), c.timeouts.load());
     }
     return std::string(b);
   };

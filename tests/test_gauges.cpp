@@ -421,6 +421,14 @@ void test_checkpoint() {
         CHECK(seen[s][i] > seen[s][i - 1] || seen[s][i] == static_cast<u64>(CkptPhase::IDLE));
       }
       CHECK(seen[s].back() == static_cast<u64>(CkptPhase::IDLE));
+      // Publishing works at all: some phase other than IDLE was seen (the
+      // walk of 30,000 objects spans many 50 us publishes), and the phase
+      // durations are real.
+      bool busy_seen = false;
+      for (u64 p : seen[s]) busy_seen |= p != static_cast<u64>(CkptPhase::IDLE);
+      CHECK(busy_seen);
+      CHECK(g[G_CKPT_LAST_WALK_US] > 0);
+      CHECK(g[G_CKPT_LAST_SYNC_US] > 0);
       std::string path;
       for (u64 p : seen[s]) path += std::string(path.empty() ? "" : ">") + ckpt_phase_name(p);
       std::printf("T5 shard %u: phases seen %s; last snapshot %llu walk %llu drain %llu durable_wait %llu sync %llu "
@@ -437,6 +445,9 @@ void test_checkpoint() {
     CHECK_EQ(ng.completed.load(), base_node + 2);
     CHECK_EQ(ng.started_ns.load(), 0u);
     CHECK(ng.last_total_us.load() >= ng.last_shards_us.load());
+    bool node_busy = false;
+    for (u64 p : node_seen) node_busy |= p != static_cast<u64>(NodeCkptPhase::IDLE);
+    CHECK(node_busy);
     for (std::size_t i = 1; i < node_seen.size(); ++i) {
       CHECK(node_seen[i] > node_seen[i - 1] || node_seen[i] == static_cast<u64>(NodeCkptPhase::IDLE));
     }

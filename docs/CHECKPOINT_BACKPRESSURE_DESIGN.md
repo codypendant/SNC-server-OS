@@ -906,7 +906,7 @@ two summed.
 | `refused_waiter`, `refused_wal_buffer` | S1 causes; **always 0 in S0** (no such refusal exists yet) | — |
 | `gather_overloaded` | index gather legs dropped because a ring was full (not a client refusal by itself) | `index_lookup` |
 | `waiters_now`, `waiters_peak` | durability waiters held now, most ever held | `defer`, `release_waiters`, `withdraw` |
-| `waiter_bytes_now`, `waiter_bytes_peak` | Σ(`sizeof(Waiter)` + held result bytes); excludes `std::deque` block overhead | same |
+| `waiter_bytes_now`, `waiter_bytes_peak` | Σ(`sizeof(Waiter)` + a LOCAL answer's copied result + a REMOTE answer's external result buffer); excludes `std::deque` block overhead | same |
 | `emits_now`, `emits_peak` | `emits_in_flight()`; peak as seen at each admission check and each publish (not every internal increment) | `execute`, `publish_gauges` |
 | `wal_direct` | the WAL's **actual** I/O mode of the open segment (`WalStream::direct()`, set from the `open` result, including the `EINVAL` fallback and spares) | WAL |
 | `wal_active_bytes_now`, `wal_active_bytes_peak`, `wal_buffer_cap_bytes` | unflushed record bytes, the most ever held, and active + flushing buffer capacity | `append`, `append_raw` |
@@ -926,10 +926,17 @@ Node: `ckpt` (`idle, shards, commit, reclaim`), `ckpt_seq`,
 `ckpt_age_ms`, `ckpt_last_ms`, `ckpt_last_{shards,commit,reclaim}_ms`,
 `ckpt_done`.
 
-**HEALTH** gains, after `main_ms`: `ckpt=<node phase> ckpt_age_ms=
-ckpt_last_ms= ckpt_done=`, plus `ckpt_slow_shard= ckpt_slow_phase=` while
-a shard's part is in progress (the shard in the earliest phase). Every
-earlier key keeps its order. These are diagnostic (HL-4). Target and
+**HEALTH** appends, after every existing key: `ckpt=<node phase>
+ckpt_age_ms= ckpt_last_ms= ckpt_done=`, plus `ckpt_slow_shard=
+ckpt_slow_phase=` while a shard's part is in progress (the shard in the
+earliest phase). The existing keys stay the line's prefix, in order.
+
+**GAUGES** is answered inline in one non-blocking send, like HEALTH, so
+it never queues behind a heavy verb. That bounds its size: above 8 shards
+(about 1.7 KB per shard) it requires a shard argument. Node checkpoint
+fields are separate atomics, consistent each on its own, not with each
+other. Before a shard's first publish its block reads as zeros
+(`published_ns` = 0). These are diagnostic (HL-4). Target and
 hard-maximum fields are **not** added: neither exists before S2, and a
 placeholder would read as a configured bound.
 

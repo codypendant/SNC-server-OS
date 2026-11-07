@@ -4,9 +4,9 @@
 One real snc_server (2 shards, durable, --checkpoint-s 1, --debug-admin)
 under a short net_bench load.
 
-  T8a HEALTH keeps every key it had, in the same order, and adds the
-      checkpoint keys (ckpt, ckpt_age_ms, ckpt_last_ms, ckpt_done) after
-      main_ms. Every token is key=value, so old parsers that read keys
+  T8a HEALTH keeps every key it had, in the same order, as its prefix,
+      and appends the checkpoint keys (ckpt, ckpt_age_ms, ckpt_last_ms,
+      ckpt_done). Every token is key=value, so old parsers that read keys
       are unaffected.
   T8b GAUGES answers one key=value line with every published gauge of every
       shard; GAUGES 1 only shard 1's; GAUGES 9 is refused ("NO ...").
@@ -127,11 +127,9 @@ def main():
         # T8a
         line = ask(adm, "HEALTH")
         keys = [k for k, _ in kv(line)]
-        old = [k for k in keys if k in HEALTH_OLD]
-        assert old == HEALTH_OLD, f"HEALTH old keys changed: {old}"
-        for k in HEALTH_NEW:
-            assert k in keys, f"HEALTH lacks {k}: {line}"
-        assert keys.index("ckpt") == keys.index("main_ms") + 1, line
+        # The old keys are still the line's prefix, in order; the new ones follow.
+        assert keys[:len(HEALTH_OLD)] == HEALTH_OLD, f"HEALTH old keys changed: {keys}"
+        assert keys[len(HEALTH_OLD):len(HEALTH_OLD) + len(HEALTH_NEW)] == HEALTH_NEW, line
         h = dict(kv(line))
         assert h["ckpt"] in ("idle", "shards", "commit", "reclaim"), h
         log(f"T8a HEALTH: old keys unchanged, new {HEALTH_NEW}: {line}")

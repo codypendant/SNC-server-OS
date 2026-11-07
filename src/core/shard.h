@@ -577,6 +577,14 @@ class Shard {
     u64 last_objects = 0, last_bytes_issued = 0;
   } ckpt_obs_;
   void ckpt_enter(CkptPhase p, u64 now_ns);  // records the phase just left
+  // Observability (S0): memory a held answer pins, excluding std::deque
+  // block overhead: the Waiter, a LOCAL answer's copied result, a REMOTE
+  // answer's external result buffer.
+  static u64 waiter_cost(const Waiter& w) {
+    u64 b = sizeof(Waiter) + w.result.size();
+    if (w.kind == Waiter::Kind::REMOTE && w.resp.len > kMsgInlineBytes) b += w.resp.len;
+    return b;
+  }
   ShardGauges* gauges_ = nullptr;
   u64 gauges_published_ns_ = 0;
   bool gauges_dirty_ = false;

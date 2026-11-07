@@ -126,12 +126,15 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
 };
 
 // A consistent copy of one block (or the last attempt, consistent = false,
-// if a writer kept publishing through every retry).
+// if a writer kept publishing through every retry). Before the shard's
+// first publish the block reads as zeros with consistent = true; tell that
+// case by published_ns == 0.
 struct GaugeSnapshot {
   std::array<u64, kGaugeCount> v{};
   // Written by the main thread at each checkpoint commit and at recovery:
-  // the start LSN of this shard's stream in the active checkpoint, 0 if
-  // none is known. A recovery now would replay from it.
+  // the start LSN of this shard's stream in the active checkpoint (1 for a
+  // space that has none: replay from the start), 0 before recovery or after
+  // a remap until its checkpoint commits. A recovery now would replay from it.
   u64 committed_start_lsn = 0;
   bool consistent = false;
   u64 operator[](Gauge g) const { return v[g]; }
@@ -182,7 +185,9 @@ struct alignas(64) ShardGauges {
 };
 
 // The node's checkpoint (Engine::checkpoint). Main thread writes, any
-// thread reads; each field is one atomic.
+// thread reads. Each field is one atomic, consistent on its own but not
+// with the others: a reader can see completed of checkpoint N+1 with
+// last_* of N for an instant. Diagnostic use only.
 struct NodeCkptGauges {
   std::atomic<u64> phase{0};        // NodeCkptPhase
   std::atomic<u64> seq{0};          // in progress or last finished
