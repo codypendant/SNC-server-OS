@@ -1,0 +1,452 @@
+PR #67 REVIEW — CHECKPOINT/BACKPRESSURE ARCHITECTURE DESIGN
+
+DECISION: DESIGN APPROVED IN DIRECTION, WITH REQUIRED CORRECTIONS BEFORE IMPLEMENTATION.
+
+The design is strong and substantially answers the PR #66 work order. The as-built snapshot/recovery analysis, invariants I1-I5, separation of the two measured bottlenecks, A-F comparison, staged implementation and crash-test plan are all useful.
+
+Do NOT begin S1-S5 yet.
+
+Authorize only a short DESIGN REVISION plus S0 observability after the revision is reviewed.
+
+============================================================
+1. AS-BUILT SEMANTICS / I1-I5 — APPROVED
+============================================================
+
+The characterization of the current checkpoint as fuzzy per-shard state with a single node-level superblock commit is coherent with the documented code path.
+
+Keep invariants I1-I5 as the formal checkpoint correctness contract:
+I1 coverage;
+I2 redo completeness;
+I3 no future state beyond durable WAL;
+I4 idempotent redo;
+I5 atomic publication/reclamation ordering.
+
+These invariants should become test/documentation anchors, not remain only prose in this design.
+
+============================================================
+2. OVERALL ARCHITECTURE — APPROVED
+============================================================
+
+Approve the preferred near-term direction:
+
+A. resource-specific admission;
+B1. paced walk while retaining one-step ID snapshot;
+C. streamed/paced checkpoint I/O;
+D. staggered final sync;
+E. optional I/O priority only if measured useful;
+B2 later;
+F incremental/COW checkpointing deferred.
+
+This is the correct scope. Do not jump to a new checkpoint format yet.
+
+============================================================
+3. IMPORTANT CORRECTION: C2 O_DIRECT IS NOT YET APPROVED AS THE FIX
+============================================================
+
+The document initially says “the WAL already uses O_DIRECT,” then correctly notes that snc_server currently leaves wal_direct=false and WAL uses buffered RWF_DSYNC.
+
+That distinction matters.
+
+Do not lock S3 to O_DIRECT checkpoint writes before a small implementation-neutral I/O design/proof.
+
+C2 is a candidate, not yet the approved mechanism.
+
+Before S3 choose between at least:
+
+C1. buffered writes with controlled writeback;
+C2. O_DIRECT aligned checkpoint writes;
+C3. another bounded async-write mechanism if the runtime already supports one cleanly.
+
+The selection criteria are:
+- bounded bytes/requests in flight;
+- no large dirty-page-cache accumulation;
+- preserves file format/recovery;
+- predictable final sync;
+- low CPU/copy overhead;
+- works across supported Linux filesystems/devices;
+- does not rely on mq-deadline behavior;
+- clean error handling for partial/direct I/O.
+
+A tiny dev-machine micro-characterization may be proposed later, but do not use the R640 yet.
+
+============================================================
+4. ADMISSION DESIGN — APPROVE CONCEPT, DO NOT FREEZE NUMERIC BUDGETS
+============================================================
+
+Resource-specific admission is approved.
+
+Do NOT freeze:
+- waiter_budget=16,384;
+- wal_buffer_budget=64 MiB;
+- read quantum=4,096;
+- backlog pressure fractions;
+as production defaults yet.
+
+Those are hypotheses.
+
+First S0 must measure:
+- waiter object memory cost;
+- actual peak waiter counts;
+- WAL active-buffer growth;
+- read CPU share;
+- backlog recovery rate.
+
+Then derive bounds from explicit memory/latency budgets.
+
+Use E_OVERLOADED for now unless a distinct status has a concrete client-visible recovery semantic. Avoid expanding protocol surface solely to identify the internal resource; expose refused_by in telemetry/STATS.
+
+============================================================
+5. WAL BUFFER BOUND NEEDS SEMANTIC CARE
+============================================================
+
+A hard WAL-buffer budget cannot simply reject after state mutation has occurred.
+
+The admission check must happen before any irreversible in-memory mutation/session sequencing that assumes the WAL append will succeed.
+
+The S1 design must trace the exact mutation path and prove:
+- capacity is reserved before mutation;
+- reservation cannot be invalidated between admission and append;
+- multi-record/cross-shard operations reserve correctly;
+- retries/sequenced sessions remain idempotent;
+- no acknowledged or partially applied mutation is lost because a budget is reached.
+
+Add this explicitly to T6/S1.
+
+============================================================
+6. READ ADMISSION — APPROVED WITH FAIRNESS MODEL REQUIRED
+============================================================
+
+Separating durable reads from mutation follow-up backlog is approved in principle.
+
+But “reads use CPU only” is too broad.
+
+Reads can also consume:
+- connection output buffering;
+- durability waiters for undurable objects;
+- forwarded-read pending/ring resources;
+- cache/memory bandwidth;
+- index/gather resources on other read paths.
+
+Keep the operation/resource matrix.
+
+Before S1 implementation, specify scheduling priority explicitly:
+
+1. WAL/I/O completions and durability progress;
+2. follow-up/backlog recovery;
+3. bounded admitted foreground work;
+4. checkpoint background work.
+
+The read quantum should be derived from a time/CPU budget rather than a fixed 4,096 count if operation cost is variable.
+
+============================================================
+7. B1 PACED WALK — APPROVED
+============================================================
+
+B1 is the correct first checkpoint CPU fix.
+
+Keep the one-step ID snapshot for now so I1 remains unchanged.
+
+Use a TIME budget rather than object count.
+
+However, do not freeze 20us/200us yet.
+
+S0/S2 should measure object-step cost and foreground service impact, then select/preregister initial controller bounds before physical regression.
+
+Catch-up/deadline mode must be observable and must never silently turn pacing off for long periods.
+
+============================================================
+8. B2 — DEFER UNTIL AFTER CP-1A RERUN
+============================================================
+
+Decision on open question #4:
+
+B2 is NOT required before the next CP-1A rerun.
+
+The measured 50 ms begin snapshot is real, but the causal failure that blocked CP-1A is dominated by the walk and storage/sync path.
+
+B2 materially increases correctness risk because LocalMap structural mutation can break I1.
+
+Defer B2 until after S1-S6 and the clean CP-1A rerun unless S6 shows the one-step begin itself violates the regression criteria.
+
+Do not add checkpoint mark bits now.
+
+============================================================
+9. SYNC TOKEN — APPROVED CONCEPTUALLY
+============================================================
+
+D is sound under I5: shard parts may become durable at different times because nothing publishes until all complete and the superblock commits.
+
+Default K=1 is PROPOSED, not frozen.
+
+After streamed/paced I/O exists, test K=1,2,4,8 on a non-campaign characterization or deterministic model and select the smallest concurrency that meets checkpoint deadline without harming WAL latency.
+
+Do not serialize eight large old-style buffered fdatasyncs as an intermediate “fix”; D only makes sense after or alongside bounded checkpoint writeback.
+
+============================================================
+10. ADAPTIVE CONTROLLER — SIMPLIFY BEFORE IMPLEMENTATION
+============================================================
+
+The current pressure controller has too many unvalidated signals and magic thresholds at once.
+
+For the first implementation, use the minimum control loop that directly measures the diagnosed conflict.
+
+Primary signals:
+1. WAL flush-latency EWMA relative to learned no-checkpoint baseline;
+2. emit/follow-up backlog fraction.
+
+Secondary observability only initially:
+- waiter fraction;
+- undurable-record count;
+- checkpoint write latency.
+
+Do not let five noisy signals all independently drive the first AIMD implementation.
+
+Controller requirements:
+- hysteresis;
+- bounded update frequency;
+- minimum and maximum window;
+- explicit reset at checkpoint start;
+- deterministic behavior under synthetic signal traces;
+- no oscillation/starvation under constant pressure;
+- deadline catch-up cannot violate a hard foreground-protection ceiling without raising HEALTH/degraded state.
+
+============================================================
+11. CHECKPOINT DEADLINE — REVISE
+============================================================
+
+Do not define “half the checkpoint interval” as a universal production default yet.
+
+A checkpoint interval is a trigger cadence, not automatically an SLA.
+
+Define two separate concepts:
+
+- target completion time: pacing goal;
+- hard maximum checkpoint age: safety/retention/operational bound.
+
+If target is missed, report pressure/degraded telemetry and increase pacing cautiously.
+
+If hard maximum is approached, HEALTH must expose it.
+
+Do not allow catch-up to silently consume unlimited foreground capacity merely to hit an arbitrary 0.5 interval target.
+
+============================================================
+12. HEALTH INTEGRATION — YES
+============================================================
+
+Decision on open question #2:
+
+Yes. Missed checkpoint target/deadline pressure should be visible in HEALTH/STATS.
+
+At minimum expose:
+- checkpoint active age;
+- target age;
+- past-target flag/count;
+- WAL retained because checkpoint has not committed;
+- pacing pressure/window;
+- checkpoint phase;
+- last checkpoint duration/result.
+
+A hard maximum breach should be degraded/unhealthy according to the existing health philosophy, with exact semantics defined in S0/design revision.
+
+============================================================
+13. I/O PRIORITY — OPTIONAL ONLY
+============================================================
+
+Keep E off by default.
+
+Do not assume mq-deadline or every target device honors the desired priority meaningfully.
+
+The design must succeed without I/O priority.
+
+If tested later, treat it as an optimization dimension, not a correctness/performance dependency.
+
+============================================================
+14. REGRESSION BAR — REVISE BEFORE FREEZING
+============================================================
+
+The proposed R640 regression is directionally good but contains one problematic criterion:
+
+“WAL flush latency EWMA max <= the pressure target.”
+
+A controller can briefly exceed its pressure threshold; that is why it reacts. Requiring max never to exceed the trigger is circular and likely unrealistic.
+
+Replace with measurable service objectives:
+
+Primary 436,646 checkpoint cell, every rep:
+- 0 refusals;
+- late_over_1ms <= 0.1% scheduled_in_window;
+- total p99 <= 1.5x same-SHA no-checkpoint median/paired reference;
+- p99.9 <= 10 ms;
+- follow-up backlog never reaches kEmitBacklog (prefer <=50% as a target, not necessarily hard pass until S0 evidence);
+- checkpoint completes within the preregistered hard maximum;
+- no correctness/durability error.
+
+Controller evidence:
+- report WAL-latency EWMA peak and time-above-pressure-target;
+- report backlog peak and time-above-25/50%;
+- report checkpoint duration and controller window trace.
+
+Capacity:
+closed-loop checkpoint capacity >=95% of current build remains a reasonable anti-regression guard, but compare on the same corrected scratch harness and same machine state.
+
+Freeze exact regression criteria before S6 physical data.
+
+============================================================
+15. S0 IS THE ONLY IMPLEMENTATION SLICE AUTHORIZED AFTER DESIGN REVISION
+============================================================
+
+The staged S0-S6 approach is approved.
+
+But do not start S1 immediately.
+
+After this design revision is filed, authorize S0 only:
+
+S0 permanent low-overhead observability:
+- refused_by resource counters;
+- waiter count/peak;
+- WAL active-buffer bytes/peak;
+- WAL flush latency EWMA/histogram;
+- emit backlog/peak;
+- checkpoint phase and phase duration;
+- checkpoint active age;
+- checkpoint bytes/in-flight;
+- checkpoint target/deadline pressure;
+- retained WAL attributable to checkpoint where practical.
+
+Requirements:
+- ordinary STATS/HEALTH path;
+- no synchronous cross-shard diagnostic polling like the discarded telemetry;
+- low-overhead counters owned by the relevant shard/component;
+- no behavior change;
+- full Release/ASan+UBSan/TSan;
+- independent review.
+
+Return S0 for review before S1.
+
+============================================================
+16. TEST PLAN — APPROVED WITH ADDITIONS
+============================================================
+
+T1-T13 are a strong base.
+
+Add:
+
+T14 — admission reservation atomicity:
+force WAL budget exhaustion at every pre/post mutation boundary; prove no partial state/session mutation.
+
+T15 — controller trace determinism:
+feed synthetic WAL-latency/backlog traces and assert exact AIMD/window/budget transitions, hysteresis and reset.
+
+T16 — deadline pressure:
+sustain foreground pressure so target is missed; prove checkpoint remains paced, HEALTH reports pressure, hard maximum handling is deterministic, no WAL is reclaimed early.
+
+T17 — read-flood resource bound:
+durable read flood during mutation backlog; prove connection/output/read quantum bounds and backlog recovery.
+
+T18 — I/O error paths:
+short/direct write, EIO, fdatasync failure, checkpoint abort; old checkpoint remains active and WAL retained.
+
+For S3/O_DIRECT if selected, include alignment/truncation/recovery tests for every final-part length class.
+
+============================================================
+17. DURABILITY PROOF — APPROVED, WITH ONE FORMALIZATION
+============================================================
+
+The proof sketch is good enough for design stage.
+
+Before S3/S4, turn I1-I5 into an explicit “checkpoint correctness contract” section in architecture docs and reference each implementation/test change against it.
+
+For C2/direct I/O specifically prove:
+- file length/content representation is identical or versioned compatibly;
+- padding cannot be parsed as records;
+- final logical bytes/count in manifest remain authoritative;
+- error before commit leaves previous checkpoint recoverable.
+
+============================================================
+18. IMPLEMENTATION ORDER — REVISED
+============================================================
+
+Approved sequence:
+
+DESIGN-R: incorporate this review and freeze the revised design.
+
+S0: permanent observability only.
+Review.
+
+S1: admission/resource bounds.
+Review + deterministic tests.
+
+S2: B1 paced walk.
+Review + tests.
+
+S3: bounded checkpoint writeback mechanism, selected after C1/C2 design choice.
+Review + crash/error tests.
+
+S4: staggered sync token.
+Review.
+
+S5: optional ioprio experiment only if still useful.
+
+S6: preregistered R640 regression.
+
+Then:
+- if S6 passes, freeze new SHA;
+- full SNC-only CP-1A rerun from beginning;
+- only then criteria setting / CP-1B / competitors.
+
+B2 after CP-1A unless S6 proves necessary.
+F later unless campaign-scale evidence requires it.
+
+============================================================
+19. OPEN-QUESTION DECISIONS
+============================================================
+
+Q1 budgets/status:
+Do not freeze numeric budgets yet. Measure in S0 and derive from memory/latency bounds. Keep E_OVERLOADED for protocol compatibility; expose refused_by internally.
+
+Q2 deadline/HEALTH:
+Yes, expose target misses/pressure in HEALTH/STATS. Separate target from hard maximum.
+
+Q3 regression criteria:
+Direction approved with revisions in section 14. Freeze exact bar before S6.
+
+Q4 B2 timing:
+After CP-1A rerun unless S6 demonstrates it is required.
+
+============================================================
+20. PR #67 STATUS
+============================================================
+
+PR #67 is docs-only and already merged.
+
+Accepted as a proposed design document.
+
+The design is NOT yet authorization for S1-S5 implementation.
+
+Next action is DESIGN-R: revise the document according to this review.
+
+After DESIGN-R review, S0 observability is the first code slice.
+
+============================================================
+FINAL
+============================================================
+
+PR #67: ACCEPTED AS DESIGN DIRECTION WITH REQUIRED REVISION.
+
+Preferred architecture A+B1+bounded checkpoint I/O+D is approved in principle.
+
+C2/O_DIRECT remains a candidate, not a locked implementation.
+
+Do not freeze proposed numeric budgets/controller thresholds yet.
+
+Separate checkpoint target from hard maximum and expose pressure in HEALTH.
+
+B2 deferred until after CP-1A unless S6 proves necessary.
+
+Next:
+DESIGN-R revision -> review -> S0 observability.
+
+NO S1-S5 ENGINE IMPLEMENTATION YET.
+NO R640 LOAD.
+NO CP-1A.
+NO COMPETITORS.

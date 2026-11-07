@@ -32,7 +32,8 @@ Decided by cody on 2026-11-04.
      causal cells show the unpaced checkpoint is the refusal source (accepted:
      engine design gap). The checkpoint/backpressure design
      ([CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md))
-     awaits review
+     was accepted as direction (PR #67); its revision 2 (DESIGN-R) awaits
+     review, after which only S0 observability is authorized
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.

@@ -1555,3 +1555,25 @@ or source comments.
 -   **Next action:** design review. No engine implementation, CP-1A
     rerun, competitors or Profile C before it.
 
+
+### 2026-11-07 UTC --- Claude (Claude Code): checkpoint design revision (DESIGN-R), for review
+
+-   **Classification:** REFINE (design only; no code).
+-   **What:** `docs/handoff/PR67_Design_Review.txt` accepted the PR #67
+    design as direction with required corrections.
+    `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` revision 2 applies them:
+    I1-I5 become the checkpoint correctness contract CC-1..CC-5 with test
+    anchors; C2 withdrawn as the chosen mechanism (C1/C2/C3 compared,
+    choice at S3-D); numeric budgets and thresholds marked HYPOTHESIS;
+    reserve-before-mutate rule traced through `run_exec`; scheduling
+    priority mapped onto the as-built loop; controller cut to two driving
+    signals with hysteresis and deterministic `step()`; target completion
+    time separate from hard maximum age; HEALTH/STATS fields; revised
+    R640 bar; tests T14-T18; S0 scope.
+-   **Correction:** revision 1 said the WAL is not `O_DIRECT`. Wrong:
+    `EngineConfig::wal_direct` defaults true (`snc.h:309`); the
+    `false` at `snc.h:202` is a STATS field. The WAL is `O_DIRECT` +
+    `RWF_DSYNC` unless the filesystem refuses. R640 evidence does not
+    record it; S0 adds it to STATS.
+-   **Next action:** DESIGN-R review, then S0 only. No S1-S5, R640 load,
+    CP-1A, competitors or Profile C.
