@@ -1595,12 +1595,50 @@ or source comments.
     `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` 11.1.
 -   **Evidence:**
     - `test_gauges` (S0-T1..T7) and `test_gauges_admin.py` (S0-T8) pass.
-    - Release passes 37/37, ASan+UBSan 37/37, and TSan 37/37 with 0 race
-      reports, after the flaky reruns listed in
-      `bench/results/s0-overhead-devvm-20261107/`.
+    - Suites, as run (corrected wording per the PR #69 review):
+      - Release: first full run 36/37; the fixed `test_gauges` passed
+        when rerun on its own.
+      - ASan+UBSan: one clean full run, 37/37.
+      - TSan: full `-j2` run 34/37 with 0 reports; the three HA timing
+        tests then passed one at a time.
+      - These are not clean first-pass 37/37 runs. The clean final
+        validation is S0.1's (`bench/results/s01-validation-devvm-20261107/`).
+      - Raw history: `bench/results/s0-overhead-devvm-20261107/`.
     - The independent review found no behaviour change; three findings
       were fixed.
     - The dev-VM overhead check shows no perturbation beyond about ±7%
       noise.
     - The R640 was not used.
 -   **Next action:** S0 review. Do not start S1 automatically.
+
+### 2026-11-07 UTC --- Claude (Claude Code): S0.1 seqlock memory order, for review
+
+-   **Classification:** KEEP (the S0 architecture) / REFINE (the
+    publication memory order). Narrow fix only: the field list, publish
+    cadence, budgets, checkpoint behaviour and controller are unchanged,
+    there is no performance tuning, and the R640 was not used.
+-   **What:** `docs/handoff/PR69_S0_Review.txt` approved S0 and blocked
+    on the seqlock. `ShardGauges` in `include/snc/gauges.h` now uses the
+    conventional acquire/release pattern:
+    - Writer: odd sequence (release), field stores (release), even
+      sequence (release).
+    - Reader: first sequence (acquire), retry if odd, field loads
+      (acquire), second sequence (acquire); accept only if the two match.
+    - The contract and a step-by-step proof are in the header and in
+      `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` 11.1. No `seq_cst`.
+    - The S0 evidence wording was corrected in this log's S0 entry and in
+      `bench/results/s0-overhead-devvm-20261107/README.md`.
+-   **Evidence** (`bench/results/s01-validation-devvm-20261107/`, final
+    code 1be6d4a, each a single complete serial `ctest -j1` run):
+    - Release: 37/37.
+    - ASan+UBSan: 37/37, 0 reports.
+    - TSan: 37/37, 0 reports, serial from the start.
+    - TSan `test_gauges` alone: T7 has 0 torn snapshots.
+    - Independent review of the memory-order contract: APPROVE. Its
+      comment-wording findings were applied.
+    - Two earlier runs failed and are kept in the raw history: Release
+      `-j2` (`test_lab_witness_guard`) and ASan run 1 (`test_ready_order`).
+      Both are pre-existing harness races, traced in that README, with
+      proposed patches. Neither is fixed here.
+-   **Next action:** S0.1 review. S1 is not authorized. No R640, CP-1A or
+    competitors.

@@ -1,0 +1,11 @@
+T4 ewma: exact
+T7 concurrency: 2521 consistent snapshots, 0 torn
+T1 follow-up: 5 refused, all counted as follow-up; T2 emits peak 1025, now 0 after drain
+T1 ring: 320 of 400 refused, all counted as ring (80 ok)
+T2/T3 default (O_DIRECT where the filesystem allows): wal_direct=1 waiters_peak=78 waiter_bytes_peak=20592 wal_active_peak=19968 flush_ewma_us=515
+T2/T3 configured buffered: wal_direct=0 waiters_peak=78 waiter_bytes_peak=20592 wal_active_peak=19968 flush_ewma_us=617
+T2/T3 tmpfs (reported as opened): wal_direct=1 waiters_peak=76 waiter_bytes_peak=20064 wal_active_peak=19456 flush_ewma_us=162
+T5 shard 0: phases seen idle>walk>drain>sync>idle>walk>drain>sync>idle; last snapshot 17647 walk 516901 drain 40 durable_wait 2439 sync 7502 total 544530 us; 7725824 bytes
+T5 shard 1: phases seen idle>walk>drain>sync>idle>walk>drain>sync>idle; last snapshot 17392 walk 508482 drain 89 durable_wait 3705 sync 9596 total 539265 us; 7642368 bytes
+T6 restart: checkpoint 3 recovered, balances exact
+test_gauges: all passed

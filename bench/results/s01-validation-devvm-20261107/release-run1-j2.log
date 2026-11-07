@@ -1,0 +1,292 @@
+Internal ctest changing into directory: /home/claude/snc-server-os/build
+Test project /home/claude/snc-server-os/build
+      Start 28: test_sync_readiness
+      Start 31: test_ready_order
+ 1/37 Test #31: test_ready_order .................   Passed  147.37 sec
+      Start 27: test_baseline_retry
+ 2/37 Test #28: test_sync_readiness ..............   Passed  304.51 sec
+      Start 24: test_fail_closed
+ 3/37 Test #27: test_baseline_retry ..............   Passed  247.81 sec
+      Start 30: test_baseline_ha
+ 4/37 Test #30: test_baseline_ha .................   Passed  131.49 sec
+      Start 29: test_baseline_move
+ 5/37 Test #24: test_fail_closed .................   Passed  231.89 sec
+      Start 22: test_health
+ 6/37 Test #29: test_baseline_move ...............   Passed  112.90 sec
+      Start 37: test_net_bench_rate
+ 7/37 Test #37: test_net_bench_rate ..............   Passed   16.08 sec
+      Start 25: test_s1
+ 8/37 Test #22: test_health ......................   Passed  154.97 sec
+      Start 34: test_lab_witness_guard
+ 9/37 Test #34: test_lab_witness_guard ...........***Failed    9.37 sec
+[    0.71] cluster up {'groups': 1, 'nodes': 2}
+[    0.74] created {'out': 'created 2000 accounts over 1 groups'}
+[    0.75] load started {'name': 'load', 'seconds': 8.0}
+[    5.42] error {'what': 'KeyError: None'}
+results in /tmp/snc-labg-pjqdi1ha/bench/results/lab-20261107/p3-150353
+{
+ "scenario": "p3",
+ "hosts": {
+  "a": "127.0.0.1"
+ },
+ "ok": false,
+ "error": "KeyError: None",
+ "witness_state": {
+  "0": {
+   "host": "a",
+   "id": 0,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-pjqdi1ha/run/run-p3-150353/w0.state",
+   "dir_id": "65024:1633618",
+   "marker": "547705e61e198b16",
+   "versions": {
+    "ha/0": 3,
+    "leases": 1,
+    "placement": 1
+   },
+   "marks": {
+    "ha/0": [
+     3,
+     4,
+     0,
+     0
+    ],
+    "leases": [
+     1,
+     2,
+     0,
+     0
+    ],
+    "placement": [
+     1,
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  "1": {
+   "host": "a",
+   "id": 1,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-pjqdi1ha/run/run-p3-150353/w1.state",
+   "dir_id": "65024:1633618",
+   "marker": "41a21348d86979e8",
+   "versions": {
+    "ha/0": 3,
+    "leases": 1,
+    "placement": 1
+   },
+   "marks": {
+    "ha/0": [
+     3,
+     4,
+     0,
+     0
+    ],
+    "leases": [
+     1,
+     2,
+     0,
+     0
+    ],
+    "placement": [
+     1,
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  "2": {
+   "host": "a",
+   "id": 2,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-pjqdi1ha/run/run-p3-150353/w2.state",
+   "dir_id": "65024:1633618",
+   "marker": "d3eb6b665504a0de",
+   "versions": {
+    "ha/0": 3,
+    "leases": 1,
+    "placement": 1
+   },
+   "marks": {
+    "ha/0": [
+     3,
+     4,
+     0,
+     0
+    ],
+    "leases": [
+     1,
+     2,
+     0,
+     0
+    ],
+    "placement": [
+     1,
+     2,
+     0,
+     0
+    ]
+   }
+  }
+ },
+ "witness_state_checks": [
+  "end of run"
+ ],
+ "profile": {
+  "profile": "B",
+  "profile_name": "SYNC_HA",
+  "deviations_made": [],
+  "deviations_declared_unused": []
+ }
+}
+FAIL clean {"exit": 1, "ok": false, "checks": ["end of run"], "error": "KeyError: None"}
+[    0.70] cluster up {'groups': 1, 'nodes': 2}
+[    0.73] created {'out': 'created 2000 accounts over 1 groups'}
+[    0.73] load started {'name': 'load', 'seconds': 8.0}
+[    3.41] invalid {'why': "witness 0 (/tmp/snc-labg-l52ffkil/run/run-p3-150358/w0.state) at before fault stop node 1: state directory replaced (directory 65024:1633020 -> 65024:1633020, run nonce 'a19289d263dba105' -> '-'): the run is invalid"}
+[    3.42] invalid {'why': "witness 0 (/tmp/snc-labg-l52ffkil/run/run-p3-150358/w0.state) at end of run: state directory replaced (directory 65024:1633020 -> 65024:1633020, run nonce 'a19289d263dba105' -> '-'): the run is invalid"}
+results in /tmp/snc-labg-l52ffkil/bench/results/lab-20261107/p3-150358
+{
+ "scenario": "p3",
+ "hosts": {
+  "a": "127.0.0.1"
+ },
+ "ok": false,
+ "invalid": "witness 0 (/tmp/snc-labg-l52ffkil/run/run-p3-150358/w0.state) at before fault stop node 1: state directory replaced (directory 65024:1633020 -> 65024:1633020, run nonce 'a19289d263dba105' -> '-'): the run is invalid",
+ "witness_state": {
+  "0": {
+   "host": "a",
+   "id": 0,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-l52ffkil/run/run-p3-150358/w0.state",
+   "dir_id": "65024:1633020",
+   "marker": "a19289d263dba105",
+   "versions": {},
+   "marks": {}
+  },
+  "1": {
+   "host": "a",
+   "id": 1,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-l52ffkil/run/run-p3-150358/w1.state",
+   "dir_id": "65024:1633020",
+   "marker": "b846e6fc5a21d979",
+   "versions": {},
+   "marks": {}
+  },
+  "2": {
+   "host": "a",
+   "id": 2,
+   "peers": [
+    "127.0.0.1:27320",
+    "127.0.0.1:27321",
+    "127.0.0.1:27322"
+   ],
+   "state": "/tmp/snc-labg-l52ffkil/run/run-p3-150358/w2.state",
+   "dir_id": "65024:1633020",
+   "marker": "94bae9aa8907fbee",
+   "versions": {},
+   "marks": {}
+  }
+ },
+ "witness_state_checks": [],
+ "profile": {
+  "profile": "B",
+  "profile_name": "SYNC_HA",
+  "deviations_made": [],
+  "deviations_declared_unused": []
+ }
+}
+PASS violation {"exit": 1, "ok": false, "invalid": "witness 0 (/tmp/snc-labg-l52ffkil/run/run-p3-150358/w0.state) at before fault stop node 1: state directory replaced (directory 65024:1633020 -> 65024:1633020, run nonce 'a19289d263dba105' -> '-'): the run is invalid", "faults_applied": 0, "checks": []}
+test_lab_witness_guard: FAILED ['clean']
+
+      Start 23: test_gauges_admin
+10/37 Test #23: test_gauges_admin ................   Passed    4.12 sec
+      Start 13: test_migrate
+11/37 Test #13: test_migrate .....................   Passed   38.00 sec
+      Start 33: test_witness_hardening
+12/37 Test #25: test_s1 ..........................   Passed   90.06 sec
+      Start 20: test_async_failover
+13/37 Test #33: test_witness_hardening ...........   Passed    5.83 sec
+      Start 17: test_stage_chain
+14/37 Test #17: test_stage_chain .................   Passed    7.05 sec
+      Start 19: test_witness
+15/37 Test #20: test_async_failover ..............   Passed   13.63 sec
+      Start 18: test_gauges
+16/37 Test #18: test_gauges ......................   Passed    0.76 sec
+      Start 32: test_paxos_ballots
+17/37 Test #32: test_paxos_ballots ...............   Passed    2.05 sec
+      Start 11: test_replication
+18/37 Test #11: test_replication .................   Passed   15.77 sec
+      Start 35: test_index_wire
+19/37 Test #35: test_index_wire ..................   Passed    1.76 sec
+      Start 12: test_cluster
+20/37 Test #19: test_witness .....................   Passed   24.08 sec
+      Start 15: test_proof
+21/37 Test #15: test_proof .......................   Passed    0.99 sec
+      Start 10: test_transfer
+22/37 Test #10: test_transfer ....................   Passed    3.53 sec
+      Start 21: test_control
+23/37 Test #12: test_cluster .....................   Passed    5.58 sec
+      Start  8: test_crash
+24/37 Test #21: test_control .....................   Passed    1.64 sec
+      Start  3: test_local_map
+25/37 Test  #8: test_crash .......................   Passed    0.76 sec
+      Start  7: test_persistence
+26/37 Test  #7: test_persistence .................   Passed    1.23 sec
+      Start  4: test_pages
+27/37 Test  #3: test_local_map ...................   Passed    1.51 sec
+      Start 26: test_profile_check
+28/37 Test #26: test_profile_check ...............   Passed    0.10 sec
+      Start 36: test_pilot
+29/37 Test  #4: test_pages .......................   Passed    0.63 sec
+      Start 14: test_resend_refusals
+30/37 Test #14: test_resend_refusals .............   Passed    0.20 sec
+      Start 16: test_placement
+31/37 Test #36: test_pilot .......................   Passed    0.50 sec
+      Start  9: test_net
+32/37 Test #16: test_placement ...................   Passed    0.01 sec
+      Start  6: test_execute
+33/37 Test  #9: test_net .........................   Passed    0.06 sec
+      Start  5: test_runtime
+34/37 Test  #6: test_execute .....................   Passed    0.16 sec
+      Start  1: test_rate_schedule
+35/37 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  2: test_object_id
+36/37 Test  #2: test_object_id ...................   Passed    0.02 sec
+37/37 Test  #5: test_runtime .....................   Passed    0.26 sec
+
+97% tests passed, 1 tests failed out of 37
+
+Total Test time (real) = 788.43 sec
+
+The following tests FAILED:
+	 34 - test_lab_witness_guard (Failed)
+Errors while running CTest
+
+real	13m8.870s
+user	11m41.353s
+sys	15m38.080s

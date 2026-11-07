@@ -1,12 +1,14 @@
 // Published gauges (docs/CHECKPOINT_BACKPRESSURE_DESIGN.md section 11, S0).
 //
 // Each shard owns one block. Only its own thread writes it, copying
-// counters it already keeps into relaxed atomics, at most every
+// counters it already keeps into atomics (release/acquire, see
+// ShardGauges), at most every
 // kPublishNs and on checkpoint phase changes. Any thread may read it
 // without a shard task, a lock a shard holds or an allocation, so
 // HEALTH and the GAUGES verb never wait on a shard (docs/HEALTH_DECOUPLING.md
 // HL-1). A sequence number (odd while a publish is under way) lets a
-// reader take a consistent snapshot of one block.
+// reader take a consistent snapshot of one block; ShardGauges states the
+// memory-order contract.
 //
 // Observability only: nothing here changes an admission, checkpoint, I/O
 // or recovery decision.
@@ -146,29 +148,66 @@ struct GaugeSnapshot {
   }
 };
 
+// Publication contract (a single-writer seqlock; every field is an atomic,
+// so no access is a data race and the argument below is the whole proof):
+//
+//   seq odd   a publish is in progress. seq even = 2k: generation k is
+//             complete (k = 0 is the all-zero block before the first publish).
+//   writer    seq.store(2k+1, release); each field.store(release);
+//             seq.store(2k+2, release).
+//   reader    s1 = seq.load(acquire); odd -> retry; each field.load(acquire);
+//             s2 = seq.load(acquire); accept only if s1 == s2 (even).
+//
+// Why an accepted snapshot is exactly generation k (s1 == s2 == 2k):
+//  1. No field is older than k. s1 read 2k, written by the final release
+//     store of publish k (the last write to seq before 2k+1), so the field
+//     stores of publish k happen-before the reader's field loads; by
+//     coherence each load returns generation k's value or a later one.
+//  2. No field is newer than k. Suppose a field load read the store made
+//     by publish j > k (the argument is about which store a load reads,
+//     since values can repeat across generations). That acquire load
+//     synchronizes with the writer's release field store of publish j; the
+//     store of 2j-1 to seq is sequenced before that field store, so it
+//     happens-before the reader's later s2 load. By coherence s2 reads
+//     2j-1 or a later value of seq; seq only grows (single writer) and
+//     2j-1 > 2k, so s2 != s1 and the snapshot is rejected.
+// The final release store of 2k+2 is what case 1 acquires; the per-field
+// release/acquire pairs are what case 2 needs (a relaxed field load could
+// read a newer store without making the odd seq visible, and an acquire
+// on s2 alone orders only what follows it, not the earlier field loads).
+// The release on the odd store and the acquire on s2 are not needed by
+// this proof; they are kept so the pattern reads as the conventional one,
+// at no cost on x86-64. On x86-64 every
+// one of these is a plain load or store; no fence or locked instruction
+// is emitted.
+//
+// committed_start_lsn is a separate atomic written by the main thread and
+// is not covered by seq: it is read on its own, as of the same instant or
+// close to it.
 struct alignas(64) ShardGauges {
   static constexpr u64 kPublishNs = 50'000;  // at most every 50 us, plus phase changes
 
-  // Shard thread only.
+  // Shard thread only (the single writer).
   void publish(const std::array<u64, kGaugeCount>& vals) {
-    const u64 s = seq_.load(std::memory_order_relaxed);
-    seq_.store(s + 1, std::memory_order_relaxed);
-    std::atomic_thread_fence(std::memory_order_release);
-    for (u32 i = 0; i < kGaugeCount; ++i) v_[i].store(vals[i], std::memory_order_relaxed);
-    seq_.store(s + 2, std::memory_order_release);
+    const u64 s = seq_.load(std::memory_order_relaxed);  // own last write
+    seq_.store(s + 1, std::memory_order_release);        // odd: in progress
+    for (u32 i = 0; i < kGaugeCount; ++i) v_[i].store(vals[i], std::memory_order_release);
+    seq_.store(s + 2, std::memory_order_release);        // even: generation complete
   }
   // Main thread only.
   void set_committed_start_lsn(u64 lsn) { committed_.store(lsn, std::memory_order_relaxed); }
 
-  // Any thread.
+  // Any thread. Retries up to 64 times; if the writer was mid-publish every
+  // time, returns consistent = false with the fields of the last attempt
+  // that read an even seq (zeros if none did).
   GaugeSnapshot read() const {
     GaugeSnapshot out;
     for (int attempt = 0; attempt < 64; ++attempt) {
       const u64 s1 = seq_.load(std::memory_order_acquire);
-      for (u32 i = 0; i < kGaugeCount; ++i) out.v[i] = v_[i].load(std::memory_order_relaxed);
-      std::atomic_thread_fence(std::memory_order_acquire);
-      const u64 s2 = seq_.load(std::memory_order_relaxed);
-      if (s1 == s2 && (s1 & 1) == 0) {
+      if (s1 & 1) continue;  // publish in progress
+      for (u32 i = 0; i < kGaugeCount; ++i) out.v[i] = v_[i].load(std::memory_order_acquire);
+      const u64 s2 = seq_.load(std::memory_order_acquire);
+      if (s1 == s2) {
         out.consistent = true;
         break;
       }
@@ -176,7 +215,7 @@ struct alignas(64) ShardGauges {
     out.committed_start_lsn = committed_.load(std::memory_order_relaxed);
     return out;
   }
-  u64 publishes() const { return seq_.load(std::memory_order_relaxed) / 2; }
+  u64 publishes() const { return seq_.load(std::memory_order_acquire) / 2; }
 
  private:
   std::atomic<u64> seq_{0};

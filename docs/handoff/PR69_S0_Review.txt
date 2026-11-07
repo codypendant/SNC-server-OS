@@ -1,0 +1,224 @@
+PR #69 REVIEW — S0 OBSERVABILITY
+
+DECISION
+
+S0 is APPROVED IN ARCHITECTURE AND SCOPE, but PR #69 has one blocking concurrency-correctness issue in the published-gauge seqlock plus one evidence wording issue.
+
+Do NOT start S1 yet.
+
+Fix S0.1 narrowly, rerun the required suites, and return once. No R640 load is needed.
+
+1. S0 SCOPE — APPROVED
+
+The implementation stayed inside the authorized S0 boundary:
+- observability only;
+- no admission behavior change;
+- no waiter/WAL budget enforcement;
+- no overload-gate move;
+- no checkpoint pacing;
+- no checkpoint I/O change;
+- no fdatasync ordering change;
+- no kEmitBacklog change;
+- no protocol-status change;
+- no recovery/reclamation change;
+- no R640 load.
+
+The permanent-gauge architecture is the correct replacement for the invasive diagnostic polling.
+
+2. PUBLISHED GAUGE ARCHITECTURE — APPROVED IN PRINCIPLE
+
+Per-shard single-writer published blocks are the right design.
+
+Good properties:
+- shard owns updates;
+- no synchronous task submission to measured shards;
+- no locks/allocations/syscalls on hot counter updates;
+- GAUGES/HEALTH read published state directly;
+- publication rate is bounded;
+- node checkpoint gauges are separately documented as individually atomic, not transactionally coherent.
+
+Keep this architecture.
+
+3. BLOCKER: SEQLOCK READER MEMORY ORDERING
+
+include/snc/gauges.h currently does approximately:
+
+writer:
+  seq odd store(relaxed)
+  release fence
+  relaxed field stores
+  seq even store(release)
+
+reader:
+  s1 = seq load(acquire)
+  relaxed field loads
+  acquire fence
+  s2 = seq load(relaxed)
+
+I do NOT approve this memory-ordering pattern as the final seqlock.
+
+The second sequence load must participate in an acquire ordering relationship with the writer's final release publication. An acquire fence placed BEFORE a relaxed second load is not a substitute for an acquire load of that sequence value.
+
+TSan passing does not prove snapshot coherence; this is a logical memory-model issue, not necessarily a data race.
+
+Use a conventional, auditable pattern.
+
+Preferred minimum:
+
+writer:
+  seq.store(odd, release or appropriate ordered RMW/store)
+  write fields
+  seq.store(even, release)
+
+reader:
+  s1 = seq.load(acquire)
+  if odd -> retry
+  read fields
+  s2 = seq.load(acquire)
+  accept only if s1 == s2 and even
+
+An equally correct acquire/release seqlock pattern is acceptable, but document the C++ memory-order reasoning.
+
+Do NOT use seq_cst everywhere merely to make the question disappear unless measurement shows the cost is irrelevant; acquire/release is sufficient if implemented correctly.
+
+4. ADD A MEMORY-ORDER CONTRACT COMMENT/TEST
+
+Keep the existing T7 concurrency stress test.
+
+Add a source/design comment explaining the publication contract:
+- odd sequence means publication in progress;
+- reader may accept fields only when two ACQUIRE sequence reads return the same even generation;
+- final writer RELEASE publishes all preceding field stores.
+
+The code should be simple enough for review without relying on a subtle fence idiom.
+
+5. ACTUAL WAL MODE — APPROVED
+
+S0 now exposes actual runtime wal_direct mode.
+
+Good. This resolves the earlier configuration-versus-runtime ambiguity.
+
+6. CHECKPOINT GAUGES — APPROVED
+
+Checkpoint phase/age/duration/bytes/in-flight fields are appropriate for S0.
+
+The choice not to invent target/hard-max fields before those semantics exist is correct.
+
+Node gauge cross-field inconsistency is explicitly documented as diagnostic and acceptable.
+
+7. REFUSAL / RESOURCE GAUGES — APPROVED
+
+Current S0 refusal causes and resource gauges are useful.
+
+refused_waiter and refused_wal_buffer correctly remain zero until S1 introduces those gates.
+
+8. CC-1..CC-5 CORE CONTRACTS — APPROVED
+
+Adding the checkpoint correctness contract to CORE_CONTRACTS is correct.
+
+Every later S1-S4 checkpoint/admission PR must identify touched clauses and tests.
+
+9. ADMIN COMPATIBILITY — APPROVED
+
+GAUGES as a new additive admin verb is acceptable.
+
+HEALTH appends new checkpoint keys after the existing prefix.
+
+STATUS and RESOURCES remain unchanged.
+
+The stalled-shard test showing GAUGES/HEALTH do not wait on the shard is accepted.
+
+10. OVERHEAD CHECK — ACCEPT AS A SMOKE CHECK ONLY
+
+The dev-VM microcheck is useful only as intended:
+- no obvious several-percent perturbation;
+- shared/noisy host;
+- not campaign evidence;
+- cannot resolve small overhead.
+
+Do not use the apparent S0 speedups as evidence that instrumentation improves performance.
+
+No R640 overhead run is required for S0.
+
+11. EVIDENCE WORDING — CORRECT
+
+PR #69 says:
+“Release passed 37/37 ... TSan 37/37”
+
+The committed evidence is more precise:
+
+Release first full run:
+36/37, then the corrected new gauge test passed targeted rerun.
+
+ASan+UBSan:
+clean full 37/37.
+
+TSan parallel full run:
+34/37, zero TSan reports; the three timing-sensitive HA failures then passed one-at-a-time 3/3.
+
+This is not a reason to reject S0, but the docs should not present these as literal clean first-pass 37/37 full-suite runs.
+
+After S0.1 changes C++ anyway, produce fresh clean evidence and update status with the exact run form.
+
+12. REQUIRED S0.1 VALIDATION
+
+Because gauges.h changes C++ concurrency code, run fresh:
+
+A. RelWithDebInfo:
+one complete final-code run, 37/37.
+
+B. ASan+UBSan:
+one complete final-code run, 37/37, zero reports.
+
+C. TSan:
+run the full suite with the known timing-sensitive HA tests serialized from the start, or run the complete suite serially.
+
+Required final disposition:
+37/37 and zero ThreadSanitizer reports.
+
+Do not create “37/37” by adding a failed parallel run and targeted reruns together in the headline. Preserve all raw history, but headline the actual clean final validation configuration.
+
+D. test_gauges concurrency stress:
+pass under TSan.
+
+E. independent source review:
+specifically review the seqlock memory-order contract.
+
+13. NO OTHER S0 REDESIGN
+
+Do not use S0.1 to:
+- change the gauge field list materially;
+- alter publish cadence;
+- add S1 budgets;
+- change checkpoint behavior;
+- add controller logic;
+- tune performance;
+- run R640 tests.
+
+This is a narrow publication-correctness fix plus evidence reconciliation.
+
+14. S1 STATUS
+
+S1 is NOT authorized yet.
+
+Once S0.1 returns clean, we will use the now-trustworthy observability to review S1's admission/resource-bound implementation.
+
+FINAL
+
+PR #69 S0:
+
+ARCHITECTURE/SCOPE: APPROVED.
+BEHAVIOR-NEUTRAL INTENT: APPROVED.
+GAUGE FIELD SET: APPROVED.
+ADMIN/HEALTH EXPOSURE: APPROVED.
+CORE CONTRACT DOCS: APPROVED.
+
+BLOCKER:
+fix the seqlock second-read/acquire memory ordering with a conventional auditable acquire/release pattern.
+
+Then run a genuinely clean final Release + ASan + TSan validation and reconcile the evidence wording.
+
+NO S1 YET.
+NO R640.
+NO CP-1A.
+NO COMPETITORS.
