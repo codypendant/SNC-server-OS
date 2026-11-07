@@ -242,6 +242,29 @@ The runner never writes account-ID files under `--out`. It deletes each
 run's data directory after the run. Raw client and server logs of every
 run are kept.
 
+**Benchmark scratch isolation (PROPOSED for review, 2026-11-07).** The
+first pilot wrote each run's 80 MB account-ID file next to the data
+directory, on the data SSD, buffered and just before the run. Its
+writeback stalled the WAL once per run (R640 step 1,
+`bench/results/step1-r640-20261107-ids-shm/` on `r640-diag-telemetry`:
+with the file on `/dev/shm`, 0 refusals and no storage event in 3 of 3
+runs, against 0/256/1,016 refusals before). So a real pilot also refuses
+to start unless:
+- `--scratch DIR` names the benchmark scratch explicitly (the ID files go
+  there; there is no default for a real run);
+- neither `--scratch` nor `--out` is on a physical disk that holds
+  `--data-root`. Partitions resolve to their disk, device-mapper and md
+  devices to all their members. A memory filesystem (tmpfs, ramfs)
+  counts as the disks its swap is on. A filesystem whose disk cannot be
+  told (btrfs, overlay, loop, network, FUSE) is refused;
+- `--scratch` has at least twice the ID file's size free.
+
+The scratch path, the data, scratch and out disks, and any isolation
+problem are recorded in `pilot.json`. On the R640: `--scratch
+/dev/shm/snc-pilot` (memory; check that swap is not on the data SSD) with
+`--out` in the repo on the BOSS disk. Results of the first pilot carry the
+stall and are not comparable with a run under this rule.
+
 The real pilot runs from the reviewed commit. Manifest d is accepted.
 The pilot still needs this plan and the dev-VM evidence
 (`bench/results/cp1a-devvm/`) to be accepted, and then cody's go.
