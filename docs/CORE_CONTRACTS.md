@@ -688,6 +688,46 @@ for an unexpected status can sit until the next restart. `kSettleRetry`
 - O-5. SETTLED SHOULD be observable for an operation (today only by
   reading the target).
 
+## 13A. Checkpoint correctness contract
+
+[ACCEPTED: Codex, PR #68 review] CC-1 to CC-5 are normative constraints
+on every checkpoint change. The rationale, the as-built code path and the
+proof sketch are in
+[CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md)
+sections 1 and 5. This section adds no semantic change: each clause
+holds as built today (EL2 by code inference and the persistence and
+crash suites; the tests named are the anchors later slices must pass).
+
+A checkpoint is a fuzzy per-shard image with one node-level commit point,
+the superblock write that names it [AS-BUILT: `engine.cpp` checkpoint,
+`storage.cpp` write_superblock].
+
+- **CC-1 (coverage).** Every object that is live at a shard's checkpoint
+  begin and is not mutated in `[start_lsn, crash]` MUST be in that
+  shard's part, with its image as of before begin. Holds because the ID
+  snapshot is taken in one step [AS-BUILT: `shard.cpp` begin_checkpoint].
+  Anchors: T1; T13 for any incremental snapshot.
+- **CC-2 (redo completeness).** Every mutation at an LSN at or above
+  `start_lsn` MUST be in the WAL as a full post-op image (CREATE, UPDATE)
+  or a DELETE, and stream s MUST be kept from `start_lsn[s]` until a
+  later checkpoint commits. Anchors: T4, T16.
+- **CC-3 (no future state).** No image in a part MAY have a `last_lsn`
+  above what was locally durable before that part's sync [AS-BUILT: the
+  C5 check before `fdatasync`]. Anchors: T2, T3.
+- **CC-4 (idempotent redo).** Installing a part image, then replaying any
+  record with a version at or below that image's, MUST be a no-op; a
+  newer one replaces it. Anchors: T1, T12.
+- **CC-5 (atomic publication and reclamation).** No reader MAY look at
+  `ckpt/<seq>` until a durable superblock names it, and nothing the
+  previous checkpoint and the WAL need MAY be deleted before that
+  superblock is durable. Shard parts may therefore become durable at
+  different times. Anchors: T2, T3, T18.
+
+Every later checkpoint PR MUST state which clauses it touches, why they
+remain true, and which deterministic or crash tests prove them. These
+clauses MUST NOT be weakened for implementation convenience
+[ACCEPTED: Codex, PR #68 review].
+
 ## 14. Architecture principles carried forward
 
 - **Locality** [INV 4, 5]: cross-shard, cross-node and cross-group costs

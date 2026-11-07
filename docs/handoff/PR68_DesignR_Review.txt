@@ -1,0 +1,328 @@
+PR #68 REVIEW — DESIGN-R
+
+DECISION: DESIGN-R APPROVED.
+
+PR #68 correctly incorporates the required PR #67 design revisions. The checkpoint/backpressure architecture is now sufficiently specified to begin S0 observability ONLY.
+
+No S1-S5 behavioral implementation is authorized yet.
+
+============================================================
+1. DESIGN-R — APPROVED
+============================================================
+
+The revised document correctly:
+
+- turns I1-I5 into normative checkpoint correctness contract CC-1..CC-5 with test anchors;
+- keeps A + B1 + bounded checkpoint writeback + D as the approved direction;
+- leaves C1/C2/C3 selection open until S3-D;
+- marks numeric resource/controller values as HYPOTHESES rather than frozen defaults;
+- traces reserve-before-mutate through run_exec;
+- expands the operation/resource matrix;
+- specifies scheduling priorities;
+- reduces the first controller to two driving signals;
+- separates target completion time from hard maximum checkpoint age;
+- integrates HEALTH/STATS requirements;
+- revises the physical regression bar;
+- adds T14-T18;
+- scopes S0 separately from behavioral work;
+- defers B2 and F appropriately.
+
+This resolves the PR #67 review.
+
+============================================================
+2. WAL O_DIRECT CORRECTION — ACCEPTED
+============================================================
+
+Claude corrected the revision-1 factual error.
+
+EngineConfig::wal_direct defaults true. The false value previously read was the STATS-field default, not configuration.
+
+The as-built WAL attempts O_DIRECT and falls back if the filesystem refuses it, with RWF_DSYNC writes.
+
+Good correction.
+
+S0 must expose the ACTUAL runtime wal_direct mode so future evidence never relies on configuration inference.
+
+============================================================
+3. CHECKPOINT CORRECTNESS CONTRACT — APPROVED
+============================================================
+
+CC-1 through CC-5 are approved as normative architecture constraints.
+
+During S0, add them to CORE_CONTRACTS.md as proposed.
+
+Every later checkpoint PR must explicitly state:
+- which CC clauses it touches;
+- why they remain true;
+- which deterministic/crash tests prove them.
+
+Do not weaken these contracts to accommodate implementation convenience.
+
+============================================================
+4. C1/C2/C3 — DEFERRED CORRECTLY
+============================================================
+
+No checkpoint writeback mechanism is selected yet.
+
+This is correct.
+
+S3-D must choose using the documented criteria and S0/S1/S2 evidence.
+
+The O_DIRECT correction makes C2 more attractive because SNC already has a direct-I/O pattern, but it does NOT make C2 automatically correct for checkpoint parts.
+
+Keep the C2 format/truncation/error obligations.
+
+============================================================
+5. RESERVE-BEFORE-MUTATE — DESIGN APPROVED WITH ONE IMPLEMENTATION WARNING
+============================================================
+
+The placement before the first irreversible mutation is correct.
+
+The worst-case reservation concept is sound.
+
+Implementation warning for S1:
+
+Do not assume the reservation can always be only a transient “check” if future code introduces any yield/re-entry between reservation and WAL append.
+
+For the current single-thread/no-yield path, the design is valid.
+
+Encode that assumption in a test/assertion or comment at the reservation boundary so later refactoring cannot silently invalidate it.
+
+Follow-up apply / already-acknowledged internal work must remain non-refusable as documented.
+
+============================================================
+6. CONTROLLER SIMPLIFICATION — APPROVED
+============================================================
+
+First behavioral controller will use:
+
+- WAL flush-latency EWMA relative to learned baseline;
+- emit/follow-up backlog fraction.
+
+Good.
+
+Waiters, undurable records and checkpoint-write latency remain observability inputs initially, not simultaneous controller drivers.
+
+The deterministic controller requirements remain mandatory for S2/S3:
+- hysteresis;
+- bounded update cadence;
+- reset semantics;
+- min/max;
+- no oscillation/starvation under synthetic traces;
+- explicit target/hard-age behavior.
+
+============================================================
+7. TARGET VS HARD MAXIMUM — APPROVED
+============================================================
+
+Keep:
+
+TARGET:
+performance/pacing goal. Missing it is pressure/degraded evidence, not permission to monopolize foreground service.
+
+HARD MAXIMUM AGE:
+operational/safety bound related to WAL retention and checkpoint progress.
+
+HEALTH/STATS must distinguish them.
+
+Do not let “catch-up” silently override foreground protection.
+
+============================================================
+8. REGRESSION DIRECTION — APPROVED, NOT YET FROZEN
+============================================================
+
+The revised R640 regression criteria are directionally approved.
+
+Do not freeze final numerical controller/backlog criteria until S0 measurements exist.
+
+The eventual primary cell remains:
+436,646 open-loop, Profile A, checkpoint=60s, 60s window, 3 reps.
+
+Required concepts:
+- zero refusals;
+- bounded >1ms lateness;
+- p99 relative to same-SHA no-checkpoint reference;
+- p99.9 bound;
+- checkpoint completes within hard maximum;
+- no correctness/durability error;
+- no meaningful closed-loop capacity regression.
+
+Also report WAL-latency time above pressure target, backlog distributions, controller trace and checkpoint duration.
+
+============================================================
+9. S0 IS NOW AUTHORIZED
+============================================================
+
+Implement S0 permanent low-overhead observability ONLY.
+
+S0 may add ordinary STATS/HEALTH fields/counters for:
+
+REFUSAL / RESOURCE:
+- refused_by_followup;
+- refused_by_waiter;
+- refused_by_wal_buffer;
+- existing ring/gather refusal causes where practical.
+
+CURRENT/PER-SHARD PRESSURE:
+- waiter current + peak;
+- WAL active-buffer bytes + peak;
+- emit/follow-up backlog current + peak;
+- undurable distance/records where already cheaply available.
+
+WAL:
+- actual wal_direct runtime mode;
+- flush-latency EWMA;
+- existing histogram retained;
+- flush count/error state where useful.
+
+CHECKPOINT:
+- active/inactive;
+- phase;
+- active age;
+- phase duration / last phase durations;
+- bytes produced/written;
+- write requests/in-flight if applicable to current implementation;
+- last checkpoint duration/result;
+- target-pressure/past-target counters where meaningful without behavioral pacing;
+- retained WAL attributable to active/old checkpoint where practical.
+
+HEALTH:
+- checkpoint progress/age;
+- target/hard-age fields may be present as observability/config placeholders, but S0 must NOT introduce new pacing or failure behavior.
+
+============================================================
+10. S0 MUST NOT CHANGE BEHAVIOR
+============================================================
+
+S0 is instrumentation only.
+
+It must NOT:
+
+- change admission decisions;
+- add waiter/WAL budgets;
+- move overload checks;
+- change checkpoint slice size;
+- pace checkpoint walk;
+- change checkpoint I/O;
+- change fdatasync ordering;
+- change kEmitBacklog;
+- alter checkpoint target/deadline behavior;
+- alter protocol status;
+- alter recovery/WAL reclamation.
+
+If an observability field requires a behavior change to obtain, defer it.
+
+============================================================
+11. S0 OBSERVABILITY ARCHITECTURE
+============================================================
+
+Do NOT reproduce the failed diagnostic RESOURCES-polling architecture.
+
+Counters should be:
+- owned/updated by the component already performing the operation;
+- atomics or naturally local state where appropriate;
+- read without synchronous fan-out onto measured shard threads;
+- bounded-overhead;
+- no allocation on hot-path counter update;
+- no locks added to the foreground hot path merely for telemetry.
+
+If STATS currently requires shard fan-out, separate “counter collection architecture” from counter update: S0 must not create a new high-frequency synchronous polling dependency.
+
+============================================================
+12. S0 OVERHEAD EVIDENCE
+============================================================
+
+Before merge, provide software evidence that S0 is behavior-neutral.
+
+Required:
+- full RelWithDebInfo suite;
+- full ASan+UBSan;
+- full TSan;
+- deterministic counter/unit tests;
+- independent source review.
+
+Also add a small non-campaign micro-check/dev benchmark comparing observability build behavior with counters read rarely versus not read.
+
+This is not an R640 performance test and no campaign conclusion comes from it.
+
+The purpose is to catch obvious telemetry perturbation.
+
+Do NOT run the R640 for S0.
+
+============================================================
+13. S0 TESTS
+============================================================
+
+At minimum test:
+
+S0-T1 refusal cause accounting:
+each existing refusal path increments only its correct cause.
+
+S0-T2 peak/current counters:
+current returns to zero/baseline after resource drains; peak remains correct.
+
+S0-T3 WAL mode:
+actual direct/fallback mode is reported, including forced fallback test where practical.
+
+S0-T4 flush EWMA:
+deterministic synthetic samples produce exact expected EWMA/reset behavior.
+
+S0-T5 checkpoint phase state:
+legal phase transitions and durations; abort/error returns to inactive and records result.
+
+S0-T6 no semantic effect:
+existing checkpoint persistence/crash tests produce identical state/results with observability present.
+
+S0-T7 concurrency:
+TSan-safe reads/updates; no torn/invalid phase/counter snapshots.
+
+S0-T8 stats compatibility:
+old consumers tolerate/additive fields; no protocol break.
+
+============================================================
+14. CORE_CONTRACTS UPDATE
+============================================================
+
+As part of S0 docs only:
+
+Add CC-1..CC-5 to docs/CORE_CONTRACTS.md.
+
+Reference CHECKPOINT_BACKPRESSURE_DESIGN.md for rationale.
+
+No semantic change.
+
+============================================================
+15. RETURN POINT
+============================================================
+
+Implement S0 only.
+
+Return with:
+- source diff;
+- field definitions/semantics;
+- hot-path overhead analysis;
+- tests;
+- Release/ASan/TSan evidence;
+- independent review;
+- confirmation no behavioral checkpoint/admission change;
+- confirmation no R640 load.
+
+Do NOT start S1 automatically after S0.
+
+S1 requires another review because S0 evidence will inform the resource budgets/admission design.
+
+============================================================
+FINAL
+============================================================
+
+PR #68 DESIGN-R: APPROVED.
+
+Checkpoint/backpressure architecture is now frozen enough to proceed.
+
+S0 OBSERVABILITY ONLY: AUTHORIZED.
+
+NO S1-S5.
+NO R640 LOAD.
+NO CP-1A.
+NO COMPETITORS.
+NO PROFILE C.

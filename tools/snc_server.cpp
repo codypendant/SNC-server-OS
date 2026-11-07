@@ -122,6 +122,50 @@ using namespace snc;
 
 namespace {
 
+// GAUGES [SHARD] (S0, include/snc/gauges.h): the node's checkpoint, then
+// every published gauge of every shard (or one), as "s<i>.<name>=<value>".
+// Times named *_ns are steady-clock instants; *_age_ms are computed here.
+std::string gauges_line(const Engine& eng, const std::string& arg) {
+  const u16 n = eng.shard_count();
+  u16 lo = 0, hi = n;
+  if (!arg.empty()) {
+    char* end = nullptr;
+    const unsigned long v = std::strtoul(arg.c_str(), &end, 10);
+    if (end == arg.c_str() || *end != '\0' || v >= n) return "NO GAUGES [shard], shard < " + std::to_string(n);
+    lo = static_cast<u16>(v);
+    hi = static_cast<u16>(v + 1);
+  }
+  const u64 now = sri_now_ns();
+  auto age_ms = [now](u64 t) -> unsigned long long { return t != 0 && now > t ? (now - t) / 1000000 : 0; };
+  const NodeCkptGauges& ng = eng.checkpoint_gauges();
+  std::string out;
+  char b[512];
+  std::snprintf(b, sizeof(b),
+                "shards=%u ckpt=%s ckpt_seq=%llu ckpt_age_ms=%llu ckpt_last_ms=%llu ckpt_last_shards_ms=%llu "
+                "ckpt_last_commit_ms=%llu ckpt_last_reclaim_ms=%llu ckpt_done=%llu",
+                n, node_ckpt_phase_name(ng.phase.load()), (unsigned long long)ng.seq.load(),
+                age_ms(ng.started_ns.load()), (unsigned long long)ng.last_total_us.load() / 1000,
+                (unsigned long long)ng.last_shards_us.load() / 1000, (unsigned long long)ng.last_commit_us.load() / 1000,
+                (unsigned long long)ng.last_reclaim_us.load() / 1000, (unsigned long long)ng.completed.load());
+  out += b;
+  for (u16 s = lo; s < hi; ++s) {
+    const GaugeSnapshot g = eng.gauges(s);
+    for (u32 i = 0; i < kGaugeCount; ++i) {
+      std::snprintf(b, sizeof(b), " s%u.%s=%llu", s, kGaugeNames[i], (unsigned long long)g.v[i]);
+      out += b;
+    }
+    std::snprintf(b, sizeof(b),
+                  " s%u.ckpt_phase_name=%s s%u.ckpt_age_ms=%llu s%u.ckpt_phase_age_ms=%llu s%u.wal_flush_age_ms=%llu "
+                  "s%u.committed_start_lsn=%llu s%u.wal_replay_records=%llu s%u.consistent=%d",
+                  s, ckpt_phase_name(g[G_CKPT_PHASE]), s, age_ms(g[G_CKPT_STARTED_NS]), s,
+                  age_ms(g[G_CKPT_PHASE_SINCE_NS]), s, age_ms(g[G_WAL_FLUSH_SINCE_NS]), s,
+                  (unsigned long long)g.committed_start_lsn, s, (unsigned long long)g.replay_records(), s,
+                  g.consistent ? 1 : 0);
+    out += b;
+  }
+  return out;
+}
+
 // AUDIT [PATH] (docs/REAL_MACHINES.md): the accounts this node serves now.
 // "AUDIT accounts total pending epoch held misrouted", pending being
 // unsettled transfer entries (outbox plus inbox). With PATH, also writes
@@ -694,7 +738,7 @@ int main(int argc, char** argv) {
   // PR #36, option B).
   std::atomic<admin::Loop*> admin_loop{nullptr};
   auto health = [&] {
-    char b[512];
+    char b[768];
     int n = std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s epoch=%llu leases=%llu-%llu shards=%u",
                           role_now(false, 0), (unsigned long long)term.load(), uuid_hex.c_str(),
                           (unsigned long long)eng.cluster().epoch, (unsigned long long)lease_lo.load(),
@@ -722,6 +766,34 @@ int main(int argc, char** argv) {
     const u64 tick = main_tick.load();
     n += std::snprintf(b + n, sizeof(b) - n, " main_ms=%llu", (unsigned long long)(now > tick ? (now - tick) / 1000000 : 0));
     clamp();
+    {
+      // Checkpoint progress (S0, docs/CHECKPOINT_BACKPRESSURE_DESIGN.md 7.4):
+      // published values only. Diagnostic: drives no decision (HL-4).
+      const NodeCkptGauges& ng = eng.checkpoint_gauges();
+      const u64 phase = ng.phase.load(std::memory_order_relaxed);
+      const u64 started = ng.started_ns.load(std::memory_order_relaxed);
+      int slow = -1;
+      u64 slow_phase = 0;
+      for (u16 s = 0; s < n_shards; ++s) {
+        const GaugeSnapshot g = eng.gauges(s);
+        const u64 p = g[G_CKPT_PHASE];
+        if (p != 0 && (slow < 0 || p < slow_phase)) {
+          slow = s;
+          slow_phase = p;
+        }
+      }
+      n += std::snprintf(b + n, sizeof(b) - n, " ckpt=%s ckpt_age_ms=%llu ckpt_last_ms=%llu ckpt_done=%llu",
+                         node_ckpt_phase_name(phase),
+                         (unsigned long long)(phase != 0 && started != 0 && now > started ? (now - started) / 1000000 : 0),
+                         (unsigned long long)(ng.last_total_us.load(std::memory_order_relaxed) / 1000),
+                         (unsigned long long)ng.completed.load(std::memory_order_relaxed));
+      clamp();
+      if (slow >= 0) {
+        n += std::snprintf(b + n, sizeof(b) - n, " ckpt_slow_shard=%d ckpt_slow_phase=%s", slow,
+                           ckpt_phase_name(slow_phase));
+        clamp();
+      }
+    }
     if (const admin::Loop* al = admin_loop.load()) {
       const admin::Counters& c = al->counters();
       std::snprintf(b + n, sizeof(b) - n, " adm_q=%llu adm_q_hw=%llu adm_busy=%llu adm_half=%llu adm_half_hw=%llu "
@@ -757,6 +829,13 @@ int main(int argc, char** argv) {
     h.inline_verb = [&](const std::string& line, std::string& reply) {
       if (line == "HEALTH") {
         reply = health();
+        return true;
+      }
+      // GAUGES [shard] (S0, include/snc/gauges.h): every published gauge,
+      // one line of key=value. Published values only, like HEALTH: no
+      // shard task, so it never waits on a busy shard. Read-only.
+      if (line == "GAUGES" || line.rfind("GAUGES ", 0) == 0) {
+        reply = gauges_line(eng, line.size() > 7 ? line.substr(7) : "");
         return true;
       }
       // DEBUG STALL <shard> <ms> (tests; docs/HEALTH_DECOUPLING.md 6): one

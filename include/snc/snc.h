@@ -153,7 +153,10 @@ struct ShardStats {
   u64 ops_served = 0;       // executed here on behalf of another shard
   u64 creates = 0;
   u64 deletes = 0;
-  u64 overloaded = 0;
+  u64 overloaded = 0;            // refused_followup + refused_ring
+  u64 refused_followup = 0;      // follow-up backlog above kEmitBacklog
+  u64 refused_ring = 0;          // forward or batch found the ring full
+  u64 gather_overloaded = 0;     // index gather legs dropped: ring full
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
   u64 heap_live_bytes = 0;
@@ -557,6 +560,11 @@ class Engine {
   u16 shard_count() const { return cfg_.runtime.n_shards; }
   // Running: read on the shard's thread (control path). Stopped: final values.
   ShardStats stats(u16 shard) const;
+  // Published gauges (include/snc/gauges.h): read from any thread with no
+  // shard task and no lock a shard holds. Stopped: the last published
+  // values. Observability only.
+  GaugeSnapshot gauges(u16 shard) const;
+  const NodeCkptGauges& checkpoint_gauges() const;
 
   // Control path: visit every live object owned by `shard` on its thread.
   // Intended for tests and checks, not the hot path.

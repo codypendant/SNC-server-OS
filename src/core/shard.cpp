@@ -107,7 +107,9 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   }
   // Follow-ups first: new client work waits while this shard's backlog of
   // follow-ups is long, so transfers settle instead of piling up.
-  if (emits_in_flight() > kEmitBacklog) {
+  const u64 in_flight = emits_in_flight();
+  if (in_flight > emits_peak_) emits_peak_ = in_flight;  // observability (S0)
+  if (in_flight > kEmitBacklog) {
     // A resent sequenced mutation already applied here gets its answer,
     // not E_OVERLOADED: a client told E_OVERLOADED sends it again as a new
     // request, which would apply it twice. Promotion leaves a backlog, and
@@ -122,6 +124,7 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
       }
     }
     ++stats_.overloaded;
+    ++stats_.refused_followup;
     ExecResult r;
     r.status = Status::E_OVERLOADED;
     r.id = target;
@@ -563,6 +566,10 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out) {
 
 void Shard::defer(Waiter&& w) {
   ++stats_.deferred_completions;
+  // Observability (S0): what held answers cost, for the waiter budget (S1).
+  waiter_bytes_ += sizeof(Waiter) + w.result.size();
+  if (waiter_bytes_ > waiter_bytes_peak_) waiter_bytes_peak_ = waiter_bytes_;
+  if (waiters_.size() + 1 > waiters_peak_) waiters_peak_ = waiters_.size() + 1;
   // Mostly appended in LSN order; reads of older writes insert a little earlier.
   auto it = waiters_.end();
   while (it != waiters_.begin() && std::prev(it)->lsn > w.lsn) --it;
@@ -579,6 +586,7 @@ void Shard::release_waiters() {
   while (!waiters_.empty() && durable(waiters_.front().lsn)) {
     Waiter w = std::move(waiters_.front());
     waiters_.pop_front();
+    waiter_bytes_ -= sizeof(Waiter) + w.result.size();
     switch (w.kind) {
       case Waiter::Kind::LOCAL:
         w.r.durable = true;
@@ -615,7 +623,63 @@ bool Shard::poll() {
     checkpoint_step();
     busy = true;
   }
+  if (gauges_) publish_gauges(sri_now_ns());
   return busy;
+}
+
+void Shard::publish_gauges(u64 now, bool force) {
+  if (gauges_ == nullptr) return;
+  if (!force && !gauges_dirty_ && now - gauges_published_ns_ < ShardGauges::kPublishNs) return;
+  gauges_dirty_ = false;
+  gauges_published_ns_ = now;
+  std::array<u64, kGaugeCount> v{};
+  v[G_REFUSED_FOLLOWUP] = stats_.refused_followup;
+  v[G_REFUSED_RING] = stats_.refused_ring;
+  v[G_GATHER_OVERLOADED] = stats_.gather_overloaded;
+  v[G_WAITERS_NOW] = waiters_.size();
+  v[G_WAITERS_PEAK] = waiters_peak_;
+  v[G_WAITER_BYTES_NOW] = waiter_bytes_;
+  v[G_WAITER_BYTES_PEAK] = waiter_bytes_peak_;
+  const u64 in_flight = emits_in_flight();
+  if (in_flight > emits_peak_) emits_peak_ = in_flight;
+  v[G_EMITS_NOW] = in_flight;
+  v[G_EMITS_PEAK] = emits_peak_;
+  if (wal_) {
+    const WalStream::Stats& ws = wal_->stats();
+    v[G_WAL_PRESENT] = 1;
+    v[G_WAL_DIRECT] = wal_->direct();
+    v[G_WAL_ACTIVE_BYTES_NOW] = wal_->active_bytes();
+    v[G_WAL_ACTIVE_BYTES_PEAK] = ws.active_bytes_peak;
+    v[G_WAL_BUFFER_CAP_BYTES] = wal_->buffer_cap_bytes();
+    v[G_WAL_NEXT_LSN] = wal_->next_lsn();
+    v[G_WAL_DURABLE_LSN] = wal_->durable_lsn();
+    v[G_WAL_UNDURABLE] = wal_->next_lsn() - 1 - wal_->durable_lsn();
+    v[G_WAL_FLUSHES] = ws.flushes;
+    v[G_WAL_FLUSH_EWMA_US] = ws.flush_us_ewma.value();
+    v[G_WAL_FLUSH_MAX_US] = ws.flush_us_max;
+    v[G_WAL_FLUSH_SINCE_NS] = wal_->flush_since_ns();
+  }
+  const CkptObs& o = ckpt_obs_;
+  const bool idle = o.phase == CkptPhase::IDLE;
+  v[G_CKPT_PHASE] = static_cast<u64>(o.phase);
+  v[G_CKPT_SEQ] = o.seq;
+  v[G_CKPT_STARTED_NS] = idle ? 0 : o.started_ns;
+  v[G_CKPT_PHASE_SINCE_NS] = idle ? 0 : o.phase_since_ns;
+  v[G_CKPT_OBJECTS] = ckpt_.active ? ckpt_.objects : o.last_objects;
+  v[G_CKPT_BYTES_ISSUED] = ckpt_.active ? ckpt_.file_off : o.last_bytes_issued;
+  v[G_CKPT_BYTES_WRITTEN] = o.bytes_written;
+  v[G_CKPT_WRITES_INFLIGHT] = ckpt_.active ? ckpt_.writes_inflight : 0;
+  v[G_CKPT_WRITES_INFLIGHT_PEAK] = o.writes_peak;
+  v[G_CKPT_LAST_SNAPSHOT_US] = o.last_snapshot_us;
+  v[G_CKPT_LAST_WALK_US] = o.last_walk_us;
+  v[G_CKPT_LAST_DRAIN_US] = o.last_drain_us;
+  v[G_CKPT_LAST_DURABLE_WAIT_US] = o.last_durable_wait_us;
+  v[G_CKPT_LAST_SYNC_US] = o.last_sync_us;
+  v[G_CKPT_LAST_TOTAL_US] = o.last_total_us;
+  v[G_CKPT_LAST_RESULT] = o.last_result;
+  v[G_CKPT_COMPLETED] = o.completed;
+  v[G_PUBLISHED_NS] = now;
+  gauges_->publish(v);
 }
 
 bool Shard::quiesced() const {
@@ -808,6 +872,7 @@ void Shard::index_lookup(u32 index_id, ByteView key, u32 max_results, IndexCompl
     if (!sri_send(s, m)) {
       if (m.flags & kMsgArgsExternal) alloc_.free(m.ext.ptr);
       gathers_[slot].status = Status::E_OVERLOADED;
+      ++stats_.gather_overloaded;
       --gathers_[slot].remaining;
     }
   }
@@ -952,6 +1017,7 @@ void Shard::send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type,
   if (m == nullptr) {
     if (ext) alloc_.free(ext);
     ++stats_.overloaded;
+    ++stats_.refused_ring;
     fail_pending(slot, target, Status::E_OVERLOADED);
     return;
   }
@@ -991,6 +1057,7 @@ void Shard::send_batch(u16 dst) {
   if (m == nullptr) {
     for (u32 i = 0; i < n; ++i) {
       ++stats_.overloaded;
+      ++stats_.refused_ring;
       fail_pending(b.recs[i].slot, b.recs[i].target, Status::E_OVERLOADED);
     }
     return;  // the buffer stays for the next batch
@@ -1423,6 +1490,7 @@ void Shard::withdraw() {
   while (!waiters_.empty()) {
     Waiter w = std::move(waiters_.front());
     waiters_.pop_front();
+    waiter_bytes_ -= sizeof(Waiter) + w.result.size();
     switch (w.kind) {
       case Waiter::Kind::LOCAL:
         w.r.status = Status::E_FENCED;
@@ -1542,12 +1610,30 @@ bool Shard::poll_replication() {
 
 // ---- Checkpoint (spec section 12) ------------------------------------------------------
 
+const char* ckpt_phase_name(u64 p) {
+  static const char* const names[] = {"idle", "snapshot", "walk", "drain", "durable_wait", "sync"};
+  return p < 6 ? names[p] : "?";
+}
+
+const char* node_ckpt_phase_name(u64 p) {
+  static const char* const names[] = {"idle", "shards", "commit", "reclaim"};
+  return p < 4 ? names[p] : "?";
+}
+
 void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 seq,
                              CheckpointDone done) {
   Checkpoint& c = ckpt_;
   c = Checkpoint{};
   c.active = true;
   c.done = std::move(done);
+  // Observability (S0): phase times; no effect on the checkpoint.
+  const u64 t0 = sri_now_ns();
+  ckpt_obs_.seq = seq;
+  ckpt_obs_.started_ns = t0;
+  ckpt_obs_.bytes_written = 0;
+  ckpt_obs_.writes_peak = 0;
+  ckpt_obs_.snapshot_us = ckpt_obs_.walk_us = ckpt_obs_.drain_us = ckpt_obs_.durable_wait_us = 0;
+  ckpt_enter(CkptPhase::SNAPSHOT, t0);
   c.start_lsn = wal_ ? wal_->next_lsn() : 0;
   c.ids.reserve(map_.size());
   map_.for_each([&](ObjectHeader* o) {
@@ -1566,6 +1652,34 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   h.crc32c = crc32c(&h, sizeof(h));
   c.chunk.assign(kBlock, 0);
   std::memcpy(c.chunk.data(), &h, sizeof(h));
+  ckpt_enter(CkptPhase::WALK, sri_now_ns());
+}
+
+// Observability (S0): records how long the phase just left took. Legal
+// order: IDLE, SNAPSHOT, WALK, DRAIN, DURABLE_WAIT, SYNC, IDLE.
+void Shard::ckpt_enter(CkptPhase p, u64 now) {
+  CkptObs& o = ckpt_obs_;
+  const u64 us = (now - o.phase_since_ns) / 1000;
+  switch (o.phase) {
+    case CkptPhase::SNAPSHOT: o.snapshot_us = us; break;
+    case CkptPhase::WALK: o.walk_us = us; break;
+    case CkptPhase::DRAIN: o.drain_us = us; break;
+    case CkptPhase::DURABLE_WAIT: o.durable_wait_us = us; break;
+    case CkptPhase::SYNC:
+      o.last_snapshot_us = o.snapshot_us;
+      o.last_walk_us = o.walk_us;
+      o.last_drain_us = o.drain_us;
+      o.last_durable_wait_us = o.durable_wait_us;
+      o.last_sync_us = us;
+      o.last_total_us = (now - o.started_ns) / 1000;
+      o.last_result = 1;
+      ++o.completed;
+      break;
+    case CkptPhase::IDLE: break;
+  }
+  o.phase = p;
+  o.phase_since_ns = now;
+  gauges_dirty_ = true;
 }
 
 void Shard::checkpoint_write_chunk() {
@@ -1577,6 +1691,7 @@ void Shard::checkpoint_write_chunk() {
   u32 len = static_cast<u32>(buf->size());
   c.inflight_bufs.push_back(std::move(buf));
   ++c.writes_inflight;
+  if (c.writes_inflight > ckpt_obs_.writes_peak) ckpt_obs_.writes_peak = c.writes_inflight;
   u64 off = c.file_off;
   c.file_off += len;
   sri_write(c.fd, off, data, len, /*dsync=*/false, &Shard::checkpoint_write_done, this);
@@ -1589,6 +1704,7 @@ void Shard::checkpoint_write_done(void* ctx, int result) {
     storage_fatal("checkpoint write failed: " + s->ckpt_.path);
   }
   --s->ckpt_.writes_inflight;
+  s->ckpt_obs_.bytes_written += static_cast<u64>(result);
 }
 
 void Shard::checkpoint_sync_done(void* ctx, int result) {
@@ -1601,8 +1717,11 @@ void Shard::checkpoint_sync_done(void* ctx, int result) {
   ::close(c.fd);
   c.fd = -1;
   CheckpointResult res{c.start_lsn, c.objects, c.bytes};
+  s->ckpt_obs_.last_objects = c.objects;
+  s->ckpt_obs_.last_bytes_issued = c.file_off;
   CheckpointDone done = std::move(c.done);
   c = Checkpoint{};
+  s->ckpt_enter(CkptPhase::IDLE, sri_now_ns());
   done(res);
 }
 
@@ -1630,6 +1749,7 @@ void Shard::checkpoint_step() {
       checkpoint_write_chunk();
       c.walk_done = true;
       std::vector<ObjectID>().swap(c.ids);
+      ckpt_enter(CkptPhase::DRAIN, sri_now_ns());
     }
     return;
   }
@@ -1640,9 +1760,13 @@ void Shard::checkpoint_step() {
   // standby died mid-checkpoint, so it could never ask for DEGRADE
   // (docs/BASELINE_READINESS.md B1). The standby's acknowledgement stays
   // part of a sync client OK (durable()).
+  if (c.writes_inflight == 0 && ckpt_obs_.phase == CkptPhase::DRAIN) {
+    ckpt_enter(CkptPhase::DURABLE_WAIT, sri_now_ns());  // observability (S0)
+  }
   if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
     c.inflight_bufs.clear();
     c.syncing = true;
+    ckpt_enter(CkptPhase::SYNC, sri_now_ns());  // observability (S0)
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);
   }
 }

@@ -586,6 +586,7 @@ u64 WalStream::append(RecType type, u32 type_id, const ObjectID& id, u64 version
     active_since_ns_ = sri_now_ns();
   }
   active_len_ += size;
+  if (active_len_ > stats_.active_bytes_peak) stats_.active_bytes_peak = active_len_;
   active_last_lsn_ = lsn;
   ++stats_.records;
   stats_.record_bytes += size;
@@ -604,6 +605,7 @@ bool WalStream::append_raw(const u8* rec) {
     active_since_ns_ = sri_now_ns();
   }
   active_len_ += h.total_len;
+  if (active_len_ > stats_.active_bytes_peak) stats_.active_bytes_peak = active_len_;
   active_last_lsn_ = h.lsn;
   ++stats_.records;
   stats_.record_bytes += h.total_len;
@@ -792,6 +794,7 @@ void WalStream::flush_done(void* ctx, int result) {
   u64 us = (sri_now_ns() - w->flush_start_ns_) / 1000;
   ++w->stats_.flush_us_log2[std::min(23, us == 0 ? 0 : 63 - __builtin_clzll(us))];
   w->stats_.flush_us_max = std::max(w->stats_.flush_us_max, us);
+  w->stats_.flush_us_ewma.add(us);
   w->durable_lsn_ = w->flushing_last_lsn_;
   if (w->on_durable) w->on_durable(w->on_durable_ctx);
 }
