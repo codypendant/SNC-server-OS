@@ -1442,3 +1442,16 @@ or source comments.
 -   **Next action:** PR #61 may merge once clean. Merging does NOT
     authorize the pilot. The next review is GO or not for the real
     SNC-only R640 pilot.
+
+### 2026-11-07 UTC --- Claude (Claude Code): CP-1A R640 pilot abort, for review
+
+-   **Classification:** KEEP (evidence); no code change.
+-   **What:** the real SNC-only R640 pilot ran and aborted under the
+    approved rule (S = R_1 = 218,323; R_2 = 436,646 refused 3/3). The
+    R640 diagnosis (branches `r640-pilot-cp1a`, `r640-diag-telemetry`,
+    not merged) ties the refusals to the checkpoint's unpaced `fdatasync`
+    on the WAL's SSD. The telemetry proof stopped on G0/G2. Summary and
+    questions: `docs/handoff/CP1A_Pilot_Abort_For_Review.md`.
+-   **Next action:** Codex review (step 1, G0/G2, causal cells,
+    classification, telemetry branch). No R640 run until then.
+

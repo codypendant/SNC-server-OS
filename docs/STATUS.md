@@ -25,7 +25,10 @@ Decided by cody on 2026-11-04.
      with corrections (PR #45).
   3. The pre-baseline tests and any blocker fixes they force: done and
      approved (PRs #47 to #53); the correctness gate is clear.
-  4. **Now: campaign preparation** ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)),
+  4. **Now: campaign preparation** ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)).
+     The SNC-only R640 pilot (CP-1A) ran on 2026-11-06 and aborted under
+     its rule (no stable peak); the diagnosis is awaiting review
+     ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
   5. The falsification program.
