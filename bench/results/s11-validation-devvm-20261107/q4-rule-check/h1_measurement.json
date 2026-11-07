@@ -1,0 +1,77 @@
+{
+ "sequential_sum": 286,
+ "true_total": 256,
+ "old_rule_on_drained": false,
+ "rule": {
+  "drained": {
+   "n": 50,
+   "excess_median": 0.0,
+   "excess_max": 0,
+   "frac_with_excess": 0.0,
+   "durable_progressed": true,
+   "undurable_median": 248.0,
+   "undurable_max": 270,
+   "undurable_first_half_mean": 246.6,
+   "undurable_last_half_mean": 249.7,
+   "drained": true,
+   "bounded": true
+  },
+  "blocked": {
+   "n": 50,
+   "excess_median": 252.0,
+   "excess_max": 256,
+   "frac_with_excess": 1.0,
+   "durable_progressed": true,
+   "undurable_median": 4.0,
+   "undurable_max": 8,
+   "undurable_first_half_mean": 3.7,
+   "undurable_last_half_mean": 3.9,
+   "drained": false,
+   "bounded": true
+  },
+  "stalled": {
+   "n": 50,
+   "excess_median": 0.0,
+   "excess_max": 0,
+   "frac_with_excess": 0.0,
+   "durable_progressed": false,
+   "undurable_median": 256.0,
+   "undurable_max": 256,
+   "undurable_first_half_mean": 256.0,
+   "undurable_last_half_mean": 256.0,
+   "drained": false,
+   "bounded": true
+  },
+  "growing": {
+   "n": 50,
+   "excess_median": 0.0,
+   "excess_max": 0,
+   "frac_with_excess": 0.0,
+   "durable_progressed": true,
+   "undurable_median": 73.5,
+   "undurable_max": 147,
+   "undurable_first_half_mean": 36.0,
+   "undurable_last_half_mean": 111.0,
+   "drained": true,
+   "bounded": false
+  },
+  "short": {
+   "n": 5,
+   "drained": false,
+   "bounded": false,
+   "why": "too few samples"
+  }
+ },
+ "checks": {
+  "sequential_sum_exceeds_window": true,
+  "old_rule_fails_drained_series": true,
+  "rule_passes_drained_series": true,
+  "rule_fails_blocked_series": true,
+  "rule_fails_stalled_series": true,
+  "rule_fails_growing_series": true,
+  "rule_needs_enough_samples": true
+ },
+ "pass": true,
+ "scenario": "h1_measurement",
+ "seconds": 0.0
+}

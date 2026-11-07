@@ -450,7 +450,7 @@ class Engine {
     bool admission_legacy = false;
     u64 waiter_budget_bytes = 32ull << 20;      // durability waiters' memory
     u64 wal_buffer_budget_bytes = 30ull << 20;  // unflushed WAL record bytes
-    u64 pending_budget = 65536;                 // S1.1: forwarded requests in flight, per shard
+    u64 pending_budget = 131072;                // S1.1: forwarded requests in flight, per shard
   };
 
   explicit Engine(const Config& cfg);
