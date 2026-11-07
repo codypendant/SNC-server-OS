@@ -1,0 +1,274 @@
+PR #63 / #64 REVIEW — CORRECTED HARNESS RECONCILIATION
+
+DECISION
+
+PR #63: APPROVED.
+
+PR #64: the merged scratch-isolation fix is ACCEPTED. Step 1 confirms a BENCHMARK DEFECT: benchmark bookkeeping I/O contaminated the measured SNC data device.
+
+However, no new R640 load is authorized yet.
+
+Before the revised B/T proof or any causal cell runs, freeze one internally consistent corrected diagnostic harness and preregistration.
+
+============================================================
+1. STEP 1 RESULT — ACCEPTED
+============================================================
+
+Accepted evidence:
+
+At 2,183,233 ops/s, Profile A, 30-second measured window, moving the 80 MB account-ID file from the measured SAS SSD to /dev/shm produced:
+
+- 3/3 runs with zero refusals;
+- zero late_over_1ms;
+- no corresponding storage event.
+
+Previous baseline proof runs with the IDs file on the data SSD produced 0 / 256 / 1,016 refusals.
+
+Classification:
+
+BENCHMARK DEFECT CONFIRMED.
+
+The benchmark's own buffered ID-file write/writeback was contaminating the storage device being used to measure SNC.
+
+The original CP-1A pilot remains useful historical diagnostic/falsification evidence but is NOT clean campaign performance evidence.
+
+Do not delete it.
+
+============================================================
+2. PR #64 SCRATCH-ISOLATION DESIGN — ACCEPTED
+============================================================
+
+The correct fix is explicit benchmark scratch isolation, not a magic hard-coded /dev/shm path.
+
+Accepted principles:
+
+- real pilot requires explicit --scratch;
+- ID files go under scratch;
+- scratch must not share a physical disk with SNC data;
+- output directory must not share the SNC data disk;
+- physical-device resolution handles partitions and dm/md members;
+- memory filesystems account for swap backing;
+- unknown/ambiguous mappings fail closed;
+- paths/device identities are recorded;
+- sufficient scratch free space is checked.
+
+Keep this design.
+
+============================================================
+3. FORMALLY FREEZE THE SCRATCH RULE
+============================================================
+
+PILOT_PLAN currently labels benchmark scratch isolation PROPOSED.
+
+Change it to APPROVED / preregistered for the corrected CP-1A harness.
+
+Document explicitly:
+
+For evidence runs:
+- --scratch is mandatory;
+- scratch and --out must resolve to no physical disk used by --data-root;
+- unresolved/ambiguous device mapping refuses execution;
+- scratch/data/out paths and resolved physical disks are recorded;
+- scratch capacity must satisfy the existing size guard.
+
+On the R640, /dev/shm/snc-pilot is an acceptable scratch location only if the resolver confirms its swap backing does not use the SNC SAS data SSD.
+
+Do not make /dev/shm itself part of the methodology. Isolation is the rule.
+
+============================================================
+4. DIAGNOSTIC B/T DRIVER MUST USE THE SAME RULE
+============================================================
+
+The B/T proof on r640-diag-telemetry must not continue using the old contaminated scratch behavior.
+
+Update diag2.py / diagnostic execution path so BOTH B and T arms:
+
+- place IDs on the same isolated scratch filesystem;
+- use the same output/data isolation policy;
+- record scratch path/device resolution;
+- fail closed on overlap/unknown mapping.
+
+B and T must differ only by diagnostic telemetry, not scratch placement.
+
+Do not compare corrected T against contaminated B.
+
+============================================================
+5. REVISE G0 EXACTLY
+============================================================
+
+Before any new proof data, preregister corrected G0.
+
+G0 tests machine/baseline reproducibility, not stochastic zero-refusal behavior.
+
+G0 requires:
+
+A. B closed-loop median throughput within 5% of original 4,366,466 ops/s.
+
+B. B w30 median total p99 <= 1.5 x the original ~1.05 ms diagnostic reference.
+
+C. Same approved manifest / hardware configuration / governor / numa_balancing / PILOT-L allocation / reviewed build identity.
+
+REMOVE the old B-w30-zero-refusal clause.
+
+This is a diagnostic gate correction caused by the proven benchmark defect. It does not change CP-1A campaign success criteria.
+
+============================================================
+6. REVISE G2 EXACTLY — DO NOT WAIVE
+============================================================
+
+G2 tests whether telemetry itself materially increases refusals.
+
+For each B/T w30 rep:
+
+refusal_fraction =
+(EXEC refusals + INDEX refusals) / scheduled_in_window
+
+Pre-register:
+
+G2 passes only if BOTH:
+
+1. median(T refusal_fraction)
+   <= median(B refusal_fraction) + 0.0001
+
+2. every T rep refusal_fraction
+   <= max(B refusal_fraction) + 0.0002
+
+Interpretation:
+0.0001 = 0.01 percentage-point absolute tolerance.
+0.0002 = 0.02 percentage-point absolute per-rep ceiling above B max.
+
+These are diagnostic telemetry non-perturbation tolerances only.
+
+They are NOT campaign performance/materiality thresholds.
+
+Keep G1, G3 and G4 unchanged.
+
+============================================================
+7. IMPORTANT CONSEQUENCE OF STEP 1 FOR G0/G2
+============================================================
+
+Because Step 1 proved the old B harness was contaminated, the old B/T proof must NOT authorize causal cells.
+
+After scratch isolation is frozen, rerun the complete B/T non-perturbation proof under the corrected harness.
+
+Both arms use identical isolated scratch.
+
+No reuse of contaminated B proof values except as historical evidence.
+
+============================================================
+8. SOFTWARE VALIDATION BEFORE R640
+============================================================
+
+Before physical proof:
+
+- run test_pilot and all directly affected harness tests;
+- run a --quick harness validation demonstrating scratch isolation metadata;
+- run a fail-closed validation demonstrating same-device scratch/output rejection;
+- test the diagnostic driver applies identical scratch isolation to B and T;
+- test revised G0/G2 arithmetic/boundaries deterministically.
+
+If production C++ is unchanged, a new full sanitizer campaign is not required solely for Python/docs changes.
+
+If production C++ changes, rerun the required Release + ASan/UBSan + TSan suites.
+
+Return a clean committed SHA and preregistration.
+
+============================================================
+9. CAUSAL CELLS REMAIN CONDITIONALLY APPROVED
+============================================================
+
+After the corrected B/T proof runs:
+
+If G0-G4 all pass, Claude is authorized to proceed directly with the already-approved causal cells:
+
+- 436,646 ops/s, checkpoint=60s, 3 reps;
+- 436,646 ops/s, no/far-future checkpoint, 3 reps;
+- 2,183,233 ops/s, checkpoint=60s, 60-second measured window, 3 reps.
+
+No additional approval is required between the passing proof and these exact causal cells.
+
+If ANY gate fails:
+STOP.
+Commit evidence.
+Return for review.
+Do not reinterpret or weaken the gate after seeing results.
+
+============================================================
+10. TELEMETRY REMAINS OFF MAIN
+============================================================
+
+r640-diag-telemetry remains a diagnostic branch.
+
+Do not merge its engine instrumentation into main.
+
+PR #64's benchmark scratch-isolation fix on main is legitimate harness infrastructure and may remain.
+
+============================================================
+11. ORIGINAL PILOT STATUS
+============================================================
+
+The original CP-1A R640 pilot is now known to contain benchmark-generated storage interference from ID-file writeback.
+
+Therefore:
+
+- preserve it;
+- keep it labelled diagnostic/falsification history;
+- do not derive CRITERIA thresholds from it;
+- do not compare future competitor numbers against it;
+- do not selectively salvage “good” cells from it as campaign evidence.
+
+After diagnosis is complete and the corrected harness is frozen, the full SNC-only CP-1A pilot will eventually need a clean rerun from the beginning.
+
+Not yet.
+
+============================================================
+12. NO ENGINE OPTIMIZATION YET
+============================================================
+
+Do not yet:
+
+- separate read admission;
+- pace checkpoints;
+- stagger fdatasync;
+- change WAL/checkpoint I/O policy;
+- change kEmitBacklog;
+- change checkpoint format;
+- tune SSD/filesystem;
+- alter workload/grid/f=0.70.
+
+First finish the clean causal proof.
+
+============================================================
+13. REQUIRED RETURN POINT
+============================================================
+
+Do the reconciliation now:
+
+1. mark scratch isolation APPROVED/preregistered;
+2. apply identical isolation to B/T diagnostic driver;
+3. commit revised G0/G2 before new data;
+4. add/update deterministic tests;
+5. run software validation;
+6. return the frozen SHA/preregistration for review.
+
+NO R640 LOAD during this reconciliation.
+
+After I review the frozen corrected harness, the next authorization will be for the corrected B/T proof. If that passes, the already-approved causal cells may follow automatically.
+
+============================================================
+FINAL
+============================================================
+
+PR #63: APPROVED.
+
+PR #64: MERGED FIX ACCEPTED.
+
+Step 1 confirms BENCHMARK DEFECT: benchmark scratch I/O contaminated the SNC data SSD.
+
+Freeze scratch isolation and corrected G0/G2 across BOTH B and T before producing new physical evidence.
+
+NO R640 LOAD YET.
+NO FULL PILOT.
+NO COMPETITORS.
+NO PROFILE C.
+NO ENGINE OPTIMIZATION.

@@ -28,7 +28,8 @@ Decided by cody on 2026-11-04.
   4. **Now: campaign preparation** ([CAMPAIGN_PREP.md](CAMPAIGN_PREP.md)).
      The SNC-only R640 pilot (CP-1A) ran on 2026-11-06 and aborted under
      its rule (no stable peak). Step 1 found a benchmark defect (the ids file on the
-     data SSD); the scratch isolation fix awaits review
+     data SSD), fixed by scratch isolation (approved); the corrected diagnostic
+     harness is frozen for review
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
