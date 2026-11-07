@@ -1,0 +1,10 @@
+neg-rel-absent NEGATIVE_OK
+neg-rel-stale NEGATIVE_OK
+neg-asan-absent NEGATIVE_OK
+stress1 lab=0 c2=0 sync_readiness=0
+stress2 lab=0 c2=0 sync_readiness=0
+stress3 lab=0 c2=0 sync_readiness=0
+stray_after_stress=0
+100% tests passed, 0 tests failed out of 37
+PHASE2_DONE
+late-rel LATE_OK
