@@ -1755,8 +1755,8 @@ or source comments.
       new sequence. `net::Client` therefore resends `E_OVERLOADED` +
       `kRespReplayed` with the same sequence, with backoff, and never
       hands it over. A refusal lasting past the request timeout fails
-      over. `docs/RETRIES.md` records the rule. Raised to cody as a
-      decision; the merge waits on the answer.
+      over. `docs/RETRIES.md` records the rule. cody chose this
+      option (2026-11-07).
     - `waiter_reserved` has one meaning; every assignment is audited.
     - Follow-up intake backpressure is recorded as a required pre-S6
       slice.

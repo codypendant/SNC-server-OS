@@ -109,7 +109,8 @@ The client half was not true:
   recorded for review.
 
 This was raised as a decision before the merge, since it changes a
-client contract (not the wire format).
+client contract (not the wire format). cody chose the flagged refusal
+(2026-11-07).
 
 ## 3. `waiter_reserved`: one meaning, every assignment
 
