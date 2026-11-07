@@ -37,7 +37,10 @@ Decided by cody on 2026-11-04.
      in architecture and scope (PR #69). S0.1 (seqlock memory order) was
      approved (PR #70), so S0 is complete. The two known HA test-harness
      races were fixed (PR #71, approved). S1 resource-specific admission
-     ([S1_ADMISSION.md](S1_ADMISSION.md)) awaits review; S2 is not started
+     ([S1_ADMISSION.md](S1_ADMISSION.md), PR #72) was not approved as
+     complete ([handoff/PR72_S1_Review.txt](handoff/PR72_S1_Review.txt));
+     the S1.1 corrections ([S1_1_CORRECTIONS.md](S1_1_CORRECTIONS.md))
+     await review; S2 is not started
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
