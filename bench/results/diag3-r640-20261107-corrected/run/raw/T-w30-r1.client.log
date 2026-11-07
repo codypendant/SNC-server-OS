@@ -1,0 +1,39 @@
+numactl --physcpubind=2,4,6,8,10,12,14,16 --membind=0 build-diag/snc_server --shards 8 --port 26320 --objects 10000000 --cpus 2,4,6,8,10,12,14,16 --data-dir /srv/snc-data/diag3/T-w30-r1 --checkpoint-s 60 --diag-gauges bench/results/diag3-r640-20261107-corrected/run/raw/T-w30-r1.gauges.csv --diag-cpu 0
+numactl --physcpubind=18,20,22,24,26,28,30,32 --membind=0 build-diag/net_bench --port 26320 --threads 8 --objects 5000000 --ids /dev/shm/snc-diag3/T-w30-r1.ids --mix read=70,deposit=15,transfer=10,index=5 --route owner --cpus 18,20,22,24,26,28,30,32 --rate 2183233 --depth 1024 --warmup 10 --seconds 30 --drain-s 10 --diag-buckets bench/results/diag3-r640-20261107-corrected/run/raw/T-w30-r1.buckets.csv
+--- load
+net_bench shards=8 threads=8 depth=64/thread route=owner misroute=0%
+load: 5000000 objects in 6.15s (812544 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=0.00
+  ops/s 404793  errors 0  overloaded 0  stale 0
+  latency ns  p50 192512  p95 851968  p99 884736  p99.9 983040
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 19039  ok 23  empty 0  refused 0  errors 0
+  index latency ns  p50 319488  p95 335872  p99 344064  p99.9 344064
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 423833  (exec 489 + index 23 in 0.00s)  served_all 512
+  total latency ns  n 512  p50 192512  p95 851968  p99 884736  p99.9 983040  max 990842
+  read latency ns  n 382  p50 184320  p95 221184  p99 258048  p99.9 270336  max 277592
+  deposit latency ns  n 66  p50 557056  p95 884736  p99 983040  p99.9 983040  max 986644
+  transfer latency ns  n 41  p50 540672  p95 884736  p99 983040  p99.9 983040  max 990842
+  index latency ns  n 23  p50 319488  p95 335872  p99 344064  p99.9 344064  max 348132
+--- run
+net_bench shards=8 threads=8 depth=1024/thread route=owner misroute=0%
+load: 5000000 objects in 0.01s (481678492 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=30.00
+  ops/s 2074058  errors 0  overloaded 0  stale 0
+  latency ns  p50 176128  p95 868352  p99 1032192  p99.9 1245184
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 109152  ok 3274639  empty 363  refused 0  errors 0
+  index latency ns  p50 589824  p95 753664  p99 835584  p99.9 950272
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 2183211  (exec 62221754 + index 3274574 in 30.00s)  served_all 87329320
+  total latency ns  n 65496990  p50 180224  p95 868352  p99 1015808  p99.9 1245184  max 6285367
+  read latency ns  n 45852901  p50 151552  p95 241664  p99 286720  p99.9 352256  max 5573658
+  deposit latency ns  n 9821350  p50 737280  p95 999424  p99 1146880  p99.9 1867776  max 6285367
+  transfer latency ns  n 6548100  p50 737280  p95 999424  p99 1146880  p99.9 1835008  max 6221740
+  index latency ns  n 3274639  p50 589824  p95 753664  p99 835584  p99.9 950272  max 1720344
+rate: offered 2183233 ops/s  warmup 10.00s  window 30.00s  drain limit 10.00s
+  scheduled 87329320  scheduled_in_window 65496990  issued_by_end 87329302  completed_in_window 65496328  achieved 2183211 ops/s
+  end_backlog 18 (0.0000% of scheduled_in_window)  in_flight_at_end 629
+  issue lateness ns  p50 9472  p99 26624  p99.9 31744  max 81120  late_over_1ms 0
+  drained yes  remaining_unissued 0  remaining_in_flight 0

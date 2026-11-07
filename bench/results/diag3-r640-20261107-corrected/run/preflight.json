@@ -1,0 +1,46 @@
+{
+ "git_head": "69d612fa9b4b4ba697575bd001df5b340da22993",
+ "scratch": "/dev/shm/snc-diag3",
+ "data": "/srv/snc-data/diag3",
+ "out": "/home/solo/SNC-server-OS/bench/results/diag3-r640-20261107-corrected/run",
+ "disks": {
+  "data": [
+   "sda"
+  ],
+  "scratch": [
+   "sdc"
+  ],
+  "out": [
+   "sdc"
+  ]
+ },
+ "identity_checks": {
+  "kernel": true,
+  "cpus": true,
+  "model": true,
+  "node0": true,
+  "memory": true,
+  "governors": true,
+  "numa_balancing": true,
+  "allocation": true,
+  "b_build": true,
+  "data_disk_model": true,
+  "data_disk_scheduler": true,
+  "data_disk_write_cache": true
+ },
+ "identity_values": {
+  "kernel": "6.8.0-149-generic",
+  "model": "Intel(R) Xeon(R) Gold 6150 CPU @ 2.70GHz",
+  "mem_kb": 329771772,
+  "governors": [
+   "performance"
+  ],
+  "data_disk": "sda",
+  "t_build": {
+   "snc_server": "43dbd9b5a692776447cd3736d2651f0427c7514a82fa253719de837a71ad01e1",
+   "net_bench": "da890169a3065ebe6aa9333fa534bd33ad917a9f2aabc9b0d3c3f7b4af93f70d"
+  }
+ },
+ "problems": [],
+ "utc": "2026-11-07T05:59:47Z"
+}

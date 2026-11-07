@@ -1,0 +1,29 @@
+{
+ "gates": {
+  "G0": true,
+  "G1": true,
+  "G2": true,
+  "G3": true,
+  "G4": true
+ },
+ "detail": {
+  "G0_throughput": true,
+  "G0_p99": true,
+  "G0_identity": true,
+  "G2_median": true,
+  "G2_per_rep": true,
+  "B_refusal_fraction": [
+   "0",
+   "0",
+   "0"
+  ],
+  "T_refusal_fraction": [
+   "0",
+   "0",
+   "0"
+  ],
+  "B_closed_median": "4338624",
+  "B_w30_p99_median": "999424",
+  "T_build_unchanged": true
+ }
+}

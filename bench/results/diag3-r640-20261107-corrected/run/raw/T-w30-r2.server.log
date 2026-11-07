@@ -1,0 +1,12 @@
+recovery: checkpoint before serving in 0.01s
+snc_server shards=8 ports 26480-26487 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+space uuid 8d5a0c81e0e41db864788400724b5a76
+shard 0: requests 11541421 forwarded 0.0% ops_local 10995026 ops_remote 0 served 0
+shard 1: requests 11542397 forwarded 0.0% ops_local 10996354 ops_remote 0 served 0
+shard 2: requests 11539129 forwarded 0.0% ops_local 10993425 ops_remote 0 served 0
+shard 3: requests 11542807 forwarded 0.0% ops_local 10997010 ops_remote 0 served 0
+shard 4: requests 11541593 forwarded 0.0% ops_local 10995756 ops_remote 0 served 0
+shard 5: requests 11540753 forwarded 0.0% ops_local 10994832 ops_remote 0 served 0
+shard 6: requests 11544219 forwarded 0.0% ops_local 10998165 ops_remote 0 served 0
+shard 7: requests 11537529 forwarded 0.0% ops_local 10991491 ops_remote 0 served 0
+total: requests 92329848 forwarded 0.0% frames/recv 4.0 frames/send 4.4 ring msgs/request 1.24
