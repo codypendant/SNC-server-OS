@@ -1707,3 +1707,34 @@ or source comments.
     only. It authorizes nothing.
 -   **Next action:** review. No S2, R640 load, CP-1A, competitors or
     Profile C.
+
+### 2026-11-07 UTC --- Claude (Claude Code): S1.1 corrections, for review
+
+-   **Classification:** REFINE (admission). Loop order, checkpoint,
+    recovery, WAL format, `kEmitBacklog` = 1024, `E_OVERLOADED` and
+    CC-1..CC-5 are unchanged. No protocol field changed.
+-   **What:** `docs/handoff/PR72_S1_Review.txt` blockers 1-5, detailed in
+    `docs/S1_1_CORRECTIONS.md`.
+    - Reservation: option B. `type.max_size` is now a hard cap at
+      resize. Before, a full-inbox account could grow past max_size
+      within its allocator capacity and the next restart aborted in
+      install; that was a real recovery bug, now fixed.
+    - Remote reads: a per-origin pending budget (refused before a slot
+      exists, `refused_pending`) and owner-side admission of every
+      answer-wait not already reserved (`refused_waiter`). Global bound
+      in section 2; no deadlock (answers never wait on the origin).
+    - Non-refusable follow-up WAL growth is not finitely bounded by the
+      client budget. A15 measures 1.6x the budget with two senders; the
+      next bound (follow-up intake backpressure) needs a loop change and
+      is named for a later slice, not built.
+    - A6 tightened to exact counts; q4 uses a preregistered gauge-based
+      drain rule with a synthetic self-test (`h1_measurement`).
+    - Defaults provisional; 1 GB/s labelled hypothetical.
+-   **Tests:** A10-A15 new, A6 rewritten, H1 in ctest. Negative checks
+    (cap reverted, owner check removed, pending budget removed) fail as
+    expected; logs in the evidence dir.
+-   **Review:** one independent source review, APPROVE. Its medium
+    finding (drain progress summed over shards) and three low ones were
+    fixed before the headline runs; the rest are documented.
+-   **Evidence:** `bench/results/s11-validation-devvm-20261107/`.
+-   **Next action:** review. No S2, R640 load, CP-1A or competitors.

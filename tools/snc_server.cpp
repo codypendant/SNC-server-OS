@@ -14,7 +14,7 @@
 //                   [--move-units on|off] [--move-unit-us N] [--move-unit-bytes N]
 //                   [--move-window-bytes N]
 //                   [--admission s1|legacy] [--waiter-budget-bytes N]
-//                   [--wal-buffer-budget-bytes N]
+//                   [--wal-buffer-budget-bytes N] [--pending-budget N]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
       }
       cfg.admission_legacy = v == "legacy";
     }
-    else if (k == "--waiter-budget-bytes" || k == "--wal-buffer-budget-bytes") {
+    else if (k == "--waiter-budget-bytes" || k == "--wal-buffer-budget-bytes" || k == "--pending-budget") {
       const char* v = val();
       char* end = nullptr;
       errno = 0;
@@ -343,7 +343,8 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s takes a positive number\n", k.c_str());
         return 2;
       }
-      if (k == "--waiter-budget-bytes") cfg.waiter_budget_bytes = n;
+      if (k == "--pending-budget") cfg.pending_budget = n;
+      else if (k == "--waiter-budget-bytes") cfg.waiter_budget_bytes = n;
       else cfg.wal_buffer_budget_bytes = n;
     }
     else if (k == "--adopt-role") {

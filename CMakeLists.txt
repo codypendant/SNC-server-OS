@@ -97,7 +97,7 @@ if(PYTHON3)
   add_test(NAME test_baseline_move COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_move.py
            ${CMAKE_BINARY_DIR} q2_lost_move q10_sealed q10_committed)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py
-           ${CMAKE_BINARY_DIR} q3_runtime q3_restart q4_normal)
+           ${CMAKE_BINARY_DIR} h1_measurement q3_runtime q3_restart q4_normal)
   # The causal order of NOT READY and READY (docs/SYNC_READINESS.md 7).
   add_test(NAME test_ready_order COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_ready_order.py
            ${CMAKE_BINARY_DIR})

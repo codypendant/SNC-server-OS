@@ -1,0 +1,1 @@
+/home/claude/snc-server-os/tests/test_s1_admission.cpp:166: CHECK failed: (now.pending - before.pending) == (which == PENDING ? n : 0u)

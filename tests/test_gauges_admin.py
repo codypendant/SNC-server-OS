@@ -37,6 +37,7 @@ wal_next_lsn wal_durable_lsn wal_undurable wal_flushes wal_flush_ewma_us wal_flu
 ckpt_phase ckpt_seq ckpt_started_ns ckpt_phase_since_ns ckpt_objects ckpt_bytes_issued ckpt_bytes_written
 ckpt_writes_inflight ckpt_writes_inflight_peak ckpt_last_snapshot_us ckpt_last_walk_us ckpt_last_drain_us
 ckpt_last_durable_wait_us ckpt_last_sync_us ckpt_last_total_us ckpt_last_result ckpt_completed
+refused_pending pending_now pending_peak
 published_ns""".split()
 DERIVED = "ckpt_phase_name ckpt_age_ms ckpt_phase_age_ms wal_flush_age_ms committed_start_lsn wal_replay_records consistent".split()
 HEALTH_OLD = "role term uuid epoch leases shards stall_ms stall_shard main_ms adm_q adm_q_hw adm_busy adm_half adm_half_hw adm_evicted adm_timeouts".split()

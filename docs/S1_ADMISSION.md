@@ -1,5 +1,10 @@
 # S1: resource-specific admission (for review)
 
+> **S1.1 (after the PR #72 review):** [S1_1_CORRECTIONS.md](S1_1_CORRECTIONS.md)
+> caps every object at `max_size`, which makes R2 worst-case, and bounds
+> forwarded requests and every waiting answer. It also states the real
+> WAL memory bound. Where this note and S1.1 differ, S1.1 holds.
+
 *Authorized by `docs/handoff/PR71_Harness_Review.txt` sections 6-15.
 Design: `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` section 6 (approved
 direction A). Slice S1 only. S2 has not started.*
@@ -63,8 +68,8 @@ S1 (section 11 there). No R640 run.
 |---|---|---|---|
 | READ, owner shard, no wait (object durable, or `allow_undurable`) | follow-up gate | **admitted** | CPU; the connection's 8 MiB output limit |
 | READ, owner shard, object not yet durable | follow-up gate | **waiter budget** (`refused_waiter`) | waiter bytes |
-| READ forwarded to another shard | follow-up gate at the origin | follow-up gate at the origin (**unchanged**) | the origin's ring and overflow (`refused_ring`). The pending slot is not otherwise bounded, so the gate stays |
-| READ served for another shard | never refused at the owner | never refused at the owner | **not bounded** (known gap, section 9): the REMOTE waiter it may add is not refused, and the origin's pending slots are unbounded |
+| READ forwarded to another shard | follow-up gate at the origin | follow-up gate at the origin (**unchanged**), **plus (S1.1) the pending budget** (`refused_pending`) | the origin's pending budget, ring and overflow (`refused_ring`) |
+| READ served for another shard | never refused at the owner | **S1.1:** a READ that must wait takes its REMOTE waiter under the owner's waiter budget, or is answered `E_OVERLOADED` (`refused_waiter`) | waiter bytes at the owner |
 | MUTATE, client (local or forwarded) | follow-up gate at the origin | follow-up gate at the origin, **plus R1 at the owner** (WAL, then waiter) | backlog, WAL buffer bytes, waiter bytes |
 | Resent sequenced MUTATE already applied | answered from its session | unchanged (answered before any gate) | n/a |
 | CREATE, client | **no gate** | follow-up gate, **plus R1** | as MUTATE |
@@ -131,7 +136,10 @@ check and before its first change:
 
 **R2: the worst case.** Every record the call appends synchronously is
 counted:
-- **Object:** `record_size(type.max_size)`. `OpCtx::reserve` refuses
+- **Object:** `record_size(type.max_size)`. *S1.1: `prepare_ctx` now caps
+  the reservation at `max_size`, so the shortfall below is closed and this
+  term is worst-case (S1_1_CORRECTIONS.md section 1).* As first written:
+  `OpCtx::reserve` refuses
   growth past `max_size`, but `prepare_ctx` sets the reservation to the
   object's allocated `capacity`, which the allocator rounds up. So
   `OpCtx::resize` can, without a `reserve` call, grow the object past
@@ -260,15 +268,18 @@ exactly as before.
      follow-ups do not overshoot by more than 2 MiB (see below);
    - total at most about 96 MiB per shard. For 8 shards that is 768 MiB,
      0.23% of the R640's 320 GB.
-   - Follow-up overshoot: follow-ups are not budgeted, but each sender's
-     backlog is at most 1,025. With 8 senders and typical 300 B records
-     that is about 2.4 MB; with worst-case records it is more. The buffer
-     then doubles to 64 MiB, which this envelope states and does not hide.
+   - Follow-up overshoot: *corrected in S1.1.* The client budget is not a
+     memory bound, and the earlier "each sender's backlog is at most
+     1,025" bound was wrong: the gate counts only unsent follow-ups. The
+     real bound, its A15 measurement (1.6× the client budget from two
+     senders) and the next architectural limit are in
+     S1_1_CORRECTIONS.md section 3.
 4. **Drain and tail latency:**
    - **WAL drain:** a full WAL budget is 30 MiB per shard, 240 MiB for 8
      shards on one device. The SAS SSD's sequential write rate is not yet
      measured; it is a hypothesis to measure in S6. At an assumed
-     1 GB/s, the drain takes about 0.25 s after the stall ends.
+     (**hypothetical**, unmeasured) 1 GB/s, the drain takes about 0.25 s
+     after the stall ends.
    - **Waiters:** they drain as durability resumes. The longest wait an
      admitted op can see is about the stall plus the WAL drain. At R_2 a
      full waiter budget is 123,000 ops, about 2.25 s of that shard's
@@ -355,8 +366,8 @@ modified.
 - **Forwarded READs keep the follow-up gate.** Their origin's pending
   slots are not otherwise bounded, so removing the gate would remove
   their only bound. A pending-slot budget is a later step.
-- **Known gap: a READ served for another shard is not bounded at the
-  owner.** `serve` and `serve_multi` may add a REMOTE waiter for an
+- **Closed in S1.1** (S1_1_CORRECTIONS.md section 2). *Was: a READ served for another shard is not bounded at the
+  owner.* `serve` and `serve_multi` may add a REMOTE waiter for an
   undurable object, and the owner does not refuse it. The origin's
   `pending_` is unbounded (`emplace_back`), so the origins' gates do not
   bound it either: the follow-up gate counts the origin's follow-ups,

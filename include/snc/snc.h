@@ -153,11 +153,14 @@ struct ShardStats {
   u64 ops_served = 0;       // executed here on behalf of another shard
   u64 creates = 0;
   u64 deletes = 0;
-  u64 overloaded = 0;            // the four refused_* below, summed
+  u64 overloaded = 0;            // the five refused_* below, summed
   u64 refused_followup = 0;      // follow-up backlog above kEmitBacklog
   u64 refused_ring = 0;          // forward or batch found the ring full
   u64 refused_waiter = 0;        // S1: waiter budget (Config::waiter_budget_bytes)
   u64 refused_wal_buffer = 0;    // S1: WAL buffer budget (Config::wal_buffer_budget_bytes)
+  u64 refused_pending = 0;       // S1.1: pending budget (Config::pending_budget)
+  u64 pending_now = 0;           // forwarded client requests awaiting an answer
+  u64 pending_peak = 0;
   u64 gather_overloaded = 0;     // index gather legs dropped: ring full
   u64 objects = 0;          // live objects owned
   u64 local_map_bytes = 0;
@@ -447,6 +450,7 @@ class Engine {
     bool admission_legacy = false;
     u64 waiter_budget_bytes = 32ull << 20;      // durability waiters' memory
     u64 wal_buffer_budget_bytes = 30ull << 20;  // unflushed WAL record bytes
+    u64 pending_budget = 131072;                // S1.1: forwarded requests in flight, per shard (0 refuses every forwarded request)
   };
 
   explicit Engine(const Config& cfg);
