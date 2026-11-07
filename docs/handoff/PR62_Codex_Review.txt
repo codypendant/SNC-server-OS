@@ -1,0 +1,91 @@
+PR #62 REVIEW / NEXT WORK ORDER
+
+DECISION: PR #62 documentation ACCEPTED. Do not merge r640-diag-telemetry into main. Do not rerun full CP-1A yet.
+
+STEP 1 — APPROVED
+Run pilot build, Profile A, 2,183,233 ops/s, 30s measured window, 3 reps, with --ids on /dev/shm instead of the SAS SSD. Everything else identical. Diagnostic only.
+
+If all 3 eliminate the one-off stall/refusals and storage event: classify that component BENCHMARK DEFECT. Fix benchmark scratch isolation, add guard/test, preregister corrected harness before another pilot.
+If stall/refusals remain: reject IDs-file hypothesis; do not keep moving files. Report unresolved and continue checkpoint characterization.
+
+G0 — REVISE, DO NOT WAIVE
+G0 should test machine/baseline reproducibility:
+- B closed-loop median within 5% of original 4,366,466;
+- B w30 median p99 <=1.5x original ~1.05ms diagnostic baseline;
+- same manifest/config/governor/NUMA/allocation/build.
+Remove zero-refusal requirement. Refusals belong in telemetry non-perturbation, not machine identity.
+
+G2 — REVISE, DO NOT WAIVE
+Old “T zero refusals every rep” is invalid because B produced 0/256/1016.
+
+Before new data preregister:
+refusal_fraction=(EXEC+INDEX refusals)/scheduled_in_window.
+
+G2 passes if BOTH:
+1. median T refusal_fraction <= median B refusal_fraction + 0.0001 (0.01% absolute);
+2. no T rep > max(B refusal_fraction) + 0.0002 (0.02% absolute).
+
+These are diagnostic telemetry tolerances, not campaign thresholds.
+Keep G1/G3/G4 unchanged.
+
+If Step 1 proves IDs-file benchmark defect, fix it first and rerun B/T proof under corrected preregistered harness. Do not use old proof to authorize causal cells.
+
+CAUSAL CELLS — CONDITIONALLY APPROVED
+Only after Step 1 resolution and revised G0-G4 pass:
+- 436,646 checkpoint=60s, 3 reps;
+- 436,646 no/far-future checkpoint, 3 reps;
+- 2,183,233 checkpoint=60s, w60, 3 reps;
+- T-arm closed/w30 proof data as preregistered.
+No expansion without review.
+
+TELEMETRY BRANCH
+Keep r640-diag-telemetry as diagnostic branch/tool. DO NOT merge its engine instrumentation into main. If permanent observability is later desired, propose separately with production overhead/semantics review.
+
+CURRENT MECHANISM JUDGMENT
+Evidence strongly supports:
+checkpoint walk (~1.6s) consumes shard CPU; fdatasync (~0.9-1.2s) makes all 8 shards hit WAL SSD together; device ~1090MB/s/~96%; WAL await rises ~0.1ms -> 7-9ms; durable capacity falls ~0.35-0.57M; WAL lag -> emit_wait/backlog -> per-shard >1024 -> E_OVERLOADED.
+
+Causal cells still needed to confirm cleanly open-loop and remove observer/benchmark confounders.
+
+DO NOT CLOSE AS “JUST EXPECTED LIMIT” YET
+Two design-gap candidates deserve REFINE consideration if confirmed:
+
+1. READ admission is coupled to durable-mutation backpressure because EXEC overload gate is checked before op lookup/type. Durability backlog can refuse reads that need no WAL.
+
+2. Checkpoint and latency-sensitive WAL share an unpaced device burst; all shards write/sync nearly together. A periodic ~1s durability collapse should not be normalized merely because no old document promised otherwise.
+
+Do not fix yet.
+
+KEMITBACKLOG=1024
+Do not increase it. A larger queue may only consume memory/increase tail latency/hide the durability stall.
+
+After causal confirmation evaluate architecture first: read/mutation admission separation; checkpoint pacing; WAL/checkpoint I/O isolation/prioritization; staggered shard sync; incremental/COW checkpointing; then derive queue sizing from bounded latency/memory.
+
+IDS FIX IF CONFIRMED
+Do not hard-code /dev/shm as magic. Add explicit benchmark scratch path, verify it is not on measured data filesystem/device for evidence runs, record it, and fail closed if practical.
+
+PR #62
+Documentation-only and already merged: acceptable. No rollback.
+
+ORDER
+1. Step 1 /dev/shm, 3 reps.
+2. If benchmark defect: fix + tests + preregistration, return before physical proof.
+3. If IDs rejected: commit revised G0/G2.
+4. Run B/T non-perturbation proof.
+5. Only if G0-G4 pass, run causal cells.
+6. Produce final causal report/classification.
+7. Return BEFORE SNC optimization or full CP-1A rerun.
+
+No separate approval needed between steps 3-5 if these conditions are followed exactly and no new anomaly appears.
+
+FINAL
+PR #62 ACCEPTED.
+Step 1 APPROVED.
+G0 REVISE.
+G2 REVISE, not waive.
+Causal cells CONDITIONALLY APPROVED.
+Telemetry stays OFF MAIN.
+NO FULL PILOT.
+NO COMPETITORS.
+NO PROFILE C.
+NO ENGINE OPTIMIZATION YET.
