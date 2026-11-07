@@ -1,0 +1,2 @@
+late {"pass": true, "ready_again": [7, 0, 0, false], "new_ready_line": "witness: standby back in sync (READY after v=6)", "grounded": true, "refused": true, "error": null, "seconds": 63.7}
+LATE_OK

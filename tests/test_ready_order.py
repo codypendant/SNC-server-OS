@@ -88,6 +88,29 @@ def wait_until(cond, timeout, step=0.05):
 GRANTED = "witness: granted, continuing without the standby"
 
 
+def first_ready_line(lines):
+    """The first 'standby back in sync (READY after v=N)' line in a
+    process's output, or None. A 'READY after v=N refused' line is not one."""
+    return next((l for l in list(lines) if "READY after v=" in l and "refused" not in l), None)
+
+
+def ready_after(line):
+    return int(line.split("after v=")[1].rstrip(")"))
+
+
+def grounding_self_test():
+    """The c2 grounding rule on fixed lines, so that a READY naming an
+    older NOT READY, or a refused one, can never count as grounded."""
+    base = 5  # the new process's own NOT READY
+    stale = "witness: standby back in sync (READY after v=2)"
+    refused = "witness: READY after v=5 refused (NO not ready since v=6); NOT READY again first"
+    good = "witness: standby back in sync (READY after v=5)"
+    assert first_ready_line([refused]) is None
+    assert first_ready_line([refused, good]) == good
+    assert ready_after(first_ready_line([stale, good])) < base  # the first line decides: not grounded
+    assert ready_after(first_ready_line([good])) >= base
+
+
 def c1_delayed_ready(pr):
     res = {"char": CHAR}
     st = pr.wait_ready(30, term=0)
@@ -194,9 +217,15 @@ def c2_restart_held(pr):
     pr.nodes[1].signal(signal.SIGCONT)
     st = pr.wait_ready(60, term=0)
     res["ready_again"] = st
-    ready_line = next((l for l in pr.nodes[0].lines if "READY after v=" in l and "refused" not in l), "")
+    # The witnesses commit READY before their reply reaches the primary,
+    # which only then prints its line, so wait for the line (bounded)
+    # rather than reading once (PR #70 review 5B). pr.nodes[0] is the new
+    # process only (the old one is in pr.old_nodes), so no line from before
+    # the restart can match; the first READY line of the new process still
+    # decides grounding, as before.
+    ready_line = (wait_until(lambda: first_ready_line(pr.nodes[0].lines), 30) if st else None) or ""
     base = int(started.split("at v=")[1])
-    after = int(ready_line.split("after v=")[1].rstrip(")")) if ready_line else 0
+    after = ready_after(ready_line) if ready_line else 0
     res["new_ready_line"] = ready_line
     res["grounded"] = after >= base  # the new process's READY names its own NOT READY
     time.sleep(1)
@@ -346,6 +375,7 @@ if OLD:
 
 
 def main():
+    grounding_self_test()
     names = SCENARIOS or list(SCEN)
     failed = []
     for name in names:

@@ -44,6 +44,8 @@ No targeted reruns were used. Runs 2, 4 and 5 are complete suites.
 Neither failure touches the gauges. Both come from pre-existing test
 harness races, traced as follows. Neither is fixed here, because S0.1 is
 limited to the seqlock fix and the evidence. Proposed patches follow.
+*Both were fixed later, after the PR #70 review: see
+`../harness-races-devvm-20261107/`.*
 
 **Run 1: `test_lab_witness_guard`, case `clean`, `KeyError: None`.**
 - Scenario `p3` calls `lab.primary(0)` once, 2.7 s into the load

@@ -1642,3 +1642,26 @@ or source comments.
       proposed patches. Neither is fixed here.
 -   **Next action:** S0.1 review. S1 is not authorized. No R640, CP-1A or
     competitors.
+
+### 2026-11-07 UTC --- Claude (Claude Code): HA test-harness race fixes, for review
+
+-   **Classification:** KEEP (test-only; no engine, server or witness
+    change).
+-   **What:** `docs/handoff/PR70_S01_Review.txt` approved S0.1 (S0 is
+    complete) and required the two known harness races fixed before S1.
+    - `bench/lab/lab.py`: p3 now uses `Lab.wait_primary` (bounded, exactly
+      one claimant, `None`-safe, raises with the last roles) instead of
+      one `primary()` sample.
+    - `tests/test_ready_order.py`: c2 waits (bounded, 30 s) for the new
+      process's first READY line after READY is chosen. The grounding rule
+      is unchanged and self-tested.
+    - `test_lab_witness_guard` gains a deterministic `primary` case.
+-   **Evidence** (`bench/results/harness-races-devvm-20261107/`):
+    - Each test passes repeatedly: Release ×10, ASan+UBSan ×5, TSan ×5,
+      with 0 sanitizer reports.
+    - 3 stressed parallel rounds with CPU burners pass.
+    - Both races are reproduced deterministically and handled.
+    - c2 still fails when its READY line is absent or stale.
+    - The full Release suite (`ctest -j1`) passes 37/37.
+-   **Next action:** review. S1 design planning may proceed; S1 behaviour
+    waits for this review. No R640, CP-1A, competitors or Profile C.
