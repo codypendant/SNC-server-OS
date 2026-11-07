@@ -1577,3 +1577,30 @@ or source comments.
     record it; S0 adds it to STATS.
 -   **Next action:** DESIGN-R review, then S0 only. No S1-S5, R640 load,
     CP-1A, competitors or Profile C.
+
+### 2026-11-07 UTC --- Claude (Claude Code): S0 observability, for review
+
+-   **Classification:** KEEP (observability only; no behaviour change).
+-   **What:** `docs/handoff/PR68_DesignR_Review.txt` approved DESIGN-R and
+    authorized S0 only. Added per-shard published gauges
+    (`include/snc/gauges.h`: seqlock block written by the shard thread at
+    most every 50 µs; readers never submit shard tasks), node checkpoint
+    gauges, refusal-cause counters (`refused_followup`, `refused_ring`;
+    waiter and WAL-buffer causes stay 0 until S1), waiter, emit and WAL
+    buffer current and peak values, actual `wal_direct`, WAL flush EWMA,
+    checkpoint phase, durations and bytes, and committed start LSN. These
+    are exposed through the new inline admin verb `GAUGES [shard]` and new
+    HEALTH keys appended at the end. CC-1..CC-5 were added to
+    `docs/CORE_CONTRACTS.md` section 13A. Field semantics are in
+    `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` 11.1.
+-   **Evidence:**
+    - `test_gauges` (S0-T1..T7) and `test_gauges_admin.py` (S0-T8) pass.
+    - Release passes 37/37, ASan+UBSan 37/37, and TSan 37/37 with 0 race
+      reports, after the flaky reruns listed in
+      `bench/results/s0-overhead-devvm-20261107/`.
+    - The independent review found no behaviour change; three findings
+      were fixed.
+    - The dev-VM overhead check shows no perturbation beyond about ±7%
+      noise.
+    - The R640 was not used.
+-   **Next action:** S0 review. Do not start S1 automatically.

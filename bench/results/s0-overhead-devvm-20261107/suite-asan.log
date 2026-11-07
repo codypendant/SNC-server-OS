@@ -1,0 +1,40 @@
+ 1/37 Test #27: test_baseline_retry ..............   Passed  244.54 sec
+ 2/37 Test #28: test_sync_readiness ..............   Passed  279.80 sec
+ 3/37 Test #22: test_health ......................   Passed  158.66 sec
+ 4/37 Test #24: test_fail_closed .................   Passed  248.87 sec
+ 5/37 Test #31: test_ready_order .................   Passed  142.27 sec
+ 6/37 Test #30: test_baseline_ha .................   Passed  161.39 sec
+ 7/37 Test #29: test_baseline_move ...............   Passed  114.49 sec
+ 8/37 Test #13: test_migrate .....................   Passed   60.63 sec
+ 9/37 Test #25: test_s1 ..........................   Passed  102.65 sec
+10/37 Test #17: test_stage_chain .................   Passed   20.81 sec
+11/37 Test #19: test_witness .....................   Passed   25.24 sec
+12/37 Test #37: test_net_bench_rate ..............   Passed   15.99 sec
+13/37 Test #20: test_async_failover ..............   Passed   14.24 sec
+14/37 Test #33: test_witness_hardening ...........   Passed    5.98 sec
+15/37 Test #34: test_lab_witness_guard ...........   Passed   14.28 sec
+16/37 Test #12: test_cluster .....................   Passed    7.81 sec
+17/37 Test #32: test_paxos_ballots ...............   Passed    2.43 sec
+18/37 Test #35: test_index_wire ..................   Passed    2.27 sec
+19/37 Test #15: test_proof .......................   Passed    1.05 sec
+20/37 Test #21: test_control .....................   Passed    1.83 sec
+21/37 Test #11: test_replication .................   Passed   27.02 sec
+22/37 Test #14: test_resend_refusals .............   Passed    0.07 sec
+23/37 Test #16: test_placement ...................   Passed    0.15 sec
+24/37 Test  #3: test_local_map ...................   Passed   16.62 sec
+25/37 Test  #4: test_pages .......................   Passed    1.67 sec
+26/37 Test  #8: test_crash .......................   Passed    1.93 sec
+27/37 Test  #7: test_persistence .................   Passed    2.39 sec
+28/37 Test #10: test_transfer ....................   Passed    6.84 sec
+29/37 Test #26: test_profile_check ...............   Passed    0.13 sec
+30/37 Test  #6: test_execute .....................   Passed    1.35 sec
+31/37 Test #36: test_pilot .......................   Passed    0.11 sec
+32/37 Test  #5: test_runtime .....................   Passed    1.44 sec
+33/37 Test  #9: test_net .........................   Passed    0.24 sec
+34/37 Test  #1: test_rate_schedule ...............   Passed    0.02 sec
+35/37 Test  #2: test_object_id ...................   Passed    0.13 sec
+36/37 Test #23: test_gauges_admin ................   Passed    4.74 sec
+37/37 Test #18: test_gauges ......................   Passed    5.02 sec
+100% tests passed, 0 tests failed out of 37
+Total Test time (real) = 847.70 sec
+EXIT 0

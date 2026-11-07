@@ -1,0 +1,100 @@
+{
+ "args": {
+  "main_build": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/main-build",
+  "s0_build": "build",
+  "reps": 3,
+  "seconds": 10.0,
+  "shards": 2,
+  "threads": 2,
+  "checkpoint_s": 5,
+  "out": "/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/s0_overhead.json"
+ },
+ "runs": {
+  "main": [
+   {
+    "ops_s": 427780.0,
+    "p99_ns": 933888.0,
+    "polls": 0
+   },
+   {
+    "ops_s": 413304.0,
+    "p99_ns": 983040.0,
+    "polls": 0
+   },
+   {
+    "ops_s": 471219.0,
+    "p99_ns": 770048.0,
+    "polls": 0
+   }
+  ],
+  "s0-unread": [
+   {
+    "ops_s": 417044.0,
+    "p99_ns": 917504.0,
+    "polls": 0
+   },
+   {
+    "ops_s": 466314.0,
+    "p99_ns": 770048.0,
+    "polls": 0
+   },
+   {
+    "ops_s": 470275.0,
+    "p99_ns": 770048.0,
+    "polls": 0
+   }
+  ],
+  "s0-rare": [
+   {
+    "ops_s": 449088.0,
+    "p99_ns": 851968.0,
+    "polls": 11
+   },
+   {
+    "ops_s": 469093.0,
+    "p99_ns": 786432.0,
+    "polls": 11
+   },
+   {
+    "ops_s": 431256.0,
+    "p99_ns": 901120.0,
+    "polls": 11
+   }
+  ],
+  "s0-hot": [
+   {
+    "ops_s": 435818.0,
+    "p99_ns": 901120.0,
+    "polls": 2092
+   },
+   {
+    "ops_s": 474685.0,
+    "p99_ns": 753664.0,
+    "polls": 2064
+   },
+   {
+    "ops_s": 431937.0,
+    "p99_ns": 884736.0,
+    "polls": 2074
+   }
+  ]
+ },
+ "summary": {
+  "main": {
+   "median_ops_s": 427780.0,
+   "median_p99_ns": 933888.0
+  },
+  "s0-unread": {
+   "median_ops_s": 466314.0,
+   "median_p99_ns": 770048.0
+  },
+  "s0-rare": {
+   "median_ops_s": 449088.0,
+   "median_p99_ns": 851968.0
+  },
+  "s0-hot": {
+   "median_ops_s": 435818.0,
+   "median_p99_ns": 884736.0
+  }
+ }
+}
