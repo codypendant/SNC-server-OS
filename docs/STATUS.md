@@ -135,6 +135,11 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **State-native computing lineage (research, not authorized):**
+  [STATE_NATIVE_COMPUTING_LINEAGE.md](STATE_NATIVE_COMPUTING_LINEAGE.md)
+  records prior art and frames the minimal durable state-machine contract
+  (DSM-1..DSM-10) as hypotheses. It authorizes no branching, replay or DSM
+  implementation.
 - **Evidence rules:** every benchmark host has a manifest in
   [bench/manifests/](../bench/manifests/README.md); raw results go under
   `bench/results/<campaign>/` with the exact configuration and commit
