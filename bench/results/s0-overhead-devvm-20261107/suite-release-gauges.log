@@ -1,0 +1,5 @@
+1/2 Test #18: test_gauges ......................   Passed    0.75 sec
+2/2 Test #23: test_gauges_admin ................   Passed    3.95 sec
+100% tests passed, 0 tests failed out of 2
+Total Test time (real) =   4.70 sec
+EXIT 0

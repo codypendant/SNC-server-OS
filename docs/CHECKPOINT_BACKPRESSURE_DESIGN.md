@@ -871,6 +871,102 @@ needs to choose them.
 - full Release, ASan+UBSan and TSan, sequentially;
 - independent review, then the Codex/cody review before S1.
 
+### 11.1 S0 as built (for review)
+
+*Authorized by `docs/handoff/PR68_DesignR_Review.txt`. Behaviour-neutral:
+no admission, ordering, slice, I/O, sync, `kEmitBacklog`, status,
+recovery or reclamation change.*
+
+**Architecture.** Each shard owns one cache-line-aligned block of relaxed
+atomics (`ShardGauges`, `include/snc/gauges.h`), allocated by the Engine
+next to its other shared flags. Only the shard's thread writes it:
+`Shard::publish_gauges` copies counters the shard already keeps (plus a
+few new plain fields) into the block at the end of `Shard::poll`, at most
+every 50 µs, and at once after a checkpoint phase change and at stop. A
+sequence number, odd while a publish runs, lets a reader take a
+consistent snapshot (`ShardGauges::read`, up to 64 retries; the
+`consistent` flag says whether it got one). Readers (`Engine::gauges`,
+HEALTH, the `GAUGES` admin verb) never submit a shard task, never take a
+lock a shard holds and never allocate on a shard. So the discarded
+telemetry's synchronous polling is not reproduced. The node's checkpoint
+(`NodeCkptGauges`) is written by the thread running `Engine::checkpoint`.
+`committed_start_lsn` is written by the Engine at each commit and at
+recovery.
+
+STATS and RESOURCES are unchanged in shape and still use their existing
+per-shard tasks. `ShardStats` gains `refused_followup`, `refused_ring` and
+`gather_overloaded` (additive); `overloaded` stays and equals the first
+two summed.
+
+**Fields** (per shard; names as in `kGaugeNames` and the `GAUGES` verb):
+
+| Field | Meaning | Updated by |
+|---|---|---|
+| `refused_followup`, `refused_ring` | E_OVERLOADED by cause: the follow-up gate in `execute`; a full ring with full overflow in `send_request` / `send_batch` | the refusing code |
+| `refused_waiter`, `refused_wal_buffer` | S1 causes; **always 0 in S0** (no such refusal exists yet) | — |
+| `gather_overloaded` | index gather legs dropped because a ring was full (not a client refusal by itself) | `index_lookup` |
+| `waiters_now`, `waiters_peak` | durability waiters held now, most ever held | `defer`, `release_waiters`, `withdraw` |
+| `waiter_bytes_now`, `waiter_bytes_peak` | Σ(`sizeof(Waiter)` + a LOCAL answer's copied result + a REMOTE answer's external result buffer); excludes `std::deque` block overhead | same |
+| `emits_now`, `emits_peak` | `emits_in_flight()`; peak as seen at each admission check and each publish (not every internal increment) | `execute`, `publish_gauges` |
+| `wal_direct` | the WAL's **actual** I/O mode of the open segment (`WalStream::direct()`, set from the `open` result, including the `EINVAL` fallback and spares) | WAL |
+| `wal_active_bytes_now`, `wal_active_bytes_peak`, `wal_buffer_cap_bytes` | unflushed record bytes, the most ever held, and active + flushing buffer capacity | `append`, `append_raw` |
+| `wal_next_lsn`, `wal_durable_lsn`, `wal_undurable` | as named; undurable = next − 1 − durable | WAL |
+| `wal_flushes`, `wal_flush_ewma_us`, `wal_flush_max_us` | count; EWMA (α = 1/8, first sample sets it, `Ewma` in `gauges.h`) and max of submit-to-completion latency. The existing log2 histogram stays in STATS | `flush_done` |
+| `wal_flush_since_ns` | start of the flush in flight, 0 if none (the verb also prints its age) | WAL |
+| `ckpt_phase` | `idle, snapshot, walk, drain, durable_wait, sync` (snapshot is one step and is never published mid-way) | `ckpt_enter` |
+| `ckpt_seq`, `ckpt_started_ns`, `ckpt_phase_since_ns` | the checkpoint in progress or last finished; start and phase-entry instants (0 when idle) | same |
+| `ckpt_objects`, `ckpt_bytes_issued`, `ckpt_bytes_written` | images so far; bytes handed to write; bytes whose write completed (after the part: the last part's) | checkpoint code |
+| `ckpt_writes_inflight`, `ckpt_writes_inflight_peak` | chunk writes in flight now; most at once in the current or last part | `checkpoint_write_chunk` |
+| `ckpt_last_{snapshot,walk,drain,durable_wait,sync,total}_us` | phase durations of the last finished part | `ckpt_enter` |
+| `ckpt_last_result`, `ckpt_completed` | 0 none yet / 1 ok; count. A failed checkpoint write or sync is fatal today (spec C7), so no failed result can be recorded | same |
+| `published_ns` | when this block was published | `publish_gauges` |
+| `committed_start_lsn`, `wal_replay_records` (verb only) | start LSN of this stream in the active checkpoint (1 for a space with none); records a recovery would replay now. Records only: segments kept for a standby or seed are not included | Engine |
+
+Node: `ckpt` (`idle, shards, commit, reclaim`), `ckpt_seq`,
+`ckpt_age_ms`, `ckpt_last_ms`, `ckpt_last_{shards,commit,reclaim}_ms`,
+`ckpt_done`.
+
+**HEALTH** appends, after every existing key: `ckpt=<node phase>
+ckpt_age_ms= ckpt_last_ms= ckpt_done=`, plus `ckpt_slow_shard=
+ckpt_slow_phase=` while a shard's part is in progress (the shard in the
+earliest phase). The existing keys stay the line's prefix, in order.
+
+**GAUGES** is answered inline in one non-blocking send, like HEALTH, so
+it never queues behind a heavy verb. That bounds its size: above 8 shards
+(about 1.7 KB per shard) it requires a shard argument. Node checkpoint
+fields are separate atomics, consistent each on its own, not with each
+other. Before a shard's first publish its block reads as zeros
+(`published_ns` = 0). These are diagnostic (HL-4). Target and
+hard-maximum fields are **not** added: neither exists before S2, and a
+placeholder would read as a configured bound.
+
+**Hot-path cost (INFERRED; the micro-check below measures it).**
+- Per op: one compare-and-store on a plain `u64` at the admission gate
+  (`emits_peak_`). Per deferred answer: two additions and two compares.
+  Per WAL append: one compare. Per refusal: one increment. Per flush: an
+  EWMA step (three integer operations). No atomic, lock, allocation or
+  syscall on any of these.
+- Per loop iteration: one clock read was already there (`wal_->poll`);
+  `publish_gauges` adds another and a compare, and returns unless 50 µs
+  have passed. When it publishes: 41 relaxed stores plus the sequence
+  stores, into a block only this thread writes (about 20 kHz at most).
+- Readers touch only the block's cache lines, which costs the shard a
+  cache-line transfer on its next publish after a read. With GAUGES
+  polled every 10 ms that is about 100 transfers a second per shard.
+
+**Tests** (`tests/test_gauges.cpp`, `tests/test_gauges_admin.py`): S0-T1
+refusal causes (follow-up gate with held follow-ups; full ring with a
+held destination shard); S0-T2 current returns to zero and peak holds;
+S0-T3 actual WAL mode (O_DIRECT default, configured buffered, tmpfs as
+opened; a real `EINVAL` fallback is not reachable here, because tmpfs
+accepts `O_DIRECT` since Linux 6.6); S0-T4 exact EWMA values and reset;
+S0-T5 legal phase order, durations, bytes equal to the part file's size,
+node phases and counts; S0-T6 exact recovery after checkpoints taken while
+a reader polls every gauge; S0-T7 200,000 publishes against two readers,
+no torn snapshot; S0-T8 HEALTH keys and order, GAUGES content and
+scoping, STATUS and RESOURCES unchanged, and GAUGES and HEALTH
+answering within 1 ms while a shard is stalled for 2 s.
+
 ## 12. Open questions for the DESIGN-R review
 
 1. **Loop order (6.3).** Is moving `reap_io` before the ring drain, and

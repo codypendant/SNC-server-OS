@@ -40,6 +40,7 @@ struct EngineHooks {
   std::atomic<bool>* replicating;
   std::atomic<u8>* phases;
   std::atomic<u64>* epoch_hint;
+  ShardGauges* gauges;  // one per shard (S0, observability)
 };
 
 void hook_init(void* user) {
@@ -56,6 +57,7 @@ void hook_init(void* user) {
   s->set_replicating_flag(h->replicating);
   s->set_phases(h->phases);
   s->set_epoch_hint(h->epoch_hint);
+  s->set_gauges(&h->gauges[id]);
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -92,6 +94,7 @@ bool hook_quiesced(void*) { return current_shard()->quiesced(); }
 void hook_fini(void* user) {
   auto* h = static_cast<EngineHooks*>(user);
   u16 id = sri_shard_id();
+  current_shard()->publish_gauges(sri_now_ns(), /*force=*/true);  // stopped: the final values
   (*h->final_stats)[id] = current_shard()->stats();
   (*h->shards)[id] = nullptr;
   delete current_shard();
@@ -177,6 +180,10 @@ struct EngineState {
   // placement epoch seen on a node link.
   std::array<std::atomic<u8>, kSlots> phases{};
   std::atomic<u64> epoch_hint{0};
+  // Published gauges (include/snc/gauges.h, S0): one block per shard, and
+  // the node's checkpoint.
+  std::unique_ptr<ShardGauges[]> gauges;
+  NodeCkptGauges node_ckpt;
 };
 
 static std::unique_ptr<EngineState> g_state;
@@ -215,8 +222,10 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   g_state = std::make_unique<EngineState>();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
+  g_state->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
   g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced,
-                               &g_state->replicating, g_state->phases.data(), &g_state->epoch_hint};
+                               &g_state->replicating, g_state->phases.data(), &g_state->epoch_hint,
+                               g_state->gauges.get()};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -531,6 +540,11 @@ void Engine::recover() {
   std::vector<u32> tail_crc(n, 0);  // crc of each stream's last record, for replication
   bool orphans = false;
   auto from_lsn = [&](u16 s) -> u64 { return (m && s < m->start_lsn.size()) ? m->start_lsn[s] : 1; };
+  // Observability (S0): where a recovery replays each stream from, until
+  // the next checkpoint commits (a remap commits one at step 8).
+  if (!recovery_.remapped) {
+    for (u16 s = 0; s < n; ++s) g_state->gauges[s].set_committed_start_lsn(from_lsn(s));
+  }
 
   if (m && !recovery_.remapped) {
     // Same slot map as when the files were written: part s and stream s hold
@@ -859,6 +873,12 @@ CheckpointReport Engine::checkpoint() {
   const u16 n = cfg_.runtime.n_shards;
   u64 seq = sb_.active_ckpt + 1;
   rep.seq = seq;
+  // Observability (S0): the node's phase, read by HEALTH without waiting.
+  NodeCkptGauges& ng = g_state->node_ckpt;
+  const u64 g0 = sri_now_ns();
+  ng.seq.store(seq, std::memory_order_relaxed);
+  ng.started_ns.store(g0, std::memory_order_relaxed);
+  ng.phase.store(static_cast<u64>(NodeCkptPhase::SHARDS), std::memory_order_relaxed);
   make_dirs(ckpt_dir(dir, seq));
 
   // Expired client sessions go first (a standby gets the deletes from its
@@ -880,6 +900,8 @@ CheckpointReport Engine::checkpoint() {
     });
   }
   done.wait();
+  const u64 g1 = sri_now_ns();
+  ng.phase.store(static_cast<u64>(NodeCkptPhase::COMMIT), std::memory_order_relaxed);
   fsync_dir(ckpt_dir(dir, seq));
 
   // Step 4: manifest, then the superblock switch (spec C6).
@@ -927,6 +949,10 @@ CheckpointReport Engine::checkpoint() {
   }
   ++sb_.generation;
   write_superblock(dir, sb_);
+  // Committed: a recovery now replays each stream from its start LSN.
+  for (u16 s = 0; s < n; ++s) g_state->gauges[s].set_committed_start_lsn(m.start_lsn[s]);
+  const u64 g2 = sri_now_ns();
+  ng.phase.store(static_cast<u64>(NodeCkptPhase::RECLAIM), std::memory_order_relaxed);
 
   // Step 5: only now delete what the new checkpoint covers (spec C10),
   // except a checkpoint a seed is still sending.
@@ -972,6 +998,14 @@ CheckpointReport Engine::checkpoint() {
   fsync_dir(dir + "/ckpt");
   fsync_dir(dir + "/wal");
   rep.seconds = since(t0);
+  const u64 g3 = sri_now_ns();
+  ng.last_shards_us.store((g1 - g0) / 1000, std::memory_order_relaxed);
+  ng.last_commit_us.store((g2 - g1) / 1000, std::memory_order_relaxed);
+  ng.last_reclaim_us.store((g3 - g2) / 1000, std::memory_order_relaxed);
+  ng.last_total_us.store((g3 - g0) / 1000, std::memory_order_relaxed);
+  ng.completed.fetch_add(1, std::memory_order_relaxed);
+  ng.started_ns.store(0, std::memory_order_relaxed);
+  ng.phase.store(static_cast<u64>(NodeCkptPhase::IDLE), std::memory_order_relaxed);
   return rep;
 }
 
@@ -1366,6 +1400,16 @@ Engine::ReplStatus Engine::replication_status() const {
   }
   done.wait();
   return st;
+}
+
+GaugeSnapshot Engine::gauges(u16 shard) const {
+  if (!g_state || !g_state->gauges || shard >= cfg_.runtime.n_shards) return GaugeSnapshot{};
+  return g_state->gauges[shard].read();
+}
+
+const NodeCkptGauges& Engine::checkpoint_gauges() const {
+  static const NodeCkptGauges none;
+  return g_state ? g_state->node_ckpt : none;
 }
 
 ShardStats Engine::stats(u16 shard) const {

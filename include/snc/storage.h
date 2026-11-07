@@ -5,6 +5,8 @@
 //   <data_dir>/ckpt/<seq:016x>/manifest  part-<stream:03>.ckpt
 #pragma once
 
+#include "snc/gauges.h"
+
 #include <array>
 #include <atomic>
 #include <condition_variable>
@@ -205,6 +207,11 @@ class WalStream {
   u64 next_lsn() const { return next_lsn_; }
   bool idle() const { return !inflight_ && active_len_ == 0; }
   bool direct() const { return direct_; }
+  // Observability (S0): unflushed bytes, buffer capacity, and when the
+  // flush in flight started (0 if none).
+  u32 active_bytes() const { return active_len_; }
+  u64 buffer_cap_bytes() const { return u64{active_cap_} + flushing_cap_; }
+  u64 flush_since_ns() const { return inflight_ ? flush_start_ns_ : 0; }
 
   struct Stats {
     u64 records = 0;
@@ -219,6 +226,9 @@ class WalStream {
     u64 flush_us_log2[24] = {};
     u64 flush_us_max = 0;
     u64 rollover_us_max = 0;  // longest segment switch on the shard thread
+    // Observability (S0, docs/CHECKPOINT_BACKPRESSURE_DESIGN.md 11).
+    u64 active_bytes_peak = 0;  // most unflushed record bytes held at once
+    Ewma flush_us_ewma;         // flush latency, submit to completion
   };
   const Stats& stats() const { return stats_; }
 

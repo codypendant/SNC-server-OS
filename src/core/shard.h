@@ -162,6 +162,12 @@ class Shard {
   bool is_standby() const { return repl_cfg_.standby; }
   // A placement epoch newer than this shard's was seen (a node link frame).
   void set_epoch_hint(std::atomic<u64>* hint) { epoch_hint_ = hint; }
+  // Published gauges (include/snc/gauges.h, S0). Observability only.
+  void set_gauges(ShardGauges* g) { gauges_ = g; }
+  // Copies this shard's counters into its gauge block: at most every
+  // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
+  // phase change. Shard thread only.
+  void publish_gauges(u64 now_ns, bool force = false);
   // Opens this shard's node links, once its state is recovered (or it is
   // promoted: a standby has none).
   void start_links();
@@ -560,6 +566,29 @@ class Shard {
   bool emits_paused_ = false;
   bool resuming_ = false;
   Checkpoint ckpt_;
+  // Observability (S0): survives `ckpt_ = Checkpoint{}`.
+  struct CkptObs {
+    CkptPhase phase = CkptPhase::IDLE;
+    u64 seq = 0, started_ns = 0, phase_since_ns = 0;
+    u64 bytes_written = 0, writes_peak = 0;
+    u64 snapshot_us = 0, walk_us = 0, drain_us = 0, durable_wait_us = 0;  // of the one in progress
+    u64 last_snapshot_us = 0, last_walk_us = 0, last_drain_us = 0, last_durable_wait_us = 0,
+        last_sync_us = 0, last_total_us = 0, last_result = 0, completed = 0;
+    u64 last_objects = 0, last_bytes_issued = 0;
+  } ckpt_obs_;
+  void ckpt_enter(CkptPhase p, u64 now_ns);  // records the phase just left
+  // Observability (S0): memory a held answer pins, excluding std::deque
+  // block overhead: the Waiter, a LOCAL answer's copied result, a REMOTE
+  // answer's external result buffer.
+  static u64 waiter_cost(const Waiter& w) {
+    u64 b = sizeof(Waiter) + w.result.size();
+    if (w.kind == Waiter::Kind::REMOTE && w.resp.len > kMsgInlineBytes) b += w.resp.len;
+    return b;
+  }
+  ShardGauges* gauges_ = nullptr;
+  u64 gauges_published_ns_ = 0;
+  bool gauges_dirty_ = false;
+  u64 waiters_peak_ = 0, waiter_bytes_ = 0, waiter_bytes_peak_ = 0, emits_peak_ = 0;
 
   const ClusterMap* cluster_ = nullptr;
   // Per slot: the placement epoch at which it last changed group (low 32
