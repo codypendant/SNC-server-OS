@@ -1,0 +1,53 @@
+preflight ok
+S-w30-r0 done
+S-w30-r1 done
+S-w30-r2 done
+{
+ "reps": {
+  "r0": {
+   "exec_refused": 0,
+   "index_refused": 0,
+   "p99_ns": 1015808,
+   "p999_ns": 1245184,
+   "max_ns": 6160027,
+   "achieved": 2183210,
+   "late_over_1ms": 0,
+   "scheduled_in_window": 65496990,
+   "checkpoints": 0,
+   "samples": 462,
+   "max_await_ms": 0.072,
+   "events": []
+  },
+  "r1": {
+   "exec_refused": 0,
+   "index_refused": 0,
+   "p99_ns": 999424,
+   "p999_ns": 1245184,
+   "max_ns": 5931411,
+   "achieved": 2183207,
+   "late_over_1ms": 0,
+   "scheduled_in_window": 65496990,
+   "checkpoints": 0,
+   "samples": 460,
+   "max_await_ms": 0.1,
+   "events": []
+  },
+  "r2": {
+   "exec_refused": 0,
+   "index_refused": 0,
+   "p99_ns": 1015808,
+   "p999_ns": 1245184,
+   "max_ns": 6086419,
+   "achieved": 2183209,
+   "late_over_1ms": 0,
+   "scheduled_in_window": 65496990,
+   "checkpoints": 0,
+   "samples": 460,
+   "max_await_ms": 0.071,
+   "events": []
+  }
+ },
+ "verdict": "ELIMINATED",
+ "confounded": []
+}
+ALL DONE
