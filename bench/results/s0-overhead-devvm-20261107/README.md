@@ -30,6 +30,10 @@ It cannot resolve effects smaller than a few percent.
 
 ## Suites
 
+*These runs are not clean first-pass 37/37 runs (PR #69 review, section
+11). The clean final validation, on the S0.1 code, is in
+`../s01-validation-devvm-20261107/`.*
+
 The `suite-*.log` files are summaries of the ctest output.
 
 | Suite | First run | Rerun |

@@ -877,7 +877,7 @@ needs to choose them.
 no admission, ordering, slice, I/O, sync, `kEmitBacklog`, status,
 recovery or reclamation change.*
 
-**Architecture.** Each shard owns one cache-line-aligned block of relaxed
+**Architecture.** Each shard owns one cache-line-aligned block of
 atomics (`ShardGauges`, `include/snc/gauges.h`), allocated by the Engine
 next to its other shared flags. Only the shard's thread writes it:
 `Shard::publish_gauges` copies counters the shard already keeps (plus a
@@ -885,7 +885,21 @@ few new plain fields) into the block at the end of `Shard::poll`, at most
 every 50 µs, and at once after a checkpoint phase change and at stop. A
 sequence number, odd while a publish runs, lets a reader take a
 consistent snapshot (`ShardGauges::read`, up to 64 retries; the
-`consistent` flag says whether it got one). Readers (`Engine::gauges`,
+`consistent` flag says whether it got one).
+
+**Memory-order contract (S0.1, `docs/handoff/PR69_S0_Review.txt`).**
+- The writer stores the odd sequence (release), then each field
+  (release), then the even sequence (release).
+- The reader loads the sequence (acquire) and retries if it is odd.
+  It then loads each field (acquire) and the sequence again (acquire).
+- The reader accepts only when the two sequence reads are equal, which
+  means they are even.
+- The final release publishes every field store before it. A field load
+  that read a later publish's store makes that publish's odd sequence
+  visible to the second read, so a mixed snapshot is rejected.
+- The proof, step by step, is in `include/snc/gauges.h`.
+- No `seq_cst` is used. On x86-64 every one of these compiles to a plain
+  load or store. Readers (`Engine::gauges`,
 HEALTH, the `GAUGES` admin verb) never submit a shard task, never take a
 lock a shard holds and never allocate on a shard. So the discarded
 telemetry's synchronous polling is not reproduced. The node's checkpoint
@@ -948,8 +962,8 @@ placeholder would read as a configured bound.
   syscall on any of these.
 - Per loop iteration: one clock read was already there (`wal_->poll`);
   `publish_gauges` adds another and a compare, and returns unless 50 µs
-  have passed. When it publishes: 41 relaxed stores plus the sequence
-  stores, into a block only this thread writes (about 20 kHz at most).
+  have passed. When it publishes: 41 release stores (plain stores on
+  x86-64) plus the sequence stores, into a block only this thread writes (about 20 kHz at most).
 - Readers touch only the block's cache lines, which costs the shard a
   cache-line transfer on its next publish after a read. With GAUGES
   polled every 10 ms that is about 100 transfers a second per shard.
@@ -963,7 +977,7 @@ accepts `O_DIRECT` since Linux 6.6); S0-T4 exact EWMA values and reset;
 S0-T5 legal phase order, durations, bytes equal to the part file's size,
 node phases and counts; S0-T6 exact recovery after checkpoints taken while
 a reader polls every gauge; S0-T7 200,000 publishes against two readers,
-no torn snapshot; S0-T8 HEALTH keys and order, GAUGES content and
+no torn snapshot (also under TSan); S0-T8 HEALTH keys and order, GAUGES content and
 scoping, STATUS and RESOURCES unchanged, and GAUGES and HEALTH
 answering within 1 ms while a shard is stalled for 2 s.
 

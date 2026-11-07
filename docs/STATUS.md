@@ -33,8 +33,10 @@ Decided by cody on 2026-11-04.
      engine design gap). The checkpoint/backpressure design
      ([CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md))
      was accepted as direction (PR #67) and its revision 2 approved (PR #68).
-     S0 observability (published gauges, no behaviour change) awaits review;
-     S1 needs its own review
+     S0 observability (published gauges, no behaviour change) was approved
+     in architecture and scope (PR #69). Its S0.1 seqlock memory-order fix,
+     with clean Release, ASan+UBSan and serial TSan runs, awaits review;
+     S1 is not authorized and needs its own review
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.

@@ -1,0 +1,93 @@
+Internal ctest changing into directory: /home/claude/snc-server-os/build-asan
+Test project /home/claude/snc-server-os/build-asan
+      Start  1: test_rate_schedule
+ 1/37 Test  #1: test_rate_schedule ...............   Passed    0.03 sec
+      Start  2: test_object_id
+ 2/37 Test  #2: test_object_id ...................   Passed    0.14 sec
+      Start  3: test_local_map
+ 3/37 Test  #3: test_local_map ...................   Passed   13.80 sec
+      Start  4: test_pages
+ 4/37 Test  #4: test_pages .......................   Passed    1.62 sec
+      Start  5: test_runtime
+ 5/37 Test  #5: test_runtime .....................   Passed    0.90 sec
+      Start  6: test_execute
+ 6/37 Test  #6: test_execute .....................   Passed    0.49 sec
+      Start  7: test_persistence
+ 7/37 Test  #7: test_persistence .................   Passed    1.58 sec
+      Start  8: test_crash
+ 8/37 Test  #8: test_crash .......................   Passed    1.84 sec
+      Start  9: test_net
+ 9/37 Test  #9: test_net .........................   Passed    0.17 sec
+      Start 10: test_transfer
+10/37 Test #10: test_transfer ....................   Passed    5.15 sec
+      Start 11: test_replication
+11/37 Test #11: test_replication .................   Passed   21.92 sec
+      Start 12: test_cluster
+12/37 Test #12: test_cluster .....................   Passed    7.16 sec
+      Start 13: test_migrate
+13/37 Test #13: test_migrate .....................   Passed   52.27 sec
+      Start 14: test_resend_refusals
+14/37 Test #14: test_resend_refusals .............   Passed    0.08 sec
+      Start 15: test_proof
+15/37 Test #15: test_proof .......................   Passed    1.08 sec
+      Start 16: test_placement
+16/37 Test #16: test_placement ...................   Passed    0.21 sec
+      Start 17: test_stage_chain
+17/37 Test #17: test_stage_chain .................   Passed   23.37 sec
+      Start 18: test_gauges
+18/37 Test #18: test_gauges ......................   Passed    2.97 sec
+      Start 19: test_witness
+19/37 Test #19: test_witness .....................   Passed   25.24 sec
+      Start 20: test_async_failover
+20/37 Test #20: test_async_failover ..............   Passed   13.80 sec
+      Start 21: test_control
+21/37 Test #21: test_control .....................   Passed    1.70 sec
+      Start 22: test_health
+22/37 Test #22: test_health ......................   Passed  158.05 sec
+      Start 23: test_gauges_admin
+23/37 Test #23: test_gauges_admin ................   Passed    4.14 sec
+      Start 24: test_fail_closed
+24/37 Test #24: test_fail_closed .................   Passed  251.45 sec
+      Start 25: test_s1
+25/37 Test #25: test_s1 ..........................   Passed   74.27 sec
+      Start 26: test_profile_check
+26/37 Test #26: test_profile_check ...............   Passed    0.12 sec
+      Start 27: test_baseline_retry
+27/37 Test #27: test_baseline_retry ..............   Passed  244.63 sec
+      Start 28: test_sync_readiness
+28/37 Test #28: test_sync_readiness ..............   Passed  283.21 sec
+      Start 29: test_baseline_move
+29/37 Test #29: test_baseline_move ...............   Passed  114.16 sec
+      Start 30: test_baseline_ha
+30/37 Test #30: test_baseline_ha .................   Passed  138.75 sec
+      Start 31: test_ready_order
+31/37 Test #31: test_ready_order .................***Failed  143.00 sec
+PASS c1_delayed_ready {"char": false, "state_after_grant_1": [4, 0, 0, true], "held_before_loss": 1, "state_after_grant_2": [5, 0, 0, true], "released": ["OK released 1", "OK released 1", "OK released 1"], "state_after_release": [5, 0, 0, true], "ready_restored": false, "witness_lines": ["t=0.07 group 0 READY: primary term 0 READY after=2: OK v=3", "t=2.63 group 0 NOTREADY: primary term 0 NOT READY: OK v=4", "t=7.91 group 0 NOTREADY: primary term 0 NOT READY: OK v=5", "t=9.94 group 0 READY: primary term 0 READY after=4: NO not ready since v=5", "t=9.94 group 0 READY: primary term 0 READY after=4: NO not ready since v=5", "t=9.94 group 0 READY: primary term 0 READY after=4: NO not ready since v=5"], "primary_lines": ["witness: recorded NOT READY (this primary started) at v=2", "witness: standby back in sync (READY after v=2)", "witness: granted, continuing without the standby", "witness: granted, continuing without the standby"], "promoted": null, "final_state": [5, 0, 0, true], "refused": 3, "pass": true, "scenario": "c1_delayed_ready", "seconds": 19.7}
+FAIL c2_restart_held {"old_process_lines": ["witness: recorded NOT READY (this primary started) at v=2", "witness: granted, continuing without the standby"], "new_process_start": "witness: recorded NOT READY (this primary started) at v=5", "released": ["OK released 1", "OK released 0", "OK released 0"], "state_after_release": [6, 0, 0, true], "refusals": 1, "refused": true, "ready_again": [7, 0, 0, false], "new_ready_line": "", "grounded": false, "promoted": [8, 1, 1, true], "bench": {"rc": 0, "accounts": 2000, "deposits": 2457881, "mismatches": 0, "failovers": 4, "tail": ["  deposit latency ns  n 2457881  p50 2490368  p95 3997696  p99 5242880  p99.9 11534336  max 5118849955", "  failovers 4  replayed 228  timeouts 0  resends 256  max_resend_age_ms 5114", "  retry claim: max_resend_age_ms 5114, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 2457881 deposits, 0 mismatches"]}, "pass": false, "scenario": "c2_restart_held", "seconds": 61.5}
+PASS c3_two_failovers {"promoted_state": [4, 1, 1, true], "promotion_not_ready": true, "released": ["OK released 1", "OK released 1", "OK released 1"], "state_after_release": [6, 1, 1, true], "refusals": 3, "refused": true, "ready_term_1": [7, 1, 1, false], "second_promoted": [8, 2, 0, true], "bench": {"rc": 0, "accounts": 2000, "deposits": 3301157, "mismatches": 0, "failovers": 4, "tail": ["  deposit latency ns  n 3301157  p50 1671168  p95 3276800  p99 5111808  p99.9 13893632  max 4562270548", "  failovers 4  replayed 200  timeouts 0  resends 256  max_resend_age_ms 1014", "  retry claim: max_resend_age_ms 1014, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 3301157 deposits, 0 mismatches"]}, "pass": true, "scenario": "c3_two_failovers", "seconds": 61.7}
+test_ready_order: FAILED ['c2_restart_held']
+
+      Start 32: test_paxos_ballots
+32/37 Test #32: test_paxos_ballots ...............   Passed    2.24 sec
+      Start 33: test_witness_hardening
+33/37 Test #33: test_witness_hardening ...........   Passed    6.11 sec
+      Start 34: test_lab_witness_guard
+34/37 Test #34: test_lab_witness_guard ...........   Passed   14.17 sec
+      Start 35: test_index_wire
+35/37 Test #35: test_index_wire ..................   Passed    2.20 sec
+      Start 36: test_pilot
+36/37 Test #36: test_pilot .......................   Passed    0.07 sec
+      Start 37: test_net_bench_rate
+37/37 Test #37: test_net_bench_rate ..............   Passed   16.01 sec
+
+97% tests passed, 1 tests failed out of 37
+
+Total Test time (real) = 1628.11 sec
+
+The following tests FAILED:
+	 31 - test_ready_order (Failed)
+Errors while running CTest
+
+real	27m8.123s
+user	30m39.074s
+sys	11m39.300s
