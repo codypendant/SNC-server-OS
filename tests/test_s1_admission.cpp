@@ -29,8 +29,14 @@
 //
 // Every refusal is checked against exactly one refused_* cause in both
 // ShardStats and the published gauges.
+#include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+#include <algorithm>
+#include <cstring>
 
 #include <atomic>
 #include <cstdio>
@@ -135,25 +141,29 @@ GaugeSnapshot fresh(Engine& eng, u16 s) {
 
 // The refusal causes of one shard, from STATS and from its gauges.
 struct Causes {
-  u64 followup, ring, waiter, wal, overloaded;
+  u64 followup, ring, waiter, wal, pending, overloaded;
 };
 Causes causes(Engine& eng, u16 s) {
   ShardStats st = eng.stats(s);
-  CHECK_EQ(st.overloaded, st.refused_followup + st.refused_ring + st.refused_waiter + st.refused_wal_buffer);
+  CHECK_EQ(st.overloaded,
+           st.refused_followup + st.refused_ring + st.refused_waiter + st.refused_wal_buffer + st.refused_pending);
   GaugeSnapshot g = fresh(eng, s);
   CHECK_EQ(g[G_REFUSED_FOLLOWUP], st.refused_followup);
   CHECK_EQ(g[G_REFUSED_RING], st.refused_ring);
   CHECK_EQ(g[G_REFUSED_WAITER], st.refused_waiter);
   CHECK_EQ(g[G_REFUSED_WAL_BUFFER], st.refused_wal_buffer);
-  return {st.refused_followup, st.refused_ring, st.refused_waiter, st.refused_wal_buffer, st.overloaded};
+  CHECK_EQ(g[G_REFUSED_PENDING], st.refused_pending);
+  return {st.refused_followup, st.refused_ring,    st.refused_waiter,
+          st.refused_wal_buffer, st.refused_pending, st.overloaded};
 }
 // Exactly `n` new refusals since `before`, all of cause `which`.
-enum Which { FOLLOWUP, RING, WAITER, WAL };
+enum Which { FOLLOWUP, RING, WAITER, WAL, PENDING };
 void expect_causes(const Causes& before, const Causes& now, Which which, u64 n) {
   CHECK_EQ(now.followup - before.followup, which == FOLLOWUP ? n : 0u);
   CHECK_EQ(now.ring - before.ring, which == RING ? n : 0u);
   CHECK_EQ(now.waiter - before.waiter, which == WAITER ? n : 0u);
   CHECK_EQ(now.wal - before.wal, which == WAL ? n : 0u);
+  CHECK_EQ(now.pending - before.pending, which == PENDING ? n : 0u);
   CHECK_EQ(now.overloaded - before.overloaded, n);
 }
 
@@ -218,10 +228,10 @@ void deposit(const ObjectID& id, i64 amount, const ExecOptions& o, Async& a) {
 }
 
 // The worst case admit() reserves for a deposit (shard.cpp run_exec).
-u64 mutation_wal_need(bool sequenced) {
+u64 mutation_wal_need(bool sequenced, u32 type = kTypeId) {
   u64 peer = 0;
   for (const TypeDescriptor& t : registry().types()) peer = std::max<u64>(peer, record_size(t.max_size));
-  return record_size(registry().type(kTypeId)->max_size) + peer + (sequenced ? record_size(sizeof(SessionV1)) : 0);
+  return record_size(registry().type(type)->max_size) + peer + (sequenced ? record_size(sizeof(SessionV1)) : 0);
 }
 constexpr u32 kDepositRecord = 256;  // record_size(200): an account without entries
 
@@ -551,24 +561,26 @@ void test_internal_drains() {
   c.hold_emits = true;
   // Shard 1's clients are closed by the WAL budget: with its WAL held,
   // deposits are admitted at 0 and 256 active bytes and refused from 512.
-  // Each credit appends 256 bytes more, so a gated follow-up would be refused.
-  c.wal_buffer_budget_bytes = mutation_wal_need(false) + 300;
+  const u64 budget = mutation_wal_need(false) + 300;
+  c.wal_buffer_budget_bytes = budget;
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 16);
   i64 total = 0;
   for (auto& v : own)
     for (auto& id : v) total += balance(eng, 0, id).balance_cents;
-  // Transfers from shard 0 to shard 1, their credits held.
-  u32 sent = 0;
-  for (u32 i = 0; i < 200; ++i) {
+  // kN transfers from shard 0 to shard 1, their credits held. 16 sources
+  // with 64 outbox entries each and a gate of 1,024 take all of them.
+  constexpr u32 kN = 400;
+  const ShardStats s0 = eng.stats(0), s1 = eng.stats(1);
+  for (u32 i = 0; i < kN; ++i) {
     OneResult r = one(eng, 0, [&](Completion cb, void* ctx) {
       TransferArgs t{own[1][i % 16], 1, 7};
       execute(own[0][i % 16], kOpTransfer, ByteView(&t, sizeof(t)), {}, cb, ctx);
     });
-    if (r.r.status == Status::OK) ++sent;
+    CHECK_EQ(r.r.status, Status::OK);  // every transfer sent: no partial-send pass
   }
-  CHECK(sent > 100);
+  CHECK_EQ(eng.stats(0).emits - s0.emits, u64{kN});  // one credit each
   // Close shard 1's client admission: its WAL held, its WAL budget full.
   Engine::debug_hold_wal(1, true);
   CHECK_EQ(fresh(eng, 1)[G_WAL_ACTIVE_BYTES_NOW], 0u);  // nothing appended since the accounts
@@ -581,13 +593,18 @@ void test_internal_drains() {
   CHECK_EQ(closed.wal, 2u);
   CHECK_EQ(closed.overloaded, 2u);
   // Release the follow-ups: shard 1 applies every credit (never refused)
-  // although its clients are refused.
+  // although its clients are refused. Its settles wait for its WAL, so
+  // nothing else is logged there meanwhile.
   const u64 lsn1 = fresh(eng, 1)[G_WAL_NEXT_LSN];
   eng.release_emits();
-  for (int i = 0; i < 20000 && fresh(eng, 1)[G_WAL_NEXT_LSN] - lsn1 < sent; ++i) ::usleep(500);
-  CHECK(fresh(eng, 1)[G_WAL_NEXT_LSN] - lsn1 >= sent);  // a credit record each
-  // The buffer now holds far more than the budget: every credit went past it.
-  CHECK(fresh(eng, 1)[G_WAL_ACTIVE_BYTES_NOW] > mutation_wal_need(false) + 300 + 100u * kDepositRecord);
+  for (int i = 0; i < 40000 && eng.stats(1).emits_received - s1.emits_received < kN; ++i) ::usleep(500);
+  CHECK_EQ(eng.stats(0).emits_sent - s0.emits_sent, u64{kN});
+  CHECK_EQ(eng.stats(1).emits_received - s1.emits_received, u64{kN});
+  GaugeSnapshot g = fresh(eng, 1);
+  CHECK_EQ(g[G_WAL_NEXT_LSN] - lsn1, u64{kN});  // exactly one credit record each
+  // The internal records alone went past the client budget.
+  CHECK(g[G_WAL_ACTIVE_BYTES_NOW] > budget);
+  const u64 active_held = g[G_WAL_ACTIVE_BYTES_NOW];
   OneResult refused = one(eng, 1, [&](Completion cb, void* ctx) {
     AmountArgs d{1, 7};
     execute(own[1][5], kOpDeposit, ByteView(&d, sizeof(d)), {}, cb, ctx);
@@ -597,16 +614,21 @@ void test_internal_drains() {
   // Durability resumes: everything settles, nothing is lost or doubled.
   Engine::debug_hold_wal(1, false);
   CHECK(fill.wait(4));
+  CHECK_EQ(fill.count(Status::OK), 2u);
   CHECK(eng.wait_emits());
+  CHECK_EQ(eng.stats(0).emits_in_flight + eng.stats(1).emits_in_flight, 0u);
   i64 after = 0;
   for (auto& v : own)
     for (auto& id : v) after += balance(eng, 0, id).balance_cents;
   CHECK_EQ(after, total + 2);  // the 2 admitted deposits of 1
+  i64 dst = 0;
+  for (auto& id : own[1]) dst += balance(eng, 0, id).balance_cents;
+  CHECK_EQ(dst, 16 * kStart + i64{kN} + 2);  // every credit applied exactly once
   eng.stop();
   rm_rf(dir);
-  std::printf("A6 internal work: %u credits applied past the WAL budget on a shard refusing clients "
-              "(refused_wal_buffer); all settled, money conserved\n",
-              sent);
+  std::printf("A6 internal work: %u transfers sent, %u credits applied on a shard refusing clients; "
+              "%llu internal bytes active, past the %llu-byte client budget; all settled exactly\n",
+              kN, kN, (unsigned long long)active_held, (unsigned long long)budget);
 }
 
 // ---- A7 -------------------------------------------------------------------------------
@@ -703,18 +725,470 @@ void test_expiry_internal() {
   std::printf("A9 session expiry: 4 sessions expired while the WAL budget refused clients; 0 refusals counted\n");
 }
 
+// ---- S1.1: a test type that grows to its bounds --------------------------------------
+
+// Blob: a payload of `len` bytes, grown by its ops. kBlobMax is chosen so
+// the allocator rounds an object of that size up to a larger capacity
+// (checked in A10), the case S1 under-reserved.
+namespace blob {
+constexpr u32 kType = 900;
+constexpr u32 kMax = 33000;
+enum : OpID { kCreate = 9001, kGrow = 9002, kGrowRaw = 9003, kLink = 9004, kInfo = 9005 };
+struct LenArgs {
+  u32 len;
+};
+struct LinkArgs {
+  ObjectID peer;
+  u32 len;
+  u32 pad;
+};
+struct Info {
+  u32 length, capacity;
+};
+template <typename T>
+T arg(ByteView a) {
+  T t{};
+  std::memcpy(&t, a.data, std::min<std::size_t>(a.len, sizeof(T)));
+  return t;
+}
+Status reserve_v(OpCtx& c, const ObjectHeader&, ByteView a) { return c.reserve(arg<LenArgs>(a).len); }
+void resize_a(OpCtx& c, ByteView a) { c.resize(arg<LenArgs>(a).len); }
+Status ok_v(OpCtx&, const ObjectHeader&, ByteView) { return Status::OK; }
+Status link_v(OpCtx& c, const ObjectHeader&, ByteView a) {
+  const LinkArgs l = arg<LinkArgs>(a);
+  if (c.local(l.peer, kType) == nullptr) return Status::E_BAD_ARGS;
+  return c.reserve(l.len);
+}
+void link_a(OpCtx& c, ByteView a) {
+  const LinkArgs l = arg<LinkArgs>(a);
+  ObjectHeader* p = c.local(l.peer, kType);
+  if (p->length) p->payload()[0] ^= 1;  // changes the peer, not its length
+  c.resize(l.len);
+}
+void info_a(OpCtx& c, ByteView) {
+  Info i{c.obj()->length, c.obj()->capacity};
+  c.set_result(&i, sizeof(i));
+}
+void register_blob() {
+  Registry& r = registry();
+  if (r.type(kType)) return;
+  TypeDescriptor t;
+  t.type_id = kType;
+  t.name = "Blob";
+  t.initial_size = 16;
+  t.max_size = kMax;
+  t.create_op = kCreate;
+  r.add_type(t);
+  auto op = [&](OpID id, const char* name, OpKind kind, u32 max_args, u32 max_result,
+                Status (*v)(OpCtx&, const ObjectHeader&, ByteView), void (*a)(OpCtx&, ByteView)) {
+    OpDescriptor d;
+    d.op_id = id;
+    d.type_id = kType;
+    d.name = name;
+    d.kind = kind;
+    d.max_args = max_args;
+    d.max_result = max_result;
+    d.validate = v;
+    d.apply = a;
+    r.add_op(d);
+  };
+  op(kCreate, "Blob.create", OpKind::CREATE, sizeof(LenArgs), 0, reserve_v, resize_a);
+  op(kGrow, "Blob.grow", OpKind::MUTATE, sizeof(LenArgs), 0, reserve_v, resize_a);
+  op(kGrowRaw, "Blob.grow_raw", OpKind::MUTATE, sizeof(LenArgs), 0, ok_v, resize_a);  // no reserve()
+  op(kLink, "Blob.link", OpKind::MUTATE, sizeof(LinkArgs), 0, link_v, link_a);
+  op(kInfo, "Blob.info", OpKind::READ, 0, sizeof(Info), ok_v, info_a);
+}
+}  // namespace blob
+
+ObjectID blob_create(Engine& eng, u16 s, u32 len, const ExecOptions& o = {}) {
+  OneResult r = one(eng, s, [&](Completion cb, void* ctx) {
+    blob::LenArgs a{len};
+    create(blob::kType, ByteView(&a, sizeof(a)), o, cb, ctx);
+  });
+  CHECK_EQ(r.r.status, Status::OK);
+  return r.r.id;
+}
+Status blob_op(Engine& eng, u16 s, const ObjectID& id, OpID op, u32 len) {
+  OneResult r = one(eng, s, [&](Completion cb, void* ctx) {
+    blob::LenArgs a{len};
+    execute(id, op, ByteView(&a, sizeof(a)), {}, cb, ctx);
+  });
+  return r.r.status;
+}
+blob::Info blob_info(Engine& eng, u16 s, const ObjectID& id) {
+  OneResult r = one(eng, s, [&](Completion cb, void* ctx) { execute(id, blob::kInfo, ByteView{}, {}, cb, ctx); });
+  CHECK_EQ(r.r.status, Status::OK);
+  return r.as<blob::Info>();
+}
+// What admit() reserves for a create of `type` (shard.cpp run_create).
+u64 create_wal_need(u32 type, bool sequenced) {
+  return record_size(registry().type(type)->max_size) + (sequenced ? record_size(sizeof(SessionV1)) : 0);
+}
+// WAL bytes and records one op appends on shard s (its WAL held: nothing
+// flushes, so the active buffer only grows).
+struct Appended {
+  u64 bytes, records;
+};
+Appended appended_by(Engine& eng, u16 s, const std::function<void()>& issue_on_shard) {
+  const GaugeSnapshot g0 = fresh(eng, s);
+  on_shard(eng, s, issue_on_shard);
+  const GaugeSnapshot g1 = fresh(eng, s);
+  return {g1[G_WAL_ACTIVE_BYTES_NOW] - g0[G_WAL_ACTIVE_BYTES_NOW], g1[G_WAL_NEXT_LSN] - g0[G_WAL_NEXT_LSN]};
+}
+
+// ---- A10 ------------------------------------------------------------------------------
+
+// Child process: grow a Blob past max_size within its capacity, without
+// reserve(). S1 allowed this (reserved = capacity), appending more than the
+// reservation and writing an image recovery rejects. S1.1 caps it.
+[[noreturn]] void grow_past_max_child(const std::string& dir) {
+  Engine::Config c = config(1, dir);
+  Engine eng(c);
+  eng.start();
+  const ObjectID b = blob_create(eng, 0, 16);
+  CHECK_EQ(blob_op(eng, 0, b, blob::kGrow, blob::kMax), Status::OK);
+  (void)blob_op(eng, 0, b, blob::kGrowRaw, blob::kMax + 32);  // aborts here
+  std::_Exit(0);
+}
+
+void test_reservation_boundary() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  Engine eng(c);
+  eng.start();
+  const ObjectID b = blob_create(eng, 0, 16);
+  CHECK_EQ(blob_op(eng, 0, b, blob::kGrow, blob::kMax), Status::OK);
+  const blob::Info i = blob_info(eng, 0, b);
+  CHECK_EQ(i.length, blob::kMax);
+  CHECK(i.capacity > blob::kMax);  // the allocator rounded up: the S1 shortfall case
+  // reserve() past max_size is refused (unchanged).
+  CHECK_EQ(blob_op(eng, 0, b, blob::kGrow, blob::kMax + 1), Status::E_TOO_LARGE);
+  Engine::debug_hold_wal(0, true);
+  // The largest legal record: the object at max_size, logged by a mutation
+  // with and without reserve().
+  for (OpID op : {blob::kGrow, blob::kGrowRaw}) {
+    Async as;
+    const Appended a = appended_by(eng, 0, [&] {
+      blob::LenArgs x{blob::kMax};
+      execute(b, op, ByteView(&x, sizeof(x)), {}, &Async::cb, &as);
+    });
+    CHECK_EQ(a.records, 1u);
+    CHECK_EQ(a.bytes, record_size(blob::kMax));
+    CHECK(a.bytes <= mutation_wal_need(false, blob::kType));
+    Engine::debug_hold_wal(0, false);
+    CHECK(as.wait(1));
+    CHECK_EQ(as.count(Status::OK), 1u);
+    Engine::debug_hold_wal(0, true);
+  }
+  Engine::debug_hold_wal(0, false);
+  eng.stop();
+  // An object at max_size recovers.
+  Engine::Config rc = config(1, dir);
+  rc.init = false;
+  Engine again(rc);
+  again.start();
+  CHECK_EQ(blob_info(again, 0, b).length, blob::kMax);
+  again.stop();
+  rm_rf(dir);
+  // Growing past max_size within the capacity is a handler contract
+  // violation now, caught at resize, before anything is logged.
+  const std::string cdir = temp_dir();
+  const std::string err = cdir + ".stderr";
+  std::fflush(nullptr);
+  const pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    const int fd = ::open(err.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0 || ::dup2(fd, 2) < 0) std::_Exit(3);
+    grow_past_max_child(cdir);
+  }
+  int st = 0;
+  CHECK_EQ(::waitpid(pid, &st, 0), pid);
+  CHECK(WIFSIGNALED(st) && WTERMSIG(st) == SIGABRT);
+  std::string text;
+  if (FILE* f = std::fopen(err.c_str(), "r")) {
+    char buf[512];
+    while (std::fgets(buf, sizeof(buf), f)) text += buf;
+    std::fclose(f);
+  }
+  CHECK(text.find("resize beyond reserved length") != std::string::npos);
+  rm_rf(cdir);
+  rm_rf(err);
+  std::printf("A10 reservation boundary: Blob at max_size %u with capacity %u appends %llu bytes, within %llu "
+              "reserved; it recovers; growing past max_size inside the capacity aborts at resize\n",
+              blob::kMax, i.capacity, (unsigned long long)record_size(blob::kMax),
+              (unsigned long long)mutation_wal_need(false, blob::kType));
+}
+
+// ---- A11 ------------------------------------------------------------------------------
+
+void test_create_boundary() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  Engine eng(c);
+  eng.start();
+  Engine::debug_hold_wal(0, true);
+  // A sequenced create that grows to max_size in its apply: the object's
+  // CREATE record and the session's.
+  Async as;
+  const Appended a = appended_by(eng, 0, [&] {
+    ExecOptions o;
+    o.client_id = 31;
+    o.seq = 1;
+    blob::LenArgs x{blob::kMax};
+    create(blob::kType, ByteView(&x, sizeof(x)), o, &Async::cb, &as);
+  });
+  CHECK_EQ(a.records, 2u);
+  CHECK_EQ(a.bytes, record_size(blob::kMax) + record_size(sizeof(SessionV1)));
+  CHECK(a.bytes <= create_wal_need(blob::kType, true));
+  // A create past max_size is refused in validate, logging nothing.
+  Async big;
+  const Appended b = appended_by(eng, 0, [&] {
+    blob::LenArgs x{blob::kMax + 1};
+    create(blob::kType, ByteView(&x, sizeof(x)), {}, &Async::cb, &big);
+  });
+  CHECK_EQ(b.records, 0u);
+  CHECK_EQ(big.count(Status::E_TOO_LARGE), 1u);
+  Engine::debug_hold_wal(0, false);
+  CHECK(as.wait(1));
+  CHECK_EQ(as.count(Status::OK), 1u);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A11 create boundary: sequenced create to max_size appends %llu bytes in 2 records, within %llu "
+              "reserved; past max_size refused with nothing logged\n",
+              (unsigned long long)a.bytes, (unsigned long long)create_wal_need(blob::kType, true));
+}
+
+// ---- A12 ------------------------------------------------------------------------------
+
+void test_peer_session_boundary() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(1, dir);
+  Engine eng(c);
+  eng.start();
+  const ObjectID self = blob_create(eng, 0, 16), peer = blob_create(eng, 0, 16);
+  CHECK_EQ(blob_op(eng, 0, peer, blob::kGrow, blob::kMax), Status::OK);  // near-max peer
+  CHECK_EQ(blob_op(eng, 0, self, blob::kGrow, blob::kMax - 64), Status::OK);
+  Engine::debug_hold_wal(0, true);
+  Async as;
+  const Appended a = appended_by(eng, 0, [&] {
+    ExecOptions o;
+    o.client_id = 32;
+    o.seq = 1;
+    blob::LinkArgs x{peer, blob::kMax, 0};
+    execute(self, blob::kLink, ByteView(&x, sizeof(x)), o, &Async::cb, &as);
+  });
+  // Peer UPDATE, session CREATE, object UPDATE: every term of R2 at its maximum.
+  CHECK_EQ(a.records, 3u);
+  CHECK_EQ(a.bytes, 2 * record_size(blob::kMax) + record_size(sizeof(SessionV1)));
+  CHECK_EQ(a.bytes, mutation_wal_need(true, blob::kType));  // the reservation is exact here
+  Engine::debug_hold_wal(0, false);
+  CHECK(as.wait(1));
+  CHECK_EQ(as.count(Status::OK), 1u);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A12 peer + session boundary: max object + max peer + session append %llu bytes in 3 records, "
+              "exactly the %llu reserved\n",
+              (unsigned long long)a.bytes, (unsigned long long)mutation_wal_need(true, blob::kType));
+}
+
+// ---- A13, A14 -------------------------------------------------------------------------
+
+void test_remote_read_bound() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(2, dir);
+  c.pending_budget = 8;
+  // Room for 5 waiters of 256 + 16 bytes: 2 deposits and 3 REMOTE reads.
+  c.waiter_budget_bytes = 5 * (256 + sizeof(BalanceResult)) + 8;
+  Engine eng(c);
+  eng.start();
+  auto own = accounts(eng, 4);
+  const ObjectID a = own[1][0];
+  const BalanceResult b0 = balance(eng, 1, a);
+  const Causes c0 = causes(eng, 0), c1 = causes(eng, 1);
+  // Make the account undurable on shard 1: 2 deposits wait.
+  Engine::debug_hold_wal(1, true);
+  Async deps;
+  on_shard(eng, 1, [&] {
+    for (int i = 0; i < 2; ++i) deposit(a, 10, {}, deps);
+  });
+  CHECK_EQ(deps.done.load(), 0u);
+  // A13: 20 durable reads of it forwarded from shard 0.
+  constexpr u32 kReads = 20;
+  Async reads;
+  on_shard(eng, 0, [&] {
+    for (u32 i = 0; i < kReads; ++i) execute(a, kOpGetBalance, ByteView{}, {}, &Async::cb, &reads);
+  });
+  // 12 refused at the origin at once (8 pending slots); of the 8 forwarded,
+  // the owner holds 3 (its waiter budget) and answers 5 E_OVERLOADED.
+  for (int i = 0; i < 20000 && reads.done.load() < 17; ++i) ::usleep(500);
+  CHECK_EQ(reads.done.load(), 17u);
+  CHECK_EQ(reads.count(Status::E_OVERLOADED), 17u);
+  expect_causes(c0, causes(eng, 0), PENDING, 12);
+  expect_causes(c1, causes(eng, 1), WAITER, 5);
+  GaugeSnapshot g0 = fresh(eng, 0), g1 = fresh(eng, 1);
+  CHECK_EQ(g0[G_PENDING_NOW], 3u);
+  CHECK_EQ(g0[G_PENDING_PEAK], 8u);
+  CHECK_EQ(g1[G_WAITERS_NOW], 5u);  // 2 deposits + 3 REMOTE reads: the bound
+  // More reads now: the 5 free slots fill, the owner refuses them all.
+  Async more;
+  on_shard(eng, 0, [&] {
+    for (u32 i = 0; i < 7; ++i) execute(a, kOpGetBalance, ByteView{}, {}, &Async::cb, &more);
+  });
+  for (int i = 0; i < 20000 && more.done.load() < 7; ++i) ::usleep(500);
+  CHECK_EQ(more.count(Status::E_OVERLOADED), 7u);
+  expect_causes(c0, causes(eng, 0), PENDING, 14);  // 2 more at the origin
+  expect_causes(c1, causes(eng, 1), WAITER, 10);   // 5 more at the owner
+  CHECK_EQ(fresh(eng, 1)[G_WAITERS_NOW], 5u);
+  CHECK_EQ(fresh(eng, 0)[G_PENDING_NOW], 3u);
+  // A14: durability resumes; the held answers arrive once each.
+  Engine::debug_hold_wal(1, false);
+  CHECK(reads.wait(kReads));
+  CHECK(deps.wait(2));
+  for (int i = 0; i < 4000 && fresh(eng, 0)[G_PENDING_NOW] != 0; ++i) ::usleep(500);
+  ::usleep(20000);  // no late or duplicate answer arrives
+  CHECK_EQ(reads.done.load(), kReads);
+  CHECK_EQ(reads.count(Status::OK), 3u);
+  CHECK_EQ(deps.count(Status::OK), 2u);
+  {
+    std::lock_guard<std::mutex> lk(reads.mu);
+    for (const ExecResult& r : reads.results) {
+      if (r.status == Status::OK) CHECK(r.durable);
+    }
+  }
+  CHECK_EQ(fresh(eng, 0)[G_PENDING_NOW], 0u);
+  CHECK_EQ(fresh(eng, 1)[G_WAITERS_NOW], 0u);
+  // Admission is open again: 20 forwarded reads all answered.
+  const Causes c2 = causes(eng, 0), c3 = causes(eng, 1);
+  for (u32 i = 0; i < kReads; ++i) {
+    OneResult r = one(eng, 0, [&](Completion cb, void* ctx) { execute(a, kOpGetBalance, ByteView{}, {}, cb, ctx); });
+    CHECK_EQ(r.r.status, Status::OK);
+    CHECK_EQ(r.as<BalanceResult>().balance_cents, b0.balance_cents + 20);
+  }
+  expect_causes(c2, causes(eng, 0), PENDING, 0);
+  expect_causes(c3, causes(eng, 1), WAITER, 0);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("A13 remote-read bound: pending stopped at 8 (12+2 refused_pending at the origin), REMOTE "
+              "waiters at 3 (5+5 refused_waiter at the owner)\n"
+              "A14 recovery: 3 held reads and 2 deposits answered once each after durability resumed; "
+              "pending and waiters back to 0; 20 reads admitted again\n");
+}
+
+// ---- A15 ------------------------------------------------------------------------------
+
+// Internal follow-ups are never refused, so a shard whose WAL stalls keeps
+// appending what its senders already admitted. This characterizes that
+// overshoot with large records: two sender shards fill one destination
+// account's inbox to kMaxEntries (records up to max_size), and the credits
+// past it are logged as "retry" at max_size. The destination must never grow
+// past max_size (S1 allowed it: the S1.1 cap) and must recover.
+void test_internal_overshoot() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(3, dir);
+  c.hold_emits = true;
+  Engine eng(c);
+  eng.start();
+  auto own = accounts(eng, 40);
+  const ObjectID dst = own[1][0];
+  i64 total = 0;
+  for (auto& v : own)
+    for (auto& id : v) total += balance(eng, 0, id).balance_cents;
+  // Shards 0 and 2 send transfers to dst until their gates close.
+  u64 sent = 0;
+  for (u16 s : {u16{0}, u16{2}}) {
+    for (u64 i = 0; eng.stats(s).emits_in_flight <= kGate; ++i) {
+      CHECK(i < 100000);
+      OneResult r = one(eng, s, [&](Completion cb, void* ctx) {
+        TransferArgs t{dst, 1, 7};
+        execute(own[s][i % own[s].size()], kOpTransfer, ByteView(&t, sizeof(t)), {}, cb, ctx);
+      });
+      if (r.r.status == Status::OK) ++sent;
+      else CHECK(r.r.status == Status::E_APP);  // a source's outbox full
+    }
+  }
+  const u64 peak0 = eng.stats(0).emits_in_flight, peak2 = eng.stats(2).emits_in_flight;
+  CHECK(peak0 <= kGate + 1 && peak2 <= kGate + 1);  // the gate, plus one op's single credit
+  CHECK_EQ(peak0 + peak2, sent);
+  CHECK(sent > kMaxEntries);
+  // Stall shard 1's WAL and release the credits.
+  Engine::debug_hold_wal(1, true);
+  const ShardStats s1 = eng.stats(1);
+  const GaugeSnapshot g0 = fresh(eng, 1);
+  eng.release_emits();
+  for (int i = 0; i < 60000 && eng.stats(1).emits_received - s1.emits_received < sent; ++i) ::usleep(500);
+  const u64 received = eng.stats(1).emits_received - s1.emits_received;
+  CHECK_EQ(received, sent);  // nothing beyond what the senders admitted
+  const GaugeSnapshot g1 = fresh(eng, 1);
+  const u64 records = g1[G_WAL_NEXT_LSN] - g0[G_WAL_NEXT_LSN];
+  const u64 bytes = g1[G_WAL_ACTIVE_BYTES_NOW] - g0[G_WAL_ACTIVE_BYTES_NOW];
+  CHECK_EQ(records, sent);  // one record per credit (settles wait on the WAL)
+  // Every record is at most the account's max_size: the characterized
+  // bound is sent x record_size(max_size).
+  const u64 rmax = record_size(registry().type(kTypeId)->max_size);
+  CHECK(bytes <= sent * rmax);
+  OneResult info = one(eng, 1, [&](Completion cb, void* ctx) {
+    ExecOptions o;
+    o.allow_undurable = true;
+    execute(dst, kOpGet, ByteView{}, o, cb, ctx);
+  });
+  CHECK_EQ(info.r.status, Status::OK);
+  CHECK(info.bytes.size() >= sizeof(AccountV1));
+  AccountV1 acc;
+  std::memcpy(&acc, info.bytes.data(), sizeof(acc));
+  CHECK_EQ(u32{acc.n_in} + acc.n_out, kMaxEntries);  // full, and no further
+  const u64 budget = c.wal_buffer_budget_bytes;
+  Engine::debug_hold_wal(1, false);
+  CHECK(eng.wait_emits(120));
+  i64 after = 0;
+  for (auto& v : own)
+    for (auto& id : v) after += balance(eng, 0, id).balance_cents;
+  CHECK_EQ(after, total);
+  CHECK_EQ(balance(eng, 1, dst).balance_cents, kStart + static_cast<i64>(sent));
+  eng.stop();
+  // Recovery accepts everything logged.
+  Engine::Config rc = config(3, dir);
+  rc.init = false;
+  Engine again(rc);
+  again.start();
+  CHECK_EQ(balance(again, 1, dst).balance_cents, kStart + static_cast<i64>(sent));
+  again.stop();
+  rm_rf(dir);
+  std::printf("A15 internal overshoot: %llu credits (gates %llu + %llu) applied on a stalled shard: %llu records, "
+              "%llu bytes (%.1fx the %llu-byte client budget; bound %llu x %llu); inbox stopped at %u; "
+              "settled, conserved, recovered\n",
+              (unsigned long long)sent, (unsigned long long)peak0, (unsigned long long)peak2,
+              (unsigned long long)records, (unsigned long long)bytes, double(bytes) / double(budget),
+              (unsigned long long)budget, (unsigned long long)sent, (unsigned long long)rmax, kMaxEntries);
+}
+
 }  // namespace
 
-int main() {
+// With arguments, runs only the named tests (A1 ... A15), for negative
+// checks against a reverted engine; ctest runs them all.
+int main(int argc, char** argv) {
   register_type();
-  test_followup_gate(false);
-  test_followup_gate(true);
-  test_waiter_budget();
-  test_wal_budget();
-  test_wal_sizing();
-  test_internal_drains();
-  test_read_flood();
-  test_expiry_internal();
+  blob::register_blob();
+  const std::vector<std::pair<const char*, std::function<void()>>> tests = {
+      {"A1", [] { test_followup_gate(false); }},
+      {"A8", [] { test_followup_gate(true); }},
+      {"A2", test_waiter_budget},
+      {"A3", test_wal_budget},
+      {"A5", test_wal_sizing},
+      {"A6", test_internal_drains},
+      {"A7", test_read_flood},
+      {"A9", test_expiry_internal},
+      {"A10", test_reservation_boundary},
+      {"A11", test_create_boundary},
+      {"A12", test_peer_session_boundary},
+      {"A13", test_remote_read_bound},
+      {"A15", test_internal_overshoot},
+  };
+  for (const auto& [name, fn] : tests) {
+    bool run = argc == 1;
+    for (int k = 1; k < argc; ++k) run |= std::string(argv[k]) == name;
+    if (run) fn();
+  }
   std::printf("test_s1_admission: all passed\n");
   return 0;
 }

@@ -120,8 +120,8 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
   // S1 (docs/S1_ADMISSION.md 2): a READ this shard owns consumes nothing
   // the backlog drains (no WAL, no follow-up), so it is not refused for
   // it; one that must wait for durability is bounded by the waiter budget
-  // below. A READ forwarded to another shard keeps the gate: its pending
-  // slot and ring entry are not otherwise bounded here.
+  // below. A READ forwarded to another shard keeps the gate (unchanged in
+  // S1.1, which adds the pending budget and the owner's waiter check).
   const u64 in_flight = emits_in_flight();
   if (in_flight > emits_peak_) emits_peak_ = in_flight;  // observability (S0)
   const OpDescriptor* desc = registry().op(op);
@@ -163,19 +163,13 @@ void Shard::execute(ObjectID target, OpID op, ByteView args, const ExecOptions& 
     RunOut out;
     out.r.id = target;
     run_exec(target, h, op, args, opts, out);
-    if (local_read && out.wait_lsn != 0 && !durable(out.wait_lsn) &&
-        !admit(0, sizeof(Waiter) + out.r.result.len, out)) {
-      // A READ changes nothing, so refusing it after it ran is the same as
-      // before: only its answer would have needed a waiter.
-      // It still counts in ops_local: it was routed and ran here.
-      out.wait_lsn = 0;
-      out.r.result = ByteView{};
-      out.r.version = 0;
-      out.r.durable = false;
-    }
+    // A READ (or any answer R1 did not reserve) that must wait takes a
+    // waiter under the budget, or is refused: it changed nothing.
+    (void)admit_answer_wait(out);
     complete_local(out, done, ctx);
     return;
   }
+  if (pending_refuse(target, done, ctx)) return;
   ++stats_.ops_remote;
   send_request(MsgKind::EXEC_REQ, owner, target, op, args, opts, done, ctx);
 }
@@ -230,6 +224,33 @@ void Shard::check_reserved(const OpDescriptor* op) {
 #endif
 }
 
+bool Shard::admit_answer_wait(RunOut& out) {
+  if (adm_.legacy || out.waiter_reserved || out.wait_lsn == 0 || durable(out.wait_lsn)) return true;
+  // REMOTE waiters hold the response (inline up to kMsgInlineBytes) and
+  // LOCAL ones a copy of the result: sizeof(Waiter) + the result bounds both.
+  if (admit(0, sizeof(Waiter) + out.r.result.len, out)) {
+    out.waiter_reserved = true;
+    return true;
+  }
+  out.wait_lsn = 0;
+  out.r.result = ByteView{};
+  out.r.version = 0;
+  out.r.durable = false;
+  out.r.app_code = 0;
+  return false;
+}
+
+bool Shard::pending_refuse(ObjectID target, Completion done, void* ctx) {
+  if (adm_.legacy || pending_live() < adm_.pending_budget) return false;
+  ++stats_.overloaded;
+  ++stats_.refused_pending;
+  ExecResult r;
+  r.status = Status::E_OVERLOADED;
+  r.id = target;
+  done(ctx, r);
+  return true;
+}
+
 void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completion done,
                    void* ctx, const ObjectID* near) {
   if (repl_cfg_.standby || withdrawn_) return refuse_standby(ObjectID{}, done, ctx);
@@ -264,9 +285,11 @@ void Shard::create(u32 type_id, ByteView args, const ExecOptions& opts, Completi
     ++stats_.ops_local;
     RunOut out;
     run(MsgKind::CREATE_REQ, id, type_id, args, opts, out);
+    (void)admit_answer_wait(out);
     complete_local(out, done, ctx);
     return;
   }
+  if (pending_refuse(id, done, ctx)) return;
   ++stats_.ops_remote;
   send_request(MsgKind::CREATE_REQ, owner, id, type_id, args, opts, done, ctx);
 }
@@ -281,9 +304,11 @@ void Shard::remove(ObjectID target, const ExecOptions& opts, Completion done, vo
     ++stats_.ops_local;
     RunOut out;
     run(MsgKind::DELETE_REQ, target, 0, ByteView{}, opts, out);
+    (void)admit_answer_wait(out);
     complete_local(out, done, ctx);
     return;
   }
+  if (pending_refuse(target, done, ctx)) return;
   ++stats_.ops_remote;
   send_request(MsgKind::DELETE_REQ, owner, target, 0, ByteView{}, opts, done, ctx);
 }
@@ -362,7 +387,12 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.obj_ = obj;
   c.type_ = t;
   c.op_ = op;
-  c.reserved_len_ = obj->capacity;
+  // S1.1 (docs/S1_ADMISSION.md 3, R2): an op may grow its object within
+  // the allocated capacity without reserve(), but never past max_size.
+  // Recovery, standby apply and checkpoint load reject images larger than
+  // max_size, so a longer object would make the WAL unrecoverable; and
+  // admission reserves record_size(max_size).
+  c.reserved_len_ = obj->capacity < t->max_size ? obj->capacity : t->max_size;
   c.app_code_ = 0;
   c.result_buf_ = result_scratch_.data();
   c.result_len_ = 0;
@@ -490,6 +520,7 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
         if (!emit_scratch_.empty()) contract_violation("emit outside apply", op);
         return;
       }
+      out.waiter_reserved = true;
     }
     u8 old_key[kMaxIndexKey], new_key[kMaxIndexKey];
     u32 old_len = track ? extract_key(*t, *obj, old_key) : 0;
@@ -572,6 +603,7 @@ void Shard::run_create(ObjectID id, u32 type_id, ByteView args, const ExecOption
              sizeof(Waiter) + op->max_result, out)) {
     return;
   }
+  out.waiter_reserved = true;
   std::size_t bytes = sizeof(ObjectHeader) + t->initial_size;
   auto* obj = static_cast<ObjectHeader*>(alloc_.alloc(bytes, kObjectAlign));
   if (obj == nullptr) {
@@ -653,6 +685,7 @@ void Shard::run_delete(ObjectID target, const ExecOptions& opts, RunOut& out, bo
       !admit(record_size(0), sizeof(Waiter) * (opts.durability == Durability::DURABLE ? 2 : 1), out)) {
     return;
   }
+  out.waiter_reserved = !internal;
   if (dop != nullptr) {
     if (dop->apply) dop->apply(c, ByteView{});
     obj = c.obj_;
@@ -776,6 +809,9 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_REFUSED_RING] = stats_.refused_ring;
   v[G_REFUSED_WAITER] = stats_.refused_waiter;
   v[G_REFUSED_WAL_BUFFER] = stats_.refused_wal_buffer;
+  v[G_REFUSED_PENDING] = stats_.refused_pending;
+  v[G_PENDING_NOW] = pending_live();
+  v[G_PENDING_PEAK] = stats_.pending_peak;
   v[G_GATHER_OVERLOADED] = stats_.gather_overloaded;
   v[G_WAITERS_NOW] = waiters_.size();
   v[G_WAITERS_PEAK] = waiters_peak_;
@@ -860,6 +896,9 @@ bool Shard::replay_if_seen(const ExecOptions& opts, RunOut& out) {
   }
   out.r.durable = durable(s->last_lsn);
   out.wait_lsn = s->last_lsn;
+  // Never refused: a client told E_OVERLOADED would send it again as a
+  // new request (see execute). Resends are bounded by the clients' windows.
+  out.waiter_reserved = true;
   ++stats_.replayed;
   return true;
 }
@@ -1122,6 +1161,7 @@ void Shard::send_request(MsgKind kind, u16 dst, ObjectID target, u32 op_or_type,
   p.ctx = ctx;
   p.target = target;
   ++p.gen;
+  if (pending_live() > stats_.pending_peak) stats_.pending_peak = pending_live();
 
   if (batch_remote_ && kind == MsgKind::EXEC_REQ && args.len <= kMsgInlineBytes &&
       opts.expected_version == 0) {
@@ -1241,6 +1281,7 @@ void Shard::serve_multi(const Msg& m) {
     opts.durability = (q.flags & kMsgDurApplied) ? Durability::APPLIED : Durability::DURABLE;
     RunOut out;
     run(MsgKind::EXEC_REQ, q.target, q.op, ByteView(q.args, q.len), opts, out);
+    (void)admit_answer_wait(out);  // as serve
     auto& r = *reinterpret_cast<BatchResp*>(&recs[i]);
     r.slot = q.slot;
     r.gen = q.gen;
@@ -1363,6 +1404,10 @@ void Shard::serve(const Msg& m) {
   opts.durability = (m.flags & kMsgDurApplied) ? Durability::APPLIED : Durability::DURABLE;
   RunOut out;
   run(m.kind, m.target, m.op_id, ByteView(m.data(), m.len), opts, out);
+  // S1.1: a forwarded READ (or unreserved answer) that must wait takes a
+  // REMOTE waiter under the budget, or is answered E_OVERLOADED now. The
+  // answer always goes back, so the origin's pending slot is freed.
+  (void)admit_answer_wait(out);
   u8* args_buf = (m.flags & kMsgArgsExternal) ? m.ext.ptr : nullptr;
 
   if (out.wait_lsn != 0 && !durable(out.wait_lsn)) {
@@ -1947,6 +1992,7 @@ ShardStats Shard::stats() const {
   s.local_map_bytes = map_.memory_bytes();
   s.heap_live_bytes = alloc_.stats().live_bytes;
   s.waiters_now = waiters_.size();
+  s.pending_now = pending_live();
   s.overflow_now = sri_overflow_queued();
   s.wal_next_lsn = wal_ ? wal_->next_lsn() : 0;
   if (sender_) {

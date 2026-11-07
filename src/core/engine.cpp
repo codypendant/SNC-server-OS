@@ -59,7 +59,7 @@ void hook_init(void* user) {
   s->set_epoch_hint(h->epoch_hint);
   s->set_gauges(&h->gauges[id]);
   s->set_admission(Shard::Admission{h->cfg->admission_legacy, h->cfg->waiter_budget_bytes,
-                                    h->cfg->wal_buffer_budget_bytes});
+                                    h->cfg->wal_buffer_budget_bytes, h->cfg->pending_budget});
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;

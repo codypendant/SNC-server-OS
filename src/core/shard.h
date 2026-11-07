@@ -170,6 +170,7 @@ class Shard {
     bool legacy = false;
     u64 waiter_budget_bytes = 0;
     u64 wal_buffer_budget_bytes = 0;
+    u64 pending_budget = 0;  // S1.1: forwarded client requests awaiting an answer
   };
   void set_admission(const Admission& a);
   // Copies this shard's counters into its gauge block: at most every
@@ -290,6 +291,9 @@ class Shard {
   struct RunOut {
     ExecResult r;
     u64 wait_lsn = 0;  // completion must wait until this LSN is durable (0 = no wait)
+    // S1.1: the answer's waiter is already accounted for (admitted by R1,
+    // or a replay, which is never refused: docs/S1_ADMISSION.md 3).
+    bool waiter_reserved = false;
   };
 
   struct Pending {
@@ -598,6 +602,14 @@ class Shard {
   // op's worst-case WAL bytes and waiter bytes. It changes no state; a
   // refusal sets E_OVERLOADED and counts its cause.
   bool admit(u64 wal_need, u64 waiter_need, RunOut& out);
+  // S1.1: an answer that must wait for durability and was not reserved
+  // takes a waiter under the waiter budget, or is refused (its op changed
+  // nothing). True when it may wait or need not.
+  bool admit_answer_wait(RunOut& out);
+  // S1.1: a client request forwarded to another shard takes a pending
+  // slot under the pending budget, or is refused (refused_pending).
+  bool pending_refuse(ObjectID target, Completion done, void* ctx);
+  u64 pending_live() const { return pending_.size() - free_pending_.size(); }
   bool followups_refuse(const ExecOptions& opts, ObjectID target, bool replay, Completion done,
                         void* ctx);
   // Worst-case bytes of a mutation's local() peer record: the largest
