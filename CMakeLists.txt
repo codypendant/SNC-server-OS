@@ -133,3 +133,6 @@ target_link_libraries(snc_load PRIVATE snc_core)
 # Checkpoint walk cost, for the S2 pacing defaults (docs/S2_PACING.md 5).
 add_executable(ckpt_walk_cost bench/ckpt_walk_cost.cpp)
 target_link_libraries(ckpt_walk_cost PRIVATE snc_core)
+# S3-D writeback micro-characterization (docs/S3D_WRITEBACK.md).
+add_executable(ckpt_writeback_char bench/ckpt_writeback_char.cpp)
+target_link_libraries(ckpt_writeback_char PRIVATE Threads::Threads)

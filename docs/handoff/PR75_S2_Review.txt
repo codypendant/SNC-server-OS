@@ -1,0 +1,307 @@
+PR #75 REVIEW — S2 CHECKPOINT WALK PACING
+
+DECISION
+
+PR #75 is APPROVED.
+
+S2 is COMPLETE.
+
+The checkpoint WALK is now bounded by time rather than a fixed object count, the controller has a non-zero progress floor, catch-up is bounded by a foreground-protection ceiling, CC-1..CC-5 remain intact, and the final validation is clean.
+
+The remaining limitations are correctly documented:
+- the one-step begin snapshot is still unbounded by S2;
+- checkpoint writeback is still the S3 problem;
+- final sync concurrency is still S4;
+- follow-up intake backpressure is still a separate required pre-S6 slice;
+- the current pacing defaults are dev-VM hypotheses and MUST NOT be carried onto the R640 without re-derivation.
+
+Next authorized work is S3-D only: choose the bounded checkpoint writeback mechanism. Do not implement S3 until the S3-D decision is reviewed.
+
+No R640 load is authorized yet.
+
+1. S2 WALK BOUND — APPROVED
+
+The core S2 mechanism is correct:
+- pacing ON walks in small batches;
+- the clock is checked after each batch;
+- at least one batch is always visited;
+- the time budget is bounded by [walk_min, walk_ceiling];
+- pacing OFF restores the pre-S2 256-ID walk behavior;
+- pacing changes visit timing, not the visit set.
+
+This is the correct shape for B1.
+
+The batch overshoot is explicit and bounded by one batch of work, modulo ordinary OS/VM preemption.
+
+2. PROGRESS FLOOR — APPROVED
+
+The walk cannot be reduced to zero work.
+
+Every active WALK invocation visits at least one batch, so sustained HIGH pressure can reduce checkpoint CPU consumption to the floor but cannot starve the checkpoint forever.
+
+The negative test that removes the floor and causes P2 to time out is good evidence that the test guards the liveness property.
+
+3. CATCH-UP / CEILING — APPROVED
+
+Catch-up can increase the walk budget when progress falls behind the target schedule, but never above the configured ceiling.
+
+The ceiling remains a foreground-protection limit.
+
+A degraded/over-age checkpoint does NOT automatically blow through the ceiling. Hard-age breach is diagnostic, not permission to create an uncontrolled foreground outage.
+
+4. LINEAR TARGET SCHEDULE DEVIATION — ACCEPTED
+
+DESIGN-R originally described catch-up using whether remaining work at the floor rate would miss the target.
+
+S2 instead uses a linear progress schedule:
+
+done / total < elapsed / target.
+
+This is acceptable for now because:
+- the actual future loop rate is not knowable a priori;
+- the rule is deterministic and observable;
+- it does not alter correctness;
+- target completion is explicitly a pacing goal, not a guarantee;
+- all numeric values remain hypotheses.
+
+Do not describe the linear schedule as equivalent to a proven completion-time predictor. It is a controller heuristic.
+
+5. WAL PRESSURE BASELINE — ACCEPTED WITH IMPORTANT LIMITATION
+
+S2 captures the WAL flush EWMA at checkpoint begin and uses it as the reference baseline.
+
+This is sufficient for S2, but it is not a clean measurement of “checkpoint-caused I/O pressure.”
+
+As the S2 document correctly says:
+- it may inherit a high EWMA from a previous slow checkpoint;
+- it is quantized to integer microseconds;
+- it cannot distinguish foreground-load pressure from checkpoint interference.
+
+Therefore:
+
+DO NOT tune or freeze WAL-ratio thresholds from the current dev-VM behavior.
+
+S3-D and later physical characterization must revisit this signal before it is treated as production control policy.
+
+Not a blocker to S2.
+
+6. DEFAULT WALK BUDGETS — DEV-VM ONLY
+
+The current defaults:
+- batch 16;
+- min 20 us;
+- normal max 100 us;
+- catch-up ceiling 250 us;
+
+are NOT hardware-independent defaults.
+
+The S2 evidence itself shows why: on faster hardware, a 100-250 us budget could allow substantially MORE checkpoint walk work per iteration than the old fixed 256-ID implementation.
+
+Therefore before any R640 run:
+
+1. run ckpt_walk_cost on the R640;
+2. derive hardware-appropriate values;
+3. preregister them before the physical run;
+4. record both the old 256-ID step time and proposed paced budgets.
+
+Do not simply boot the R640 with the dev-VM pacing defaults.
+
+7. CC-1..CC-5 — APPROVED
+
+The correctness mapping is accepted.
+
+CC-1:
+The one-step ID snapshot is unchanged. The cursor monotonically visits the same vector; pacing only changes when an ID is visited.
+
+CC-2:
+WAL/reclamation semantics unchanged. A slower walk merely lengthens retained WAL.
+
+CC-3:
+The local-durability check before checkpoint part sync is unchanged.
+
+CC-4:
+Version-based idempotent install/replay semantics unchanged.
+
+CC-5:
+Manifest/superblock publication and reclaim ordering unchanged.
+
+P4/P5 provide useful mutation/crash coverage across walk positions.
+
+8. FOREGROUND PROGRESS — APPROVED FOR S2 SCOPE
+
+P3 demonstrates foreground reads and applied deposits continue while a highly paced checkpoint advances.
+
+This establishes the intended S2 scheduling property at the software-test level.
+
+Do not interpret this as a hardware latency guarantee.
+
+The remaining unbounded pieces are explicitly outside S2:
+- one-step begin snapshot;
+- foreground work cost per loop;
+- OS scheduling/preemption.
+
+That is acceptable.
+
+9. OBSERVABILITY — APPROVED
+
+The new checkpoint pacing gauges and HEALTH fields are useful and appropriately diagnostic:
+- current budget;
+- mode;
+- pressure;
+- age state;
+- target/past-target;
+- progress;
+- catch-up steps;
+- longest walk step;
+- WAL baseline.
+
+Keep ckpt_state diagnostic. It must not become promotion/fencing policy later without a separate design review.
+
+10. VALIDATION — ACCEPTED
+
+Final validation is clean:
+- Release: 39/39;
+- ASan+UBSan: 39/39, zero reports;
+- TSan: 39/39, zero reports.
+
+P1-P8 pass.
+
+Negative mutations prove:
+- removing the floor is detected;
+- ignoring the budget is detected;
+- foreground starvation is detected;
+- removing catch-up is detected;
+- removing high-pressure backoff is detected.
+
+Independent review findings were reconciled before the headline runs.
+
+S2 passes the software gate.
+
+11. S2 FINAL STATUS
+
+S2 is COMPLETE.
+
+What S2 now guarantees at the design level:
+- WALK work per loop is paced rather than count-fixed;
+- a non-zero floor guarantees eventual WALK progress as loop iterations continue;
+- pressure can reduce WALK work;
+- catch-up can increase it only to a ceiling;
+- checkpoint age/target state is observable;
+- correctness contracts remain unchanged;
+- legacy walk behavior remains available with pacing off.
+
+What S2 explicitly does NOT solve:
+- one-step checkpoint begin snapshot;
+- checkpoint dirty-page/writeback burst;
+- concurrent final shard fdatasync burst;
+- destination follow-up intake under WAL stall;
+- production tuning of pacing values.
+
+12. NEXT: S3-D IS AUTHORIZED
+
+Authorize S3-D only.
+
+S3-D must choose among:
+
+C1:
+buffered writes + early writeback (sync_file_range style).
+
+C2:
+O_DIRECT checkpoint part writes.
+
+C3:
+buffered writes + per-chunk RWF_DSYNC.
+
+Do NOT implement the chosen mechanism until S3-D returns for review.
+
+13. S3-D DECISION CRITERIA
+
+The decision should prioritize, in this order:
+
+1. correctness simplicity;
+2. bounded dirty/in-flight checkpoint bytes;
+3. predictable interaction with WAL durability;
+4. recovery/file-format stability;
+5. portable failure behavior;
+6. operational simplicity;
+7. practical overhead.
+
+Raw throughput is not the primary criterion.
+
+The central question is:
+
+Which mechanism most cleanly prevents the checkpoint from accumulating a large storage burst that later destroys WAL latency?
+
+14. S3-D MICRO-CHARACTERIZATION
+
+A small dev-machine characterization is authorized if it can be done without turning S3-D into an implementation project.
+
+Measure for C1/C2/C3 where practical:
+- checkpoint bytes in flight / dirty;
+- final fdatasync latency;
+- WAL RWF_DSYNC latency while checkpoint writes run;
+- error handling behavior;
+- CPU/copy overhead qualitatively;
+- filesystem compatibility.
+
+Do not use the dev VM to select a winner based on raw throughput.
+
+The result should be architectural evidence, not campaign evidence.
+
+No R640 for S3-D.
+
+15. FOLLOW-UP INTAKE BACKPRESSURE REMAINS REQUIRED
+
+Do not lose the S1.1 finding:
+
+a destination WAL stall can continue ingesting non-refusable follow-up work after client admission closes.
+
+This still needs a separate pre-S6 slice.
+
+It should NOT be merged into S3-D or S3 unless the S3 design proves they are inseparable.
+
+16. BEGIN SNAPSHOT / B2 REMAINS DEFERRED
+
+The one-step ID snapshot remains approximately 50 ms per shard at the old R640-scale measurement.
+
+Do not solve it yet.
+
+B2 has higher correctness risk because incremental hash-table traversal can violate CC-1 under deletion/rehash.
+
+Keep B2 deferred until later evidence says the begin snapshot materially violates the service envelope.
+
+17. PERFORMANCE PHILOSOPHY
+
+Continue the revised project philosophy:
+
+correctness -> semantics -> boundedness -> recoverability -> operability -> performance.
+
+S3 should not be judged by “which option benchmarks fastest.”
+
+It should be judged by:
+- whether WAL latency remains sane;
+- whether dirty state is bounded;
+- whether final sync becomes predictable;
+- whether failure/recovery behavior stays simple;
+- whether the system remains operationally practical.
+
+FINAL
+
+PR #75: APPROVED.
+
+S2: COMPLETE.
+
+TIME-PACED WALK: APPROVED.
+CATCH-UP/FLOOR/CEILING: APPROVED.
+CC-1..CC-5: PRESERVED.
+CLEAN 39/39 RELEASE/ASAN/TSAN: ACCEPTED.
+
+NEXT:
+S3-D DESIGN SELECTION ONLY.
+
+NO S3 IMPLEMENTATION UNTIL S3-D REVIEW.
+NO R640 YET.
+NO CP-1A.
+NO COMPETITORS.
+
+FOLLOW-UP INTAKE BACKPRESSURE REMAINS A REQUIRED PRE-S6 SLICE.
