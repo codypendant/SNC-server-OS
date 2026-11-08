@@ -22,3 +22,5 @@
 [ 91%] Linking CXX static library libsnc_core.a
 [ 91%] Built target snc_core
 [ 95%] Building CXX object CMakeFiles/test_s3_writeback.dir/tests/test_s3_writeback.cpp.o
+[100%] Linking CXX executable test_s3_writeback
+[100%] Built target test_s3_writeback
