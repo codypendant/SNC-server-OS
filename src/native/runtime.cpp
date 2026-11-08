@@ -26,6 +26,11 @@
 namespace snc {
 
 namespace {
+// Tests only (sri_debug_force_sync_io): file I/O takes the synchronous path.
+std::atomic<bool> g_force_sync_io{false};
+}  // namespace
+
+namespace {
 
 inline void cpu_relax() { _mm_pause(); }
 
@@ -180,10 +185,10 @@ bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   return true;
 }
 
-void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
+bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
   Worker& w = *tl_worker;
   int flags = dsync ? RWF_DSYNC : 0;
-  if (w.uring_ok) {
+  if (w.uring_ok && !g_force_sync_io.load(std::memory_order_relaxed)) {
     io_uring_sqe* sqe = io_uring_get_sqe(&w.ring);
     if (sqe == nullptr) {
       io_uring_submit(&w.ring);
@@ -196,19 +201,20 @@ void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
       io_uring_sqe_set_data(sqe, op);
       io_uring_submit(&w.ring);
       ++w.io_inflight;
-      return;
+      return true;
     }
   }
   iovec iov{const_cast<void*>(buf), len};
   ssize_t n = ::pwritev2(fd, &iov, 1, static_cast<off_t>(off), flags);
   w.io_deferred.push_back(Worker::IoReq{done, ctx, n < 0 ? -errno : static_cast<int>(n)});
+  return false;
 }
 
 void sri_watch_fd(int fd) { tl_worker->idle_fds.push_back(pollfd{fd, POLLIN, 0}); }
 
 void sri_fdatasync(int fd, IoDone done, void* ctx) {
   Worker& w = *tl_worker;
-  if (w.uring_ok) {
+  if (w.uring_ok && !g_force_sync_io.load(std::memory_order_relaxed)) {
     io_uring_sqe* sqe = io_uring_get_sqe(&w.ring);
     if (sqe == nullptr) {
       io_uring_submit(&w.ring);
@@ -226,6 +232,8 @@ void sri_fdatasync(int fd, IoDone done, void* ctx) {
   int r = ::fdatasync(fd);
   w.io_deferred.push_back(Worker::IoReq{done, ctx, r < 0 ? -errno : 0});
 }
+
+void sri_debug_force_sync_io(bool on) { g_force_sync_io.store(on); }
 
 namespace {
 // Runs completed file I/O callbacks. Returns true if any ran.

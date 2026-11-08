@@ -470,6 +470,16 @@ class Engine {
     u64 ckpt_target_ms = 30'000;              // target completion time (0 = none)
     u64 ckpt_max_age_ms = 300'000;            // hard maximum age (0 = none)
     u32 ckpt_warn_pct = 80;                   // warn at this percent of the hard maximum
+
+    // Bounded checkpoint writeback (slice S3, docs/S3_WRITEBACK.md;
+    // mechanism chosen in docs/S3D_WRITEBACK.md). ckpt_io_dsync: each part
+    // chunk is written with RWF_DSYNC, at most ckpt_write_window chunks in
+    // flight per shard, and the walk stops producing chunks while the
+    // window is full. false (`--ckpt-io legacy`) restores the write path
+    // before S3: buffered chunks, no window. The final fdatasync is kept in
+    // both. The window is a provisional hypothesis; 1..64.
+    bool ckpt_io_dsync = true;
+    u32 ckpt_write_window = 4;
   };
 
   explicit Engine(const Config& cfg);
@@ -524,6 +534,20 @@ class Engine {
   // or above `limit` (0 = no limit), holding the checkpoint in WALK at that
   // position (docs/S2_PACING.md section 6).
   static void debug_ckpt_walk_limit(u64 limit);
+  // Tests only (S3, docs/S3_WRITEBACK.md section 8). Hold: checkpoint chunk
+  // write completions are kept by their shard, unprocessed (the write
+  // stays in flight and its buffer retained), until released: `n` more,
+  // oldest or newest first; hold off processes the rest. Fail: the
+  // completion of chunk `index` (0-based, of the next checkpoint to reach
+  // it) reports one byte short (mode 1) or -EIO (mode 2); both are fatal.
+  // Commit hold: Engine::checkpoint stops after every part is synced and
+  // before the manifest, until released; reached() says it is there.
+  static void debug_ckpt_hold_writes(bool on);
+  static void debug_ckpt_release_writes(u32 n, bool newest_first);
+  static void debug_ckpt_fail_write(u64 index, int mode);
+  static void debug_ckpt_hold_commit(bool on);
+  static bool debug_ckpt_commit_reached();
+  static void debug_force_sync_io(bool on);
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down

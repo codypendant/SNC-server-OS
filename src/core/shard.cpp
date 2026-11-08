@@ -20,7 +20,6 @@ namespace snc {
 namespace {
 constexpr u8 kMsgRespDurable = 1u << 4;  // RESP flag: resulting version is durable
 constexpr u32 kCheckpointSlice = 256;    // objects per loop iteration (spec section 12)
-constexpr u32 kCheckpointChunk = 1u << 20;
 
 thread_local Shard* tl_shard = nullptr;
 
@@ -33,6 +32,17 @@ std::atomic<u64> g_debug_hold_wal{0};
 // index at or above this (0 = no limit), so a test can hold a checkpoint
 // at a chosen walk position. Never set outside tests.
 std::atomic<u64> g_debug_ckpt_walk_limit{0};
+
+// Tests only (S3; Engine::debug_ckpt_hold_writes and friends). Hold: chunk
+// write completions are kept by their shard; release adds tokens, each
+// lets one held completion be processed, oldest first unless `newest`.
+// Fail: chunk index + 1 of the next checkpoint to reach it (0 = none),
+// and how it fails: 1 one byte short, 2 -EIO. Consumed once.
+std::atomic<bool> g_debug_ckpt_hold{false};
+std::atomic<u64> g_debug_ckpt_release{0};
+std::atomic<bool> g_debug_ckpt_release_newest{false};
+std::atomic<u64> g_debug_ckpt_fail_at{0};
+std::atomic<int> g_debug_ckpt_fail_mode{0};
 
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
   std::fprintf(stderr, "snc: handler contract violated: %s (op %s)\n", what, op ? op->name : "?");
@@ -50,6 +60,21 @@ void debug_hold_wal_flush(u16 shard, bool on) {
   else g_debug_hold_wal.fetch_and(~bit);
 }
 void debug_ckpt_walk_limit(u64 limit) { g_debug_ckpt_walk_limit.store(limit); }
+void debug_ckpt_hold_writes(bool on) {
+  if (on) {  // a new hold starts with no tokens left from an earlier one
+    g_debug_ckpt_release.store(0);
+    g_debug_ckpt_release_newest.store(false);
+  }
+  g_debug_ckpt_hold.store(on);
+}
+void debug_ckpt_release_writes(u32 n, bool newest_first) {
+  g_debug_ckpt_release_newest.store(newest_first);
+  g_debug_ckpt_release.fetch_add(n);
+}
+void debug_ckpt_fail_write(u64 index, int mode) {
+  g_debug_ckpt_fail_mode.store(mode);
+  g_debug_ckpt_fail_at.store(mode == 0 ? 0 : index + 1);
+}
 void set_current_shard(Shard* s) { tl_shard = s; }
 
 Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
@@ -897,6 +922,23 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_CKPT_STEP_MAX_NS] = o.step_max_ns;
   v[G_CKPT_STEP_MAX_OBJECTS] = o.step_max_objects;
   v[G_CKPT_WAL_BASELINE_US] = o.wal_baseline_us;
+  v[G_CKPT_IO_DSYNC] = ckpt_io_.dsync ? 1 : 0;
+  v[G_CKPT_WINDOW] = ckpt_io_.dsync ? ckpt_io_.window : 0;
+  v[G_CKPT_WINDOW_FULL] = active && ckpt_.blocked ? 1 : 0;
+  v[G_CKPT_FINAL_PENDING] = active && ckpt_.blocked && ckpt_.visited ? 1 : 0;
+  v[G_CKPT_WINDOW_FULL_STEPS] = o.window_full_steps;
+  v[G_CKPT_CHUNKS] = o.chunks;
+  v[G_CKPT_BUF_BYTES] = active ? ckpt_buf_bytes() : 0;
+  v[G_CKPT_BUF_BYTES_PEAK] = o.buf_bytes_peak;
+  v[G_CKPT_WRITE_LAT_LAST_US] = o.write_lat_last_us;
+  v[G_CKPT_WRITE_LAT_EWMA_US] = o.write_lat_ewma_us;
+  v[G_CKPT_WRITE_LAT_MAX_US] = o.write_lat_max_us;
+  v[G_CKPT_WRITE_LAT_LT1MS] = o.write_lat_hist[0];
+  v[G_CKPT_WRITE_LAT_LT10MS] = o.write_lat_hist[1];
+  v[G_CKPT_WRITE_LAT_LT100MS] = o.write_lat_hist[2];
+  v[G_CKPT_WRITE_LAT_GE100MS] = o.write_lat_hist[3];
+  v[G_CKPT_SYNC_WRITES] = o.sync_writes;
+  v[G_CKPT_SYNC_WRITES_TOTAL] = o.sync_writes_total;
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
 }
@@ -1872,6 +1914,11 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   ckpt_obs_.step_max_ns = ckpt_obs_.step_max_objects = 0;
   ckpt_obs_.past_target_counted = ckpt_obs_.degraded_counted = false;
   ckpt_obs_.wal_baseline_us = wal_ ? wal_->stats().flush_us_ewma.value() : 0;
+  // S3 (docs/S3_WRITEBACK.md): per-checkpoint writeback counters.
+  ckpt_obs_.window_full_steps = ckpt_obs_.chunks = ckpt_obs_.buf_bytes_peak = 0;
+  ckpt_obs_.write_lat_last_us = ckpt_obs_.write_lat_ewma_us = ckpt_obs_.write_lat_max_us = 0;
+  for (u64& b : ckpt_obs_.write_lat_hist) b = 0;
+  ckpt_obs_.sync_writes = 0;
   pacer_ = ckpt::reset(pacing_.cfg, t0);
   ckpt_enter(CkptPhase::SNAPSHOT, t0);
   c.start_lsn = wal_ ? wal_->next_lsn() : 0;
@@ -1891,8 +1938,10 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   h.first_lsn = c.start_lsn;
   std::memcpy(h.space_uuid, uuid.data(), 16);
   h.crc32c = crc32c(&h, sizeof(h));
+  c.chunk.reserve(kCheckpointChunkReserve);
   c.chunk.assign(kBlock, 0);
   std::memcpy(c.chunk.data(), &h, sizeof(h));
+  ckpt_note_buf();
   ckpt_enter(CkptPhase::WALK, sri_now_ns());
 }
 
@@ -1923,29 +1972,123 @@ void Shard::ckpt_enter(CkptPhase p, u64 now) {
   gauges_dirty_ = true;
 }
 
-void Shard::checkpoint_write_chunk() {
+u64 Shard::ckpt_buf_bytes() const {
+  u64 b = ckpt_.chunk.capacity();
+  for (const auto& w : ckpt_.slots) b += w->buf.capacity();
+  return b;
+}
+
+void Shard::ckpt_note_buf() {
+  const u64 b = ckpt_buf_bytes();
+  if (b > ckpt_obs_.buf_bytes_peak) ckpt_obs_.buf_bytes_peak = b;
+}
+
+// S3 (docs/S3_WRITEBACK.md section 3). Hands the chunk being built to a
+// write slot and submits it; the slot owns the buffer until that write's
+// own completion. With dsync, at most `window` writes are in flight: a
+// full window refuses, the chunk stays where it is, and the caller stops
+// the walk. Legacy (the path before S3) has no window and no dsync.
+bool Shard::checkpoint_submit_chunk() {
   Checkpoint& c = ckpt_;
-  if (c.chunk.empty()) return;
-  auto buf = std::make_unique<std::vector<u8>>();
-  buf->swap(c.chunk);
-  const u8* data = buf->data();
-  u32 len = static_cast<u32>(buf->size());
-  c.inflight_bufs.push_back(std::move(buf));
+  if (c.chunk.empty()) return true;
+  if (ckpt_io_.dsync && c.writes_inflight >= ckpt_io_.window) return false;
+  CkptWrite* w = nullptr;
+  if (!c.free_slots.empty()) {
+    w = c.free_slots.back();
+    c.free_slots.pop_back();
+  } else {
+    c.slots.push_back(std::make_unique<CkptWrite>());
+    w = c.slots.back().get();
+    w->shard = this;
+  }
+  w->buf.swap(c.chunk);  // the chunk being built is now empty, capacity 0
+  w->len = static_cast<u32>(w->buf.size());
+  w->index = c.chunks++;
+  w->submit_ns = sri_now_ns();
+  w->busy = true;
   ++c.writes_inflight;
   if (c.writes_inflight > ckpt_obs_.writes_peak) ckpt_obs_.writes_peak = c.writes_inflight;
-  u64 off = c.file_off;
-  c.file_off += len;
-  sri_write(c.fd, off, data, len, /*dsync=*/false, &Shard::checkpoint_write_done, this);
+  ckpt_obs_.chunks = c.chunks;
+  const u64 off = c.file_off;
+  c.file_off += w->len;
+  ckpt_note_buf();
+  gauges_dirty_ = true;
+  if (!sri_write(c.fd, off, w->buf.data(), w->len, ckpt_io_.dsync, &Shard::checkpoint_write_done, w)) {
+    // The synchronous fallback: a durable write blocked this loop for its
+    // whole duration. Counted, never hidden (review PR76 section 8).
+    ++ckpt_obs_.sync_writes;
+    ++ckpt_obs_.sync_writes_total;
+  }
+  return true;
 }
 
 void Shard::checkpoint_write_done(void* ctx, int result) {
-  auto* s = static_cast<Shard*>(ctx);
+  auto* w = static_cast<CkptWrite*>(ctx);
+  Shard* s = w->shard;
+  if (g_debug_ckpt_hold.load(std::memory_order_relaxed)) {
+    s->ckpt_held_.push_back({w, result});  // tests: processed by checkpoint_process_held
+    return;
+  }
+  s->checkpoint_write_complete(w, result);
+}
+
+// Exactly one completion per submitted write, in any order. A chunk write
+// must complete in full: an error or a short write is fatal before the
+// commit (spec C7), so the previous checkpoint and its WAL stay
+// authoritative (CC-5).
+void Shard::checkpoint_write_complete(CkptWrite* w, int result) {
+  Checkpoint& c = ckpt_;
+  if (!w->busy) {
+    std::fprintf(stderr, "snc: checkpoint write completed twice (chunk %llu)\n", (unsigned long long)w->index);
+    std::abort();
+  }
+  u64 fail_at = g_debug_ckpt_fail_at.load(std::memory_order_relaxed);
+  if (fail_at == w->index + 1 && g_debug_ckpt_fail_at.compare_exchange_strong(fail_at, 0)) {
+    result = g_debug_ckpt_fail_mode.load() == 1 && result > 0 ? result - 1 : -EIO;
+  }
   if (result < 0) {
     errno = -result;
-    storage_fatal("checkpoint write failed: " + s->ckpt_.path);
+    storage_fatal("checkpoint write failed: " + c.path);
   }
-  --s->ckpt_.writes_inflight;
-  s->ckpt_obs_.bytes_written += static_cast<u64>(result);
+  if (static_cast<u32>(result) != w->len) {
+    errno = EIO;
+    storage_fatal("checkpoint short write: " + std::to_string(result) + " of " + std::to_string(w->len) +
+                  " bytes, chunk " + std::to_string(w->index) + ": " + c.path);
+  }
+  const u64 us = (sri_now_ns() - w->submit_ns) / 1000;
+  CkptObs& o = ckpt_obs_;
+  o.write_lat_last_us = us;
+  o.write_lat_ewma_us = o.write_lat_ewma_us == 0 ? us : (o.write_lat_ewma_us * 7 + us) / 8;
+  if (us > o.write_lat_max_us) o.write_lat_max_us = us;
+  ++o.write_lat_hist[us < 1000 ? 0 : us < 10'000 ? 1 : us < 100'000 ? 2 : 3];
+  o.bytes_written += w->len;
+  // The write is complete and no kernel or runtime path references its
+  // buffer any more: free it now (review PR76 section 3).
+  std::vector<u8>().swap(w->buf);
+  w->busy = false;
+  c.free_slots.push_back(w);
+  --c.writes_inflight;
+  gauges_dirty_ = true;
+}
+
+// Tests only: held completions, processed as release tokens allow, or all
+// once the hold is off.
+void Shard::checkpoint_process_held() {
+  while (!ckpt_held_.empty()) {
+    if (g_debug_ckpt_hold.load(std::memory_order_relaxed)) {
+      u64 t = g_debug_ckpt_release.load(std::memory_order_relaxed);
+      if (t == 0 || !g_debug_ckpt_release.compare_exchange_strong(t, t - 1)) return;
+    }
+    HeldWrite h{};
+    if (g_debug_ckpt_release_newest.load(std::memory_order_relaxed)) {
+      h = ckpt_held_.back();
+      ckpt_held_.pop_back();
+    } else {
+      h = ckpt_held_.front();
+      ckpt_held_.erase(ckpt_held_.begin());
+    }
+    checkpoint_write_complete(h.w, h.result);
+  }
 }
 
 void Shard::checkpoint_sync_done(void* ctx, int result) {
@@ -2001,56 +2144,94 @@ void Shard::pace(u64 now) {
 
 void Shard::checkpoint_step() {
   Checkpoint& c = ckpt_;
+  if (!ckpt_held_.empty()) checkpoint_process_held();
   const u64 t0 = sri_now_ns();
   pace(t0);
   if (c.syncing) return;
   if (!c.walk_done) {
-    const u64 limit = g_debug_ckpt_walk_limit.load(std::memory_order_relaxed);
-    const std::size_t end = limit != 0 && limit < c.ids.size() ? static_cast<std::size_t>(limit) : c.ids.size();
-    const std::size_t from = c.cursor;
-    // Visits snapshot IDs [cursor, cursor + n). Pacing changes when each
-    // ID is visited, never which IDs are (CC-1).
-    auto visit = [&](std::size_t n) {
-      for (; n > 0 && c.cursor < end; --n, ++c.cursor) {
-        // Objects deleted since begin are absent; their DELETE is at or after
-        // start_lsn and replay handles it. Objects created since begin are
-        // covered by CREATE records at or after start_lsn.
-        const ObjectHeader* o = map_.find(c.ids[c.cursor]);
-        if (o == nullptr || o->deleted()) continue;
-        u32 size = record_size(o->length);
-        std::size_t at = c.chunk.size();
-        c.chunk.resize(at + size);
-        encode_record(c.chunk.data() + at, RecType::IMAGE, o->last_lsn, o->type_id, o->id,
-                      o->version, o->schema_ver, o->payload(), o->length);
-        c.max_lsn = std::max(c.max_lsn, o->last_lsn);
-        ++c.objects;
-        c.bytes += size;
-        if (c.chunk.size() >= kCheckpointChunk) checkpoint_write_chunk();
+    // S3: a chunk that found the window full is submitted before anything
+    // else is encoded. Until it is, the walk stays stopped: the bound is
+    // structural (review PR76 section 4), not a deferred submit.
+    if (c.blocked) {
+      if (!checkpoint_submit_chunk()) {
+        ++ckpt_obs_.window_full_steps;
+        return;
       }
-    };
-    u64 t1 = t0;
-    if (!pacing_.on) {
-      visit(kCheckpointSlice);  // before S2: a fixed count per iteration
-      t1 = sri_now_ns();         // observed only
-    } else {
-      // A time budget, read every `batch` IDs. At least one batch per
-      // iteration (the floor that keeps the walk moving), and at most one
-      // batch past the budget (the clock is read after each batch).
-      const u64 deadline = t0 + pacer_.walk_ns;
-      do {
-        visit(pacing_.batch);
-        t1 = sri_now_ns();
-      } while (c.cursor < end && t1 < deadline);
+      c.blocked = false;
+      gauges_dirty_ = true;
     }
-    if (c.cursor > from) {
-      CkptObs& o = ckpt_obs_;
-      ++o.walk_steps;
-      if (pacing_.on && pacer_.mode == ckpt::Mode::CATCH_UP) ++o.catchup_steps;
-      if (t1 - t0 > o.step_max_ns) o.step_max_ns = t1 - t0;
-      if (c.cursor - from > o.step_max_objects) o.step_max_objects = c.cursor - from;
+    if (!c.visited) {
+      const u64 limit = g_debug_ckpt_walk_limit.load(std::memory_order_relaxed);
+      const std::size_t end = limit != 0 && limit < c.ids.size() ? static_cast<std::size_t>(limit) : c.ids.size();
+      const std::size_t from = c.cursor;
+      // Visits snapshot IDs [cursor, cursor + n). Pacing changes when each
+      // ID is visited, never which IDs are (CC-1). A full window stops the
+      // visit after the record that filled the chunk; the cursor is already
+      // past that ID, so nothing is visited twice or skipped.
+      auto visit = [&](std::size_t n) {
+        for (; n > 0 && c.cursor < end && !c.blocked; --n) {
+          // Objects deleted since begin are absent; their DELETE is at or after
+          // start_lsn and replay handles it. Objects created since begin are
+          // covered by CREATE records at or after start_lsn.
+          const ObjectHeader* o = map_.find(c.ids[c.cursor++]);
+          if (o == nullptr || o->deleted()) continue;
+          u32 size = record_size(o->length);
+          std::size_t at = c.chunk.size();
+          // Reserved at kCheckpointChunkReserve; a record that does not fit
+          // grows it to the exact size, never geometrically, so a retained
+          // buffer stays within kCheckpointChunkMax.
+          if (c.chunk.capacity() < kCheckpointChunkReserve) c.chunk.reserve(kCheckpointChunkReserve);
+          if (at + size > c.chunk.capacity()) c.chunk.reserve(at + size);
+          c.chunk.resize(at + size);
+          encode_record(c.chunk.data() + at, RecType::IMAGE, o->last_lsn, o->type_id, o->id,
+                        o->version, o->schema_ver, o->payload(), o->length);
+          c.max_lsn = std::max(c.max_lsn, o->last_lsn);
+          ++c.objects;
+          c.bytes += size;
+          if (c.chunk.size() >= kCheckpointChunk && !checkpoint_submit_chunk()) c.blocked = true;
+        }
+      };
+      u64 t1 = t0;
+      if (!pacing_.on) {
+        visit(kCheckpointSlice);  // before S2: a fixed count per iteration
+        t1 = sri_now_ns();         // observed only
+      } else {
+        // A time budget, read every `batch` IDs. At least one batch per
+        // iteration (the floor that keeps the walk moving), and at most one
+        // batch past the budget (the clock is read after each batch).
+        const u64 deadline = t0 + pacer_.walk_ns;
+        do {
+          visit(pacing_.batch);
+          t1 = sri_now_ns();
+        } while (c.cursor < end && !c.blocked && t1 < deadline);
+      }
+      ckpt_note_buf();
+      if (c.cursor > from) {
+        CkptObs& o = ckpt_obs_;
+        ++o.walk_steps;
+        if (pacing_.on && pacer_.mode == ckpt::Mode::CATCH_UP) ++o.catchup_steps;
+        if (t1 - t0 > o.step_max_ns) o.step_max_ns = t1 - t0;
+        if (c.cursor - from > o.step_max_objects) o.step_max_objects = c.cursor - from;
+      }
+      if (c.blocked) {
+        gauges_dirty_ = true;
+        return;
+      }
+      if (c.cursor == c.ids.size()) {
+        c.visited = true;
+        gauges_dirty_ = true;
+      }
     }
-    if (c.cursor == c.ids.size()) {
-      checkpoint_write_chunk();
+    if (c.visited) {
+      // Every ID is visited; the last chunk must be submitted before the
+      // walk is done (review PR76 section 5). If the window is full it
+      // waits, with the IDs kept and the phase still WALK.
+      if (!checkpoint_submit_chunk()) {
+        c.blocked = true;
+        ++ckpt_obs_.window_full_steps;
+        gauges_dirty_ = true;
+        return;
+      }
       c.walk_done = true;
       std::vector<ObjectID>().swap(c.ids);
       ckpt_enter(CkptPhase::DRAIN, sri_now_ns());
@@ -2068,7 +2249,6 @@ void Shard::checkpoint_step() {
     ckpt_enter(CkptPhase::DURABLE_WAIT, sri_now_ns());  // observability (S0)
   }
   if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
-    c.inflight_bufs.clear();
     c.syncing = true;
     ckpt_enter(CkptPhase::SYNC, sri_now_ns());  // observability (S0)
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);

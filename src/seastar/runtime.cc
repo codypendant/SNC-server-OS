@@ -43,6 +43,11 @@
 namespace snc {
 
 namespace {
+// Tests only (sri_debug_force_sync_io): file I/O takes the synchronous path.
+std::atomic<bool> g_force_sync_io{false};
+}  // namespace
+
+namespace {
 
 u64 now_ns() {
   return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -357,27 +362,28 @@ void sri_publish(u16 dst) {
   flush_to(s, dst);  // `touched` may still name dst; flushing an empty vector is a no-op
 }
 
-void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
+bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
   Shard& s = *tl;
   int flags = dsync ? RWF_DSYNC : 0;
-  if (s.uring_ok) {
+  if (s.uring_ok && !g_force_sync_io.load(std::memory_order_relaxed)) {
     if (io_uring_sqe* sqe = get_sqe(s)) {
       auto* op = new Shard::IoOp{done, ctx, iovec{const_cast<void*>(buf), len}};
       io_uring_prep_writev2(sqe, fd, &op->iov, 1, off, flags);
       io_uring_sqe_set_data(sqe, op);
       io_uring_submit(&s.ring);
       ++s.io_inflight;
-      return;
+      return true;
     }
   }
   iovec iov{const_cast<void*>(buf), len};
   ssize_t n = ::pwritev2(fd, &iov, 1, static_cast<off_t>(off), flags);
   s.io_deferred.push_back(Shard::IoReq{done, ctx, n < 0 ? -errno : static_cast<int>(n)});
+  return false;
 }
 
 void sri_fdatasync(int fd, IoDone done, void* ctx) {
   Shard& s = *tl;
-  if (s.uring_ok) {
+  if (s.uring_ok && !g_force_sync_io.load(std::memory_order_relaxed)) {
     if (io_uring_sqe* sqe = get_sqe(s)) {
       auto* op = new Shard::IoOp{done, ctx, iovec{}};
       io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
@@ -390,6 +396,8 @@ void sri_fdatasync(int fd, IoDone done, void* ctx) {
   int r = ::fdatasync(fd);
   s.io_deferred.push_back(Shard::IoReq{done, ctx, r < 0 ? -errno : 0});
 }
+
+void sri_debug_force_sync_io(bool on) { g_force_sync_io.store(on); }
 
 // Shards never sleep, so there is nothing to wake.
 void sri_watch_fd(int) {}

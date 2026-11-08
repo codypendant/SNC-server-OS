@@ -16,6 +16,7 @@
 //                   [--admission s1|legacy] [--waiter-budget-bytes N]
 //                   [--wal-buffer-budget-bytes N] [--pending-budget N]
 //                   [--ckpt-pacing on|off] [--ckpt-target-ms N] [--ckpt-max-age-ms N]
+//                   [--ckpt-io legacy|dsync] [--ckpt-window N]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -369,6 +370,27 @@ int main(int argc, char** argv) {
       }
       if (k == "--ckpt-target-ms") cfg.ckpt_target_ms = n;
       else cfg.ckpt_max_age_ms = n;
+    }
+    else if (k == "--ckpt-io") {
+      // docs/S3_WRITEBACK.md: dsync (default, windowed RWF_DSYNC chunks) or
+      // legacy, the write path before S3.
+      const std::string v = val();
+      if (v != "legacy" && v != "dsync") {
+        std::fprintf(stderr, "--ckpt-io takes legacy or dsync\n");
+        return 2;
+      }
+      cfg.ckpt_io_dsync = v == "dsync";
+    }
+    else if (k == "--ckpt-window") {
+      const char* v = val();
+      char* end = nullptr;
+      errno = 0;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (v[0] < '0' || v[0] > '9' || end == v || *end != '\0' || errno == ERANGE || n < 1 || n > 64) {
+        std::fprintf(stderr, "--ckpt-window takes 1 to 64\n");
+        return 2;
+      }
+      cfg.ckpt_write_window = static_cast<u32>(n);
     }
     else if (k == "--adopt-role") {
       // docs/LEGACY_ROLE.md: once, for a data directory from before role files.
@@ -856,17 +878,25 @@ int main(int argc, char** argv) {
       // S2 (docs/S2_PACING.md section 4): the worst shard's age state and
       // whether any shard is past its target or catching up. Diagnostic
       // (HL-4): a degraded checkpoint drives no promotion or withdrawal.
-      u64 age_state = 0, past = 0, catchup = 0;
+      u64 age_state = 0, past = 0, catchup = 0, sync_writes = 0, dsync = 0;
       for (u16 s = 0; s < n_shards; ++s) {
         const GaugeSnapshot g = eng.gauges(s);
         age_state = std::max<u64>(age_state, g[G_CKPT_AGE_STATE]);
         past |= g[G_CKPT_PAST_TARGET];
         catchup |= g[G_CKPT_MODE];
+        sync_writes += g[G_CKPT_SYNC_WRITES_TOTAL];
+        dsync |= g[G_CKPT_IO_DSYNC];  // the same on every shard (configured)
       }
       static const char* const kAge[] = {"ok", "warn", "degraded"};
       n += std::snprintf(b + n, sizeof(b) - n, " ckpt_state=%s ckpt_past_target=%llu ckpt_catchup=%llu",
                          kAge[age_state < 3 ? age_state : 2], (unsigned long long)past,
                          (unsigned long long)catchup);
+      clamp();
+      // S3 (docs/S3_WRITEBACK.md section 6): chunk writes that took the
+      // synchronous fallback since start, all shards. Non-zero marks a
+      // performance run invalid.
+      n += std::snprintf(b + n, sizeof(b) - n, " ckpt_io=%s ckpt_sync_writes=%llu",
+                         dsync ? "dsync" : "legacy", (unsigned long long)sync_writes);
       clamp();
       if (slow >= 0) {
         n += std::snprintf(b + n, sizeof(b) - n, " ckpt_slow_shard=%d ckpt_slow_phase=%s", slow,

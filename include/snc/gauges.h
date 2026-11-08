@@ -136,6 +136,25 @@ enum Gauge : u32 {
   G_CKPT_STEP_MAX_NS,        // longest walk step
   G_CKPT_STEP_MAX_OBJECTS,   // most IDs visited in one step
   G_CKPT_WAL_BASELINE_US,    // WAL flush EWMA learned before the checkpoint began
+  // Bounded writeback (S3, docs/S3_WRITEBACK.md section 6). Per checkpoint
+  // (reset at begin; kept after it ends) unless noted.
+  G_CKPT_IO_DSYNC,           // 1 dsync (RWF_DSYNC chunks, windowed), 0 legacy (configured)
+  G_CKPT_WINDOW,             // chunk writes allowed in flight (configured; 0 = no window, legacy)
+  G_CKPT_WINDOW_FULL,        // 1 now: a full chunk waits for a window slot and the walk is stopped
+  G_CKPT_FINAL_PENDING,      // 1 now: every ID visited, the last chunk waits for a slot
+  G_CKPT_WINDOW_FULL_STEPS,  // loop iterations the walk was stopped by a full window
+  G_CKPT_CHUNKS,             // chunk writes submitted
+  G_CKPT_BUF_BYTES,          // chunk buffer bytes retained now (building + in flight); 0 when idle
+  G_CKPT_BUF_BYTES_PEAK,
+  G_CKPT_WRITE_LAT_LAST_US,  // chunk write: submit to completion processed
+  G_CKPT_WRITE_LAT_EWMA_US,
+  G_CKPT_WRITE_LAT_MAX_US,
+  G_CKPT_WRITE_LAT_LT1MS,    // chunk write latency histogram: < 1 ms
+  G_CKPT_WRITE_LAT_LT10MS,   //   1 to 10 ms
+  G_CKPT_WRITE_LAT_LT100MS,  //   10 to 100 ms
+  G_CKPT_WRITE_LAT_GE100MS,  //   100 ms or more
+  G_CKPT_SYNC_WRITES,        // chunk writes that took the synchronous fallback (a run with any is not valid evidence)
+  G_CKPT_SYNC_WRITES_TOTAL,  // the same since start
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -157,6 +176,10 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_past_target", "ckpt_past_target_count", "ckpt_degraded_count", "ckpt_target_ms",
     "ckpt_max_age_ms", "ckpt_walk_total", "ckpt_walk_done", "ckpt_walk_steps", "ckpt_catchup_steps",
     "ckpt_step_max_ns", "ckpt_step_max_objects", "ckpt_wal_baseline_us",
+    "ckpt_io_dsync", "ckpt_window", "ckpt_window_full", "ckpt_final_pending", "ckpt_window_full_steps",
+    "ckpt_chunks", "ckpt_buf_bytes", "ckpt_buf_bytes_peak", "ckpt_write_lat_last_us",
+    "ckpt_write_lat_ewma_us", "ckpt_write_lat_max_us", "ckpt_write_lat_lt1ms", "ckpt_write_lat_lt10ms",
+    "ckpt_write_lat_lt100ms", "ckpt_write_lat_ge100ms", "ckpt_sync_writes", "ckpt_sync_writes_total",
     "published_ns",
 };
 
