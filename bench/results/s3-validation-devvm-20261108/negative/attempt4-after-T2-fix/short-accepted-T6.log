@@ -1,0 +1,1 @@
+/home/claude/s3neg-work4/src-short-accepted/tests/test_s3_writeback.cpp:637: CHECK failed: WIFSIGNALED(st) && WTERMSIG(st) == SIGABRT

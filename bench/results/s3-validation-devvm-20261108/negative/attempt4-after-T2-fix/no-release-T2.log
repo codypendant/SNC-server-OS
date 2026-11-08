@@ -1,0 +1,1 @@
+/home/claude/s3neg-work4/src-no-release/tests/test_s3_writeback.cpp:352: CHECK failed: g[G_CKPT_BUF_BYTES_PEAK] <= envelope(w)

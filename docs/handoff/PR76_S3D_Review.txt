@@ -1,0 +1,458 @@
+PR #76 REVIEW — S3-D BOUNDED CHECKPOINT WRITEBACK SELECTION
+
+DECISION
+
+PR #76 is APPROVED WITH IMPLEMENTATION CONDITIONS.
+
+The proposed mechanism selection is accepted:
+
+C3 = buffered checkpoint-part writes with `RWF_DSYNC` per chunk, a bounded in-flight window, and the existing final `fdatasync`.
+
+C2 (`O_DIRECT`) remains the named fallback if later physical characterization shows materially worse WAL interference from C3.
+
+C1 is rejected.
+
+S3 implementation is now authorized, but only for the bounded-writeback slice described below.
+
+No R640 campaign load, CP-1A, comparator work, staggered sync, follow-up intake backpressure, B2 snapshot work, or unrelated scheduler changes are authorized.
+
+============================================================
+1. C3 MECHANISM SELECTION — APPROVED
+============================================================
+
+C3 is the best current engineering choice for SNC because it gives the cleanest combination of:
+
+- unchanged checkpoint file format;
+- unchanged recovery parser;
+- no alignment/padding/truncation machinery;
+- errors surfaced on the chunk write;
+- a direct durability point per chunk;
+- bounded in-flight write work;
+- a nearly empty final sync in the characterization;
+- the smallest correctness delta from the current implementation.
+
+This is more important than maximizing raw write throughput.
+
+The dev-VM results are architectural evidence, not campaign evidence, and are being used appropriately.
+
+============================================================
+2. DEV-VM CHARACTERIZATION — ACCEPTED FOR MECHANISM SELECTION
+============================================================
+
+The characterization is useful and correctly scoped.
+
+It reproduced the original failure mechanism:
+
+legacy buffered checkpoint writes accumulate a large dirty set and then the final `fdatasync` produces a long WAL-latency collapse.
+
+All three bounded candidates substantially reduced that final burst.
+
+C3 produced the most stable WAL tail in this environment, particularly under the paced 100 MB/s cases.
+
+This is enough to choose an implementation direction.
+
+It is NOT enough to freeze:
+- window size;
+- chunk size for all hardware;
+- pacing values;
+- WAL-pressure thresholds;
+- production expectations.
+
+Those remain hypotheses.
+
+============================================================
+3. IMPORTANT IMPLEMENTATION CONDITION — BUFFER MEMORY MUST ALSO BE BOUNDED
+============================================================
+
+The current checkpoint code retains every issued chunk buffer in:
+
+`c.inflight_bufs`
+
+and clears the entire collection only after all writes are complete and the shard reaches the final durability/sync phase.
+
+Therefore merely limiting `writes_inflight` does NOT by itself bound checkpoint buffer memory.
+
+If completed 1 MiB buffers remain retained until checkpoint end, a multi-GB checkpoint can still retain multi-GB memory even though only W writes are actually in flight.
+
+S3 MUST fix this as part of the write-window implementation.
+
+Required invariant:
+
+> Once a particular chunk write has completed, and no kernel/runtime path can still reference its buffer, that chunk's backing memory must become reclaimable immediately.
+
+The retained checkpoint-buffer memory should therefore be bounded approximately by:
+
+`W * max_chunk_bytes + current_building_chunk + small bookkeeping`
+
+rather than checkpoint size.
+
+Do not assume io_uring completions are ordered.
+
+The current callback receives only `this`, so S3 needs an ownership scheme that can identify the completed write safely.
+
+Acceptable shapes include:
+- a per-write context containing the buffer owner and shard pointer;
+- a stable chunk object whose completion callback releases itself;
+- another explicit ownership design with proof that the buffer cannot be freed before I/O completion.
+
+Do NOT free buffers by FIFO position unless completion ordering is explicitly guaranteed by the runtime contract.
+
+Add gauges/tests for retained checkpoint buffer bytes.
+
+============================================================
+4. WRITE-WINDOW BACKPRESSURE MUST BE STRUCTURAL, NOT ADVISORY
+============================================================
+
+The S3 write window must actually stop checkpoint production when full.
+
+Required rule:
+
+> If `writes_inflight >= W`, checkpoint WALK must stop producing additional full chunks until a completion frees a window slot.
+
+Do not merely stop submitting writes while continuing to encode arbitrarily many chunks into memory.
+
+The current `checkpoint_write_chunk()` is called as soon as `c.chunk` reaches the checkpoint chunk threshold. S3 must restructure this path so a full window causes the walk to yield cleanly.
+
+The bound needs to hold even under:
+- very slow storage;
+- no write completions for many loop iterations;
+- maximum-size objects;
+- catch-up mode at the S2 ceiling.
+
+============================================================
+5. FINAL/PARTIAL CHUNK STATE MACHINE MUST BE CORRECT
+============================================================
+
+Pay special attention to the last partial chunk.
+
+Today, when the cursor reaches the end, the code calls `checkpoint_write_chunk()`, sets `walk_done = true`, releases the ID vector, and enters DRAIN.
+
+Under a full S3 window, the final partial chunk may not be submit-able immediately.
+
+S3 must NOT:
+- mark WALK complete while unsent checkpoint bytes remain;
+- enter DRAIN with a non-empty unsent chunk;
+- clear snapshot state before the final chunk has been safely submitted.
+
+Required state distinction:
+
+- WALK has visited all IDs;
+- final buffered chunk still pending submission because window is full;
+- all chunks submitted;
+- DRAIN waiting for completions.
+
+This must be deterministic and visible in tests.
+
+============================================================
+6. SHORT-WRITE HANDLING MUST BE EXPLICIT
+============================================================
+
+Current `checkpoint_write_done()` treats only `result < 0` as failure and otherwise adds `result` to `bytes_written`.
+
+For S3, a positive short write is not acceptable for a checkpoint chunk.
+
+Required:
+
+> completion result must equal the exact submitted length.
+
+A short positive write must fail the checkpoint before commit, just as a negative I/O error does.
+
+The per-write completion context should carry the expected byte count so this can be checked exactly.
+
+Add a deterministic injected short-write test.
+
+============================================================
+7. `RWF_DSYNC` TERMINOLOGY / PLATFORM CONTRACT
+============================================================
+
+Minor documentation correction:
+
+`RWF_DSYNC` is a Linux `pwritev2`/`io_uring` durability flag, not a POSIX-standard interface.
+
+SNC is currently Linux-hosted, so this is not a design problem.
+
+But the documentation should say:
+- Linux-supported durability primitive;
+- same semantic family as O_DSYNC for the affected write;
+- platform/filesystem behavior still requires validation.
+
+Do not call it a portable POSIX-level flag.
+
+============================================================
+8. SYNCHRONOUS FALLBACK IS A VALIDATION INVALIDATOR
+============================================================
+
+The S3-D document correctly identifies the runtime fallback risk:
+
+if io_uring is unavailable or submission falls back to synchronous `pwritev2`, a 1 MiB `RWF_DSYNC` write can block the shard loop.
+
+S3 must add and publish a counter/gauge for synchronous checkpoint chunk writes.
+
+For any performance/behavior characterization intended to validate pacing or foreground isolation:
+
+> non-zero synchronous checkpoint write fallback invalidates the run.
+
+For correctness-only tests, fallback can still be exercised deliberately.
+
+Also test the fallback path directly so it is not an untested emergency path.
+
+============================================================
+9. FINAL `fdatasync` STAYS
+============================================================
+
+Keep the final `fdatasync`.
+
+Even though every data chunk uses `RWF_DSYNC`, the final sync remains the simple correctness barrier for the completed part before manifest/superblock publication.
+
+Do not optimize it away in S3.
+
+S3 success should make it cheap naturally.
+
+============================================================
+10. CC-1..CC-5 — SELECTION ACCEPTED
+============================================================
+
+C3 does not require changing the checkpoint correctness model.
+
+CC-1:
+visit set unchanged.
+
+CC-2:
+WAL retention/reclamation unchanged.
+
+CC-3:
+local durable-LSN check remains before final part sync.
+
+CC-4:
+checkpoint image/replay version semantics unchanged.
+
+CC-5:
+part remains inert until manifest/superblock commit; reclaim remains post-commit.
+
+S3 implementation must return an explicit code-level mapping proving these still hold.
+
+============================================================
+11. C2 FALLBACK — KEEP, BUT DO NOT IMPLEMENT IN S3
+============================================================
+
+C2 remains the fallback if the physical SAS SSD shows C3's repeated durable chunk writes interfere materially more with WAL durability.
+
+Do not implement both C2 and C3 in the same S3 PR.
+
+That would multiply:
+- format-path complexity;
+- error handling;
+- test matrix;
+- rollback ambiguity.
+
+Implement C3 cleanly first behind `--ckpt-io legacy|dsync`.
+
+If physical evidence later rejects C3, C2 gets its own reviewed slice with the DESIGN-R 5.3 obligations.
+
+============================================================
+12. C1 — REJECTED
+============================================================
+
+Reject C1 for the current architecture.
+
+Reasons:
+- `sync_file_range` does not itself provide durability;
+- its writeback behavior is filesystem-dependent;
+- failures can surface later;
+- the bound is less direct;
+- characterization did not show an architectural advantage over C3.
+
+No further C1 work unless later evidence changes the constraints materially.
+
+============================================================
+13. S3 IMPLEMENTATION SCOPE — AUTHORIZED
+============================================================
+
+S3 may implement ONLY:
+
+1. C3 checkpoint chunk writes:
+   `dsync=true`.
+
+2. Per-shard bounded write window W.
+
+3. Structural backpressure:
+   checkpoint WALK stops producing chunks when W is full.
+
+4. Per-write buffer lifetime:
+   completed chunk buffers freed promptly and safely.
+
+5. Legacy rollback:
+   `--ckpt-io legacy|dsync`.
+
+6. Observability:
+   - configured window;
+   - current/peak writes in flight;
+   - retained checkpoint-buffer bytes current/peak;
+   - chunk write latency EWMA/max/histogram or equivalent;
+   - synchronous-fallback chunk count;
+   - existing final sync duration.
+
+7. Exact completion validation:
+   error and short write detection.
+
+Do NOT include S4 sync tokens.
+
+============================================================
+14. WINDOW SIZE IS A HYPOTHESIS
+============================================================
+
+W is configurable.
+
+Do not freeze W=4 because the dev-VM bench used it.
+
+Deterministic tests should cover at least:
+- W=1;
+- W=2;
+- W=4;
+- slow/stalled completion;
+- completion out of order if the runtime can do so.
+
+Production default remains provisional.
+
+============================================================
+15. CHUNK SIZE
+============================================================
+
+Approve keeping the existing 1 MiB checkpoint chunk for S3.
+
+Reason:
+- it preserves the current format/write granularity;
+- 256 KiB produced worse WAL tails in the characterization;
+- no architectural evidence justifies changing it now.
+
+But 1 MiB is not declared universally optimal.
+
+Chunk-size optimization can be revisited after physical characterization.
+
+============================================================
+16. REQUIRED S3 TESTS
+============================================================
+
+At minimum add:
+
+S3-T1 — window hard bound
+Hold completions; prove no more than W writes are submitted and no additional full chunks accumulate.
+
+S3-T2 — memory hard bound
+Large checkpoint with slow writes; prove retained chunk-buffer memory stays bounded by the documented W-based envelope rather than growing with checkpoint size.
+
+S3-T3 — resume after completion
+Release one write; exactly one new window slot becomes usable and WALK resumes.
+
+S3-T4 — out-of-order completion safety
+Where supported by test hooks, complete writes out of submission order and prove the correct buffer is released and accounting remains exact.
+
+S3-T5 — final partial chunk under full window
+Cursor reaches end while window full. Prove WALK does not transition to DRAIN until the final partial chunk is submitted.
+
+S3-T6 — exact byte completion
+Inject negative I/O failure and positive short write. Both abort/fail before commit; previous checkpoint remains authoritative.
+
+S3-T7 — crash/recovery
+Crash with:
+- chunks in flight;
+- some chunks durable, others not;
+- all chunks durable before final sync;
+- during/after final sync before commit.
+Recover from previous checkpoint + WAL exactly.
+
+S3-T8 — final sync
+C3 checkpoint completes with final fdatasync retained; file/object/byte counts exact.
+
+S3-T9 — legacy rollback
+`--ckpt-io legacy` reproduces the pre-S3 write path and passes correctness suites.
+
+S3-T10 — synchronous fallback
+Force the synchronous write path; counter increments and correctness holds. Performance validation marks such a run invalid.
+
+S3-T11 — foreground progress with stalled checkpoint I/O
+Window fills and WALK backpressures while normal foreground/WAL loop progress continues.
+
+S3-T12 — CC-1..CC-5 regression
+Existing persistence/crash/replication/migration/session suites under dsync mode.
+
+============================================================
+17. S3 VALIDATION GATE
+============================================================
+
+Before S3 review:
+
+- full clean RelWithDebInfo;
+- full clean ASan+UBSan;
+- full clean serial TSan;
+- zero sanitizer reports;
+- all S3 targeted tests;
+- negative mutations for window enforcement and buffer release;
+- independent source review;
+- explicit CC-1..CC-5 mapping;
+- no R640 campaign load.
+
+A small dev-VM validation of final-sync collapse is acceptable, but not required as a performance gate.
+
+============================================================
+18. PHYSICAL CHARACTERIZATION LATER
+============================================================
+
+Before the eventual R640 campaign:
+
+- memory configuration should be finalized first;
+- re-derive S2 walk pacing on the R640;
+- characterize C3 vs C2 on the dedicated SAS SSD;
+- preregister the exact characterization;
+- verify WAL actual I/O mode;
+- ensure checkpoint writes did not use synchronous fallback;
+- then decide whether C3 remains the physical-machine choice.
+
+Do not switch to C2 merely because one raw-throughput number is higher.
+
+The metric is WAL service interference and operational predictability.
+
+============================================================
+19. FOLLOW-UP INTAKE BACKPRESSURE REMAINS SEPARATE
+============================================================
+
+The destination follow-up/WAL growth issue remains a required pre-S6 slice.
+
+Do not fold it into S3.
+
+S3 bounds checkpoint I/O production.
+
+Follow-up intake backpressure bounds internal application work during WAL stalls.
+
+They interact, but they are separate mechanisms and need separate proofs.
+
+============================================================
+FINAL
+============================================================
+
+PR #76: APPROVED WITH IMPLEMENTATION CONDITIONS.
+
+S3-D: COMPLETE.
+
+SELECTED MECHANISM:
+C3 — buffered `RWF_DSYNC` checkpoint chunks + bounded in-flight window + final `fdatasync`.
+
+C2: documented fallback.
+C1: rejected.
+
+S3 IMPLEMENTATION: AUTHORIZED.
+
+MANDATORY S3 CONDITIONS:
+- window must structurally backpressure WALK;
+- completed buffers must be released promptly;
+- retained checkpoint memory must be W-bounded;
+- final partial chunk state must be correct;
+- short positive writes are fatal;
+- synchronous fallback is observable;
+- final fdatasync remains.
+
+NO S4.
+NO R640 CAMPAIGN.
+NO CP-1A.
+NO COMPETITORS.
+NO FOLLOW-UP INTAKE SLICE MIXED INTO S3.

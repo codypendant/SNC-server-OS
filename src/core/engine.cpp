@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cstdio>
 #include <functional>
 #include <latch>
@@ -27,6 +28,14 @@
 namespace snc {
 
 namespace {
+
+// S3 (docs/S3_WRITEBACK.md): the window's upper limit, well inside the
+// runtime's 256-entry io_uring queue, which the WAL shares.
+constexpr u32 kMaxCkptWriteWindow = 64;
+
+// Tests only (Engine::debug_ckpt_hold_commit).
+std::atomic<bool> g_debug_ckpt_hold_commit{false};
+std::atomic<bool> g_debug_ckpt_commit_reached{false};
 
 struct EngineHooks {
   Engine::Config* cfg;
@@ -78,6 +87,7 @@ void hook_init(void* user) {
     p.cfg.max_age_ns = c.ckpt_max_age_ms * 1'000'000;
     p.cfg.warn_pct = c.ckpt_warn_pct;
     s->set_pacing(p);
+    s->set_ckpt_io(Shard::CkptIo{c.ckpt_io_dsync, c.ckpt_write_window});
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
@@ -210,6 +220,16 @@ struct EngineState {
 static std::unique_ptr<EngineState> g_state;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
+  // dsync overrides Config::ckpt_io_dsync, so a whole test suite can run on
+  // either write path without editing every test's config. Announced on
+  // stderr whenever it applies; anything else is refused.
+  if (const char* e = std::getenv("SNC_CKPT_IO"); e != nullptr && e[0] != '\0') {
+    const std::string v = e;
+    if (v != "legacy" && v != "dsync") throw std::invalid_argument("SNC_CKPT_IO must be legacy or dsync");
+    cfg_.ckpt_io_dsync = v == "dsync";
+    std::fprintf(stderr, "snc: SNC_CKPT_IO=%s overrides ckpt_io\n", v.c_str());
+  }
   register_session_type();
   register_slot_state_type();
   RuntimeConfig& rc = cfg_.runtime;
@@ -239,6 +259,9 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
           "checkpoint pacing: need 1 <= walk_min <= walk_max <= walk_ceiling <= 60 s, 1 <= step <= 60 s, "
           "update <= 60 s, batch >= 1, low < high for each pressure signal, 1 <= warn_pct <= 100, "
           "target <= max age");
+    }
+    if (cfg_.ckpt_write_window < 1 || cfg_.ckpt_write_window > kMaxCkptWriteWindow) {
+      throw std::invalid_argument("checkpoint writeback: need 1 <= ckpt_write_window <= 64");
     }
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
@@ -943,6 +966,13 @@ CheckpointReport Engine::checkpoint() {
     });
   }
   done.wait();
+  // Tests only (S3 T7): every part is written and synced; nothing names
+  // this checkpoint yet. A crash here must recover from the previous one.
+  if (g_debug_ckpt_hold_commit.load()) {
+    g_debug_ckpt_commit_reached.store(true);
+    while (g_debug_ckpt_hold_commit.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    g_debug_ckpt_commit_reached.store(false);
+  }
   const u64 g1 = sri_now_ns();
   ng.phase.store(static_cast<u64>(NodeCkptPhase::COMMIT), std::memory_order_relaxed);
   fsync_dir(ckpt_dir(dir, seq));
@@ -1419,6 +1449,13 @@ bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
 void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
 void Engine::debug_hold_wal(u16 shard, bool on) { debug_hold_wal_flush(shard, on); }
 void Engine::debug_ckpt_walk_limit(u64 limit) { snc::debug_ckpt_walk_limit(limit); }
+void Engine::debug_ckpt_hold_writes(bool on) { snc::debug_ckpt_hold_writes(on); }
+void Engine::debug_ckpt_defer_writes(bool on) { snc::debug_ckpt_defer_writes(on); }
+void Engine::debug_ckpt_release_writes(u32 n, bool newest_first) { snc::debug_ckpt_release_writes(n, newest_first); }
+void Engine::debug_ckpt_fail_write(u64 index, int mode) { snc::debug_ckpt_fail_write(index, mode); }
+void Engine::debug_ckpt_hold_commit(bool on) { g_debug_ckpt_hold_commit.store(on); }
+bool Engine::debug_ckpt_commit_reached() { return g_debug_ckpt_commit_reached.load(); }
+void Engine::debug_force_sync_io(bool on) { sri_debug_force_sync_io(on); }
 
 bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 

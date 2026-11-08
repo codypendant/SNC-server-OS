@@ -183,6 +183,13 @@ class Shard {
     ckpt::PacerConfig cfg;
   };
   void set_pacing(const Pacing& p) { pacing_ = p; }
+  // S3 (docs/S3_WRITEBACK.md): dsync = RWF_DSYNC chunks with at most
+  // `window` in flight; off = the write path before S3 (no window).
+  struct CkptIo {
+    bool dsync = true;
+    u32 window = 4;
+  };
+  void set_ckpt_io(const CkptIo& io) { ckpt_io_ = io; }
   // Copies this shard's counters into its gauge block: at most every
   // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
   // phase change. Shard thread only.
@@ -424,6 +431,19 @@ class Shard {
   void drop_object(ObjectHeader* o, u64& lsn);
   Status refuse_unserved(u16 slot, RunOut& out);
 
+  // One part chunk write (S3, docs/S3_WRITEBACK.md section 3). The write's
+  // completion context: it owns the chunk's buffer from submit until that
+  // write's own completion is processed, then frees it, whatever order
+  // completions arrive in. A busy slot is never reused or freed before
+  // then; the shard owns the slots so none leaks.
+  struct CkptWrite {
+    Shard* shard = nullptr;
+    std::vector<u8> buf;
+    u32 len = 0;  // bytes submitted; the completion must report exactly this
+    u64 index = 0;      // chunk number within the checkpoint
+    u64 submit_ns = 0;
+    bool busy = false;
+  };
   struct Checkpoint {
     bool active = false;
     std::vector<ObjectID> ids;  // snapshot at begin; objects found later are skipped
@@ -431,10 +451,17 @@ class Shard {
     u64 start_lsn = 0, max_lsn = 0, objects = 0, bytes = 0;
     int fd = -1;
     u64 file_off = 0;
-    std::vector<u8> chunk;
+    std::vector<u8> chunk;  // being built: not yet submitted
     u32 writes_inflight = 0;
     bool syncing = false, walk_done = false;
-    std::vector<std::unique_ptr<std::vector<u8>>> inflight_bufs;
+    // S3 walk states: `visited` once the cursor reached the snapshot's
+    // end; `blocked` while a chunk (full, or the last one once visited)
+    // waits for a window slot. walk_done only once visited and nothing is
+    // left to submit: then the IDs are freed and DRAIN begins.
+    bool visited = false, blocked = false;
+    std::vector<std::unique_ptr<CkptWrite>> slots;  // never more than the window (dsync)
+    std::vector<CkptWrite*> free_slots;
+    u64 chunks = 0;  // submitted
     CheckpointDone done;
     std::string path;
   };
@@ -513,7 +540,6 @@ class Shard {
 
   // Checkpoint.
   void checkpoint_step();
-  void checkpoint_write_chunk();
   static void checkpoint_write_done(void* ctx, int result);
   static void checkpoint_sync_done(void* ctx, int result);
 
@@ -610,7 +636,35 @@ class Shard {
     // reached the hard maximum age (each counted once).
     u64 past_target_count = 0, degraded_count = 0;
     bool past_target_counted = false, degraded_counted = false;
+    // S3 (docs/S3_WRITEBACK.md section 6): of the checkpoint in progress or
+    // the last one, except sync_writes_total (since start).
+    u64 window_full_steps = 0, chunks = 0, buf_bytes_peak = 0;
+    u64 write_lat_last_us = 0, write_lat_ewma_us = 0, write_lat_max_us = 0;
+    u64 write_lat_hist[4] = {0, 0, 0, 0};  // < 1 ms, < 10 ms, < 100 ms, more
+    u64 sync_writes = 0, sync_writes_total = 0;
   } ckpt_obs_;
+  CkptIo ckpt_io_;
+  // Tests only (Engine::debug_ckpt_hold_writes): completions kept unprocessed.
+  struct HeldWrite {
+    CkptWrite* w;
+    int result;
+  };
+  std::vector<HeldWrite> ckpt_held_;
+  // Tests only (Engine::debug_ckpt_defer_writes): submitted, not yet issued.
+  struct DeferredWrite {
+    CkptWrite* w;
+    u64 off;
+  };
+  std::vector<DeferredWrite> ckpt_deferred_;
+  void checkpoint_issue(CkptWrite* w, u64 off);  // sri_write, counting the synchronous fallback
+  bool checkpoint_submit_chunk();  // false: the window is full and the chunk stays
+  void checkpoint_write_complete(CkptWrite* w, int result);
+  void checkpoint_process_held();
+  // Chunk buffer bytes retained now: the chunk being built plus every
+  // slot's buffer, summed from the buffers themselves (at most window + 1
+  // with dsync), so the gauge cannot drift from what is really held.
+  u64 ckpt_buf_bytes() const;
+  void ckpt_note_buf();  // updates the retained-buffer peak
   Pacing pacing_;
   ckpt::PacerState pacer_;
   void pace(u64 now_ns);  // one controller step for the checkpoint in progress
@@ -679,6 +733,21 @@ class Shard {
 Shard* current_shard();
 void debug_hold_wal_flush(u16 shard, bool on);  // tests only (Engine::debug_hold_wal)
 void debug_ckpt_walk_limit(u64 limit);           // tests only (Engine::debug_ckpt_walk_limit)
+// Checkpoint part chunks (S3, docs/S3_WRITEBACK.md section 3): a chunk is
+// submitted once it holds kCheckpointChunk bytes, so a chunk never exceeds
+// kCheckpointChunk - 1 + one record. Its buffer is reserved at
+// kCheckpointChunkReserve, so it grows past that only for a record that
+// does not fit, and then only to the exact size. Each retained buffer is
+// thus at most kCheckpointChunkMax bytes (wal_format.h record_size of
+// kMaxPayload is kMaxPayload plus a header of under 4 KiB).
+inline constexpr u32 kCheckpointChunk = 1u << 20;
+inline constexpr u32 kCheckpointChunkReserve = kCheckpointChunk + (64u << 10);
+inline constexpr u64 kCheckpointChunkMax = kCheckpointChunk + kMaxPayload + 4096;
+// Tests only (S3; the Engine::debug_ckpt_* functions of the same names).
+void debug_ckpt_hold_writes(bool on);
+void debug_ckpt_defer_writes(bool on);
+void debug_ckpt_release_writes(u32 n, bool newest_first);
+void debug_ckpt_fail_write(u64 index, int mode);
 void set_current_shard(Shard* s);
 
 }  // namespace snc

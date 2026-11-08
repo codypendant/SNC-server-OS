@@ -66,9 +66,17 @@ const char* sri_backend();
 // `result` is bytes written or -errno. With `dsync` the data is on stable
 // storage when the completion runs (RWF_DSYNC: the fdatasync is part of the
 // write). Buffers must stay valid until completion; with O_DIRECT they must
-// be 4 KiB aligned.
+// be 4 KiB aligned. Returns true when the write was queued asynchronously
+// (io_uring), false when it ran synchronously on this thread (no io_uring,
+// a full submission queue, or sri_debug_force_sync_io); the completion is
+// deferred to the loop either way, so callers see one contract. A
+// synchronous durable write blocks the shard loop for its whole duration:
+// S3 counts them (docs/S3_WRITEBACK.md).
 using IoDone = void (*)(void* ctx, int result);
-void sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx);
+bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx);
+// Tests only: every sri_write and sri_fdatasync from now on takes the
+// synchronous path (the fallback), on every shard. Any thread.
+void sri_debug_force_sync_io(bool on);
 // Asynchronous fdatasync of everything written to `fd` so far.
 void sri_fdatasync(int fd, IoDone done, void* ctx);
 
