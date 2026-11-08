@@ -47,6 +47,15 @@ shards.
   gets its answer before any refusal a new request would get (`E_MOVED`,
   `E_MIGRATING`, `E_OVERLOADED`): a client resends a refused request as a
   new one, so refusing a duplicate would apply it twice.
+  - **Exception (S1.2, docs/S1_2_REPLAY.md):** waiting for the session
+    record's durability takes the waiter budget like any other answer.
+    With no room, the duplicate is answered `E_OVERLOADED` **with
+    `replayed` set** (`kRespReplayed`). That pair means "applied; answer
+    not ready". A client must resend the same request, with the same
+    sequence, and never reissue it as a new one. `net::Client` does this
+    itself every 2 ms and never hands the refusal to its caller
+    (`replay_retries()`). If a later request lands first, the resend is
+    answered `E_REPLAYED_OLD`; it is never applied twice.
   Specifically:
   - When `seq == last_seq`, the owner answers with the recorded status and
     version, marked `replayed`. It waits for that record to be durable, as

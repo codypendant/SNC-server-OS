@@ -1738,3 +1738,31 @@ or source comments.
     fixed before the headline runs; the rest are documented.
 -   **Evidence:** `bench/results/s11-validation-devvm-20261107/`.
 -   **Next action:** review. No S2, R640 load, CP-1A or competitors.
+
+### 2026-11-07 UTC --- Claude (Claude Code): S1.2 replay waiters, for review
+
+-   **Classification:** REFINE (admission). Loop order, checkpoint,
+    recovery, WAL format, wire format (no new field or status),
+    `kEmitBacklog` = 1024 and CC-1..CC-5 are unchanged.
+-   **What:** `docs/handoff/PR73_S11_Review.txt`; details in
+    `docs/S1_2_REPLAY.md`.
+    - `replay_if_seen` no longer exempts replays. Every replay answer
+      passes `admit_answer_wait`. With no waiter room, an undurable
+      replay is `E_OVERLOADED` with `replayed` set (`refused_waiter`,
+      plus the new `refused_replay`). Nothing is re-applied.
+    - **Client contract change:** a plain `E_OVERLOADED` for a duplicate
+      would double-apply with the shipped callers, which reissue under a
+      new sequence. `net::Client` therefore resends `E_OVERLOADED` +
+      `kRespReplayed` with the same sequence, with backoff, and never
+      hands it over. A refusal lasting past the request timeout fails
+      over. `docs/RETRIES.md` records the rule. cody chose this
+      option (2026-11-07).
+    - `waiter_reserved` has one meaning; every assignment is audited.
+    - Follow-up intake backpressure is recorded as a required pre-S6
+      slice.
+-   **Tests:** A16-A21. Negative checks: the exemption restored fails
+    A16/A18/A20/A21; the client retry disabled fails A21.
+-   **Review:** one independent source review, APPROVE (server proven).
+    Its client liveness findings were fixed before the headline runs.
+-   **Evidence:** `bench/results/s12-validation-devvm-20261107/`.
+-   **Next action:** review. No S2, R640 load, CP-1A or competitors.

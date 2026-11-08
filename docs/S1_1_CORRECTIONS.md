@@ -134,6 +134,8 @@ With S1's line restored, A10 and A15 fail (`negative/neg1-*.log`).
 - Replays (`replay_if_seen`) are exempt, as before S1. A client told
   `E_OVERLOADED` would send them again as new requests. They are bounded
   by the resends the clients' windows and the pending budget allow.
+  **Superseded by S1.2** ([S1_2_REPLAY.md](S1_2_REPLAY.md)): that was
+  not a server-side bound. Replays now take the waiter budget.
 
 **The bound:**
 - **Pending slots:** at most `pending_budget` per shard. A slot is 40 B
@@ -143,7 +145,7 @@ With S1's line restored, A10 and A15 fail (`negative/neg1-*.log`).
 - **Waiters:** every waiter (LOCAL, REMOTE, ERASE) is created by a path
   that is either budgeted (R1, or `admit_answer_wait`) or bounded by its
   own source:
-  - replays, as above;
+  - replays, as above (S1.2: now budgeted);
   - session-expiry tombstones: one per expired session.
 
   Waiter bytes per shard are therefore at most `waiter_budget_bytes`,

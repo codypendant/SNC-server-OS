@@ -1,0 +1,91 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/38 Test  #1: test_rate_schedule ...............   Passed    0.00 sec
+      Start  2: test_object_id
+ 2/38 Test  #2: test_object_id ...................   Passed    0.00 sec
+      Start  3: test_local_map
+ 3/38 Test  #3: test_local_map ...................   Passed    1.20 sec
+      Start  4: test_pages
+ 4/38 Test  #4: test_pages .......................   Passed    0.65 sec
+      Start  5: test_runtime
+ 5/38 Test  #5: test_runtime .....................   Passed    0.21 sec
+      Start  6: test_execute
+ 6/38 Test  #6: test_execute .....................   Passed    0.05 sec
+      Start  7: test_persistence
+ 7/38 Test  #7: test_persistence .................   Passed    0.46 sec
+      Start  8: test_crash
+ 8/38 Test  #8: test_crash .......................   Passed    0.66 sec
+      Start  9: test_net
+ 9/38 Test  #9: test_net .........................   Passed    0.03 sec
+      Start 10: test_transfer
+10/38 Test #10: test_transfer ....................   Passed    3.23 sec
+      Start 11: test_replication
+11/38 Test #11: test_replication .................   Passed   15.63 sec
+      Start 12: test_cluster
+12/38 Test #12: test_cluster .....................   Passed    5.85 sec
+      Start 13: test_migrate
+13/38 Test #13: test_migrate .....................   Passed   33.12 sec
+      Start 14: test_resend_refusals
+14/38 Test #14: test_resend_refusals .............   Passed    0.03 sec
+      Start 15: test_proof
+15/38 Test #15: test_proof .......................   Passed    0.91 sec
+      Start 16: test_placement
+16/38 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+17/38 Test #17: test_stage_chain .................   Passed    6.78 sec
+      Start 18: test_gauges
+18/38 Test #18: test_gauges ......................   Passed    0.72 sec
+      Start 19: test_s1_admission
+19/38 Test #19: test_s1_admission ................   Passed    6.62 sec
+      Start 20: test_witness
+20/38 Test #20: test_witness .....................   Passed   23.89 sec
+      Start 21: test_async_failover
+21/38 Test #21: test_async_failover ..............   Passed   13.62 sec
+      Start 22: test_control
+22/38 Test #22: test_control .....................   Passed    1.48 sec
+      Start 23: test_health
+23/38 Test #23: test_health ......................   Passed  154.62 sec
+      Start 24: test_gauges_admin
+24/38 Test #24: test_gauges_admin ................   Passed    3.97 sec
+      Start 25: test_fail_closed
+25/38 Test #25: test_fail_closed .................   Passed  223.96 sec
+      Start 26: test_s1
+26/38 Test #26: test_s1 ..........................   Passed   62.11 sec
+      Start 27: test_profile_check
+27/38 Test #27: test_profile_check ...............   Passed    0.11 sec
+      Start 28: test_baseline_retry
+28/38 Test #28: test_baseline_retry ..............   Passed  248.40 sec
+      Start 29: test_sync_readiness
+29/38 Test #29: test_sync_readiness ..............   Passed  319.17 sec
+      Start 30: test_baseline_move
+30/38 Test #30: test_baseline_move ...............   Passed  112.80 sec
+      Start 31: test_baseline_ha
+31/38 Test #31: test_baseline_ha .................***Failed  125.76 sec
+PASS h1_measurement {"sequential_sum": 286, "true_total": 256, "old_rule_on_drained": false, "rule": {"drained": {"n": 50, "excess_median": 0.0, "excess_max": 0, "frac_with_excess": 0.0, "durable_progressed": true, "stalled_shards": [], "undurable_median": 248.0, "undurable_max": 270, "undurable_first_half_mean": 246.6, "undurable_last_half_mean": 249.7, "drained": true, "bounded": true}, "blocked": {"n": 50, "excess_median": 252.0, "excess_max": 256, "frac_with_excess": 1.0, "durable_progressed": true, "stalled_shards": [], "undurable_median": 4.0, "undurable_max": 8, "undurable_first_half_mean": 3.7, "undurable_last_half_mean": 3.9, "drained": false, "bounded": true}, "stalled": {"n": 50, "excess_median": 0.0, "excess_max": 0, "frac_with_excess": 0.0, "durable_progressed": false, "stalled_shards": [0, 1], "undurable_median": 256.0, "undurable_max": 256, "undurable_first_half_mean": 256.0, "undurable_last_half_mean": 256.0, "drained": false, "bounded": true}, "growing": {"n": 50, "excess_median": 0.0, "excess_max": 0, "frac_with_excess": 0.0, "durable_progressed": true, "stalled_shards": [], "undurable_median": 73.5, "undurable_max": 147, "undurable_first_half_mean": 36.0, "undurable_last_half_mean": 111.0, "drained": true, "bounded": false}, "one_shard_stalled": {"n": 50, "excess_median": 0.0, "excess_max": 0, "frac_with_excess": 0.0, "durable_progressed": false, "stalled_shards": [1], "undurable_median": 250.0, "undurable_max": 250, "undurable_first_half_mean": 250.0, "undurable_last_half_mean": 250.0, "drained": false, "bounded": true}, "short": {"n": 5, "drained": false, "bounded": false, "why": "too few samples"}}, "checks": {"sequential_sum_exceeds_window": true, "old_rule_fails_drained_series": true, "rule_passes_drained_series": true, "rule_fails_blocked_series": true, "rule_fails_stalled_series": true, "rule_fails_growing_series": true, "rule_fails_one_shard_stalled": true, "rule_needs_enough_samples": true}, "pass": true, "scenario": "h1_measurement", "seconds": 0.0}
+PASS q3_runtime {"trials": [{"trial": 0, "granted": true, "main_ms_after_15s": 31, "main_ms_samples": [31, 31, 31, 31, 31, 31, 31, 31, 131, 32, 32, 32, 32, 32, 38], "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=2 blocked=0 epoch=1 leases=0-0 unproven=0", "resources": "rss_kb=785988 hwm_kb=790072 heap_live=32000320 waiters=2 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=628490632 wal_unacked=2440908 wal_undurable=2 blocked=0 degraded=2 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=0 ckpts=23", "writes_ok_after_kill": 686, "writes_failed_after_kill": 0, "resume_s": 0.61, "checkpoint_in_flight_at_kill": true, "ckpts_at_kill": 6, "ckpts_after": 23, "probe_ok": 733, "probe_tried": 733, "probe_ok_before_kill": 47, "probe_balance": 1000733, "probe_balance_after_restart": 1000733, "acked_writes_kept": true, "checkpoint_lines": [], "wedged": false}, {"trial": 1, "granted": true, "main_ms_after_15s": 1, "main_ms_samples": [1, 1, 1, 44, 44, 44, 44, 44, 95, 45, 45, 47, 47, 47, 4], "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=2 blocked=0 epoch=1 leases=0-0 unproven=0", "resources": "rss_kb=763044 hwm_kb=763044 heap_live=32000320 waiters=3 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=600401616 wal_unacked=2331829 wal_undurable=3 blocked=0 degraded=2 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=0 ckpts=23", "writes_ok_after_kill": 683, "writes_failed_after_kill": 0, "resume_s": 0.61, "checkpoint_in_flight_at_kill": true, "ckpts_at_kill": 6, "ckpts_after": 23, "probe_ok": 730, "probe_tried": 730, "probe_ok_before_kill": 47, "probe_balance": 1000730, "probe_balance_after_restart": 1000730, "acked_writes_kept": true, "checkpoint_lines": [], "wedged": false}, {"trial": 2, "granted": true, "main_ms_after_15s": 0, "main_ms_samples": [2, 2, 52, 48, 48, 48, 48, 48, 148, 0, 0, 0, 50, 50, 43], "status": "role=p term=0 uuid=b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7 shards=2 live=0 degraded=2 blocked=0 epoch=1 leases=0-0 unproven=0", "resources": "rss_kb=766564 hwm_kb=774616 heap_live=32000320 waiters=7 overflow=0 emits_in_flight=0 emits_held=0 repl_retained=612386568 wal_unacked=2378318 wal_undurable=7 blocked=0 degraded=2 disk_readers=0 disk_queued=0 disk_queued_hwm=0 disk_started=0 disk_stopped_on_cancel=0 ckpt_running=0 ckpts=23", "writes_ok_after_kill": 685, "writes_failed_after_kill": 0, "resume_s": 0.61, "checkpoint_in_flight_at_kill": true, "ckpts_at_kill": 6, "ckpts_after": 23, "probe_ok": 727, "probe_tried": 727, "probe_ok_before_kill": 42, "probe_balance": 1000727, "probe_balance_after_restart": 1000727, "acked_writes_kept": true, "checkpoint_lines": [], "wedged": false}], "wedged_trials": 0, "pass": true, "scenario": "q3_runtime", "seconds": 81.3}
+PASS q3_restart {"admin_port_open_s": 0.2, "granted": true, "write_status": "OK", "client_port_open": true, "log_tail": ["recovery: checkpoint before serving (shard count changed) in 0.01s", "snc_server shards=4 ports 29263-29266 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1", "space uuid b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7  replicating to 127.0.0.1:24215 (sync)", "witness: recorded NOT READY (this primary started) at v=5", "snc: shard 2: standby unreachable, continuing without it", "witness: granted, continuing without the standby", "snc: shard 3: standby unreachable, continuing without it", "snc: shard 1: standby unreachable, continuing without it", "snc: shard 0: standby unreachable, continuing without it"], "recovery_checkpoint": "recovery: checkpoint before serving (shard count changed) in 0.01s", "pass": true, "scenario": "q3_restart", "seconds": 2.9}
+FAIL q4_normal {"grant_delay_s": 0, "t_standby_stopped": 3.0, "t_grant": 3.58, "granted": true, "before": {"rss_kb": 63224, "heap_live": 32000000, "waiters": 120, "overflow": 0, "emits_in_flight": 0, "emits_held": 0, "repl_retained": 19296, "wal_unacked": 29, "wal_undurable": 91}, "while_blocked": {"rss_kb": {"from": 63236, "to": 68356, "max": 68356, "rate_per_s": 9660.4}, "heap_live": {"from": 32000000, "to": 32000000, "max": 32000000, "rate_per_s": 0.0}, "waiters": {"from": 256, "to": 123, "max": 256, "rate_per_s": -250.9}, "overflow": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "emits_in_flight": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "emits_held": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "repl_retained": {"from": 65632, "to": 6332480, "max": 6332480, "rate_per_s": 11824241.5}, "wal_unacked": {"from": 256, "to": 24632, "max": 24632, "rate_per_s": 45992.5}, "wal_undurable": {"from": 0, "to": 123, "max": 123, "rate_per_s": 232.1}}, "after_grant": {"rss_kb": {"from": 68356, "to": 2406556, "max": 2406556, "rate_per_s": 77578.0}, "heap_live": {"from": 32000000, "to": 32000000, "max": 32000000, "rate_per_s": 0.0}, "waiters": {"from": 123, "to": 82, "max": 256, "rate_per_s": -1.4}, "overflow": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "emits_in_flight": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "emits_held": {"from": 0, "to": 0, "max": 0, "rate_per_s": 0.0}, "repl_retained": {"from": 6332480, "to": 2147467792, "max": 2147482152, "rate_per_s": 71039658.7}, "wal_unacked": {"from": 24632, "to": 13322461, "max": 13322461, "rate_per_s": 441202.0}, "wal_undurable": {"from": 123, "to": 82, "max": 256, "rate_per_s": -1.4}}, "at_end": {"rss_kb": 2406556, "heap_live": 32000000, "waiters": 82, "overflow": 0, "emits_in_flight": 0, "emits_held": 0, "repl_retained": 2147467792, "wal_unacked": 13322461, "wal_undurable": 82}, "time_to_4GiB_at_blocked_rate_s": 427, "bench_tail": [], "series": [[0.0, {"rss_kb": 60112, "waiters": 0, "overflow": 0, "wal_unacked": 0, "repl_retained": 0, "blocked": 0, "degraded": 0}], [0.52, {"rss_kb": 62532, "waiters": 170, "overflow": 0, "wal_unacked": 95, "repl_retained": 40824, "blocked": 0, "degraded": 0}], [1.05, {"rss_kb": 62824, "waiters": 90, "overflow": 0, "wal_unacked": 0, "repl_retained": 16176, "blocked": 0, "degraded": 0}], [1.57, {"rss_kb": 62996, "waiters": 130, "overflow": 0, "wal_unacked": 53, "repl_retained": 32840, "blocked": 0, "degraded": 0}], [2.1, {"rss_kb": 63056, "waiters": 149, "overflow": 0, "wal_unacked": 52, "repl_retained": 34144, "blocked": 0, "degraded": 0}], [2.63, {"rss_kb": 63108, "waiters": 110, "overflow": 0, "wal_unacked": 32, "repl_retained": 24928, "blocked": 0, "degraded": 0}], [3.16, {"rss_kb": 63236, "waiters": 256, "overflow": 0, "wal_unacked": 256, "repl_retained": 65632, "blocked": 0, "degraded": 0}], [3.68, {"rss_kb": 82996, "waiters": 71, "overflow": 0, "wal_unacked": 77929, "repl_retained": 19996608, "blocked": 0, "degraded": 2}], [4.21, {"rss_kb": 152480, "waiters": 89, "overflow": 0, "wal_unacked": 327530, "repl_retained": 83987880, "blocked": 0, "degraded": 2}], [4.74, {"rss_kb": 221192, "waiters": 70, "overflow": 0, "wal_unacked": 574537, "repl_retained": 147316248, "blocked": 0, "degraded": 2}], [5.26, {"rss_kb": 292092, "waiters": 109, "overflow": 0, "wal_unacked": 829098, "repl_retained": 212581184, "blocked": 0, "degraded": 2}], [5.78, {"rss_kb": 367468, "waiters": 89, "overflow": 0, "wal_unacked": 1099424, "repl_retained": 281877168, "blocked": 0, "degraded": 2}], [6.3, {"rss_kb": 430236, "waiters": 74, "overflow": 0, "wal_unacked": 1325431, "repl_retained": 339828032, "blocked": 0, "degraded": 2}], [6.83, {"rss_kb": 496472, "waiters": 149, "overflow": 0, "wal_unacked": 1563153, "repl_retained": 400775864, "blocked": 0, "degraded": 2}], [7.35, {"rss_kb": 563628, "waiters": 100, "overflow": 0, "wal_unacked": 1803599, "repl_retained": 462424728, "blocked": 0, "degraded": 2}], [7.88, {"rss_kb": 627768, "waiters": 142, "overflow": 0,
+test_baseline_ha: FAILED ['q4_normal']
+
+      Start 32: test_ready_order
+32/38 Test #32: test_ready_order .................   Passed  147.36 sec
+      Start 33: test_paxos_ballots
+33/38 Test #33: test_paxos_ballots ...............   Passed    2.02 sec
+      Start 34: test_witness_hardening
+34/38 Test #34: test_witness_hardening ...........   Passed    5.75 sec
+      Start 35: test_lab_witness_guard
+35/38 Test #35: test_lab_witness_guard ...........   Passed   14.76 sec
+      Start 36: test_index_wire
+36/38 Test #36: test_index_wire ..................   Passed    1.76 sec
+      Start 37: test_pilot
+37/38 Test #37: test_pilot .......................   Passed    0.23 sec
+      Start 38: test_net_bench_rate
+38/38 Test #38: test_net_bench_rate ..............   Passed   15.67 sec
+
+97% tests passed, 1 tests failed out of 38
+
+Total Test time (real) = 1553.65 sec
+
+The following tests FAILED:
+	 31 - test_baseline_ha (Failed)
+Errors while running CTest
