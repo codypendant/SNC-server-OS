@@ -1,0 +1,8 @@
+Attempt 2 (base 26359348). Not counted. The first no-release mutation left
+the completed buffer in its slot; the reused slot swapped it back into the
+chunk being built, so chunks grew without bound and the part filled the
+disk (13 GB, then an ENOSPC short write, rc 134). Every later build then
+failed for lack of space. The first three results are kept as logged. The
+mutation was replaced in attempt 3 by one that retains each completed
+buffer until the checkpoint ends (the pre-S3 retention), without corrupting
+the chunk.

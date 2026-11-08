@@ -1,0 +1,9 @@
+base 26359348f524d08ba22993b7edb662b3ad5bed98
+no-window T1 rc=139 (expected non-zero)
+advisory-window T1 rc=139 (expected non-zero)
+no-release T2 rc=134 (expected non-zero)
+fifo-free BUILD FAILED
+final-early BUILD FAILED
+short-accepted BUILD FAILED
+sync-uncounted BUILD FAILED
+done

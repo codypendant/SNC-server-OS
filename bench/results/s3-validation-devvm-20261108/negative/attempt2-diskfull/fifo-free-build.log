@@ -1,7 +1,7 @@
 [  4%] Building CXX object CMakeFiles/snc_core.dir/src/core/object_id.cpp.o
-[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
-[ 12%] Building CXX object CMakeFiles/snc_core.dir/src/core/pages.cpp.o
-[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
+[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
+[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
+[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/pages.cpp.o
 [ 20%] Building CXX object CMakeFiles/snc_core.dir/src/core/shard.cpp.o
 [ 25%] Building CXX object CMakeFiles/snc_core.dir/src/core/engine.cpp.o
 [ 29%] Building CXX object CMakeFiles/snc_core.dir/src/core/storage.cpp.o
@@ -20,7 +20,9 @@
 [ 83%] Building CXX object CMakeFiles/snc_core.dir/src/types/account.cpp.o
 [ 87%] Building CXX object CMakeFiles/snc_core.dir/src/native/runtime.cpp.o
 [ 91%] Linking CXX static library libsnc_core.a
-[ 91%] Built target snc_core
-[ 95%] Building CXX object CMakeFiles/test_s3_writeback.dir/tests/test_s3_writeback.cpp.o
-[100%] Linking CXX executable test_s3_writeback
-[100%] Built target test_s3_writeback
+/usr/bin/ar: unable to copy file 'libsnc_core.a'; reason: No space left on device
+gmake[3]: *** [CMakeFiles/snc_core.dir/build.make:418: libsnc_core.a] Error 1
+gmake[3]: *** Deleting file 'libsnc_core.a'
+gmake[2]: *** [CMakeFiles/Makefile2:147: CMakeFiles/snc_core.dir/all] Error 2
+gmake[1]: *** [CMakeFiles/Makefile2:700: CMakeFiles/test_s3_writeback.dir/rule] Error 2
+gmake: *** [Makefile:407: test_s3_writeback] Error 2

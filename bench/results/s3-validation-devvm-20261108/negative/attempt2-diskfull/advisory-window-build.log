@@ -1,7 +1,7 @@
 [  4%] Building CXX object CMakeFiles/snc_core.dir/src/core/object_id.cpp.o
-[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
-[ 12%] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
+[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
 [ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/pages.cpp.o
+[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
 [ 20%] Building CXX object CMakeFiles/snc_core.dir/src/core/shard.cpp.o
 [ 25%] Building CXX object CMakeFiles/snc_core.dir/src/core/engine.cpp.o
 [ 29%] Building CXX object CMakeFiles/snc_core.dir/src/core/storage.cpp.o
