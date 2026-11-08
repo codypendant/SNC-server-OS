@@ -1,0 +1,125 @@
+T16b child stderr:
+=================================================================
+==4682==ERROR: AddressSanitizer: heap-use-after-free on address 0x517000000780 at pc 0x56232d4802ec bp 0x7f6385dfe090 sp 0x7f6385dfe080
+READ of size 8 at 0x517000000780 thread T1
+    #0 0x56232d4802eb  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x7b52eb) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #1 0x56232d415905  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x74a905) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #2 0x56232d40fafd  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x744afd) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #3 0x56232d5296c4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x85e6c4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #4 0x56232d6cf6e4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa046e4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #5 0x56232d6d37fe  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa087fe) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #6 0x56232d6d5397  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0a397) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #7 0x56232d6da0a9  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0f0a9) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #8 0x56232d6da01b  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0f01b) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #9 0x56232d6d9ecb  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0eecb) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #10 0x56232d6d9e01  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0ee01) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #11 0x56232d6d9db9  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0edb9) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #12 0x7f6389aecdb3  (/lib/x86_64-linux-gnu/libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #13 0x7f6389e5ea41  (/lib/x86_64-linux-gnu/libasan.so.8+0x5ea41) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #14 0x7f6388e9cb83  (/lib/x86_64-linux-gnu/libc.so.6+0x9cb83) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #15 0x7f6388f29ecb  (/lib/x86_64-linux-gnu/libc.so.6+0x129ecb) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+
+0x517000000780 is located 0 bytes inside of 704-byte region [0x517000000780,0x517000000a40)
+freed by thread T0 here:
+    #0 0x7f6389eff9d8  (/lib/x86_64-linux-gnu/libasan.so.8+0xff9d8) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x56232d5c8857  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8fd857) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #2 0x56232d5b8f55  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8edf55) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #3 0x56232d5c5aa1  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8faaa1) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #4 0x56232d5c5b74  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8fab74) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #5 0x56232d5b6efe  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8ebefe) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #6 0x7f6388e47a75  (/lib/x86_64-linux-gnu/libc.so.6+0x47a75) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #7 0x7f6388e47bbd  (/lib/x86_64-linux-gnu/libc.so.6+0x47bbd) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #8 0x56232d3796c6  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae6c6) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #9 0x56232d38ed8c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c3d8c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #10 0x56232d38c2de  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c12de) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #11 0x56232d38819f  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6bd19f) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #12 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #13 0x56232d36df3c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6a2f3c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #14 0x56232d3799b5  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae9b5) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #15 0x56232d3da515  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x70f515) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #16 0x56232d3d2f93  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x707f93) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #17 0x56232d3c8cb1  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6fdcb1) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #18 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #19 0x56232d37cd50  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6b1d50) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #20 0x7f6388e2a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #21 0x7f6388e2a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #22 0x56232d35dc84  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x692c84) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+
+previously allocated by thread T0 here:
+    #0 0x7f6389efec88  (/lib/x86_64-linux-gnu/libasan.so.8+0xfec88) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x56232d5b8c7c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x8edc7c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #2 0x56232d52ffdc  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x864fdc) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #3 0x56232d3794c0  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae4c0) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #4 0x56232d38ed8c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c3d8c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #5 0x56232d38c2de  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c12de) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #6 0x56232d38819f  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6bd19f) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #7 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #8 0x56232d36df3c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6a2f3c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #9 0x56232d3799b5  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae9b5) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #10 0x56232d3da515  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x70f515) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #11 0x56232d3d2f93  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x707f93) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #12 0x56232d3c8cb1  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6fdcb1) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #13 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #14 0x56232d37cd50  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6b1d50) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #15 0x7f6388e2a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #16 0x7f6388e2a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #17 0x56232d35dc84  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x692c84) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+
+Thread T1 created by T0 here:
+    #0 0x7f6389ef51f9  (/lib/x86_64-linux-gnu/libasan.so.8+0xf51f9) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x7f6389aeceb0  (/lib/x86_64-linux-gnu/libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 0x56232d6d83b7  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0d3b7) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #3 0x56232d6d5ad7  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0xa0aad7) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #4 0x56232d54278e  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x87778e) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #5 0x56232d532747  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x867747) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #6 0x56232d379521  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae521) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #7 0x56232d38ed8c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c3d8c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #8 0x56232d38c2de  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6c12de) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #9 0x56232d38819f  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6bd19f) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #10 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #11 0x56232d36df3c  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6a2f3c) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #12 0x56232d3799b5  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6ae9b5) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #13 0x56232d3da515  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x70f515) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #14 0x56232d3d2f93  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x707f93) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #15 0x56232d3c8cb1  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6fdcb1) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #16 0x56232d3b8ac4  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6edac4) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #17 0x56232d37cd50  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x6b1d50) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+    #18 0x7f6388e2a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #19 0x7f6388e2a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #20 0x56232d35dc84  (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x692c84) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae)
+
+SUMMARY: AddressSanitizer: heap-use-after-free (/home/claude/s31neg-work2/build-static-state/test_s3_writeback+0x7b52eb) (BuildId: 1c7fa78c16d482a0e72d8db1cc6d8a94bc68aaae) 
+Shadow bytes around the buggy address:
+  0x517000000500: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000580: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000600: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000680: fd fd fd fd fd fd fd fd fd fd fa fa fa fa fa fa
+  0x517000000700: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x517000000780:[fd]fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000800: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000880: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000900: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000980: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000a00: fd fd fd fd fd fd fd fd fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==4682==ABORTING
+
+/home/claude/s31neg-work2/src-static-state/tests/test_s3_writeback.cpp:1037: CHECK failed: WIFEXITED(st) && WEXITSTATUS(st) == 7
