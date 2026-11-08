@@ -1,0 +1,322 @@
+PR #78 REVIEW — S3.1 ENGINE LIFECYCLE UNDER CHECKPOINT I/O
+
+DECISION
+
+PR #78 correctly fixes the checkpoint-vs-stop lifecycle defect and correctly traces the PR #77 ASan use-after-free to the static EngineState lifetime.
+
+However, I am NOT yet approving S3 as complete.
+
+The PR itself identifies a broader engine-lifecycle hole:
+
+other public Engine entry points that submit work to shard workers are still not serialized against `stop()`. A call racing shutdown can submit to workers after or while they are being stopped and can block forever on a waiter/latch.
+
+Now that the lifecycle defect is understood, knowingly leaving the same failure class on the other control paths would violate the project's "fix known defects on site" rule.
+
+Make one narrow S3.2 lifecycle-guard pass over all shard-submitting Engine APIs, then return. Do not start S4.
+
+1. PR #77 BLOCKER — CHECKPOINT PATH FIXED
+
+The checkpoint-specific lifecycle contract is approved:
+
+- `checkpoint()` holds the lifecycle guard through shard work, manifest, superblock and reclaim;
+- `stop()` waits for an in-progress checkpoint to finish;
+- a checkpoint arriving after stop sees `running_ == false` and starts nothing;
+- no checkpoint waiter is abandoned;
+- stop cannot tear the runtime down underneath checkpoint commit;
+- shard runtime quiescence drains checkpoint I/O before shard destruction.
+
+This is a sound finish-then-stop contract.
+
+T14/T15/T17 provide good executable evidence.
+
+2. PR #77 UAF ROOT CAUSE — CORRECTION ACCEPTED
+
+The new trace is more precise than the PR #77 inference.
+
+The ASan UAF was not a CkptWrite slot being freed under a live io_uring completion.
+
+It was the file-static EngineState being destroyed at process exit while live shard threads still used its gauges/hooks/final-stats state.
+
+Moving EngineState ownership into the Engine is the correct fix.
+
+This correction should remain in the historical documentation so future reviews do not repeat the wrong causal claim.
+
+3. ENGINE-OWNED STATE — APPROVED
+
+`Engine::state_` now owns hooks, final stats, serving/fenced/replicating flags, placement-phase state, gauge blocks, and node checkpoint gauges.
+
+The destructor order:
+1. `stop()`;
+2. destroy runtime;
+3. destroy EngineState;
+
+is correct for the supported lifecycle.
+
+The static-owner negative mutation reproducing the old ASan failure is strong evidence.
+
+4. SHARD I/O QUIESCENCE — APPROVED
+
+The runtime/shard shutdown proof is accepted for the current implementation.
+
+A worker leaves only when:
+- shard `quiesced()` is true;
+- runtime `io_inflight == 0`;
+- deferred I/O completion queue is empty.
+
+Checkpoint activity keeps the shard non-quiescent through final sync completion.
+
+Therefore after a normal lifecycle-controlled stop, no checkpoint callback should survive shard destruction.
+
+The negative mutation that ignores checkpoint quiescence is useful evidence that this contract matters.
+
+5. CHECKPOINT/STOP INTERACTION — APPROVED
+
+Chosen behavior:
+
+an in-progress checkpoint finishes and commits first; stop proceeds afterward.
+
+That is deterministic and simple.
+
+Do not introduce timeout-driven partial cancellation into this path without a separate design.
+
+A hung storage device may therefore block shutdown. That is acceptable under the current contract and preferable to ambiguous partial shutdown.
+
+6. T16 / OBJECT LIFETIME — APPROVED AFTER FIX
+
+The independent review was right that invoking methods on an object whose destructor has already begun is outside the C++ object-lifetime contract.
+
+The revised T16 — stop first, then delete — tests the supported lifecycle correctly.
+
+7. T16b / std::exit — INTERPRETATION ACCEPTED
+
+T16b proves the Engine's own state is no longer destroyed from a static destructor under live shard threads.
+
+It does NOT establish that `std::exit()` with a running Engine is a fully supported shutdown path, because unrelated process statics may still be destroyed while threads live.
+
+The documentation states this accurately.
+
+8. HEADLINE VALIDATION — ACCEPTED
+
+Final S3.1 code:
+- Release: 40/40;
+- ASan+UBSan: 40/40, zero reports;
+- TSan: 40/40, zero reports.
+
+Five lifecycle negative mutations are caught.
+
+The earlier TSan races were in the test reading an Engine concurrently with deletion and were corrected before headline validation.
+
+9. LEGACY 39/40 RUN — NOT AN S3.1 BLOCKER
+
+The first legacy run failed `test_net_bench_rate` with `end_backlog = 1` instead of exactly 0.
+
+The evidence supports that this test:
+- is in-memory;
+- runs no checkpoint;
+- does not exercise S3 I/O;
+- does not invoke the changed stop/checkpoint lifecycle during the measured window.
+
+The full legacy rerun passed 40/40 and the isolated test passed 10/10.
+
+Do not silently call the original run a "flake"; the exact-zero timing-boundary test remains a harness-quality observation.
+
+It does not block S3.1.
+
+Do not modify CP-1A methodology as part of the lifecycle work.
+
+10. REMAINING BLOCKER — OTHER ENGINE ENTRY POINTS CAN RACE STOP
+
+The PR explicitly records that public methods such as:
+- `stats`;
+- `replication_status`;
+- `release_emits` / `wait_emits`;
+- `promote`;
+- placement update/refresh paths;
+- `slot_report` / `slot_states`;
+- `seal_slot`, `unseal_slot`, `export_slot`, `stage_slot`;
+- helpers using `on_shard`, `on_shard_steps`, `run_on_all`, `submit`;
+
+are not generally serialized with shutdown.
+
+This is the SAME lifecycle failure class as the checkpoint bug:
+
+1. caller observes/assumes Engine is running;
+2. stop tears down/stops workers;
+3. caller submits a task or waits on a latch;
+4. no worker remains to satisfy it;
+5. caller can hang forever or access lifetime-sensitive state.
+
+The fact that the known reproducer was checkpoint does not make the other known paths safe.
+
+This is now a known architectural lifecycle defect, not speculative cleanup.
+
+Fix it before S4.
+
+11. REQUIRED S3.2 LIFECYCLE MODEL
+
+Do NOT solve this by taking one ordinary exclusive mutex around every public Engine call. That would unnecessarily serialize independent control/read operations and can deadlock nested Engine methods.
+
+Use an explicit lifecycle/operation model.
+
+Preferred direction:
+
+A. STOP IS EXCLUSIVE
+
+Once shutdown begins:
+- no new shard-submitting public operation may enter;
+- stop waits for all already-entered operations to leave;
+- then runtime stop begins;
+- after runtime stop, no public operation may submit work.
+
+B. ACTIVE OPERATIONS ARE SHARED
+
+Methods that may submit to workers acquire an operation/lifecycle read permit for their whole shard-dependent portion.
+
+Possible implementation shapes:
+- `std::shared_mutex`: operations take shared ownership, stop takes exclusive ownership;
+- or an atomic active-operation count + stopping gate + condition variable.
+
+Either is acceptable if the nested-call story is explicit.
+
+C. NESTED CALLS MUST NOT RE-ACQUIRE UNSAFELY
+
+Many Engine methods call helpers/other Engine methods.
+
+Create internal `*_locked` / `*_active` helpers or otherwise prove nested operations do not self-deadlock.
+
+Do not rely on recursive shared-lock behavior.
+
+12. START LIFECYCLE
+
+The PR also records that `start()` is not serialized.
+
+Define the lifecycle states explicitly, for example:
+
+CONSTRUCTED -> RUNNING -> STOPPING -> STOPPED
+
+and specify whether restart after stop is supported.
+
+At minimum:
+- `start()` must not race `stop()`;
+- `checkpoint()`/control operations cannot enter before RUNNING;
+- new operations cannot enter once STOPPING starts.
+
+If restart-after-stop is supported today, preserve it intentionally; if not, reject it clearly.
+
+Do not leave the state machine implicit in `running_`.
+
+13. READ-ONLY METHODS
+
+Not every accessor necessarily needs to block stop.
+
+Classify methods:
+
+1. Pure reads from atomics/Engine-owned immutable state that remain safe during RUNNING/STOPPING.
+2. Methods that dereference runtime/shard-owned state or submit work.
+
+Only category 2 requires the active-operation lifecycle permit.
+
+Document the classification.
+
+This keeps the fix narrow and avoids gratuitous serialization.
+
+14. REQUIRED S3.2 TESTS
+
+Add concurrency tests for representative families, not just checkpoint:
+
+L1 — stats/run_on_all vs stop
+Hold worker progress, start stats, then stop. Existing operation completes before runtime destruction; new stats after STOPPING/STOPPED returns a defined stopped result or is rejected.
+
+L2 — slot_report/on_shard vs stop
+Same proof for `on_shard` + latch.
+
+L3 — multi-step shard chain vs stop
+Use a representative `on_shard_steps` path (e.g. staging/move chain). Stop cannot strand the chain between submitted units.
+
+L4 — promote or replication control vs stop
+Representative long control operation completes or is rejected deterministically.
+
+L5 — placement refresh/update vs stop
+No run_on_all submitted to stopped workers.
+
+L6 — new operation after STOPPING begins
+Must not pass the gate.
+
+L7 — start vs stop
+Prove the chosen lifecycle-state contract.
+
+L8 — many concurrent control operations + stop under TSan
+No race, deadlock or abandoned waiter.
+
+Negative mutation:
+remove the lifecycle permit from one representative `on_shard` or `run_on_all` path; test must catch the abandoned waiter/race.
+
+15. SCOPE DISCIPLINE
+
+S3.2 is NOT a redesign of every Engine API.
+
+It is one generic lifecycle gate applied consistently to the methods that can submit/wait on shard work.
+
+Do not:
+- change checkpoint semantics;
+- change persistence format;
+- change admission;
+- change placement semantics;
+- add S4 sync tokens;
+- add follow-up intake backpressure.
+
+16. S3 STATUS
+
+The S3 checkpoint writeback mechanism itself is accepted.
+
+S3 remains open only because the lifecycle work uncovered a known general Engine shutdown race.
+
+Once S3.2 closes that class and clean validation passes, S3 can be closed.
+
+17. S4 STATUS
+
+S4 is NOT yet authorized.
+
+After S3.2:
+- review;
+- if clean, close S3;
+- then authorize S4 staggered final-sync tokens.
+
+18. S3.2 VALIDATION
+
+Required:
+- clean full Release;
+- clean full ASan+UBSan;
+- clean full serial TSan;
+- clean legacy Release;
+- zero sanitizer reports;
+- lifecycle concurrency tests L1-L8;
+- negative lifecycle mutation;
+- independent review focused on Engine lifecycle state and nested-lock behavior.
+
+No R640 campaign.
+
+FINAL
+
+PR #78:
+
+CHECKPOINT-vs-STOP FIX: APPROVED.
+ENGINESTATE OWNERSHIP FIX: APPROVED.
+PR #77 UAF ROOT CAUSE: CORRECTLY RETRACED.
+CHECKPOINT I/O QUIESCENCE: APPROVED.
+S3.1 TARGETED TESTS: APPROVED.
+40/40 RELEASE/ASAN/TSAN: ACCEPTED.
+
+S3 COMPLETION: NOT YET APPROVED.
+
+REMAINING BLOCKER:
+known public Engine methods can still race `stop()` and submit/wait on shard work after runtime shutdown begins.
+
+NEXT:
+S3.2 generic Engine lifecycle gate only -> review.
+
+NO S4.
+NO R640 CAMPAIGN.
+NO CP-1A.
+NO COMPETITORS.
+NO FOLLOW-UP INTAKE SLICE YET.

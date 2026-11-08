@@ -223,6 +223,116 @@ struct EngineState {
 // docs/S3_WRITEBACK.md section 10). Shard threads reach it only through
 // the hooks set up in the constructor.
 
+// ---- Lifecycle (S3.2, docs/ENGINE_LIFECYCLE.md) ---------------------------------------
+
+namespace {
+// The engine whose permit (or lifecycle step) this thread holds, if any.
+// A permit nested inside another for the same engine is granted without
+// counting again: the outer one already keeps stop() waiting, so nested
+// Engine calls (seal_slot -> wait_lsn -> slot_report, promote ->
+// update_placement, recovery -> checkpoint) can neither self-deadlock nor
+// be refused half-way.
+thread_local const Engine* tl_op_engine = nullptr;
+std::atomic<bool> g_debug_park_ops{false};
+std::atomic<u32> g_debug_ops_parked{0};
+std::atomic<bool> g_debug_park_start{false};
+std::atomic<bool> g_debug_start_parked{false};
+}  // namespace
+
+const char* lifecycle_name(Lifecycle l) {
+  switch (l) {
+    case Lifecycle::CONSTRUCTED: return "constructed";
+    case Lifecycle::STARTING: return "starting";
+    case Lifecycle::RUNNING: return "running";
+    case Lifecycle::STOPPING: return "stopping";
+    case Lifecycle::STOPPED: return "stopped";
+  }
+  return "?";
+}
+
+// An operation permit: granted only while RUNNING (or nested in one this
+// thread holds, or inside start()/stop() on their own thread). While any
+// is held, stop() waits before stopping the runtime. Refused: the
+// operation returns its "not running" result at once and touches no shard.
+class Engine::Op {
+ public:
+  explicit Op(const Engine& e) : e_(e), prev_(tl_op_engine) {
+    if (prev_ == &e) {
+      ok_ = true;  // nested (or the lifecycle owner's own call)
+      return;
+    }
+    {
+      std::lock_guard<std::mutex> g(e.life_mu_);
+      if (e.life_ != Lifecycle::RUNNING) return;
+      ++e.active_ops_;
+    }
+    ok_ = counted_ = true;
+    tl_op_engine = &e;
+    if (g_debug_park_ops.load(std::memory_order_relaxed)) {  // tests only
+      g_debug_ops_parked.fetch_add(1);
+      while (g_debug_park_ops.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      g_debug_ops_parked.fetch_sub(1);
+    }
+  }
+  ~Op() {
+    if (!counted_) return;
+    tl_op_engine = prev_;
+    std::lock_guard<std::mutex> g(e_.life_mu_);
+    if (--e_.active_ops_ == 0) e_.life_cv_.notify_all();
+  }
+  Op(const Op&) = delete;
+  Op& operator=(const Op&) = delete;
+  explicit operator bool() const { return ok_; }
+
+ private:
+  const Engine& e_;
+  const Engine* prev_;
+  bool ok_ = false, counted_ = false;
+};
+
+// start() and stop() on their own thread: the internal calls they make
+// (recovery, release of follow-ups, the final pause) pass the gate, since
+// no other operation can be inside (STARTING admits none; STOPPING waited
+// for all to leave).
+class Engine::OwnerScope {
+ public:
+  explicit OwnerScope(const Engine& e) : prev_(tl_op_engine) { tl_op_engine = &e; }
+  ~OwnerScope() { tl_op_engine = prev_; }
+  OwnerScope(const OwnerScope&) = delete;
+  OwnerScope& operator=(const OwnerScope&) = delete;
+
+ private:
+  const Engine* prev_;
+};
+
+void Engine::require_op() const {
+  if (tl_op_engine != this) {
+    std::fprintf(stderr, "snc: shard work submitted outside an Engine operation permit (lifecycle %s)\n",
+                 lifecycle_name(lifecycle()));
+    std::abort();
+  }
+}
+
+void Engine::run_on_all_(const std::function<void(u16)>& fn) const {
+  require_op();
+  rt_->run_on_all(fn);
+}
+
+void Engine::submit_(u16 shard, std::function<void()> fn) const {
+  require_op();
+  rt_->submit(shard, std::move(fn));
+}
+
+Lifecycle Engine::lifecycle() const {
+  std::lock_guard<std::mutex> g(life_mu_);
+  return life_;
+}
+
+void Engine::debug_park_ops(bool on) { g_debug_park_ops.store(on); }
+u32 Engine::debug_ops_parked() { return g_debug_ops_parked.load(); }
+void Engine::debug_park_start(bool on) { g_debug_park_start.store(on); }
+bool Engine::debug_start_parked() { return g_debug_start_parked.load(); }
+
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
   // dsync overrides Config::ckpt_io_dsync, so a whole test suite can run on
@@ -314,7 +424,43 @@ Engine::~Engine() {
 }
 
 void Engine::start() {
-  if (running_) return;
+  {
+    std::unique_lock<std::mutex> lk(life_mu_);
+    if (life_ == Lifecycle::STARTING) {  // another thread is starting it
+      life_cv_.wait(lk, [&] { return life_ != Lifecycle::STARTING; });
+    }
+    if (life_ == Lifecycle::RUNNING) return;
+    if (life_ != Lifecycle::CONSTRUCTED) {
+      throw std::logic_error(std::string("Engine::start: restart is not supported (state ") +
+                             lifecycle_name(life_) + "); construct a new Engine");
+    }
+    life_ = Lifecycle::STARTING;
+  }
+  if (g_debug_park_start.load()) {  // tests only (L7)
+    g_debug_start_parked.store(true);
+    while (g_debug_park_start.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    g_debug_start_parked.store(false);
+  }
+  // The starting thread owns the engine until RUNNING: its internal calls
+  // (recovery's checkpoint, stats, release_emits) pass as nested.
+  OwnerScope own(*this);
+  try {
+    start_();
+  } catch (...) {
+    // A failed start: if the runtime came up, the engine can still be
+    // stopped (and must be, by stop() or the destructor); else it is as
+    // constructed.
+    std::lock_guard<std::mutex> g(life_mu_);
+    life_ = running_ ? Lifecycle::RUNNING : Lifecycle::CONSTRUCTED;
+    life_cv_.notify_all();
+    throw;
+  }
+  std::lock_guard<std::mutex> g(life_mu_);
+  life_ = Lifecycle::RUNNING;
+  life_cv_.notify_all();
+}
+
+void Engine::start_() {
   if (cfg_.data_dir.empty()) {
     // In-memory mode: no WAL, every state is durable at once. Leases repeat
     // across processes, which is harmless because nothing persists.
@@ -327,7 +473,7 @@ void Engine::start() {
   // Follow-ups were held while shards recovered: one shard's would otherwise
   // reach another still recovering, run there before its WAL is open, and
   // be acted on as durable though never logged (a lost credit).
-  if (!cfg_.hold_emits) release_emits();
+  if (!cfg_.hold_emits) release_emits_();
   state_->serving = true;
   if (cfg_.placement_fetch && !cfg_.cluster.empty()) {
     watcher_stop_ = false;
@@ -336,9 +482,11 @@ void Engine::start() {
 }
 
 // Follow-ups queued on any shard or still in a ring, and emitted so far.
-static void emit_totals(NativeRuntime& rt, u64& in_flight, u64& emitted) {
+// `run` is Engine::run_on_all_ (the caller holds a permit).
+template <class Run>
+static void emit_totals(const Run& run, u64& in_flight, u64& emitted) {
   std::atomic<u64> queued{0}, sent{0}, received{0}, e{0};
-  rt.run_on_all([&](u16) {
+  run([&](u16) {
     Shard* s = current_shard();
     queued += s->emits_in_flight();
     sent += s->emits_sent();
@@ -350,10 +498,18 @@ static void emit_totals(NativeRuntime& rt, u64& in_flight, u64& emitted) {
 }
 
 void Engine::release_emits() {
-  rt_->run_on_all([](u16) { current_shard()->pause_emits(false); });
+  Op op(*this);
+  if (!op) return;  // not running: nothing to release
+  release_emits_();
+}
+
+void Engine::release_emits_() {
+  run_on_all_([](u16) { current_shard()->pause_emits(false); });
 }
 
 bool Engine::wait_emits(double timeout_s) {
+  Op op(*this);
+  if (!op) return false;
   const auto t0 = std::chrono::steady_clock::now();
   u64 last = ~u64{0};
   while (since(t0) < timeout_s) {
@@ -361,7 +517,7 @@ bool Engine::wait_emits(double timeout_s) {
     // two of them unseen; two idle rounds with nothing emitted between them
     // cannot both miss it.
     u64 in_flight, emitted;
-    emit_totals(*rt_, in_flight, emitted);
+    emit_totals([this](const std::function<void(u16)>& f) { run_on_all_(f); }, in_flight, emitted);
     if (in_flight == 0 && emitted == last) return true;
     last = in_flight == 0 ? emitted : ~u64{0};
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -370,19 +526,33 @@ bool Engine::wait_emits(double timeout_s) {
 }
 
 void Engine::stop() {
-  // A checkpoint in progress finishes first (it commits or the process
-  // aborts on a storage error): its waiter is never abandoned, its shards
-  // never stop under it, and no partial commit is left (review PR #77
-  // section 11). Shard-side I/O is then drained by the runtime's quiesce:
-  // a shard stops only with no checkpoint active and no I/O in flight.
-  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
-  if (!running_) return;
-  if (watcher_.joinable()) {
-    watcher_stop_ = true;
-    watcher_.join();
+  // docs/ENGINE_LIFECYCLE.md. Operations already inside (a checkpoint, a
+  // slot move, stats, ...) finish first: no waiter is abandoned, no shard
+  // stops under one, a checkpoint commits fully (review PR #77 section 11,
+  // PR #78 section 11). Shard-side I/O is then drained by the runtime's
+  // quiesce: a shard stops only with no checkpoint active and no I/O in
+  // flight.
+  if (tl_op_engine == this) {
+    std::fprintf(stderr, "snc: Engine::stop() called from inside an Engine operation (would wait for itself)\n");
+    std::abort();
   }
+  {
+    std::unique_lock<std::mutex> lk(life_mu_);
+    life_cv_.wait(lk, [&] { return life_ != Lifecycle::STARTING && life_ != Lifecycle::STOPPING; });
+    if (life_ != Lifecycle::RUNNING) return;  // never started, or already stopped
+    life_ = Lifecycle::STOPPING;  // from here no operation enters
+  }
+  // Threads of the engine's own that enter operations are told to finish
+  // (the placement watcher's next refresh is refused anyway).
+  watcher_stop_ = true;
+  if (seed_) seed_->stop = true;
+  {
+    std::unique_lock<std::mutex> lk(life_mu_);
+    life_cv_.wait(lk, [&] { return active_ops_ == 0; });
+  }
+  OwnerScope own(*this);  // this thread's internal shard calls below
+  if (watcher_.joinable()) watcher_.join();
   if (seed_ && seed_->thread.joinable()) {
-    seed_->stop = true;
     seed_->thread.join();
     ::close(seed_->listen_fd);
   }
@@ -390,10 +560,10 @@ void Engine::stop() {
   // shard come back, so no shard waits on a response from a stopped one.
   // Paused shards still run follow-ups that arrive; wait until every one
   // sent has arrived, so none is left in a ring.
-  rt_->run_on_all([](u16) { current_shard()->pause_emits(true); });
+  run_on_all_([](u16) { current_shard()->pause_emits(true); });
   while (true) {
     std::atomic<u64> sent{0}, received{0};
-    rt_->run_on_all([&](u16) {
+    run_on_all_([&](u16) {
       sent += current_shard()->emits_sent();
       received += current_shard()->emits_received();
     });
@@ -403,6 +573,9 @@ void Engine::stop() {
   rt_->stop();  // shards quiesce first: WAL flushed, waiters released
   running_ = false;
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it
+  std::lock_guard<std::mutex> g(life_mu_);
+  life_ = Lifecycle::STOPPED;
+  life_cv_.notify_all();
 }
 
 // Shard s's replication settings, as standby or as primary.
@@ -635,7 +808,7 @@ void Engine::recover() {
     std::vector<u64> images(n, 0);
     auto t1 = std::chrono::steady_clock::now();
     {
-      rt_->run_on_all([&](u16 s) {
+      run_on_all_([&](u16 s) {
         for (const auto& p : m->parts) {
           if (p.stream != s) continue;
           images[s] = scan_part(dir, m->seq, s, uuid_, own(s));
@@ -648,7 +821,7 @@ void Engine::recover() {
 
     auto t2 = std::chrono::steady_clock::now();
     std::vector<StreamScan> scans(n);
-    rt_->run_on_all([&](u16 s) { scans[s] = scan_stream(dir, s, from_lsn(s), uuid_, own(s)); });
+    run_on_all_([&](u16 s) { scans[s] = scan_stream(dir, s, from_lsn(s), uuid_, own(s)); });
     for (u16 s = 0; s < n; ++s) {
       recovery_.wal_records_replayed += scans[s].records;
       recovery_.torn_tails += scans[s].torn_tails;
@@ -673,7 +846,7 @@ void Engine::recover() {
       if (batches[owner].count == 0) return;
       auto data = std::make_shared<std::vector<u8>>(std::move(batches[owner].bytes));
       batches[owner] = Batch{};
-      rt_->submit(owner, [data] {
+      submit_(owner, [data] {
         Shard* s = current_shard();
         std::size_t off = 0;
         while (off < data->size()) {
@@ -695,7 +868,7 @@ void Engine::recover() {
     };
     auto barrier = [&] {
       for (u16 s = 0; s < n; ++s) flush_batch(s);
-      rt_->run_on_all([](u16) {});  // submit queues are FIFO: everything before is installed
+      run_on_all_([](u16) {});  // submit queues are FIFO: everything before is installed
     };
 
     auto t1 = std::chrono::steady_clock::now();
@@ -740,7 +913,7 @@ void Engine::recover() {
   // replication (a standby being promoted): mint above all of them.
   {
     std::atomic<u64> max_seen{0};
-    rt_->run_on_all([&](u16) {
+    run_on_all_([&](u16) {
       u64 m = current_shard()->max_lease_seen();
       u64 cur = max_seen.load();
       while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
@@ -752,14 +925,14 @@ void Engine::recover() {
       sb_.next_lease = base + n;
       ++sb_.generation;
       write_superblock(dir, sb_);
-      rt_->run_on_all([&](u16 s) { current_shard()->set_lease(base + s); });
+      run_on_all_([&](u16 s) { current_shard()->set_lease(base + s); });
     }
   }
 
   if (!cfg_.replica_host.empty() || cfg_.standby) {
-    rt_->run_on_all([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby, &degrade_ok_)); });
+    run_on_all_([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby, &degrade_ok_)); });
   }
-  rt_->run_on_all([&](u16 s) {
+  run_on_all_([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
     if (barrier) reseal_from(*barrier);
     current_shard()->finish_recovery(wc, next_lsn[s]);
@@ -866,7 +1039,8 @@ void Engine::finish_barrier(bool synced) {
 }
 
 double Engine::promote() {
-  if (!running_ || !cfg_.standby || cfg_.data_dir.empty()) {
+  Op op(*this);
+  if (!op || !running_ || !cfg_.standby || cfg_.data_dir.empty()) {
     throw std::logic_error("promote: not a running standby");
   }
   const auto t0 = std::chrono::steady_clock::now();
@@ -896,10 +1070,10 @@ double Engine::promote() {
   // The listeners stay, refusing the old primary's term (sb_.term + 1 is
   // the term this promotion starts, below).
   const u64 new_term = sb_.term + 1;
-  rt_->run_on_all([&](u16) { current_shard()->stop_standby(new_term); });
+  run_on_all_([&](u16) { current_shard()->stop_standby(new_term); });
   while (true) {
     std::atomic<bool> settled{true};
-    rt_->run_on_all([&](u16) {
+    run_on_all_([&](u16) {
       if (!current_shard()->standby_settled()) settled = false;
     });
     if (settled) break;
@@ -908,7 +1082,7 @@ double Engine::promote() {
   // 2. The new term, and leases above every ID the old primary minted,
   // durable before anything is served.
   std::atomic<u64> max_seen{0};
-  rt_->run_on_all([&](u16) {
+  run_on_all_([&](u16) {
     u64 m = current_shard()->max_lease_seen();
     u64 cur = max_seen.load();
     while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
@@ -929,7 +1103,7 @@ double Engine::promote() {
   // 3. Serve. Follow-ups wait until every shard is a primary (as after
   // recovery): one sent to a shard still a standby would run outside its log.
   cfg_.standby = false;
-  rt_->run_on_all([&](u16 s) {
+  run_on_all_([&](u16 s) {
     Shard* sh = current_shard();
     sh->pause_emits(true);
     sh->set_lease(base + s);
@@ -943,9 +1117,11 @@ double Engine::promote() {
 
 CheckpointReport Engine::checkpoint() {
   CheckpointReport rep;
-  // Held to the end: stop() waits for it. On a stopped or stopping engine
-  // nothing is started and the report says so (seq 0).
-  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
+  // The permit is held to the end: stop() waits for it. Not running
+  // (constructed, stopping, stopped): nothing is started, seq 0.
+  Op op(*this);
+  if (!op) return rep;
+  std::lock_guard<std::mutex> one_at_a_time(checkpoint_mu_);
   if (cfg_.data_dir.empty() || !running_) return rep;
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
@@ -964,14 +1140,14 @@ CheckpointReport Engine::checkpoint() {
   // primary).
   if (cfg_.session_ttl_s != 0 && !cfg_.standby) {
     const u32 now_s = static_cast<u32>(::time(nullptr));
-    rt_->run_on_all([&](u16) { current_shard()->expire_sessions(now_s, cfg_.session_ttl_s); });
+    run_on_all_([&](u16) { current_shard()->expire_sessions(now_s, cfg_.session_ttl_s); });
   }
 
   // Steps 1 to 3: every shard writes and syncs its part.
   std::vector<Shard::CheckpointResult> results(n);
   std::latch done(n);
   for (u16 s = 0; s < n; ++s) {
-    rt_->submit(s, [&, s] {
+    submit_(s, [&, s] {
       current_shard()->begin_checkpoint(dir, uuid_, seq, [&, s](const Shard::CheckpointResult& r) {
         results[s] = r;
         done.count_down();
@@ -1008,7 +1184,7 @@ CheckpointReport Engine::checkpoint() {
   // Replication: the first LSN each shard's standby may still need, and
   // seeds in progress (docs/REPLICATION.md). WAL from there is kept.
   std::vector<u64> keep_from(n, 0);
-  rt_->run_on_all([&](u16 s) { keep_from[s] = current_shard()->repl_retain_from(); });
+  run_on_all_([&](u16 s) { keep_from[s] = current_shard()->repl_retain_from(); });
   std::unique_lock<std::mutex> seed_lock;
   if (seed_) {
     seed_lock = std::unique_lock<std::mutex>(seed_->mu);
@@ -1026,7 +1202,7 @@ CheckpointReport Engine::checkpoint() {
   // checkpoint drops their records, only the superblock remembers them.
   {
     std::atomic<u64> max_seen{0};
-    rt_->run_on_all([&](u16) {
+    run_on_all_([&](u16) {
       u64 m = current_shard()->max_lease_seen();
       u64 cur = max_seen.load();
       while (m > cur && !max_seen.compare_exchange_weak(cur, m)) {}
@@ -1100,9 +1276,10 @@ CheckpointReport Engine::checkpoint() {
 template <class F>
 auto Engine::on_shard(u16 shard, F fn) -> decltype(fn()) {
   using R = decltype(fn());
+  require_op();
   std::optional<R> out;
   std::latch done(1);
-  rt_->submit(shard, [&] {
+  submit_(shard, [&] {
     out.emplace(fn());
     done.count_down();
   });
@@ -1113,12 +1290,13 @@ auto Engine::on_shard(u16 shard, F fn) -> decltype(fn()) {
 template <typename F>
 void Engine::on_shard_steps(u16 shard, F step) {
   std::latch back(1);
+  require_op();  // the caller's permit covers the whole chain
   std::function<void()> task = [&] {
     if (step()) {
       back.count_down();  // the last touch of this frame
       return;
     }
-    rt_->submit(shard, task);
+    rt_->submit(shard, task);  // on the shard thread: the caller's permit still holds
   };
   rt_->submit(shard, task);
   back.wait();
@@ -1126,7 +1304,8 @@ void Engine::on_shard_steps(u16 shard, F step) {
 
 bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
                               const std::array<SlotArrival, kSlots>* arrived) {
-  if (!running_ || cfg_.cluster.empty()) return false;
+  Op op(*this);
+  if (!op || !running_ || cfg_.cluster.empty()) return false;
   std::lock_guard<std::mutex> g(map_mu_);
   const ClusterMap* cur = map_.load();
   // Epoch only: arrivals change with an epoch (a commit, or the backfill,
@@ -1139,8 +1318,8 @@ bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
   map_.store(p);
   std::fprintf(stderr, "snc: placement epoch %llu adopted (was %llu)\n", (unsigned long long)epoch,
                (unsigned long long)cur->epoch);
-  rt_->run_on_all([&](u16) { current_shard()->set_map(p); });
-  rt_->run_on_all([&](u16) { current_shard()->map_changed(); });
+  run_on_all_([&](u16) { current_shard()->set_map(p); });
+  run_on_all_([&](u16) { current_shard()->map_changed(); });
   return true;
 }
 
@@ -1188,15 +1367,17 @@ Status Engine::wait_lsn(u16 shard, u64 lsn, double timeout_s) {
 }
 
 SlotReport Engine::slot_report(u16 slot) {
-  if (!running_) return SlotReport{};
+  Op op(*this);
+  if (!op || !running_) return SlotReport{};
   return on_shard(slots_.owner[slot], [&] { return current_shard()->slot_report(slot); });
 }
 
 std::vector<SlotReport> Engine::slot_states() {
   std::vector<SlotReport> out;
-  if (!running_) return out;
+  Op op(*this);
+  if (!op || !running_) return out;
   std::mutex mu;
-  rt_->run_on_all([&](u16) {
+  run_on_all_([&](u16) {
     std::vector<SlotReport> v;
     current_shard()->slot_states(v);
     std::lock_guard<std::mutex> g(mu);
@@ -1207,6 +1388,8 @@ std::vector<SlotReport> Engine::slot_states() {
 }
 
 Status Engine::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out, double timeout_s) {
+  Op op(*this);
+  if (!op) return Status::E_SHUTTING_DOWN;
   const u16 sh = slots_.owner[slot];
   u64 lsn = 0;
   const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
@@ -1220,6 +1403,8 @@ Status Engine::seal_slot(u16 slot, u64 move, u16 to, u64 epoch, SlotReport& out,
 }
 
 Status Engine::unseal_slot(u16 slot, u64 move, SlotReport& out, double timeout_s) {
+  Op op(*this);
+  if (!op) return Status::E_SHUTTING_DOWN;
   const u16 sh = slots_.owner[slot];
   u64 lsn = 0;
   Status st = on_shard(sh, [&] { return current_shard()->unseal_slot(slot, move, lsn); });
@@ -1230,6 +1415,8 @@ Status Engine::unseal_slot(u16 slot, u64 move, SlotReport& out, double timeout_s
 
 Status Engine::export_slot(u16 slot, u64 move, bool final, const std::vector<SlotObject>& have,
                            std::vector<SlotObject>& out, u64& count, u64& digest) {
+  Op op(*this);
+  if (!op) return Status::E_SHUTTING_DOWN;
   const u16 sh = slots_.owner[slot];
   if (final) {
     // The seal is durable before its state is shown to anyone.
@@ -1250,6 +1437,8 @@ Status Engine::export_slot(u16 slot, u64 move, bool final, const std::vector<Slo
 }
 
 Status Engine::slot_objects(u16 slot, std::vector<SlotObject>& out) {
+  Op op(*this);
+  if (!op) return Status::E_SHUTTING_DOWN;
   on_shard(slots_.owner[slot], [&] {
     current_shard()->slot_objects(slot, false, out);
     return 0;
@@ -1264,6 +1453,8 @@ Status Engine::slot_objects(u16 slot, std::vector<SlotObject>& out) {
 // records, inert in a foreign slot, found again by a retry's HAVE.
 Status Engine::stage_slot(u16 slot, u64 move, u16 from, u64 epoch, bool final, const std::vector<SlotObject>& objs,
                           u64 count, u64 digest, SlotReport& out, double timeout_s) {
+  Op op(*this);
+  if (!op) return Status::E_SHUTTING_DOWN;
   const u16 sh = slots_.owner[slot];
   StageChain c;
   c.slot = slot;
@@ -1476,11 +1667,12 @@ bool Engine::replicating() const { return state_ && state_->replicating.load(); 
 Engine::ReplStatus Engine::replication_status() const {
   ReplStatus st;
   st.shards = cfg_.runtime.n_shards;
-  if (!running_) return st;
+  Op op(*this);
+  if (!op || !running_) return st;
   std::mutex mu;
   std::latch done(st.shards);
   for (u16 s = 0; s < st.shards; ++s) {
-    rt_->submit(s, [&] {
+    submit_(s, [&] {
       Shard::ReplSummary r = current_shard()->repl_summary();
       {
         std::lock_guard<std::mutex> g(mu);
@@ -1509,11 +1701,19 @@ const NodeCkptGauges& Engine::checkpoint_gauges() const {
 }
 
 ShardStats Engine::stats(u16 shard) const {
-  if (!running_) return state_->final_stats.at(shard);
+  // Not running: once STOPPED, the values each shard left at stop (its
+  // worker wrote them before the runtime joined it, and STOPPED is set
+  // under life_mu_ after that, which this read takes); while STARTING or
+  // STOPPING, zeros (the workers may be writing them). Never blocks.
+  Op op(*this);
+  if (!op || !running_) {
+    if (lifecycle() == Lifecycle::STOPPED) return state_->final_stats.at(shard);
+    return ShardStats{};
+  }
   // Read on the owning thread: shard state is single-writer.
   ShardStats out;
   std::latch done(1);
-  rt_->submit(shard, [&] {
+  submit_(shard, [&] {
     out = current_shard()->stats();
     done.count_down();
   });
@@ -1522,8 +1722,10 @@ ShardStats Engine::stats(u16 shard) const {
 }
 
 void Engine::for_each_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn) {
+  Op op(*this);
+  if (!op) return;  // not running: nothing visited
   std::latch done(1);
-  rt_->submit(shard, [&] {
+  submit_(shard, [&] {
     current_shard()->for_each_object(fn);
     done.count_down();
   });
@@ -1531,8 +1733,10 @@ void Engine::for_each_object(u16 shard, const std::function<void(const ObjectHea
 }
 
 void Engine::for_each_served_object(u16 shard, const std::function<void(const ObjectHeader&)>& fn) {
+  Op op(*this);
+  if (!op) return;  // not running: nothing visited
   std::latch done(1);
-  rt_->submit(shard, [&] {
+  submit_(shard, [&] {
     Shard* sh = current_shard();
     if (!sh->is_standby() && !sh->withdrawn()) {
       sh->for_each_object([&](const ObjectHeader& h) {
