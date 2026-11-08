@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-nesting-single-slot/tests/test_lifecycle.cpp:503: CHECK failed: (g_l10_inner.load()) == (1)

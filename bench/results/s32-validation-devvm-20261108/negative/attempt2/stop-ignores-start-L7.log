@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-stop-ignores-start/tests/test_lifecycle.cpp:334: CHECK failed: !becomes([&] { return stopped.load(); }, 300)

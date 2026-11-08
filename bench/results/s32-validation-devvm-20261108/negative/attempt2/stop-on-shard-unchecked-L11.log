@@ -1,0 +1,2 @@
+L11 stop() inside an operation: aborted with a message (SIGABRT)
+/home/claude/s32neg-work/src-stop-on-shard-unchecked/tests/test_lifecycle.cpp:560: CHECK failed: (((ws) & 0x7f)) == (6)

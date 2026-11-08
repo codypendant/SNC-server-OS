@@ -1,0 +1,26 @@
+[  4%] Building CXX object CMakeFiles/snc_core.dir/src/core/object_id.cpp.o
+[  8%] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
+[ 12%] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
+[ 16%] Building CXX object CMakeFiles/snc_core.dir/src/core/pages.cpp.o
+[ 20%] Building CXX object CMakeFiles/snc_core.dir/src/core/shard.cpp.o
+[ 25%] Building CXX object CMakeFiles/snc_core.dir/src/core/engine.cpp.o
+[ 29%] Building CXX object CMakeFiles/snc_core.dir/src/core/storage.cpp.o
+[ 33%] Building CXX object CMakeFiles/snc_core.dir/src/core/replication.cpp.o
+[ 37%] Building CXX object CMakeFiles/snc_core.dir/src/core/seed.cpp.o
+[ 41%] Building CXX object CMakeFiles/snc_core.dir/src/core/session.cpp.o
+[ 45%] Building CXX object CMakeFiles/snc_core.dir/src/core/slot_state.cpp.o
+[ 50%] Building CXX object CMakeFiles/snc_core.dir/src/core/cluster.cpp.o
+[ 54%] Building CXX object CMakeFiles/snc_core.dir/src/core/placement.cpp.o
+[ 58%] Building CXX object CMakeFiles/snc_core.dir/src/core/node_link.cpp.o
+[ 62%] Building CXX object CMakeFiles/snc_core.dir/src/core/wal_format.cpp.o
+[ 66%] Building CXX object CMakeFiles/snc_core.dir/src/net/conn_set.cpp.o
+[ 70%] Building CXX object CMakeFiles/snc_core.dir/src/net/server.cpp.o
+[ 75%] Building CXX object CMakeFiles/snc_core.dir/src/net/client.cpp.o
+[ 79%] Building CXX object CMakeFiles/snc_core.dir/src/net/cluster_client.cpp.o
+[ 83%] Building CXX object CMakeFiles/snc_core.dir/src/types/account.cpp.o
+[ 87%] Building CXX object CMakeFiles/snc_core.dir/src/native/runtime.cpp.o
+[ 91%] Linking CXX static library libsnc_core.a
+[ 91%] Built target snc_core
+[ 95%] Building CXX object CMakeFiles/test_lifecycle.dir/tests/test_lifecycle.cpp.o
+[100%] Linking CXX executable test_lifecycle
+[100%] Built target test_lifecycle

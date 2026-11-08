@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-permit-uncounted/tests/test_lifecycle.cpp:205: CHECK failed: becomes([&] { return eng.lifecycle() == Lifecycle::STOPPING; }, 10000)

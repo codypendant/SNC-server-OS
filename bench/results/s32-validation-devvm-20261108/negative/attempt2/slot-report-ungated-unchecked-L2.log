@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-slot-report-ungated-unchecked/tests/test_lifecycle.cpp:206: CHECK failed: !becomes([&] { return stopped.load(); }, 300)
