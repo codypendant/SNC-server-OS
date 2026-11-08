@@ -1,3 +1,0 @@
-base 70e5814e7db8bf1f249e5fbcba81cc381fa82bb9
-no-window T1 rc=1 (expected non-zero)
-advisory-window T1 rc=1 (expected non-zero)

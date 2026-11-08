@@ -4,7 +4,7 @@
 # repository in WORK (outside the repo), Release, test_s3_writeback only.
 # Usage: run_negatives.sh REPO WORK OUT_DIR
 set -u
-REPO=$1; WORK=$2; OUT=$3
+REPO=$1; WORK=$2; OUT=$(realpath -m "$3")
 mkdir -p "$OUT"
 echo "base $(git -C "$REPO" rev-parse HEAD)" > "$OUT/summary.txt"
 mutate() {  # name test python-replacement-old python-replacement-new
