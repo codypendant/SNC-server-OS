@@ -1793,3 +1793,23 @@ or source comments.
 -   **Tests:** P1-P8 (`tests/test_s2_pacing.cpp`).
 -   **Evidence:** `bench/results/s2-validation-devvm-20261108/`.
 -   **Next action:** review. No S3-D, R640 load, CP-1A or competitors.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S3-D writeback mechanism, for review
+
+-   **Classification:** REFINE (checkpoint I/O), design only. No engine
+    code changed.
+-   **What:** `docs/handoff/PR75_S2_Review.txt` (S2 approved and complete;
+    S3-D authorized). `docs/S3D_WRITEBACK.md` proposes C3: buffered part
+    writes with `RWF_DSYNC` per 1 MiB chunk, a window W of chunks in
+    flight that back-pressures the walk, and the final `fdatasync` kept.
+    C2 (`O_DIRECT`) is the named fallback if the R640 characterization
+    shows C3's per-chunk syncs hurt the WAL; C1 is rejected.
+    - Dev-VM bench (`bench/ckpt_writeback_char.cpp`): the legacy final
+      sync stalls the WAL (p50 0.1-0.6 s for 0.4-1.2 s); all three
+      candidates keep dirty bytes at a few MiB and the final sync at about
+      a millisecond; during the paced write, C3 had the steadiest WAL p99
+      (1.4-2.0 ms over 9 runs; C1 1.5-40, C2 2.6-177).
+    - Values (W, chunk size) stay hypotheses.
+-   **Evidence:** `bench/results/s3d-devvm-20261108/` (51 runs, 0 failed).
+-   **Next action:** review. No S3 implementation, R640 load, CP-1A or
+    competitors.

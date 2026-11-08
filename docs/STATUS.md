@@ -45,8 +45,11 @@ Decided by cody on 2026-11-04.
      S1.2 ([S1_2_REPLAY.md](S1_2_REPLAY.md), PR #74) closed it and was
      approved, so S1 is complete
      ([handoff/PR74_S12_Review.txt](handoff/PR74_S12_Review.txt)). S2, the
-     paced checkpoint walk ([S2_PACING.md](S2_PACING.md)), is built and
-     awaits review; S3-D is not started. Required before S6, as its own reviewed
+     paced checkpoint walk ([S2_PACING.md](S2_PACING.md), PR #75), was
+     approved and is complete
+     ([handoff/PR75_S2_Review.txt](handoff/PR75_S2_Review.txt)). S3-D
+     ([S3D_WRITEBACK.md](S3D_WRITEBACK.md)) proposes C3 (`RWF_DSYNC` per
+     chunk, bounded window) and awaits review; S3 is not started. Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
