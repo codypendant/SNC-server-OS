@@ -1,0 +1,6 @@
+T13 config: window 0 and 65 refused, 1 and 64 accepted
+T6 exact completion: a one-byte-short write and an -EIO each aborted before the commit; recovered from the previous checkpoint exactly, then a new checkpoint committed
+/home/claude/snc-server-os/tests/test_s3_writeback.cpp:441: CHECK failed: g[G_CKPT_WINDOW_FULL_STEPS] > 0
+=================================================================
+==27655==ERROR: AddressSanitizer: heap-use-after-free on address 0x521000000179 at pc 0x55e59bfe2f05 bp 0x7f675ebfe4c0 sp 0x7f675ebfe4b0
+READ of size 1 at 0x521000000179 thread T45

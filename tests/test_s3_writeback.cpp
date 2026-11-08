@@ -317,6 +317,21 @@ void test_window_bound() {
 
 // ---- T2: memory bound ----------------------------------------------------------------
 
+// Slow storage: a completion is let through only once the window is full
+// (or the walk has ended), at most one every 10 ms, so the window is full
+// whenever the walk could produce. Gated on the gauge, not on a fixed
+// interval: under a sanitizer the walk can take longer than any fixed
+// interval to fill a chunk, and the peak checks must not depend on timing.
+void slow_storage(Engine& eng, Background& bg) {
+  while (!bg.done.load()) {
+    wait_gauges(eng, [&](const GaugeSnapshot& x) {
+      return bg.done.load() || x[G_CKPT_WINDOW_FULL] == 1 || x[G_CKPT_PHASE] != kWalk;
+    });
+    Engine::debug_ckpt_release_writes(1, false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+}
+
 void test_memory_bound() {
   const u32 w = 2;
   const std::string dir = temp_dir();
@@ -328,12 +343,7 @@ void test_memory_bound() {
   Engine::debug_ckpt_hold_writes(true);
   Background bg;
   bg.start(eng);
-  // Slow storage: one completion every 10 ms, slower than the walk fills
-  // a chunk, so the window is full most of the time.
-  while (!bg.done.load()) {
-    Engine::debug_ckpt_release_writes(1, false);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
+  slow_storage(eng, bg);
   Engine::debug_ckpt_hold_writes(false);
   bg.join();
   const GaugeSnapshot g = fresh(eng);
@@ -419,10 +429,7 @@ void test_memory_bound_max_objects() {
   Engine::debug_ckpt_hold_writes(true);
   Background bg;
   bg.start(eng);
-  while (!bg.done.load()) {
-    Engine::debug_ckpt_release_writes(1, false);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  }
+  slow_storage(eng, bg);
   Engine::debug_ckpt_hold_writes(false);
   bg.join();
   const GaugeSnapshot g = fresh(eng);

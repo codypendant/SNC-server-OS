@@ -1,0 +1,3 @@
+sha df836a27ef7190fdcc4f35b22bc13ec3eddc8839 start 2026-11-08T06:21:00Z
+release run1 rc=0 06:47:16
+asan run1 KILLED at the 2 h task limit (~08:21): test_s3_writeback T2 CHECK failed (window peak != W, timing-dependent under ASan), exit(1) with the engine running hit a teardown heap-use-after-free and hung. tsan/legacy runs never started. Fixed in the next commit; all suites rerun from scratch.
