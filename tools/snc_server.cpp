@@ -788,7 +788,7 @@ int main(int argc, char** argv) {
   std::mutex prog_mu;
   std::vector<u64> prog_count(n_shards, 0), prog_changed(n_shards, admin::mono_ns());
   bool prog_ok = true;
-  for (u16 s = 0; s < n_shards; ++s) prog_ok &= eng.runtime().progress(s, prog_count[s]);
+  for (u16 s = 0; s < n_shards; ++s) prog_ok &= eng.runtime_view().progress(s, prog_count[s]);
   std::atomic<bool> sampler_stop{false};
   std::thread sampler;
   if (prog_ok) {
@@ -799,7 +799,7 @@ int main(int argc, char** argv) {
         std::lock_guard<std::mutex> g(prog_mu);
         for (u16 s = 0; s < n_shards; ++s) {
           u64 v = 0;
-          eng.runtime().progress(s, v);
+          eng.runtime_view().progress(s, v);
           if (v != prog_count[s]) {
             prog_count[s] = v;
             prog_changed[s] = now;
@@ -831,7 +831,7 @@ int main(int argc, char** argv) {
       std::lock_guard<std::mutex> g(prog_mu);
       for (u16 s = 0; s < n_shards; ++s) {
         u64 v = 0;
-        eng.runtime().progress(s, v);
+        eng.runtime_view().progress(s, v);
         const u64 stall = v != prog_count[s] || now < prog_changed[s] ? 0 : now - prog_changed[s];
         if (stall > worst) {
           worst = stall;
@@ -950,7 +950,13 @@ int main(int argc, char** argv) {
           reply = "NO DEBUG STALL <shard> <ms>";
           return true;
         }
-        eng.runtime().submit(static_cast<u16>(sh), [ms] {
+        // Fire and forget: nothing waits on it, so the lease ends here.
+        const Engine::DataPlane dp = eng.data_plane();
+        if (!dp) {
+          reply = "NO not running";
+          return true;
+        }
+        dp.submit(static_cast<u16>(sh), [ms] {
           const u64 end = admin::mono_ns() + u64{ms} * 1000000;
           while (admin::mono_ns() < end) {
           }
@@ -1370,7 +1376,7 @@ int main(int argc, char** argv) {
     recvs += st.conn.recv_calls;
     sends += st.conn.send_calls;
     frames += st.conn.frames_in;
-    for (u16 d = 0; d < cfg.runtime.n_shards; ++d) ring += eng.runtime().ring_stats(s, d).msgs;
+    for (u16 d = 0; d < cfg.runtime.n_shards; ++d) ring += eng.runtime_view().ring_stats(s, d).msgs;
   }
   for (u16 s = 0; s < cfg.runtime.n_shards; ++s) {
     ShardStats ss = eng.stats(s);

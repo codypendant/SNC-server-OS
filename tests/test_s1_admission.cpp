@@ -199,7 +199,9 @@ struct Async {
 // Runs fn on shard s and waits for it to return (not for its ops).
 void on_shard(Engine& eng, u16 s, const std::function<void()>& fn) {
   std::latch l(1);
-  eng.runtime().submit(s, [&] {
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
+  dp.submit(s, [&] {
     fn();
     l.count_down();
   });

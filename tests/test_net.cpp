@@ -227,7 +227,9 @@ void run(const std::string& data_dir, u16 port) {
         std::vector<ObjectID>* out;
         std::latch* done;
       } l{&local, &done};
-      eng.runtime().submit(0, [&] {
+      const Engine::DataPlane dp = eng.data_plane();
+      CHECK(dp);
+      dp.submit(0, [&] {
         index_lookup(kEmailIndex, ByteView("shared@x", 8), 100,
                      [](void* ctx, Status st, const ObjectID* v, u32 k) {
                        auto* x = static_cast<L*>(ctx);

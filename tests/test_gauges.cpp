@@ -239,7 +239,9 @@ void test_refused_ring() {
   }
   CHECK(!theirs.empty());
   std::atomic<bool> release{false}, held{false};
-  eng.runtime().submit(1, [&] {
+  Engine::DataPlane dp = eng.data_plane();  // until both tasks are done
+  CHECK(dp);
+  dp.submit(1, [&] {
     held = true;
     while (!release.load()) std::this_thread::yield();
   });
@@ -251,7 +253,7 @@ void test_refused_ring() {
     std::atomic<u32>* ok;
     std::atomic<u32>* done;
   } box{&refused, &ok, &done};
-  eng.runtime().submit(0, [&] {
+  dp.submit(0, [&] {
     for (u32 i = 0; i < kN; ++i) {
       execute(
           theirs[i % theirs.size()], kOpGetBalance, ByteView{}, {},
@@ -275,6 +277,7 @@ void test_refused_ring() {
   release = true;
   for (int i = 0; i < 10000 && done.load() < kN; ++i) ::usleep(500);
   CHECK_EQ(done.load(), kN);
+  dp.release();
   CHECK(refused.load() > 0);
   ShardStats st = eng.stats(0);
   CHECK_EQ(st.refused_ring - pre_ring, refused.load());

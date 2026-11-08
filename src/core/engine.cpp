@@ -258,6 +258,8 @@ std::atomic<u32> g_debug_ops_parked{0};
 std::atomic<bool> g_debug_park_start{false};
 std::atomic<bool> g_debug_start_parked{false};
 std::atomic<void (*)(const Engine&)> g_debug_op_hook{nullptr};
+std::atomic<bool> g_debug_park_promote{false};
+std::atomic<bool> g_debug_promote_parked{false};
 }  // namespace
 
 const char* lifecycle_name(Lifecycle l) {
@@ -352,8 +354,75 @@ u32 Engine::debug_ops_parked() { return g_debug_ops_parked.load(); }
 void Engine::debug_park_start(bool on) { g_debug_park_start.store(on); }
 bool Engine::debug_start_parked() { return g_debug_start_parked.load(); }
 void Engine::debug_op_hook(void (*fn)(const Engine&)) { g_debug_op_hook.store(fn); }
+void Engine::debug_park_promote(bool on) { g_debug_park_promote.store(on); }
+bool Engine::debug_promote_parked() { return g_debug_promote_parked.load(); }
+
+// ---- Data plane (S3.3, docs/ENGINE_LIFECYCLE.md section 9) ----------------------------
+// A lease counts like an operation permit (active_ops_), so stop() waits for
+// it; it is not tied to a thread (no nesting mark), so it can be moved and
+// used from shard threads while it lives.
+Engine::DataPlane Engine::data_plane() {
+  std::lock_guard<std::mutex> g(life_mu_);
+  if (life_ != Lifecycle::RUNNING) return DataPlane(nullptr);
+  ++active_ops_;
+  return DataPlane(this);
+}
+
+void Engine::DataPlane::release() {
+  if (e_ == nullptr) return;
+  const Engine* e = e_;
+  e_ = nullptr;
+  std::lock_guard<std::mutex> g(e->life_mu_);
+  if (--e->active_ops_ == 0) e->life_cv_.notify_all();
+}
+
+Engine::DataPlane& Engine::DataPlane::operator=(DataPlane&& o) noexcept {
+  if (this != &o) {
+    release();
+    e_ = o.e_;
+    o.e_ = nullptr;
+  }
+  return *this;
+}
+
+static void refused_lease() {
+  std::fprintf(stderr, "snc: data-plane work submitted through a refused or released lease\n");
+  std::abort();
+}
+
+void Engine::DataPlane::submit(u16 shard, std::function<void()> fn) const {
+  if (e_ == nullptr) refused_lease();
+  e_->rt_->submit(shard, std::move(fn));
+}
+
+void Engine::DataPlane::run_on_all(const std::function<void(u16)>& fn) const {
+  if (e_ == nullptr) refused_lease();
+  e_->rt_->run_on_all(fn);
+}
+
+// ---- Superblock view (S3.3) -----------------------------------------------------------
+void Engine::publish_sb_() {
+  std::lock_guard<std::mutex> g(sb_view_mu_);
+  sb_view_ = SbView{sb_.term, sb_.lease_lo, sb_.lease_hi};
+}
+
+void Engine::commit_superblock_() {
+  write_superblock(cfg_.data_dir, sb_);
+  publish_sb_();
+}
+
+u64 Engine::term() const {
+  std::lock_guard<std::mutex> g(sb_view_mu_);
+  return sb_view_.term;
+}
+
+std::pair<u64, u64> Engine::lease_block() const {
+  std::lock_guard<std::mutex> g(sb_view_mu_);
+  return {sb_view_.lease_lo, sb_view_.lease_hi};
+}
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
+  role_.store(cfg.standby ? Role::STANDBY : Role::PRIMARY);
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
   // dsync overrides Config::ckpt_io_dsync, so a whole test suite can run on
   // either write path without editing every test's config. Announced on
@@ -624,7 +693,7 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
     rc.receiver.slot_crc = crc;
     rc.receiver.term = term;
     rc.receiver.lease_ns = u64{cfg_.standby_read_lease_ms} * 1'000'000;
-  } else if (!cfg_.replica_host.empty() && (!cfg_.standby || cfg_.standby_port != 0)) {
+  } else if (!cfg_.replica_host.empty() && (!standby || cfg_.standby_port != 0)) {
     rc.primary = true;
     rc.sender.host = cfg_.replica_host;
     rc.sender.port = static_cast<u16>(cfg_.replica_port + s);
@@ -661,10 +730,10 @@ void Engine::recover() {
   // overrides a role on record, and a standby is adopted only to run as one.
   if (cfg_.adopt_role != Adopt::NONE) {
     const DirRole want = cfg_.adopt_role == Adopt::PRIMARY ? DirRole::PRIMARY : DirRole::STANDBY;
-    if (want == DirRole::PRIMARY && cfg_.standby) {
+    if (want == DirRole::PRIMARY && standby_()) {
       throw std::runtime_error("--adopt-role primary contradicts --standby");
     }
-    if (want == DirRole::STANDBY && !cfg_.standby) {
+    if (want == DirRole::STANDBY && !standby_()) {
       throw std::runtime_error("--adopt-role standby needs --standby (it adopts the directory to run as a standby)");
     }
     const std::optional<Superblock> pre = read_superblock(dir);
@@ -675,7 +744,7 @@ void Engine::recover() {
                                " already has role " + role_name(role) + " (a recorded role is never overridden)");
     }
   }
-  if (cfg_.standby) write_role(dir, DirRole::STANDBY);
+  if (standby_()) write_role(dir, DirRole::STANDBY);
 
   // 1. Superblock. A new standby may first fetch a seed from its primary.
   std::optional<Superblock> sb = read_superblock(dir);
@@ -702,6 +771,7 @@ void Engine::recover() {
     recovery_.fresh = true;
   }
   sb_ = *sb;
+  publish_sb_();
   std::memcpy(uuid_.data(), sb_.space_uuid, 16);
 
   // A start that may hold a replica prefix (the directory was last a
@@ -720,7 +790,7 @@ void Engine::recover() {
   // directory started with --standby has said so already (its role file
   // was written above).
   const bool legacy = !recovery_.fresh && role == DirRole::MISSING && !(sb_.flags & kSbRoleTracked) &&
-                      !cfg_.standby;
+                      !standby_();
   if (legacy) {
     if (cfg_.adopt_role != Adopt::PRIMARY) {
       throw std::runtime_error(
@@ -737,7 +807,7 @@ void Engine::recover() {
   }
   std::optional<Placement> barrier;
   bool after_barrier = false;
-  if (!cfg_.standby) {
+  if (!standby_()) {
     after_barrier = role == DirRole::STANDBY || role == DirRole::MALFORMED ||
                     (role == DirRole::MISSING && (sb_.flags & kSbRoleTracked)) || legacy;
     if (after_barrier) {
@@ -797,7 +867,7 @@ void Engine::recover() {
   // shard can mint. Clustered with lease blocks, from the block this node
   // holds, or a new one (a standby mints nothing until it is promoted,
   // which takes a fresh block).
-  if (cfg_.lease_blocks && !cfg_.standby) {
+  if (cfg_.lease_blocks && !standby_()) {
     if (sb_.lease_hi == 0 || sb_.next_lease < sb_.lease_lo || sb_.next_lease + n > sb_.lease_hi) {
       take_lease_block(n);
     }
@@ -805,7 +875,7 @@ void Engine::recover() {
   state_->hooks.lease_base = sb_.next_lease;
   sb_.next_lease += n;
   ++sb_.generation;
-  write_superblock(dir, sb_);
+  commit_superblock_();
   recovery_.superblock_s = since(t0);
 
   // 4. Start workers; they hold no WAL until replay finishes.
@@ -953,13 +1023,13 @@ void Engine::recover() {
       u64 base = max_seen.load() + 1;
       sb_.next_lease = base + n;
       ++sb_.generation;
-      write_superblock(dir, sb_);
+      commit_superblock_();
       run_on_all_([&](u16 s) { current_shard()->set_lease(base + s); });
     }
   }
 
-  if (!cfg_.replica_host.empty() || cfg_.standby) {
-    run_on_all_([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, cfg_.standby, &degrade_ok_)); });
+  if (!cfg_.replica_host.empty() || standby_()) {
+    run_on_all_([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, standby_(), &degrade_ok_)); });
   }
   run_on_all_([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
@@ -972,7 +1042,7 @@ void Engine::recover() {
     if (!(sb_.flags & kSbRoleTracked)) {  // an adopted legacy primary: role "primary" is on disk now
       sb_.flags |= kSbRoleTracked;
       ++sb_.generation;
-      write_superblock(dir, sb_);
+      commit_superblock_();
     }
   }
 
@@ -1070,7 +1140,11 @@ void Engine::finish_barrier(bool synced) {
 
 double Engine::promote() {
   Op op(*this);
-  if (!op || !running_ || !cfg_.standby || cfg_.data_dir.empty()) {
+  if (!op) throw std::logic_error("promote: not a running standby");
+  // Durable control (section 10): the whole promotion, so a checkpoint
+  // runs wholly before it (as a standby) or wholly after (as the primary).
+  std::lock_guard<std::mutex> control(control_mu_);
+  if (!running_ || !standby_() || cfg_.data_dir.empty()) {
     throw std::logic_error("promote: not a running standby");
   }
   const auto t0 = std::chrono::steady_clock::now();
@@ -1128,11 +1202,16 @@ double Engine::promote() {
     sb_.next_lease = base + n;
     ++sb_.term;
     ++sb_.generation;
-    write_superblock(cfg_.data_dir, sb_);
+    commit_superblock_();
+  }
+  if (g_debug_park_promote.load()) {  // tests only (S3.3 C2-C4)
+    g_debug_promote_parked.store(true);
+    while (g_debug_park_promote.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    g_debug_promote_parked.store(false);
   }
   // 3. Serve. Follow-ups wait until every shard is a primary (as after
   // recovery): one sent to a shard still a standby would run outside its log.
-  cfg_.standby = false;
+  role_.store(Role::PRIMARY);  // under control_mu_: no checkpoint sees a mix
   run_on_all_([&](u16 s) {
     Shard* sh = current_shard();
     sh->pause_emits(true);
@@ -1151,8 +1230,11 @@ CheckpointReport Engine::checkpoint() {
   // (constructed, stopping, stopped): nothing is started, seq 0.
   Op op(*this);
   if (!op) return rep;
-  std::lock_guard<std::mutex> one_at_a_time(checkpoint_mu_);
+  // Durable control (section 10): one checkpoint at a time, and never
+  // overlapping a promotion. Its role view is fixed for its whole run.
+  std::lock_guard<std::mutex> control(control_mu_);
   if (cfg_.data_dir.empty() || !running_) return rep;
+  rep.standby = standby_();
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
   const u16 n = cfg_.runtime.n_shards;
@@ -1168,7 +1250,7 @@ CheckpointReport Engine::checkpoint() {
 
   // Expired client sessions go first (a standby gets the deletes from its
   // primary).
-  if (cfg_.session_ttl_s != 0 && !cfg_.standby) {
+  if (cfg_.session_ttl_s != 0 && !standby_()) {
     const u32 now_s = static_cast<u32>(::time(nullptr));
     run_on_all_([&](u16) { current_shard()->expire_sessions(now_s, cfg_.session_ttl_s); });
   }
@@ -1240,7 +1322,7 @@ CheckpointReport Engine::checkpoint() {
     if (sb_.lease_hi == 0) sb_.next_lease = std::max(sb_.next_lease, max_seen.load() + 1);
   }
   ++sb_.generation;
-  write_superblock(dir, sb_);
+  commit_superblock_();
   // Committed: a recovery now replays each stream from its start LSN.
   for (u16 s = 0; s < n; ++s) state_->gauges[s].set_committed_start_lsn(m.start_lsn[s]);
   const u64 g2 = sri_now_ns();
@@ -1672,6 +1754,7 @@ void Engine::take_lease_block(u16 n) {
   sb_.lease_lo = lo;
   sb_.lease_hi = hi;
   sb_.next_lease = lo;
+  publish_sb_();
 }
 
 void Engine::withdraw() {
