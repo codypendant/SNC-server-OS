@@ -1854,3 +1854,28 @@ or source comments.
     serialized with `stop()` (out of S3.1 scope, for review).
 -   **Next action:** review. No S4, R640 load, CP-1A, competitors or
     follow-up intake slice.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S3.2 Engine lifecycle gate, for review
+
+-   **Classification:** REFINE (engine lifecycle). Checkpoint semantics,
+    persistence format, admission, placement semantics and `kEmitBacklog`
+    unchanged; no S4, no follow-up intake.
+-   **What:** `docs/handoff/PR78_S31_Review.txt` (S3.1 approved; every other
+    shard-submitting Engine method could race `stop()`). One counting
+    permit (`Engine::Op`) taken by each category-2 method; `stop()` moves to
+    STOPPING, admits nothing new and waits for the count to reach zero;
+    explicit states CONSTRUCTED, STARTING, RUNNING, STOPPING, STOPPED,
+    FAILED; restart refused; nesting tracked per thread without recursive
+    locks; `require_op()` aborts on any shard submission outside a permit.
+-   **Review:** an independent read-only review found 9 items; 5 fixed
+    (FAILED state, cross-engine nesting, stop from a shard thread, the
+    negative mutation's catch reason, L3's sleep), the rest accepted or
+    left for the reviewer (`runtime()` stays ungated; a pre-existing
+    `cfg_.standby` race in promotion). Table: `docs/ENGINE_LIFECYCLE.md`
+    section 8.
+-   **Tests:** L1-L11 (`tests/test_lifecycle.cpp`); eight negative
+    mutations.
+-   **Evidence:** `bench/results/s32-validation-devvm-20261108/`.
+-   **Next action:** review. Decision needed: gate `runtime()` or accept
+    the exemption. No S4, R640 load, CP-1A, competitors or follow-up
+    intake slice.

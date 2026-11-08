@@ -22,6 +22,8 @@ hang the same way.
 
 ```
 CONSTRUCTED --start()--> STARTING --> RUNNING --stop()--> STOPPING --> STOPPED
+                            |                                  ^
+                            +--(start throws)--> FAILED --stop()+
 ```
 
 The state is explicit: it is `Engine::life_`, and `Engine::lifecycle()`
@@ -29,16 +31,28 @@ reads it.
 
 | Call | In state | Result |
 |---|---|---|
-| `start()` | CONSTRUCTED | moves to STARTING, then RUNNING. If it throws: RUNNING when the runtime came up (it must still be stopped), else CONSTRUCTED |
+| `start()` | CONSTRUCTED | moves to STARTING, then RUNNING. If it throws: FAILED (section 2a) |
 | `start()` | STARTING (another thread) | waits, then returns if RUNNING |
 | `start()` | RUNNING | returns at once |
-| `start()` | STOPPING, STOPPED | throws `std::logic_error`: restart is not supported. Nothing restarted an Engine before S3.2 (all callers checked) |
+| `start()` | STOPPING, STOPPED, FAILED | throws `std::logic_error`: restart is not supported. Nothing restarted an Engine before S3.2, and nothing retried a failed start (all callers checked) |
 | `stop()` | CONSTRUCTED | no-op |
 | `stop()` | STARTING | waits for the start, then stops |
 | `stop()` | RUNNING | moves to STOPPING, waits for operations to leave, stops the runtime, moves to STOPPED |
 | `stop()` | STOPPING (another thread) | waits until STOPPED |
 | `stop()` | STOPPED | returns |
-| `stop()` | from inside an operation on the same thread | aborts with a message (it would wait for itself) |
+| `stop()` | FAILED | tears down what the failed start brought up (threads, and the runtime if it started), moves to STOPPED |
+| `stop()` | from inside an operation of this engine on the same thread (at any nesting depth) | aborts with a message (it would wait for itself) |
+| `stop()` | from a shard thread (an application hook) | aborts with a message (an operation waiting on that shard would wait for it, and it for the operation) |
+
+**2a. FAILED.** Before the review, a start that threw left the engine
+RUNNING when the runtime had come up, or CONSTRUCTED otherwise. RUNNING
+admitted operations on a half-started engine (recovered shards, follow-ups
+still held, not serving); CONSTRUCTED allowed a second start on in-memory
+state the first attempt had already changed (superblock, leases). FAILED
+admits no operation and no second start. Only `stop()` or the destructor
+is accepted, and either tears down what came up. Callers checked:
+`snc_server` exits on a failed start; `test_persistence` checks the throw
+only.
 
 Destruction runs `~Engine`, which is `stop()` followed by the destructor.
 Calling the Engine once its destructor has begun is not supported
@@ -64,19 +78,22 @@ This is a counting gate, not a lock around the calls. Operations do not
 serialize each other. The only thing that waits on them is `stop()`
 (review section 11).
 
-**Nested calls** (review 11C). The thread-local `tl_op_engine` records
-which engine this thread holds a permit for.
-- A permit taken inside another one for the same engine is granted
-  without counting again and without checking the state. The outer permit
-  already keeps `stop()` waiting.
+**Nested calls** (review 11C). The thread-local `tl_held` is a small stack
+of the engines this thread holds a permit (or lifecycle step) for,
+innermost last.
+- A permit taken while this thread already holds one for the same engine,
+  at any depth, is granted without counting again and without checking
+  the state. The outer permit already keeps `stop()` waiting. This holds
+  across another engine in between (A -> B -> A, L10); a single-slot mark,
+  the first version, lost it (review finding 4).
 - So `seal_slot -> wait_lsn -> on_shard -> slot_report`,
   `promote -> update_placement / release_emits -> finish_barrier`, and
   recovery's `checkpoint()` / `stats()` neither self-deadlock nor get
   refused half-way.
 - None of this relies on recursive locking. The permit holds no lock while
   the operation runs.
-- A permit for engine B inside an operation of engine A saves and restores
-  A's mark, in stack order.
+- Permits and `OwnerScope` are RAII, so the stack unwinds in order. More
+  than 16 engines deep aborts with a message.
 
 **Lifecycle owner.** `start()` and `stop()` mark their own thread
 (`OwnerScope`), so their internal shard calls pass the gate:
@@ -86,7 +103,7 @@ which engine this thread holds a permit for.
 **Structural enforcement.** Every shard submission from an Engine method
 goes through `run_on_all_`, `submit_`, `on_shard` or `on_shard_steps`.
 Each of these calls `require_op()`, which aborts with a message unless
-this thread holds a permit or is the lifecycle owner. The only direct
+this thread holds a permit for this engine or is its lifecycle owner. The only direct
 `rt_->` calls left are:
 - `start` and `stop` of the runtime;
 - the shard-thread resubmission inside `on_shard_steps`, which is covered
@@ -125,18 +142,33 @@ run only inside a permit. `require_op()` enforces this.
 **Category 1: these do not take the permit.** They read atomics or
 Engine-owned state, and stay safe in every state:
 - `lifecycle`, `fenced`, `replicating`, `withdraw` (an atomic store);
-- `epoch_seen`, `cluster`, `slot_owner`, `space_uuid`, `shard_count`,
-  `recovery`;
+- `epoch_seen`, `cluster`, `slot_owner`, `shard_count`;
+- `space_uuid`, `recovery`: written during STARTING, so safe once
+  `start()` has returned (as before; not safe from another thread during a
+  start, review finding 7);
 - `gauges`, `checkpoint_gauges` (Engine-owned blocks, a seqlock read);
 - `last_stage_report`, `allow_degrade`, every `debug_*`;
 - `term()` and `lease_block()`. These read superblock fields that are
   written only by control operations. That pre-existing contract is
   unchanged here.
 
-**Not gated, by design: `runtime()`.** This is the raw data-plane handle:
-the harness's op windows and the network front ends submit through it.
-Using it while `stop()` runs is the caller's responsibility, as before.
-Wrapping it would mean an API change outside S3.2's scope.
+**Not gated, by design: `runtime()`. For the reviewer's decision.** This
+is the raw data-plane handle (`NativeRuntime&`, with `submit` and
+`run_on_all`). Its callers: the network front ends and `DEBUG STALL` in
+`tools/snc_server.cpp`, the test harness's op windows (`tests/harness.h`),
+and direct uses in `test_net`, `test_replication`, `test_gauges`,
+`test_execute` and `bench/*`.
+- A caller that submits through it while another thread runs `stop()`
+  can still wait on a latch no worker counts down: the S3.2 defect class
+  on the data plane (review finding 1).
+- `snc_server` is safe in practice: it stops the admin loop and drains
+  the movers before `eng.stop()` (`tools/snc_server.cpp`, the shutdown
+  sequence). The tests and benches stop their own threads first.
+- Gating it means an API change (a gated handle or a permit type in the
+  public API) and touches every data-plane caller, beyond "one generic
+  lifecycle gate over the Engine's shard-submitting methods". S3.2 leaves
+  it as before and documents it; whether to gate it is the reviewer's
+  call.
 
 ## 5. What a refusal guarantees
 
@@ -170,6 +202,12 @@ Each operation is parked after it enters (`Engine::debug_park_ops`), so
 | L6 | during STOPPING (inside L1, L2, L4, L5) and again at STOPPED: every category-2 method is refused with its defined result, all within 2 s in total (a `wait_emits(5)` that entered would take 5 s) |
 | L7 | a second `start()` waits for the one in progress. `stop()` waits for a start, then stops. Restart is refused. `stop()` before start is a no-op. STARTING admits no operation from another thread |
 | L8 | 6 threads issue operations while another thread stops. Every thread returns. Run under TSan as part of the serial TSan suite |
+| L9 | a failed start, before the runtime came up (no init) and after (seed port taken, after recovery's checkpoint): FAILED, every category-2 method refused, a second start refused, `stop()` ends STOPPED |
+| L10 | on one thread, an A operation calls B, which calls back into A, while A is STOPPING: the inner A call is nested (granted, live result) and `stop()` waits only for the outer one |
+| L11 | in child processes: `stop()` from inside an operation, and from a shard thread (a `for_each_object` callback), each abort with their own message (checked in the child's stderr, so a failed CHECK cannot pass for it) |
+
+L3 waits until the stage hold has begun (`debug_stage_pending()`), not a
+fixed sleep (review finding 9).
 
 The 300 ms probes are evidence that something has not happened yet; they
 are not a safety mechanism. Every wait after a release is bounded, so a
@@ -177,3 +215,34 @@ defect fails a CHECK instead of hanging.
 
 The negative mutations, the validation runs and the review findings are
 recorded in `bench/results/s32-validation-devvm-20261108/`.
+
+## 8. Validation findings and the review
+
+**TSan, first run (before the review).** A refused `stats()` during
+STOPPING read `final_stats` while the workers' `hook_fini` wrote it. The
+fix: `final_stats` is read only once STOPPED, which is set under
+`life_mu_` after the runtime joined the workers. Log:
+`bench/results/s32-validation-devvm-20261108/tsan-test_lifecycle-first-stats-race.log`.
+
+**Independent review** (read-only, of `ab76766`, focused on lifecycle state
+and nested locks). What it confirmed: every shard-submitting method holds a
+permit; the only direct runtime calls left are its start and stop and the
+shard-side resubmit; permits are RAII (released on exceptions); `life_mu_`
+is never held across blocking work; the lock order is permit, then
+`checkpoint_mu_`, then `seed_->mu`, with no inversion; the `final_stats`
+happens-before is real.
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | `runtime()` hands out ungated `submit` / `run_on_all` | not changed: an API change beyond S3.2's scope. Documented in section 4 for the reviewer's decision |
+| 2 | a failed start can land in RUNNING (or CONSTRUCTED, allowing a retry on changed state) | fixed: FAILED (section 2a), L9, mutation 6 |
+| 3 | negative mutation 3 was caught by the structural abort, not by the abandoned waiter it claimed | fixed: it now removes the checks in `on_shard` and `submit_` too and replaces the permit with an uncounted park; L2's stop-waits probe catches it |
+| 4 | the nested mark is single-slot: A -> B -> A is lost, and `A.stop()` there is not caught | fixed: a per-thread stack (section 3), L10, mutation 7 |
+| 5 | `stop()` from a shard thread is not detected | fixed: aborts with a message, L11, mutation 8 |
+| 6 | `stop()` now waits for long permit holders (`wait_emits(30)`, `wait_lsn` timeouts, `promote`'s settle loop, `finish_barrier`, a start in recovery) | intended: finish-then-stop, as the S3.1 checkpoint contract (PR #78 review section 5). Bounded or deliberate latency, not deadlock |
+| 7 | pre-existing data races: `promote` writes `cfg_.standby` while a concurrent `checkpoint()` reads it; `recovery()` / `space_uuid()` race a reader during STARTING | not changed (pre-existing, not lifecycle): the second is now stated in section 4. The first is recorded here for a separate fix: it is a role-change race, and fixing it would touch promotion, outside S3.2's scope |
+| 8 | behaviour changes: other threads are refused during STARTING (seal / stage answer `E_SHUTTING_DOWN`, `stats()` zeros); the placement watcher's first refresh can fall in STARTING and waits one poll | accepted and stated. `snc_server` starts its admin loop after `start()` and reads stats after STOPPED |
+| 9 | tests narrower than claimed: L3 relied on a 150 ms sleep; no tests for failed start, cross-engine nesting, stop-from-op | fixed: L3 waits on the hold, L9 to L11 added. Nested paths inside one engine (`seal_slot -> wait_lsn`, `promote -> update_placement`) run in the existing suites (`test_migrate`, `test_cluster`, `test_replication`, `test_proof`) under the new gate; a missing nested permit there would abort in `require_op` |
+
+The negative mutations and validation runs: `bench/results/s32-validation-devvm-20261108/README.md`.
+
