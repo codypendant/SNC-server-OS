@@ -1,0 +1,8 @@
+base ac8c580a6b5a74c3f3f525fbb93e1851fe751d11
+no-floor P2 rc=124 (expected non-zero)
+no-budget P2 rc=1 (expected non-zero)
+no-budget P3 rc=124 (expected non-zero)
+no-catchup P1 rc=1 (expected non-zero)
+no-catchup P6 rc=139 (expected non-zero)
+no-backoff P1 rc=1 (expected non-zero)
+done
