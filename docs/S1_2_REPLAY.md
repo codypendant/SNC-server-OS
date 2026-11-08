@@ -217,3 +217,47 @@ before the headline runs:
 
 Its finding on the outcome-loss edge case is documented in section 2,
 and not built.
+
+## 9. q4 rule correction (found by the S1.2 Release run)
+
+**What failed.** Release run 1 at 8b98a90 was 37/38: `test_baseline_ha`
+q4_normal failed. The harness cut the result line at 4,000 characters, so
+the failed check was not visible. It now prints a `FAIL-SUMMARY` line
+(checks and drain verdicts) first.
+
+**Diagnosis** (`bench/results/s12-validation-devvm-20261107/`):
+- Five isolated Release reruns of q4_normal under the S1.1 rule
+  (`q4-diagnosis-old-rule/`): 3 failed, every time on
+  `undurable_bounded` alone.
+- In all five, `answers_drained` passed, with excess 0 in every sample,
+  and the undurable maximum was 256 or 257 against a window of 256.
+- The failing clause was the trend test: last-half mean <= first-half
+  mean + 10% of the window (25.6). Under the sync-bound closed loop the
+  summed undurable count swings between about 145 and 256 as syncs batch.
+  A 5-second window can show a rise of 30-60 with nothing growing.
+- So it was a harness false failure in the rule S1.1 preregistered, not
+  an engine defect. S1.1's headline runs passed it by margin, not by
+  design (its q4_delayed10 check rose 18 of the 25.6 allowed).
+
+**Correction.** `bounded` = the summed undurable count never exceeds the
+window + 16 in any sample of the interval (`DRAIN_UNDURABLE_SLACK`,
+internal records with no client answer).
+- With at most 256 client requests in flight, a client backlog that keeps
+  growing must pass the window. A trend inside the window is not evidence
+  of growth.
+- The drained rule is unchanged.
+- The self-test's growing series now passes the window (6/sample, past
+  256 at sample 46).
+- A new swinging series, the failure's shape (145, then 206, max 256),
+  must pass.
+
+**Recheck** (`q4-rule-recheck/`, new rule):
+- 6/6 q4_normal reruns pass, with maxima 256-260.
+- The old trend test would have failed 1 of those 6, so 4 of 11 runs in
+  total.
+- q4_delayed10 passes. While blocked it is not drained; after the grant
+  it is drained.
+
+This changes a preregistered rule after seeing data. It is reported as a
+correction for review, with every run kept, not as a quiet retune. The
+rule stays a q4 harness rule only (section 6).

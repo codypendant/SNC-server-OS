@@ -421,13 +421,21 @@ def gauge_sums(g):
 #               EVERY shard that had waiting answers in the interval (one
 #               shard whose own sync stalls shows no excess; the others'
 #               progress must not hide it);
-#   bounded   = the summed undurable count has median <= the window and
-#               does not grow: its last-half mean <= first-half mean + 10%
-#               of the window.
+#   bounded   = the summed undurable count never exceeds the clients'
+#               window plus DRAIN_UNDURABLE_SLACK records (internal records
+#               with no client answer) in any sample of the interval. Under
+#               a closed-loop load that is what "not ever-growing" can
+#               mean: a growing client backlog must pass the window.
+#               (S1.2 correction: the S1.1 rule also required last-half
+#               mean <= first-half mean + 10% of the window. The count
+#               swings by ~100 inside the window as syncs batch, so that
+#               trend test failed healthy runs: 3 of 5 Release reruns,
+#               docs/S1_2_REPLAY.md section 9.)
 # One sample is never a verdict (see h1_measurement).
 DRAIN_WINDOW_S = 5.0
 DRAIN_MIN_SAMPLES = 10            # sampler runs ~10/s in Release; >= 2/s under sanitizers
 DRAIN_MAX_EXCESS_FRAC = 0.2
+DRAIN_UNDURABLE_SLACK = 16
 
 
 def median(vals):
@@ -460,7 +468,7 @@ def drain_rule(samples, window):
            "undurable_median": median(und), "undurable_max": max(und),
            "undurable_first_half_mean": round(first, 1), "undurable_last_half_mean": round(last, 1)}
     out["drained"] = median(ex) == 0 and with_excess / n <= DRAIN_MAX_EXCESS_FRAC and progressed
-    out["bounded"] = median(und) <= window and last <= first + 0.1 * window
+    out["bounded"] = max(und) <= window + DRAIN_UNDURABLE_SLACK
     return out
 
 
@@ -499,12 +507,15 @@ def scenario_h1_measurement(work):
     # 4. Stalled: no excess, but nothing becomes durable.
     stalled = [dict(sample(i, 256, 256), durable_lsn=2000, shard_durable_lsn=[1000, 1000]) for i in range(50)]
     # 5. Growing undurable backlog.
-    growing = [sample(i, 3 * i, 3 * i) for i in range(50)]
+    growing = [sample(i, 6 * i, 6 * i) for i in range(50)]  # passes the window at i = 46
+    # 7. Healthy but swinging (the S1.2 Release failure's shape): first half
+    # near 145, last half near 206, never past the window.
+    swinging = [sample(i, u, u) for i, u in enumerate([145] * 25 + [206] * 24 + [256])]
     # 6. One shard's own sync stalls: no excess there, the summed LSN still rises.
     one_stalled = [sample(i, 250, 250, lsn1=1000) for i in range(50)]
     out["old_rule_on_drained"] = drained[-1]["waiters"] < window       # one end sample
     out["rule"] = {k: drain_rule(v, window) for k, v in
-                   (("drained", drained), ("blocked", blocked), ("stalled", stalled), ("growing", growing), ("one_shard_stalled", one_stalled),
+                   (("drained", drained), ("blocked", blocked), ("stalled", stalled), ("growing", growing), ("one_shard_stalled", one_stalled), ("swinging", swinging),
                     ("short", drained[:5]))}
     r = out["rule"]
     out["checks"] = {
@@ -515,6 +526,7 @@ def scenario_h1_measurement(work):
         "rule_fails_stalled_series": r["stalled"]["drained"] is False,
         "rule_fails_growing_series": r["growing"]["bounded"] is False,
         "rule_fails_one_shard_stalled": r["one_shard_stalled"]["drained"] is False,
+        "rule_passes_swinging_series": r["swinging"]["drained"] and r["swinging"]["bounded"],
         "rule_needs_enough_samples": r["short"]["drained"] is False,
     }
     out["pass"] = all(out["checks"].values())
@@ -652,6 +664,10 @@ def main():
             r = {"pass": False, "error": f"{type(e).__name__}: {e}"}
         r["scenario"], r["seconds"] = name, round(time.time() - t, 1)
         line = json.dumps(r)
+        if not r.get("pass"):
+            # The verdict first: the full line below is cut at 4000 characters.
+            summary = {k: r.get(k) for k in ("checks", "error", "drain", "while_blocked_drain") if k in r}
+            print("FAIL-SUMMARY " + name + " " + json.dumps(summary), flush=True)
         print(("PASS " if r.get("pass") else "FAIL ") + name + " " + line[:4000], flush=True)
         if JSON_DIR:
             os.makedirs(JSON_DIR, exist_ok=True)
