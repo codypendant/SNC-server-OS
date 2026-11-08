@@ -1,9 +1,3 @@
-base 3ba27f90210760606471542182119e1016035047
-no-window BUILD FAILED
-advisory-window BUILD FAILED
-no-release BUILD FAILED
-fifo-free BUILD FAILED
-final-early BUILD FAILED
-short-accepted BUILD FAILED
-sync-uncounted BUILD FAILED
-done
+base 70e5814e7db8bf1f249e5fbcba81cc381fa82bb9
+no-window T1 rc=1 (expected non-zero)
+advisory-window T1 rc=1 (expected non-zero)
