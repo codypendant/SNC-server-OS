@@ -31,6 +31,8 @@ mutate no-window T1 "  if (ckpt_io_.dsync && c.writes_inflight >= ckpt_io_.windo
 mutate advisory-window T1 "          if (c.chunk.size() >= kCheckpointChunk && !checkpoint_submit_chunk()) c.blocked = true;" "          if (c.chunk.size() >= kCheckpointChunk) (void)checkpoint_submit_chunk();"
 # 3. A completed chunk's buffer is kept until the checkpoint ends.
 mutate no-release T2 "  std::vector<u8>().swap(w->buf);" ""
+# 3b. FIFO free: a completion frees the oldest busy slot's buffer, not its own.
+mutate fifo-free T4 "  std::vector<u8>().swap(w->buf);" "  { CkptWrite* v = w; for (auto& x : c.slots) if (x->busy && x->index < v->index) v = x.get(); std::vector<u8>().swap(v->buf); }"
 # 4. The walk is done although the last chunk could not be submitted.
 mutate final-early T5 "      if (!checkpoint_submit_chunk()) {
         c.blocked = true;" "      if (!checkpoint_submit_chunk() && false) {

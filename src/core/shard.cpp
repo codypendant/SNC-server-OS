@@ -39,6 +39,7 @@ std::atomic<u64> g_debug_ckpt_walk_limit{0};
 // Fail: chunk index + 1 of the next checkpoint to reach it (0 = none),
 // and how it fails: 1 one byte short, 2 -EIO. Consumed once.
 std::atomic<bool> g_debug_ckpt_hold{false};
+std::atomic<bool> g_debug_ckpt_defer{false};  // submissions queued unissued (same tokens)
 std::atomic<u64> g_debug_ckpt_release{0};
 std::atomic<bool> g_debug_ckpt_release_newest{false};
 std::atomic<u64> g_debug_ckpt_fail_at{0};
@@ -66,6 +67,13 @@ void debug_ckpt_hold_writes(bool on) {
     g_debug_ckpt_release_newest.store(false);
   }
   g_debug_ckpt_hold.store(on);
+}
+void debug_ckpt_defer_writes(bool on) {
+  if (on) {
+    g_debug_ckpt_release.store(0);
+    g_debug_ckpt_release_newest.store(false);
+  }
+  g_debug_ckpt_defer.store(on);
 }
 void debug_ckpt_release_writes(u32 n, bool newest_first) {
   g_debug_ckpt_release_newest.store(newest_first);
@@ -2013,13 +2021,22 @@ bool Shard::checkpoint_submit_chunk() {
   c.file_off += w->len;
   ckpt_note_buf();
   gauges_dirty_ = true;
+  if (g_debug_ckpt_defer.load(std::memory_order_relaxed)) {
+    ckpt_deferred_.push_back({w, off});  // tests: issued later by checkpoint_process_held
+    return true;
+  }
+  checkpoint_issue(w, off);
+  return true;
+}
+
+void Shard::checkpoint_issue(CkptWrite* w, u64 off) {
+  Checkpoint& c = ckpt_;
   if (!sri_write(c.fd, off, w->buf.data(), w->len, ckpt_io_.dsync, &Shard::checkpoint_write_done, w)) {
     // The synchronous fallback: a durable write blocked this loop for its
     // whole duration. Counted, never hidden (review PR76 section 8).
     ++ckpt_obs_.sync_writes;
     ++ckpt_obs_.sync_writes_total;
   }
-  return true;
 }
 
 void Shard::checkpoint_write_done(void* ctx, int result) {
@@ -2074,6 +2091,24 @@ void Shard::checkpoint_write_complete(CkptWrite* w, int result) {
 // Tests only: held completions, processed as release tokens allow, or all
 // once the hold is off.
 void Shard::checkpoint_process_held() {
+  // Deferred submissions: a released token issues one, the newest first
+  // when asked, so writes reach the kernel out of submission order while
+  // later slots still own unissued buffers (a wrong free corrupts the part).
+  while (!ckpt_deferred_.empty()) {
+    if (g_debug_ckpt_defer.load(std::memory_order_relaxed)) {
+      u64 t = g_debug_ckpt_release.load(std::memory_order_relaxed);
+      if (t == 0 || !g_debug_ckpt_release.compare_exchange_strong(t, t - 1)) break;
+    }
+    DeferredWrite d{};
+    if (g_debug_ckpt_release_newest.load(std::memory_order_relaxed)) {
+      d = ckpt_deferred_.back();
+      ckpt_deferred_.pop_back();
+    } else {
+      d = ckpt_deferred_.front();
+      ckpt_deferred_.erase(ckpt_deferred_.begin());
+    }
+    checkpoint_issue(d.w, d.off);
+  }
   while (!ckpt_held_.empty()) {
     if (g_debug_ckpt_hold.load(std::memory_order_relaxed)) {
       u64 t = g_debug_ckpt_release.load(std::memory_order_relaxed);
@@ -2144,7 +2179,7 @@ void Shard::pace(u64 now) {
 
 void Shard::checkpoint_step() {
   Checkpoint& c = ckpt_;
-  if (!ckpt_held_.empty()) checkpoint_process_held();
+  if (!ckpt_held_.empty() || !ckpt_deferred_.empty()) checkpoint_process_held();
   const u64 t0 = sri_now_ns();
   pace(t0);
   if (c.syncing) return;
@@ -2181,7 +2216,13 @@ void Shard::checkpoint_step() {
           // grows it to the exact size, never geometrically, so a retained
           // buffer stays within kCheckpointChunkMax.
           if (c.chunk.capacity() < kCheckpointChunkReserve) c.chunk.reserve(kCheckpointChunkReserve);
-          if (at + size > c.chunk.capacity()) c.chunk.reserve(at + size);
+          if (at + size > c.chunk.capacity()) {
+            // The growth copies: old and new buffers are both held for the
+            // moment, and the peak counts both (docs/S3_WRITEBACK.md 3).
+            const u64 both = ckpt_buf_bytes() + at + size;
+            if (both > ckpt_obs_.buf_bytes_peak) ckpt_obs_.buf_bytes_peak = both;
+            c.chunk.reserve(at + size);
+          }
           c.chunk.resize(at + size);
           encode_record(c.chunk.data() + at, RecType::IMAGE, o->last_lsn, o->type_id, o->id,
                         o->version, o->schema_ver, o->payload(), o->length);
@@ -2213,13 +2254,17 @@ void Shard::checkpoint_step() {
         if (t1 - t0 > o.step_max_ns) o.step_max_ns = t1 - t0;
         if (c.cursor - from > o.step_max_objects) o.step_max_objects = c.cursor - from;
       }
-      if (c.blocked) {
-        gauges_dirty_ = true;
-        return;
-      }
+      // Visited once the cursor is at the end, even if the record that
+      // ended the walk also filled a chunk the window refused: that chunk
+      // is then the last one, and is reported as the final one pending.
       if (c.cursor == c.ids.size()) {
         c.visited = true;
         gauges_dirty_ = true;
+      }
+      if (c.blocked) {
+        ++ckpt_obs_.window_full_steps;
+        gauges_dirty_ = true;
+        return;
       }
     }
     if (c.visited) {

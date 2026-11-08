@@ -543,6 +543,9 @@ class Engine {
   // Commit hold: Engine::checkpoint stops after every part is synced and
   // before the manifest, until released; reached() says it is there.
   static void debug_ckpt_hold_writes(bool on);
+  // Defer: chunk writes are queued unissued (in flight, buffer owned) and
+  // each release token issues one, oldest or newest first.
+  static void debug_ckpt_defer_writes(bool on);
   static void debug_ckpt_release_writes(u32 n, bool newest_first);
   static void debug_ckpt_fail_write(u64 index, int mode);
   static void debug_ckpt_hold_commit(bool on);

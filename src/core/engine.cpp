@@ -1450,6 +1450,7 @@ void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
 void Engine::debug_hold_wal(u16 shard, bool on) { debug_hold_wal_flush(shard, on); }
 void Engine::debug_ckpt_walk_limit(u64 limit) { snc::debug_ckpt_walk_limit(limit); }
 void Engine::debug_ckpt_hold_writes(bool on) { snc::debug_ckpt_hold_writes(on); }
+void Engine::debug_ckpt_defer_writes(bool on) { snc::debug_ckpt_defer_writes(on); }
 void Engine::debug_ckpt_release_writes(u32 n, bool newest_first) { snc::debug_ckpt_release_writes(n, newest_first); }
 void Engine::debug_ckpt_fail_write(u64 index, int mode) { snc::debug_ckpt_fail_write(index, mode); }
 void Engine::debug_ckpt_hold_commit(bool on) { g_debug_ckpt_hold_commit.store(on); }

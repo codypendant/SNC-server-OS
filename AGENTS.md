@@ -1813,3 +1813,24 @@ or source comments.
 -   **Evidence:** `bench/results/s3d-devvm-20261108/` (51 runs, 0 failed).
 -   **Next action:** review. No S3 implementation, R640 load, CP-1A or
     competitors.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S3 bounded checkpoint writeback (C3), for review
+
+-   **Classification:** REFINE (checkpoint I/O). CC-1..CC-5 unchanged
+    (code-level mapping in `docs/S3_WRITEBACK.md` section 7). Part format,
+    recovery, WAL, commit order, admission and `kEmitBacklog` unchanged.
+-   **What:** `docs/handoff/PR76_S3D_Review.txt` (C3 approved with
+    conditions). Part chunks are written with `RWF_DSYNC`; at most W
+    (`--ckpt-window`, default 4, a hypothesis) in flight per shard; a full
+    window stops the walk; each write owns its buffer and frees it on its
+    own completion; the last chunk keeps the walk in WALK until submitted;
+    short writes are fatal; synchronous-fallback writes are counted
+    (`sri_write` returns whether it queued). Final `fdatasync` kept.
+    `--ckpt-io legacy` restores the pre-S3 I/O. 17 gauges; HEALTH
+    `ckpt_io`, `ckpt_sync_writes`.
+-   **Not done (by the work order):** S4, C2, follow-up intake
+    backpressure, B2, R640 load.
+-   **Tests:** T1-T11, T13 (`tests/test_s3_writeback.cpp`); T12 = the
+    suite (dsync default) and the suite under `SNC_CKPT_IO=legacy`.
+-   **Evidence:** `bench/results/s3-validation-devvm-20261108/`.
+-   **Next action:** review. No S4, R640 load, CP-1A or competitors.

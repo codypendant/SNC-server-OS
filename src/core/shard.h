@@ -650,6 +650,13 @@ class Shard {
     int result;
   };
   std::vector<HeldWrite> ckpt_held_;
+  // Tests only (Engine::debug_ckpt_defer_writes): submitted, not yet issued.
+  struct DeferredWrite {
+    CkptWrite* w;
+    u64 off;
+  };
+  std::vector<DeferredWrite> ckpt_deferred_;
+  void checkpoint_issue(CkptWrite* w, u64 off);  // sri_write, counting the synchronous fallback
   bool checkpoint_submit_chunk();  // false: the window is full and the chunk stays
   void checkpoint_write_complete(CkptWrite* w, int result);
   void checkpoint_process_held();
@@ -738,6 +745,7 @@ inline constexpr u32 kCheckpointChunkReserve = kCheckpointChunk + (64u << 10);
 inline constexpr u64 kCheckpointChunkMax = kCheckpointChunk + kMaxPayload + 4096;
 // Tests only (S3; the Engine::debug_ckpt_* functions of the same names).
 void debug_ckpt_hold_writes(bool on);
+void debug_ckpt_defer_writes(bool on);
 void debug_ckpt_release_writes(u32 n, bool newest_first);
 void debug_ckpt_fail_write(u64 index, int mode);
 void set_current_shard(Shard* s);

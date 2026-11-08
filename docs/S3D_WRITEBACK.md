@@ -24,9 +24,13 @@ Why, in the review's order (section 13):
    of WAL stall with today's writeback.
 4. **Recovery and file format.** Unchanged: the same bytes in the same
    file. DESIGN-R 5.3 (C2's obligations) does not apply.
-5. **Portable failure behaviour.** A standard POSIX-level flag; errors
-   surface on the chunk that failed, through the existing completion,
-   not later at `fdatasync`.
+5. **Portable failure behaviour.** *Corrected per the PR #76 review
+   section 7:* `RWF_DSYNC` is a Linux durability flag for `pwritev2` and
+   io_uring, not a POSIX interface. It has the semantics of `O_DSYNC`
+   for the one write. SNC is Linux-hosted, so this is not a design
+   problem, but its behaviour on each filesystem and device still needs
+   validating. Errors surface on the chunk that failed, through the
+   existing completion, not later at `fdatasync`.
 6. **Operational simplicity.** No filesystem- or device-specific mode,
    no fallback path to test.
 7. **Practical overhead.** One page-cache copy, as today. C2 would save

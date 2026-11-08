@@ -15,9 +15,11 @@
 //       never exceed (W + 1) chunk reservations, against a part many times
 //       larger
 //   T2b the same with maximum-size (1 MiB) objects ending chunks: the
-//       peak stays within (W + 1) x kCheckpointChunkMax
-//   T4  out-of-order completion: completions released newest first;
-//       accounting stays exact and the checkpoint recovers exactly
+//       peak stays within (W + 1) x kCheckpointChunkMax + one reservation
+//   T4  out-of-order completion: submissions deferred and issued newest
+//       first, so each completion arrives while older slots still own
+//       unissued buffers; a wrong or FIFO free would corrupt the part.
+//       Accounting stays exact and the checkpoint recovers exactly
 //   T5  final partial chunk under a full window: every ID visited, the
 //       last chunk waits for a slot; the phase stays WALK until it is
 //       submitted, then DRAIN follows
@@ -27,7 +29,10 @@
 //   T7  crash positions: chunks in flight, some complete and some not,
 //       all complete with the part waiting on WAL durability, and every
 //       part synced before the manifest; each recovers from the previous
-//       checkpoint exactly, and a new checkpoint then commits
+//       checkpoint exactly, and a new checkpoint then commits. A process
+//       crash, not a power loss: bytes the kernel accepted survive it, so
+//       "some durable, some not" is the shard's view of completions, not
+//       the device's (docs/S3_WRITEBACK.md section 9)
 //   T8  final sync: a dsync checkpoint commits; objects, bytes and the
 //       part's size on disk agree exactly
 //   T9  legacy: --ckpt-io legacy submits every chunk with no window and
@@ -286,13 +291,17 @@ void test_window_bound() {
     CHECK(g[G_CKPT_WINDOW_FULL_STEPS] > steps);
     CHECK_EQ(g[G_CKPT_WRITES_INFLIGHT_PEAK], w);
     // T3: one completion frees exactly one slot.
+    u64 prev = cursor;
     for (u32 k = 1; k <= 3; ++k) {
       Engine::debug_ckpt_release_writes(1, false);
       g = wait_gauges(eng, [&](const GaugeSnapshot& x) { return x[G_CKPT_CHUNKS] == w + k && x[G_CKPT_WINDOW_FULL] == 1; });
       CHECK_EQ(g[G_CKPT_WRITES_INFLIGHT], w);
-      CHECK(g[G_CKPT_WALK_DONE] > cursor);
+      CHECK(g[G_CKPT_WALK_DONE] > prev);  // the walk resumed, then stopped again
+      prev = g[G_CKPT_WALK_DONE];
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
-      CHECK_EQ(fresh(eng)[G_CKPT_CHUNKS], w + k);
+      g = fresh(eng);
+      CHECK_EQ(g[G_CKPT_CHUNKS], w + k);
+      CHECK_EQ(g[G_CKPT_WALK_DONE], prev);
     }
     CHECK_EQ(fresh(eng)[G_CKPT_WRITES_INFLIGHT_PEAK], w);
     finish_and_check(eng, bg, c, m);
@@ -417,7 +426,10 @@ void test_memory_bound_max_objects() {
   Engine::debug_ckpt_hold_writes(false);
   bg.join();
   const GaugeSnapshot g = fresh(eng);
-  const u64 bound = (static_cast<u64>(w) + 1) * kCheckpointChunkMax;
+  // W in flight and the chunk being built, each at most kCheckpointChunkMax,
+  // plus, while that chunk grows for a record that does not fit, its old
+  // reservation (docs/S3_WRITEBACK.md section 3).
+  const u64 bound = (static_cast<u64>(w) + 1) * kCheckpointChunkMax + kCheckpointChunkReserve;
   CHECK(g[G_CKPT_BUF_BYTES_PEAK] <= bound);
   CHECK(g[G_CKPT_BUF_BYTES_PEAK] > envelope(w));  // a buffer really grew for a maximum-size record
   CHECK(g[G_CKPT_WINDOW_FULL_STEPS] > 0);
@@ -441,13 +453,18 @@ void test_out_of_order() {
   eng.start();
   const std::vector<ObjectID> ids = make_accounts(eng, 60000, 100);
   const Model m = model_of(ids, 100);
-  Engine::debug_ckpt_hold_writes(true);
+  // Submissions deferred: each submitted chunk's buffer is owned by its
+  // slot but not yet handed to the kernel. Issuing newest first completes
+  // the newest write while older slots still hold unissued buffers, so an
+  // implementation that freed by FIFO position, or freed any buffer but
+  // the completed write's own, would issue a freed buffer and corrupt the
+  // part (or fail the write), and recovery below would not be exact.
+  Engine::debug_ckpt_defer_writes(true);
   Background bg;
   bg.start(eng);
   GaugeSnapshot g = wait_gauges(eng, [](const GaugeSnapshot& x) { return x[G_CKPT_WINDOW_FULL] == 1; });
-  u64 issued = g[G_CKPT_BYTES_ISSUED];
-  // Newest first: each release completes the most recent write while
-  // older ones stay in flight. Every completed byte is counted once.
+  CHECK_EQ(g[G_CKPT_WRITES_INFLIGHT], w);
+  CHECK_EQ(g[G_CKPT_BYTES_WRITTEN], 0u);  // none issued yet
   u64 rounds = 0;
   while (!bg.done.load()) {
     const u64 before = fresh(eng)[G_CKPT_BYTES_WRITTEN];
@@ -458,14 +475,14 @@ void test_out_of_order() {
     CHECK(g[G_CKPT_BYTES_WRITTEN] <= g[G_CKPT_BYTES_ISSUED]);
     CHECK(g[G_CKPT_WRITES_INFLIGHT] <= w);
     CHECK(g[G_CKPT_BUF_BYTES] <= envelope(w));
-    issued = g[G_CKPT_BYTES_ISSUED];
     ++rounds;
   }
+  Engine::debug_ckpt_defer_writes(false);
   CHECK(rounds >= 4);
-  (void)issued;
   finish_and_check(eng, bg, c, m);
   rm_rf(dir);
-  std::printf("T4 out-of-order: %llu newest-first completions, bytes written == issued, recovered exactly\n",
+  std::printf("T4 out-of-order: %llu writes issued newest first while older slots held unissued buffers; bytes "
+              "written == issued, part size exact, recovered exactly\n",
               (unsigned long long)rounds);
 }
 
@@ -850,6 +867,12 @@ void test_config() {
 
 int main(int argc, char** argv) {
   register_type();
+  // Each test sets the write path it tests; the suite-wide override
+  // (SNC_CKPT_IO) would replace it.
+  if (std::getenv("SNC_CKPT_IO") != nullptr) {
+    std::printf("test_s3_writeback: SNC_CKPT_IO ignored (each test sets its own write path)\n");
+    ::unsetenv("SNC_CKPT_IO");
+  }
   const std::vector<std::pair<const char*, std::function<void()>>> tests = {
       {"T13", test_config},
       {"T6", test_completion_errors},  // forks: first, with no engine thread alive
