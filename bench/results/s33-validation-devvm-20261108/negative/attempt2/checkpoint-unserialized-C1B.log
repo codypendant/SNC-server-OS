@@ -1,0 +1,1 @@
+/home/claude/s33neg-work/src-checkpoint-unserialized/tests/test_lifecycle.cpp:765: CHECK failed: !becomes([&] { return ck_done.load(); }, 300)

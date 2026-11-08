@@ -1,0 +1,1 @@
+/home/claude/s33neg-work/src-lease-run-on-all-shard/tests/test_lifecycle.cpp:684: CHECK failed: (((ws) & 0x7f)) == (6)

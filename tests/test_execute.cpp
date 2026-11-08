@@ -20,7 +20,7 @@ constexpr u16 kShards = 4;
 // Issues `total` ops from one shard, at most `window` outstanding, without
 // recursing from completions (local completions run inline).
 struct Window {
-  Engine* eng;
+  const Engine::DataPlane* dp;  // held by run_all until the window is done
   u16 shard;
   u64 next = 0, total = 0, outstanding = 0, window = 64;
   std::function<void(u64 i, Completion, void* ctx)> issue;
@@ -44,7 +44,7 @@ void on_done(void* ctx, const ExecResult& r) {
     if (w->next == w->total) {
       w->done->count_down();
     } else {
-      w->eng->runtime().submit(w->shard, [w] { pump(w); });
+      w->dp->submit(w->shard, [w] { pump(w); });
     }
   }
 }
@@ -61,11 +61,13 @@ void pump(Window* w) {
 void run_all(Engine& eng, u64 per_shard,
              const std::function<void(u16 shard, u64 i, Completion, void*)>& issue,
              const std::function<void(u16 shard, u64 i, const ExecResult&)>& check) {
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
   std::latch done(kShards);
   std::vector<Window> ws(kShards);
   for (u16 s = 0; s < kShards; ++s) {
     Window& w = ws[s];
-    w.eng = &eng;
+    w.dp = &dp;
     w.shard = s;
     w.total = per_shard;
     w.done = &done;
@@ -75,7 +77,7 @@ void run_all(Engine& eng, u64 per_shard,
       done.count_down();
       continue;
     }
-    eng.runtime().submit(s, [&w] { pump(&w); });
+    dp.submit(s, [&w] { pump(&w); });
   }
   done.wait();
 }
@@ -92,7 +94,9 @@ ExecResult one(Engine& eng, u16 shard, const std::function<void(Completion, void
     std::vector<u8>* bytes;
     std::latch* done;
   } ctx{&out, &bytes, &done};
-  eng.runtime().submit(shard, [&] {
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
+  dp.submit(shard, [&] {
     issue(
         [](void* c, const ExecResult& r) {
           auto* x = static_cast<Ctx*>(c);

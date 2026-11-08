@@ -688,7 +688,9 @@ void check_fenced(const std::string& pd, u16 port, const ObjectID& target) {
     Engine eng(c);
     eng.start();
     std::atomic<int> status{-1};
-    eng.runtime().submit(0, [&] {
+    const Engine::DataPlane dp = eng.data_plane();
+    if (!dp) _exit(3);
+    dp.submit(0, [&] {
       AmountArgs a{1, 0};
       execute(target, kOpDeposit, ByteView(&a, sizeof(a)), {},
               [](void* ctx, const ExecResult& r) {
@@ -1255,11 +1257,13 @@ void test_retries_failover() {
     }
     auto picks = retry_picks(accs, kPer);
     std::atomic<u64> replayed{0}, applied{0}, old{0}, bad{0};
+    Engine::DataPlane dp = eng.data_plane();
+    if (!dp) _exit(3);
     std::latch done(kShards);
     std::vector<Window> ws(kShards);
     for (u16 s = 0; s < kShards; ++s) {
       Window& w = ws[s];
-      w.eng = &eng;
+      w.dp = &dp;
       w.shard = s;
       w.total = sent[s];
       w.window = 256;
@@ -1281,9 +1285,10 @@ void test_retries_failover() {
         done.count_down();
         continue;
       }
-      eng.runtime().submit(s, [&w] { pump(&w); });
+      dp.submit(s, [&w] { pump(&w); });
     }
     done.wait();
+    dp.release();  // before stop(): stop waits for every lease
     if (bad) _exit(70);
     std::map<ObjectID, i64> expect;
     for (u16 s = 0; s < kShards; ++s) {

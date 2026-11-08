@@ -402,7 +402,7 @@ int main(int argc, char** argv) {
   for (u16 s = 0; s < args.shards; ++s) before[s] = eng.stats(s);
   std::vector<RingStats> ring_before;
   for (u16 a = 0; a < args.shards; ++a)
-    for (u16 b = 0; b < args.shards; ++b) ring_before.push_back(eng.runtime().ring_stats(a, b));
+    for (u16 b = 0; b < args.shards; ++b) ring_before.push_back(eng.runtime_view().ring_stats(a, b));
 
   for (u16 s = 0; s < args.shards; ++s) {
     ShardDriver& d = bench.drivers[s];
@@ -457,7 +457,7 @@ int main(int argc, char** argv) {
   }
   for (u16 a = 0, k = 0; a < args.shards; ++a) {
     for (u16 b = 0; b < args.shards; ++b, ++k) {
-      RingStats r = eng.runtime().ring_stats(a, b);
+      RingStats r = eng.runtime_view().ring_stats(a, b);
       msgs += r.msgs - ring_before[k].msgs;
       bytes += (r.bytes_inline + r.bytes_external) -
                (ring_before[k].bytes_inline + ring_before[k].bytes_external);
@@ -465,7 +465,7 @@ int main(int argc, char** argv) {
     }
   }
   int pinned = 0;
-  for (u16 s = 0; s < args.shards; ++s) pinned += eng.runtime().topology(s).pinned;
+  for (u16 s = 0; s < args.shards; ++s) pinned += eng.runtime_view().topology(s).pinned;
   CheckpointReport cp;
   if (durable && args.checkpoint) cp = eng.checkpoint();
   eng.stop();

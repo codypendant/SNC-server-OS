@@ -1,6 +1,6 @@
 # S3: bounded checkpoint writeback (C3)
 
-Status: **S3 built (PR #77); S3.1 lifecycle fix (section 10, PR #78) approved; S3.2, the general Engine lifecycle gate ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md)), for review.**
+Status: **S3 built (PR #77); S3.1 lifecycle fix (section 10, PR #78) approved; S3.2 lifecycle gate (PR #79) approved in design; S3.3 ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md) sections 9-11) for review.**
 Work order: `docs/handoff/PR76_S3D_Review.txt` (C3 selected, S3 authorized
 with conditions); S3 review: `docs/handoff/PR77_S3_Review.txt` (core
 approved, teardown blocker). Mechanism selection: `docs/S3D_WRITEBACK.md`.

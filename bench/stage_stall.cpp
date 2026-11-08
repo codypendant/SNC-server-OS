@@ -148,7 +148,13 @@ int main(int argc, char** argv) {
     Status st = Status::OK;
   };
   std::atomic<int> owner{-1};
-  eng.runtime().submit(0, [&] { owner = snc::owner_of(v1[0].id); });
+  // Held until the prober has finished (S3.3: data-plane work only under a lease).
+  Engine::DataPlane dp = eng.data_plane();
+  if (!dp) {
+    std::fprintf(stderr, "engine not running\n");
+    return 1;
+  }
+  dp.submit(0, [&] { owner = snc::owner_of(v1[0].id); });
   while (owner.load() < 0) std::this_thread::sleep_for(std::chrono::microseconds(100));
   const u16 sh = static_cast<u16>(owner.load());
   Probe made;
@@ -158,7 +164,7 @@ int main(int argc, char** argv) {
   ca.email[0] = 'p';
   ca.name_len = 1;
   ca.name[0] = 'p';
-  eng.runtime().submit(sh, [&] {
+  dp.submit(sh, [&] {
     snc::create(kTypeId, ByteView{reinterpret_cast<const u8*>(&ca), sizeof(ca)}, ExecOptions{},
                 [](void* ctx, const ExecResult& r) {
                   auto* p = static_cast<Probe*>(ctx);
@@ -193,7 +199,7 @@ int main(int argc, char** argv) {
     while (!done.load()) {
       Probe p;
       const auto t = clk::now();
-      eng.runtime().submit(sh, [&] {
+      dp.submit(sh, [&] {
         snc::execute(made.id, kOpDeposit, ByteView{reinterpret_cast<const u8*>(&aa), sizeof(aa)}, ExecOptions{},
                      [](void* ctx, const ExecResult& r) {
                        auto* q = static_cast<Probe*>(ctx);
@@ -215,6 +221,7 @@ int main(int argc, char** argv) {
   done = true;
   poller.join();
   prober.join();
+  dp.release();  // before stop(): stop waits for every lease
   auto pct = [](std::vector<double> v, double q) {
     if (v.empty()) return 0.0;
     std::sort(v.begin(), v.end());

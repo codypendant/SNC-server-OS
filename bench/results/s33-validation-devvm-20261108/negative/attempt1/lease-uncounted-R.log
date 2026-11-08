@@ -1,0 +1,1 @@
+/home/claude/s33neg-work/src-lease-uncounted/tests/test_lifecycle.cpp:606: CHECK failed: !becomes([&] { return stopped.load(); }, 300)

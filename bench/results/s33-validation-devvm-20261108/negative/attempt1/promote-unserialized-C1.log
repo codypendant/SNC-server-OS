@@ -1,0 +1,2 @@
+snc: start barrier done: serving as a primary
+/home/claude/s33neg-work/src-promote-unserialized/tests/test_lifecycle.cpp:726: CHECK failed: !becomes([&] { return pr_done.load(); }, 300)

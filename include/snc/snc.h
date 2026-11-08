@@ -289,6 +289,11 @@ struct CheckpointReport {
   u64 bytes = 0;
   u64 segments_deleted = 0;
   double seconds = 0;
+  // The role it ran under and the term it committed under (S3.3): a
+  // checkpoint and a promotion never overlap, so both are from before the
+  // promotion or both from after, never a mix. Not meaningful when seq is 0.
+  bool standby = false;
+  u64 term = 0;
 };
 
 struct EngineState;  // src/core/engine.cpp
@@ -358,6 +363,7 @@ class Engine {
     // Primary: when set, a seed is served only while it returns true;
     // otherwise the standby is told to retry (docs/SYNC_READINESS.md 4).
     // Called on the seed thread.
+    // Runs under the seed lock: must not call back into this Engine.
     std::function<bool()> seed_gate;
     // Standby: with no superblock in data_dir, first fetch a seed from this
     // primary ("host:port") instead of starting empty.
@@ -398,6 +404,8 @@ class Engine {
     // the superblock before anything is minted. A block it still holds
     // needs no control plane. Unset: leases from the space's own counter,
     // unique only within the space.
+    // At promotion it runs under the durable-control lock (S3.3): it must
+    // not call checkpoint() or promote() on this Engine.
     std::function<bool(u64 want, u64& lo, u64& hi)> lease_blocks;
 
     // Per slot, the arrival on record at start (placement v2; kSlots
@@ -428,6 +436,8 @@ class Engine {
     // promotion, and any start of a data directory that was last a standby,
     // read it, adopt it and re-seal a slot this group is moving away
     // before serving; if it fails they do not happen.
+    // At promotion it runs under the durable-control lock (S3.3): it must
+    // not call checkpoint() or promote() on this Engine.
     std::function<bool(Placement& out)> placement_sync;
     // Tests only (snc_server --debug-barrier, with --debug-admin): at the
     // end of the start barrier, after the re-seal is durable and before
@@ -530,10 +540,13 @@ class Engine {
   // older term is refused by any standby that knows the new one), rebuilds
   // its index, resumes follow-ups, and ships its WAL to replica_host if set.
   // Returns the seconds it took. Control path; blocks.
+  // Serialized with checkpoint() (S3.3, docs/ENGINE_LIFECYCLE.md section
+  // 10): the two never overlap.
   double promote();
-  u64 term() const { return sb_.term; }
-  // The mint lease block this node holds, [lo, hi); 0, 0 without blocks.
-  std::pair<u64, u64> lease_block() const { return {sb_.lease_lo, sb_.lease_hi}; }
+  // The current term and mint lease block, [lo, hi) (0, 0 without blocks):
+  // the values last written to the superblock. Safe from any thread.
+  u64 term() const;
+  std::pair<u64, u64> lease_block() const;
   // With replica_degrade_gated: let sync shards continue without their
   // standby (true), or stop letting them (false; a shard already degraded
   // stays so until its standby catches up).
@@ -589,6 +602,13 @@ class Engine {
   // is granted, before the park point (nullptr: none). Set it only while
   // no operation can run.
   static void debug_op_hook(void (*fn)(const Engine&));
+  // Promote hold (S3.3): promote() parks right after its superblock write
+  // (the new term durable, nothing served yet), until turned off.
+  // at_control: promote() has passed its permit and waits for the
+  // durable-control lock (cleared once it holds it).
+  static void debug_park_promote(bool on);
+  static bool debug_promote_parked();
+  static bool debug_promote_at_control();
   // True while a debug_stage_stop() is armed and not yet reached (its hold
   // has begun once this turns false).
   bool debug_stage_pending() const { return debug_stage_armed_.load(); }
@@ -666,7 +686,50 @@ class Engine {
   // The space's UUID (after start, with a data_dir).
   const Uuid& space_uuid() const { return uuid_; }
 
-  NativeRuntime& runtime() { return *rt_; }
+  // Data-plane access (S3.3, docs/ENGINE_LIFECYCLE.md section 9): the only
+  // way code outside the Engine submits work to its shards. A lease is
+  // granted only while RUNNING and is counted like an operation permit:
+  // stop() waits until every lease is released, so work submitted through
+  // a live lease always reaches a live worker. Hold the lease until every
+  // wait on work submitted through it has finished. A refused lease is
+  // false and must not be used (aborts). Movable; usable from any thread
+  // while it lives, but run_on_all (which waits for every shard) not from
+  // a shard thread (aborts). A thread must not call stop() while it holds
+  // a lease: stop would wait for it (after 5 s it reports what it waits
+  // for).
+  class DataPlane {
+   public:
+    DataPlane(DataPlane&& o) noexcept : e_(o.e_) { o.e_ = nullptr; }
+    DataPlane& operator=(DataPlane&& o) noexcept;
+    DataPlane(const DataPlane&) = delete;
+    DataPlane& operator=(const DataPlane&) = delete;
+    ~DataPlane() { release(); }
+    explicit operator bool() const { return e_ != nullptr; }
+    void submit(u16 shard, std::function<void()> fn) const;
+    void run_on_all(const std::function<void(u16)>& fn) const;
+    void release();  // early; idempotent
+
+   private:
+    friend class Engine;
+    explicit DataPlane(const Engine* e) : e_(e) {}
+    const Engine* e_ = nullptr;
+  };
+  DataPlane data_plane();
+  // Read-only runtime facts. Submits nothing; valid while the Engine
+  // exists. A facade, so no runtime handle leaves the Engine.
+  class RuntimeView {
+   public:
+    u16 shard_count() const { return rt_.shard_count(); }
+    const ShardTopology& topology(u16 shard) const { return rt_.topology(shard); }
+    bool progress(u16 shard, u64& iterations) const { return rt_.progress(shard, iterations); }
+    RingStats ring_stats(u16 src, u16 dst) const { return rt_.ring_stats(src, dst); }
+
+   private:
+    friend class Engine;
+    explicit RuntimeView(const NativeRuntime& rt) : rt_(rt) {}
+    const NativeRuntime& rt_;
+  };
+  RuntimeView runtime_view() const { return RuntimeView(*rt_); }
   u16 shard_count() const { return cfg_.runtime.n_shards; }
   // Running: read on the shard's thread (control path). Stopped: final values.
   ShardStats stats(u16 shard) const;
@@ -706,8 +769,25 @@ class Engine {
   void run_on_all_(const std::function<void(u16)>& fn) const;
   void submit_(u16 shard, std::function<void()> fn) const;
   void release_emits_();
-  // checkpoint() runs one at a time (S3.1); the lifecycle is the permit.
-  std::mutex checkpoint_mu_;
+  // Durable control (S3.3, docs/ENGINE_LIFECYCLE.md section 10): held for
+  // the whole of checkpoint() and promote(), the runtime writers of the
+  // superblock and the role, so they run one at a time and linearize.
+  // Lock order: permit, then control_mu_, then seed_->mu, then sb_view_mu_.
+  std::mutex control_mu_;
+  // The runtime role: from cfg_.standby at construction, changed only by
+  // promote() under control_mu_. cfg_ is not changed after construction.
+  enum class Role : u8 { PRIMARY, STANDBY };
+  std::atomic<Role> role_{Role::PRIMARY};
+  bool standby_() const { return role_.load() == Role::STANDBY; }
+  // What term() and lease_block() read: copied from sb_ after each
+  // superblock write (commit_superblock_).
+  struct SbView {
+    u64 term = 0, lease_lo = 0, lease_hi = 0;
+  };
+  mutable std::mutex sb_view_mu_;
+  SbView sb_view_;
+  void commit_superblock_();
+  void publish_sb_();
   std::unique_ptr<EngineState> state_;
 
   // Persistence state (control thread only).

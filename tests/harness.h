@@ -44,7 +44,7 @@ inline u16 free_ports(u16 lo, u16 hi, u16 n) {
 // Issues `total` ops from one shard with at most `window` outstanding,
 // without recursing from completions (local completions run inline).
 struct Window {
-  Engine* eng;
+  const Engine::DataPlane* dp;  // held by the caller until the window is done
   u16 shard;
   u64 next = 0, total = 0, outstanding = 0, window = 64;
   std::function<void(u64 i, Completion, void* ctx)> issue;
@@ -68,7 +68,7 @@ inline void window_done(void* ctx, const ExecResult& r) {
     if (w->next == w->total) {
       w->done->count_down();
     } else {
-      w->eng->runtime().submit(w->shard, [w] { pump(w); });
+      w->dp->submit(w->shard, [w] { pump(w); });
     }
   }
 }
@@ -86,11 +86,13 @@ inline void run_all(Engine& eng, u64 per_shard,
                     const std::function<void(u16 shard, u64 i, Completion, void*)>& issue,
                     const std::function<void(u16 shard, u64 i, const ExecResult&)>& check) {
   u16 n = eng.shard_count();
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
   std::latch done(n);
   std::vector<Window> ws(n);
   for (u16 s = 0; s < n; ++s) {
     Window& w = ws[s];
-    w.eng = &eng;
+    w.dp = &dp;
     w.shard = s;
     w.total = per_shard;
     w.done = &done;
@@ -100,7 +102,7 @@ inline void run_all(Engine& eng, u64 per_shard,
       done.count_down();
       continue;
     }
-    eng.runtime().submit(s, [&w] { pump(&w); });
+    dp.submit(s, [&w] { pump(&w); });
   }
   done.wait();
 }
@@ -125,7 +127,9 @@ inline OneResult one(Engine& eng, u16 shard, const std::function<void(Completion
     OneResult* out;
     std::latch* done;
   } ctx{&out, &done};
-  eng.runtime().submit(shard, [&] {
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
+  dp.submit(shard, [&] {
     issue(
         [](void* c, const ExecResult& r) {
           auto* x = static_cast<Ctx*>(c);
@@ -150,7 +154,9 @@ inline std::vector<ObjectID> lookup(Engine& eng, u16 shard, u32 index_id, const 
     Status* st;
     std::latch* done;
   } ctx{&out, &st, &done};
-  eng.runtime().submit(shard, [&] {
+  const Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
+  dp.submit(shard, [&] {
     index_lookup(
         index_id, ByteView(key.data(), static_cast<u32>(key.size())), 1000,
         [](void* c, Status s, const ObjectID* ids, u32 n) {

@@ -1,0 +1,299 @@
+PR #79 REVIEW — S3.2 ENGINE LIFECYCLE GATE
+
+DECISION
+
+PR #79 is NOT yet approved as closing S3.
+
+The generic Engine lifecycle gate is well designed and the implementation is substantially better than the previous state:
+
+- explicit lifecycle states;
+- counted active-operation permits;
+- STOPPING rejects new shard-submitting operations;
+- stop waits for active operations;
+- nested calls are handled without recursive-lock dependence;
+- start/failed-start/restart semantics are explicit;
+- structural `require_op()` enforcement catches ungated Engine shard submissions;
+- final Release/ASan/TSan/legacy suites are clean 41/41;
+- eight negative mutations are caught.
+
+However, two known correctness holes remain:
+
+1. `runtime()` still exposes an ungated raw NativeRuntime handle that can submit work while stop tears workers down — the same abandoned-waiter lifecycle defect class S3.2 was built to eliminate.
+
+2. `promote()` and `checkpoint()` are both admitted concurrently by the new shared operation gate, but both access/mutate shared persistence/role state. The PR calls out only `cfg_.standby`, but inspection shows `sb_` is also concurrently mutated by both paths. That creates a possible data race and a lost-update / superblock-consistency hazard.
+
+Fix these now in one narrow S3.3 control/lifecycle slice. Do not start S4.
+
+1. LIFECYCLE STATE MACHINE — APPROVED
+
+The explicit states are good:
+CONSTRUCTED -> STARTING -> RUNNING -> STOPPING -> STOPPED
+                    \-> FAILED
+
+Accepted behavior:
+- start only from CONSTRUCTED;
+- second start while STARTING waits;
+- restart after STOPPED refused;
+- failed start enters FAILED;
+- stop tears FAILED down;
+- new operations admitted only in RUNNING;
+- STOPPING admits nothing new;
+- stop waits for active operations to drain.
+
+2. COUNTING PERMIT MODEL — APPROVED
+
+`Engine::Op` is the right general mechanism.
+
+Strong points:
+- operations do not serialize each other merely because stop exists;
+- stop is the only path waiting on `active_ops_`;
+- permits span the whole public call;
+- RAII releases the count on exceptions;
+- nested Engine calls do not count twice;
+- cross-engine nesting A -> B -> A is handled;
+- no ordinary mutex is held through blocking shard work.
+
+3. STRUCTURAL ENFORCEMENT — APPROVED
+
+Routing Engine-owned shard submission through:
+- `run_on_all_`;
+- `submit_`;
+- `on_shard`;
+- `on_shard_steps`;
+
+and making those call `require_op()` is valuable.
+
+A future forgotten permit fails loudly instead of silently recreating the stop-race.
+
+4. START / FAILED / STOP SEMANTICS — APPROVED
+
+FAILED is the right correction.
+
+Stopping from inside an operation of the same Engine or from a shard thread correctly aborts because either can self-deadlock.
+
+5. CATEGORY-2 API COVERAGE — APPROVED AS FAR AS ENGINE METHODS GO
+
+Final validation:
+- Release 41/41;
+- ASan+UBSan 41/41, zero reports;
+- TSan 41/41, zero reports;
+- legacy Release 41/41;
+- 8/8 negative mutations caught.
+
+Accepted.
+
+6. BLOCKER #1 — RAW `runtime()` EXEMPTION IS NOT ACCEPTABLE
+
+`NativeRuntime& Engine::runtime()` remains public and ungated.
+
+The S3.2 document explicitly acknowledges that a caller can:
+1. obtain/use the raw runtime;
+2. race `Engine::stop()`;
+3. submit or `run_on_all` after workers are stopping/stopped;
+4. wait forever on a latch/callback no worker can service.
+
+That is exactly the lifecycle defect class S3.2 claims to close.
+
+The current server shutdown convention is not an Engine API safety guarantee.
+
+We should not close S3 while the Engine intentionally exposes a direct bypass around its lifecycle contract.
+
+7. REQUIRED FIX FOR `runtime()`
+
+Replace unrestricted raw runtime access with lifecycle-bound access.
+
+Preferred shapes:
+- `Engine::DataPlane` / `RuntimeLease`, acquired only while RUNNING and counted until release;
+- or `with_runtime(...)`, which holds an Engine operation permit for the callback duration;
+- or an equivalent lifetime-safe facade.
+
+Required invariant:
+
+No code outside Engine may submit work to the runtime unless it holds an Engine lifetime token that stop waits on.
+
+Do not retain a public mutable NativeRuntime escape hatch.
+
+8. BLOCKER #2 — PROMOTE vs CHECKPOINT IS MORE THAN `cfg_.standby`
+
+The PR records:
+`promote()` writes `cfg_.standby = false`
+while `checkpoint()` reads `!cfg_.standby`.
+
+That is already a real data race.
+
+But there is a larger durable-state problem.
+
+`promote()` mutates:
+- `sb_.term`;
+- `sb_.generation`;
+- lease fields;
+- superblock persistence.
+
+`checkpoint()` mutates:
+- `sb_.active_ckpt`;
+- `sb_.generation`;
+- possibly `sb_.next_lease`;
+- superblock persistence.
+
+The shared operation permit allows both to run concurrently.
+
+Therefore concurrent promotion/checkpoint can produce lost updates or persisted metadata that corresponds to neither clean serial order.
+
+This is a correctness blocker.
+
+9. REQUIRED ROLE/PERSISTENCE CONTROL SERIALIZATION
+
+Introduce a narrow control-state serialization domain for operations that mutate shared durable Engine metadata.
+
+At minimum audit/coordinate:
+- `checkpoint()`;
+- `promote()`;
+- lease-block updates;
+- any method writing `sb_`;
+- any method changing persistent role state;
+- seed/superblock interactions where applicable.
+
+A dedicated durable-control/superblock mutex is acceptable if lock ordering is explicit.
+
+Do NOT serialize all ordinary Engine operations.
+
+10. ROLE STATE SHOULD NOT LIVE AS A MUTABLE CONFIG FLAG
+
+`cfg_.standby` began as configuration but promotion mutates it at runtime.
+
+Prefer separating:
+- immutable startup configuration;
+- mutable runtime role state.
+
+For example, a guarded/atomic runtime role enum PRIMARY/STANDBY/etc.
+
+Checkpoint and other role-dependent behavior should read runtime role, not mutate the configuration object.
+
+Do not fix only `cfg_.standby` while leaving `sb_` concurrency unsolved.
+
+11. REQUIRED S3.3 TESTS — RUNTIME HANDLE
+
+R1 — data-plane lease vs stop:
+Acquire gated runtime/data-plane access, park work, call stop. Stop waits until lease/work completes.
+
+R2 — new access during STOPPING:
+Refused immediately, submits nothing.
+
+R3 — after STOPPED:
+No runtime submission possible through public Engine API.
+
+R4 — negative bypass:
+Remove data-plane permit accounting; test reproduces early stop / abandoned work.
+
+12. REQUIRED S3.3 TESTS — PROMOTE / CHECKPOINT CONTROL STATE
+
+C1 — promote vs checkpoint under TSan:
+Force overlap. Zero data races.
+
+C2 — superblock lost-update test:
+Overlap promotion/checkpoint. After both complete and restart:
+- promoted term preserved;
+- committed checkpoint preserved;
+- lease metadata preserved;
+- generation coherent;
+- recovery succeeds.
+
+C3 — role semantics:
+Checkpoint during/around promotion has a defined role view.
+
+C4 — crash boundary:
+Recovery sees one valid serial order, never hybrid metadata.
+
+C5 — negative mutation:
+Remove durable-control serialization; deterministic test or TSan fails.
+
+13. CONTROL-STATE LINEARIZATION REQUIREMENT
+
+Concurrent checkpoint and promotion must linearize as either:
+
+A. checkpoint under standby role, then promotion;
+
+or
+
+B. promotion, then checkpoint under primary role.
+
+A hybrid interleaving is not acceptable.
+
+14. CURRENT `runtime()` CALLERS
+
+Migration may touch network front ends, DEBUG STALL, test harness operation windows, direct runtime tests and benches.
+
+That is acceptable. Keep it mechanical and do not alter data-plane semantics.
+
+15. OTHER CATEGORY-1 READS
+
+`recovery()` / `space_uuid()` are documented unsafe during STARTING. Since operations are not admitted during STARTING, that is acceptable under the lifecycle contract.
+
+16. S3 STATUS
+
+S3 writeback implementation: accepted.
+
+S3.1 checkpoint/stop lifecycle: accepted.
+
+S3.2 Engine method lifecycle gate: accepted in design and implementation, but S3 cannot close while:
+- raw runtime access bypasses it; and
+- concurrent durable-control operations can race shared role/superblock state.
+
+17. S4 STATUS
+
+S4 is NOT authorized.
+
+After S3.3:
+- review runtime-lifetime boundary;
+- review promote/checkpoint serialization;
+- rerun clean suites;
+- then close S3 and move to S4.
+
+18. S3.3 VALIDATION GATE
+
+Required:
+- full Release;
+- full ASan+UBSan;
+- full serial TSan;
+- legacy Release;
+- zero sanitizer reports;
+- runtime-lease lifecycle tests;
+- concurrent promote/checkpoint durable-state tests;
+- negative mutations for both defect classes;
+- independent review focused on lifetime token escape paths, superblock/role lock ordering, and durable-state linearization.
+
+No R640 campaign.
+
+FINAL
+
+PR #79:
+
+ENGINE LIFECYCLE STATE MACHINE: APPROVED.
+COUNTED OP PERMITS: APPROVED.
+NESTED OP MODEL: APPROVED.
+STOPPING REFUSAL: APPROVED.
+START/FAILED/RESTART CONTRACT: APPROVED.
+STRUCTURAL `require_op()` ENFORCEMENT: APPROVED.
+41/41 RELEASE/ASAN/TSAN/LEGACY: ACCEPTED.
+8/8 NEGATIVE MUTATIONS: ACCEPTED.
+
+S3 COMPLETION: NOT YET APPROVED.
+
+BLOCKER 1:
+public raw `runtime()` bypasses the lifecycle gate and can reproduce the same stop/submission defect class.
+
+BLOCKER 2:
+`promote()` and `checkpoint()` may run concurrently while mutating shared runtime role and Superblock state (`cfg_.standby`, `sb_.generation`, term/lease/active_ckpt fields), creating a real race and possible lost durable metadata.
+
+NEXT:
+S3.3:
+1. lifecycle-bound runtime/data-plane access;
+2. serialize shared durable-control / role transitions;
+3. explicit runtime role state;
+4. targeted concurrency + recovery tests.
+
+NO S4.
+NO R640 CAMPAIGN.
+NO CP-1A.
+NO COMPETITORS.
+NO FOLLOW-UP INTAKE SLICE YET.

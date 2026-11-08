@@ -24,6 +24,20 @@
 //       STOPPING): the inner A call is nested, not counted or refused
 //   L11 stop() from inside an operation, and from a shard thread: aborts
 //       with a message instead of waiting for itself
+//
+// S3.3 (docs/handoff/PR79_S32_Review.txt sections 11-13):
+//   R1  a data-plane lease vs stop: stop waits for the lease; work submitted
+//       through it while STOPPING still runs on a live worker
+//   R2  a new lease during STOPPING: refused at once
+//   R3  after STOPPED: refused; using a refused lease aborts
+//   C1  promote vs checkpoint overlap (run under TSan in the serial suite)
+//   C2  the two linearize either way round, and the superblock after both
+//       holds the promoted term, the checkpoint, the lease block and a
+//       generation of exactly +2; recovery succeeds
+//   C3  the checkpoint's role view is the role before or after the
+//       promotion, matching the order
+//   C4  a crash with one of the two held and the other waiting recovers to
+//       one serial prefix
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -49,6 +63,7 @@
 #include "snc/slot_map.h"
 #include "snc/snc.h"
 #include "snc/types/account.h"
+#include "snc/storage.h"
 #include "snc/wal_format.h"
 
 using namespace snc;
@@ -570,6 +585,288 @@ void l11_aborts() {
   }
 }
 
+// ---- S3.3: the data-plane lease -------------------------------------------------------
+
+void r_lease() {
+  const std::string dir = fresh_dir();
+  Engine eng(config(dir));
+  eng.start();
+  Engine::DataPlane dp = eng.data_plane();
+  CHECK(dp);
+  std::atomic<int> ran{0};
+  dp.submit(0, [&] { ++ran; });
+  CHECK(becomes([&] { return ran.load() == 1; }, 10000));
+  std::atomic<bool> stopped{false};
+  std::thread b([&] {
+    eng.stop();
+    stopped = true;
+  });
+  // R1: stop waits for the lease.
+  CHECK(becomes([&] { return eng.lifecycle() == Lifecycle::STOPPING; }, 10000));
+  CHECK(!becomes([&] { return stopped.load(); }, 300));
+  // R2: no new lease once STOPPING.
+  CHECK(!eng.data_plane());
+  // Work submitted through the live lease still reaches a live worker,
+  // and a wait on it finishes (no abandoned waiter).
+  std::latch l(1);
+  dp.submit(1, [&] {
+    ++ran;
+    l.count_down();
+  });
+  l.wait();
+  std::atomic<int> all{0};
+  dp.run_on_all([&](u16) { ++all; });
+  CHECK_EQ(all.load(), 2);
+  CHECK(!stopped.load());
+  dp.release();
+  CHECK(!dp);
+  CHECK(becomes([&] { return stopped.load(); }, 60000));
+  b.join();
+  // R3: after STOPPED, no lease.
+  CHECK(eng.lifecycle() == Lifecycle::STOPPED);
+  CHECK(!eng.data_plane());
+  CHECK_EQ(ran.load(), 2);
+  // A moved lease is counted once (moved-from is empty).
+  {
+    const std::string d2 = fresh_dir();
+    Engine e2(config(d2, 11));
+    e2.start();
+    Engine::DataPlane x = e2.data_plane();
+    Engine::DataPlane y = std::move(x);
+    CHECK(!x);
+    CHECK(y);
+    Engine::DataPlane z = e2.data_plane();
+    z = std::move(y);  // releases z's own lease, takes y's
+    CHECK(z && !y);
+    z.release();
+    e2.stop();  // returns: no lease left (a miscount would hang here)
+    CHECK(e2.lifecycle() == Lifecycle::STOPPED);
+  }
+  // R3: a refused lease aborts if used (in a child process).
+  {
+    std::fflush(stdout);
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      ::alarm(60);
+      const int nul = ::open("/dev/null", O_WRONLY);
+      if (nul >= 0) ::dup2(nul, 2);
+      eng.data_plane().submit(0, [] {});
+      std::_Exit(0);
+    }
+    int ws = 0;
+    CHECK_EQ(::waitpid(pid, &ws, 0), pid);
+    CHECK(WIFSIGNALED(ws));
+    CHECK_EQ(WTERMSIG(ws), SIGABRT);
+  }
+  // run_on_all through a lease from a shard thread would wait for its
+  // own shard: it aborts (in a child process).
+  {
+    const std::string d3 = fresh_dir();
+    std::fflush(stdout);
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      ::alarm(60);  // a wait for itself instead: SIGALRM, not SIGABRT
+      const int nul = ::open("/dev/null", O_WRONLY);
+      if (nul >= 0) ::dup2(nul, 2);
+      Engine e3(config(d3, 21));
+      e3.start();
+      const Engine::DataPlane lease = e3.data_plane();
+      std::latch never(1);
+      lease.submit(0, [&] { lease.run_on_all([](u16) {}); });
+      never.wait();
+      std::_Exit(0);
+    }
+    int ws = 0;
+    CHECK_EQ(::waitpid(pid, &ws, 0), pid);
+    CHECK(WIFSIGNALED(ws));
+    CHECK_EQ(WTERMSIG(ws), SIGABRT);
+  }
+  std::printf("R1-R3 data-plane lease: stop waited in STOPPING for the lease (its work still ran, its waits "
+              "finished); new leases refused in STOPPING and STOPPED; a refused lease, and run_on_all from a shard "
+              "thread, abort\n");
+}
+
+// ---- S3.3: promote vs checkpoint ------------------------------------------------------
+
+u16 standby_port() { return static_cast<u16>(26000 + (::getpid() % 500) * 8); }
+
+// A lone standby (no primary connects: promotion settles at once), with a
+// lease block from a fake control plane at promotion.
+Engine::Config standby_config(const std::string& dir, bool standby) {
+  Engine::Config c;
+  c.runtime.n_shards = 2;
+  c.runtime.pin = false;
+  c.expected_objects = 4096;
+  c.data_dir = dir;
+  c.init = true;
+  c.standby = standby;
+  c.standby_host = "127.0.0.1";
+  c.replica_port = standby_port();
+  c.lease_blocks = [](u64, u64& lo, u64& hi) {
+    lo = 5000;
+    hi = 9000;
+    return true;
+  };
+  return c;
+}
+
+Superblock disk_sb(const std::string& dir) {
+  std::optional<Superblock> sb = read_superblock(dir);
+  CHECK(sb.has_value());
+  return *sb;
+}
+
+// One overlap of checkpoint() and promote(), with the first of them held
+// at its durable point while the second is called. Order A: the
+// checkpoint is held after its parts are written (before manifest and
+// superblock); order B: the promotion is held after its superblock write.
+// The second must not run until the first is released.
+void c_overlap(bool checkpoint_first) {
+  const std::string dir = fresh_dir();
+  Superblock before{};
+  {
+    Engine eng(standby_config(dir, true));
+    eng.start();
+    before = disk_sb(dir);
+    CHECK_EQ(before.term, 0u);
+    CHECK_EQ(eng.term(), 0u);
+    std::atomic<bool> ck_done{false}, pr_done{false};
+    CheckpointReport rep;
+    std::thread ck, pr;
+    auto run_ck = [&] {
+      rep = eng.checkpoint();
+      ck_done = true;
+    };
+    auto run_pr = [&] {
+      (void)eng.promote();
+      pr_done = true;
+    };
+    if (checkpoint_first) {
+      Engine::debug_ckpt_hold_commit(true);
+      ck = std::thread(run_ck);
+      CHECK(becomes([] { return Engine::debug_ckpt_commit_reached(); }, 30000));
+      pr = std::thread(run_pr);
+      // The promotion reaches the durable-control lock and stays there:
+      // structural, not a timing probe (S3.3 review S1).
+      CHECK(becomes([] { return Engine::debug_promote_at_control(); }, 30000));
+      CHECK(!becomes([&] { return pr_done.load(); }, 300));  // waits for the whole checkpoint
+      CHECK(Engine::debug_promote_at_control());              // still at the lock
+      CHECK_EQ(eng.term(), 0u);                               // nothing of the promotion yet
+      CHECK_EQ(disk_sb(dir).term, 0u);
+      CHECK_EQ(disk_sb(dir).generation, before.generation);
+      Engine::debug_ckpt_hold_commit(false);
+    } else {
+      Engine::debug_park_promote(true);
+      pr = std::thread(run_pr);
+      CHECK(becomes([] { return Engine::debug_promote_parked(); }, 30000));
+      ck = std::thread(run_ck);
+      CHECK(!becomes([&] { return ck_done.load(); }, 300));  // waits for the whole promotion
+      CHECK_EQ(disk_sb(dir).term, 1u);                        // the promotion's superblock is written
+      CHECK_EQ(disk_sb(dir).active_ckpt, before.active_ckpt);  // the checkpoint has not committed
+      Engine::debug_park_promote(false);
+    }
+    CHECK(becomes([&] { return ck_done.load() && pr_done.load(); }, 60000));
+    ck.join();
+    pr.join();
+    // C3: the role view matches the order.
+    CHECK(rep.seq != 0);
+    CHECK_EQ(rep.standby, checkpoint_first);
+    // Committed under the term of the same side of the promotion as its
+    // role view: a checkpoint that began as the standby and committed
+    // after the promotion (the hybrid) has standby true and term 1.
+    CHECK_EQ(rep.term, checkpoint_first ? 0u : 1u);
+    // C2: both updates in the superblock, generation exactly +2.
+    const Superblock after = disk_sb(dir);
+    CHECK_EQ(after.term, 1u);
+    CHECK_EQ(after.active_ckpt, rep.seq);
+    CHECK_EQ(after.generation, before.generation + 2);
+    CHECK_EQ(after.lease_lo, 5000u);
+    CHECK_EQ(after.lease_hi, 9000u);
+    CHECK(after.next_lease >= 5000 && after.next_lease < 9000);
+    CHECK_EQ(eng.term(), 1u);
+    CHECK(eng.lease_block() == std::make_pair(u64{5000}, u64{9000}));
+    eng.stop();
+  }
+  // Recovery succeeds on the result, as the primary it now is.
+  Engine::Config c = standby_config(dir, false);
+  c.init = false;
+  Engine again(c);
+  again.start();
+  CHECK_EQ(again.term(), 1u);
+  CHECK(again.checkpoint().seq != 0);
+  again.stop();
+  std::printf("C1-C3 %s: the second waited for the whole first; superblock after both: term 1, checkpoint %s, "
+              "lease block kept, generation +2; checkpoint role %s; recovery succeeded\n",
+              checkpoint_first ? "checkpoint then promote" : "promote then checkpoint", "committed",
+              checkpoint_first ? "standby" : "primary");
+}
+
+void c1_c3() {
+  c_overlap(true);
+  c_overlap(false);
+}
+void c1a() { c_overlap(true); }
+void c1b() { c_overlap(false); }
+
+// C4: a crash (the child exits) with the first held and the second
+// waiting. The superblock is one serial prefix: nothing of the second.
+void c4_crash() {
+  for (int k = 0; k < 2; ++k) {
+    const bool checkpoint_first = k == 0;
+    const std::string dir = fresh_dir();
+    std::fflush(stdout);
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      ::alarm(120);
+      Engine eng(standby_config(dir, true));
+      eng.start();
+      std::thread ck, pr;
+      if (checkpoint_first) {
+        Engine::debug_ckpt_hold_commit(true);
+        ck = std::thread([&] { (void)eng.checkpoint(); });
+        while (!Engine::debug_ckpt_commit_reached()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        pr = std::thread([&] { (void)eng.promote(); });
+      } else {
+        Engine::debug_park_promote(true);
+        pr = std::thread([&] { (void)eng.promote(); });
+        while (!Engine::debug_promote_parked()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        ck = std::thread([&] { (void)eng.checkpoint(); });
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(300));  // the second is waiting
+      std::_Exit(0);                                                // the crash
+    }
+    int ws = 0;
+    CHECK_EQ(::waitpid(pid, &ws, 0), pid);
+    CHECK(WIFEXITED(ws) && WEXITSTATUS(ws) == 0);
+    const Superblock sb = disk_sb(dir);
+    // The fresh space's recovery checkpoint is seq 1 (generation 2 after
+    // init and the lease write); the held checkpoint would be seq 2.
+    if (checkpoint_first) {
+      CHECK_EQ(sb.term, 0u);  // neither the held checkpoint nor the promotion
+      CHECK_EQ(sb.active_ckpt, 1u);
+    } else {
+      CHECK_EQ(sb.term, 1u);  // the promotion only
+      CHECK_EQ(sb.active_ckpt, 1u);
+      CHECK_EQ(sb.lease_lo, 5000u);
+    }
+    // Recovery succeeds (as the standby the directory still is: the role
+    // file is written once the promotion serves).
+    Engine::Config c = standby_config(dir, true);
+    c.init = false;
+    Engine again(c);
+    again.start();
+    CHECK_EQ(again.term(), sb.term);
+    again.stop();
+    std::printf("C4 crash with %s held and the other waiting: superblock term %llu, checkpoint %llu (one "
+                "serial prefix); recovery succeeded\n",
+                checkpoint_first ? "the checkpoint" : "the promotion", (unsigned long long)sb.term,
+                (unsigned long long)sb.active_ckpt);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -577,10 +874,21 @@ int main(int argc, char** argv) {
   const std::vector<std::pair<const char*, std::function<void()>>> tests = {
       {"L1", l1_stats}, {"L2", l2_slot_report}, {"L3", l3_stage_chain}, {"L4", l4_replication},
       {"L5", l5_placement}, {"L7", l7_start_stop}, {"L8", l8_many}, {"L9", l9_failed_start},
-      {"L10", l10_cross_engine}, {"L11", l11_aborts},
+      {"L10", l10_cross_engine}, {"L11", l11_aborts}, {"R", r_lease}, {"C1", c1_c3}, {"C1A", c1a}, {"C1B", c1b},
+      {"C4", c4_crash},
   };
+  for (int k = 1; k < argc; ++k) {  // a name that matches no test fails, not passes (review S2)
+    bool known = false;
+    for (const auto& t : tests) known |= std::string(argv[k]) == t.first;
+    if (!known) {
+      std::fprintf(stderr, "test_lifecycle: unknown test %s\n", argv[k]);
+      return 2;
+    }
+  }
   for (const auto& [name, fn] : tests) {
-    bool run = argc == 1;
+    // C1A, C1B: the two halves of C1, run by name only (negative mutations).
+    const bool by_name_only = std::string(name) == "C1A" || std::string(name) == "C1B";
+    bool run = argc == 1 && !by_name_only;
     for (int k = 1; k < argc; ++k) run |= std::string(argv[k]) == name;
     if (run) fn();
   }

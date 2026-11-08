@@ -1,0 +1,7 @@
+base 63f82198e25f2e8ff6000539981e28c15e0cc53b
+lease-uncounted R (release) rc=1 (expected non-zero)
+lease-in-stopping R (release) rc=1 (expected non-zero)
+promote-unserialized C1 (release) rc=1 (expected non-zero)
+checkpoint-unserialized C1 (release) rc=1 (expected non-zero)
+done
+NOTE: checkpoint-unserialized was caught by order A's probe (line 726: promote ran while the unlocked checkpoint was held), not by order B as the script claimed. C1 split into C1A/C1B for attempt 2.
