@@ -13,18 +13,18 @@ and stopped runs are kept and listed, never combined with reruns.
 
 | # | When (UTC) | SHA | Run | Result | Counted |
 |---|---|---|---|---|---|
-| 1 | 06:00 | (pre-review fixes) | Release `ctest -j2` pre-check, `release-precheck-j2-stopped.log` | stopped by me: the code changed under it | no |
-| 2 | 06:05 | 70e5814 | negatives attempt 1, `negative/summary-attempt1-invalid.txt` | invalid: relative OUT path, logs deleted with the build dir, every rc=1 ambiguous | no |
-| 3 | 06:10 | 2635934 | negatives attempt 2, `negative/attempt2-diskfull/` | invalid: the first no-release mutation corrupted chunks and filled the disk (see its NOTE.txt) | no |
-| 4 | 06:19 | 72da67d | negatives attempt 3, `negative/summary.txt` | 7 of 7 caught | superseded by #9 (the test changed) |
+| 1 | before 06:21 | (pre-review fixes) | Release `ctest -j2` pre-check, `release-precheck-j2-stopped.log` | stopped by me: the code changed under it | no |
+| 2 | before 06:21 | 70e5814 | negatives attempt 1, `negative/summary-attempt1-invalid.txt` | invalid: relative OUT path, logs deleted with the build dir, every rc=1 ambiguous | no |
+| 3 | before 06:21 | 2635934 | negatives attempt 2, `negative/attempt2-diskfull/` | invalid: the first no-release mutation corrupted chunks and filled the disk (see its NOTE.txt) | no |
+| 4 | before 06:21 | 72da67d | negatives attempt 3, `negative/summary.txt` | 7 of 7 caught | superseded by #9 (the test changed) |
 | 5 | 06:21-06:47 | df836a2 | Release serial, `release-run1-j1.log` | 40/40 | no (series failed) |
 | 6 | 06:47-08:21 | df836a2 | ASan+UBSan serial, `asan-run1-j1.log` | **FAILED**: hung in test_s3_writeback, killed at the 2 h task limit; TSan and legacy never started | no |
-| 7 | 08:2x | 6b9c122 (fix) | test_s3_writeback alone under ASan, before and after the fix, `diag/` | before: T2 then T2b failed `writes_inflight_peak == W`; after: all passed, 0 reports | diagnostic |
+| 7 | 08:21-08:42 | 6b9c122 (fix) | test_s3_writeback alone under ASan, before and after the fix, `diag/` | before: T2 then T2b failed `writes_inflight_peak == W`; after: all passed, 0 reports | diagnostic |
 | 8a | 08:42-09:09 | 6b9c122 | Release serial, `release-run2-j1.log` | **40/40** | **yes** |
 | 8b | 09:09-09:38 | 6b9c122 | ASan+UBSan serial, `asan-run2-j1.log` | **40/40, 0 reports** | **yes** |
 | 8c | 09:38-10:13 | 6b9c122 | TSan serial, `tsan-run2-j1.log` | **40/40, 0 reports** | **yes** |
 | 8d | 10:13-10:39 | 6b9c122 | Release serial, `SNC_CKPT_IO=legacy`, `release-legacy-run2-j1.log` | **40/40** | **yes** |
-| 9 | 10:4x | 6b9c122 | negatives attempt 4, `negative/attempt4-after-T2-fix/` | **7 of 7 caught** | **yes** |
+| 9 | after 10:39 | 6b9c122 | negatives attempt 4, `negative/attempt4-after-T2-fix/` | **7 of 7 caught** | **yes** |
 
 `runs.txt` is the raw run record. Sanitizer reports were counted with
 `grep -cE "ERROR: AddressSanitizer|runtime error:|WARNING: ThreadSanitizer"`.
