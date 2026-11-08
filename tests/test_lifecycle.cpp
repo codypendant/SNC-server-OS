@@ -659,8 +659,33 @@ void r_lease() {
     CHECK(WIFSIGNALED(ws));
     CHECK_EQ(WTERMSIG(ws), SIGABRT);
   }
+  // run_on_all through a lease from a shard thread would wait for its
+  // own shard: it aborts (in a child process).
+  {
+    const std::string d3 = fresh_dir();
+    std::fflush(stdout);
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      ::alarm(60);  // a wait for itself instead: SIGALRM, not SIGABRT
+      const int nul = ::open("/dev/null", O_WRONLY);
+      if (nul >= 0) ::dup2(nul, 2);
+      Engine e3(config(d3, 21));
+      e3.start();
+      const Engine::DataPlane lease = e3.data_plane();
+      std::latch never(1);
+      lease.submit(0, [&] { lease.run_on_all([](u16) {}); });
+      never.wait();
+      std::_Exit(0);
+    }
+    int ws = 0;
+    CHECK_EQ(::waitpid(pid, &ws, 0), pid);
+    CHECK(WIFSIGNALED(ws));
+    CHECK_EQ(WTERMSIG(ws), SIGABRT);
+  }
   std::printf("R1-R3 data-plane lease: stop waited in STOPPING for the lease (its work still ran, its waits "
-              "finished); new leases refused in STOPPING and STOPPED; a refused lease aborts when used\n");
+              "finished); new leases refused in STOPPING and STOPPED; a refused lease, and run_on_all from a shard "
+              "thread, abort\n");
 }
 
 // ---- S3.3: promote vs checkpoint ------------------------------------------------------
@@ -723,7 +748,11 @@ void c_overlap(bool checkpoint_first) {
       ck = std::thread(run_ck);
       CHECK(becomes([] { return Engine::debug_ckpt_commit_reached(); }, 30000));
       pr = std::thread(run_pr);
+      // The promotion reaches the durable-control lock and stays there:
+      // structural, not a timing probe (S3.3 review S1).
+      CHECK(becomes([] { return Engine::debug_promote_at_control(); }, 30000));
       CHECK(!becomes([&] { return pr_done.load(); }, 300));  // waits for the whole checkpoint
+      CHECK(Engine::debug_promote_at_control());              // still at the lock
       CHECK_EQ(eng.term(), 0u);                               // nothing of the promotion yet
       CHECK_EQ(disk_sb(dir).term, 0u);
       CHECK_EQ(disk_sb(dir).generation, before.generation);
@@ -744,6 +773,10 @@ void c_overlap(bool checkpoint_first) {
     // C3: the role view matches the order.
     CHECK(rep.seq != 0);
     CHECK_EQ(rep.standby, checkpoint_first);
+    // Committed under the term of the same side of the promotion as its
+    // role view: a checkpoint that began as the standby and committed
+    // after the promotion (the hybrid) has standby true and term 1.
+    CHECK_EQ(rep.term, checkpoint_first ? 0u : 1u);
     // C2: both updates in the superblock, generation exactly +2.
     const Superblock after = disk_sb(dir);
     CHECK_EQ(after.term, 1u);
@@ -774,6 +807,8 @@ void c1_c3() {
   c_overlap(true);
   c_overlap(false);
 }
+void c1a() { c_overlap(true); }
+void c1b() { c_overlap(false); }
 
 // C4: a crash (the child exits) with the first held and the second
 // waiting. The superblock is one serial prefix: nothing of the second.
@@ -839,10 +874,21 @@ int main(int argc, char** argv) {
   const std::vector<std::pair<const char*, std::function<void()>>> tests = {
       {"L1", l1_stats}, {"L2", l2_slot_report}, {"L3", l3_stage_chain}, {"L4", l4_replication},
       {"L5", l5_placement}, {"L7", l7_start_stop}, {"L8", l8_many}, {"L9", l9_failed_start},
-      {"L10", l10_cross_engine}, {"L11", l11_aborts}, {"R", r_lease}, {"C1", c1_c3}, {"C4", c4_crash},
+      {"L10", l10_cross_engine}, {"L11", l11_aborts}, {"R", r_lease}, {"C1", c1_c3}, {"C1A", c1a}, {"C1B", c1b},
+      {"C4", c4_crash},
   };
+  for (int k = 1; k < argc; ++k) {  // a name that matches no test fails, not passes (review S2)
+    bool known = false;
+    for (const auto& t : tests) known |= std::string(argv[k]) == t.first;
+    if (!known) {
+      std::fprintf(stderr, "test_lifecycle: unknown test %s\n", argv[k]);
+      return 2;
+    }
+  }
   for (const auto& [name, fn] : tests) {
-    bool run = argc == 1;
+    // C1A, C1B: the two halves of C1, run by name only (negative mutations).
+    const bool by_name_only = std::string(name) == "C1A" || std::string(name) == "C1B";
+    bool run = argc == 1 && !by_name_only;
     for (int k = 1; k < argc; ++k) run |= std::string(argv[k]) == name;
     if (run) fn();
   }

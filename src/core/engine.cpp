@@ -260,6 +260,7 @@ std::atomic<bool> g_debug_start_parked{false};
 std::atomic<void (*)(const Engine&)> g_debug_op_hook{nullptr};
 std::atomic<bool> g_debug_park_promote{false};
 std::atomic<bool> g_debug_promote_parked{false};
+std::atomic<bool> g_debug_promote_at_control{false};
 }  // namespace
 
 const char* lifecycle_name(Lifecycle l) {
@@ -356,6 +357,7 @@ bool Engine::debug_start_parked() { return g_debug_start_parked.load(); }
 void Engine::debug_op_hook(void (*fn)(const Engine&)) { g_debug_op_hook.store(fn); }
 void Engine::debug_park_promote(bool on) { g_debug_park_promote.store(on); }
 bool Engine::debug_promote_parked() { return g_debug_promote_parked.load(); }
+bool Engine::debug_promote_at_control() { return g_debug_promote_at_control.load(); }
 
 // ---- Data plane (S3.3, docs/ENGINE_LIFECYCLE.md section 9) ----------------------------
 // A lease counts like an operation permit (active_ops_), so stop() waits for
@@ -397,6 +399,10 @@ void Engine::DataPlane::submit(u16 shard, std::function<void()> fn) const {
 
 void Engine::DataPlane::run_on_all(const std::function<void(u16)>& fn) const {
   if (e_ == nullptr) refused_lease();
+  if (current_shard() != nullptr) {  // it would wait for its own shard
+    std::fprintf(stderr, "snc: DataPlane::run_on_all called from a shard thread\n");
+    std::abort();
+  }
   e_->rt_->run_on_all(fn);
 }
 
@@ -644,7 +650,13 @@ void Engine::stop() {
   if (seed_) seed_->stop = true;
   {
     std::unique_lock<std::mutex> lk(life_mu_);
-    life_cv_.wait(lk, [&] { return active_ops_ == 0; });
+    // Bounded or deliberate waits only (section 6 of the S3.2 review
+    // table); after 5 s, say what stop waits for (an operation, or a
+    // data-plane lease, perhaps held by the thread calling stop).
+    if (!life_cv_.wait_for(lk, std::chrono::seconds(5), [&] { return active_ops_ == 0; })) {
+      std::fprintf(stderr, "snc: stop() waiting for %u operation(s) or data-plane lease(s)\n", active_ops_);
+      life_cv_.wait(lk, [&] { return active_ops_ == 0; });
+    }
   }
   OwnerScope own(*this);  // this thread's internal shard calls below
   if (watcher_.joinable()) watcher_.join();
@@ -771,7 +783,7 @@ void Engine::recover() {
     recovery_.fresh = true;
   }
   sb_ = *sb;
-  publish_sb_();
+  if (!recovery_.fresh) publish_sb_();  // as on disk (a fresh one is published once written)
   std::memcpy(uuid_.data(), sb_.space_uuid, 16);
 
   // A start that may hold a replica prefix (the directory was last a
@@ -1141,9 +1153,11 @@ void Engine::finish_barrier(bool synced) {
 double Engine::promote() {
   Op op(*this);
   if (!op) throw std::logic_error("promote: not a running standby");
+  g_debug_promote_at_control.store(true);  // tests only (C1A): waiting for the lock until it clears
   // Durable control (section 10): the whole promotion, so a checkpoint
   // runs wholly before it (as a standby) or wholly after (as the primary).
   std::lock_guard<std::mutex> control(control_mu_);
+  g_debug_promote_at_control.store(false);
   if (!running_ || !standby_() || cfg_.data_dir.empty()) {
     throw std::logic_error("promote: not a running standby");
   }
@@ -1322,6 +1336,7 @@ CheckpointReport Engine::checkpoint() {
     if (sb_.lease_hi == 0) sb_.next_lease = std::max(sb_.next_lease, max_seen.load() + 1);
   }
   ++sb_.generation;
+  rep.term = sb_.term;
   commit_superblock_();
   // Committed: a recovery now replays each stream from its start LSN.
   for (u16 s = 0; s < n; ++s) state_->gauges[s].set_committed_start_lsn(m.start_lsn[s]);
@@ -1754,7 +1769,6 @@ void Engine::take_lease_block(u16 n) {
   sb_.lease_lo = lo;
   sb_.lease_hi = hi;
   sb_.next_lease = lo;
-  publish_sb_();
 }
 
 void Engine::withdraw() {

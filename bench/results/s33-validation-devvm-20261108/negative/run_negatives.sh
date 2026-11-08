@@ -59,14 +59,19 @@ mutate lease-in-stopping R src/core/engine.cpp release \
   "  if (!running_) return DataPlane(nullptr);"
 # C5. promote() without the durable-control lock: it runs inside a held
 #    checkpoint (order A).
-mutate promote-unserialized C1 src/core/engine.cpp release \
+mutate promote-unserialized C1A src/core/engine.cpp release \
   "  std::lock_guard<std::mutex> control(control_mu_);
   if (!running_ || !standby_() || cfg_.data_dir.empty()) {" \
   "  if (!running_ || !standby_() || cfg_.data_dir.empty()) {"
 # C5b. checkpoint() without it: it commits inside a parked promotion
 #    (order B).
-mutate checkpoint-unserialized C1 src/core/engine.cpp release \
+mutate checkpoint-unserialized C1B src/core/engine.cpp release \
   "  std::lock_guard<std::mutex> control(control_mu_);
   if (cfg_.data_dir.empty() || !running_) return rep;" \
   "  if (cfg_.data_dir.empty() || !running_) return rep;"
+# S3. DataPlane::run_on_all from a shard thread is not refused: the child
+#    waits for its own shard (its alarm ends it, not SIGABRT).
+mutate lease-run-on-all-shard R src/core/engine.cpp release \
+  "  if (current_shard() != nullptr) {  // it would wait for its own shard" \
+  "  if (false) {  // it would wait for its own shard"
 echo done >> "$OUT/summary.txt"

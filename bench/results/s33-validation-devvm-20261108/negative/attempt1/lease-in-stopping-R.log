@@ -1,0 +1,1 @@
+/home/claude/s33neg-work/src-lease-in-stopping/tests/test_lifecycle.cpp:608: CHECK failed: !eng.data_plane()
