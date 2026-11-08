@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/neg-wt/tests/test_s2_pacing.cpp:825: CHECK failed: (g[G_CKPT_WALK_BUDGET_NS]) == (8000u)

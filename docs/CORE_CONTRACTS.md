@@ -723,6 +723,11 @@ the superblock write that names it [AS-BUILT: `engine.cpp` checkpoint,
   superblock is durable. Shard parts may therefore become durable at
   different times. Anchors: T2, T3, T18.
 
+S2 (the paced walk, [S2_PACING.md](S2_PACING.md) section 6) changes no
+clause. Pacing changes when each snapshot ID is visited, never which. Its
+anchors are `test_s2_pacing` P2, P4 and P5 (CC-1 to CC-5) and P6
+(CC-2, CC-5).
+
 Every later checkpoint PR MUST state which clauses it touches, why they
 remain true, and which deterministic or crash tests prove them. These
 clauses MUST NOT be weakened for implementation convenience

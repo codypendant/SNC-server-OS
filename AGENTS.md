@@ -1766,3 +1766,30 @@ or source comments.
     Its client liveness findings were fixed before the headline runs.
 -   **Evidence:** `bench/results/s12-validation-devvm-20261107/`.
 -   **Next action:** review. No S2, R640 load, CP-1A or competitors.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S2 paced checkpoint walk, for review
+
+-   **Classification:** REFINE (checkpoint scheduling). CC-1..CC-5
+    unchanged (mapping in `docs/S2_PACING.md` section 6). Loop order,
+    begin snapshot, writeback, seal, commit, reclaim, recovery, WAL and
+    wire formats, admission and `kEmitBacklog` = 1024 are unchanged.
+-   **What:** `docs/handoff/PR74_S12_Review.txt` (S1 approved and complete;
+    S2 authorized, walk pacing only). Details in `docs/S2_PACING.md`.
+    - The walk is time-budgeted per loop iteration: batches of 16 IDs,
+      the clock read after each, at least one batch per iteration.
+      `--ckpt-pacing off` restores 256 IDs per iteration.
+    - A pure controller (`src/core/ckpt_pacer.h`) sets the budget within
+      [floor, ceiling] from the WAL flush EWMA against its baseline and
+      the follow-up backlog, with hysteresis, and catch-up toward a
+      target. It reports past-target, warn and degraded against a hard
+      maximum age, without abandoning or committing early.
+    - 17 gauges; HEALTH `ckpt_state`, `ckpt_past_target`, `ckpt_catchup`.
+    - Defaults are provisional hypotheses. The walk budgets come from a
+      dev-VM measurement (0.6-0.8 us per ID); the target and maximum age
+      are placeholders until campaign data.
+-   **Not done (by the work order):** loop reordering (DESIGN-R 6.3 item 4
+    deferred), the writeback window (S3), sync tokens (S4), follow-up
+    intake backpressure (pre-S6).
+-   **Tests:** P1-P8 (`tests/test_s2_pacing.cpp`).
+-   **Evidence:** `bench/results/s2-validation-devvm-20261108/`.
+-   **Next action:** review. No S3-D, R640 load, CP-1A or competitors.

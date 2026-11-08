@@ -60,6 +60,25 @@ void hook_init(void* user) {
   s->set_gauges(&h->gauges[id]);
   s->set_admission(Shard::Admission{h->cfg->admission_legacy, h->cfg->waiter_budget_bytes,
                                     h->cfg->wal_buffer_budget_bytes, h->cfg->pending_budget});
+  {
+    const Engine::Config& c = *h->cfg;
+    Shard::Pacing p;
+    p.on = c.ckpt_pacing;
+    p.batch = c.ckpt_walk_batch;
+    p.cfg.walk_min_ns = c.ckpt_walk_min_ns;
+    p.cfg.walk_max_ns = c.ckpt_walk_max_ns;
+    p.cfg.walk_ceiling_ns = c.ckpt_walk_ceiling_ns;
+    p.cfg.walk_step_ns = c.ckpt_walk_step_ns;
+    p.cfg.update_ns = c.ckpt_pace_update_ns;
+    p.cfg.wal_high_pct = c.ckpt_wal_high_pct;
+    p.cfg.wal_low_pct = c.ckpt_wal_low_pct;
+    p.cfg.backlog_high_pct = c.ckpt_backlog_high_pct;
+    p.cfg.backlog_low_pct = c.ckpt_backlog_low_pct;
+    p.cfg.target_ns = c.ckpt_target_ms * 1'000'000;
+    p.cfg.max_age_ns = c.ckpt_max_age_ms * 1'000'000;
+    p.cfg.warn_pct = c.ckpt_warn_pct;
+    s->set_pacing(p);
+  }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
   (*h->shards)[id] = s;
@@ -199,6 +218,28 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     // anything beyond it spills to normal pages.
     const u64 per_shard = cfg.expected_objects / (rc.n_shards ? rc.n_shards : 1);
     rc.heap_reserve_bytes = std::max<u64>(per_shard * 512, 256ull << 20);
+  }
+  {
+    ckpt::PacerConfig p;
+    p.walk_min_ns = cfg.ckpt_walk_min_ns;
+    p.walk_max_ns = cfg.ckpt_walk_max_ns;
+    p.walk_ceiling_ns = cfg.ckpt_walk_ceiling_ns;
+    p.walk_step_ns = cfg.ckpt_walk_step_ns;
+    p.update_ns = cfg.ckpt_pace_update_ns;
+    p.wal_high_pct = cfg.ckpt_wal_high_pct;
+    p.wal_low_pct = cfg.ckpt_wal_low_pct;
+    p.backlog_high_pct = cfg.ckpt_backlog_high_pct;
+    p.backlog_low_pct = cfg.ckpt_backlog_low_pct;
+    p.target_ns = cfg.ckpt_target_ms * 1'000'000;
+    p.max_age_ns = cfg.ckpt_max_age_ms * 1'000'000;
+    p.warn_pct = cfg.ckpt_warn_pct;
+    if (!ckpt::valid(p) || cfg.ckpt_walk_batch == 0 || cfg.ckpt_target_ms > (1ull << 40) ||
+        cfg.ckpt_max_age_ms > (1ull << 40)) {
+      throw std::invalid_argument(
+          "checkpoint pacing: need 1 <= walk_min <= walk_max <= walk_ceiling <= 60 s, 1 <= step <= 60 s, "
+          "update <= 60 s, batch >= 1, low < high for each pressure signal, 1 <= warn_pct <= 100, "
+          "target <= max age");
+    }
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
@@ -1377,6 +1418,7 @@ bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
 
 void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
 void Engine::debug_hold_wal(u16 shard, bool on) { debug_hold_wal_flush(shard, on); }
+void Engine::debug_ckpt_walk_limit(u64 limit) { snc::debug_ckpt_walk_limit(limit); }
 
 bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
 

@@ -29,6 +29,11 @@ thread_local Shard* tl_shard = nullptr;
 // s+64 share a bit; tests hold shards below 64 only.
 std::atomic<u64> g_debug_hold_wal{0};
 
+// Tests only (Engine::debug_ckpt_walk_limit): the walk visits no snapshot
+// index at or above this (0 = no limit), so a test can hold a checkpoint
+// at a chosen walk position. Never set outside tests.
+std::atomic<u64> g_debug_ckpt_walk_limit{0};
+
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
   std::fprintf(stderr, "snc: handler contract violated: %s (op %s)\n", what, op ? op->name : "?");
   std::abort();
@@ -44,6 +49,7 @@ void debug_hold_wal_flush(u16 shard, bool on) {
   if (on) g_debug_hold_wal.fetch_or(bit);
   else g_debug_hold_wal.fetch_and(~bit);
 }
+void debug_ckpt_walk_limit(u64 limit) { g_debug_ckpt_walk_limit.store(limit); }
 void set_current_shard(Shard* s) { tl_shard = s; }
 
 Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
@@ -871,6 +877,26 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_CKPT_LAST_TOTAL_US] = o.last_total_us;
   v[G_CKPT_LAST_RESULT] = o.last_result;
   v[G_CKPT_COMPLETED] = o.completed;
+  const bool active = ckpt_.active;
+  v[G_CKPT_PACING] = pacing_.on ? 1 : 0;
+  // With pacing off the budget and mode are not acting: reported as 0.
+  // Pressure, age and target are reports, published either way.
+  v[G_CKPT_WALK_BUDGET_NS] = active && pacing_.on ? pacer_.walk_ns : 0;
+  v[G_CKPT_MODE] = active && pacing_.on ? static_cast<u64>(pacer_.mode) : 0;
+  v[G_CKPT_PRESSURE] = active ? static_cast<u64>(pacer_.pressure) : 0;
+  v[G_CKPT_AGE_STATE] = active ? static_cast<u64>(pacer_.age) : 0;
+  v[G_CKPT_PAST_TARGET] = active && pacer_.past_target ? 1 : 0;
+  v[G_CKPT_PAST_TARGET_COUNT] = o.past_target_count;
+  v[G_CKPT_DEGRADED_COUNT] = o.degraded_count;
+  v[G_CKPT_TARGET_MS] = pacing_.cfg.target_ns / 1'000'000;
+  v[G_CKPT_MAX_AGE_MS] = pacing_.cfg.max_age_ns / 1'000'000;
+  v[G_CKPT_WALK_TOTAL] = o.walk_total;
+  v[G_CKPT_WALK_DONE] = active && !ckpt_.walk_done ? ckpt_.cursor : o.walk_total;
+  v[G_CKPT_WALK_STEPS] = o.walk_steps;
+  v[G_CKPT_CATCHUP_STEPS] = o.catchup_steps;
+  v[G_CKPT_STEP_MAX_NS] = o.step_max_ns;
+  v[G_CKPT_STEP_MAX_OBJECTS] = o.step_max_objects;
+  v[G_CKPT_WAL_BASELINE_US] = o.wal_baseline_us;
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
 }
@@ -1839,12 +1865,21 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   ckpt_obs_.bytes_written = 0;
   ckpt_obs_.writes_peak = 0;
   ckpt_obs_.snapshot_us = ckpt_obs_.walk_us = ckpt_obs_.drain_us = ckpt_obs_.durable_wait_us = 0;
+  // S2 (docs/S2_PACING.md): the controller starts at its floor. The WAL
+  // baseline is the flush-latency EWMA as it stands now, learned while no
+  // checkpoint ran (checkpoints on a shard never overlap).
+  ckpt_obs_.walk_steps = ckpt_obs_.catchup_steps = 0;
+  ckpt_obs_.step_max_ns = ckpt_obs_.step_max_objects = 0;
+  ckpt_obs_.past_target_counted = ckpt_obs_.degraded_counted = false;
+  ckpt_obs_.wal_baseline_us = wal_ ? wal_->stats().flush_us_ewma.value() : 0;
+  pacer_ = ckpt::reset(pacing_.cfg, t0);
   ckpt_enter(CkptPhase::SNAPSHOT, t0);
   c.start_lsn = wal_ ? wal_->next_lsn() : 0;
   c.ids.reserve(map_.size());
   map_.for_each([&](ObjectHeader* o) {
     if (!o->deleted()) c.ids.push_back(o->id);
   });
+  ckpt_obs_.walk_total = c.ids.size();
   c.path = part_path(data_dir, seq, id_);
   c.fd = ::open(c.path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
   if (c.fd < 0) storage_fatal("create checkpoint part failed: " + c.path);
@@ -1931,25 +1966,88 @@ void Shard::checkpoint_sync_done(void* ctx, int result) {
   done(res);
 }
 
+// S2: one controller step (docs/S2_PACING.md section 3). Runs on every
+// checkpoint_step of the checkpoint in progress, in every phase, so the
+// target and age reports stay current while the part drains, waits for
+// WAL durability or syncs. Counts each crossing once per checkpoint.
+void Shard::pace(u64 now) {
+  ckpt::Signals g;
+  g.now_ns = now;
+  if (wal_) g.wal_ewma_us = wal_->stats().flush_us_ewma.value();
+  g.wal_baseline_us = ckpt_obs_.wal_baseline_us;
+  g.backlog = emits_in_flight();
+  g.backlog_cap = kEmitBacklog;
+  g.done = ckpt_.walk_done ? ckpt_obs_.walk_total : ckpt_.cursor;
+  g.total = ckpt_obs_.walk_total;
+  const ckpt::PacerState before = pacer_;
+  pacer_ = ckpt::step(pacing_.cfg, pacer_, g);
+  if (pacer_.past_target && !ckpt_obs_.past_target_counted) {
+    ckpt_obs_.past_target_counted = true;
+    ++ckpt_obs_.past_target_count;
+  }
+  if (pacer_.age == ckpt::AgeState::DEGRADED && !ckpt_obs_.degraded_counted) {
+    ckpt_obs_.degraded_counted = true;
+    ++ckpt_obs_.degraded_count;
+  }
+  // Publish at once on a budget, age or target change. A mode change
+  // alone waits for the regular publish: near the schedule line the mode
+  // can flip every iteration. With pacing off the budget is not applied
+  // and is not published.
+  if ((pacing_.on && pacer_.walk_ns != before.walk_ns) || pacer_.age != before.age ||
+      pacer_.past_target != before.past_target) {
+    gauges_dirty_ = true;
+  }
+}
+
 void Shard::checkpoint_step() {
   Checkpoint& c = ckpt_;
+  const u64 t0 = sri_now_ns();
+  pace(t0);
   if (c.syncing) return;
   if (!c.walk_done) {
-    for (u32 n = 0; n < kCheckpointSlice && c.cursor < c.ids.size(); ++n, ++c.cursor) {
-      // Objects deleted since begin are absent; their DELETE is at or after
-      // start_lsn and replay handles it. Objects created since begin are
-      // covered by CREATE records at or after start_lsn.
-      const ObjectHeader* o = map_.find(c.ids[c.cursor]);
-      if (o == nullptr || o->deleted()) continue;
-      u32 size = record_size(o->length);
-      std::size_t at = c.chunk.size();
-      c.chunk.resize(at + size);
-      encode_record(c.chunk.data() + at, RecType::IMAGE, o->last_lsn, o->type_id, o->id,
-                    o->version, o->schema_ver, o->payload(), o->length);
-      c.max_lsn = std::max(c.max_lsn, o->last_lsn);
-      ++c.objects;
-      c.bytes += size;
-      if (c.chunk.size() >= kCheckpointChunk) checkpoint_write_chunk();
+    const u64 limit = g_debug_ckpt_walk_limit.load(std::memory_order_relaxed);
+    const std::size_t end = limit != 0 && limit < c.ids.size() ? static_cast<std::size_t>(limit) : c.ids.size();
+    const std::size_t from = c.cursor;
+    // Visits snapshot IDs [cursor, cursor + n). Pacing changes when each
+    // ID is visited, never which IDs are (CC-1).
+    auto visit = [&](std::size_t n) {
+      for (; n > 0 && c.cursor < end; --n, ++c.cursor) {
+        // Objects deleted since begin are absent; their DELETE is at or after
+        // start_lsn and replay handles it. Objects created since begin are
+        // covered by CREATE records at or after start_lsn.
+        const ObjectHeader* o = map_.find(c.ids[c.cursor]);
+        if (o == nullptr || o->deleted()) continue;
+        u32 size = record_size(o->length);
+        std::size_t at = c.chunk.size();
+        c.chunk.resize(at + size);
+        encode_record(c.chunk.data() + at, RecType::IMAGE, o->last_lsn, o->type_id, o->id,
+                      o->version, o->schema_ver, o->payload(), o->length);
+        c.max_lsn = std::max(c.max_lsn, o->last_lsn);
+        ++c.objects;
+        c.bytes += size;
+        if (c.chunk.size() >= kCheckpointChunk) checkpoint_write_chunk();
+      }
+    };
+    u64 t1 = t0;
+    if (!pacing_.on) {
+      visit(kCheckpointSlice);  // before S2: a fixed count per iteration
+      t1 = sri_now_ns();         // observed only
+    } else {
+      // A time budget, read every `batch` IDs. At least one batch per
+      // iteration (the floor that keeps the walk moving), and at most one
+      // batch past the budget (the clock is read after each batch).
+      const u64 deadline = t0 + pacer_.walk_ns;
+      do {
+        visit(pacing_.batch);
+        t1 = sri_now_ns();
+      } while (c.cursor < end && t1 < deadline);
+    }
+    if (c.cursor > from) {
+      CkptObs& o = ckpt_obs_;
+      ++o.walk_steps;
+      if (pacing_.on && pacer_.mode == ckpt::Mode::CATCH_UP) ++o.catchup_steps;
+      if (t1 - t0 > o.step_max_ns) o.step_max_ns = t1 - t0;
+      if (c.cursor - from > o.step_max_objects) o.step_max_objects = c.cursor - from;
     }
     if (c.cursor == c.ids.size()) {
       checkpoint_write_chunk();

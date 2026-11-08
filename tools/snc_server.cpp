@@ -15,6 +15,7 @@
 //                   [--move-window-bytes N]
 //                   [--admission s1|legacy] [--waiter-budget-bytes N]
 //                   [--wal-buffer-budget-bytes N] [--pending-budget N]
+//                   [--ckpt-pacing on|off] [--ckpt-target-ms N] [--ckpt-max-age-ms N]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -347,6 +348,28 @@ int main(int argc, char** argv) {
       else if (k == "--waiter-budget-bytes") cfg.waiter_budget_bytes = n;
       else cfg.wal_buffer_budget_bytes = n;
     }
+    else if (k == "--ckpt-pacing") {
+      // docs/S2_PACING.md: on (default) or off, the walk before S2.
+      const std::string v = val();
+      if (v != "on" && v != "off") {
+        std::fprintf(stderr, "--ckpt-pacing takes on or off\n");
+        return 2;
+      }
+      cfg.ckpt_pacing = v == "on";
+    }
+    else if (k == "--ckpt-target-ms" || k == "--ckpt-max-age-ms") {
+      // 0 = none. Engine refuses a target above the maximum age.
+      const char* v = val();
+      char* end = nullptr;
+      errno = 0;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (v[0] < '0' || v[0] > '9' || end == v || *end != '\0' || errno == ERANGE || n > (1ull << 40)) {
+        std::fprintf(stderr, "%s takes a number of milliseconds\n", k.c_str());
+        return 2;
+      }
+      if (k == "--ckpt-target-ms") cfg.ckpt_target_ms = n;
+      else cfg.ckpt_max_age_ms = n;
+    }
     else if (k == "--adopt-role") {
       // docs/LEGACY_ROLE.md: once, for a data directory from before role files.
       const std::string v = val();
@@ -649,6 +672,11 @@ int main(int argc, char** argv) {
       return false;
     };
   }
+  if (cfg.ckpt_max_age_ms != 0 && cfg.ckpt_target_ms > cfg.ckpt_max_age_ms) {
+    std::fprintf(stderr, "--ckpt-target-ms (%llu) must not exceed --ckpt-max-age-ms (%llu)\n",
+                 (unsigned long long)cfg.ckpt_target_ms, (unsigned long long)cfg.ckpt_max_age_ms);
+    return 2;
+  }
   Engine eng(cfg);
   try {
     eng.start();
@@ -824,6 +852,21 @@ int main(int argc, char** argv) {
                          (unsigned long long)(phase != 0 && started != 0 && now > started ? (now - started) / 1000000 : 0),
                          (unsigned long long)(ng.last_total_us.load(std::memory_order_relaxed) / 1000),
                          (unsigned long long)ng.completed.load(std::memory_order_relaxed));
+      clamp();
+      // S2 (docs/S2_PACING.md section 4): the worst shard's age state and
+      // whether any shard is past its target or catching up. Diagnostic
+      // (HL-4): a degraded checkpoint drives no promotion or withdrawal.
+      u64 age_state = 0, past = 0, catchup = 0;
+      for (u16 s = 0; s < n_shards; ++s) {
+        const GaugeSnapshot g = eng.gauges(s);
+        age_state = std::max<u64>(age_state, g[G_CKPT_AGE_STATE]);
+        past |= g[G_CKPT_PAST_TARGET];
+        catchup |= g[G_CKPT_MODE];
+      }
+      static const char* const kAge[] = {"ok", "warn", "degraded"};
+      n += std::snprintf(b + n, sizeof(b) - n, " ckpt_state=%s ckpt_past_target=%llu ckpt_catchup=%llu",
+                         kAge[age_state < 3 ? age_state : 2], (unsigned long long)past,
+                         (unsigned long long)catchup);
       clamp();
       if (slow >= 0) {
         n += std::snprintf(b + n, sizeof(b) - n, " ckpt_slow_shard=%d ckpt_slow_phase=%s", slow,
