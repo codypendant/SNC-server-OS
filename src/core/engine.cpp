@@ -226,17 +226,38 @@ struct EngineState {
 // ---- Lifecycle (S3.2, docs/ENGINE_LIFECYCLE.md) ---------------------------------------
 
 namespace {
-// The engine whose permit (or lifecycle step) this thread holds, if any.
-// A permit nested inside another for the same engine is granted without
-// counting again: the outer one already keeps stop() waiting, so nested
-// Engine calls (seal_slot -> wait_lsn -> slot_report, promote ->
-// update_placement, recovery -> checkpoint) can neither self-deadlock nor
-// be refused half-way.
-thread_local const Engine* tl_op_engine = nullptr;
+// The engines whose permit (or lifecycle step) this thread holds, innermost
+// last. A permit nested inside another for the same engine, at any depth
+// (also across another engine's operation in between: A -> B -> A), is
+// granted without counting again: the outer one already keeps stop()
+// waiting, so nested Engine calls (seal_slot -> wait_lsn -> slot_report,
+// promote -> update_placement, recovery -> checkpoint) can neither
+// self-deadlock nor be refused half-way. Permits are RAII, so the stack
+// unwinds in order.
+struct HeldEngines {
+  static constexpr int kMax = 16;
+  const Engine* e[kMax];
+  int n = 0;
+  bool holds(const Engine* x) const {
+    for (int i = 0; i < n; ++i)
+      if (e[i] == x) return true;
+    return false;
+  }
+  void push(const Engine* x) {
+    if (n == kMax) {
+      std::fprintf(stderr, "snc: Engine operations nested deeper than %d engines\n", kMax);
+      std::abort();
+    }
+    e[n++] = x;
+  }
+  void pop() { --n; }
+};
+thread_local HeldEngines tl_held;
 std::atomic<bool> g_debug_park_ops{false};
 std::atomic<u32> g_debug_ops_parked{0};
 std::atomic<bool> g_debug_park_start{false};
 std::atomic<bool> g_debug_start_parked{false};
+std::atomic<void (*)(const Engine&)> g_debug_op_hook{nullptr};
 }  // namespace
 
 const char* lifecycle_name(Lifecycle l) {
@@ -246,6 +267,7 @@ const char* lifecycle_name(Lifecycle l) {
     case Lifecycle::RUNNING: return "running";
     case Lifecycle::STOPPING: return "stopping";
     case Lifecycle::STOPPED: return "stopped";
+    case Lifecycle::FAILED: return "failed";
   }
   return "?";
 }
@@ -256,8 +278,8 @@ const char* lifecycle_name(Lifecycle l) {
 // operation returns its "not running" result at once and touches no shard.
 class Engine::Op {
  public:
-  explicit Op(const Engine& e) : e_(e), prev_(tl_op_engine) {
-    if (prev_ == &e) {
+  explicit Op(const Engine& e) : e_(e) {
+    if (tl_held.holds(&e)) {
       ok_ = true;  // nested (or the lifecycle owner's own call)
       return;
     }
@@ -267,7 +289,8 @@ class Engine::Op {
       ++e.active_ops_;
     }
     ok_ = counted_ = true;
-    tl_op_engine = &e;
+    tl_held.push(&e);
+    if (auto* hook = g_debug_op_hook.load(std::memory_order_relaxed)) hook(e);  // tests only
     if (g_debug_park_ops.load(std::memory_order_relaxed)) {  // tests only
       g_debug_ops_parked.fetch_add(1);
       while (g_debug_park_ops.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -276,7 +299,7 @@ class Engine::Op {
   }
   ~Op() {
     if (!counted_) return;
-    tl_op_engine = prev_;
+    tl_held.pop();
     std::lock_guard<std::mutex> g(e_.life_mu_);
     if (--e_.active_ops_ == 0) e_.life_cv_.notify_all();
   }
@@ -286,7 +309,6 @@ class Engine::Op {
 
  private:
   const Engine& e_;
-  const Engine* prev_;
   bool ok_ = false, counted_ = false;
 };
 
@@ -296,17 +318,14 @@ class Engine::Op {
 // for all to leave).
 class Engine::OwnerScope {
  public:
-  explicit OwnerScope(const Engine& e) : prev_(tl_op_engine) { tl_op_engine = &e; }
-  ~OwnerScope() { tl_op_engine = prev_; }
+  explicit OwnerScope(const Engine& e) { tl_held.push(&e); }
+  ~OwnerScope() { tl_held.pop(); }
   OwnerScope(const OwnerScope&) = delete;
   OwnerScope& operator=(const OwnerScope&) = delete;
-
- private:
-  const Engine* prev_;
 };
 
 void Engine::require_op() const {
-  if (tl_op_engine != this) {
+  if (!tl_held.holds(this)) {
     std::fprintf(stderr, "snc: shard work submitted outside an Engine operation permit (lifecycle %s)\n",
                  lifecycle_name(lifecycle()));
     std::abort();
@@ -332,6 +351,7 @@ void Engine::debug_park_ops(bool on) { g_debug_park_ops.store(on); }
 u32 Engine::debug_ops_parked() { return g_debug_ops_parked.load(); }
 void Engine::debug_park_start(bool on) { g_debug_park_start.store(on); }
 bool Engine::debug_start_parked() { return g_debug_start_parked.load(); }
+void Engine::debug_op_hook(void (*fn)(const Engine&)) { g_debug_op_hook.store(fn); }
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
@@ -447,11 +467,12 @@ void Engine::start() {
   try {
     start_();
   } catch (...) {
-    // A failed start: if the runtime came up, the engine can still be
-    // stopped (and must be, by stop() or the destructor); else it is as
-    // constructed.
+    // A failed start: FAILED admits no operation (the engine may be half
+    // up: recovered shards with follow-ups held, not serving) and no
+    // second start (the first one already changed in-memory state). Only
+    // stop() or the destructor, which tear down whatever came up.
     std::lock_guard<std::mutex> g(life_mu_);
-    life_ = running_ ? Lifecycle::RUNNING : Lifecycle::CONSTRUCTED;
+    life_ = Lifecycle::FAILED;
     life_cv_.notify_all();
     throw;
   }
@@ -532,14 +553,20 @@ void Engine::stop() {
   // PR #78 section 11). Shard-side I/O is then drained by the runtime's
   // quiesce: a shard stops only with no checkpoint active and no I/O in
   // flight.
-  if (tl_op_engine == this) {
+  if (tl_held.holds(this)) {
     std::fprintf(stderr, "snc: Engine::stop() called from inside an Engine operation (would wait for itself)\n");
+    std::abort();
+  }
+  if (current_shard() != nullptr) {
+    std::fprintf(stderr, "snc: Engine::stop() called from a shard thread (would wait for itself)\n");
     std::abort();
   }
   {
     std::unique_lock<std::mutex> lk(life_mu_);
     life_cv_.wait(lk, [&] { return life_ != Lifecycle::STARTING && life_ != Lifecycle::STOPPING; });
-    if (life_ != Lifecycle::RUNNING) return;  // never started, or already stopped
+    // Never started, or already stopped: nothing to do. FAILED: tear down
+    // what the failed start brought up (no operation can be inside).
+    if (life_ != Lifecycle::RUNNING && life_ != Lifecycle::FAILED) return;
     life_ = Lifecycle::STOPPING;  // from here no operation enters
   }
   // Threads of the engine's own that enter operations are told to finish
@@ -560,18 +587,20 @@ void Engine::stop() {
   // shard come back, so no shard waits on a response from a stopped one.
   // Paused shards still run follow-ups that arrive; wait until every one
   // sent has arrived, so none is left in a ring.
-  run_on_all_([](u16) { current_shard()->pause_emits(true); });
-  while (true) {
-    std::atomic<u64> sent{0}, received{0};
-    run_on_all_([&](u16) {
-      sent += current_shard()->emits_sent();
-      received += current_shard()->emits_received();
-    });
-    if (sent == received) break;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  if (running_) {  // false only after a start that failed before the runtime came up
+    run_on_all_([](u16) { current_shard()->pause_emits(true); });
+    while (true) {
+      std::atomic<u64> sent{0}, received{0};
+      run_on_all_([&](u16) {
+        sent += current_shard()->emits_sent();
+        received += current_shard()->emits_received();
+      });
+      if (sent == received) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    rt_->stop();  // shards quiesce first: WAL flushed, waiters released
+    running_ = false;
   }
-  rt_->stop();  // shards quiesce first: WAL flushed, waiters released
-  running_ = false;
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it
   std::lock_guard<std::mutex> g(life_mu_);
   life_ = Lifecycle::STOPPED;
@@ -968,6 +997,7 @@ void Engine::recover() {
     a.sin_port = htons(cfg_.seed_port);
     a.sin_addr.s_addr = htonl(INADDR_ANY);
     if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 4) != 0) {
+      ::close(fd);
       throw std::runtime_error("cannot listen for seeds on port " + std::to_string(cfg_.seed_port));
     }
     seed_->listen_fd = fd;

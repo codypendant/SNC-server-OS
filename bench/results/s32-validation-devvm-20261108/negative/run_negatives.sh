@@ -58,18 +58,27 @@ mutate slot-report-ungated L2 src/core/engine.cpp release \
   if (!op || !running_) return SlotReport{};" \
   "SlotReport Engine::slot_report(u16 slot) {
   if (!running_) return SlotReport{};"
-# 3. The same with the structural check also removed: the abandoned
-#    waiter the review names, under L8's concurrent stop (a slot_report
-#    that saw the runtime running submits to a stopped worker).
-mutate slot-report-ungated-unchecked L8 src/core/engine.cpp release \
+# 3. The same with the structural check also removed (on_shard and
+#    submit_), and the permit replaced by an uncounted park: stop() no
+#    longer waits for the slot_report inside, and returns while it is
+#    parked; released, it would submit to a stopped worker and wait on a
+#    latch nobody counts down (the abandoned waiter). L2's "stop waits"
+#    probe catches it before the hang.
+mutate slot-report-ungated-unchecked L2 src/core/engine.cpp release \
   "SlotReport Engine::slot_report(u16 slot) {
   Op op(*this);
   if (!op || !running_) return SlotReport{};" \
   "SlotReport Engine::slot_report(u16 slot) {
-  if (!running_) return SlotReport{};" \
+  if (!running_) return SlotReport{};
+  g_debug_ops_parked.fetch_add(1);
+  while (g_debug_park_ops.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  g_debug_ops_parked.fetch_sub(1);" \
   "  using R = decltype(fn());
   require_op();" \
-  "  using R = decltype(fn());"
+  "  using R = decltype(fn());" \
+  "void Engine::submit_(u16 shard, std::function<void()> fn) const {
+  require_op();" \
+  "void Engine::submit_(u16 shard, std::function<void()> fn) const {"
 # 4. STOPPING still admits operations (the gate checks the runtime flag).
 mutate stopping-admits L1 src/core/engine.cpp release \
   "      if (e.life_ != Lifecycle::RUNNING) return;
@@ -80,4 +89,25 @@ mutate stopping-admits L1 src/core/engine.cpp release \
 mutate stop-ignores-start L7 src/core/engine.cpp release \
   "    life_cv_.wait(lk, [&] { return life_ != Lifecycle::STARTING && life_ != Lifecycle::STOPPING; });" \
   "    life_cv_.wait(lk, [&] { return life_ != Lifecycle::STOPPING; });"
+# 6. A failed start lands in RUNNING or CONSTRUCTED again (the pre-review
+#    code): a half-started engine admits operations and a second start.
+mutate failed-start-runs L9 src/core/engine.cpp release \
+  "    life_ = Lifecycle::FAILED;" \
+  "    life_ = running_ ? Lifecycle::RUNNING : Lifecycle::CONSTRUCTED;"
+# 7. The nested mark is single-slot (only the innermost engine): A -> B -> A
+#    takes a fresh, counted A permit, refused while A is STOPPING.
+mutate nesting-single-slot L10 src/core/engine.cpp release \
+  "    for (int i = 0; i < n; ++i)
+      if (e[i] == x) return true;
+    return false;" \
+  "    return n > 0 && e[n - 1] == x;"
+# 8. stop() from a shard thread is not detected: it waits for the
+#    operation that waits on that shard (the child's alarm ends it).
+mutate stop-on-shard-unchecked L11 src/core/engine.cpp release \
+  "  if (current_shard() != nullptr) {
+    std::fprintf(stderr, \"snc: Engine::stop() called from a shard thread (would wait for itself)\\n\");
+    std::abort();
+  }
+" \
+  ""
 echo done >> "$OUT/summary.txt"

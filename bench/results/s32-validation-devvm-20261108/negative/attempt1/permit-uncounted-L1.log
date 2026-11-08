@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-permit-uncounted/tests/test_lifecycle.cpp:193: CHECK failed: !becomes([&] { return stopped.load(); }, 300)

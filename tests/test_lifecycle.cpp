@@ -18,7 +18,19 @@
 //       stop is refused; stop on a never-started engine is a no-op
 //   L8  many threads issuing operations while another stops (TSan): every
 //       thread returns, nothing hangs
+//   L9  a failed start (before and after the runtime came up): FAILED,
+//       every operation refused, restart refused, stop tears down
+//   L10 nesting across engines (A -> B -> A on one thread while A is
+//       STOPPING): the inner A call is nested, not counted or refused
+//   L11 stop() from inside an operation, and from a shard thread: aborts
+//       with a message instead of waiting for itself
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
+
+#include <csignal>
 
 #include <array>
 #include <atomic>
@@ -55,7 +67,8 @@ std::string fresh_dir() {
 }
 
 // Two groups, this node group 0, so slot moves and placement updates run.
-Engine::Config config(const std::string& dir) {
+// `port` offsets the node-link ports (a second engine in this process).
+Engine::Config config(const std::string& dir, u16 port = 1) {
   Engine::Config c;
   c.runtime.n_shards = 2;
   c.runtime.pin = false;
@@ -69,7 +82,7 @@ Engine::Config config(const std::string& dir) {
   for (u16 g = 0; g < 2; ++g) {
     ClusterGroup grp;
     grp.n_shards = 2;
-    grp.members.push_back({"127.0.0.1", static_cast<u16>(1 + g), static_cast<u16>(3 + g)});
+    grp.members.push_back({"127.0.0.1", static_cast<u16>(port + g), static_cast<u16>(port + 2 + g)});
     c.cluster.push_back(grp);
   }
   c.group_id = 0;
@@ -241,11 +254,12 @@ void l3_stage_chain() {
   const u16 foreign = slot_of_group(eng, 1);
   std::vector<SlotObject> v;
   for (const ObjectID& id : ids_in(foreign, 300)) v.push_back(account_obj(id));
-  eng.debug_stage_stop(2, 2, false, 800);  // before put unit 2
+  eng.debug_stage_stop(2, 2, false, 3000);  // before put unit 2
   std::atomic<int> st{-1};
   std::atomic<bool> stopped{false};
   std::thread a([&] { st = static_cast<int>(stage(eng, foreign, v)); });
-  std::this_thread::sleep_for(std::chrono::milliseconds(150));  // inside the hold, between units
+  // The hold has begun: the chain is between units (it sleeps 3 s there).
+  CHECK(becomes([&] { return !eng.debug_stage_pending(); }, 60000));
   std::thread b([&] {
     eng.stop();
     stopped = true;
@@ -387,13 +401,183 @@ void l8_many() {
               (unsigned long long)calls.load(), (unsigned long long)late.load());
 }
 
+// L9: a failed start. Before the runtime came up (an empty directory
+// without init) and after it (the seed port taken: recovery has run on
+// live shards when the listen fails). Either way FAILED: no operation
+// enters, start() is refused, stop() tears down and ends STOPPED.
+void l9_failed_start() {
+  // The seed port, held by a listening socket of this process.
+  int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  CHECK(fd >= 0);
+  sockaddr_in a{};
+  a.sin_family = AF_INET;
+  a.sin_port = 0;
+  a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  CHECK_EQ(::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)), 0);
+  CHECK_EQ(::listen(fd, 1), 0);
+  socklen_t len = sizeof(a);
+  CHECK_EQ(::getsockname(fd, reinterpret_cast<sockaddr*>(&a), &len), 0);
+  const u16 port = ntohs(a.sin_port);
+  for (int k = 0; k < 2; ++k) {
+    const bool after_runtime = k == 1;
+    const std::string dir = fresh_dir();
+    Engine::Config c = config(dir);
+    if (after_runtime) {
+      c.seed_port = port;
+    } else {
+      c.init = false;  // an empty directory without init: refused before the runtime starts
+    }
+    Engine eng(c);
+    bool threw = false;
+    try {
+      eng.start();
+    } catch (const std::logic_error&) {
+      CHECK(false);  // a start failure, not a lifecycle refusal
+    } catch (const std::exception&) {
+      threw = true;
+    }
+    CHECK(threw);
+    CHECK(eng.lifecycle() == Lifecycle::FAILED);
+    const u16 home = slot_of_group(eng, 0), foreign = slot_of_group(eng, 1);
+    check_refused(eng, home, foreign);  // a half-started engine admits nothing
+    CHECK_EQ(eng.stats(0).objects, 0u);
+    bool refused = false;
+    try {
+      eng.start();
+    } catch (const std::logic_error&) {
+      refused = true;
+    }
+    CHECK(refused);  // no second start on state the first one changed
+    eng.stop();
+    CHECK(eng.lifecycle() == Lifecycle::STOPPED);
+    check_refused(eng, home, foreign);
+  }
+  ::close(fd);
+  std::printf("L9 failed start (before and after the runtime came up): FAILED, every operation refused, "
+              "restart refused, stop tore down to STOPPED\n");
+}
+
+// L10: an operation of engine A calls into engine B, which calls back into
+// A, on one thread, while A is STOPPING. The inner A call is nested in the
+// outer A permit (granted, not counted, not refused); stop waits for the
+// outer one only.
+Engine* g_a = nullptr;
+Engine* g_b = nullptr;
+std::atomic<int> g_l10_step{0};
+std::atomic<int> g_l10_inner{-1};
+void l10_hook(const Engine& e) {
+  if (&e == g_a && g_l10_step.load() == 0) {  // the outer A operation has entered
+    g_l10_step = 1;
+    while (g_a->lifecycle() != Lifecycle::STOPPING) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    (void)g_b->slot_report(slot_of_group(*g_b, 0));  // into B (a counted B permit: the hook runs again)
+  } else if (&e == g_b && g_l10_step.load() == 1) {  // inside B, inside A
+    g_l10_step = 2;
+    g_l10_inner = g_a->slot_report(slot_of_group(*g_a, 0)).serving ? 1 : 0;  // back into A
+  }
+}
+void l10_cross_engine() {
+  const std::string da = fresh_dir(), db = fresh_dir();
+  Engine a(config(da)), b(config(db, 11));
+  a.start();
+  b.start();
+  g_a = &a;
+  g_b = &b;
+  Engine::debug_op_hook(l10_hook);
+  std::atomic<bool> outer_done{false}, stopped{false};
+  std::atomic<bool> outer_ok{false};
+  std::thread t([&] {
+    outer_ok = a.slot_report(slot_of_group(a, 0)).serving;
+    outer_done = true;
+  });
+  CHECK(becomes([] { return g_l10_step.load() >= 1; }, 10000));
+  std::thread s([&] {
+    a.stop();
+    stopped = true;
+  });
+  CHECK(becomes([&] { return outer_done.load(); }, 60000));
+  CHECK(becomes([&] { return stopped.load(); }, 60000));
+  t.join();
+  s.join();
+  Engine::debug_op_hook(nullptr);
+  CHECK_EQ(g_l10_step.load(), 2);
+  CHECK_EQ(g_l10_inner.load(), 1);  // nested: granted, ran on A's live shard
+  CHECK(outer_ok.load());
+  CHECK(a.lifecycle() == Lifecycle::STOPPED);
+  CHECK(b.lifecycle() == Lifecycle::RUNNING);
+  b.stop();
+  std::printf("L10 A -> B -> A on one thread while A was STOPPING: the inner A call was nested (granted, "
+              "live result); stop waited for the outer operation\n");
+}
+
+// L11: stop() where it would wait for itself aborts with a message. Each
+// case runs in a child process (its directory made by the parent, which
+// removes it); the parent checks for SIGABRT.
+std::string g_l11_dir;
+void l11_child_stop_in_op() {
+  Engine eng(config(g_l11_dir));
+  eng.start();
+  g_a = &eng;
+  Engine::debug_op_hook([](const Engine&) { g_a->stop(); });
+  (void)eng.stats(0);
+}
+void l11_child_stop_on_shard() {
+  Engine eng(config(g_l11_dir));
+  eng.start();
+  g_a = &eng;
+  // One object, so the for_each callback (an application hook on a shard
+  // thread) runs on its shard.
+  const u16 foreign = slot_of_group(eng, 1);
+  std::vector<SlotObject> v;
+  for (const ObjectID& id : ids_in(foreign, 1)) v.push_back(account_obj(id));
+  CHECK_EQ(stage(eng, foreign, v), Status::OK);
+  for (u16 s = 0; s < 2; ++s) eng.for_each_object(s, [](const ObjectHeader&) { g_a->stop(); });
+}
+void l11_aborts() {
+  struct Case {
+    const char* what;
+    void (*child)();
+    const char* message;  // stop()'s own abort, not a failed CHECK in the child
+  };
+  const Case cases[] = {
+      {"inside an operation", l11_child_stop_in_op, "Engine::stop() called from inside an Engine operation"},
+      {"on a shard thread", l11_child_stop_on_shard, "Engine::stop() called from a shard thread"}};
+  for (const auto& [what, child, message] : cases) {
+    g_l11_dir = fresh_dir();
+    std::fflush(stdout);
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    const std::string err = g_l11_dir + "/stderr";
+    if (pid == 0) {
+      const int efd = ::open(err.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+      if (efd < 0 || ::dup2(efd, 2) < 0) std::_Exit(3);
+      ::alarm(120);  // a stop() that waits for itself instead: SIGALRM, not SIGABRT
+      child();
+      std::_Exit(0);  // not reached: stop() aborted
+    }
+    int ws = 0;
+    CHECK_EQ(::waitpid(pid, &ws, 0), pid);
+    CHECK(WIFSIGNALED(ws));
+    CHECK_EQ(WTERMSIG(ws), SIGABRT);
+    std::string text;
+    if (FILE* f = std::fopen(err.c_str(), "r")) {
+      char buf[4096];
+      std::size_t k;
+      while ((k = std::fread(buf, 1, sizeof(buf), f)) > 0) text.append(buf, k);
+      std::fclose(f);
+    }
+    CHECK(text.find(message) != std::string::npos);
+    std::printf("L11 stop() %s: aborted with a message (SIGABRT)\n", what);
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   register_type();
   const std::vector<std::pair<const char*, std::function<void()>>> tests = {
       {"L1", l1_stats}, {"L2", l2_slot_report}, {"L3", l3_stage_chain}, {"L4", l4_replication},
-      {"L5", l5_placement}, {"L7", l7_start_stop}, {"L8", l8_many},
+      {"L5", l5_placement}, {"L7", l7_start_stop}, {"L8", l8_many}, {"L9", l9_failed_start},
+      {"L10", l10_cross_engine}, {"L11", l11_aborts},
   };
   for (const auto& [name, fn] : tests) {
     bool run = argc == 1;

@@ -295,7 +295,8 @@ struct EngineState;  // src/core/engine.cpp
 
 // An Engine's lifecycle (docs/ENGINE_LIFECYCLE.md). One way only: an
 // Engine is started once and stopped once; restart after stop is refused.
-enum class Lifecycle : u8 { CONSTRUCTED, STARTING, RUNNING, STOPPING, STOPPED };
+// FAILED: start() threw; only stop() (or the destructor) is accepted.
+enum class Lifecycle : u8 { CONSTRUCTED, STARTING, RUNNING, STOPPING, STOPPED, FAILED };
 const char* lifecycle_name(Lifecycle l);
 
 // Wires the SNC core into a backend. One Engine per process.
@@ -498,6 +499,9 @@ class Engine {
   // CONSTRUCTED -> STARTING -> RUNNING. A second start() while starting or
   // running returns once RUNNING; start() after stop() throws
   // std::logic_error (restart is not supported: construct a new Engine).
+  // If start() throws, the engine is FAILED: it admits no operation, a
+  // later start() throws std::logic_error, and stop() (or the destructor)
+  // tears down whatever came up.
   void start();
   // Flushes every WAL stream and waits for pending durability, then stops.
   // Follow-ups still queued are not run; their objects' resume hooks re-emit
@@ -506,7 +510,8 @@ class Engine {
   // operations already inside (a checkpoint, a slot move, stats) finish
   // first; then the runtime stops. Waits for a start() in progress. A
   // second stop() waits until STOPPED. Must not be called from inside an
-  // Engine operation or from a shard thread (aborts / would deadlock).
+  // Engine operation or from a shard thread: both abort with a message
+  // (either would wait for itself).
   void stop();
   // The lifecycle state now (docs/ENGINE_LIFECYCLE.md). Any thread.
   Lifecycle lifecycle() const;
@@ -580,6 +585,13 @@ class Engine {
   static u32 debug_ops_parked();
   static void debug_park_start(bool on);
   static bool debug_start_parked();
+  // Op hook: called on the operation's thread each time a counted permit
+  // is granted, before the park point (nullptr: none). Set it only while
+  // no operation can run.
+  static void debug_op_hook(void (*fn)(const Engine&));
+  // True while a debug_stage_stop() is armed and not yet reached (its hold
+  // has begun once this turns false).
+  bool debug_stage_pending() const { return debug_stage_armed_.load(); }
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down
