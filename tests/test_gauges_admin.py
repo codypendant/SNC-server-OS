@@ -38,10 +38,13 @@ ckpt_phase ckpt_seq ckpt_started_ns ckpt_phase_since_ns ckpt_objects ckpt_bytes_
 ckpt_writes_inflight ckpt_writes_inflight_peak ckpt_last_snapshot_us ckpt_last_walk_us ckpt_last_drain_us
 ckpt_last_durable_wait_us ckpt_last_sync_us ckpt_last_total_us ckpt_last_result ckpt_completed
 refused_pending pending_now pending_peak refused_replay
+ckpt_pacing ckpt_walk_budget_ns ckpt_mode ckpt_pressure ckpt_age_state ckpt_past_target
+ckpt_past_target_count ckpt_degraded_count ckpt_target_ms ckpt_max_age_ms ckpt_walk_total ckpt_walk_done
+ckpt_walk_steps ckpt_catchup_steps ckpt_step_max_ns ckpt_step_max_objects ckpt_wal_baseline_us
 published_ns""".split()
 DERIVED = "ckpt_phase_name ckpt_age_ms ckpt_phase_age_ms wal_flush_age_ms committed_start_lsn wal_replay_records consistent".split()
 HEALTH_OLD = "role term uuid epoch leases shards stall_ms stall_shard main_ms adm_q adm_q_hw adm_busy adm_half adm_half_hw adm_evicted adm_timeouts".split()
-HEALTH_NEW = "ckpt ckpt_age_ms ckpt_last_ms ckpt_done".split()
+HEALTH_NEW = "ckpt ckpt_age_ms ckpt_last_ms ckpt_done ckpt_state ckpt_past_target ckpt_catchup".split()
 RESOURCES_KEYS = ("rss_kb hwm_kb heap_live waiters overflow emits_in_flight emits_held repl_retained wal_unacked "
                   "wal_undurable blocked degraded disk_readers disk_queued disk_queued_hwm disk_started "
                   "disk_stopped_on_cancel ckpt_running ckpts").split()

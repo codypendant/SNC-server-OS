@@ -114,6 +114,28 @@ enum Gauge : u32 {
   G_PENDING_NOW,
   G_PENDING_PEAK,
   G_REFUSED_REPLAY,          // S1.2: duplicates refused for waiter room (within refused_waiter)
+
+  // Checkpoint walk pacing (S2, docs/S2_PACING.md section 4). Mode,
+  // pressure, age state, past-target flag and budget are of the
+  // checkpoint in progress (0 when idle); walk and step figures are of the
+  // one in progress or the last; the two counts are since start.
+  G_CKPT_PACING,             // 1 when the walk is time-budgeted (Config::ckpt_pacing)
+  G_CKPT_WALK_BUDGET_NS,     // walk budget per loop iteration now
+  G_CKPT_MODE,               // 0 normal, 1 catch-up (behind the linear schedule to the target)
+  G_CKPT_PRESSURE,           // 0 low, 1 hold, 2 high
+  G_CKPT_AGE_STATE,          // 0 ok, 1 warn, 2 degraded (at or past the hard maximum age)
+  G_CKPT_PAST_TARGET,        // 1 once the checkpoint in progress passed its target
+  G_CKPT_PAST_TARGET_COUNT,
+  G_CKPT_DEGRADED_COUNT,
+  G_CKPT_TARGET_MS,          // configured
+  G_CKPT_MAX_AGE_MS,         // configured
+  G_CKPT_WALK_TOTAL,         // snapshot IDs to visit
+  G_CKPT_WALK_DONE,          // snapshot IDs visited
+  G_CKPT_WALK_STEPS,         // loop iterations that walked
+  G_CKPT_CATCHUP_STEPS,      // of those, in catch-up
+  G_CKPT_STEP_MAX_NS,        // longest walk step
+  G_CKPT_STEP_MAX_OBJECTS,   // most IDs visited in one step
+  G_CKPT_WAL_BASELINE_US,    // WAL flush EWMA learned before the checkpoint began
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -131,6 +153,10 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_last_snapshot_us", "ckpt_last_walk_us", "ckpt_last_drain_us", "ckpt_last_durable_wait_us",
     "ckpt_last_sync_us", "ckpt_last_total_us", "ckpt_last_result", "ckpt_completed",
     "refused_pending", "pending_now", "pending_peak", "refused_replay",
+    "ckpt_pacing", "ckpt_walk_budget_ns", "ckpt_mode", "ckpt_pressure", "ckpt_age_state",
+    "ckpt_past_target", "ckpt_past_target_count", "ckpt_degraded_count", "ckpt_target_ms",
+    "ckpt_max_age_ms", "ckpt_walk_total", "ckpt_walk_done", "ckpt_walk_steps", "ckpt_catchup_steps",
+    "ckpt_step_max_ns", "ckpt_step_max_objects", "ckpt_wal_baseline_us",
     "published_ns",
 };
 

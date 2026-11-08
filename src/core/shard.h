@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "ckpt_pacer.h"
 #include "node_link.h"
 #include "replication.h"
 #include "snc/cluster.h"
@@ -173,6 +174,15 @@ class Shard {
     u64 pending_budget = 0;  // S1.1: forwarded client requests awaiting an answer
   };
   void set_admission(const Admission& a);
+  // Checkpoint walk pacing (S2, docs/S2_PACING.md). Set before the first
+  // checkpoint; off restores the walk before S2 (kCheckpointSlice objects
+  // per loop iteration). The controller's reports run either way.
+  struct Pacing {
+    bool on = false;
+    u32 batch = 16;  // objects visited between clock reads
+    ckpt::PacerConfig cfg;
+  };
+  void set_pacing(const Pacing& p) { pacing_ = p; }
   // Copies this shard's counters into its gauge block: at most every
   // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
   // phase change. Shard thread only.
@@ -589,7 +599,21 @@ class Shard {
     u64 last_snapshot_us = 0, last_walk_us = 0, last_drain_us = 0, last_durable_wait_us = 0,
         last_sync_us = 0, last_total_us = 0, last_result = 0, completed = 0;
     u64 last_objects = 0, last_bytes_issued = 0;
+    // S2 (docs/S2_PACING.md): of the checkpoint in progress or the last one.
+    u64 walk_total = 0;        // snapshot IDs to visit
+    u64 walk_steps = 0;        // loop iterations that walked
+    u64 catchup_steps = 0;     // of those, in catch-up mode
+    u64 step_max_ns = 0;       // longest walk step
+    u64 step_max_objects = 0;  // most snapshot IDs visited in one step
+    u64 wal_baseline_us = 0;   // learned before this checkpoint began
+    // Per shard, since start: checkpoints that passed their target or
+    // reached the hard maximum age (each counted once).
+    u64 past_target_count = 0, degraded_count = 0;
+    bool past_target_counted = false, degraded_counted = false;
   } ckpt_obs_;
+  Pacing pacing_;
+  ckpt::PacerState pacer_;
+  void pace(u64 now_ns);  // one controller step for the checkpoint in progress
   void ckpt_enter(CkptPhase p, u64 now_ns);  // records the phase just left
   // Observability (S0): memory a held answer pins, excluding std::deque
   // block overhead: the Waiter, a LOCAL answer's copied result, a REMOTE
@@ -654,6 +678,7 @@ class Shard {
 // The Shard running on the current worker thread.
 Shard* current_shard();
 void debug_hold_wal_flush(u16 shard, bool on);  // tests only (Engine::debug_hold_wal)
+void debug_ckpt_walk_limit(u64 limit);           // tests only (Engine::debug_ckpt_walk_limit)
 void set_current_shard(Shard* s);
 
 }  // namespace snc

@@ -452,6 +452,24 @@ class Engine {
     u64 waiter_budget_bytes = 32ull << 20;      // durability waiters' memory
     u64 wal_buffer_budget_bytes = 30ull << 20;  // unflushed WAL record bytes
     u64 pending_budget = 131072;                // S1.1: forwarded requests in flight, per shard (0 refuses every forwarded request)
+
+    // Checkpoint walk pacing (slice S2, docs/S2_PACING.md). ckpt_pacing
+    // false restores the walk before S2 (256 objects per loop iteration);
+    // the target, age and their gauges are reported either way. Every
+    // value is a provisional hypothesis (docs/S2_PACING.md section 5); the
+    // constructor refuses an inconsistent set (std::invalid_argument).
+    bool ckpt_pacing = true;
+    u32 ckpt_walk_batch = 16;                 // objects visited between clock reads
+    u64 ckpt_walk_min_ns = 20'000;            // walk budget per loop iteration: floor
+    u64 ckpt_walk_max_ns = 100'000;           //   top of the pressure-driven range
+    u64 ckpt_walk_ceiling_ns = 250'000;       //   catch-up never above this
+    u64 ckpt_walk_step_ns = 10'000;           //   additive increase
+    u64 ckpt_pace_update_ns = 1'000'000;      // at most one budget change per this
+    u32 ckpt_wal_high_pct = 200, ckpt_wal_low_pct = 125;         // flush EWMA vs baseline
+    u32 ckpt_backlog_high_pct = 50, ckpt_backlog_low_pct = 25;   // follow-up backlog vs its gate
+    u64 ckpt_target_ms = 30'000;              // target completion time (0 = none)
+    u64 ckpt_max_age_ms = 300'000;            // hard maximum age (0 = none)
+    u32 ckpt_warn_pct = 80;                   // warn at this percent of the hard maximum
   };
 
   explicit Engine(const Config& cfg);
@@ -502,6 +520,10 @@ class Engine {
   // Tests only: shard `shard` starts no WAL flush while on, so its appends
   // stay in the active buffer and its waiters wait (docs/S1_ADMISSION.md 6).
   static void debug_hold_wal(u16 shard, bool on);
+  // Tests only: every shard's checkpoint walk visits no snapshot index at
+  // or above `limit` (0 = no limit), holding the checkpoint in WALK at that
+  // position (docs/S2_PACING.md section 6).
+  static void debug_ckpt_walk_limit(u64 limit);
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down

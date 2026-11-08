@@ -1,0 +1,248 @@
+PR #74 REVIEW — S1.2 REPLAY-WAITER BOUND
+
+DECISION
+
+PR #74 is APPROVED.
+
+S1 is now COMPLETE.
+
+The replay-waiter bypass identified in PR #73 is closed correctly, the flagged-refusal client semantics are implemented coherently, the clean final validation is sufficient, and the remaining known follow-up-intake problem is correctly separated as a later architectural slice rather than hidden inside S1.
+
+S2 may now begin, but only as the paced/incremental checkpoint-walk slice already defined by DESIGN-R. Do not fold follow-up intake backpressure, scheduler restructuring, or unrelated performance work into S2.
+
+No R640 load is authorized yet.
+
+1. REPLAY WAITER BOUND — APPROVED
+
+The original S1.2 blocker is resolved:
+- replay_if_seen() no longer sets waiter_reserved;
+- every replay that may need a durability waiter passes through admit_answer_wait();
+- durable replay answers return immediately;
+- undurable replay answers consume the normal waiter budget;
+- if waiter admission is full, the replay returns E_OVERLOADED with replayed preserved;
+- mutation/session/WAL are unchanged;
+- the request is never re-applied.
+
+2. FLAGGED REFUSAL SEMANTICS — APPROVED
+
+E_OVERLOADED + replayed means:
+the sequence has already been applied; the durable replay answer is not currently available within the server waiter budget; resend the exact same logical request/sequence rather than issuing a new operation.
+
+The existing replay flag is sufficient; no new wire field/status is needed.
+
+3. CLIENT BEHAVIOR — APPROVED
+
+net::Client correctly:
+- does not deliver the flagged refusal as an ordinary failed mutation;
+- retains the original unanswered request;
+- resends the exact same bytes / sequence;
+- backs off 2 ms to 64 ms;
+- keeps the request subject to timeout;
+- can fail over if refusal persists;
+- wakes blocking polling for scheduled retry;
+- drops late flagged refusals for already-completed requests.
+
+A21 and the negative client check support this.
+
+4. waiter_reserved SEMANTICS — APPROVED
+
+The field now means only:
+a successful admission check has already accounted for this answer's future waiter bytes.
+
+Keep that meaning strict.
+
+5. REMOTE REPLAY — APPROVED
+
+The proof that sequenced requests are never forwarded is accepted for the current protocol:
+- sequenced execute to a non-owner returns E_NOT_OWNER;
+- sequenced create is owner-local under current routing;
+- delete is not sequenced;
+- replay waiters are therefore LOCAL.
+
+If routing semantics change later, revisit this proof.
+
+6. AGGREGATE REPLAY PRESSURE — APPROVED
+
+A20 closes the aggregate-client hole: replay waiter usage no longer scales unboundedly with client count once the waiter budget is reached.
+
+Bound:
+waiter budget + at most one admitted op under the empty-list liveness exception + documented internal exceptions.
+
+7. E_REPLAYED_OLD OUTCOME-LOSS EDGE CASE — ACCEPTED, DOCUMENTED
+
+If seq m+1 becomes latest before retry of m completes, m may later get E_REPLAYED_OLD and its old stored result may be unavailable.
+
+That is not a double-apply defect and is pre-existing session-history semantics.
+
+Accept for now. Do not redesign session history in S2.
+
+8. q4 RULE CORRECTION — ACCEPTED WITH SCOPE LIMIT
+
+The old trend clause was shown to false-fail healthy sync-batched runs.
+
+The corrected q4-specific rule is accepted because:
+- all failed history is preserved;
+- the change is explicitly disclosed as post-data correction;
+- repeated rechecks pass;
+- blocked vs drained still separates correctly.
+
+Do not reuse this q4 rule as a general SNC resource invariant.
+
+9. VALIDATION — ACCEPTED
+
+Final code:
+- RelWithDebInfo 38/38;
+- ASan+UBSan 38/38, zero reports;
+- TSan 38/38, zero reports;
+- A16-A21 pass;
+- negative replay-exemption and client-no-retry checks fail as expected.
+
+10. S1 FINAL STATUS
+
+S1 is COMPLETE.
+
+Accepted S1 state:
+- resource-specific client admission;
+- follow-up backlog gate;
+- waiter-byte budget;
+- WAL active-buffer admission budget;
+- pending-request budget;
+- bounded LOCAL and REMOTE deferred answers;
+- bounded replay waiters;
+- reserve-before-mutate;
+- max_size hard cap consistent with recovery;
+- exact refusal-cause observability;
+- legacy admission mode;
+- checkpoint behavior unchanged;
+- scheduler loop order unchanged;
+- CC-1..CC-5 unchanged.
+
+Defaults remain provisional.
+
+11. FOLLOW-UP INTAKE BACKPRESSURE — REQUIRED LATER, NOT S2
+
+A destination WAL stall can still accept non-refusable follow-up work beyond the client WAL budget.
+
+Required future pre-S6 slice:
+- hard destination WAL threshold;
+- stop consuming follow-up messages at the threshold;
+- leave them queued/unsent with senders;
+- preserve response/control traffic progress;
+- prove no deadlock and bounded distributed backlog.
+
+Do NOT mix this into S2.
+
+12. S2 IS AUTHORIZED
+
+S2 may now start.
+
+Scope:
+checkpoint WALK pacing / incremental foreground-friendly checkpoint progress only.
+
+Objective is NOT peak throughput.
+
+Project priority:
+correctness -> semantics -> boundedness -> recoverability -> operability -> performance.
+
+For S2, performance is a service-isolation constraint:
+- prevent checkpoint walking from monopolizing a shard;
+- preserve bounded foreground progress;
+- avoid long contiguous CPU/memory-bandwidth monopolization;
+- maintain CC-1..CC-5 exactly;
+- make checkpoint completion progress observable and bounded.
+
+Do not optimize for benchmark wins over PostgreSQL or any comparator.
+
+13. S2 DESIGN CONSTRAINTS
+
+Use DESIGN-R as source of truth.
+
+S2 should:
+- pace/increment checkpoint WALK;
+- retain fuzzy-checkpoint correctness model;
+- preserve coverage;
+- preserve redo completeness;
+- preserve no-future-state semantics;
+- preserve idempotent redo;
+- preserve atomic publication/reclamation;
+- make progress under sustained foreground load;
+- distinguish target completion time from hard maximum age;
+- use S0 gauges for observation;
+- avoid checkpoint I/O mechanism changes unless strictly required.
+
+Do NOT combine:
+- C1/C2/C3 checkpoint I/O selection;
+- staggered sync;
+- follow-up intake backpressure;
+- unrelated loop reordering;
+- R640 tuning;
+- comparator work.
+
+14. S2 VALUES ARE HYPOTHESES
+
+Do not freeze old placeholders such as:
+- 4,096-object quantum;
+- 20 us / 200 us budgets;
+- other draft numeric values.
+
+Use configurable values in deterministic tests and derive defaults from behavior.
+
+15. S2 REQUIRED PROOF SHAPE
+
+Before S2 acceptance, return with:
+
+A. Correctness mapping
+Explicit CC-1..CC-5 impact with test anchors.
+
+B. Progress argument
+Prove WALK cannot monopolize the shard indefinitely and cannot stop making progress forever under admissible foreground load.
+
+C. Foreground-progress tests
+Show reads/mutations continue to receive bounded scheduling opportunities while WALK is active.
+
+D. Checkpoint-completion tests
+Show paced WALK still completes and produces a recoverable checkpoint.
+
+E. Recovery
+Crash/restart during representative WALK positions and recover exact state.
+
+F. Observability
+Checkpoint phase/age/objects/bytes/progress gauges remain useful for diagnosing stalls.
+
+G. Validation
+Clean Release + ASan + serial TSan, plus independent review.
+
+No R640 unless separately authorized.
+
+16. PERFORMANCE PHILOSOPHY GOING FORWARD
+
+Raw speed is not the primary success criterion.
+
+Physical campaigns should be used to:
+- quantify the cost of SNC guarantees;
+- find pathological stalls;
+- establish viable service envelopes;
+- verify boundedness;
+- measure interference;
+- test recovery/durability under pressure.
+
+A slower design with materially cleaner correctness, boundedness, recovery, and state semantics is acceptable if operationally practical.
+
+Do not sacrifice the state-native architecture merely to win an ops/sec comparison.
+
+FINAL
+
+PR #74: APPROVED.
+S1: COMPLETE.
+REPLAY WAITER BOUND: CLOSED.
+FLAGGED REFUSAL CONTRACT: APPROVED.
+CLIENT SAME-SEQUENCE RETRY: APPROVED.
+CLEAN VALIDATION: ACCEPTED.
+
+S2: AUTHORIZED, checkpoint-walk pacing only.
+
+FOLLOW-UP INTAKE BACKPRESSURE: REQUIRED FUTURE PRE-S6 SLICE, NOT S2.
+
+NO R640 YET.
+NO CP-1A.
+NO COMPETITORS.
