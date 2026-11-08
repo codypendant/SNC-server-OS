@@ -5,3 +5,4 @@ tsan rc=0 00:45:41
 sha a3d414309971709239084b4e4b891544fb5489e7 start 2026-11-08T00:55:51Z
 release run2 rc=0 01:21:42
 asan run2 rc=0 01:48:44
+tsan run2 rc=0 02:19:46
