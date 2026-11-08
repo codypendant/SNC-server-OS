@@ -1,0 +1,105 @@
+x_exit: exiting with writes held
+=================================================================
+==537==ERROR: AddressSanitizer: heap-use-after-free on address 0x517000000400 at pc 0x56481b80092c bp 0x7f7e1a7fe090 sp 0x7f7e1a7fe080
+READ of size 8 at 0x517000000400 thread T1
+    #0 0x56481b80092b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x79c92b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #1 0x56481b79647d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x73247d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #2 0x56481b790675  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x72c675) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #3 0x56481b8a9d04  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x845d04) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #4 0x56481ba4ded6  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9e9ed6) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #5 0x56481ba51ff0  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9edff0) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #6 0x56481ba53b89  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9efb89) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #7 0x56481ba5889b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f489b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #8 0x56481ba5880d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f480d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #9 0x56481ba586bd  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f46bd) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #10 0x56481ba585f3  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f45f3) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #11 0x56481ba585ab  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f45ab) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #12 0x7f7e1e4ecdb3  (/lib/x86_64-linux-gnu/libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #13 0x7f7e1e85ea41  (/lib/x86_64-linux-gnu/libasan.so.8+0x5ea41) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #14 0x7f7e1d89cb83  (/lib/x86_64-linux-gnu/libc.so.6+0x9cb83) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #15 0x7f7e1d929ecb  (/lib/x86_64-linux-gnu/libc.so.6+0x129ecb) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+
+0x517000000400 is located 0 bytes inside of 704-byte region [0x517000000400,0x5170000006c0)
+freed by thread T0 here:
+    #0 0x7f7e1e8ff9d8  (/lib/x86_64-linux-gnu/libasan.so.8+0xff9d8) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x56481b946f61  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8e2f61) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #2 0x56481b9374f5  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8d34f5) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #3 0x56481b946085  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8e2085) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #4 0x56481b946158  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8e2158) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #5 0x56481b936e0c  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8d2e0c) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #6 0x7f7e1d847a75  (/lib/x86_64-linux-gnu/libc.so.6+0x47a75) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #7 0x7f7e1d847bbd  (/lib/x86_64-linux-gnu/libc.so.6+0x47bbd) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #8 0x56481b6ff52b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69b52b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #9 0x56481b75b20d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6f720d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #10 0x56481b753c8b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6efc8b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #11 0x56481b7499a9  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6e59a9) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #12 0x56481b739756  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6d5756) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #13 0x56481b701253  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69d253) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #14 0x7f7e1d82a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #15 0x7f7e1d82a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #16 0x56481b6e6cc4  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x682cc4) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+
+previously allocated by thread T0 here:
+    #0 0x7f7e1e8fec88  (/lib/x86_64-linux-gnu/libasan.so.8+0xfec88) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x56481b93721c  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x8d321c) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #2 0x56481b8b0302  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x84c302) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #3 0x56481b6ff22d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69b22d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #4 0x56481b75b20d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6f720d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #5 0x56481b753c8b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6efc8b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #6 0x56481b7499a9  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6e59a9) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #7 0x56481b739756  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6d5756) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #8 0x56481b701253  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69d253) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #9 0x7f7e1d82a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #10 0x7f7e1d82a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #11 0x56481b6e6cc4  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x682cc4) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+
+Thread T1 created by T0 here:
+    #0 0x7f7e1e8f51f9  (/lib/x86_64-linux-gnu/libasan.so.8+0xf51f9) (BuildId: 0241d5a774aeb1d6babd9f68d743bdcf31b4a97d)
+    #1 0x7f7e1e4eceb0  (/lib/x86_64-linux-gnu/libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 0x56481ba56ba9  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f2ba9) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #3 0x56481ba542c9  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x9f02c9) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #4 0x56481b8c20d7  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x85e0d7) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #5 0x56481b8b230c  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x84e30c) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #6 0x56481b6ff268  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69b268) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #7 0x56481b75b20d  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6f720d) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #8 0x56481b753c8b  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6efc8b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #9 0x56481b7499a9  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6e59a9) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #10 0x56481b739756  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x6d5756) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #11 0x56481b701253  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x69d253) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+    #12 0x7f7e1d82a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #13 0x7f7e1d82a28a  (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #14 0x56481b6e6cc4  (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x682cc4) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4)
+
+SUMMARY: AddressSanitizer: heap-use-after-free (/home/claude/snc-server-os/build-asan/test_s3_writeback+0x79c92b) (BuildId: b6bfd754a5451541a11b2d83e21936e4cca53ab4) 
+Shadow bytes around the buggy address:
+  0x517000000180: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000200: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000280: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000300: fd fd fd fd fd fd fd fd fd fd fa fa fa fa fa fa
+  0x517000000380: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x517000000400:[fd]fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000480: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000500: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000580: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000600: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x517000000680: fd fd fd fd fd fd fd fd fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==537==ABORTING

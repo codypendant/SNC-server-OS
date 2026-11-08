@@ -1,0 +1,2 @@
+x_stop: after 300 ms stopped=0 ckpt_done=0
+x_stop: after release stopped=1 ckpt_done=0 seq=0
