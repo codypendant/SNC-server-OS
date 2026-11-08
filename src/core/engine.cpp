@@ -217,7 +217,11 @@ struct EngineState {
   NodeCkptGauges node_ckpt;
 };
 
-static std::unique_ptr<EngineState> g_state;
+// The running Engine's state (one Engine per process). Owned by the Engine
+// (Engine::state_), not by a static: a process that exits with an Engine
+// still running must not free state its shard threads still read (review
+// PR #77 section 9; docs/S3_WRITEBACK.md section 10).
+static EngineState* g_state = nullptr;
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
@@ -286,7 +290,8 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
       std::copy(cfg.cluster_arrived.begin(), cfg.cluster_arrived.end(), cluster_.arrived.begin());
     }
   }
-  g_state = std::make_unique<EngineState>();
+  state_ = std::make_unique<EngineState>();
+  g_state = state_.get();
   g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
   g_state->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
   g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced,
@@ -306,7 +311,8 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
 Engine::~Engine() {
   stop();
   rt_.reset();
-  g_state.reset();
+  if (g_state == state_.get()) g_state = nullptr;
+  state_.reset();
 }
 
 void Engine::start() {
@@ -366,6 +372,12 @@ bool Engine::wait_emits(double timeout_s) {
 }
 
 void Engine::stop() {
+  // A checkpoint in progress finishes first (it commits or the process
+  // aborts on a storage error): its waiter is never abandoned, its shards
+  // never stop under it, and no partial commit is left (review PR #77
+  // section 11). Shard-side I/O is then drained by the runtime's quiesce:
+  // a shard stops only with no checkpoint active and no I/O in flight.
+  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
   if (!running_) return;
   if (watcher_.joinable()) {
     watcher_stop_ = true;
@@ -933,6 +945,9 @@ double Engine::promote() {
 
 CheckpointReport Engine::checkpoint() {
   CheckpointReport rep;
+  // Held to the end: stop() waits for it. On a stopped or stopping engine
+  // nothing is started and the report says so (seq 0).
+  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
   if (cfg_.data_dir.empty() || !running_) return rep;
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
@@ -1453,6 +1468,7 @@ void Engine::debug_ckpt_hold_writes(bool on) { snc::debug_ckpt_hold_writes(on); 
 void Engine::debug_ckpt_defer_writes(bool on) { snc::debug_ckpt_defer_writes(on); }
 void Engine::debug_ckpt_release_writes(u32 n, bool newest_first) { snc::debug_ckpt_release_writes(n, newest_first); }
 void Engine::debug_ckpt_fail_write(u64 index, int mode) { snc::debug_ckpt_fail_write(index, mode); }
+void Engine::debug_ckpt_hold_sync(bool on) { snc::debug_ckpt_hold_sync(on); }
 void Engine::debug_ckpt_hold_commit(bool on) { g_debug_ckpt_hold_commit.store(on); }
 bool Engine::debug_ckpt_commit_reached() { return g_debug_ckpt_commit_reached.load(); }
 void Engine::debug_force_sync_io(bool on) { sri_debug_force_sync_io(on); }
