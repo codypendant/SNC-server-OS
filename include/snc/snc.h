@@ -14,6 +14,7 @@
 #include "snc/storage.h"
 
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -292,6 +293,12 @@ struct CheckpointReport {
 
 struct EngineState;  // src/core/engine.cpp
 
+// An Engine's lifecycle (docs/ENGINE_LIFECYCLE.md). One way only: an
+// Engine is started once and stopped once; restart after stop is refused.
+// FAILED: start() threw; only stop() (or the destructor) is accepted.
+enum class Lifecycle : u8 { CONSTRUCTED, STARTING, RUNNING, STOPPING, STOPPED, FAILED };
+const char* lifecycle_name(Lifecycle l);
+
 // Wires the SNC core into a backend. One Engine per process.
 class Engine {
  public:
@@ -489,11 +496,25 @@ class Engine {
 
   // With a data_dir: recovers (superblock, checkpoint, WAL replay, index
   // rebuild, new mint leases) before returning. Aborts on corruption.
+  // CONSTRUCTED -> STARTING -> RUNNING. A second start() while starting or
+  // running returns once RUNNING; start() after stop() throws
+  // std::logic_error (restart is not supported: construct a new Engine).
+  // If start() throws, the engine is FAILED: it admits no operation, a
+  // later start() throws std::logic_error, and stop() (or the destructor)
+  // tears down whatever came up.
   void start();
   // Flushes every WAL stream and waits for pending durability, then stops.
   // Follow-ups still queued are not run; their objects' resume hooks re-emit
   // them at the next start (in memory mode they are lost with the state).
+  // RUNNING -> STOPPING -> STOPPED: no new operation enters once STOPPING;
+  // operations already inside (a checkpoint, a slot move, stats) finish
+  // first; then the runtime stops. Waits for a start() in progress. A
+  // second stop() waits until STOPPED. Must not be called from inside an
+  // Engine operation or from a shard thread: both abort with a message
+  // (either would wait for itself).
   void stop();
+  // The lifecycle state now (docs/ENGINE_LIFECYCLE.md). Any thread.
+  Lifecycle lifecycle() const;
   // Blocks until no shard has a follow-up queued or in flight, e.g. until
   // every transfer has settled. Control path; returns false on timeout.
   bool wait_emits(double timeout_s = 30);
@@ -556,6 +577,21 @@ class Engine {
   static void debug_ckpt_hold_sync(bool on);
   static bool debug_ckpt_commit_reached();
   static void debug_force_sync_io(bool on);
+  // Tests only (S3.2, docs/ENGINE_LIFECYCLE.md): while on, every gated
+  // operation that has entered (holds its permit) parks before its shard
+  // work until turned off; ops_parked() counts those parked. Start hold:
+  // start() parks right after entering STARTING, until turned off.
+  static void debug_park_ops(bool on);
+  static u32 debug_ops_parked();
+  static void debug_park_start(bool on);
+  static bool debug_start_parked();
+  // Op hook: called on the operation's thread each time a counted permit
+  // is granted, before the park point (nullptr: none). Set it only while
+  // no operation can run.
+  static void debug_op_hook(void (*fn)(const Engine&));
+  // True while a debug_stage_stop() is armed and not yet reached (its hold
+  // has begun once this turns false).
+  bool debug_stage_pending() const { return debug_stage_armed_.load(); }
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
   // true once any shard has started a replication sender (at recovery as a
   // primary with a replica, or at promotion). Senders are never torn down
@@ -652,12 +688,26 @@ class Engine {
   Config cfg_;
   std::unique_ptr<NativeRuntime> rt_;
   std::vector<class Shard*> shards_;
-  std::atomic<bool> running_{false};
-  // Lifecycle (docs/S3_WRITEBACK.md section 10): checkpoint() holds it for
-  // its whole run and stop() takes it first, so a stop waits for a
-  // checkpoint in progress to finish and a checkpoint never starts on, or
-  // continues into, a stopping engine.
-  std::mutex lifecycle_mu_;
+  std::atomic<bool> running_{false};  // the runtime is started (internal; see life_)
+  // Lifecycle (docs/ENGINE_LIFECYCLE.md): the state machine, and the count
+  // of public operations inside their shard-dependent part. An operation
+  // enters only while RUNNING; stop() moves to STOPPING (no new operation
+  // enters), waits for the count to reach zero, and only then stops the
+  // runtime.
+  mutable std::mutex life_mu_;
+  mutable std::condition_variable life_cv_;
+  Lifecycle life_ = Lifecycle::CONSTRUCTED;
+  mutable u32 active_ops_ = 0;
+  class Op;          // an operation permit (engine.cpp)
+  class OwnerScope;  // start()/stop(): the owning thread's internal calls
+  // Aborts unless this thread holds a permit or owns the lifecycle step:
+  // every shard submission from an Engine method goes through these.
+  void require_op() const;
+  void run_on_all_(const std::function<void(u16)>& fn) const;
+  void submit_(u16 shard, std::function<void()> fn) const;
+  void release_emits_();
+  // checkpoint() runs one at a time (S3.1); the lifecycle is the permit.
+  std::mutex checkpoint_mu_;
   std::unique_ptr<EngineState> state_;
 
   // Persistence state (control thread only).
@@ -668,6 +718,7 @@ class Engine {
   // Seeding standbys (src/core/seed.cpp).
   struct Seeding;
   std::unique_ptr<Seeding> seed_;
+  void start_();
   std::atomic<bool> degrade_ok_{false};
   void seed_fetch();
   void serve_seed();

@@ -1,0 +1,5 @@
+base ab76766280520577a5d0c1fe55bb67d407fd703a
+permit-uncounted L1 (release) rc=1 (expected non-zero)
+slot-report-ungated L2 (release) rc=134 (expected non-zero)
+slot-report-ungated-unchecked L8 (release) rc=134 (expected non-zero)
+INTERRUPTED: stopped by hand after mutation 4 began (code under test superseded by review fixes; see attempt2). Mutation 4's run overlapped a test run of the new code on the same ports, so its partial log is not evidence.

@@ -1,0 +1,1 @@
+/home/claude/s32neg-work/src-failed-start-runs/tests/test_lifecycle.cpp:440: CHECK failed: eng.lifecycle() == Lifecycle::FAILED

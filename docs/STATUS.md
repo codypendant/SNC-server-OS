@@ -52,9 +52,13 @@ Decided by cody on 2026-11-04.
      approved with conditions
      ([handoff/PR76_S3D_Review.txt](handoff/PR76_S3D_Review.txt)). S3, the
      bounded writeback ([S3_WRITEBACK.md](S3_WRITEBACK.md), PR #77), had
-     its core approved; completion waits on S3.1, the engine lifecycle fix
-     for teardown with checkpoint I/O in flight (section 10 there), which
-     awaits review ([handoff/PR77_S3_Review.txt](handoff/PR77_S3_Review.txt)). Required before S6, as its own reviewed
+     its core approved ([handoff/PR77_S3_Review.txt](handoff/PR77_S3_Review.txt)).
+     S3.1, the engine lifecycle fix for teardown with checkpoint I/O in
+     flight (section 10 there, PR #78), was approved
+     ([handoff/PR78_S31_Review.txt](handoff/PR78_S31_Review.txt)); S3
+     closes once S3.2, one lifecycle gate over every shard-submitting
+     Engine method ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md)), passes
+     review. S4 is not authorized before that. Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

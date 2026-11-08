@@ -1,0 +1,85 @@
+debug: stage chain held 800 ms before put unit 2
+snc: shard 0: slot 2048 staged for move 51 (300 objects)
+snc: stage_chain slot=2048 move=51 objs=300 status=OK units=4396 (check 300 put 300 scan 3795 drop 0 stage 1) unit_ms p50=0.003 p95=0.050 p99=0.125 max=12.579 (put) put=300 dropped=0 bytes=74400 window_hw=3968 window_waits=0 scan_restarts=0 shard_ms=62.6 chain_ms=1032.1 wait_ms=54.0 listed_entries=300 gone=0 report_units=2029 report_restarts=0 runs=303
+snc: placement epoch 2 adopted (was 1)
+==================
+WARNING: ThreadSanitizer: data race (pid=389)
+  Write of size 8 at 0x726800000000 by thread T39:
+    #0 hook_fini /home/claude/snc-server-os/src/core/engine.cpp:129 (test_lifecycle+0x9a2e7) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #1 snc::NativeRuntime::Impl::run(snc::Worker&, std::barrier<std::__empty_completion>&, std::latch&) /home/claude/snc-server-os/src/native/runtime.cpp:496 (test_lifecycle+0x1307c8) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #2 operator() /home/claude/snc-server-os/src/native/runtime.cpp:546 (test_lifecycle+0x130ea7) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #3 __invoke_impl<void, snc::NativeRuntime::start()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_lifecycle+0x132808) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #4 __invoke<snc::NativeRuntime::start()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_lifecycle+0x13277f) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #5 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_lifecycle+0x1326e0) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #6 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_lifecycle+0x132686) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #7 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_lifecycle+0x13263c) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #8 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Previous read of size 8 at 0x726800000000 by thread T42:
+    #0 snc::Engine::stats(unsigned short) const /home/claude/snc-server-os/src/core/engine.cpp:1707 (test_lifecycle+0xadc9b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #1 operator() /home/claude/snc-server-os/tests/test_lifecycle.cpp:357 (test_lifecycle+0xf34c) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #2 __invoke_impl<void, (anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_lifecycle+0x1c7c5) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #3 __invoke<(anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_lifecycle+0x1c1a5) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #4 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_lifecycle+0x1bddc) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #5 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_lifecycle+0x1bae8) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #6 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_lifecycle+0x1b7bc) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #7 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Location is heap block of size 1440 at 0x726800000000 allocated by main thread:
+    #0 operator new(unsigned long) ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:64 (libtsan.so.2+0xa6fae) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::__new_allocator<snc::ShardStats>::allocate(unsigned long, void const*) /usr/include/c++/13/bits/new_allocator.h:151 (test_lifecycle+0xf019f) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #2 std::allocator<snc::ShardStats>::allocate(unsigned long) /usr/include/c++/13/bits/allocator.h:198 (test_lifecycle+0xebadc) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #3 std::allocator_traits<std::allocator<snc::ShardStats> >::allocate(std::allocator<snc::ShardStats>&, unsigned long) /usr/include/c++/13/bits/alloc_traits.h:482 (test_lifecycle+0xebadc)
+    #4 std::_Vector_base<snc::ShardStats, std::allocator<snc::ShardStats> >::_M_allocate(unsigned long) /usr/include/c++/13/bits/stl_vector.h:381 (test_lifecycle+0xebadc)
+    #5 std::_Vector_base<snc::ShardStats, std::allocator<snc::ShardStats> >::_M_create_storage(unsigned long) /usr/include/c++/13/bits/stl_vector.h:398 (test_lifecycle+0xe7be3) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #6 std::_Vector_base<snc::ShardStats, std::allocator<snc::ShardStats> >::_Vector_base(unsigned long, std::allocator<snc::ShardStats> const&) /usr/include/c++/13/bits/stl_vector.h:335 (test_lifecycle+0xe30f6) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #7 std::vector<snc::ShardStats, std::allocator<snc::ShardStats> >::vector(unsigned long, snc::ShardStats const&, std::allocator<snc::ShardStats> const&) /usr/include/c++/13/bits/stl_vector.h:571 (test_lifecycle+0xdd190) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #8 std::vector<snc::ShardStats, std::allocator<snc::ShardStats> >::_M_fill_assign(unsigned long, snc::ShardStats const&) /usr/include/c++/13/bits/vector.tcc:275 (test_lifecycle+0xd6633) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #9 std::vector<snc::ShardStats, std::allocator<snc::ShardStats> >::assign(unsigned long, snc::ShardStats const&) /usr/include/c++/13/bits/stl_vector.h:809 (test_lifecycle+0xd0ab5) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #10 snc::Engine::Engine(snc::Engine::Config const&) /home/claude/snc-server-os/src/core/engine.cpp:404 (test_lifecycle+0x9c193) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #11 l8_many /home/claude/snc-server-os/tests/test_lifecycle.cpp:345 (test_lifecycle+0xf8e3) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #12 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_lifecycle+0x2ab09) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #13 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_lifecycle+0x28a00) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #14 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_lifecycle+0x2557b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #15 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_lifecycle+0x2232e) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #16 main /home/claude/snc-server-os/tests/test_lifecycle.cpp:401 (test_lifecycle+0x1045b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+
+  Thread T39 (tid=443, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 snc::NativeRuntime::start() /home/claude/snc-server-os/src/native/runtime.cpp:545 (test_lifecycle+0x131084) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #3 snc::Engine::recover() /home/claude/snc-server-os/src/core/engine.cpp:783 (test_lifecycle+0xa129e) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #4 snc::Engine::start_() /home/claude/snc-server-os/src/core/engine.cpp:472 (test_lifecycle+0x9cf3a) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #5 snc::Engine::start() /home/claude/snc-server-os/src/core/engine.cpp:448 (test_lifecycle+0x9cc1b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #6 l8_many /home/claude/snc-server-os/tests/test_lifecycle.cpp:346 (test_lifecycle+0xf901) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #7 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_lifecycle+0x2ab09) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #8 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_lifecycle+0x28a00) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #9 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_lifecycle+0x2557b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #10 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_lifecycle+0x2232e) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #11 main /home/claude/snc-server-os/tests/test_lifecycle.cpp:401 (test_lifecycle+0x1045b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+
+  Thread T42 (tid=448, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 construct_at<std::thread, (anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/stl_construct.h:97 (test_lifecycle+0x17bd2) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #3 construct<std::thread, (anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/alloc_traits.h:540 (test_lifecycle+0x14a1b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #4 _M_realloc_insert<(anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/vector.tcc:468 (test_lifecycle+0x14a1b)
+    #5 emplace_back<(anonymous namespace)::l8_many()::<lambda()> > /usr/include/c++/13/bits/vector.tcc:123 (test_lifecycle+0x1223f) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #6 l8_many /home/claude/snc-server-os/tests/test_lifecycle.cpp:353 (test_lifecycle+0xfaaf) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #7 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_lifecycle+0x2ab09) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #8 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_lifecycle+0x28a00) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #9 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_lifecycle+0x2557b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #10 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_lifecycle+0x2232e) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+    #11 main /home/claude/snc-server-os/tests/test_lifecycle.cpp:401 (test_lifecycle+0x1045b) (BuildId: d41694b5dde5d731a23911b1b5a3c8c31196382e)
+
+SUMMARY: ThreadSanitizer: data race /home/claude/snc-server-os/src/core/engine.cpp:129 in hook_fini
+==================
+L1 stats vs stop: the operation entered, stop waited in STOPPING (new operations refused), the operation completed, then stop returned
+L2 slot_report vs stop: the operation entered, stop waited in STOPPING (new operations refused), the operation completed, then stop returned
+L3 stage chain vs stop: stop waited while the chain was held between units; the chain completed (OK, 300 objects durable), then stop returned
+L4 replication_status vs stop: the operation entered, stop waited in STOPPING (new operations refused), the operation completed, then stop returned
+L5 update_placement vs stop: the operation entered, stop waited in STOPPING (new operations refused), the operation completed, then stop returned
+L7 start vs stop: a second start waited for the one in progress; stop waited for a start, then stopped; restart after stop refused; stop before start a no-op
+L8 5558 operations on 6 threads across a stop: every thread returned (2837 calls after stop began)
+test_lifecycle: all passed
+ThreadSanitizer: reported 1 warnings

@@ -1,0 +1,10 @@
+base e44ab18f547b37efad249ac22d77d07663d2f626
+permit-uncounted L1 (release) rc=1 (expected non-zero)
+slot-report-ungated L2 (release) rc=134 (expected non-zero)
+slot-report-ungated-unchecked L2 (release) rc=1 (expected non-zero)
+stopping-admits L1 (release) rc=124 (expected non-zero)
+stop-ignores-start L7 (release) rc=1 (expected non-zero)
+failed-start-runs L9 (release) rc=1 (expected non-zero)
+nesting-single-slot L10 (release) rc=1 (expected non-zero)
+stop-on-shard-unchecked L11 (release) rc=1 (expected non-zero)
+done
