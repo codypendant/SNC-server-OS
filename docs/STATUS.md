@@ -57,8 +57,10 @@ Decided by cody on 2026-11-04.
      flight (section 10 there, PR #78), was approved
      ([handoff/PR78_S31_Review.txt](handoff/PR78_S31_Review.txt)); S3
      closes once S3.2, one lifecycle gate over every shard-submitting
-     Engine method ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md)), passes
-     review. S4 is not authorized before that. Required before S6, as its own reviewed
+     Engine method ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md), PR #79,
+     approved in design: [handoff/PR79_S32_Review.txt](handoff/PR79_S32_Review.txt)),
+     and S3.3, the data-plane lease and promote/checkpoint serialization
+     (sections 9-11 there), pass review. S4 is not authorized before that. Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

@@ -1879,3 +1879,29 @@ or source comments.
 -   **Next action:** review. Decision needed: gate `runtime()` or accept
     the exemption. No S4, R640 load, CP-1A, competitors or follow-up
     intake slice.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S3.3 data-plane lease and durable control, for review
+
+-   **Classification:** REFINE (engine lifecycle and control state).
+    Checkpoint and promotion steps, superblock format, seed protocol,
+    admission, placement semantics and `kEmitBacklog` unchanged.
+-   **What:** `docs/handoff/PR79_S32_Review.txt` (S3.2 approved; blockers:
+    the raw `runtime()` handle, promote vs checkpoint).
+    - `runtime()` is removed. `Engine::DataPlane`, a counted lease that
+      `stop()` waits for, is now the only outside path to shard work.
+      `RuntimeView` gives read-only facts. Callers were migrated
+      mechanically.
+    - `control_mu_` covers the whole of `checkpoint()` and `promote()`, so
+      the two linearize.
+    - The runtime role is an atomic; `cfg_` is no longer mutated.
+    - `term()` and `lease_block()` read a published view.
+    - `CheckpointReport` gains `standby` and `term`.
+-   **Review:** independent review, no blockers. Four should-fix items
+    fixed or mitigated, six notes handled
+    (`docs/ENGINE_LIFECYCLE.md` section 11).
+-   **Tests:** R1-R3, C1-C4 (`tests/test_lifecycle.cpp`); five negative
+    mutations.
+-   **Evidence:** `bench/results/s33-validation-devvm-20261108/`.
+-   **Next action:** review; S3 closes if clean. No S4, R640 load,
+    CP-1A, competitors or follow-up intake slice.
+
