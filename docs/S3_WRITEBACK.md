@@ -1,8 +1,9 @@
 # S3: bounded checkpoint writeback (C3)
 
-Status: **built, for review.** Work order: `docs/handoff/PR76_S3D_Review.txt`
-(C3 selected, S3 authorized with conditions). Mechanism selection:
-`docs/S3D_WRITEBACK.md`.
+Status: **S3 built (PR #77); S3.1 lifecycle fix (section 10) for review.**
+Work order: `docs/handoff/PR76_S3D_Review.txt` (C3 selected, S3 authorized
+with conditions); S3 review: `docs/handoff/PR77_S3_Review.txt` (core
+approved, teardown blocker). Mechanism selection: `docs/S3D_WRITEBACK.md`.
 
 ## 0. Summary
 
@@ -256,7 +257,7 @@ Independent review (no blockers) and what was done:
 | transient double buffer during a growth copy not in the peak | counted in the peak; bound and T2b updated |
 | `SNC_CKPT_IO` breaks test_s3_writeback | the test unsets it |
 | legacy shares the new ownership code | accepted and documented (section 2) |
-| shard teardown with writes in flight frees slots under the kernel | pre-existing (before S3 the context was the shard itself); stopping the engine during a checkpoint is a caller error. Open item, not widened here |
+| shard teardown with writes in flight frees slots under the kernel | *Corrected in S3.1 (section 10): this was inferred, not traced, and the "caller error" call was rejected by the review. The use-after-free seen was a different defect (exit freeing the static engine state); shard teardown already waited for checkpoint I/O; stop during `checkpoint()` abandoned its waiter.* |
 | T5 could miss a last record that exactly fills a refused chunk | `visited` is set at the end even when blocked, so the state reads as final pending |
 | fallback test covers only the forced path; the synchronous final `fdatasync` is not counted | noted; the SQ-full fallback is effectively unreachable (W <= 64, ring 256) |
 | window-full steps undercounted by one per stop | counted on the first stop too |
@@ -267,12 +268,114 @@ in T2 (`writes_inflight_peak == W`), because the test released one
 completion every 10 ms and assumed the walk filled a chunk faster, which
 ASan breaks. T2 and T2b now release only once the window gauge reads full
 (or the walk has ended). The CHECK failure then exited with the engine
-running and hung on the teardown item below, so `test_s3_writeback` now
-has a ctest timeout. Both are test changes; the engine is unchanged.
+running and hung on the teardown defect (section 10), so `test_s3_writeback`
+now has a ctest timeout (a CI guard, not a fix). Both are test changes.
 
 Open items:
-- the teardown item above;
+- the teardown item above: fixed in S3.1 (section 10);
 - W, and chunk size, are dev-VM hypotheses (review sections 14, 15);
   physical characterization of C3 against C2 on the R640's SAS SSD comes
   before any R640 campaign (section 18);
 - a power-loss test of partially durable parts.
+
+## 10. S3.1: engine lifecycle under checkpoint I/O
+
+Work order: `docs/handoff/PR77_S3_Review.txt` sections 9-14, 18.
+
+### 10.1 What the use-after-free was (traced, ASan, symbolized)
+
+Reproduced by exiting a test process (`std::exit`) with an Engine running
+and chunk writes held. The read was `Shard::publish_gauges` on a shard
+thread (`shard.cpp`, from `Shard::poll`); the free was
+`EngineState::~EngineState`, run by the static destructor of the file
+static `g_state` in `engine.cpp`. So the engine's own state (gauge blocks,
+hooks, final stats) was owned by a static and freed at exit under live
+shard threads. It was not the checkpoint slots: the PR #77 note that blamed
+"shard teardown with writes in flight" was an inference, and wrong.
+
+Traced separately, a real checkpoint lifecycle defect: `stop()` from
+another thread while a thread waits in `Engine::checkpoint()`. The shards
+quiesce only once their checkpoint is over (below), so the part completes;
+then `stop()` finishes stopping the runtime, and the waiting
+`checkpoint()` continues into the commit, whose `run_on_all` is submitted
+to stopped workers and never returns: an abandoned waiter (reproduced;
+the stop returned and the checkpoint thread hung).
+
+### 10.2 The contract, and how it is enforced
+
+**Checkpoint finishes, then stop proceeds** (review section 11, first
+option).
+
+1. `Engine::checkpoint()` holds `lifecycle_mu_` for its whole run, through
+   the manifest and superblock. `Engine::stop()` takes it first. A stop
+   (or `~Engine`, which stops first) therefore waits for a checkpoint in
+   progress to commit; a storage error during it is still `storage_fatal`
+   (abort, no destructors). A `checkpoint()` that gets the lock after a
+   stop finds `running_` false and starts nothing (report seq 0). No
+   sleep or timeout is part of it.
+2. Shard state is destroyed only after quiescence (pre-existing,
+   confirmed for both runtimes): a worker leaves its loop only when
+   `Shard::quiesced()` (which requires `!ckpt_.active`), its runtime
+   `io_inflight == 0` and its `io_deferred` queue empty; only then does
+   `hook_fini` delete the shard. `ckpt_.active` stays true until the final
+   `fdatasync`'s completion is processed; the sync is issued only with no
+   chunk write in flight; the `CkptWrite` slots are freed (`c =
+   Checkpoint{}`) only in that completion. So when a shard is deleted: no
+   busy `CkptWrite`, no `IoOp` targets it, no deferred completion points
+   into it, no final sync is outstanding (review sections 10, 12). The
+   synchronous fallback queues its completion on `io_deferred`, covered
+   the same way. Test-hook queues (held and deferred writes, the held
+   sync) all keep the checkpoint active.
+3. `EngineState` is owned by the Engine (`Engine::state_`), not a static.
+   Shard threads reach it only through the hooks pointer set in the
+   constructor; Engine members use `state_`. The engine frees nothing of
+   its own at process exit.
+
+`running_` is now atomic. Supported lifecycle: one controlling thread
+calls `start()`, then any thread may call `checkpoint()`, and `stop()`
+(then the destructor) ends it. Calling into an Engine once its destructor
+has begun is not supported, as for any C++ object. `std::exit` with an
+Engine running is not a supported shutdown: other static destructors
+(type registry, allocator) still run under live threads.
+
+### 10.3 Tests (S3-T14..T18)
+
+| Test | Review | Shows |
+|---|---|---|
+| T14 (+T17) | 13 T14, T17 | `stop()` from another thread with W chunk writes held and a thread in `checkpoint()`: for 300 ms stop has not returned, the checkpoint has not returned, the shard still publishes gauges with W in flight (not destroyed). Released: the waiter returns (not abandoned), the checkpoint committed (recovery uses it), stop returns. `checkpoint()` after stop: seq 0 |
+| T15 | 13 T15 | the same with the final `fdatasync` completion held (`debug_ckpt_hold_sync`): phase SYNC throughout, then commit and a clean stop |
+| T16 | 13 T16 | the owning thread `stop()`s and deletes the Engine while the checkpoint thread is mid-checkpoint: both wait, then the checkpoint commits and the Engine is destroyed; recovery exact |
+| T16b | 9 | fork child: `std::exit` with the engine running and writes held exits with its own status and no sanitizer report (the PR #77 use-after-free, now absent) |
+| T18 | 13 T18 | fork child: `-EIO` on chunk 0 while chunk 1 is in flight: abort with only the storage report, no sanitizer report; recovery from the previous checkpoint exact |
+
+The 300 ms probes are evidence that something did *not* happen yet, not
+a safety mechanism. After release, each wait is bounded (60 s) so a
+lifecycle defect fails a CHECK instead of hanging.
+
+Negative mutations (`bench/results/s31-validation-devvm-20261108/negative/`):
+stop without the lock (T14: the waiter is abandoned), the same through the
+destructor (T16), `checkpoint()` without the lock (T15), the engine state
+back on a static owner (T16b under ASan: the use-after-free returns), and
+stop without the lock plus a quiesce that ignores the checkpoint (T14:
+stop returns with the checkpoint unfinished, the shard destroyed under
+it). The last one is the only way to exercise the runtime drain through
+the Engine, since the lock otherwise keeps `rt_->stop()` from running
+during a checkpoint.
+
+### 10.4 Independent review (lifetime), and what was done
+
+| Finding | Resolution |
+|---|---|
+| the runtime drain was untested (the lock hides it) | mutation 5 added |
+| Engine members read the global `g_state`, not their own state; with two Engines alive (recovery checks) one could read the other's or null | the global is removed; members use `state_` |
+| T16 called `checkpoint()` on an Engine whose destructor had begun (formally outside its lifetime) | T16 now stops, then deletes; destruction during a call is documented as unsupported |
+| T16b proves only that the engine's own state is not freed; other statics still run at exit | stated in the test and 10.2 |
+| other Engine methods that use `run_on_all`/`submit` (`stats`, `replication_status`, slot report, `update_placement`, `promote`, `release_emits`/`wait_emits`, `on_shard*`) are not serialized with `stop()`: a call racing stop can wait forever on a stopped worker | out of the checkpoint scope of S3.1; open item (below) |
+| `start()` is not serialized with `stop()`/`checkpoint()` | documented contract: one controlling thread starts the engine before others use it; open item |
+| post-`fini` drain would call into a deleted shard if `~Shard` ever issued I/O | today `~Shard` only closes fds; noted |
+| `stop()` waits as long as the checkpoint takes (a hung device blocks it) | by design under the no-timeout rule |
+
+Open items (S3.1):
+- a general lifecycle guard for every Engine entry point that submits to
+  the shards, not only `checkpoint()` (and `start()`), for review;
+- the rest of section 9's open items.

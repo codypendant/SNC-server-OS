@@ -1,0 +1,4 @@
+base 1e1a4e5bf60df35c416bc7709671c06634a83617
+stop-no-wait T14 (release) rc=1 (expected non-zero)
+destroy-no-wait T16 (release) rc=1 (expected non-zero)
+STOPPED by me during checkpoint-unlocked: the independent review changed the code (attempt 2 reruns all mutations at the final commit). Not counted.

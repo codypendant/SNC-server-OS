@@ -8,16 +8,25 @@ set -u
 REPO=$1; WORK=$2; OUT=$(realpath -m "$3")
 mkdir -p "$OUT"
 echo "base $(git -C "$REPO" rev-parse HEAD)" > "$OUT/summary.txt"
-mutate() {  # name test file flavour(release|asan) old new
+mutate() {  # name test file flavour(release|asan) old new [old new]
   local name=$1 test=$2 file=$3 flavour=$4
   rm -rf "$WORK/src-$name" "$WORK/build-$name"
   mkdir -p "$WORK/src-$name" && git -C "$REPO" archive HEAD | tar -x -C "$WORK/src-$name"
-  python3 - "$WORK/src-$name/$file" "$5" "$6" <<'PY'
+  shift 4
+  python3 - "$WORK/src-$name" "$file" "$@" <<'PY'
 import sys
-p, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
-s = open(p).read()
-assert s.count(old) == 1, ("pattern not unique", old)
-open(p, 'w').write(s.replace(old, new))
+root, first, rest = sys.argv[1], sys.argv[2], sys.argv[3:]
+# pairs: old new, optionally "@file" switching the file for later pairs
+f = first
+i = 0
+while i < len(rest):
+    if rest[i].startswith('@'):
+        f = rest[i][1:]; i += 1; continue
+    old, new = rest[i], rest[i + 1]; i += 2
+    p = root + '/' + f
+    s = open(p).read()
+    assert s.count(old) == 1, ("pattern not unique", old)
+    open(p, 'w').write(s.replace(old, new))
 PY
   if [ "$flavour" = asan ]; then
     cmake -S "$WORK/src-$name" -B "$WORK/build-$name" -DCMAKE_BUILD_TYPE=Debug \
@@ -49,6 +58,17 @@ mutate checkpoint-unlocked T15 src/core/engine.cpp release \
 # 4. The engine state goes back to a static owner, freed at process exit
 #    under the running shard threads (the PR #77 use-after-free).
 mutate static-state T16b src/core/engine.cpp asan \
-  "  g_state = state_.get();" \
-  "  static std::unique_ptr<EngineState> s_owner; s_owner.reset(state_.release()); g_state = s_owner.get();"
+  "  state_ = std::make_unique<EngineState>();" \
+  "  state_ = std::make_unique<EngineState>(); static std::unique_ptr<EngineState> s_owner; s_owner.reset(state_.get());"
+# 5. stop() does not wait AND the shard quiesce ignores an active
+#    checkpoint: the runtime drain is then the only thing keeping the
+#    shard alive, and it no longer covers the checkpoint, so stop returns
+#    with the checkpoint unfinished (T14's "stop has not returned").
+mutate no-wait-no-drain T14 src/core/engine.cpp release \
+  "  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
+  if (!running_) return;" \
+  "  if (!running_) return;" \
+  @src/core/shard.cpp \
+  "waiters_.empty() && !ckpt_.active &&" \
+  "waiters_.empty() &&"
 echo done >> "$OUT/summary.txt"

@@ -43,6 +43,8 @@
 //   T11 foreground progress: with the window full and the walk stopped,
 //       deposits and reads complete
 //   T13 config: a window of 0 or above 64 is refused
+//   T14-T18 lifecycle (S3.1): stop, final sync, destruction, process exit
+//       and a storage failure with checkpoint I/O in flight (see each test)
 // (T12, the existing suites under dsync, is the rest of ctest: dsync is
 // the default.)
 #include <dirent.h>
@@ -965,9 +967,13 @@ void test_stop_with_final_sync() {
               (unsigned long long)bg.rep.seq);
 }
 
-// T16: destruction through the supported lifecycle (~Engine, which stops
-// first) while a checkpoint is in progress on another thread. The
-// destructor waits for it; nothing is freed under the in-flight writes.
+// T16: destruction through the supported lifecycle while a checkpoint is
+// in progress on another thread: the owning thread calls stop() and then
+// deletes the Engine. stop() waits for the checkpoint (whose last access
+// to the Engine, the lifecycle unlock, happens before stop returns), so
+// the destructor frees nothing the checkpoint or its in-flight writes
+// use. Calling into an Engine whose destructor has begun is not supported
+// (as for any C++ object), so ~Engine is reached only after stop().
 void test_destroy_with_writes() {
   const u32 w = 2;
   const std::string dir = temp_dir();
@@ -980,12 +986,12 @@ void test_destroy_with_writes() {
   start_held_checkpoint(*eng, bg);
   std::atomic<bool> destroyed{false};
   std::thread d([&] {
+    eng->stop();
     delete eng;
     destroyed = true;
   });
-  // Not probed through the gauges, as T14 does: this thread must not use
-  // an Engine whose destructor has begun (only the checkpoint in progress
-  // may, until it returns).
+  // Not probed through the gauges, as T14 does: the owning thread may be
+  // inside delete by the time a probe runs.
   CHECK(!becomes(destroyed, 300));
   CHECK(!bg.done.load());
   Engine::debug_ckpt_hold_writes(false);
@@ -996,15 +1002,19 @@ void test_destroy_with_writes() {
   CHECK(bg.rep.seq > 0);
   recover_exact(c, bg.rep.seq, m);
   rm_rf(dir);
-  std::printf("T16 destroy with %u chunk writes in flight: the destructor waited, checkpoint %llu committed\n", w,
-              (unsigned long long)bg.rep.seq);
+  std::printf("T16 stop + delete with %u chunk writes in flight: both waited, checkpoint %llu committed, the Engine "
+              "was destroyed after it\n",
+              w, (unsigned long long)bg.rep.seq);
 }
 
 // T16b: a process that exits (std::exit, static destructors run) with an
 // Engine still running and checkpoint writes in flight. Before S3.1 the
 // engine's state was a static and was freed under the shard threads (the
 // heap-use-after-free of PR #77's validation). Now the Engine owns it:
-// the child exits with its own status and no sanitizer report.
+// the child exits with its own status and no sanitizer report. This
+// proves only that the engine frees nothing of its own at exit; other
+// static destructors still run under live threads, so exit is not a
+// supported shutdown: stop() first (docs/S3_WRITEBACK.md section 10).
 void test_exit_with_writes() {
   const std::string dir = temp_dir();
   const pid_t pid = fork_child([&] {
