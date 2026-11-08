@@ -137,6 +137,15 @@ Gauges, per shard:
   checkpoint in progress and read 0 when idle.
 - Walk and step figures cover the one in progress or the last one.
 
+With pacing off, `ckpt_walk_budget_ns` and `ckpt_mode` read 0 (nothing
+applies them) and catch-up steps are not counted. Pressure, age, target
+and the step figures are still reported.
+
+The controller runs either way, at a cost of a few clock reads and integer
+operations per iteration. A budget, age or target change publishes at
+once. A mode change alone waits for the regular 50 µs publish, because
+near the schedule line the mode can flip every iteration.
+
 **HEALTH** adds the worst shard's `ckpt_state=ok|warn|degraded`, plus
 `ckpt_past_target` and `ckpt_catchup` (any shard). The S0 phase and age
 keys are unchanged.
@@ -181,10 +190,24 @@ one shard, three checkpoints per mode; evidence `walk-cost.txt`):
 | `ckpt_max_age_ms` | 300,000 | placeholder: needs WAL disk budget and replay rate (DESIGN-R 7.3) |
 | `ckpt_warn_pct` | 80% | placeholder |
 
-The R640 cost per ID is lower (DESIGN-R 1.1 measured the snapshot at
-about 80 ns per ID). At the same budgets it would walk proportionally more
-per iteration, which is the intent of a time budget. The target, maximum
-age and thresholds must be preregistered before S6 from S0/S2 gauge data.
+`ckpt_walk_min_ns` = 20 µs equals one of the "20/200 µs" values that
+DESIGN-R 7.2 withdrew as a default. It is used here only because the
+dev-VM measurement above puts two batches at about that cost. It is not
+carried over from revision 1.
+
+**Known risk on faster hardware (independent review M3).** On a machine
+where the walk is much cheaper per ID, the 256-ID step before S2 takes
+less time. For example, at about 100 ns per ID (R640's snapshot measured
+about 80 ns per ID; its walk is unmeasured) it takes about 25 µs. There,
+the default normal budget of 100 µs and the 250 µs ceiling would spend
+**more** time walking per iteration than the walk before S2, 4 to 10
+times more.
+
+That is the opposite of S2's aim, so these walk-budget defaults are
+dev-VM values only. They must be re-derived from `bench/ckpt_walk_cost`
+on the R640 (or set by flag) before any physical run. The target, maximum
+age and thresholds must be preregistered before S6 from S0/S2 gauge
+data.
 
 ## 6. Correctness mapping (review 15.A)
 
@@ -274,13 +297,34 @@ counted (`past_target`) and reported, up to the hard maximum.
 `bench/results/s2-validation-devvm-20261108/` (README lists every run in
 order).
 
+**Independent review.** It returned APPROVE WITH NITS, with findings M1-M3
+and L1-L6. All are resolved before the headline runs:
+
+| Finding | Resolution |
+|---|---|
+| M1: evidence not yet committed | committed |
+| M2: `snc_server` aborted on a target above the maximum age | the flags are checked; it exits with code 2 |
+| M3: defaults on faster hardware | documented in section 5; the defaults are dev-VM only |
+| L1: unbounded config values | `valid()` caps the ceiling, step and update interval at 60 s and requires `warn_pct ≥ 1`; P1 and P7 cover both |
+| L2: gauge churn on mode flips | a mode change no longer forces a publish |
+| L3: pacing off reported a controller that was not acting | budget and mode read 0 when off |
+| L4: names array not checked | `static_assert` that every gauge has a name |
+| L5: baseline limits | recorded in section 10 |
+| L6: comments | fixed |
+
 ## 10. Deviations from DESIGN-R, and open items
 
 1. **Catch-up rule.** It uses the linear schedule to the target, not "the
    remaining work at the floor rate" (section 3).
 2. **The baseline** is the EWMA at begin, not a separately maintained
-   EWMA. After a slow checkpoint the next baseline can start high and
-   decays with flushes.
+   EWMA.
+   - After a slow checkpoint, the next baseline can start high and decays
+     with flushes.
+   - It is whole microseconds with α = 1/8, so a baseline of a few
+     microseconds moves the ratio in coarse steps.
+   - It cannot tell foreground load from checkpoint interference.
+
+   S3-D or S6 should look at all three.
 3. **Loop order unchanged** (section 2).
 4. **Not added:**
    - the window (`ckpt_window`, S3);

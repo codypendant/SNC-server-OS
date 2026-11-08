@@ -879,8 +879,10 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_CKPT_COMPLETED] = o.completed;
   const bool active = ckpt_.active;
   v[G_CKPT_PACING] = pacing_.on ? 1 : 0;
-  v[G_CKPT_WALK_BUDGET_NS] = active ? pacer_.walk_ns : 0;
-  v[G_CKPT_MODE] = active ? static_cast<u64>(pacer_.mode) : 0;
+  // With pacing off the budget and mode are not acting: reported as 0.
+  // Pressure, age and target are reports, published either way.
+  v[G_CKPT_WALK_BUDGET_NS] = active && pacing_.on ? pacer_.walk_ns : 0;
+  v[G_CKPT_MODE] = active && pacing_.on ? static_cast<u64>(pacer_.mode) : 0;
   v[G_CKPT_PRESSURE] = active ? static_cast<u64>(pacer_.pressure) : 0;
   v[G_CKPT_AGE_STATE] = active ? static_cast<u64>(pacer_.age) : 0;
   v[G_CKPT_PAST_TARGET] = active && pacer_.past_target ? 1 : 0;
@@ -1987,7 +1989,11 @@ void Shard::pace(u64 now) {
     ckpt_obs_.degraded_counted = true;
     ++ckpt_obs_.degraded_count;
   }
-  if (pacer_.walk_ns != before.walk_ns || pacer_.mode != before.mode || pacer_.age != before.age ||
+  // Publish at once on a budget, age or target change. A mode change
+  // alone waits for the regular publish: near the schedule line the mode
+  // can flip every iteration. With pacing off the budget is not applied
+  // and is not published.
+  if ((pacing_.on && pacer_.walk_ns != before.walk_ns) || pacer_.age != before.age ||
       pacer_.past_target != before.past_target) {
     gauges_dirty_ = true;
   }
@@ -2039,7 +2045,7 @@ void Shard::checkpoint_step() {
     if (c.cursor > from) {
       CkptObs& o = ckpt_obs_;
       ++o.walk_steps;
-      if (pacer_.mode == ckpt::Mode::CATCH_UP) ++o.catchup_steps;
+      if (pacing_.on && pacer_.mode == ckpt::Mode::CATCH_UP) ++o.catchup_steps;
       if (t1 - t0 > o.step_max_ns) o.step_max_ns = t1 - t0;
       if (c.cursor - from > o.step_max_objects) o.step_max_objects = c.cursor - from;
     }

@@ -114,7 +114,8 @@ GaugeSnapshot fresh(Engine& eng, u16 s) {
   return {};
 }
 
-// Waits (up to about 60 s) for pred on shard s's fresh gauges.
+// Waits for pred on shard s's fresh gauges: 300,000 fresh reads, so at
+// least 60 s (longer under sanitizers) before it fails.
 template <typename P>
 GaugeSnapshot wait_gauges(Engine& eng, u16 s, P pred) {
   for (int i = 0; i < 300000; ++i) {
@@ -375,6 +376,10 @@ void test_controller() {
   CHECK(bad([](PacerConfig& b) { b.backlog_low_pct = 60; }));
   CHECK(bad([](PacerConfig& b) { b.warn_pct = 101; }));
   CHECK(bad([](PacerConfig& b) { b.target_ns = 4001; }));
+  CHECK(bad([](PacerConfig& b) { b.warn_pct = 0; }));
+  CHECK(bad([](PacerConfig& b) { b.walk_ceiling_ns = kMaxIntervalNs + 1; }));
+  CHECK(bad([](PacerConfig& b) { b.walk_step_ns = kMaxIntervalNs + 1; }));
+  CHECK(bad([](PacerConfig& b) { b.update_ns = kMaxIntervalNs + 1; }));
   // Seeded fuzz: the budget never leaves [min, ceiling], and in normal mode
   // an update never leaves it above max.
   u64 x = 0x9e3779b97f4a7c15ull;
@@ -460,7 +465,7 @@ void test_bounded_step() {
   // The defaults, for the record (time depends on the machine).
   const WalkFigures def = walk_once(dir, false, [](Engine::Config&) {});
   CHECK_EQ(def.done, def.total);
-  CHECK(def.step_max_objects <= def.total);
+  CHECK_EQ(def.objects, def.total);
   rm_rf(dir);
   std::printf("P2 bounded step: %llu IDs; 1 ns budget -> one batch per step (16 and 64); off -> 256 per step "
               "in %llu steps; 60 s budget -> 1 step; defaults -> %llu steps, longest %llu ns / %llu IDs\n",
@@ -923,6 +928,8 @@ void test_config_refused() {
   CHECK(refused([](Engine::Config& c) { c.ckpt_wal_low_pct = c.ckpt_wal_high_pct; }));
   CHECK(refused([](Engine::Config& c) { c.ckpt_target_ms = c.ckpt_max_age_ms + 1; }));
   CHECK(refused([](Engine::Config& c) { c.ckpt_warn_pct = 101; }));
+  CHECK(refused([](Engine::Config& c) { c.ckpt_walk_ceiling_ns = c.ckpt_walk_max_ns = 61'000'000'000ull; }));
+  CHECK(refused([](Engine::Config& c) { c.ckpt_pace_update_ns = 61'000'000'000ull; }));
   CHECK(!refused([](Engine::Config& c) { c.ckpt_max_age_ms = 0; }));  // no maximum is allowed
   std::printf("P7 config: inconsistent pacing values refused at construction\n");
 }

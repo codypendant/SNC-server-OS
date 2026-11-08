@@ -225,6 +225,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     p.walk_max_ns = cfg.ckpt_walk_max_ns;
     p.walk_ceiling_ns = cfg.ckpt_walk_ceiling_ns;
     p.walk_step_ns = cfg.ckpt_walk_step_ns;
+    p.update_ns = cfg.ckpt_pace_update_ns;
     p.wal_high_pct = cfg.ckpt_wal_high_pct;
     p.wal_low_pct = cfg.ckpt_wal_low_pct;
     p.backlog_high_pct = cfg.ckpt_backlog_high_pct;
@@ -235,8 +236,9 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     if (!ckpt::valid(p) || cfg.ckpt_walk_batch == 0 || cfg.ckpt_target_ms > (1ull << 40) ||
         cfg.ckpt_max_age_ms > (1ull << 40)) {
       throw std::invalid_argument(
-          "checkpoint pacing: need 1 <= walk_min <= walk_max <= walk_ceiling, step >= 1, batch >= 1, "
-          "low < high for each pressure signal, warn_pct <= 100, target <= max age");
+          "checkpoint pacing: need 1 <= walk_min <= walk_max <= walk_ceiling <= 60 s, 1 <= step <= 60 s, "
+          "update <= 60 s, batch >= 1, low < high for each pressure signal, 1 <= warn_pct <= 100, "
+          "target <= max age");
     }
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);

@@ -120,8 +120,8 @@ enum Gauge : u32 {
   // checkpoint in progress (0 when idle); walk and step figures are of the
   // one in progress or the last; the two counts are since start.
   G_CKPT_PACING,             // 1 when the walk is time-budgeted (Config::ckpt_pacing)
-  G_CKPT_WALK_BUDGET_NS,     // walk budget per loop iteration now
-  G_CKPT_MODE,               // 0 normal, 1 catch-up (behind the linear schedule to the target)
+  G_CKPT_WALK_BUDGET_NS,     // walk budget per loop iteration now (0 with pacing off)
+  G_CKPT_MODE,               // 0 normal, 1 catch-up (behind the linear schedule to the target); 0 with pacing off
   G_CKPT_PRESSURE,           // 0 low, 1 hold, 2 high
   G_CKPT_AGE_STATE,          // 0 ok, 1 warn, 2 degraded (at or past the hard maximum age)
   G_CKPT_PAST_TARGET,        // 1 once the checkpoint in progress passed its target
@@ -130,7 +130,7 @@ enum Gauge : u32 {
   G_CKPT_TARGET_MS,          // configured
   G_CKPT_MAX_AGE_MS,         // configured
   G_CKPT_WALK_TOTAL,         // snapshot IDs to visit
-  G_CKPT_WALK_DONE,          // snapshot IDs visited
+  G_CKPT_WALK_DONE,          // snapshot IDs visited (the walk cursor)
   G_CKPT_WALK_STEPS,         // loop iterations that walked
   G_CKPT_CATCHUP_STEPS,      // of those, in catch-up
   G_CKPT_STEP_MAX_NS,        // longest walk step
@@ -159,6 +159,15 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_step_max_ns", "ckpt_step_max_objects", "ckpt_wal_baseline_us",
     "published_ns",
 };
+
+// Every gauge has a name (a missing one would be a null %s in GAUGES).
+inline constexpr bool gauge_names_complete() {
+  for (const char* n : kGaugeNames) {
+    if (n == nullptr || n[0] == '\0') return false;
+  }
+  return true;
+}
+static_assert(gauge_names_complete(), "kGaugeNames must name every Gauge");
 
 // A consistent copy of one block (or the last attempt, consistent = false,
 // if a writer kept publishing through every retry). Before the shard's

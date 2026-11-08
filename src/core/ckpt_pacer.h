@@ -53,11 +53,17 @@ struct PacerState {
   u64 changes = 0;  // budget changes made
 };
 
+// Upper limit on any budget, step or update interval: far above any useful
+// value, far below where `now + budget` or `budget + step` could wrap.
+inline constexpr u64 kMaxIntervalNs = 60'000'000'000ull;  // 60 s
+
 // The rules every config must meet; Engine refuses a config that fails.
 inline bool valid(const PacerConfig& c) {
   return c.walk_min_ns >= 1 && c.walk_min_ns <= c.walk_max_ns && c.walk_max_ns <= c.walk_ceiling_ns &&
-         c.walk_step_ns >= 1 && c.wal_low_pct < c.wal_high_pct && c.backlog_low_pct < c.backlog_high_pct &&
-         c.warn_pct <= 100 && (c.max_age_ns == 0 || c.target_ns <= c.max_age_ns);
+         c.walk_ceiling_ns <= kMaxIntervalNs && c.walk_step_ns >= 1 && c.walk_step_ns <= kMaxIntervalNs &&
+         c.update_ns <= kMaxIntervalNs && c.wal_low_pct < c.wal_high_pct &&
+         c.backlog_low_pct < c.backlog_high_pct && c.warn_pct >= 1 && c.warn_pct <= 100 &&
+         (c.max_age_ns == 0 || c.target_ns <= c.max_age_ns);
 }
 
 // At checkpoint begin: the floor budget, normal mode. Nothing carries over

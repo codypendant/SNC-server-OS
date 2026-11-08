@@ -672,6 +672,11 @@ int main(int argc, char** argv) {
       return false;
     };
   }
+  if (cfg.ckpt_max_age_ms != 0 && cfg.ckpt_target_ms > cfg.ckpt_max_age_ms) {
+    std::fprintf(stderr, "--ckpt-target-ms (%llu) must not exceed --ckpt-max-age-ms (%llu)\n",
+                 (unsigned long long)cfg.ckpt_target_ms, (unsigned long long)cfg.ckpt_max_age_ms);
+    return 2;
+  }
   Engine eng(cfg);
   try {
     eng.start();
