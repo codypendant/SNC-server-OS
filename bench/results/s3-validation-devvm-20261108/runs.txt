@@ -1,3 +1,12 @@
 sha df836a27ef7190fdcc4f35b22bc13ec3eddc8839 start 2026-11-08T06:21:00Z
 release run1 rc=0 06:47:16
 asan run1 KILLED at the 2 h task limit (~08:21): test_s3_writeback T2 CHECK failed (window peak != W, timing-dependent under ASan), exit(1) with the engine running hit a teardown heap-use-after-free and hung. tsan/legacy runs never started. Fixed in the next commit; all suites rerun from scratch.
+--- run 2 series (after 6b9c122 T2/T2b fix); one suite per task
+release run2 start sha 6b9c122dbc8d965d5b5a304c22c561c52ede2f3a 2026-11-08T08:42:55Z env: SNC_X=0
+release run2 rc=0 09:09:22
+asan run2 start sha 6b9c122dbc8d965d5b5a304c22c561c52ede2f3a 2026-11-08T09:09:31Z env: SNC_SANITIZED=1
+asan run2 rc=0 09:38:13
+tsan run2 start sha 6b9c122dbc8d965d5b5a304c22c561c52ede2f3a 2026-11-08T09:38:27Z env: SNC_SANITIZED=1
+tsan run2 rc=0 10:13:09
+release-legacy run2 start sha 6b9c122dbc8d965d5b5a304c22c561c52ede2f3a 2026-11-08T10:13:18Z env: SNC_CKPT_IO=legacy
+release-legacy run2 rc=0 10:39:41

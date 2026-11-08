@@ -210,7 +210,7 @@ the synchronous path.
 |---|---|---|
 | T1 | S3-T1 | W = 1, 2, 4, completions held: exactly W writes submitted, the walk stopped (cursor still for 200 ms), window-full steps counted, buffers within (W+1) reservations |
 | T3 | S3-T3 | one release: exactly one more chunk, the walk resumes and stops again (3 rounds, each W) |
-| T2 | S3-T2 | 49-chunk part, one completion per 10 ms: retained peak = 3 x reservation (W = 2), part 15x larger |
+| T2 | S3-T2 | 49-chunk part; a completion is let through only when the window is full (or the walk has ended), at most one per 10 ms: retained peak = 3 x reservation (W = 2), part 15x larger |
 | T2b | S3-T2 | 1 MiB objects ending chunks: peak within (W+1) x max + reservation, and above the small-record envelope (the large case was exercised) |
 | T4 | S3-T4 | submissions deferred and issued newest first, so each completion arrives while older slots own unissued buffers: a FIFO or wrong free issues freed memory. Bytes written = issued, part size exact, recovery exact |
 | T5 | S3-T5 | W = 1: every ID visited and the last chunk waiting: phase WALK, `final_pending` 1, chunk count still for 200 ms; one release: the last chunk submitted, then DRAIN |
@@ -261,6 +261,14 @@ Independent review (no blockers) and what was done:
 | fallback test covers only the forced path; the synchronous final `fdatasync` is not counted | noted; the SQ-full fallback is effectively unreachable (W <= 64, ring 256) |
 | window-full steps undercounted by one per stop | counted on the first stop too |
 | T1 resume compared with the first cursor | compares with the previous one |
+
+Found in validation, not by the review: the first serial ASan suite failed
+in T2 (`writes_inflight_peak == W`), because the test released one
+completion every 10 ms and assumed the walk filled a chunk faster, which
+ASan breaks. T2 and T2b now release only once the window gauge reads full
+(or the walk has ended). The CHECK failure then exited with the engine
+running and hung on the teardown item below, so `test_s3_writeback` now
+has a ctest timeout. Both are test changes; the engine is unchanged.
 
 Open items:
 - the teardown item above;
