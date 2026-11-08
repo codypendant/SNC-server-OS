@@ -1,0 +1,7 @@
+base 11946199d5966411cb7fd3713203f27e29300d4f
+lease-uncounted R (release) rc=1 (expected non-zero)
+lease-in-stopping R (release) rc=1 (expected non-zero)
+promote-unserialized C1A (release) rc=1 (expected non-zero)
+checkpoint-unserialized C1B (release) rc=1 (expected non-zero)
+lease-run-on-all-shard R (release) rc=1 (expected non-zero)
+done

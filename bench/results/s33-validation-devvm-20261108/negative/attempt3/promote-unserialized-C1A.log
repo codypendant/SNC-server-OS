@@ -1,0 +1,2 @@
+snc: start barrier done: serving as a primary
+/home/claude/s33neg-work/src-promote-unserialized/tests/test_lifecycle.cpp:753: CHECK failed: becomes([] { return Engine::debug_promote_at_control(); }, 30000)
