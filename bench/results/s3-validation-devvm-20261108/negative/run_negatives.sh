@@ -10,7 +10,7 @@ echo "base $(git -C "$REPO" rev-parse HEAD)" > "$OUT/summary.txt"
 mutate() {  # name test python-replacement-old python-replacement-new
   local name=$1 test=$2
   rm -rf "$WORK/src-$name"
-  rsync -a --exclude 'build*' --exclude '.git' "$REPO/" "$WORK/src-$name/"
+  mkdir -p "$WORK/src-$name" && git -C "$REPO" archive HEAD | tar -x -C "$WORK/src-$name"
   python3 - "$WORK/src-$name/src/core/shard.cpp" "$3" "$4" <<'PY'
 import sys
 p, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
