@@ -217,7 +217,11 @@ struct EngineState {
   NodeCkptGauges node_ckpt;
 };
 
-static std::unique_ptr<EngineState> g_state;
+// An Engine's state is owned by the Engine (Engine::state_), not by a file
+// static: a process that exits with an Engine still running must not free
+// state its shard threads still read (review PR #77 section 9;
+// docs/S3_WRITEBACK.md section 10). Shard threads reach it only through
+// the hooks set up in the constructor.
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
@@ -286,12 +290,12 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
       std::copy(cfg.cluster_arrived.begin(), cfg.cluster_arrived.end(), cluster_.arrived.begin());
     }
   }
-  g_state = std::make_unique<EngineState>();
-  g_state->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
-  g_state->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
-  g_state->hooks = EngineHooks{&cfg_, &shards_, &g_state->final_stats, &slots_, 1, &cluster_, &g_state->serving, &g_state->fenced,
-                               &g_state->replicating, g_state->phases.data(), &g_state->epoch_hint,
-                               g_state->gauges.get()};
+  state_ = std::make_unique<EngineState>();
+  state_->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
+  state_->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
+  state_->hooks = EngineHooks{&cfg_, &shards_, &state_->final_stats, &slots_, 1, &cluster_, &state_->serving, &state_->fenced,
+                               &state_->replicating, state_->phases.data(), &state_->epoch_hint,
+                               state_->gauges.get()};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -299,14 +303,14 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   h.poll = hook_poll;
   h.quiesced = hook_quiesced;
   h.fini = hook_fini;
-  h.user = &g_state->hooks;
+  h.user = &state_->hooks;
   rt_ = std::make_unique<NativeRuntime>(cfg_.runtime, h);
 }
 
 Engine::~Engine() {
   stop();
   rt_.reset();
-  g_state.reset();
+  state_.reset();
 }
 
 void Engine::start() {
@@ -316,7 +320,7 @@ void Engine::start() {
     // across processes, which is harmless because nothing persists.
     rt_->start();
     running_ = true;
-    g_state->serving = true;
+    state_->serving = true;
     return;
   }
   recover();
@@ -324,7 +328,7 @@ void Engine::start() {
   // reach another still recovering, run there before its WAL is open, and
   // be acted on as durable though never logged (a lost credit).
   if (!cfg_.hold_emits) release_emits();
-  g_state->serving = true;
+  state_->serving = true;
   if (cfg_.placement_fetch && !cfg_.cluster.empty()) {
     watcher_stop_ = false;
     watcher_ = std::thread([this] { watch_placement(); });
@@ -366,6 +370,12 @@ bool Engine::wait_emits(double timeout_s) {
 }
 
 void Engine::stop() {
+  // A checkpoint in progress finishes first (it commits or the process
+  // aborts on a storage error): its waiter is never abandoned, its shards
+  // never stop under it, and no partial commit is left (review PR #77
+  // section 11). Shard-side I/O is then drained by the runtime's quiesce:
+  // a shard stops only with no checkpoint active and no I/O in flight.
+  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
   if (!running_) return;
   if (watcher_.joinable()) {
     watcher_stop_ = true;
@@ -590,7 +600,7 @@ void Engine::recover() {
       take_lease_block(n);
     }
   }
-  g_state->hooks.lease_base = sb_.next_lease;
+  state_->hooks.lease_base = sb_.next_lease;
   sb_.next_lease += n;
   ++sb_.generation;
   write_superblock(dir, sb_);
@@ -609,7 +619,7 @@ void Engine::recover() {
   // Observability (S0): where a recovery replays each stream from, until
   // the next checkpoint commits (a remap commits one at step 8).
   if (!recovery_.remapped) {
-    for (u16 s = 0; s < n; ++s) g_state->gauges[s].set_committed_start_lsn(from_lsn(s));
+    for (u16 s = 0; s < n; ++s) state_->gauges[s].set_committed_start_lsn(from_lsn(s));
   }
 
   if (m && !recovery_.remapped) {
@@ -737,7 +747,7 @@ void Engine::recover() {
     });
     // A block is disjoint from every lease anyone else was given: nothing
     // minted elsewhere can be in it.
-    if (max_seen.load() >= g_state->hooks.lease_base && sb_.lease_hi == 0) {
+    if (max_seen.load() >= state_->hooks.lease_base && sb_.lease_hi == 0) {
       u64 base = max_seen.load() + 1;
       sb_.next_lease = base + n;
       ++sb_.generation;
@@ -933,6 +943,9 @@ double Engine::promote() {
 
 CheckpointReport Engine::checkpoint() {
   CheckpointReport rep;
+  // Held to the end: stop() waits for it. On a stopped or stopping engine
+  // nothing is started and the report says so (seq 0).
+  std::lock_guard<std::mutex> lifecycle(lifecycle_mu_);
   if (cfg_.data_dir.empty() || !running_) return rep;
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
@@ -940,7 +953,7 @@ CheckpointReport Engine::checkpoint() {
   u64 seq = sb_.active_ckpt + 1;
   rep.seq = seq;
   // Observability (S0): the node's phase, read by HEALTH without waiting.
-  NodeCkptGauges& ng = g_state->node_ckpt;
+  NodeCkptGauges& ng = state_->node_ckpt;
   const u64 g0 = sri_now_ns();
   ng.seq.store(seq, std::memory_order_relaxed);
   ng.started_ns.store(g0, std::memory_order_relaxed);
@@ -1023,7 +1036,7 @@ CheckpointReport Engine::checkpoint() {
   ++sb_.generation;
   write_superblock(dir, sb_);
   // Committed: a recovery now replays each stream from its start LSN.
-  for (u16 s = 0; s < n; ++s) g_state->gauges[s].set_committed_start_lsn(m.start_lsn[s]);
+  for (u16 s = 0; s < n; ++s) state_->gauges[s].set_committed_start_lsn(m.start_lsn[s]);
   const u64 g2 = sri_now_ns();
   ng.phase.store(static_cast<u64>(NodeCkptPhase::RECLAIM), std::memory_order_relaxed);
 
@@ -1132,7 +1145,7 @@ bool Engine::update_placement(const std::array<u8, kSlots>& slots, u64 epoch,
 }
 
 u64 Engine::epoch_seen() const {
-  const u64 h = g_state ? g_state->epoch_hint.load() : 0;
+  const u64 h = state_ ? state_->epoch_hint.load() : 0;
   return h > map_.load()->epoch ? h : 0;
 }
 
@@ -1441,10 +1454,10 @@ void Engine::take_lease_block(u16 n) {
 }
 
 void Engine::withdraw() {
-  if (g_state && running_) g_state->fenced.store(true);
+  if (state_ && running_) state_->fenced.store(true);
 }
 
-bool Engine::fenced() const { return g_state && g_state->fenced.load(); }
+bool Engine::fenced() const { return state_ && state_->fenced.load(); }
 
 void Engine::debug_pause_replication(bool on) { repl::set_debug_pause(on); }
 void Engine::debug_hold_wal(u16 shard, bool on) { debug_hold_wal_flush(shard, on); }
@@ -1453,11 +1466,12 @@ void Engine::debug_ckpt_hold_writes(bool on) { snc::debug_ckpt_hold_writes(on); 
 void Engine::debug_ckpt_defer_writes(bool on) { snc::debug_ckpt_defer_writes(on); }
 void Engine::debug_ckpt_release_writes(u32 n, bool newest_first) { snc::debug_ckpt_release_writes(n, newest_first); }
 void Engine::debug_ckpt_fail_write(u64 index, int mode) { snc::debug_ckpt_fail_write(index, mode); }
+void Engine::debug_ckpt_hold_sync(bool on) { snc::debug_ckpt_hold_sync(on); }
 void Engine::debug_ckpt_hold_commit(bool on) { g_debug_ckpt_hold_commit.store(on); }
 bool Engine::debug_ckpt_commit_reached() { return g_debug_ckpt_commit_reached.load(); }
 void Engine::debug_force_sync_io(bool on) { sri_debug_force_sync_io(on); }
 
-bool Engine::replicating() const { return g_state && g_state->replicating.load(); }
+bool Engine::replicating() const { return state_ && state_->replicating.load(); }
 
 Engine::ReplStatus Engine::replication_status() const {
   ReplStatus st;
@@ -1485,17 +1499,17 @@ Engine::ReplStatus Engine::replication_status() const {
 }
 
 GaugeSnapshot Engine::gauges(u16 shard) const {
-  if (!g_state || !g_state->gauges || shard >= cfg_.runtime.n_shards) return GaugeSnapshot{};
-  return g_state->gauges[shard].read();
+  if (!state_ || !state_->gauges || shard >= cfg_.runtime.n_shards) return GaugeSnapshot{};
+  return state_->gauges[shard].read();
 }
 
 const NodeCkptGauges& Engine::checkpoint_gauges() const {
   static const NodeCkptGauges none;
-  return g_state ? g_state->node_ckpt : none;
+  return state_ ? state_->node_ckpt : none;
 }
 
 ShardStats Engine::stats(u16 shard) const {
-  if (!running_) return g_state->final_stats.at(shard);
+  if (!running_) return state_->final_stats.at(shard);
   // Read on the owning thread: shard state is single-writer.
   ShardStats out;
   std::latch done(1);

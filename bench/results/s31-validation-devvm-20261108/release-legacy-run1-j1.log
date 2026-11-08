@@ -1,0 +1,123 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/40 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  2: test_object_id
+ 2/40 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/40 Test  #3: test_local_map ...................   Passed    1.42 sec
+      Start  4: test_pages
+ 4/40 Test  #4: test_pages .......................   Passed    0.90 sec
+      Start  5: test_runtime
+ 5/40 Test  #5: test_runtime .....................   Passed    0.16 sec
+      Start  6: test_execute
+ 6/40 Test  #6: test_execute .....................   Passed    0.05 sec
+      Start  7: test_persistence
+ 7/40 Test  #7: test_persistence .................   Passed    0.47 sec
+      Start  8: test_crash
+ 8/40 Test  #8: test_crash .......................   Passed    0.77 sec
+      Start  9: test_net
+ 9/40 Test  #9: test_net .........................   Passed    0.04 sec
+      Start 10: test_transfer
+10/40 Test #10: test_transfer ....................   Passed    3.37 sec
+      Start 11: test_replication
+11/40 Test #11: test_replication .................   Passed   15.73 sec
+      Start 12: test_cluster
+12/40 Test #12: test_cluster .....................   Passed    5.42 sec
+      Start 13: test_migrate
+13/40 Test #13: test_migrate .....................   Passed   33.19 sec
+      Start 14: test_resend_refusals
+14/40 Test #14: test_resend_refusals .............   Passed    0.03 sec
+      Start 15: test_proof
+15/40 Test #15: test_proof .......................   Passed    0.96 sec
+      Start 16: test_placement
+16/40 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+17/40 Test #17: test_stage_chain .................   Passed    6.82 sec
+      Start 18: test_gauges
+18/40 Test #18: test_gauges ......................   Passed    0.69 sec
+      Start 19: test_s1_admission
+19/40 Test #19: test_s1_admission ................   Passed    7.27 sec
+      Start 20: test_s2_pacing
+20/40 Test #20: test_s2_pacing ...................   Passed    3.67 sec
+      Start 21: test_s3_writeback
+21/40 Test #21: test_s3_writeback ................   Passed   18.92 sec
+      Start 22: test_witness
+22/40 Test #22: test_witness .....................   Passed   23.92 sec
+      Start 23: test_async_failover
+23/40 Test #23: test_async_failover ..............   Passed   13.65 sec
+      Start 24: test_control
+24/40 Test #24: test_control .....................   Passed    1.50 sec
+      Start 25: test_health
+25/40 Test #25: test_health ......................   Passed  155.21 sec
+      Start 26: test_gauges_admin
+26/40 Test #26: test_gauges_admin ................   Passed    3.96 sec
+      Start 27: test_fail_closed
+27/40 Test #27: test_fail_closed .................   Passed  226.87 sec
+      Start 28: test_s1
+28/40 Test #28: test_s1 ..........................   Passed   64.84 sec
+      Start 29: test_profile_check
+29/40 Test #29: test_profile_check ...............   Passed    0.12 sec
+      Start 30: test_baseline_retry
+30/40 Test #30: test_baseline_retry ..............   Passed  249.62 sec
+      Start 31: test_sync_readiness
+31/40 Test #31: test_sync_readiness ..............   Passed  314.86 sec
+      Start 32: test_baseline_move
+32/40 Test #32: test_baseline_move ...............   Passed  113.20 sec
+      Start 33: test_baseline_ha
+33/40 Test #33: test_baseline_ha .................   Passed  125.63 sec
+      Start 34: test_ready_order
+34/40 Test #34: test_ready_order .................   Passed  147.87 sec
+      Start 35: test_paxos_ballots
+35/40 Test #35: test_paxos_ballots ...............   Passed    2.04 sec
+      Start 36: test_witness_hardening
+36/40 Test #36: test_witness_hardening ...........   Passed    5.89 sec
+      Start 37: test_lab_witness_guard
+37/40 Test #37: test_lab_witness_guard ...........   Passed   15.34 sec
+      Start 38: test_index_wire
+38/40 Test #38: test_index_wire ..................   Passed    1.78 sec
+      Start 39: test_pilot
+39/40 Test #39: test_pilot .......................   Passed    0.08 sec
+      Start 40: test_net_bench_rate
+40/40 Test #40: test_net_bench_rate ..............***Failed    7.05 sec
+mix: exact shares of total; nested flags print 59.85/25.65/9.50/5.00; bad input refused
+idle_thread: 1 op/s on 2 threads used 0.09 s CPU in a 2 s run (no spin)
+Traceback (most recent call last):
+  File "/home/claude/snc-server-os/tests/test_net_bench_rate.py", line 211, in <module>
+    main()
+    ~~~~^^
+  File "/home/claude/snc-server-os/tests/test_net_bench_rate.py", line 204, in main
+    fn(s)
+    ~~^^^
+  File "/home/claude/snc-server-os/tests/test_net_bench_rate.py", line 117, in scenario_stall_open
+    assert r["drained"] and r["backlog"] == 0, out
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: net_bench shards=2 threads=2 depth=64/thread route=owner misroute=0%
+load: 20000 objects in 0.00s (25932702 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=3.00
+  ops/s 1897  errors 0  overloaded 0  stale 0
+  latency ns  p50 64512  p95 247463936  p99 369098752  p99.9 394264576
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 103  ok 309  empty 0  refused 0  errors 0
+  index latency ns  p50 147456  p95 243269632  p99 343932928  p99.9 369098752
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 2000  (exec 5690 + index 309 in 3.00s)  served_all 7000
+  total latency ns  n 6000  p50 65536  p95 247463936  p99 369098752  p99.9 394264576  max 400463817
+  read latency ns  n 4167  p50 65536  p95 255852544  p99 369098752  p99.9 394264576  max 400463817
+  deposit latency ns  n 912  p50 61440  p95 226492416  p99 360710144  p99.9 385875968  max 390464826
+  transfer latency ns  n 612  p50 62464  p95 230686720  p99 360710144  p99.9 394264576  max 397471430
+  index latency ns  n 309  p50 147456  p95 243269632  p99 343932928  p99.9 369098752  max 369466123
+rate: offered 2000 ops/s  warmup 0.50s  window 3.00s  drain limit 10.00s
+  scheduled 7000  scheduled_in_window 6000  issued_by_end 6999  completed_in_window 5999  achieved 2000 ops/s
+  end_backlog 1 (0.0167% of scheduled_in_window)  in_flight_at_end 0
+  issue lateness ns  p50 122  p99 293601280  p99.9 327155712  max 336473078  late_over_1ms 675
+  drained yes  remaining_unissued 0  remaining_in_flight 0
+
+
+
+98% tests passed, 1 tests failed out of 40
+
+Total Test time (real) = 1573.36 sec
+
+The following tests FAILED:
+	 40 - test_net_bench_rate (Failed)
+Errors while running CTest

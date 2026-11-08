@@ -290,6 +290,8 @@ struct CheckpointReport {
   double seconds = 0;
 };
 
+struct EngineState;  // src/core/engine.cpp
+
 // Wires the SNC core into a backend. One Engine per process.
 class Engine {
  public:
@@ -549,6 +551,9 @@ class Engine {
   static void debug_ckpt_release_writes(u32 n, bool newest_first);
   static void debug_ckpt_fail_write(u64 index, int mode);
   static void debug_ckpt_hold_commit(bool on);
+  // Sync hold (S3.1): the final fdatasync's completion is kept by its
+  // shard (the phase stays SYNC) until the hold is turned off.
+  static void debug_ckpt_hold_sync(bool on);
   static bool debug_ckpt_commit_reached();
   static void debug_force_sync_io(bool on);
   // A role fact, not replication state (docs/HEALTH_DECOUPLING.md 3.1):
@@ -647,7 +652,13 @@ class Engine {
   Config cfg_;
   std::unique_ptr<NativeRuntime> rt_;
   std::vector<class Shard*> shards_;
-  bool running_ = false;
+  std::atomic<bool> running_{false};
+  // Lifecycle (docs/S3_WRITEBACK.md section 10): checkpoint() holds it for
+  // its whole run and stop() takes it first, so a stop waits for a
+  // checkpoint in progress to finish and a checkpoint never starts on, or
+  // continues into, a stopping engine.
+  std::mutex lifecycle_mu_;
+  std::unique_ptr<EngineState> state_;
 
   // Persistence state (control thread only).
   void recover();

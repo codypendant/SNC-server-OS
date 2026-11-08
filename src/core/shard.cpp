@@ -44,6 +44,7 @@ std::atomic<u64> g_debug_ckpt_release{0};
 std::atomic<bool> g_debug_ckpt_release_newest{false};
 std::atomic<u64> g_debug_ckpt_fail_at{0};
 std::atomic<int> g_debug_ckpt_fail_mode{0};
+std::atomic<bool> g_debug_ckpt_hold_sync{false};  // the final fdatasync's completion held (S3.1)
 
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
   std::fprintf(stderr, "snc: handler contract violated: %s (op %s)\n", what, op ? op->name : "?");
@@ -83,6 +84,7 @@ void debug_ckpt_fail_write(u64 index, int mode) {
   g_debug_ckpt_fail_mode.store(mode);
   g_debug_ckpt_fail_at.store(mode == 0 ? 0 : index + 1);
 }
+void debug_ckpt_hold_sync(bool on) { g_debug_ckpt_hold_sync.store(on); }
 void set_current_shard(Shard* s) { tl_shard = s; }
 
 Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
@@ -2124,10 +2126,24 @@ void Shard::checkpoint_process_held() {
     }
     checkpoint_write_complete(h.w, h.result);
   }
+  if (ckpt_sync_held_ && !g_debug_ckpt_hold_sync.load(std::memory_order_relaxed)) {
+    ckpt_sync_held_ = false;
+    checkpoint_sync_complete(ckpt_sync_result_);
+  }
 }
 
 void Shard::checkpoint_sync_done(void* ctx, int result) {
   auto* s = static_cast<Shard*>(ctx);
+  if (g_debug_ckpt_hold_sync.load(std::memory_order_relaxed)) {
+    s->ckpt_sync_held_ = true;  // tests: processed by checkpoint_process_held
+    s->ckpt_sync_result_ = result;
+    return;
+  }
+  s->checkpoint_sync_complete(result);
+}
+
+void Shard::checkpoint_sync_complete(int result) {
+  Shard* s = this;
   Checkpoint& c = s->ckpt_;
   if (result < 0) {
     errno = -result;
@@ -2179,7 +2195,10 @@ void Shard::pace(u64 now) {
 
 void Shard::checkpoint_step() {
   Checkpoint& c = ckpt_;
-  if (!ckpt_held_.empty() || !ckpt_deferred_.empty()) checkpoint_process_held();
+  if (!ckpt_held_.empty() || !ckpt_deferred_.empty() || ckpt_sync_held_) {
+    checkpoint_process_held();
+    if (!ckpt_.active) return;  // a held final sync completed: the checkpoint is over
+  }
   const u64 t0 = sri_now_ns();
   pace(t0);
   if (c.syncing) return;

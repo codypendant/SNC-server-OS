@@ -1834,3 +1834,23 @@ or source comments.
     suite (dsync default) and the suite under `SNC_CKPT_IO=legacy`.
 -   **Evidence:** `bench/results/s3-validation-devvm-20261108/`.
 -   **Next action:** review. No S4, R640 load, CP-1A or competitors.
+
+### 2026-11-08 UTC --- Claude (Claude Code): S3.1 engine lifecycle under checkpoint I/O, for review
+
+-   **Classification:** REFINE (engine lifecycle). CC-1..CC-5, part
+    format, recovery, WAL, admission and `kEmitBacklog` unchanged.
+-   **What:** `docs/handoff/PR77_S3_Review.txt` (S3 core approved; teardown
+    use-after-free a blocker). Traced: the use-after-free was the static
+    `EngineState` freed at process exit under live shard threads; shard
+    teardown already waited for checkpoint I/O; `stop()` during
+    `checkpoint()` abandoned the waiter. Fix: `checkpoint()` holds a
+    lifecycle lock that `stop()` takes first (checkpoint finishes, then
+    stop); the Engine owns its state. Test hook for the final sync.
+-   **Tests:** S3-T14..T18 (`tests/test_s3_writeback.cpp`); five negative
+    mutations including the runtime drain.
+-   **Evidence:** `bench/results/s31-validation-devvm-20261108/`;
+    `docs/S3_WRITEBACK.md` section 10.
+-   **Open:** other Engine entry points that submit to shards are not
+    serialized with `stop()` (out of S3.1 scope, for review).
+-   **Next action:** review. No S4, R640 load, CP-1A, competitors or
+    follow-up intake slice.

@@ -656,6 +656,11 @@ class Shard {
     u64 off;
   };
   std::vector<DeferredWrite> ckpt_deferred_;
+  // Tests only (Engine::debug_ckpt_hold_sync): the final fdatasync's
+  // completion, kept unprocessed while the hold is on.
+  bool ckpt_sync_held_ = false;
+  int ckpt_sync_result_ = 0;
+  void checkpoint_sync_complete(int result);
   void checkpoint_issue(CkptWrite* w, u64 off);  // sri_write, counting the synchronous fallback
   bool checkpoint_submit_chunk();  // false: the window is full and the chunk stays
   void checkpoint_write_complete(CkptWrite* w, int result);
@@ -748,6 +753,7 @@ void debug_ckpt_hold_writes(bool on);
 void debug_ckpt_defer_writes(bool on);
 void debug_ckpt_release_writes(u32 n, bool newest_first);
 void debug_ckpt_fail_write(u64 index, int mode);
+void debug_ckpt_hold_sync(bool on);
 void set_current_shard(Shard* s);
 
 }  // namespace snc

@@ -51,8 +51,10 @@ Decided by cody on 2026-11-04.
      ([S3D_WRITEBACK.md](S3D_WRITEBACK.md), PR #76) chose C3 and was
      approved with conditions
      ([handoff/PR76_S3D_Review.txt](handoff/PR76_S3D_Review.txt)). S3, the
-     bounded writeback ([S3_WRITEBACK.md](S3_WRITEBACK.md)), is built and
-     awaits review. Required before S6, as its own reviewed
+     bounded writeback ([S3_WRITEBACK.md](S3_WRITEBACK.md), PR #77), had
+     its core approved; completion waits on S3.1, the engine lifecycle fix
+     for teardown with checkpoint I/O in flight (section 10 there), which
+     awaits review ([handoff/PR77_S3_Review.txt](handoff/PR77_S3_Review.txt)). Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

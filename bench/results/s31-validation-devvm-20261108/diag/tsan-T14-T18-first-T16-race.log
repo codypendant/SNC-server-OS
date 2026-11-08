@@ -1,0 +1,140 @@
+T16b exit with a running engine and writes in flight: exit status 7, no sanitizer report
+==================
+WARNING: ThreadSanitizer: data race (pid=1413)
+  Write of size 8 at 0x725800000880 by thread T20:
+    #0 operator delete[](void*, std::align_val_t) ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:168 (libtsan.so.2+0xa6a28) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::enable_if<std::is_convertible<snc::ShardGauges (*) [], snc::ShardGauges (*) []>::value, void>::type std::default_delete<snc::ShardGauges []>::operator()<snc::ShardGauges>(snc::ShardGauges*) const /usr/include/c++/13/bits/unique_ptr.h:140 (test_s3_writeback+0xd9833) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 std::unique_ptr<snc::ShardGauges [], std::default_delete<snc::ShardGauges []> >::~unique_ptr() /usr/include/c++/13/bits/unique_ptr.h:674 (test_s3_writeback+0xd4769) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 snc::EngineState::~EngineState() /home/claude/snc-server-os/src/core/engine.cpp:199 (test_s3_writeback+0xd8963) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 std::default_delete<snc::EngineState>::operator()(snc::EngineState*) const /usr/include/c++/13/bits/unique_ptr.h:99 (test_s3_writeback+0xd89ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::__uniq_ptr_impl<snc::EngineState, std::default_delete<snc::EngineState> >::reset(snc::EngineState*) /usr/include/c++/13/bits/unique_ptr.h:211 (test_s3_writeback+0xd941b) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::unique_ptr<snc::EngineState, std::default_delete<snc::EngineState> >::reset(snc::EngineState*) /usr/include/c++/13/bits/unique_ptr.h:509 (test_s3_writeback+0xd4a11) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 snc::Engine::~Engine() /home/claude/snc-server-os/src/core/engine.cpp:315 (test_s3_writeback+0xa3fb5) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 operator() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:979 (test_s3_writeback+0x150d1) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #9 __invoke_impl<void, test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_s3_writeback+0x1f192) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #10 __invoke<test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_s3_writeback+0x1ef4a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #11 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_s3_writeback+0x1ed9e) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #12 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_s3_writeback+0x1ec66) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #13 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_s3_writeback+0x1eb26) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #14 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Previous atomic read of size 8 at 0x725800000880 by main thread:
+    #0 std::__atomic_base<unsigned long>::load(std::memory_order) const /usr/include/c++/13/bits/atomic_base.h:505 (test_s3_writeback+0xd054f) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #1 snc::ShardGauges::read() const /home/claude/snc-server-os/include/snc/gauges.h:280 (test_s3_writeback+0xd054f)
+    #2 snc::Engine::gauges(unsigned short) const /home/claude/snc-server-os/src/core/engine.cpp:1505 (test_s3_writeback+0xb48ec) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 fresh /home/claude/snc-server-os/tests/test_s3_writeback.cpp:128 (test_s3_writeback+0xb1e6) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 check_still_held /home/claude/snc-server-os/tests/test_s3_writeback.cpp:897 (test_s3_writeback+0x14572) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:982 (test_s3_writeback+0x152f8) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #9 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #10 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+  Thread T20 (tid=1464, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:981 (test_s3_writeback+0x152c1) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+SUMMARY: ThreadSanitizer: data race ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:168 in operator delete[](void*, std::align_val_t)
+==================
+==================
+WARNING: ThreadSanitizer: data race (pid=1413)
+  Write of size 8 at 0x728400001088 by thread T20:
+    #0 std::unique_ptr<snc::ShardGauges [], std::default_delete<snc::ShardGauges []> >::~unique_ptr() /usr/include/c++/13/bits/unique_ptr.h:675 (test_s3_writeback+0xd4775) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #1 snc::EngineState::~EngineState() /home/claude/snc-server-os/src/core/engine.cpp:199 (test_s3_writeback+0xd8963) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 std::default_delete<snc::EngineState>::operator()(snc::EngineState*) const /usr/include/c++/13/bits/unique_ptr.h:99 (test_s3_writeback+0xd89ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 std::__uniq_ptr_impl<snc::EngineState, std::default_delete<snc::EngineState> >::reset(snc::EngineState*) /usr/include/c++/13/bits/unique_ptr.h:211 (test_s3_writeback+0xd941b) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 std::unique_ptr<snc::EngineState, std::default_delete<snc::EngineState> >::reset(snc::EngineState*) /usr/include/c++/13/bits/unique_ptr.h:509 (test_s3_writeback+0xd4a11) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 snc::Engine::~Engine() /home/claude/snc-server-os/src/core/engine.cpp:315 (test_s3_writeback+0xa3fb5) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 operator() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:979 (test_s3_writeback+0x150d1) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 __invoke_impl<void, test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_s3_writeback+0x1f192) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 __invoke<test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_s3_writeback+0x1ef4a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #9 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_s3_writeback+0x1ed9e) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #10 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_s3_writeback+0x1ec66) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #11 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_s3_writeback+0x1eb26) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #12 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Previous read of size 8 at 0x728400001088 by main thread:
+    #0 std::__uniq_ptr_impl<snc::ShardGauges, std::default_delete<snc::ShardGauges []> >::_M_ptr() const /usr/include/c++/13/bits/unique_ptr.h:199 (test_s3_writeback+0xd99bd) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #1 std::unique_ptr<snc::ShardGauges [], std::default_delete<snc::ShardGauges []> >::get() const /usr/include/c++/13/bits/unique_ptr.h:732 (test_s3_writeback+0xd4828) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 std::unique_ptr<snc::ShardGauges [], std::default_delete<snc::ShardGauges []> >::operator bool() const /usr/include/c++/13/bits/unique_ptr.h:749 (test_s3_writeback+0xd8100) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 snc::Engine::gauges(unsigned short) const /home/claude/snc-server-os/src/core/engine.cpp:1504 (test_s3_writeback+0xb4851) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 fresh /home/claude/snc-server-os/tests/test_s3_writeback.cpp:128 (test_s3_writeback+0xb1e6) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 check_still_held /home/claude/snc-server-os/tests/test_s3_writeback.cpp:897 (test_s3_writeback+0x14572) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:982 (test_s3_writeback+0x152f8) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #9 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #10 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #11 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+  Location is heap block of size 4304 at 0x728400000000 allocated by main thread:
+    #0 operator new(unsigned long) ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:64 (libtsan.so.2+0xa6fae) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::__detail::_MakeUniq<snc::EngineState>::__single_object std::make_unique<snc::EngineState>() /usr/include/c++/13/bits/unique_ptr.h:1070 (test_s3_writeback+0xd4423) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 snc::Engine::Engine(snc::Engine::Config const&) /home/claude/snc-server-os/src/core/engine.cpp:293 (test_s3_writeback+0xa382f) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:971 (test_s3_writeback+0x1519c) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+  Thread T20 (tid=1464, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:981 (test_s3_writeback+0x152c1) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+SUMMARY: ThreadSanitizer: data race /usr/include/c++/13/bits/unique_ptr.h:675 in std::unique_ptr<snc::ShardGauges [], std::default_delete<snc::ShardGauges []> >::~unique_ptr()
+==================
+==================
+WARNING: ThreadSanitizer: data race (pid=1413)
+  Write of size 8 at 0x72c400014000 by thread T20:
+    #0 operator delete(void*, unsigned long) ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:150 (libtsan.so.2+0xa66c8) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 operator() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:979 (test_s3_writeback+0x150de) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 __invoke_impl<void, test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_s3_writeback+0x1f192) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 __invoke<test_destroy_with_writes()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_s3_writeback+0x1ef4a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_s3_writeback+0x1ed9e) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_s3_writeback+0x1ec66) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_s3_writeback+0x1eb26) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Previous read of size 2 at 0x72c400014000 by main thread:
+    #0 snc::Engine::gauges(unsigned short) const /home/claude/snc-server-os/src/core/engine.cpp:1504 (test_s3_writeback+0xb4864) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #1 fresh /home/claude/snc-server-os/tests/test_s3_writeback.cpp:128 (test_s3_writeback+0xb1e6) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #2 check_still_held /home/claude/snc-server-os/tests/test_s3_writeback.cpp:897 (test_s3_writeback+0x14572) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:982 (test_s3_writeback+0x152f8) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #8 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+  Thread T20 (tid=1464, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 test_destroy_with_writes() /home/claude/snc-server-os/tests/test_s3_writeback.cpp:981 (test_s3_writeback+0x152c1) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #3 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s3_writeback+0x368ad) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #4 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s3_writeback+0x3345d) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #5 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s3_writeback+0x2f20a) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #6 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s3_writeback+0x29988) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+    #7 main /home/claude/snc-server-os/tests/test_s3_writeback.cpp:1093 (test_s3_writeback+0x168f9) (BuildId: 28973d6ff499613645ea82cb12a023b71afaaa99)
+
+SUMMARY: ThreadSanitizer: data race ../../../../src/libsanitizer/tsan/tsan_new_delete.cpp:150 in operator delete(void*, unsigned long)
+==================
+T18 failure with writes outstanding: -EIO on chunk 0 with chunk 1 in flight aborted with only that report; recovered from the previous checkpoint exactly
+T14+T17 stop with 2 chunk writes in flight: stop waited, the shard stayed live, checkpoint 2 committed, then stop returned; checkpoint after stop started nothing
+T15 stop with the final sync in flight: stop waited in SYNC, checkpoint 2 committed, clean stop
+T16 destroy with 2 chunk writes in flight: the destructor waited, checkpoint 2 committed
+test_s3_writeback: all passed
+ThreadSanitizer: reported 3 warnings

@@ -1,0 +1,7 @@
+base 791a8136deb6fe85d3e850f68105de95344f0e1b
+stop-no-wait T14 (release) rc=1 (expected non-zero)
+destroy-no-wait T16 (release) rc=1 (expected non-zero)
+checkpoint-unlocked T15 (release) rc=1 (expected non-zero)
+static-state T16b (asan) rc=1 (expected non-zero)
+no-wait-no-drain T14 (release) rc=1 (expected non-zero)
+done

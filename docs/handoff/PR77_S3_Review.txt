@@ -1,0 +1,224 @@
+PR #77 REVIEW — S3 BOUNDED C3 CHECKPOINT WRITEBACK
+
+DECISION
+
+PR #77 is NOT yet approved as complete S3.
+
+The core S3 design is good and most of the implementation is strong. The PR successfully implements the main requirements from PR #76: C3 `RWF_DSYNC` chunk writes, structural write-window backpressure, per-write buffer ownership, immediate buffer release, W-bounded retained checkpoint memory, correct final-partial-chunk state, exact short-write detection, synchronous fallback observability, legacy rollback, CC-1..CC-5 preservation, and clean 40/40 Release/ASan/TSan/legacy suites at the final SHA.
+
+However, validation exposed a real heap-use-after-free during teardown with checkpoint writes still in flight. The PR leaves that as an open item and calls stopping the engine during a checkpoint a caller error.
+
+That is not acceptable for SNC. Fix the known lifecycle/memory-safety defect on site before S4.
+
+1. CORE S3 MECHANISM — APPROVED
+
+Approved:
+- `RWF_DSYNC` checkpoint chunks;
+- per-shard write window W;
+- structural WALK stop at full window;
+- blocked chunk retried before further encoding;
+- stable per-write completion context;
+- out-of-order completion safety;
+- exact owning buffer released on completion;
+- final `fdatasync` retained;
+- `--ckpt-io legacy|dsync`;
+- configurable W.
+
+2. RETAINED MEMORY BOUND — APPROVED
+
+The old `inflight_bufs` growth problem is resolved.
+
+Checkpoint retained chunk memory is now bounded by the write window plus the building chunk and documented transient growth-copy overhead, rather than by total checkpoint size.
+
+T2/T2b and the new gauges support this.
+
+3. STRUCTURAL BACKPRESSURE — APPROVED
+
+The window is not advisory.
+
+When full:
+- WALK stops;
+- no arbitrary additional chunks are encoded;
+- the current full chunk stays pending;
+- a completion frees a slot;
+- submission succeeds before encoding resumes.
+
+T1/T3/T11 and the negative mutations support this.
+
+4. FINAL PARTIAL CHUNK — APPROVED
+
+The `visited` / `blocked` state handles the last chunk correctly.
+
+The checkpoint stays in WALK until the final pending chunk is actually submitted, then transitions to DRAIN.
+
+5. EXACT COMPLETION — APPROVED
+
+Positive short writes are fatal, just like negative I/O errors.
+
+The expected submitted length is checked exactly.
+
+T6 covers one-byte-short and `-EIO`.
+
+6. SYNCHRONOUS FALLBACK — APPROVED
+
+`sri_write()` reports whether it queued asynchronously, and checkpoint code counts synchronous fallback writes.
+
+Performance/isolation evidence with non-zero synchronous checkpoint fallback remains invalid.
+
+T10 covers the forced path.
+
+7. CC-1..CC-5 — APPROVED
+
+CC-1 visit set unchanged.
+CC-2 WAL retention/reclaim unchanged.
+CC-3 local durability gate before final sync unchanged.
+CC-4 record/replay semantics unchanged.
+CC-5 manifest/superblock/reclaim ordering unchanged.
+
+8. VALIDATION — MOSTLY ACCEPTED
+
+Final headline:
+- Release 40/40;
+- ASan+UBSan 40/40, zero reports;
+- TSan 40/40, zero reports;
+- legacy Release 40/40;
+- seven negative mutations caught.
+
+Earlier failed/stopped runs are correctly preserved and not mixed into headline evidence.
+
+9. BLOCKER — TEARDOWN HEAP-USE-AFTER-FREE
+
+The validation exposed a real memory-safety defect:
+
+if teardown starts while checkpoint writes are still outstanding, checkpoint/write state can be freed while an async completion still refers to it.
+
+ASan reports heap-use-after-free.
+
+Calling this a caller error is not sufficient.
+
+Engine shutdown is a normal lifecycle operation. Internal async checkpoint I/O must be drained, cancelled safely, or shutdown must wait for quiescence before state is destroyed.
+
+Memory safety must not depend on external code knowing the exact internal checkpoint-I/O state.
+
+10. REQUIRED S3.1 LIFETIME CONTRACT
+
+Preferred contract:
+
+`Engine::stop()` / shard shutdown waits until all checkpoint I/O callbacks are quiescent before destroying shard/checkpoint state.
+
+Before destruction:
+- no busy `CkptWrite` remains;
+- no runtime `IoOp` can callback into the shard;
+- no deferred completion points into shard state;
+- no final checkpoint sync callback remains;
+- only then are checkpoint slots/buffers/shard state destroyed.
+
+If cancellation is used instead, prove callback and buffer lifetime through cancellation completion.
+
+Do not use arbitrary sleeps/timeouts as the safety mechanism.
+
+11. CHECKPOINT() VS STOP()
+
+Define deterministic behavior if one thread is blocked in `Engine::checkpoint()` and another starts shutdown.
+
+Acceptable:
+- checkpoint finishes, then stop proceeds; or
+- checkpoint is cancelled/aborted with a defined result.
+
+Not acceptable:
+- deadlock;
+- abandoned waiter;
+- callback into freed state;
+- partial commit.
+
+12. RUNTIME LIFETIME PROOF
+
+Because `sri_write()` stores callback, context pointer, and an iovec to checkpoint memory, teardown safety must extend through the runtime CQ/deferred queue.
+
+Before shard destruction:
+- `w.io_inflight == 0`;
+- no `w.io_deferred` callback targets the shard;
+- no io_uring `IoOp` targets checkpoint state;
+- all checkpoint write contexts/buffers are completed or safely cancelled.
+
+13. REQUIRED S3.1 TESTS
+
+Add at least:
+
+S3-T14 — stop with chunk writes in flight
+Start checkpoint, hold/defer completions, call `Engine::stop()` from another thread, verify no early destruction, release completions, stop returns cleanly.
+
+S3-T15 — stop with final sync in flight
+Reach final `fdatasync`, initiate stop, release completion, clean shutdown.
+
+S3-T16 — destructor safety
+Destroy through the supported lifecycle while checkpoint activity exists; no UAF/leaked callback.
+
+S3-T17 — checkpoint waiter interaction
+One thread in `Engine::checkpoint()`, another initiates stop; prove the chosen finish-or-cancel contract.
+
+S3-T18 — failure-path teardown
+Where practical, exercise a failure while writes are outstanding and prove no secondary UAF obscures the primary failure.
+
+14. DO NOT HIDE THIS WITH TEST TERMINATION
+
+The ctest timeout is fine for CI but is not a fix.
+
+Do not use `_exit()` or similar merely to bypass destructor execution and hide the lifecycle defect.
+
+15. POWER-LOSS LIMITATION — NOT A BLOCKER
+
+T7 is process-crash evidence, not device power-loss evidence.
+
+That limitation is documented accurately and does not block S3.
+
+16. WINDOW / CHUNK VALUES REMAIN HYPOTHESES
+
+W=4 remains provisional.
+1 MiB remains the S3 chunk size, not a universal optimum.
+
+17. NEXT STAGE STATUS
+
+S4 is NOT authorized yet.
+
+After S3.1 closes the teardown lifetime defect and clean validation is rerun, S3 can be considered complete.
+
+18. S3.1 VALIDATION
+
+Required:
+- clean full Release;
+- clean full ASan+UBSan;
+- clean full serial TSan;
+- clean legacy Release;
+- zero sanitizer reports;
+- new shutdown/lifetime tests;
+- negative mutation for premature teardown if practical;
+- independent source review focused on callback/lifetime ownership.
+
+No R640 campaign.
+
+FINAL
+
+PR #77:
+CORE S3 DESIGN: APPROVED.
+C3 WRITE PATH: APPROVED.
+WINDOW BACKPRESSURE: APPROVED.
+BUFFER OWNERSHIP / MEMORY BOUND: APPROVED.
+FINAL CHUNK STATE: APPROVED.
+SHORT-WRITE HANDLING: APPROVED.
+CC-1..CC-5: PRESERVED.
+FINAL 40/40 SUITES: ACCEPTED.
+
+S3 COMPLETION: NOT YET APPROVED.
+
+BLOCKER:
+known heap-use-after-free when engine/shard teardown occurs with checkpoint I/O still in flight.
+
+NEXT:
+S3.1 lifecycle/teardown fix only -> review.
+
+NO S4.
+NO R640 CAMPAIGN.
+NO CP-1A.
+NO COMPETITORS.
+NO FOLLOW-UP INTAKE SLICE YET.

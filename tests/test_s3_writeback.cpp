@@ -43,6 +43,8 @@
 //   T11 foreground progress: with the window full and the walk stopped,
 //       deposits and reads complete
 //   T13 config: a window of 0 or above 64 is refused
+//   T14-T18 lifecycle (S3.1): stop, final sync, destruction, process exit
+//       and a storage failure with checkpoint I/O in flight (see each test)
 // (T12, the existing suites under dsync, is the rest of ctest: dsync is
 // the default.)
 #include <dirent.h>
@@ -872,6 +874,212 @@ void test_config() {
 
 }  // namespace
 
+
+// ---- T14-T18: lifecycle (S3.1; review PR #77 sections 9-13) ---------------------------
+
+// Starts a checkpoint in `bg` with completions held, and waits until W
+// chunk writes are in flight and the walk is stopped.
+void start_held_checkpoint(Engine& eng, Background& bg) {
+  Engine::debug_ckpt_hold_writes(true);
+  bg.start(eng);
+  wait_gauges(eng, [](const GaugeSnapshot& x) { return x[G_CKPT_WINDOW_FULL] == 1; });
+}
+
+// Polls `flag` for up to `ms`: true once set.
+bool becomes(const std::atomic<bool>& flag, int ms) {
+  for (int i = 0; i < ms && !flag.load(); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  return flag.load();
+}
+
+// While a stop (or destruction) waits on a checkpoint in progress, the
+// shard is alive: its gauges keep being published, and nothing moved.
+void check_still_held(Engine& eng, const std::atomic<bool>& ended, Background& bg, u64 phase, u32 inflight) {
+  CHECK(!becomes(ended, 300));  // stop has not returned
+  CHECK(!bg.done.load());       // nor has the checkpoint
+  const GaugeSnapshot g = fresh(eng);  // the shard still publishes (not destroyed)
+  CHECK_EQ(g[G_CKPT_PHASE], phase);
+  CHECK_EQ(g[G_CKPT_WRITES_INFLIGHT], inflight);
+}
+
+// T14 + T17: stop() from another thread while chunk writes are in flight
+// and a thread waits in Engine::checkpoint(). The contract is "the
+// checkpoint finishes, then stop proceeds": stop waits, the shard stays
+// alive, the waiter is not abandoned, and the checkpoint commits. A
+// checkpoint asked for after stop starts nothing (seq 0).
+void test_stop_with_writes() {
+  const u32 w = 2;
+  const std::string dir = temp_dir();
+  const Engine::Config c = config(dir, w);
+  Engine eng(c);
+  eng.start();
+  const std::vector<ObjectID> ids = make_accounts(eng, 60000, 100);
+  const Model m = model_of(ids, 100);
+  Background bg;
+  start_held_checkpoint(eng, bg);
+  std::atomic<bool> stopped{false};
+  std::thread st([&] {
+    eng.stop();
+    stopped = true;
+  });
+  check_still_held(eng, stopped, bg, kWalk, w);
+  Engine::debug_ckpt_hold_writes(false);
+  CHECK(becomes(bg.done, 60000));  // the waiter returns: not abandoned
+  CHECK(becomes(stopped, 60000));
+  bg.join();
+  st.join();
+  CHECK(bg.rep.seq > 0);
+  CHECK_EQ(eng.checkpoint().seq, 0u);  // stopped: nothing started
+  recover_exact(c, bg.rep.seq, m);     // it committed: recovery uses it
+  rm_rf(dir);
+  std::printf("T14+T17 stop with %u chunk writes in flight: stop waited, the shard stayed live, checkpoint %llu "
+              "committed, then stop returned; checkpoint after stop started nothing\n",
+              w, (unsigned long long)bg.rep.seq);
+}
+
+// T15: stop() while the final fdatasync is in flight (its completion held).
+void test_stop_with_final_sync() {
+  const std::string dir = temp_dir();
+  const Engine::Config c = config(dir, 2);
+  Engine eng(c);
+  eng.start();
+  const std::vector<ObjectID> ids = make_accounts(eng, 30000, 100);
+  const Model m = model_of(ids, 100);
+  Engine::debug_ckpt_hold_sync(true);
+  Background bg;
+  bg.start(eng);
+  const u64 sync = static_cast<u64>(CkptPhase::SYNC);
+  wait_gauges(eng, [&](const GaugeSnapshot& x) { return x[G_CKPT_PHASE] == sync; });
+  std::atomic<bool> stopped{false};
+  std::thread st([&] {
+    eng.stop();
+    stopped = true;
+  });
+  check_still_held(eng, stopped, bg, sync, 0);
+  Engine::debug_ckpt_hold_sync(false);
+  CHECK(becomes(bg.done, 60000));
+  CHECK(becomes(stopped, 60000));
+  bg.join();
+  st.join();
+  CHECK(bg.rep.seq > 0);
+  recover_exact(c, bg.rep.seq, m);
+  rm_rf(dir);
+  std::printf("T15 stop with the final sync in flight: stop waited in SYNC, checkpoint %llu committed, clean stop\n",
+              (unsigned long long)bg.rep.seq);
+}
+
+// T16: destruction through the supported lifecycle while a checkpoint is
+// in progress on another thread: the owning thread calls stop() and then
+// deletes the Engine. stop() waits for the checkpoint (whose last access
+// to the Engine, the lifecycle unlock, happens before stop returns), so
+// the destructor frees nothing the checkpoint or its in-flight writes
+// use. Calling into an Engine whose destructor has begun is not supported
+// (as for any C++ object), so ~Engine is reached only after stop().
+void test_destroy_with_writes() {
+  const u32 w = 2;
+  const std::string dir = temp_dir();
+  const Engine::Config c = config(dir, w);
+  auto* eng = new Engine(c);
+  eng->start();
+  const std::vector<ObjectID> ids = make_accounts(*eng, 60000, 100);
+  const Model m = model_of(ids, 100);
+  Background bg;
+  start_held_checkpoint(*eng, bg);
+  std::atomic<bool> destroyed{false};
+  std::thread d([&] {
+    eng->stop();
+    delete eng;
+    destroyed = true;
+  });
+  // Not probed through the gauges, as T14 does: the owning thread may be
+  // inside delete by the time a probe runs.
+  CHECK(!becomes(destroyed, 300));
+  CHECK(!bg.done.load());
+  Engine::debug_ckpt_hold_writes(false);
+  CHECK(becomes(bg.done, 60000));
+  CHECK(becomes(destroyed, 60000));
+  bg.join();
+  d.join();
+  CHECK(bg.rep.seq > 0);
+  recover_exact(c, bg.rep.seq, m);
+  rm_rf(dir);
+  std::printf("T16 stop + delete with %u chunk writes in flight: both waited, checkpoint %llu committed, the Engine "
+              "was destroyed after it\n",
+              w, (unsigned long long)bg.rep.seq);
+}
+
+// T16b: a process that exits (std::exit, static destructors run) with an
+// Engine still running and checkpoint writes in flight. Before S3.1 the
+// engine's state was a static and was freed under the shard threads (the
+// heap-use-after-free of PR #77's validation). Now the Engine owns it:
+// the child exits with its own status and no sanitizer report. This
+// proves only that the engine frees nothing of its own at exit; other
+// static destructors still run under live threads, so exit is not a
+// supported shutdown: stop() first (docs/S3_WRITEBACK.md section 10).
+void test_exit_with_writes() {
+  const std::string dir = temp_dir();
+  const pid_t pid = fork_child([&] {
+    const int fd = ::open((dir + "/stderr").c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0 || ::dup2(fd, 2) < 0) std::_Exit(6);
+    auto* eng = new Engine(config(dir, 2));  // never destroyed: still running at exit
+    eng->start();
+    make_accounts(*eng, 60000, 100);
+    auto* bg = new Background;
+    start_held_checkpoint(*eng, *bg);
+    std::exit(7);
+  });
+  int st = 0;
+  CHECK_EQ(::waitpid(pid, &st, 0), pid);
+  std::ifstream in(dir + "/stderr");
+  std::stringstream ss;
+  ss << in.rdbuf();
+  const std::string text = ss.str();
+  if (!(WIFEXITED(st) && WEXITSTATUS(st) == 7)) std::fprintf(stderr, "T16b child stderr:\n%s\n", text.c_str());
+  CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 7);
+  CHECK(text.find("Sanitizer") == std::string::npos);
+  rm_rf(dir);
+  std::printf("T16b exit with a running engine and writes in flight: exit status 7, no sanitizer report\n");
+}
+
+// T18: a storage failure while other chunk writes are outstanding. The
+// failure is fatal (abort, no destructors), and nothing secondary (a
+// use-after-free in teardown) hides it: the report names the failure and
+// no sanitizer report follows; recovery uses the previous checkpoint.
+void test_failure_with_writes() {
+  const u32 w = 2;
+  const std::string dir = temp_dir();
+  const pid_t pid = fork_child([&] {
+    const int fd = ::open((dir + "/stderr").c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0 || ::dup2(fd, 2) < 0) std::_Exit(6);
+    Engine eng(config(dir, w));
+    eng.start();
+    ChildState s = child_setup(eng);
+    write_model(dir, s.seq, s.m);
+    Engine::debug_ckpt_fail_write(0, 2);  // the first chunk: -EIO
+    Background bg;
+    start_held_checkpoint(eng, bg);  // W in flight, a third chunk blocked
+    std::fprintf(stderr, "T18 child: %llu chunk writes in flight\n",
+                 (unsigned long long)fresh(eng)[G_CKPT_WRITES_INFLIGHT]);
+    Engine::debug_ckpt_hold_writes(false);  // chunk 0 fails with chunk 1 outstanding
+    bg.join();                              // must not return
+    std::_Exit(7);
+  });
+  int st = 0;
+  CHECK_EQ(::waitpid(pid, &st, 0), pid);
+  std::ifstream in(dir + "/stderr");
+  std::stringstream ss;
+  ss << in.rdbuf();
+  const std::string text = ss.str();
+  CHECK(WIFSIGNALED(st) && WTERMSIG(st) == SIGABRT);
+  CHECK(text.find("T18 child: 2 chunk writes in flight") != std::string::npos);
+  CHECK(text.find("checkpoint write failed") != std::string::npos);
+  CHECK(text.find("Sanitizer") == std::string::npos);
+  CHECK(text.find("runtime error") == std::string::npos);
+  recover_after_crash(dir, w);
+  rm_rf(dir);
+  std::printf("T18 failure with writes outstanding: -EIO on chunk 0 with chunk 1 in flight aborted with only that "
+              "report; recovered from the previous checkpoint exactly\n");
+}
+
 int main(int argc, char** argv) {
   register_type();
   // Each test sets the write path it tests; the suite-wide override
@@ -884,6 +1092,8 @@ int main(int argc, char** argv) {
       {"T13", test_config},
       {"T6", test_completion_errors},  // forks: first, with no engine thread alive
       {"T7", test_crash_positions},
+      {"T16b", test_exit_with_writes},  // forks
+      {"T18", test_failure_with_writes},  // forks
       {"T1", test_window_bound},
       {"T2", test_memory_bound},
       {"T2b", test_memory_bound_max_objects},
@@ -893,6 +1103,9 @@ int main(int argc, char** argv) {
       {"T9", test_legacy},
       {"T10", test_sync_fallback},
       {"T11", test_foreground},
+      {"T14", test_stop_with_writes},
+      {"T15", test_stop_with_final_sync},
+      {"T16", test_destroy_with_writes},
   };
   for (const auto& [name, fn] : tests) {
     bool run = argc == 1;

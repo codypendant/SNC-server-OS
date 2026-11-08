@@ -1,0 +1,11 @@
+release run1 start sha da88df2d0887ec97b90c631e870c6e7521d738e3 2026-11-08T13:38:05Z env: SNC_X=0
+release run1 rc=0 14:04:30
+asan run1 start sha da88df2d0887ec97b90c631e870c6e7521d738e3 2026-11-08T14:05:26Z env: SNC_SANITIZED=1
+asan run1 rc=0 14:34:57
+tsan run1 start sha da88df2d0887ec97b90c631e870c6e7521d738e3 2026-11-08T14:35:36Z env: SNC_SANITIZED=1
+tsan run1 rc=0 15:12:28
+release-legacy run1 start sha da88df2d0887ec97b90c631e870c6e7521d738e3 2026-11-08T15:12:46Z env: SNC_CKPT_IO=legacy
+release-legacy run1 rc=8 15:39:00
+release-legacy run1 FAILED: test_net_bench_rate stall_open end_backlog 1 (expected 0); no data dir in that test (in-memory server), so the checkpoint path and SNC_CKPT_IO do not apply. Full legacy suite rerun once as run2; both reported.
+release-legacy run2 start sha da88df2d0887ec97b90c631e870c6e7521d738e3 2026-11-08T15:39:39Z env: SNC_CKPT_IO=legacy
+release-legacy run2 rc=0 16:06:05
