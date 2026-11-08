@@ -1,0 +1,8 @@
+base 055cfbf47d29a1d4c173b1b92d24ecf386eb46ed
+lease-uncounted R (release) rc=1 (expected non-zero)
+lease-in-stopping R (release) rc=1 (expected non-zero)
+promote-unserialized C1A (release) rc=0 (expected non-zero)
+checkpoint-unserialized C1B (release) rc=1 (expected non-zero)
+lease-run-on-all-shard R (release) rc=1 (expected non-zero)
+done
+INVALID for promote-unserialized: its pattern no longer matched after the review fix (the at_control clear sits after the lock), the patch step failed silently and the unmutated build ran (log shows all passed). Script fixed to stop on a failed patch; see attempt3.

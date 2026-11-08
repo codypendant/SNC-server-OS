@@ -1,0 +1,3 @@
+snc: start barrier done: serving as a primary
+C1-C3 checkpoint then promote: the second waited for the whole first; superblock after both: term 1, checkpoint committed, lease block kept, generation +2; checkpoint role standby; recovery succeeded
+test_lifecycle: all passed

@@ -28,6 +28,7 @@ while i < len(rest):
     assert s.count(old) == 1, ("pattern not unique", old)
     open(p, 'w').write(s.replace(old, new))
 PY
+  [ $? -eq 0 ] || { echo "$name MUTATION NOT APPLIED (pattern did not match)" >> "$OUT/summary.txt"; rm -rf "$WORK/src-$name"; return; }
   if [ "$flavour" = asan ]; then
     cmake -S "$WORK/src-$name" -B "$WORK/build-$name" -DCMAKE_BUILD_TYPE=Debug \
       -DCMAKE_CXX_FLAGS=-fsanitize=address,undefined > /dev/null 2>&1
@@ -61,8 +62,8 @@ mutate lease-in-stopping R src/core/engine.cpp release \
 #    checkpoint (order A).
 mutate promote-unserialized C1A src/core/engine.cpp release \
   "  std::lock_guard<std::mutex> control(control_mu_);
-  if (!running_ || !standby_() || cfg_.data_dir.empty()) {" \
-  "  if (!running_ || !standby_() || cfg_.data_dir.empty()) {"
+  g_debug_promote_at_control.store(false);" \
+  "  g_debug_promote_at_control.store(false);"
 # C5b. checkpoint() without it: it commits inside a parked promotion
 #    (order B).
 mutate checkpoint-unserialized C1B src/core/engine.cpp release \

@@ -1,0 +1,1 @@
+/home/claude/s33neg-work/src-lease-uncounted/tests/test_lifecycle.cpp:605: CHECK failed: becomes([&] { return eng.lifecycle() == Lifecycle::STOPPING; }, 10000)
