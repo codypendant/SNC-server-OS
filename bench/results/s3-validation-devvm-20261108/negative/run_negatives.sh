@@ -20,7 +20,7 @@ open(p, 'w').write(s.replace(old, new))
 PY
   cmake -S "$WORK/src-$name" -B "$WORK/build-$name" -DCMAKE_BUILD_TYPE=Release > /dev/null 2>&1
   cmake --build "$WORK/build-$name" --target test_s3_writeback -j4 > "$OUT/$name-build.log" 2>&1 || { echo "$name BUILD FAILED" >> "$OUT/summary.txt"; return; }
-  (cd "$WORK/build-$name" && timeout 300 ./test_s3_writeback "$test" > "$OUT/$name-$test.log" 2>&1)
+  (cd "$WORK/build-$name" && ulimit -f 2097152 && timeout 300 ./test_s3_writeback "$test" > "$OUT/$name-$test.log" 2>&1)
   local rc=$?
   echo "$name $test rc=$rc (expected non-zero)" >> "$OUT/summary.txt"
   rm -rf "$WORK/src-$name" "$WORK/build-$name"
