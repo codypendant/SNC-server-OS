@@ -502,8 +502,9 @@ class Engine {
 
     // Staggered final sync (slice S4, docs/S4_SYNC_TOKENS.md): at most
     // ckpt_sync_tokens shards of this node issue their part's final
-    // fdatasync at once; the others wait, in request order, without
-    // blocking their threads. 0 = unlimited, the behaviour before S4
+    // fdatasync at once; the others wait without blocking their threads
+    // and become eligible in request order (grants are not strictly FIFO:
+    // docs/S4_SYNC_TOKENS.md section 2). 0 = unlimited, the behaviour before S4
     // (every part syncs as soon as it is ready). K is a hypothesis to be
     // characterized on the target hardware; 0..256.
     u32 ckpt_sync_tokens = 0;
@@ -765,6 +766,9 @@ class Engine {
     u32 limit = 0;  // K; 0 = unlimited
     u64 requests = 0, grants = 0, releases = 0;
     u64 active = 0, waiting = 0;
+    // waiting / waiting_peak: tickets not yet granted, which includes the
+    // instant between a ticket and its first poll; not by itself a denied
+    // wait (per-shard ckpt_token_wait_* and ckpt_sync_state say that).
     u64 active_peak = 0, waiting_peak = 0, wait_max_us = 0;
     // Final fdatasyncs in flight now and at most, counted around the sync
     // itself, independently of the tokens (equal to active when no shard

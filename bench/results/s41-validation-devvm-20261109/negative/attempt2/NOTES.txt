@@ -1,0 +1,7 @@
+Attempt 2 at 617a080 (after the review fixes): 4 of 4 caught.
+- N7 one-call-send: A1 fails on received content (got.size() != kBig+1),
+  not on a counter wait as in attempt 1.
+- N8 blocking-write: A1 fails because HEALTH gets no "OK" within its 3 s
+  receive timeout (the loop is held by the blocking writer).
+- N9 no-deadline: A2 times out waiting for the write deadline.
+- N10 no-bound: A3 finds more than kMax replies waiting.

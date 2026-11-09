@@ -1,0 +1,420 @@
+SNC SERVER OS — PR #81 REVIEW HANDOFF
+S4: STAGGERED FINAL CHECKPOINT SYNC
+
+REVIEW BASIS
+- PR #81 current GitHub state reviewed directly.
+- PR is already merged.
+- Reviewed S4 design, SyncTokens allocator, shard integration, Engine wiring,
+  gauges/HEALTH, test_s4_sync_tokens, validation evidence, negative mutations,
+  and the admin GAUGES response path.
+
+============================================================
+DECISION
+============================================================
+
+S4 CORE MECHANISM: APPROVED.
+
+PR #81 / S4 COMPLETION: HOLD FOR ONE SMALL S4.1 FIX-ON-DISCOVERY PASS.
+
+The checkpoint-sync mechanism itself is sound:
+- K is configurable and remains a hypothesis.
+- K=0 restores the pre-S4 scheduling point.
+- waiting for a token does not block the shard loop.
+- at most K unreleased final-sync operations can exist.
+- completion releases the token before the fatal path.
+- checkpoint publication still waits for every shard.
+- CC-1 through CC-5 are preserved.
+- functional and sanitizer evidence is strong.
+
+However, review found one real admin-path defect and one documentation/contract
+overclaim that should be corrected before S4 is declared completely closed.
+
+Do NOT start the follow-up-intake slice, S5, S6, R640, CP-1A or comparators
+until this small S4.1 pass is reviewed.
+
+============================================================
+1. S4 TOKEN MECHANISM — APPROVED
+============================================================
+
+Implementation:
+
+A shard that has:
+- completed checkpoint WALK;
+- drained checkpoint chunk writes; and
+- reached local WAL durability through the part's max_lsn
+
+takes one ticket from the Engine's SyncTokens object.
+
+It then polls non-blockingly until its ticket satisfies the K-window test.
+
+On grant:
+- token accounting increments;
+- sync-inflight accounting increments;
+- the shard enters SYNC;
+- final fdatasync is issued.
+
+On completion:
+- sync-inflight is decremented;
+- token is released;
+- error is then handled;
+- successful completion closes the part and reports it to Engine::checkpoint.
+
+This is consistent with the S4 work order.
+
+============================================================
+2. HARD K BOUND — APPROVED
+============================================================
+
+The allocator uses monotonic requests/grants/releases counters.
+
+The operative eligibility test is:
+
+    ticket < releases + K
+
+for K != 0.
+
+Each release corresponds to a previously granted final sync completion.
+
+Even if completion order differs from ticket order, grants minus releases
+cannot exceed K through the implemented ticket-window mechanism.
+
+The separate sync-inflight counter is also useful as a structural check.
+
+K=0 bypasses the limit and grants at the first poll, preserving the S3
+scheduling point apart from bookkeeping overhead.
+
+============================================================
+3. NONBLOCKING WAIT — APPROVED
+============================================================
+
+A shard waiting for a sync token does not sleep on a mutex or condition
+variable.
+
+checkpoint_step() simply returns after a failed try_acquire(), which returns
+control to the normal shard loop.
+
+The shard continues:
+- WAL polling;
+- foreground operations;
+- follow-ups;
+- runtime I/O;
+- control work.
+
+T4 provides useful evidence: foreground durable deposits and reads continue
+while seven parts wait behind K=1.
+
+============================================================
+4. CC-1 THROUGH CC-5 — APPROVED
+============================================================
+
+CC-1 coverage:
+unchanged.
+
+CC-2 redo completeness:
+unchanged.
+
+CC-3 no future state:
+the final-sync path still requires local WAL durability through max_lsn before
+request/grant/sync. The condition is re-evaluated on every token-wait step.
+
+CC-4 replay:
+unchanged.
+
+CC-5 atomic publication:
+unchanged. Parts may become durable at different times, but the checkpoint is
+not made authoritative until the existing manifest/superblock commit sequence
+after every shard has completed.
+
+============================================================
+5. VALIDATION — ACCEPTED
+============================================================
+
+Accepted headline evidence at code 6cb1cee:
+
+- Release serial: 42/42
+- ASan+UBSan serial: 42/42, zero reports
+- TSan serial: 42/42, zero reports
+- Legacy checkpoint I/O: 42/42
+- Whole suite under K=1: 42/42
+- Negative mutations: 6/6 caught
+
+The first TSan run found a race in T6 test code, not the engine. It was retained
+in evidence and corrected before the accepted run.
+
+The first negative attempt was invalid because of a script error and was also
+retained rather than presented as evidence.
+
+This evidence handling is accepted.
+
+============================================================
+6. FINDING A — ADMIN GAUGES CAN BE SILENTLY TRUNCATED
+    FIX-ON-DISCOVERY BLOCKER
+============================================================
+
+The S4 document itself notes that GAUGES is now about 20 KB for eight shards
+and that a slow remote link could cut it short.
+
+Inspection confirms the defect.
+
+GAUGES is handled as an inline admin verb.
+
+admin::Loop::reply_close() does:
+
+    send(fd, s.data(), s.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+    close(fd);
+
+It retries EINTR only when send returns a negative value.
+
+It does NOT handle:
+- a positive partial write;
+- EAGAIN/EWOULDBLOCK;
+- a reply larger than what the socket accepts in one call.
+
+Therefore a valid GAUGES response can be silently truncated and the connection
+then closed.
+
+The current `n > 8` refusal reduces payload size but does not make one
+nonblocking send a correctness guarantee. Even an 8-shard response can legally
+be partially accepted.
+
+This is not a checkpoint-data correctness bug, but it is a confirmed
+operability/observability defect discovered in this slice.
+
+Our standing rule is fix confirmed defects on site.
+
+REQUIRED S4.1 FIX:
+
+Make GAUGES delivery complete-or-explicitly-failed without blocking the main
+admin/HEALTH loop indefinitely.
+
+Acceptable designs include:
+- a bounded write-all path off the inline loop;
+- moving GAUGES to a worker/output path with an explicit send deadline;
+- a nonblocking queued response state machine in the admin loop.
+
+Do NOT make HEALTH wait behind a slow GAUGES client.
+
+Required properties:
+1. No silent positive partial write.
+2. No infinite block on a client that stops reading.
+3. HEALTH remains immediate/nonblocking.
+4. Full GAUGES response is delivered when the client reads normally.
+5. Timeout/failure closes explicitly rather than pretending a complete reply
+   was sent.
+
+TEST:
+Force a small socket send buffer / slow reader so the reply cannot fit in one
+send. Verify either:
+- the full GAUGES line is received; or
+- an explicit bounded failure policy occurs.
+
+A one-call send followed by close must fail that test.
+
+============================================================
+7. FINDING B — "GRANTED IN TICKET ORDER" IS STRONGER THAN THE CODE
+    DOCUMENTATION/CONTRACT FIX REQUIRED
+============================================================
+
+The PR body, header comments and T3 output repeatedly say tokens are "granted
+in ticket order."
+
+The current algorithm guarantees ordered ELIGIBILITY, but not strict FIFO
+grant order.
+
+Example with K=2:
+
+- tickets 0 and 1 are eligible;
+- ticket 1 polls first, acquires, and completes;
+- releases becomes 1 before ticket 0 has polled/acquired;
+- ticket 2 is now eligible because 2 < 1 + 2;
+- ticket 2 may acquire before ticket 0.
+
+The K bound still holds.
+
+This also does not create allocator starvation in the current checkpoint
+model, because:
+- there is only one ticket per shard per checkpoint;
+- the number of tickets in one checkpoint is finite;
+- the next checkpoint cannot begin until every shard in the current checkpoint
+  completes;
+- assuming an unstalled shard keeps polling, an earlier ticket eventually
+  acquires.
+
+So the ENGINE MECHANISM does not need to change merely to satisfy S4-I3.
+
+But the documentation and test claims must match the actual contract.
+
+REQUIRED S4.1 CHOICE:
+
+Preferred:
+- keep the current allocator;
+- state that tickets establish an eligibility frontier, not strict FIFO grant
+  order;
+- document that later eligible tickets may overtake an earlier eligible ticket
+  whose shard has not polled yet;
+- state the actual no-starvation argument above;
+- rename/reword T3 output/comments so they prove ordered ticket assignment,
+  eligibility/progress, and eventual acquisition — not strict FIFO execution.
+
+Alternative:
+- if strict FIFO is intentionally required, change the allocator so only the
+  next grant ticket can acquire, and test adversarial polling order.
+
+Do not leave the current stronger claim in the design.
+
+============================================================
+8. OBSERVABILITY NOTE — NONBLOCKING
+============================================================
+
+`waiting = requests - grants` and `waiting_peak` describe ticket requests not
+yet granted.
+
+Because take_ticket() increments requests immediately before try_acquire(), an
+immediate grant can create a very short counter-level "waiting" interval even
+when per-shard token wait time is 0 us.
+
+This does not affect correctness.
+
+For future dashboards, do not interpret waiting_peak as necessarily meaning a
+shard experienced a measurable denied-token wait. The per-shard token wait
+duration/state is the stronger signal.
+
+This can be clarified in S4.1 documentation; no engine change is required.
+
+============================================================
+9. T5 CRASH EVIDENCE — INTERPRETATION ACCEPTED
+============================================================
+
+T5 correctly limits its claim.
+
+Held completion does not mean the device has not already completed the kernel
+fdatasync, and a process crash is not a power-loss test.
+
+T5 proves checkpoint publication/recovery ordering under staggered part
+completion.
+
+It does NOT prove storage-device power-loss durability.
+
+That distinction is correctly documented and accepted.
+
+============================================================
+10. S4.1 SCOPE
+============================================================
+
+S4.1 must be small.
+
+ONLY:
+A. fix bounded complete GAUGES response delivery;
+B. correct the FIFO/fairness contract wording and T3 claims;
+C. optionally clarify waiting_peak semantics.
+
+Do NOT change:
+- SyncTokens K-bound mechanism unless strict FIFO is deliberately chosen;
+- S1;
+- S2;
+- C3/RWF_DSYNC writeback;
+- checkpoint format;
+- WAL format;
+- recovery;
+- manifest/superblock ordering;
+- lifecycle;
+- replication;
+- promotion;
+- kEmitBacklog;
+- follow-up intake.
+
+============================================================
+11. S4.1 VALIDATION
+============================================================
+
+Required:
+
+- targeted admin partial-send test;
+- existing S4 T1-T9 remain green;
+- full Release;
+- ASan+UBSan;
+- serial TSan;
+- zero sanitizer reports.
+
+If engine/token code is not changed, the existing S4 negative mutations do not
+need to be redesigned; rerun them only if affected by the patch.
+
+Independent review should verify:
+- HEALTH cannot be held by a slow GAUGES writer;
+- GAUGES cannot silently truncate;
+- fairness documentation exactly matches the allocator.
+
+No R640.
+
+============================================================
+12. AFTER S4.1
+============================================================
+
+If S4.1 is clean:
+
+S4 may be marked COMPLETE.
+
+Next preferred engineering slice:
+
+FOLLOW-UP INTAKE BACKPRESSURE (required before S6).
+
+The known issue:
+a destination WAL stall can continue ingesting non-refusable internal
+follow-ups after client admission has closed, so distributed internal work is
+not yet structurally bounded.
+
+Required direction remains:
+- hard destination WAL/intake threshold;
+- stop draining follow-up request rings at the threshold;
+- leave unsent work with senders so existing sender-side gates bound it;
+- continue making progress on response/control traffic;
+- prove no deadlock and no starvation;
+- preserve acknowledged/internal-work semantics.
+
+S5 ioprio remains OPTIONAL/evidence-driven. Do not start it merely because it
+has a roadmap number.
+
+R640 characterization still comes only after the boundedness work is closed
+and preregistration is ready.
+
+============================================================
+FINAL
+============================================================
+
+PR #81 / S4:
+
+TOKEN K BOUND: APPROVED.
+NONBLOCKING TOKEN WAIT: APPROVED.
+TOKEN RELEASE: APPROVED.
+CC-1..CC-5: APPROVED.
+K=0 ROLLBACK: APPROVED.
+42/42 RELEASE: ACCEPTED.
+42/42 ASAN+UBSAN: ACCEPTED.
+42/42 TSAN: ACCEPTED.
+42/42 LEGACY: ACCEPTED.
+42/42 WHOLE SUITE K=1: ACCEPTED.
+6/6 NEGATIVE MUTATIONS: ACCEPTED.
+
+S4 CORE: APPROVED.
+
+S4 COMPLETE: NOT YET — ONE SMALL S4.1 PASS REQUIRED.
+
+BLOCKER:
+GAUGES can silently truncate because an approximately 20 KB inline reply is
+sent with one MSG_DONTWAIT send() and the fd is closed without handling a
+positive partial write or EAGAIN.
+
+CONTRACT CLEANUP:
+current allocator guarantees the K bound and eventual acquisition, but not
+strict FIFO grant order under adversarial polling/completion order. Correct the
+documentation/test claim or deliberately implement strict FIFO.
+
+NO FOLLOW-UP-INTAKE SLICE YET.
+NO S5.
+NO S6.
+NO R640.
+NO CP-1A.
+NO COMPARATORS.
+
+Always verify, never assume.
+Fix confirmed defects on site.

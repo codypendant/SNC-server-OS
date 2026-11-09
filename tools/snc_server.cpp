@@ -133,8 +133,9 @@ namespace {
 std::string gauges_line(const Engine& eng, const std::string& arg) {
   const u16 n = eng.shard_count();
   u16 lo = 0, hi = n;
-  // The answer goes out in one non-blocking send (inline verbs never wait):
-  // about 2.5 KB per shard (S4), so beyond 8 shards ask for one at a time.
+  // About 2.5 KB per shard (S4). The admin loop delivers an inline reply
+  // whole or closes it without its newline (S4.1, tools/admin_loop.h);
+  // beyond 8 shards ask for one at a time to keep each reply small.
   if (arg.empty() && n > 8) return "NO GAUGES <shard> needed above 8 shards, shard < " + std::to_string(n);
   if (!arg.empty()) {
     char* end = nullptr;
@@ -844,7 +845,9 @@ int main(int argc, char** argv) {
   // PR #36, option B).
   std::atomic<admin::Loop*> admin_loop{nullptr};
   auto health = [&] {
-    char b[768];
+    // Sized for every field at its maximum (about 1.1 KB) so clamp never
+    // cuts a reply that would then still end in its newline (S4.1 review).
+    char b[1536];
     int n = std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s epoch=%llu leases=%llu-%llu shards=%u",
                           role_now(false, 0), (unsigned long long)term.load(), uuid_hex.c_str(),
                           (unsigned long long)eng.cluster().epoch, (unsigned long long)lease_lo.load(),
@@ -945,6 +948,17 @@ int main(int argc, char** argv) {
                            slow >= 0 ? kSync[slow_sync_state < 3 ? slow_sync_state : 0] : "none");
         clamp();
       }
+    }
+    // S4.1 (tools/admin_loop.h): admin replies waiting for their client,
+    // and those closed unfinished (write deadline, send error, evicted).
+    if (const admin::Loop* al = admin_loop.load()) {
+      const admin::Counters& c = al->counters();
+      n += std::snprintf(b + n, sizeof(b) - n,
+                         " adm_out=%llu adm_out_hw=%llu adm_write_timeouts=%llu adm_write_failed=%llu "
+                         "adm_write_evicted=%llu",
+                         c.out.load(), c.out_hw.load(), c.write_timeouts.load(), c.write_failed.load(),
+                         c.write_evicted.load());
+      clamp();
     }
     return std::string(b);
   };

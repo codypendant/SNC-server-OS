@@ -1930,3 +1930,27 @@ or source comments.
 -   **Evidence:** `bench/results/s4-validation-devvm-20261109/`.
 -   **Next action:** review. No S5/S6, R640, CP-1A, comparators or
     follow-up intake slice.
+
+### 2026-11-09 UTC --- Claude (Claude Code): S4.1 admin reply delivery and fairness wording, for review
+
+-   **Classification:** REFINE (admin loop output; S4 documentation).
+    No engine, token, checkpoint, format, recovery, lifecycle or
+    replication change.
+-   **What:** `docs/handoff/PR81_S4_Review.txt` (S4 core approved; S4.1
+    required).
+    - Admin replies now finish on POLLOUT. They are bounded by a write
+      deadline and `kOutMax`, and a cut is visible as a missing newline.
+      HEALTH no longer waits on a slow GAUGES reader.
+    - The "granted in ticket order" claim is corrected to ordered
+      eligibility plus eventual acquisition.
+    - `waiting_peak` is clarified.
+-   **Tests:** A1-A4 (`tests/test_admin_loop.cpp`); S4 T1-T9 unchanged
+    and green.
+-   **Evidence:** `bench/results/s41-validation-devvm-20261109/` (README):
+    serial Release 43/43, ASan+UBSan 43/43 (run2; run1 cut by a task time
+    limit, kept as invalid), TSan 43/43, zero sanitizer reports; negatives
+    4 of 4 caught. The independent review's findings (A1 under TSan and
+    four small ones) were fixed before these runs.
+-   **Next action:** review. Then the follow-up intake slice if
+    authorized. No S5/S6, R640, CP-1A or comparators.
+
