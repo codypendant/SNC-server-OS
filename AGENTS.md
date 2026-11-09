@@ -1974,7 +1974,11 @@ or source comments.
     - Q2, a limit on emits per op;
     - Q3, the defaults;
     - Q4, a `u32` WAL active-buffer doubling that wraps past 2 GiB
-      (`storage.cpp:566-575`, reachable today only through unbounded
-      intake).
+      (`storage.cpp:566-575`; also reachable through a standby's
+      unbounded `append_raw`; proposed as its own small fix);
+    - Q5, an owner-side follow-up gate for forwarded mutations (closes a
+      B2 gap that exists today).
+-   **Review:** an independent review found 3 HIGH, 6 MEDIUM and LOW
+    items; all are corrected in the note (section 12).
 -   **Next action:** review. No runtime, ring or drain change until then;
     no S5/S6, R640, CP-1A or comparators.
