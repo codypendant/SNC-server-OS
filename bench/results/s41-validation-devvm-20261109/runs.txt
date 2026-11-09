@@ -1,2 +1,4 @@
 release run1 start sha ef39687893692772c95d6e07002c66eab0e07d8e 2026-11-09T06:37:54Z env: SNC_X=0
 release run1 rc=0 07:04:59
+asan run1 start sha 9577aa95024d484e4d3c4b173436baed3e2ffa61 2026-11-09T07:06:05Z env: SNC_SANITIZED=1
+asan run1 INVALID: stopped by the session's 30 min background-task limit (my launch omitted a longer timeout) during test 37/43; 36/36 finished tests passed; not evidence, kept as asan-run1-j1.log
