@@ -1,717 +1,835 @@
-# Follow-up intake backpressure: design note (for review)
+# Follow-up intake backpressure: design note, revision 2 (for review)
 
-Status: **design only, for review. Nothing here is implemented.** Revised
-after an independent review (section 12).
-Work order: `docs/handoff/PR82_S41_Review.txt` sections 8-14 (S4
-complete; this design authorized, implementation not). The problem:
-[S1_1_CORRECTIONS.md](S1_1_CORRECTIONS.md) section 3 and A15.
+Status: **design only, for review. Nothing here is implemented.**
 
-Code read for this note (main at 83280f9):
-- `src/native/ring.h` and `src/native/runtime.cpp` (`sri_send`,
-  `sri_claim`, `drain`, `publish_all`);
-- `src/core/shard.cpp`: `execute`, `followups_refuse`, `admit`,
-  `on_message`, `queue_emits`, `route_emit`, `run_emits`, `run_emit`,
-  `send_emit`, `serve_emit`, `hold_emit`, `release_held`, `emit_result`,
-  `on_link_frame`;
-- `src/core/node_link.{h,cpp}`, `src/core/storage.cpp` (`WalStream`),
-  `Engine::stop` and `Engine::wait_emits`, `docs/TRANSFERS.md`,
-  `tests/test_s1_admission.cpp` A15.
+History:
+- **Revision 1** (PR #83): option D, reviewed independently (section 13).
+- **cody's review of revision 1** (`docs/handoff/PR83_Design_Review.txt`):
+  - option D is approved as the base architecture, but implementation is
+    not authorized;
+  - R1 ("protocol shape + gauge") is rejected, because it is not a
+    structural bound;
+  - follow-up execution must become request/reply-shaped as an enforced
+    runtime contract, with an enforced `OpDescriptor::max_emits`;
+  - the WAL u32 overflow had to be fixed first. It was: PR #84.
+- **Revision 2** (this note) adds that contract (section 3.3). It also
+  adds the one mechanism the contract makes possible and the structural
+  bound needs: a per-origin **exchange budget** (section 3.4).
+
+Work orders:
+- `docs/handoff/PR82_S41_Review.txt` sections 8-14;
+- `docs/handoff/PR83_Design_Review.txt`.
+
+The problem: [S1_1_CORRECTIONS.md](S1_1_CORRECTIONS.md) section 3, and A15.
+
+Code read (main at 3bcde70):
+- `src/native/ring.h` and `src/native/runtime.cpp`;
+- `src/core/shard.{h,cpp}` (`execute`, `followups_refuse`, `admit`,
+  `serve`, `serve_multi`, `on_message`, `OpCtx::emit`, `queue_emits`,
+  `route_emit`, `run_emits`, `run_emit`, `send_emit`, `serve_emit`,
+  `hold_emit`, `release_held`, `emit_result`, `on_link_frame`,
+  `resume_all`, `resume_slot`, `map_changed`, `withdraw`);
+- `include/snc/registry.h` and `include/snc/msg.h`;
+- `src/core/node_link.{h,cpp}` and `src/core/storage.cpp`;
+- `Engine::stop` and `Engine::wait_emits`;
+- `src/types/account.cpp`, the only type that emits;
+- `docs/TRANSFERS.md`;
+- `tests/test_s1_admission.cpp` A15.
 
 ## 0. Summary
 
-**Recommendation: option D, credit-bounded destination staging.**
+Option D stays as approved (items 1-3, 6, 7). Item 4 is the contract the
+review asked for. Item 5, the exchange budget X, is a **new client-visible
+gate** that is not part of the approved D, and needs its own approval
+(Q5). Every mechanism below acts on the apply of follow-ups, or on
+admission. None stops a ring.
 
-- **Rings still drain fully.** The destination keeps draining every
-  inbound ring completely, as today. Nothing is ever left at the head of a
-  FIFO, so no answer or control message can be trapped behind a follow-up.
-- **The gate is at apply, not at drain.** A drained EMIT runs only if the
-  shard's WAL has room under a hard intake cap H. Otherwise it waits, in
-  order, in the shard's existing local follow-up queue (the "staging").
-- **Credits bound the staging.** For each ordered shard pair (s, d), s may
-  have at most W follow-ups sent to d that d has not yet taken out of
-  staging. d publishes a per-source count of the follow-ups it has taken
-  out. Past the window, s keeps follow-ups in its own per-destination queue,
-  where its existing gate (`kEmitBacklog`) already counts them.
-- **The gate also applies where work is owned.** Today the
-  `kEmitBacklog` gate runs only on the shard where a client request
-  arrives. A request forwarded to the owning shard is not checked there,
-  so the owner's backlog can grow past the gate (section 3.5). D adds the
-  same check at the owner for forwarded mutations, creates and deletes.
-  They are answered with `E_OVERLOADED`, never left waiting.
-- **Node links pause their reads.** A shard stops reading its inbound
-  node-link sockets while it holds L or more link-origin follow-ups. TCP
-  flow control then backs the sender up into its own counted queue. Node
-  links carry nothing but follow-ups.
-- **No new waits between shards.** Intake depends only on the shard's own
-  WAL, and the WAL drains by disk completion alone. So no wait cycle
-  between shards can form (B4).
+1. **Rings always drain.** Every inbound ring is drained completely, as
+   today, so no answer or control message can be trapped behind a
+   follow-up.
+2. **The WAL gate is at apply.** A drained follow-up is applied only
+   while the shard's WAL has room under a hard cap H, with H ≥ B + R.
+   The provisional value is H = max(2B, B + R). Otherwise the follow-up
+   waits, in order, in the shard's local follow-up queue (its "staging").
+3. **Per-pair intake credits (W).** A sender has at most W follow-ups to
+   one destination that the destination has not yet taken out of
+   staging. Past that, they wait at the sender, in its own counted queue.
+4. **The reply-only contract (new, enforced).** An op running as a
+   follow-up may emit only to its source, and at most once. Every op
+   declares `max_emits`, and the runtime enforces it. A forwarding mode
+   would need its own review.
+5. **The exchange budget (X, new).** The contract makes every follow-up
+   part of an **exchange**: a chain between two objects with at most one
+   follow-up in existence at a time. A shard admits client ops that may
+   emit (`max_emits > 0`) only while it has fewer than X of its own
+   exchanges unfinished. Replies never wait for this budget; only
+   admission does.
+6. **The owner-side gate.** The shard that owns an object applies the
+   `kEmitBacklog` gate, and the X budget, to mutations, creates and
+   deletes forwarded to it. It answers `E_OVERLOADED`.
+7. **Bounded node-link read pausing.** A shard stops reading inbound
+   node links, frame-limited, while it holds L or more follow-ups from
+   links.
 
-The proofs cover:
-- B1, the WAL bound: at most `max(H, one follow-up's worst case)`, plus
-  the other non-refusable terms that S1.1 already lists;
-- B3, B4 and B5;
-- B6, no follow-up dropped, duplicated or refused;
-- B7, recovery;
-- B2 for every follow-up a client op or a resume pass originates.
+**Result: B2 becomes structural intra-node, given Q1.** Under the
+contract, applying a follow-up never increases the number of follow-ups
+in existence (conservation, 6.2). Follow-ups are created only when an
+exchange starts, and client starts are bounded by X at their origin. So
+every follow-up queue of an intra-node exchange, at senders and
+destinations, including the "derived" ones that revision 1 left to object
+state, is bounded by N·(X + E) plus resume and re-route roots (6.2).
+Resume roots are structurally bounded only if resume passes are paced by
+X (Q1). Exchanges that cross nodes are bounded structurally only with
+D.2.
 
-**One part of B2 is not structural, and this note asks the review to
-decide it (section 7).** A shard can apply an incoming follow-up whose op
-emits a follow-up to a third, closed shard. The backlog of these
-"derived" follow-ups is bounded by the application's protocol shape, not
-by an engine gate:
-- For transfers, the only follow-up type in the tree, it is bounded by
-  object state (open outbox and inbox entries), not by the engine
-  (section 6.2).
-- A general forwarding chain could grow it in memory: one 72-byte queue
-  entry per follow-up, no WAL.
+**Deadlock freedom (B4).** No follow-up in flight ever waits for X. Only
+client admission waits for X, and it is refused rather than queued.
+Follow-ups wait only for the destination's WAL (H) and for intake
+credits (W), which also depend only on that WAL. Every wait therefore
+ends at a disk flush (6.4).
 
-The obvious engine gate for this ("close intake when my own backlog is
-high") can deadlock two shards with healthy disks (section 7.1), so it
-is rejected. Three options are laid out instead.
+**Cross-node.** A structural bound across nodes needs exchange
+completions to travel back over the node links, which changes the wire
+format. Revision 2 specifies that as sub-slice D.2 (3.6) and asks to
+build intra-node D.1 first (Q2). Until D.2, cross-node is bounded by
+link pausing and the sender gates, as in revision 1.
 
-What D bounds structurally:
-- received follow-ups waiting for credit to return: at most (N−1)·W per
-  shard;
-- follow-ups received over node links and held: at most L per shard;
-- each shard's own follow-ups (local, re-routed, resume), which the gate
-  counts and object state bounds.
-
-Numeric defaults (H, W, L) are hypotheses: no value is frozen from the
+The defaults H, W, L and X are hypotheses. None is frozen from the
 dev VM.
 
 ## 1. What happens today
 
-**Sending.** An op's `apply` emits; `queue_emits` holds a remote
-follow-up until the emitting record is durable (`emit_wait_`).
-`route_emit` then puts it on one of three queues, all sorted FIFO:
+**Sending.** An op's `apply` emits. `queue_emits` holds a remote
+follow-up until the emitting record is durable (`emit_wait_`). Then
+`route_emit` puts it on one of three FIFO queues:
 - `emit_local_`, for a target on this shard;
 - `emit_remote_[d]`, for another shard on this node;
 - `emit_node_[link]`, for another node.
 
-`run_emits` sends `emit_remote_[d]` with `sri_claim` (not
-`must_deliver`). That means the ring first, then the runtime's per-pair
-overflow deque of up to 256 entries; past that the send is refused, and
-the rest stay queued in order.
+`run_emits` sends `emit_remote_[d]` with `sri_claim`, without
+`must_deliver`: it goes to the ring first, then to the runtime's per-pair
+overflow of up to 256 entries. Past that the send is refused, and the
+rest stay queued in order.
 
 **The sender's gate.** `emits_in_flight() = emit_ready_count_ +
-emit_wait_.size()` counts only what is still queued at the sender. A
-follow-up that reached a ring or the runtime overflow has left the
-count. Client `execute`, and (unless admission is legacy) create and
-delete, are refused with `E_OVERLOADED` while the count is above
-`kEmitBacklog` (1024). Owner-local READs are exempt.
+emit_wait_.size()` counts only what is still queued at the shard. A sent
+follow-up leaves that count.
+- Client `execute` is refused with `E_OVERLOADED` while the count is
+  above `kEmitBacklog` (1024). So are creates and deletes, unless
+  admission is legacy.
+- Owner-local READs are exempt.
+- The gate runs only on the shard where the request arrives
+  (`shard.cpp:177-182`, `385-389`).
+- A mutation forwarded to its owner (`serve` 1515, `serve_multi` 1386,
+  `run` 440) passes only WAL admission B there. This is a gap today.
 
-The gate runs only on the shard where the request arrived
-(`shard.cpp:177-182`, `385-389`). A mutation forwarded to its owner (`serve`
-`1515`, `serve_multi` `1386`, `run` `440`) passes WAL admission B there, but
-not the owner's backlog gate. So a shard whose follow-ups cannot leave
-keeps taking new transfers from clients connected to other shards. This
-gap exists today; D closes it (section 3.5).
-
-**Receiving.** `drain` hands every message of a ring to `on_message`, up
-to `batch_in` per pass; the ring carries every message kind in one FIFO.
-For an EMIT, `serve_emit` either runs it at once (`run_emit` → `run_exec`
-with `client = false`, never refused) or queues it behind a non-empty
-`emit_local_` to keep the order. Either way it appends its record
+**Receiving.** `drain` hands every message of a ring to `on_message`; one
+FIFO carries every kind. For an EMIT, `serve_emit` either runs it at
+once (`run_emit` → `run_exec`, `client = false`, never refused) or queues
+it behind a non-empty `emit_local_`. Either way it appends its record
 whatever the WAL holds.
 
 **The problem (A15).** While d's WAL stalls, healthy senders keep
-admitting and sending. Every sent follow-up leaves their count, and d
-logs it. A15 delivered 2,050 credits to one stalled shard: 50.9 MB of
-WAL, 1.6× the client budget.
+admitting and sending, and d logs every follow-up. A15 delivered 2,050
+credits to one stalled shard: 50.9 MB of WAL, 1.6× the client budget.
 
-Two more facts this design relies on:
-- **WAL drain depends on nothing but the disk.** The active WAL buffer
-  (`WalStream::active_len_`) grows while a flush is in flight, and empties
-  when the flush starts after the previous one completes.
-- **A finding.** `active_cap_` and `active_len_` are `u32`, and
-  `ensure_capacity` doubles `cap` in a `u32`. Past 2 GiB the doubling
-  wraps to 0 and the loop never ends; `active_len_ + extra + kBlock` can
-  wrap too (`src/core/storage.cpp:566-575`). Unbounded follow-up intake is
-  one way to get there, but not the only one:
-  - a standby's `Receiver::poll` appends everything it receives with
-    `append_raw` and no bound (`replication.cpp:697-745`), and the primary
-    sends with no window;
-  - legacy admission has no WAL cap;
-  - `wal_buffer_budget_bytes` is a configurable u64.
+**Who emits, and what.** Today only `Account` emits
+(`src/types/account.cpp`). Its follow-up ops already reply only to their
+source:
 
-  This design does not close those paths. Section 10, Q4 proposes fixing
-  the overflow as its own small change. Not changed here, because this
-  slice is design only.
+| Op | Runs as | Emits | To |
+|---|---|---|---|
+| `transfer` | client op | 0 when the target is on this shard and `local()` finds it (applied in place); otherwise 1 (`credit`), including on this shard when `local()` returns null (slot sealed or staged, object missing, wrong type), when it goes to `emit_local_` and may bounce | the target (starts an exchange) |
+| `xfer_credit` | follow-up | exactly 1 (`settle`: ok, refused or retry) | the source |
+| `xfer_settle` | follow-up | 1 (`forget`, or `credit` on retry), or 0 if there is no matching entry (including on a retry) | the source (`outbox[i].to == source` is checked) |
+| `xfer_query` | follow-up | 1 (`forget` or `credit`), or 0 | the source |
+| `xfer_forget` | follow-up, unlogged | 0 (unlogged ops may not emit) | none |
+| `xfer_bounced` | follow-up (the engine's fail op) | 0 | none |
+| `deposit`, `withdraw`, `set_email`, `create`, `delete`, reads | client | 0 | none |
+| `resume` hook | after recovery, link-up and map change | per object: one `credit` per outbox entry, one `query` per inbox entry | any (starts exchanges) |
 
-**Node links** (`node_link.{h,cpp}`) carry only follow-up frames, one TCP
-connection per (shard, remote shard), with no acks.
-- On the sending side, `room()` lets each link buffer up to `kOutCap`
-  (1 MiB, 16,384 frames).
-- On the receiving side, `read_in` reads everything available and passes
-  each frame to `route_emit`, with no bound.
-- A dropped link loses frames by design. Each new connection re-runs
-  `resume_all`, and the objects re-emit what is unsettled
-  (docs/TRANSFERS.md).
+The engine's own fail op is also reply-shaped: when a target is missing,
+`emit_result` runs `fail_op` on the source.
 
-## 2. The FIFO problem (review section 10)
+**Other facts relied on:**
+- **WAL drain depends only on the disk.** The active buffer grows while a
+  flush is in flight, and the next flush takes it.
+- **The buffer is now capped.** It grows in checked u64 up to
+  `max_active_bytes` (1 GiB), with a fail-stop (PR #84).
+- **Node links** carry only follow-up frames: one TCP connection per
+  (shard, remote shard), with no acknowledgements.
+  - `room()` allows up to `kOutCap` (1 MiB) per link.
+  - `read_in` reads until `EAGAIN`.
+  - A dropped link loses frames by design; each new connection re-runs
+    `resume_all`.
 
-Messages from s to d share one SPSC FIFO with every other kind: EXEC,
-CREATE and DELETE requests, RESP, BUF_RETURN, MULTI_REQ and MULTI_RESP.
-If d stopped consuming at an EMIT, everything behind it would wait,
-including the answers s's waiters need. Those waiters hold s's own
-resources (the pending and waiter budgets, BUF_RETURN buffers). So a
-throttle that stops the drain turns into a protocol deadlock. The design
-must never leave a message unconsumed in a shared ring.
+## 2. The FIFO problem and the choice of D
+
+Messages from s to d share one SPSC FIFO with every other kind: requests,
+RESP, BUF_RETURN, MULTI_REQ, MULTI_RESP. If d stopped consuming at an
+EMIT, the answers behind it would be trapped. Those answers release s's
+waiters, pending slots and buffers, so the throttle would become a
+protocol deadlock.
 
 | | Mechanism | Response/control progress | Bound on unapplied follow-ups | Cost |
 |---|---|---|---|---|
-| A | A second SPSC ring per pair carrying only EMIT; d stops draining it while closed | Structural | Ring + overflow per pair (512); the overflow is uncounted at the sender | Changes the runtime topology (2N² rings) in both backends. A consumer that skips a non-empty ring must still sleep (`has_pending_for_consumer` sees it). Changes the order between kinds |
-| B | Credits: s sends while d has granted room | d keeps draining | Only if every follow-up already in a ring is applied regardless: WAL overshoot up to N−1 windows × the largest record | One counter per pair; no topology change |
-| C | Drain everything; put EMITs into a bounded staging queue at d | Structural | Needs a bound on what is in the rings. Without one, either staging is unbounded or d stops draining when it is full (the trap again) | Copies; the backlog moves to d |
-| **D (recommended)** | **C + credits counted at apply.** d drains everything; EMITs wait in staging when the WAL is above H; s sends only while `sent − taken < W` | **Structural (the drain never stops)** | **Credit-bearing staging ≤ (N−1)·W, link-origin ≤ L (72 B items); WAL overshoot only the empty-buffer case** | Shard code only, plus one shared N×N counter matrix |
+| A | A second ring per pair for EMIT only; d stops draining it | Structural | Ring + overflow per pair (512); the overflow is uncounted at the sender | Runtime topology change in both backends; sleep checks; order between kinds changes |
+| B | Credits only: s sends while d has granted room | d keeps draining | WAL overshoot up to (N−1)·W × the largest record | One counter per pair |
+| C | Drain all; stage EMITs in a bounded queue at d | Structural | Needs a bound on what is in the rings: that is B | Copies |
+| **D (approved)** | **C + B, with credits counted when an item leaves staging** | **Structural: the drain never stops** | **Staging ≤ (N−1)·W per shard; WAL overshoot only the empty-buffer case** | **Shard code, plus one N×N counter matrix** |
 
-Why C alone is not enough: staging must be bounded, and only the sender
-can stop new follow-ups from arriving without trapping the FIFO. A
-sender-side window is exactly what B is. D is C with B's credits, counted
-when an item leaves staging rather than when it is drained.
+**Order.** Every follow-up from s to d goes through one FIFO
+(`emit_remote_[d]`, then the ring, then staging), so per-source order is
+kept.
 
-Why not A: A also works. But it changes the runtime in both backends, and
-it doubles ring memory and wake-up checks. Its uncounted in-transit
-amount per pair (ring plus overflow) is larger than D's window. D gets
-the same structural separation by draining always and gating the apply.
+Revision 2 keeps this. In particular, **no follow-up ever waits inside
+a queue for the exchange budget** (section 7.3 shows why a queue wait
+would be unsafe).
 
-**Order.** Every follow-up from s to d still goes through one FIFO
-(`emit_remote_[d]`, then the ring, then staging), so order per source is
-kept. The node-link code relies on that: a credit must not overtake its
-own forget (`node_link.cpp`, `read_in`).
+D adds no new kind of reordering between message kinds. Today an EMIT
+can already run after a later RESP from the same sender whenever
+`emit_local_` is non-empty. V1 still checks that nothing relies on the
+order.
 
-D adds no new kind of reordering between kinds. An EMIT can be applied
-after a later RESP or request from the same sender. Today that already
-happens whenever `emit_local_` is non-empty (`serve_emit`). The
-implementation must check that no code relies on EMIT-before-RESP order
-(section 9, V1).
+## 3. Mechanism
 
-## 3. Mechanism (D)
-
-### 3.1 The intake gate (destination)
+### 3.1 The WAL gate at apply (destination), unchanged from revision 1
 
 A follow-up is applied only while
 
-    wal.active_bytes() + need_f <= H    or    wal.active_bytes() == 0
+    wal.active_bytes() + R <= H    or    wal.active_bytes() == 0
 
-where `need_f = record_size(max over types of max_size) +
-peer_record_max_`: the same worst case S1 already computes, with the
-largest type, because the target's type is known only after the lookup.
-The empty-buffer clause is S1's progress rule: an item larger than H
-still runs, but alone. The check is made per item at the head of the
-queue, immediately before `run_exec`, on the shard's own thread, and
-nothing can yield between the check and the append (R3, as in S1;
-`check_reserved` can assert it).
+where `R = need_f = record_size(max over types of max_size) +
+peer_record_max_`. This is S1's worst case, using the largest type,
+because the target's type is known only after the lookup.
 
-- **Where.** In `run_emits`, the queue it processes (`emit_local_`) stops
-  at the first item that does not pass and keeps the rest in order.
-  `serve_emit` stops running inline when the gate is closed or
-  `emit_local_` is non-empty; it appends to `emit_local_`, as it already
-  does in the second case. Local follow-ups (targets on this shard) and
-  received ones share that queue and that gate.
-- **Unlogged ops** (`forget`) need no WAL, but they keep their place in
-  the FIFO. Order comes first; they wait at most until the item in front
-  of them runs.
-- **Order inside `run_emits`.** Today `run_emits` swaps out the whole
-  vector and subtracts its size from `emit_ready_count_` before running
-  it (`shard.cpp:2594-2598`). Under D, when it stops at a gated item:
-  - the items it did not run go back in front of anything appended to
-    `emit_local_` in the meantime;
-  - `emit_ready_count_` is restored for them;
-  - `serve_emit`'s `emit_local_.empty()` test sees them, so a newly
-    arrived item never runs inline ahead of them.
-- **H is a hard constraint, not a default:** H ≥ B + R. If H were
-  smaller, clients admitted under B could refill the buffer each time a
-  flush starts, and the head follow-up could starve, which breaks B5.
-  Rollback is a separate switch (`intake_gate = off`), not H = 0: by the
-  formula above, H = 0 means one item per empty buffer.
-- **Busy and wake-ups, precisely.** A shard whose staging head is gated,
-  or whose remote queues are all waiting for credit, does not report
-  itself busy for that reason. Today `run_emits` returns true whenever
-  `emit_ready_count_ != 0` (`2593`, `2633`), so those shards would spin. Two
-  wake-ups are needed:
-  - The gated destination is woken by its WAL flush completing, an I/O
-    completion, which already wakes the loop. `WalStream::poll` returns
-    `active_len_ > 0` (`storage.cpp:615-622`), which already keeps a shard
-    with a full active buffer busy. Whether that should change is outside
-    D; V4 measures it.
-  - The credit-blocked sender: today nothing wakes it when `taken`
-    advances. The runtime's sleep check covers rings, injected work and
-    I/O only (`runtime.cpp:411-427`), with a 1 ms poll timeout as the
-    fallback. D adds a flag per pair, "sender waits for credit", set by
-    s. When d advances `taken` for a pair that has it set, d writes s's
-    eventfd, as a ring publish does.
+- **H.** H ≥ B + R is a hard constraint, checked at start.
+  - The provisional value is H = max(2B, B + R).
+  - If H were below B + R, clients admitted under B could refill the
+    buffer after each flush starts, and the head follow-up could starve
+    (B5).
+- **The check.** It is made per item at the head of the queue,
+  immediately before `run_exec`, with no yield before the append (R3, as
+  in S1). The empty-buffer clause is S1's progress rule.
+- **Where.** `run_emits` stops at the first gated item. The rest of its
+  batch goes back in front of anything appended since, with
+  `emit_ready_count_` restored. `serve_emit` does not run inline while
+  the gate is closed or `emit_local_` is non-empty.
+- **Unlogged ops** keep their place in the FIFO.
+- **Busy and wake-up.** A gated shard is not "busy" because of its
+  staging; it wakes on the I/O completion of its WAL flush. A sender
+  blocked on credit is not busy either: d writes s's eventfd when it
+  advances `taken` for a pair whose "sender waits" flag is set.
+- **Rollback.** The switch `intake_gate = off`, not H = 0.
 
-### 3.2 Credits (intra-node)
+### 3.2 Per-pair intake credits W (intra-node), unchanged from revision 1
 
-- `taken[s][d]`: a `u64` written only by d, padded to a cache line,
-  published with release once per loop iteration (like a ring head). d
-  adds one every time an item that came from s leaves its staging, by
-  **any** path (section 3.4).
-- `sent[d]`: private to s, the number of follow-ups it sent to d.
+- `taken[s][d]` is written only by d, padded to a cache line, and
+  published once per loop iteration. d adds one each time an item from s
+  leaves its staging, by any path (3.7), and also when `serve_emit` runs
+  an item inline without staging it (`shard.cpp:2715`).
 - s sends the head of `emit_remote_[d]` only while
-  `sent[d] − taken_cache[d] < W`. It reloads `taken_cache` (acquire) only
-  when the window looks exhausted, as `p_head_cache` does.
-- `Emit` gains a memory-only field `u16 from` (the sending shard, from
-  `Msg::src_shard`; or a node-link marker). No wire or format change: the
-  `Msg` already carries `src_shard`.
-- **Invariant (credit conservation):** `sent[d] − taken[s][d]` = the
-  follow-ups from s that are in the ring, in the runtime overflow, or in
-  d's staging. So it is at most W. A path that removes an item without
-  counting it leaks one credit for good: after W leaks the pair stalls.
-  F9 negative N3 tests this.
-- W = 0 means no window, today's behaviour.
-- `from` is cleared whenever an item is held or re-routed by this shard
-  (`hold_emit`, or `route_emit` from `run_emit`), at the moment its credit
-  is returned. Otherwise a later run would return the credit a second
-  time.
+  `sent[d] − taken_cache[d] < W`.
+- `Emit` gains a memory-only field `u16 from`. It is cleared when the
+  item is held or re-routed, at the moment its credit is returned, so the
+  credit cannot be returned twice.
+- **Invariant:** `sent − taken` equals the items from s that are in the
+  ring, in the overflow or in d's staging, so it is at most W.
+- W = 0 means no window.
 
-### 3.3 Node links (cross-node, F8)
+### 3.3 The reply-only contract and `max_emits` (new, enforced)
 
-- **Pausing reads.** A shard counts the link-origin follow-ups it holds
-  anywhere (staged, or forwarded on into `emit_remote_` before they leave
-  for another shard). While that count is at least L, it skips `read_in`
-  on every inbound link. It resumes at or below L/2: the hysteresis only
-  saves syscalls, since correctness needs none. Frames stay in the kernel.
-  TCP flow control fills the sender's socket, then its 1 MiB user buffer.
-  `room()` then turns false, and the sender keeps further frames in
-  `emit_node_[link]`, which its gate counts.
-- **Bounded reads.** Today `read_in` reads until `EAGAIN`, with no limit
-  on frames. Under D each call takes at most L − held frames and leaves
-  any partial frame in its buffer. Without that, the first read after a
-  resume could take the whole kernel buffer: tens of thousands of frames.
-- **Readiness.** The links use level-triggered epoll (no `EPOLLET`), and
-  the link epfd is in the shard's idle poll set (`sri_watch_fd`). A paused
-  fd that stays registered for `EPOLLIN` keeps the epfd readable, so the
-  idle `poll` returns at once and the shard spins. While paused, each
-  in-fd is switched to `EPOLLRDHUP` only (`EPOLL_CTL_MOD`), and back on
-  resume.
-- **Newer-epoch frames.** These go to `emit_held_` (`on_link_frame`). They
-  count toward L until they leave this shard.
-- **What sits in transit, uncounted.** Up to `kOutCap` plus the kernel
-  buffers per link. That is memory at the two ends; none of it is
-  applied, so none of it is WAL.
-- **Unchanged.** Link loss and resume, and the epoch rules
-  (`on_link_frame`, held newer-epoch frames).
-- **To verify** (section 9, V3): the only thing that reads in-links is
-  `read_in`, and a stalled reader never makes either end drop the
-  connection. There is no write timeout in `flush`; a zero window keeps
-  TCP alive.
+**`OpDescriptor::max_emits` (u16, default 0).** It is the most follow-ups
+one apply of the op may emit. `OpCtx::emit` counts emits per apply and
+raises `contract_violation` (fail-stop, as other contract checks do) at
+emit number `max_emits + 1`. An op that does not declare it may not emit
+at all, so a new emitting type has to opt in explicitly.
 
-### 3.4 Every way an item leaves staging (each returns its credit)
+**Emit only inside apply.** Today `OpCtx::emit` checks only the op kind,
+so `validate` could call it. The contract allows `emit` only during
+`apply` of a logged op (unlogged ops already may not emit, `shard.cpp:598`)
+and during resume hooks; anything else is a `contract_violation`.
 
-| Path today (`run_emit` and callers) | Disposition | Credit |
-|---|---|---|
-| Runs (`run_exec`) | Applied | Returned |
-| `withdraw()` (fenced) | Today `withdraw` sets `emits_paused_` and `run_emits` returns early (`shard.cpp:1791`, `2593`), so staged items never reach `run_emit`'s `withdrawn_` drop. Under D, `withdraw` drops every item in `emit_local_` that came from another shard. Their sources re-send them to the new primary (existing semantics) | Returned at `withdraw`, for every dropped item |
-| `stale(e)` | Dropped; re-sent after map adoption (existing) | Returned |
-| Newer epoch → `hold_emit` | Moves to `emit_held_` (existing) | Returned |
-| Sealed or staged slot → `hold_emit`, or foreign → `route_emit` | Held, or re-routed as this shard's own backlog (counted by its gate) | Returned |
-| Engine stop (process end) | Left for resume (existing: `Engine::stop` leaves queued follow-ups to the objects' resume hooks) | Not needed; the counters die with the process |
+**Reply-only.** When an op runs as a follow-up (`ctx.source()` is not
+null, that is, it was reached through `run_emit`):
+- it may emit only to `ctx.source()`. Any other target is a
+  `contract_violation` ("follow-up emitted to a target other than its
+  source");
+- it may emit at most once, whatever `max_emits` says. That keeps the
+  exchange a chain (6.2). A follow-up op therefore declares `max_emits`
+  of 0 or 1. The runtime check enforces this; a registration-time check
+  needs a declared follow-up flag (Q4).
+- **Forwarding and fan-out are excluded.** Emitting to a third object, or
+  more than once from a follow-up, is reserved for a future, separately
+  reviewed mode with its own bound (section 7.4).
 
-### 3.5 The owner applies the follow-up gate (closes the gap in section 1)
+**Unchanged by the contract:**
+- **Client-run ops** emit up to `max_emits` follow-ups, to any target.
+  Each one starts an exchange (3.4).
+- **Resume hooks** (`resume_all`, `resume_slot`, `map_changed`) run with
+  no op (`op_ == nullptr`, `shard.cpp:1666`, `3034`), so the `max_emits`
+  check is skipped while `resuming_`. They emit to any target, with no
+  per-object limit. Each emit starts an exchange;
+  the hooks are bounded by object state. Q1 proposes pacing them.
+- **The engine's fail op** (`emit_result`) is the reply of the exchange
+  it belongs to.
+
+**Declared maxima for `Account`** (the actual maxima, from the table in
+section 1):
+
+| Op | `max_emits` |
+|---|---|
+| `transfer` | 1 |
+| `xfer_credit` | 1 |
+| `xfer_settle` | 1 |
+| `xfer_query` | 1 |
+| `xfer_forget` | 0 |
+| `xfer_bounced` | 0 |
+| `create`, `delete`, `deposit`, `withdraw`, `set_email`, `get`, `get_balance` | 0 |
+
+No test type emits today (grep: `src/types/account.cpp` is the only
+emitter), so no other declarations are needed.
+
+### 3.4 The exchange budget X (new)
+
+**Exchanges.** Under 3.3, a follow-up applied as a follow-up emits 0 or 1
+follow-ups, and only back to its source. So every follow-up belongs to
+an exchange:
+- an exchange starts with a **root**: an emit from a client-run apply,
+  from a resume hook, or a re-route (below);
+- it alternates between two objects;
+- at any moment it has **at most one follow-up in existence** (queued,
+  waiting for durability, in a ring, staged, held, or being applied);
+- it **ends** when an apply of its follow-up emits nothing, or when its
+  follow-up is dropped (stale, withdrawn).
+
+**Accounting (intra-node).** Each shard o keeps two counters:
+- `started_o`: roots it has emitted. Private to o.
+- `ended[x][o]`: exchanges started by o that ended on shard x. Written
+  only by x, cache-line padded, published once per iteration, read by o.
+- `live_o = started_o − Σ_x ended[x][o]`, refreshed when o needs it,
+  using a cache like `taken`.
+
+**Which counter an ending updates.** The shard where an exchange ends
+must know its origin o. Two cases:
+- **Normal hop.** The exchange alternates between o and its peer p, so o
+  is either the sender or the receiver of each hop. One spare `Msg` flag
+  bit, `kMsgEmitOriginSender` (bit 5), says which. Bits 0-4 are in use;
+  bit 4 is overloaded (`kMsgEmitRemote` on EMIT, the private
+  `kMsgRespDurable` on RESP, `shard.cpp:21`), and bit 5 is free in both.
+  `Emit` gains a memory-only `u16 origin`, with a reserved value
+  `kOriginRemote` for items that arrived from a node link (their origin
+  is on another node; see 3.6). No other field changes.
+- **Re-route.** Within a node, slot owners are static
+  (`owner[s] = s % n_shards`, `slot_map.h:26`). So a re-route never
+  reaches a third shard on the same node: an item re-routed by
+  `run_emit` (foreign target, `shard.cpp:2651`) or `release_held` either
+  goes to another node or stays local. That is also why one origin bit is
+  enough. A re-route that leaves the node ends the exchange at the
+  re-routing shard (counted to o). Re-routes happen only on map and
+  slot-state changes, so they are finite.
+
+**Local exchanges** (o = p, the target on the same shard) are counted the
+same way. They need no `Msg` bit.
+
+**The admission rule (the only place X is waited on).** A client-run op
+that may emit (`max_emits > 0`; today only `transfer`) is admitted only
+while `live_o < X`, in addition to the existing gates. Ops that cannot
+emit (deposit, withdraw, create, delete, reads) are not affected by X. Otherwise it is refused with
+`E_OVERLOADED` and never queued. It is checked at the shard that will
+apply it:
+- the origin, for a local op;
+- the owner, for a forwarded one (3.5).
+
+Admitted, the op adds at most `max_emits` ≤ E roots. So
+`live_o ≤ X + E` from client work.
+
+**Roots that are not client work** never wait: resume emits and
+re-routes count in `live_o` but are not refused. They are bounded by
+object state and by the number of map changes. Q1 proposes pacing
+resume scans by X to make this structural too.
+
+**Nothing in flight waits for X.** A root is admitted by refusing or
+accepting the client op that emits it. Once emitted, the root and all
+its replies move through the queues under only the H and W rules.
+
+### 3.5 The owner-side gate (revision 1, now also checking X)
 
 `serve`, `serve_multi` and `run` (the forwarded EXEC, CREATE and DELETE
-paths) refuse a MUTATE, CREATE or DELETE with `E_OVERLOADED` while the
-owner's `emits_in_flight` is above `kEmitBacklog`.
+paths) refuse a MUTATE, CREATE or DELETE with `E_OVERLOADED` in two
+cases:
+- the owner's `emits_in_flight` is above `kEmitBacklog`;
+- the op may emit (`max_emits > 0`) and `live_owner ≥ X`.
 
-- The check is made before `run_exec`, the same check as at the origin
-  (READs exempt, legacy as today).
-- The answer goes back as an ordinary RESP or MULTI_RESP, so nothing
-  waits on it (B3).
-- Replay is safe: only unsequenced requests are forwarded. A sequenced
-  request to another shard's object is refused with `E_NOT_OWNER` at
-  the origin (`shard.cpp:207-213`), so the owner never answers a resend
-  with a refusal.
+The check is made before `run_exec`, and the answer goes back as an
+ordinary RESP or MULTI_RESP (B3). It is replay-safe: only unsequenced
+requests are forwarded (`shard.cpp:207-213`).
 
-With this, every client op that can emit is gated by the backlog of the
-shard that will hold its follow-ups.
+### 3.6 Node links
 
-### 3.6 What does not change
+**D.1, this slice. Bounded read pausing, unchanged from revision 1:**
+- A shard counts the link-origin follow-ups it holds anywhere: staged,
+  forwarded on before they leave, or newer-epoch frames held.
+- While that count is at least L, it stops reading. Each in-fd is
+  switched to `EPOLLRDHUP` only, so the level-triggered epfd does not
+  spin the idle poll.
+- It resumes at L/2.
+- Each `read_in` call takes at most L − held frames, and keeps a
+  partial frame for later.
 
-- The client gate `kEmitBacklog` and its formula, `emits_in_flight`.
-  Items waiting for credit stay in `emit_remote_` and count toward the
-  sender's gate. Staged items sit in `emit_local_` and count toward the
-  destination's gate, as inbound queued items do today. So while staging
-  holds more than 1024, the destination refuses its own clients with
-  `E_OVERLOADED`, which it should do while its WAL is over H anyway.
-- S1 client admission (budget B), S1.1, S1.2, S2, S3, S4, checkpoint, WAL
-  and wire formats, recovery, manifest and superblock, lifecycle,
-  replication, promotion.
-- `Engine::wait_emits`: staged items are in `emit_ready_count_`, so
-  quiescence still waits for them.
-- `Engine::stop`: its loop waits for sent = received (drained). Staged
-  items are drained, so stop is not held by a closed intake.
-- What does change indirectly: S2 pacing reads `emits_in_flight` against
-  `kEmitBacklog` as checkpoint "pressure" (`shard.cpp:2214-2215`,
-  `ckpt_pacer.h:85-86`). A sender held back by credits therefore reports
-  more pressure and paces its checkpoint walk harder. That is the
-  intended reading of a backlog, but S2's behaviour under D is part of
-  F1's measurements.
+**D.2, a separate sub-slice: cross-node exchanges.**
+- An exchange whose two objects are on different nodes ends on either
+  node. Its origin can count it only if the ending is reported back.
+- D.2 adds an **end frame**: a `Frame` with a kind byte (in `pad[0]`)
+  that carries an end count for its origin shard. Each node-link
+  connection gets a new Hello version, which is a wire change.
+- **Link loss:**
+  - exchanges in flight on a dropped link are counted as ended at both
+    ends: the connection's start and end counters reset with it;
+  - every end frame carries the connection generation (incremented per
+    connection), and an end frame for an older generation is ignored.
+    Otherwise an exchange staged at the receiver during the drop could
+    end later and be counted a second time on the new connection;
+  - the `resume_all` that every reconnect already runs starts them
+    again, as today.
+- **Until D.2:**
+  - roots sent to another node count in `live_o` and end when they
+    leave this node, so X does not wait on another node;
+  - replies arriving from another node are bounded by L (pausing) and
+    by the sender's gates;
+  - cross-node replies queued at a shard toward a slow node are not yet
+    structurally bounded. This is revision 1's derived case, for
+    cross-node only.
+- F8 tests D.1, and states this scope.
 
-## 4. Cap semantics (review section 11)
+### 3.7 Every way a follow-up leaves a queue (credit and budget)
+
+| Path | Disposition | W credit (intra-node pair) | Exchange |
+|---|---|---|---|
+| Applied, emits 1 | Runs | Returned | Continues (the reply carries the origin) |
+| Applied, emits 0; or refused by `validate` | Runs or is refused | Returned | **Ends** (`ended[x][o]++`) |
+| Engine fail op (`E_NOT_FOUND`, `E_TYPE_MISMATCH`, `E_UNKNOWN_OP`) with a `fail_op` | `fail_op` runs on the source | Returned | Continues |
+| The same errors with `fail_op == 0` (`shard.cpp:2744-2763`; e.g. settle, forget or query to a deleted target) | Dropped (existing) | Returned | **Ends** |
+| Arrives while `withdrawn_`, inline from `serve_emit` (`run_emit` returns early, `shard.cpp:2638`) | Dropped (existing) | Returned | **Ends** |
+| Run inline by `serve_emit` (`shard.cpp:2715`), never staged | As the rows above | Returned when it runs | As the rows above |
+| `route_emit` drops: misrouted `e.remote` (2564); no links (2572, where recovery resume roots to other nodes go) | Dropped (existing) | n/a (not yet sent) | **Ends** |
+| Link-down purge of `emit_node_` in `run_emits` (2610); misrouted link frame in `on_link_frame` (1700) | Dropped (existing) | n/a | **Ends** (a local root; a link-origin item has no local origin) |
+| `stale(e)` | Dropped (existing) | Returned | **Ends**; `map_changed` resume starts it again |
+| `withdraw` | Today staged items are never dropped (`emits_paused_` stops `run_emits`). Under D, `withdraw` drops every item in `emit_local_` that came from another shard | Returned | **Ends**; the new primary resumes |
+| Newer epoch, or sealed or staged slot → `hold_emit` | Held (existing) | Returned | Continues while held (a slot seal is bounded) |
+| Foreign → re-routed (to another node, 3.4) | Re-routed (existing) | Returned | **Ends** here |
+| Engine stop, or crash | Left for resume | Process-wide reset | Process-wide reset |
+
+Every row says what happens to both counters. "Ends" means any
+disposition that emits nothing and leaves no item. A path that changes
+neither is a leak: enough leaks would make the shard refuse emitting
+client ops forever, a liveness outage. F9 (N3, N10) tests it, and the
+implementation adds a debug invariant: once the node is idle, Σ `live_o`
+equals the follow-ups counted in every queue (zero when quiescent).
+
+### 3.8 What does not change
+
+The following stay as they are:
+- `kEmitBacklog`, and its formula `emits_in_flight`;
+- S1 admission (B), S1.1, S1.2;
+- S2, S3, S4;
+- checkpoint and recovery;
+- the WAL and checkpoint formats, the manifest and the superblock;
+- lifecycle, replication and promotion;
+- the intra-node ring wire format: one spare flag bit is used, and no
+  field changes;
+- `Engine::wait_emits` (staged items stay in `emit_ready_count_`);
+- `Engine::stop` (sent = received is reached because drains continue).
+
+Two things change indirectly:
+- S2 pacing reads `emits_in_flight` as pressure, and credit waits raise
+  it. This is measured in F1.
+- Clients see `E_OVERLOADED` in one new case: the X budget is full at the
+  applying shard.
+
+## 4. Cap semantics
 
 | Question | Answer |
 |---|---|
-| Destination intake signal | Local only: the shard's own `wal.active_bytes()` against H, checked per item at apply. Senders learn it only through credits that stop returning; no state is published. |
-| Client budget vs internal cap | Clients are admitted under B (S1, unchanged); follow-ups under H, with H ≥ B + `need_f`. Above B clients are refused while follow-ups keep settling: follow-ups have priority, as the existing "follow-ups first" gate already intends. |
-| Hysteresis / reopen | No hysteresis on the WAL gate. There is no open/close state and no message on a change, so flapping costs one compare. Links resume reads at L/2 (only to save syscalls). |
-| Per shard or per node | Per shard: each shard has its own WAL stream and flush. The node bound is the sum. |
-| Bytes, records or both | WAL gate in bytes (worst case per item). Credits and link staging in items (fixed 64-72 B). |
-| Worst-case overshoot | WAL: none above H, except one oversized item run alone on an empty buffer (`active ≤ max(H, need_f)`). Staging: credit-bearing items none above (N−1)·W, link-origin items none above L; the shard's own and derived items are counted by its gate, not bounded (6.2). |
-| Message classes drainable above the cap | All of them, always. Only the apply of follow-ups (EMIT, link frames, local follow-ups) is gated. |
-| How the sender backlog becomes bounded | Credits keep unapplied items at the sender's `emit_remote_` / `emit_node_` queues, where `kEmitBacklog` refuses its clients (section 6). |
-| Local follow-ups | Same queue and same gate as received ones (F7). |
-| Cross-node | Same gate at apply. Bounded intake by pausing link reads (3.3). |
-| Shutdown / fencing / migration / recovery | Section 8. |
+| Destination intake signal | Local: the shard's own `active_bytes` against H, per item at apply. Senders see only credits stop returning. |
+| Client budget vs internal cap | Clients are admitted under B; follow-ups under H ≥ B + R, provisionally max(2B, B + R). Above B, follow-ups still settle while clients are refused. |
+| Hysteresis / reopen | None on the WAL gate: there is no state and no message, so flapping costs one compare. Links resume at L/2 to save syscalls. |
+| Per shard or per node | Per shard: H, W, X and L. Node bounds are sums. |
+| Bytes, records or both | The WAL gate is in bytes (worst case per item). W, X and L count items (72 B each, plus queue nodes). |
+| Worst-case overshoot | WAL: none above H, except one oversized item on an empty buffer. Staging: (N−1)·W per shard. Live exchanges: X + E per origin, plus resume and re-route roots (6.2). |
+| Drainable above the cap | Every message class, always. Only the apply of follow-ups is gated. |
+| How the sender backlog is bounded | By conservation, total follow-ups ≤ Σ live exchanges ≤ N·(X + E) + resume roots (6.2). |
+| Local follow-ups | The same queue, gate and exchange accounting. |
+| Cross-node | D.1: link pausing and gates. D.2: end frames (3.6). |
+| Shutdown, fencing, migration, recovery | Sections 3.7 and 8. |
 
 ## 5. Defaults (hypotheses, not frozen)
 
-| Parameter | Proposed initial value | Basis | To be set by |
+| Parameter | Provisional value | Basis | Set by |
 |---|---|---|---|
-| H, intake cap | 2 × B (60 MiB with today's B = 30 MiB). Hard constraint H ≥ B + `need_f` (3.1) | A15 reached 50.9 MB; H must leave room for a settle wave above B | R640 preregistration (not the dev VM) |
-| W, credits per pair | 64 | Pipelining needs at least one loop's worth (`batch_in` = 32), with headroom. Staging memory (N−1)·W·72 B = 32 KB at N = 8 | Measured throughput (section 9, P1) |
-| L, link-origin hold | 1024 | Same order as `kEmitBacklog` | F8 |
+| H | max(2B, B + R); hard H ≥ B + R | Room for a settle wave above B; A15 reached 50.9 MB | R640 preregistration |
+| W | 64 | At least one loop's worth (`batch_in` = 32), with headroom | P1 throughput |
+| X | 1024 per shard | The same order as `kEmitBacklog`; Account allows 64 open outbox entries per account | P1, F11 |
+| L | 1024 | The same order as `kEmitBacklog` | F8 |
 
-Config fields with env overrides, the pattern S4 used.
-- **Rollback:** one switch, `intake_gate = off`, with W = 0 and L = 0,
-  restores today's behaviour.
-- H = 0 is not "off": by the 3.1 formula it means one item per empty
-  buffer, so a configuration that breaks H ≥ B + R is rejected at start.
-- The owner gate (3.5) has its own switch for the same rollback.
+- **Configuration:** config fields, plus env overrides as in S4.
+- **Rollback:** `intake_gate = off`, W = 0, `exchange_budget = off`, and
+  `owner_gate = off` together restore today's behaviour. X has its own
+  off switch because `live_o < 0` would refuse everything; X = 0 is
+  rejected at start.
+- **What stays enforced under rollback:** the contract checks (3.3). The
+  only existing emitter already satisfies them.
 
 ## 6. Proofs
 
 Notation:
-- N shards on the node;
+- N, the shards on the node;
 - G = `kEmitBacklog`;
-- E = the most follow-ups one MUTATE op may emit. The engine does not
-  limit it today; see Q2;
-- R = `need_f`.
+- E = the largest `max_emits` of a client-run op (1 today);
+- R = `need_f`;
+- `live_o`, the started-but-not-ended exchanges of origin o.
 
-### 6.1 B1: destination WAL bound
+### 6.1 B1: destination WAL bound (unchanged)
 
-Every append on shard d comes from one of:
-- (a) client-admitted work, admitted only while `active + need ≤ B` or
-  `active = 0`;
-- (b) follow-up applies, admitted only under the gate in 3.1;
-- (c) the other non-refusable records in S1.1 section 3 (session-expiry
-  deletes, seal and unseal, migration installs bounded by
-  `move_window_bytes`), unchanged and outside this slice.
-
-Recovery replay runs before serving.
+Every append on d comes from one of:
+- (a) client work, admitted while `active + need ≤ B` or `active = 0`;
+- (b) follow-up applies, under 3.1;
+- (c) the other non-refusable records listed in S1.1 section 3 (session
+  expiry, seal and unseal, migration installs bounded by
+  `move_window_bytes`).
 
 Each admission checks and appends with no yield in between. Flushes
-start only in `wal_->poll`, never inside `run_exec`. A follow-up apply
-appends at most its own record and one peer record (`shard.cpp:621`,
-`634`), and no session record, since `client = false`. So when (a) or
-(b) admits an item, `active` was at most H − need, or 0, and becomes
-at most H, or the one item. Since B ≤ H, a client admission never takes
-`active` above H either. Hence
+start only in `wal_->poll`. A follow-up apply appends at most its own
+record and one peer record (`shard.cpp:621`, `634`). Since B ≤ H,
 
     active ≤ max(H, R, client worst case) + (c)
 
-WAL memory is the active buffer plus the flushing buffer it was swapped
-with (`start_flush`), so the bound on memory is about twice this, plus the
-replication sender's retained chunks.
+whatever the senders do. WAL memory is at most twice that (active plus
+flushing), plus the replication sender's retained chunks, and never
+above `max_active_bytes` (PR #84). F1 sizes H so that ungated intake
+would pass it several times over.
 
-whatever the senders do. This holds whether d's WAL is stalled or slow:
-the bound does not depend on the senders' rate. A15 under D: its 50.9 MB
-becomes at most H, and F1 checks that.
+### 6.2 B2: sender bound (structural, new in revision 2)
 
-### 6.2 B2: sender bound
+**Lemma (conservation).** Under 3.3, applying a follow-up removes one
+follow-up and emits at most one. So within an exchange, the number of
+follow-ups never grows, and it is at most one. Proof: a root creates
+the exchange with one follow-up. Each apply of that follow-up emits 0
+(the exchange ends) or 1 (one again). A drop ends the exchange. A hold
+or re-route moves the one follow-up, and a re-route ends this exchange
+and starts another.
 
-The follow-ups a shard s holds, `emits_in_flight(s)`, come from three
-sources:
+**Corollary (intra-node).** Every follow-up of an exchange whose two
+objects are on this node is counted by exactly one live exchange. So, for
+any shard s, counting only such follow-ups,
 
-1. **Originated by client ops on objects s owns.** These are admitted
-   only while the count is at most G: at the origin as today, and at the
-   owner for forwarded work (3.5). Each op adds at most E, so the total is
-   at most G + E. Items blocked by credits or by `room()` stay in this
-   count; they are not forgotten. Without 3.5 this item would be false.
-2. **Originated by a resume pass** (recovery, link reconnect). At most
-   the objects' pending entries: for accounts, 64 per account
-   (`kMaxOutbox`) plus the inbox entries. This is bounded by state, not
-   by the engine; it is today's behaviour.
-3. **Received follow-ups waiting at s.**
-   - Credit-bearing: at most (N−1)·W.
-   - Link-origin: at most L.
-   - **Derived**: follow-ups that s's own applies of received items emit.
-     These go into s's queues, where its gate counts them but does not
-     limit them.
-   - Also counted, though no credit limits them: s's own local follow-ups
-     and re-routes (`release_held`, the `emit_result` fail op, the
-     `resume_all`, `map_changed` and `resume_slot` passes).
+    emits_in_flight(s) + staged(s) + in transit to or from s
+        ≤ Σ_o live_o
+        ≤ N·(X + E) + Σ_o (resume roots_o + re-route roots_o)
 
-In transit and uncounted:
-- intra-node, at most W per pair (the credits);
-- cross-node, at most `kOutCap` plus the kernel buffers per link.
+Follow-ups of exchanges that cross nodes (link-origin items and their
+replies in `emit_node_`) are in no local `live_o` until D.2; they are
+bounded by L, by `kEmitBacklog` and by link pausing, as in revision 1
+(3.6).
 
-Neither is WAL.
+**Resume roots.** Each resume pass emits at most one root per outbox or
+inbox entry (object state). But passes are not deduplicated: every link
+flap and map change re-runs `resume_all` (`shard.cpp:1730`, `2990`), so
+without pacing the bound is object state times outstanding passes. With
+Q1's pacing, a pass waits while `live_o ≥ X`, so resume adds at most X
+per shard, and the whole intra-node bound becomes structural.
 
-**Derived follow-ups toward a closed destination d.** The engine does
-not bound these; only the application's state does.
-- For transfers, every follow-up op emits at most one follow-up, back to
-  the source of the item that caused it:
-  - credit→settle;
-  - settle→forget (or →credit on retry);
-  - query→forget (or →credit);
-  - bounced→none.
+**Re-route roots.** These are at most one per follow-up held or in
+flight at a map or slot-state change.
 
-  So the derived items toward d are answers to items from d. Each
-  corresponds to an open outbox entry of a d account (64 per account,
-  `kMaxOutbox`), or to an inbox entry, plus duplicates from a resume.
-- That is a state bound, not a rate bound. As S1.1 section 3 says, with
-  a million accounts it is not a useful number (about 2 TB of WAL there;
-  here 72 B of memory per item, so about 4.6 GB at 64 M entries).
-- A rate argument ("drains as fast as it fills") does not hold in
-  general. With H − B small, d applies settles at about one per flush
-  while d's own clients keep originating credits under B.
+**Revision 1's open case is covered.** That case was derived follow-ups
+at x toward a closed d. They are follow-ups of live exchanges, so the
+same bound holds. No rate argument is needed.
+- The case reviewer M2 described: d admits clients faster than x's
+  replies to d drain. d stops admitting once `live_d` reaches X.
+- Every reply that x holds toward d belongs to an exchange started by d
+  or by x, so it is counted in `live_d` or `live_x`.
 
-Transfers are therefore bounded by object state, not structurally.
-Section 7 asks the review to choose the policy. For a **forwarding** type
-(A emits to B, whose op emits to C), not even state bounds it: B can
-queue follow-ups for a closed C at the rate its sources are admitted.
-Either way the cost is memory only. B1 still holds at C, and at B for
-B's own applies.
+**Per-class bounds that hold at the same time:**
+- staged items per pair, at most W (3.2);
+- link-origin items, at most L (3.6);
+- the sender's own unsent queue: its client admission still refuses
+  above G, as today.
 
-### 6.3 B3: response and control progress
+### 6.3 B3: response and control progress (unchanged)
 
-Inbound rings are drained exactly as today; `drain` and `on_message` are
-unchanged. An EMIT is moved out of the ring into memory whatever the
-gate says. So no RESP, BUF_RETURN, MULTI_RESP, request or CTRL message
-can be behind an unconsumed EMIT.
-
-Requests that reach a closed shard are answered by S1 admission (refused
-with `E_OVERLOADED`, or served as a READ), never left waiting on intake.
-
-Node links carry only follow-ups. Pausing their reads holds back nothing
-else: admin, replication, the witness and clients use other sockets. F2
-tests both cases.
+Rings drain fully, so nothing is ever left behind an EMIT. Requests are
+answered by admission: refused, or served as READs. The X refusal is an
+ordinary answer. Node links carry only follow-ups.
 
 ### 6.4 B4: no cyclic deadlock
 
-The waits D introduces:
-- (i) a staged item at d waits for d's `active` to fall to H − R or to 0;
-- (ii) an item at s waits for a credit from d, that is, for some item from
-  s to leave d's staging;
-- (iii) a link frame waits for d to resume reading, that is, for d's
-  link-origin count to fall.
+Every wait that D introduces:
+- (i) a staged follow-up at d waits for d's `active` to fall to H − R,
+  or to 0;
+- (ii) a follow-up at s waits for a W credit from d, that is, for an
+  item from s to leave d's staging. This depends only on (i) at d;
+- (iii) a link frame waits for the reader to resume, that is, for its
+  held link-origin items to leave. This also depends only on (i);
+- (iv) **client admission** waits for `live_o < X`. It does not wait:
+  it is refused. Exchanges end only through applies or drops, which
+  depend only on (i)-(iii).
 
-(ii) and (iii) reduce to (i). (i) depends only on d's flush completing,
-which waits on the disk and never on another shard or on intake (section
-1). So every chain of waits ends at a WAL flush: the wait-for graph has no
-edge from one shard's intake to another's, and therefore no cycle. This
-needs the credit-conservation invariant (3.2). A leak is not a cycle but
-a permanent stall of one pair, so F9 tests it directly.
+No follow-up in flight waits on (iv), or on anything that (iv) holds.
+(i) depends only on the local flush completing, which depends only on
+the disk (B4 in revision 1, confirmed by its review). So every wait
+chain ends at a flush, and the wait-for graph is acyclic.
 
-What the proof excludes on purpose: any intake condition on the shard's
-own outbound backlog (section 7.1).
+What is excluded on purpose, each a deadlock (section 7):
+- an intake condition on the shard's own backlog (7.1);
+- holding a credit until a reply is sent (7.2);
+- a root waiting in a queue for the budget (7.3).
 
 ### 6.5 B5: eventual progress
 
-When d's disk completes the flush in flight:
-1. the next flush takes the active buffer, and `active` falls;
-2. the head staged item passes the gate and runs;
-3. its credit is published at the end of the iteration;
-4. s, woken by the credit wake (3.1), sends more, and link reads resume
-   below L/2.
+When d's disk completes a flush:
+1. `active` falls;
+2. the staged head passes the gate and runs;
+3. the W credit is published, and the waiting sender is woken by eventfd;
+4. link reads resume below L/2.
 
-Each staged item runs within finitely many flushes, because staging is
-FIFO and every item fits under H or runs on an empty buffer. Every
-accepted follow-up then settles by today's protocol (wait_emits reaches
-0 in F4). This assumes the gated shard is woken by the I/O completion
-(3.1).
+Every exchange's next hop therefore runs in finite time:
+- staging is FIFO, and every item fits under H or runs alone;
+- no hop waits for X;
+- held items are released by the slot-state change that holds them
+  (existing).
+
+Every exchange therefore ends, or continues, in finite time. When client
+load stops, every exchange ends: transfers end in at most `forget`, or
+loop on `retry` only while the target's inbox is full. That is
+application behaviour, unchanged.
 
 ### 6.6 B6: no discard, duplicate or client refusal
 
-- **No discard.** Items leave staging only by the dispositions that
-  `run_emit` already has (3.4); D adds none.
-- **No duplicate.** No follow-up is re-sent by the engine because intake
-  closed: credits stop the sender, they do not make it retry.
-- **No client refusal.** Follow-ups have no client, so none of them can
-  become one. Clients see `E_OVERLOADED` only from the existing gates,
-  with their existing meanings.
-- **Order.** Order per source is kept (section 2).
+- **No discard.** The dispositions in 3.7 are the existing ones, plus the
+  `withdraw` drop. A fenced primary's follow-ups are re-sent by the new
+  primary's resume, as today.
+- **No duplicate.** No new resend.
+- **No refusal of a follow-up.** Follow-ups have no client. Clients see
+  `E_OVERLOADED` from the existing gates and from the X budget. Both
+  come before apply, so nothing is applied twice, and a forwarded
+  refusal is replay-safe.
+- **Order.** Per-source FIFO is kept, and no follow-up waits for X. A
+  reply can never overtake an earlier root on the same pair of objects
+  (7.3).
 
-### 6.7 B7: recovery
+### 6.7 B7: recovery (unchanged)
 
-The staged items, the credit counters and the paused reads live only in
-memory. A crash loses them exactly as it loses today's ring contents and
-sender queues. Recovery is today's: replay, then `resume_all`, and the
-objects re-emit everything unsettled (the durable truth lives in the
-objects, docs/TRANSFERS.md). At start, staging is empty and every counter
-is 0.
+Staging, credits, exchange counters and paused reads exist only in
+memory. A crash loses them as it loses today's ring contents. Recovery
+is replay, then `resume_all`, as today. Every counter starts at 0, and
+the resume roots start exchanges.
 
-F6 kills the process while senders are backed up and staging is full,
-then checks conservation and settlement after restart.
+## 7. Rejected alternatives
 
-## 7. Decision for the review: derived backlog (B2, general case)
+### 7.1 Closing intake on the shard's own backlog (revision 1, unchanged)
 
-### 7.1 Why "close intake when my own backlog is high" is rejected
+A and B close intake when their own backlog exceeds a threshold. A's
+backlog is mostly to B, and B's mostly to A. Neither drains, even with
+healthy disks.
 
-Suppose A and B each close intake while their own `emits_in_flight`
-exceeds some H_q.
-1. A's backlog is mostly follow-ups to B; B's is mostly follow-ups to A.
-2. A's backlog drains only when B applies, but B is closed. B's backlog
-   drains only when A applies, but A is closed.
-3. Both disks are healthy and both WALs are empty, yet nothing moves
-   again.
+### 7.2 Holding the intake credit until the reply is sent
 
-Transfers reach this state: mutual transfers between two shards under
-load, after one stall, can push both backlogs over H_q. F9 negative N5
-builds it, to show the deadlock is real and that D avoids it.
+This would make each W credit cover a whole round trip.
+- x holds W items from d, each waiting for its reply to d to be sent,
+  which needs x→d credits.
+- d holds W items from x, each waiting likewise.
+- Both windows are full, and nothing moves.
 
-### 7.2 Options
+### 7.3 Per-pair exchange credits taken by roots in the sender's queue
 
-| | Policy | Bound | Cost and risk |
-|---|---|---|---|
-| R1 (recommended now) | Rely on the protocol shape. State an engine contract: an op that runs as a follow-up emits only to its source, or emits a bounded number of follow-ups in total per originating client op. Add a gauge for derived items held and a diagnostic hard-max counter (S1's policy for diagnostics), no gate. | Bounded by object state for transfers (6.2), not structurally; memory only (72 B per item), never WAL; diagnosed | No new mechanism. A future forwarding type must be designed against the contract. B2 then holds structurally for originated work only. |
-| R2 | A backlog gate with an escape: close intake for backlog only, except for items from the shards that backlog points to. | Plausible, but unproven: an amplifying ping-pong can grow both sides. | Needs its own proof, and per-destination accounting on the hot path. |
-| R3 | Shed and resume: cap each per-destination queue; past the cap, drop the newest and mark the destination "resume owed". When credits return, run the objects' resume for the affected targets. | Structural for every type | Changes the intra-node guarantee "never dropped" (B6 would rely on resume, as node links already do). Every emitting type must have a complete resume. `resume_all` costs O(objects). RECONSIDER-class. |
+This would bound live exchanges per pair by letting a root wait at the
+head of `emit_remote_[p]` for a credit.
+- **The deadlock.** A root waits for one of W exchanges to end. One of
+  those exchanges has its reply queued behind the root, so it cannot
+  end.
+- **Why the obvious fix fails.** Letting replies overtake waiting roots
+  breaks per-source order. On a duplicate exchange that loses money:
+  1. A's resume hook queues a duplicate `credit(S)`, which waits.
+  2. Meanwhile A applies `settle(S)` and emits `forget(S)`, which
+     overtakes the waiting credit.
+  3. B forgets S, then receives the duplicate credit, and credits a
+     second time.
 
-Recommendation: **R1** now, with the gauge, while being clear that it
-leaves derived backlog bounded by state, not by the engine. Revisit R3 only if a
-non-reply-shaped type is proposed. In both R2 and R3 the WAL bound B1
-holds unchanged: what is at stake is sender memory.
+  So roots may never wait inside a queue. X is enforced at admission,
+  where a refusal costs nothing (3.4).
 
-## 8. Lifecycle interactions (review section 11, last row)
+### 7.4 Forwarding and fan-out follow-ups
 
-- **Synchronous I/O fallback (predates D).** With
-  `sri_debug_force_sync_io`, or a full submission queue, `pwritev2` blocks
-  the shard thread (`runtime.cpp:207-210`). A stalled disk then stops all
-  draining. This is a B3 hole that D does not change; it is noted, not
-  fixed.
-- **Startup.** Emits are paused until recovery finishes
-  (`pause_emits`), as today. Received items run inline today even while
-  paused ("paused shards still run follow-ups that arrive"); under D they
-  still pass the gate.
-- **Shutdown.** `Engine::stop` pauses sending and waits for sent =
-  received, that is, drained; staged items are already drained. It then
-  stops the runtime, and staged or unsent items are left to the objects'
-  resume, as today. A stalled WAL at stop delays only the runtime's WAL
-  quiesce, as today.
-- **Fencing (`withdraw`).** `withdraw` drops the staged items that came
-  from other shards and returns their credits (3.4). Senders are
-  therefore not stalled by a fenced shard, and their sources re-send to
-  the new primary. `withdraw_flag_` spreads the fence across the node, as
-  today.
-- **Slot moves.** Sealed or staged slots hold the item in `emit_held_`
-  (unbounded today, while the slot is sealed; outside this slice), with
-  the credit returned. A foreign target is re-routed. Epoch handling
-  (`stale`, `moved_at_`, newer-epoch holds) is unchanged.
-  - To verify (V2): no move step waits for follow-ups to settle while
-    holding something that d's flush needs. Today a stalled WAL already
-    blocks such a wait, so D adds nothing, but this must be checked.
-- **Recovery.** Section 6.7.
-- **Standby and promotion.** A standby applies the WAL stream and runs no
-  follow-ups. Promotion runs `resume_all`, whose emits pass through the
-  same gate.
+These are excluded by the contract.
+- A forwarding mode, where a follow-up emits to a third object, breaks
+  the two-object chain.
+- Fan-out, where a follow-up emits more than once, breaks conservation.
 
-## 9. Test plan (review section 13)
+Either would need its own bound: for example, the forwarding shard
+starting a new root that is charged to its own X budget, with
+admission-time refusal impossible because there is no client. That
+needs separate design and review, as cody's review states.
 
-All tests run with 8 shards where the harness allows. Each stalls a
-chosen shard's WAL with `Engine::debug_hold_wal`, and reads gauges for
-the counts. Those gauges count credit-bearing, link-origin, own and
-derived items separately, so each bound is checked on its own class.
+### 7.5 R1, R2, R3 (revision 1)
 
-`debug_hold_wal` skips `wal_->poll` altogether (`shard.cpp:855`), so a
-spin or CPU measurement under it would mislead. V4 uses a hook that
-delays flush completion instead.
+- **R1** ("protocol shape + gauge") is rejected by the review.
+- **R2** (backlog gate with an escape) is unproven.
+- **R3** (shed and resume) changes the intra-node "never dropped"
+  guarantee.
 
-The tests size B and H so that ungated intake would exceed H by a wide
-margin. A15 as it stands (50.9 MB, below H = 2B = 60 MiB) would pass
-with no gate at all.
+The contract plus X replaces all three.
+
+## 8. Lifecycle interactions
+
+- **Synchronous I/O fallback (predates D).** Blocking `pwritev2` stops
+  all draining on a stalled disk. Noted, not changed.
+- **Startup.** Emits are paused until recovery finishes, then
+  `resume_all` starts exchanges, which count in `live_o` (Q1: paced).
+- **Shutdown.** `Engine::stop` waits for sent = received. Staged and
+  unsent items are left to resume, and the counters end with the
+  process.
+- **Fencing.** `withdraw` drops the staged items from other shards and
+  returns their W credits and exchange endings (3.7).
+- **Slot moves.** Held items keep their exchange live while held. A
+  re-route ends the exchange and starts a new root. Stale items end
+  theirs, and `map_changed`'s resume starts new ones. V2 checks that no
+  move step waits on follow-ups.
+- **Standby and promotion.** A standby runs no follow-ups. Promotion's
+  `resume_all` starts exchanges.
+
+## 9. Test plan
+
+General rules:
+- 8 shards where the harness allows;
+- the WAL stalled by `Engine::debug_hold_wal`, except where V4 needs a
+  delayed-completion hook;
+- gauges per class: staged per pair, link-origin, `live_o`,
+  `started_o`, ended, own queue;
+- B and H sized so that ungated intake would exceed H several times
+  over.
 
 | Test | Setup | Pass criterion |
 |---|---|---|
-| F1 | Stall d with a small H (for example B + 4R) and enough senders that ungated intake is at least 3H; 7 healthy senders transfer to d's accounts, including transfers on sender-owned accounts forwarded from clients on other shards (3.5) | d's `active` ≤ max(H, R) for the whole stall; credit-bearing staging ≤ 7W; senders' `emits_in_flight` ≤ G + E + own + derived; forwarded mutations refused at the owner past G; S2 pacing pressure recorded |
-| F2 | Stall d; fill s→d credits; then (a) s forwards a READ and a MUTATE to d, (b) a MULTI batch, (c) admin HEALTH and STATUS on d | (a) and (b) are answered (READ OK, MUTATE `E_OVERLOADED` or OK) within a bound while intake stays closed; (c) answers promptly |
-| F3 | Stall every shard; mutual transfers in every pair; then release all | No deadlock: all settle; each shard's `active` ≤ max(H, R) throughout |
-| F4 | Stall d with full staging; release. Variant F4b: during the stall, push at least W + 1 items per pair through `hold_emit` (seal, then unseal, the target slot) and through `stale()` (move a slot or bump the epoch), and through `withdraw` on a fenced copy | Every staged item applied exactly once and in per-source order (a test type logs (source, seq) and checks there are no gaps, duplicates or reordering); money conserved; inbox and outbox empty; `wait_emits` reaches 0. F4b: `sent − taken` returns to 0 on every pair |
-| F5 | F1 and F3 setups; sample every queue | Per pair: `sent − taken` ≤ W. Per shard: credit-bearing staged ≤ (N−1)W, link-origin ≤ L; own and derived items reported against the state bound. Ring occupancy and runtime overflow recorded |
-| F6 | F1 state, then the process is killed (SIGKILL, as `test_crash`) | After restart: conserved, everything settles, no duplicate credit (inbox checks), `wait_emits` reaches 0 |
-| F7 | A test type emitting both local and cross-shard follow-ups into a stalled shard | Both kinds stop at the gate; bound as F1 |
-| F8 | Two engines with node links (`test_cluster` harness); stall the receiving shard | Its `active` ≤ H; inbound reads pause at L; the sender's `emit_node_` grows and its gate refuses its clients; release → settles. Otherwise scope out cross-node with a follow-up item |
-| F9 | Mutations | N1: no gate → F1 fails (bytes > H). N2: stop draining at an EMIT head → F2 times out. N3: no credit on the hold, stale or withdraw path → F4b leaves `sent − taken` above 0 and stalls the pair. N4: credits counted at drain, not at apply → F5 credit-bearing staging > (N−1)W. N7: `serve_emit` ignores staged items and runs new arrivals inline → F4 order check fails. N8: no owner gate (3.5) → F1 owner backlog > G + E. N5: backlog gate (7.1) → F3 deadlocks (proves the rejection). N6: link reads not paused, or not frame-limited → F8 link-origin > L |
+| F1 | Stall d (H = B + 4R); 7 senders transfer to d's accounts, including forwarded transfers on sender-owned accounts | d's `active` ≤ max(H, R) throughout; staging ≤ 7W; every shard's queues ≤ the 6.2 bound; forwarded mutations refused past G or X; S2 pressure recorded |
+| F2 | Stall d; fill the s→d credits; then (a) a forwarded READ and MUTATE, (b) MULTI, (c) admin HEALTH and STATUS | All answered within a bound while intake stays closed |
+| F3 | Stall every shard; mutual transfers on every pair; release | No deadlock; all settle; `active` ≤ max(H, R) throughout |
+| F4 | Full staging; release. F4b: push at least W + 1 and X + 1 items through hold, stale, re-route and withdraw | Exactly once, in per-source order (a test type logs (source, seq)); conserved; `wait_emits` reaches 0. F4b: `sent − taken` = 0 and `live_o` = 0 at the end |
+| F5 | F1 and F3; sample every queue | Per pair ≤ W; per shard, staged ≤ (N−1)W and link-origin ≤ L; Σ items ≤ Σ `live_o` ≤ N(X + E) + resume roots |
+| F6 | F1 state, then SIGKILL | After restart: conserved, settled, no double credit |
+| F7 | Local and cross-shard exchanges into a stalled shard | Both gated; both counted |
+| F8 | Two engines over node links (D.1); stall the receiver | `active` ≤ H; reads pause at L; the sender's gate refuses; settles. The D.2 scope is stated |
+| F10 (new) | Contract death tests (fork, as `test_lifecycle` L11): a follow-up emitting to a non-source target; a follow-up emitting twice; an op emitting past `max_emits`; an undeclared op emitting | SIGABRT with the contract message, for each |
+| F11 (new) | The rate-mismatch case (reviewer M2): d's clients transfer to x's accounts as fast as possible while x's replies to d are throttled (H = B + R, a slow flush hook on d) | x's queue toward d ≤ `live_d` + `live_x` ≤ 2(X + E); d's clients see `E_OVERLOADED` from X; everything settles |
+| F9 | Mutations | N1 no WAL gate → F1. N2 stop draining at an EMIT → F2. N3 no credit returned on hold, stale or withdraw → F4b. N4 credits counted at drain → F5. N5 backlog gate → F3 deadlocks. N6 link reads not paused or not limited → F8. N7 `serve_emit` ignores staging → F4 order. N8 no owner gate → F1. **N9 no X → F11 queue > 2(X + E). N10 ending not counted on one path → F4b `live_o` ≠ 0. N11 contract check removed → F10. N12 roots wait in the queue for credits (7.3) → a duplicate-credit order test (F4c) or a deadlock** |
 
 Implementation verifications:
-- **V1.** Nothing relies on EMIT being applied before a later message of
-  another kind from the same sender (grep `on_message` consumers; review
-  MULTI and RESP paths).
-- **V2.** No wait in slot moves or checkpoints holds what a WAL flush
-  needs while waiting for follow-ups (section 8).
-- **V3.** Stalled link reads never cause a disconnect at either end
-  (section 3.3).
-- **V4.** Neither a gated shard nor a credit-blocked sender spins (CPU
-  measured under the delayed-completion hook, not `debug_hold_wal`). A
-  sender wakes when its credit returns, and a destination when its flush
-  completes.
+- **V1:** nothing relies on EMIT-before-RESP order.
+- **V2:** no move or checkpoint wait holds what a flush needs.
+- **V3:** stalled link reads never cause a disconnect.
+- **V4:** no spin, with the right wake-ups.
+- **V5 (new):** every emit site is classified as root, reply or re-route
+  (`OpCtx::emit` under client apply, follow-up apply, or `resuming_`;
+  `emit_result`; `route_emit` from `run_emit` and `release_held`). The
+  `Msg` origin bit is set on every `send_emit`.
 
 Performance:
-- **P1.** Transfer benchmark (`test_transfer` and the S1 q4 harness) at
-  W = 16, 64, 256 and with no window, run serially and interleaved as
-  in S0. Report the overhead of the credit check. No regression beyond
-  run-to-run noise at the chosen W.
+- **P1:** transfer benchmarks at W in {16, 64, 256} and X in {256, 1024,
+  4096}, plus no window. Reports the overhead of the credit and budget
+  checks.
 
-Every slice rule still applies:
+Every slice rule applies:
 - full serial Release, ASan+UBSan and TSan runs, with zero sanitizer
   reports;
-- every run reported in order;
+- every run reported;
 - an independent review.
 
 ## 10. Questions for the review
 
-1. **Q1, derived backlog policy:** R1 (recommended), R2 or R3 (section 7).
-2. **Q2:** add an engine limit on follow-ups per MUTATE apply (for
-   example 64, as a contract violation)? E is unbounded today, and the B2
-   arithmetic needs a value. Resume passes would stay exempt; they are
-   bounded by object state.
-3. **Q3:** confirm the shape of the defaults: H ≥ B + R, initially 2B; W
-   initially 64; L initially 1024. All are hypotheses, set later by
-   preregistration.
-4. **Q4:** the `u32` WAL buffer finding (section 1). It is reachable
-   without follow-ups (a standby's unbounded `append_raw`, legacy
-   admission, a large configured budget). Recommendation: fix it now as
-   its own small reviewed change: a fatal error before the active buffer
-   would pass a limit below 2 GiB, with a test. A bound on the standby's
-   receive side would be separate work.
-5. **Q5:** confirm the owner-side gate (3.5). It closes a B2 gap that
-   exists today, and it refuses forwarded mutations at a busy owner that
-   are accepted today.
+1. **Q1, resume pacing.** Resume roots (recovery, link-up, map change)
+   are bounded today only by object state. Should the implementation
+   page `resume_all` and `resume_slot`, scanning a slice of objects per
+   loop iteration and pausing the scan while `live_o ≥ X`?
+   - It would make B2 structural for resume too.
+   - It changes when "recovered and serving" emits finish, not when
+     serving starts.
+   - Recommendation: yes, in D.1.
+2. **Q2, split.** Build D.1 first (intra-node: H, W, X, the contract,
+   the owner gate, link pausing), then D.2 (cross-node end frames, a
+   wire change) as its own reviewed sub-slice before S6? Recommendation:
+   yes.
+3. **Q3, defaults.** H = max(2B, B + R) with H ≥ B + R hard; W = 64;
+   X = 1024; L = 1024. All are hypotheses.
+4. **Q4, registration check.** Should `add_op` reject `max_emits > 1` on
+   any op that may run as a follow-up? This needs a declared
+   `followup = true` flag on the op, because today that is known only
+   inside `validate`. Recommendation: add the flag. Account's follow-up
+   ops set it, and `run_emit` refuses (contract violation) to run an op
+   without it.
+
+5. **Q5, approve X.** The exchange budget X is a new client-visible
+   gate, beyond the approved D: emitting client ops (today `transfer`)
+   see `E_OVERLOADED` while the applying shard has X or more of its own
+   exchanges unfinished. It is what makes B2 structural (6.2). Approve
+   it, or keep D without X and accept that B2 stays bounded only by the
+   sender gate and rates, as revision 1 stated?
+   Recommendation: approve X.
 
 ## 11. Not in this slice
 
-Any runtime, ring or drain change; S5; S6; R640; CP-1A; comparators; B2
-begin-snapshot work. The implementation waits for this design's review.
+Implementation of any part of D; S5; S6; R640; CP-1A; comparators; B2
+begin-snapshot work.
 
-## 12. Independent review of this note
+## 12. Changes from revision 1
 
-A read-only reviewer checked the first draft against the code at 83280f9
-and the work order.
+| Revision 1 | Revision 2 |
+|---|---|
+| R1: derived backlog bounded by protocol shape plus a gauge | Rejected by the review. Replaced by the reply-only contract (3.3) and the exchange budget X (3.4). B2 is structural (6.2) |
+| E unbounded (Q2) | Enforced `OpDescriptor::max_emits`; Account declares its actual maxima |
+| H = 2B | H = max(2B, B + R); H ≥ B + R is hard |
+| Cross-node bounded by pausing only | D.1 pausing; D.2 end frames specified (3.6) |
+| The u32 WAL finding (Q4) | Fixed in PR #84 |
+| Rejected: backlog gate | Also rejected: deferred credits (7.2) and queued roots (7.3), with the money-duplication order hazard |
 
-**It confirmed:**
-- B1, including `need_f`, the append sites and the no-yield path;
-- B3;
-- B4: WAL drain depends only on the local flush, and sync replication
-  changes when d sends, not d's gate;
-- the 7.1 deadlock;
-- per-source order;
-- the node-link facts;
-- the `Emit` size;
-- `Engine::stop` and `wait_emits`.
+## 13. Independent reviews
 
-**It found the following, all corrected above:**
+### 13.1 Revision 2
 
-| Finding | Severity | Correction |
-|---|---|---|
-| The owner applied no backlog gate to forwarded mutations, so B2 item 1 was false | HIGH | Section 3.5 (owner gate), F1, N8 |
-| "staging ≤ (N−1)W + L" counted items that carry no credit; `read_in` had no frame limit | HIGH | Bounds stated per class (0, 3.3, 4, 6.2); frame-limited reads; per-class gauges |
-| N3 did not discriminate: F4 sent nothing through the hold or stale paths | HIGH | F4b |
-| Spinning and wake-ups were mis-specified: no credit wake; `WalStream::poll` is busy while active > 0; the paused epfd stayed readable; `debug_hold_wal` skips the poll | MEDIUM | 3.1 busy and wake rules, 3.3 `EPOLL_CTL_MOD`, V4 hook |
-| The derived-backlog argument for transfers was a rate, not a bound | MEDIUM | 6.2 restated as a state bound; R1 wording |
-| The `withdrawn_` row could not be reached for staged items | MEDIUM | 3.4 and 8: drop at `withdraw` with credits returned |
-| The scope of the u32 finding was wrong (standby, legacy, configured budget) | MEDIUM | Section 1, Q4 |
-| The order mechanics inside `run_emits` were unspecified; `from` could return a credit twice | MEDIUM | 3.1, 3.2, N7 |
-| A15's bytes are below H, so that check passes with no gate | MEDIUM | F1 sizing |
-| S2 pacing reads the backlog; WAL memory is twice the active bound; H = 0 is not "off", and H ≥ B + R is needed for B5; the sync-I/O fallback; newer-epoch frames and L; creates and deletes are gated only outside legacy | LOW | 3.6, 6.1, 3.1, 8, 3.3, 1 |
+A read-only reviewer checked revision 2 against main at 3bcde70 and
+cody's review.
+- **Confirmed:** the flag bits; the Account emit table (apart from the
+  corrections below); how `cur_source_` is set (non-null exactly for
+  follow-ups, including the fail op); the line references; the
+  conservation lemma intra-node; no wait cycle in 6.4 (X is
+  refusal-only; W, L and pausing bottom out in the WAL flush; the settle
+  retry loop is application behaviour bounded per hop by H); every point
+  of cody's review is covered, with no implementation claimed.
+- **Found and corrected here:**
+  - 1 HIGH: the 3.7 table missed drop paths (the withdrawn inline drop,
+    fail op without `fail_op`, `route_emit` and link drops), any of which
+    would leak `live_o`. Rows added, "ends" defined, an idle invariant
+    added;
+  - 6 MEDIUM: the B2 claim overstated (now intra-node and conditional on
+    Q1; resume passes are not deduplicated); X is a new gate needing its
+    own approval (Q5); X gated non-emitting ops (now only
+    `max_emits > 0`); the re-route description (owners are static within
+    a node); D.2 link-loss double counting (generation tags); table
+    facts (`transfer` on a null `local()`, settle with no entry);
+  - 4 LOW: resume hooks have no op; emit outside apply; X = 0 ambiguous;
+    the inline credit-return path; the bit 4 overload.
+
+### 13.2 Revision 1 (summary)
+
+A read-only reviewer checked revision 1 against the code at 83280f9 and
+the work order.
+- **Confirmed:** B1, B3, the B4 drain argument, the backlog-gate
+  deadlock, per-source order and the node-link facts.
+- **Found:**
+  - 3 HIGH: no owner gate; staging bounds stated wrongly; N3 did not
+    discriminate;
+  - 6 MEDIUM: spin and wake-ups; the derived-backlog rate argument; the
+    withdraw path; the u32 scope; `run_emits` order mechanics; A15's
+    sizing;
+  - several LOW.
+- All were corrected in revision 1 before the review. Revision 2 keeps
+  those corrections (3.1, 3.2, 3.5, 3.6, 3.7, 9).
