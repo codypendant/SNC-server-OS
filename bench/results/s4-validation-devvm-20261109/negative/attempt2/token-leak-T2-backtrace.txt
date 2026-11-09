@@ -1,0 +1,9 @@
+Thread 1 (Thread 0x7fa4616f2600 (LWP 5516) "test_s4_sync_to"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+#1  0x000055c305d825a4 in void std::__atomic_wait_address<int, std::latch::wait() const::{lambda()#1}>(int const*, std::latch::wait() const::{lambda()#1}) ()
+#2  0x000055c305db200a in snc::Engine::checkpoint() ()
+#3  0x000055c305db8b48 in snc::Engine::recover() ()
+#4  0x000055c305db9b20 in snc::Engine::start_() ()
+#5  0x000055c305db9d6c in snc::Engine::start() ()
+#6  0x000055c305d7bdcb in (anonymous namespace)::test_exact_release() ()
+#7  0x000055c305d73432 in main ()

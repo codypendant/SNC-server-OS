@@ -1,0 +1,12 @@
+Manual check, snc_server at the S4 head (Release), 4 shards, --checkpoint-s 1
+--ckpt-sync-tokens 2, loopback admin port. HEALTH is 405 bytes (buffer 768).
+
+HEALTH tail:
+... ckpt_io=dsync ckpt_sync_writes=0 ckpt_sync_k=2 ckpt_sync_active=0 ckpt_sync_waiting=0 ckpt_slow_sync=none
+
+GAUGES 0 header and shard-0 S4 gauges after 4 checkpoints:
+sync_tokens_k=2 sync_tokens_requests=16 sync_tokens_grants=16 sync_tokens_releases=16 sync_tokens_active=0
+sync_tokens_waiting=0 sync_tokens_active_peak=2 sync_tokens_waiting_peak=2 sync_tokens_wait_max_us=134
+syncs_inflight=0 syncs_inflight_peak=2
+s0.ckpt_sync_tokens=2 s0.ckpt_sync_state=0 s0.ckpt_token_wait_since_ns=0 s0.ckpt_token_wait_last_us=0
+s0.ckpt_token_wait_max_us=53 s0.ckpt_token_wait_ewma_us=35 s0.ckpt_token_acquired=4 s0.ckpt_token_ticket=14

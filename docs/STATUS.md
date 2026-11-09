@@ -55,12 +55,15 @@ Decided by cody on 2026-11-04.
      its core approved ([handoff/PR77_S3_Review.txt](handoff/PR77_S3_Review.txt)).
      S3.1, the engine lifecycle fix for teardown with checkpoint I/O in
      flight (section 10 there, PR #78), was approved
-     ([handoff/PR78_S31_Review.txt](handoff/PR78_S31_Review.txt)); S3
-     closes once S3.2, one lifecycle gate over every shard-submitting
-     Engine method ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md), PR #79,
-     approved in design: [handoff/PR79_S32_Review.txt](handoff/PR79_S32_Review.txt)),
-     and S3.3, the data-plane lease and promote/checkpoint serialization
-     (sections 9-11 there), pass review. S4 is not authorized before that. Required before S6, as its own reviewed
+     ([handoff/PR78_S31_Review.txt](handoff/PR78_S31_Review.txt)). S3.2,
+     one lifecycle gate over every shard-submitting Engine method
+     ([ENGINE_LIFECYCLE.md](ENGINE_LIFECYCLE.md), PR #79), and S3.3, the
+     data-plane lease and promote/checkpoint serialization (sections 9-11
+     there, PR #80), were approved, and S3 is complete
+     ([handoff/PR80_S33_Review_S4_Authorization.txt](handoff/PR80_S33_Review_S4_Authorization.txt)).
+     S4, the staggered final sync with K node tokens
+     ([S4_SYNC_TOKENS.md](S4_SYNC_TOKENS.md)), is built and waits for
+     review; K is a hypothesis, default 0 (unlimited). Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

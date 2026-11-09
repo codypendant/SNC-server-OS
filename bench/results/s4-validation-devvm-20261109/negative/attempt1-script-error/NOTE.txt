@@ -1,0 +1,1 @@
+attempt1: the script ended mid-function (copied header cut short); bash syntax error before any mutation ran. No mutation built or tested.

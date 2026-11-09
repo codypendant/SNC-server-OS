@@ -50,8 +50,9 @@ struct SyncTokens {
   std::atomic<u64> waiting_peak{0};
   std::atomic<u64> wait_max_us{0};
   // Final fdatasyncs actually in flight, counted by the shards around the
-  // sync itself, independently of the tokens: the quantity S4-I1 bounds.
-  // A shard that bypassed its token would show here and not in grants.
+  // sync itself, not from the grant and release counts: the quantity
+  // S4-I1 bounds. A shard that bypassed its token, or a grant past K,
+  // shows here.
   std::atomic<u64> inflight{0};
   std::atomic<u64> inflight_peak{0};
 
@@ -79,7 +80,10 @@ struct SyncTokens {
   void sync_started() { note_max(inflight_peak, inflight.fetch_add(1, std::memory_order_acq_rel) + 1); }
   void sync_finished() { inflight.fetch_sub(1, std::memory_order_acq_rel); }
 
-  // A consistent reading: grants unchanged across the read of the others.
+  // One reading of grants, unchanged across the reads of the others.
+  // releases and requests are read just after it, so active may read
+  // low and waiting high by what changed meanwhile; neither passes its
+  // bound (active <= K holds for any such reading).
   struct Snapshot {
     u64 requests = 0, grants = 0, releases = 0, active = 0, waiting = 0;
   };

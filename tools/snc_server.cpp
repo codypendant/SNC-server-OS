@@ -134,7 +134,7 @@ std::string gauges_line(const Engine& eng, const std::string& arg) {
   const u16 n = eng.shard_count();
   u16 lo = 0, hi = n;
   // The answer goes out in one non-blocking send (inline verbs never wait):
-  // about 1.7 KB per shard, so beyond 8 shards ask for one at a time.
+  // about 2.5 KB per shard (S4), so beyond 8 shards ask for one at a time.
   if (arg.empty() && n > 8) return "NO GAUGES <shard> needed above 8 shards, shard < " + std::to_string(n);
   if (!arg.empty()) {
     char* end = nullptr;

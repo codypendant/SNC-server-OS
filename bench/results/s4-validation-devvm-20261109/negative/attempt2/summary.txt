@@ -1,0 +1,8 @@
+base f9b0264fc28a0796a5af68222f065b53bea74776
+token-bypass T1 (release) rc=1 (expected non-zero)
+k-plus-one T1 (release) rc=1 (expected non-zero)
+token-leak T2 (release) rc=124 (expected non-zero)
+fatal-path-leak T6 (release) rc=1 (expected non-zero)
+unordered-grant T3 (release) rc=1 (expected non-zero)
+cc3-durable-check-dropped T3 (release) rc=1 (expected non-zero)
+done

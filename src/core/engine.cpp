@@ -453,7 +453,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   if (const char* e = std::getenv("SNC_CKPT_SYNC_TOKENS"); e != nullptr && e[0] != '\0') {
     char* end = nullptr;
     const unsigned long k = std::strtoul(e, &end, 10);
-    if (*end != '\0' || k > kMaxShards) throw std::invalid_argument("SNC_CKPT_SYNC_TOKENS must be 0..256");
+    if (e[0] < '0' || e[0] > '9' || *end != '\0' || k > kMaxShards) throw std::invalid_argument("SNC_CKPT_SYNC_TOKENS must be 0..256");
     cfg_.ckpt_sync_tokens = static_cast<u32>(k);
     std::fprintf(stderr, "snc: SNC_CKPT_SYNC_TOKENS=%lu overrides ckpt_sync_tokens\n", k);
   }

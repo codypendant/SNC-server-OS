@@ -310,6 +310,9 @@ void start_all_ready(Engine& eng, Background& bg, const Engine::SyncTokenStats& 
         return d.requests == kShards && d.grants == e;
       },
       "every part ready and min(K, 8) granted");
+  // A grant is counted a few instructions before its sync is: wait for
+  // the syncs themselves too (the shard can be preempted in between).
+  wait_until([&] { return eng.sync_tokens().syncs_inflight == e; }, "min(K, 8) syncs in flight");
 }
 
 // ---- T1, T7, T8: hard bound, unlimited rollback ----------------------------------------
@@ -398,6 +401,7 @@ void test_exact_release() {
         const u64 want = std::min<u64>(kShards, k + r);
         wait_until([&] { return delta(eng.sync_tokens(), base).releases == r; }, "one more release");
         wait_until([&] { return delta(eng.sync_tokens(), base).grants == want; }, "the next grant");
+        wait_until([&] { return eng.sync_tokens().syncs_inflight == want - r; }, "its sync in flight");
         // Exactly one advanced: nothing more is granted while held.
         for (int i = 0; i < 80; ++i) {
           const Engine::SyncTokenStats t = eng.sync_tokens();
@@ -491,8 +495,7 @@ void test_fairness() {
       bg.join();
       seq = bg.rep.seq;
       Engine::debug_ckpt_hold_sync(false);
-      // Every waiter got exactly one token, and waited longer the later
-      // its ticket (the last waited for at least the first few syncs).
+      // Every waiter got a token (the order is checked above).
       g = fresh_all(eng);
       for (u16 s = 0; s < kShards; ++s) CHECK(g[s][G_CKPT_TOKEN_ACQUIRED] >= 1);
       check_reconciled(eng, k);

@@ -758,8 +758,9 @@ class Engine {
   const NodeCkptGauges& checkpoint_gauges() const;
   // S4 (docs/S4_SYNC_TOKENS.md): the node's final-sync tokens, counted
   // since construction (never reset). active = grants - releases and
-  // waiting = requests - grants, from one consistent reading of the three
-  // counts. Any thread, any time; observability only.
+  // waiting = requests - grants, from one stable reading of grants (the
+  // others read just after it: active may read low, waiting high, never
+  // past their bounds). Any thread, any time; observability only.
   struct SyncTokenStats {
     u32 limit = 0;  // K; 0 = unlimited
     u64 requests = 0, grants = 0, releases = 0;
