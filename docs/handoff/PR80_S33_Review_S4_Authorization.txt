@@ -1,0 +1,498 @@
+SNC SERVER OS — HANDOFF AFTER PR #80
+
+STATUS
+
+PR #80 is APPROVED.
+
+S3 is COMPLETE.
+
+The extra S3.1–S3.3 lifecycle/control work is also accepted and closed.
+
+Current stage status:
+
+- S0 — COMPLETE
+- S1 — COMPLETE
+- S2 — COMPLETE
+- S3-D — COMPLETE
+- S3 — COMPLETE
+- S3.1 — COMPLETE
+- S3.2 — COMPLETE
+- S3.3 — COMPLETE
+- S4 — AUTHORIZED
+- R640 campaign — NOT authorized yet
+- CP-1A rerun — NOT authorized yet
+- Competitor/comparator runs — NOT authorized yet
+
+============================================================
+1. WHAT PR #80 CLOSED
+============================================================
+
+PR #80 closed the final two S3 blockers.
+
+A. Raw runtime lifecycle escape hatch is closed
+
+`Engine::runtime()` is gone.
+
+External shard work now goes through `Engine::DataPlane`, which is a lifecycle-counted lease.
+
+Required invariant now holds:
+
+No external code may submit work to an Engine runtime without holding a lifetime token that `stop()` waits on.
+
+Accepted behavior:
+- lease granted only in RUNNING;
+- STOPPING refuses new leases;
+- STOPPED refuses new leases;
+- stop waits for outstanding leases;
+- moved leases retain exact accounting;
+- `run_on_all()` from a shard thread aborts instead of self-deadlocking;
+- read-only runtime facts go through `RuntimeView`, not a raw runtime reference.
+
+This closes the same abandoned-waiter defect class that S3.2 fixed for Engine methods.
+
+B. Promotion vs checkpoint durable-state race is closed
+
+`promote()` and `checkpoint()` now hold one durable-control lock:
+
+`control_mu_`
+
+They therefore linearize as one of exactly two orders:
+
+Order A:
+checkpoint completes under standby role -> promotion
+
+or
+
+Order B:
+promotion completes -> checkpoint runs under primary role
+
+Hybrid durable state is no longer allowed.
+
+This protects shared mutations of:
+- `sb_.term`
+- `sb_.generation`
+- `sb_.active_ckpt`
+- lease fields
+- `next_lease`
+- runtime role
+- superblock persistence
+
+Runtime role was correctly separated from immutable configuration.
+
+`cfg_.standby` is no longer mutated as runtime state.
+
+`term()` and `lease_block()` now read a published superblock view rather than racing raw `sb_`.
+
+============================================================
+2. PR #80 VALIDATION ACCEPTED
+============================================================
+
+Final accepted evidence:
+
+- Release: 41/41
+- ASan+UBSan: 41/41, zero reports
+- TSan: 41/41, zero reports
+- Legacy checkpoint mode: 41/41
+- Negative mutations: 5/5 caught
+
+The earlier invalid mutation run was properly disclosed and the mutation script was corrected so failed patch application cannot silently appear as valid evidence.
+
+The concurrent promote/checkpoint tests now verify:
+- both serial orders;
+- exact term preservation;
+- exact checkpoint preservation;
+- lease metadata preservation;
+- coherent generation changes;
+- recovery after overlap;
+- crash boundaries;
+- no TSan race.
+
+This is sufficient to close S3.
+
+============================================================
+3. S3 FINAL ARCHITECTURE
+============================================================
+
+The S3 checkpoint path is now:
+
+1. S2 time-paces the checkpoint WALK.
+2. Checkpoint records are produced into bounded chunks.
+3. S3 uses `RWF_DSYNC` per checkpoint chunk.
+4. At most W chunk writes are in flight per shard.
+5. A full window structurally stops further checkpoint production.
+6. Each write owns its own buffer until its own completion.
+7. Completed buffers are freed immediately.
+8. Retained checkpoint memory is bounded by the write window rather than checkpoint size.
+9. Positive short writes are fatal.
+10. Synchronous fallback is observable and invalidates performance evidence.
+11. Final `fdatasync` remains the correctness barrier.
+12. Engine lifecycle prevents runtime teardown underneath active work.
+13. Durable-control operations that touch the same persistent metadata are serialized.
+
+CC-1 through CC-5 remain unchanged.
+
+============================================================
+4. NEXT AUTHORIZED SLICE: S4 ONLY
+============================================================
+
+S4 is now authorized.
+
+S4 is:
+
+bounded staggered final checkpoint shard syncs using a node-level sync-token mechanism.
+
+Do not broaden the slice.
+
+============================================================
+5. S4 OBJECTIVE
+============================================================
+
+Current concern:
+
+Even with S3 bounded `RWF_DSYNC` writeback, multiple shards may still reach their final `fdatasync` at roughly the same time.
+
+S4 must prevent all shards from issuing their final sync concurrently.
+
+Desired structure:
+- shard finishes WALK;
+- all chunk writes complete;
+- local WAL has reached `max_lsn`;
+- shard requests a sync token;
+- only K shards may hold a sync token simultaneously;
+- token holder issues final `fdatasync`;
+- completion releases token;
+- another waiting shard may proceed.
+
+The checkpoint still commits only after every shard has completed its part.
+
+============================================================
+6. S4 DESIGN RULES
+============================================================
+
+K is a hypothesis.
+
+Do not freeze K=1.
+
+Support/configure a bounded concurrency value and test at least:
+- K=1
+- K=2
+- K=4
+- K=8 / effectively unlimited
+
+The selection criterion is NOT raw checkpoint throughput.
+
+The question is:
+
+What is the smallest sync concurrency that protects WAL service behavior while still allowing acceptable checkpoint completion time?
+
+S3 should already have made final sync relatively small. S4 exists to bound concurrency, not redesign checkpoint I/O.
+
+============================================================
+7. S4 MUST NOT CHANGE
+============================================================
+
+Do not alter:
+- S1 admission semantics;
+- S2 WALK pacing;
+- C3 `RWF_DSYNC` checkpoint writeback;
+- checkpoint chunk size;
+- write window semantics;
+- checkpoint file format;
+- WAL format;
+- recovery;
+- manifest semantics;
+- superblock semantics;
+- CC-1..CC-5;
+- `kEmitBacklog`;
+- placement;
+- replication semantics;
+- promotion semantics;
+- Engine lifecycle;
+- follow-up intake backpressure;
+- B2 incremental begin snapshot.
+
+No opportunistic cleanup.
+
+============================================================
+8. S4 CORRECTNESS MODEL
+============================================================
+
+Staggering sync does not change checkpoint atomicity.
+
+Parts are allowed to become durable at different times.
+
+Before the superblock commit:
+- a crash recovers from the previous checkpoint plus retained WAL.
+
+After the superblock commit:
+- the new checkpoint is authoritative.
+
+This remains CC-5.
+
+S4 only changes when each shard may perform final part sync, not what is written or when the checkpoint becomes visible.
+
+============================================================
+9. TOKEN REQUIREMENTS
+============================================================
+
+S4-I1 — hard concurrency bound
+
+At most K shard final-sync operations may be active at one time.
+
+S4-I2 — no token leak
+
+Every token acquisition must have one matching release.
+
+Release must occur on:
+- successful sync completion;
+- fatal/error path as applicable before process termination;
+- any supported cancellation path, if one exists.
+
+S4-I3 — no starvation
+
+A shard waiting for a token must eventually receive one if active syncs continue completing.
+
+S4-I4 — no shard-thread blocking
+
+Waiting for a token must not block the shard thread with a mutex/condition wait.
+
+The shard must continue polling:
+- WAL completions;
+- foreground work;
+- follow-ups;
+- runtime I/O;
+- control work.
+
+Token wait must be state-based/poll-based or otherwise nonblocking.
+
+S4-I5 — checkpoint completion
+
+All shards eventually sync and report completion.
+
+The node checkpoint cannot commit before every shard reports.
+
+S4-I6 — rollback
+
+Unlimited mode must restore current S3 sync behavior for differential testing.
+
+============================================================
+10. FAIRNESS
+============================================================
+
+Do not create a token implementation where one shard can repeatedly reacquire while others starve.
+
+Prefer an explicit waiter/order model or a token allocator with deterministic fairness.
+
+We do not need sophisticated scheduling, but we do need a credible progress argument.
+
+Document it.
+
+============================================================
+11. OBSERVABILITY
+============================================================
+
+Add enough observability to prove S4 behavior.
+
+At minimum:
+- configured sync-token limit K;
+- current active final syncs;
+- peak active final syncs;
+- current shards waiting for a token;
+- peak waiting shards;
+- per-shard token wait duration;
+- max/possibly EWMA token wait;
+- number of token acquisitions;
+- final sync duration remains visible from existing gauges.
+
+HEALTH should expose enough to distinguish:
+- checkpoint waiting for token;
+- checkpoint actively syncing;
+- checkpoint stalled elsewhere.
+
+Do not overload existing phase semantics ambiguously. If needed, add a clear substate/gauge rather than changing the checkpoint correctness phase model.
+
+============================================================
+12. REQUIRED S4 TESTS
+============================================================
+
+S4-T1 — hard K bound
+
+Make all shards ready to final sync simultaneously.
+
+Hold completions.
+
+Prove:
+`active_syncs <= K`
+
+at every observation.
+
+Test K=1,2,4 and unlimited.
+
+S4-T2 — exact token release
+
+Allow one sync completion.
+
+Prove exactly one waiting shard may advance into sync.
+
+Repeat until all finish.
+
+S4-T3 — fairness / progress
+
+Hold and release syncs in controlled order.
+
+Prove every waiting shard eventually acquires a token.
+
+S4-T4 — foreground progress while waiting
+
+Keep shards waiting for tokens.
+
+Prove normal foreground operations/WAL polling continue.
+
+Token waiting must not block shard loops.
+
+S4-T5 — crash during staggered sync
+
+Crash with:
+- zero shards synced;
+- some shards synced;
+- all shards synced but before manifest;
+- manifest/superblock boundary where existing crash tests apply.
+
+Recovery must be exact.
+
+S4-T6 — sync failure
+
+Inject a final-sync failure while a token is held.
+
+Verify checkpoint does not commit and previous checkpoint remains authoritative.
+
+S4-T7 — unlimited rollback
+
+Unlimited mode allows the same final-sync concurrency as pre-S4.
+
+Existing correctness tests must pass.
+
+S4-T8 — token accounting
+
+acquisitions/releases/current/peak/waiters reconcile exactly.
+
+S4-T9 — repeated checkpoints
+
+Run many checkpoints and verify no token count drift or starvation accumulates across checkpoints.
+
+S4-T10 — negative mutation
+
+Bypass token acquisition or allow K+1 syncs.
+
+The test must fail.
+
+Also add a mutation for token leak if practical.
+
+============================================================
+13. CC-1 THROUGH CC-5
+============================================================
+
+S4 PR must explicitly map the change:
+
+CC-1 coverage:
+unchanged.
+
+CC-2 redo completeness:
+unchanged.
+
+CC-3 no future state:
+local durable-LSN check still happens before shard final sync.
+
+CC-4 idempotent replay:
+unchanged.
+
+CC-5 atomic publication/reclamation:
+unchanged.
+
+Different shards syncing at different times is already valid. The checkpoint remains invisible until the superblock commit.
+
+============================================================
+14. S4 VALIDATION GATE
+============================================================
+
+Before returning for review:
+- full serial Release;
+- full ASan+UBSan;
+- full serial TSan;
+- full legacy checkpoint mode if still applicable;
+- zero sanitizer reports;
+- all targeted S4 tests;
+- negative mutations;
+- independent source review;
+- explicit CC-1..CC-5 mapping;
+- no R640 campaign.
+
+Keep every failed/invalid attempt in evidence.
+
+Never combine partial runs into a headline result.
+
+============================================================
+15. PERFORMANCE PHILOSOPHY
+============================================================
+
+Continue:
+
+correctness -> semantics -> boundedness -> recoverability -> operability -> performance
+
+S4 is not about making checkpoint sync fast.
+
+It is about making sync concurrency bounded and predictable.
+
+Later physical characterization will tell us which K is appropriate for the R640 SAS SSD.
+
+Do not tune K from dev-VM throughput.
+
+============================================================
+16. AFTER S4
+============================================================
+
+Do not automatically begin S5 or S6.
+
+Return S4 for review.
+
+We still have a required separate follow-up intake backpressure slice before S6:
+
+destination WAL stall must not allow unlimited accumulation of non-refusable follow-up work.
+
+That work remains separate from S4.
+
+After S4 and the follow-up-intake slice, we will prepare the R640 characterization:
+- full six memory channels/socket;
+- rederive S2 walk budgets;
+- characterize C3 versus C2 on the SAS SSD;
+- verify actual WAL I/O mode;
+- verify zero synchronous checkpoint chunk fallback;
+- characterize K;
+- preregister values;
+- only then run the physical regression campaign.
+
+============================================================
+FINAL AUTHORIZATION
+============================================================
+
+PR #80: APPROVED
+
+S3: COMPLETE
+
+S4: AUTHORIZED
+
+Work only on:
+
+bounded staggered final checkpoint sync using a node-level K-token mechanism.
+
+No unrelated changes.
+
+No R640 campaign.
+
+No CP-1A rerun.
+
+No comparator runs.
+
+No follow-up intake work mixed into S4.
+
+Always verify, never assume. Fix defects on site.

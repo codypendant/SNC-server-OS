@@ -17,6 +17,7 @@
 #include "replication.h"
 #include "snc/cluster.h"
 #include "snc/snc.h"
+#include "sync_tokens.h"
 
 namespace snc {
 
@@ -190,6 +191,9 @@ class Shard {
     u32 window = 4;
   };
   void set_ckpt_io(const CkptIo& io) { ckpt_io_ = io; }
+  // S4 (docs/S4_SYNC_TOKENS.md): the node's final-sync tokens, shared by
+  // every shard of the Engine and owned by it.
+  void set_sync_tokens(SyncTokens* t) { sync_tokens_ = t; }
   // Copies this shard's counters into its gauge block: at most every
   // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
   // phase change. Shard thread only.
@@ -462,6 +466,12 @@ class Shard {
     std::vector<std::unique_ptr<CkptWrite>> slots;  // never more than the window (dsync)
     std::vector<CkptWrite*> free_slots;
     u64 chunks = 0;  // submitted
+    // S4: the final sync's token. `ticketed` once the part is ready to
+    // sync (writes drained, local WAL durable to max_lsn) and has taken
+    // its ticket; `token_held` from the grant until the sync's completion
+    // releases it.
+    bool ticketed = false, token_held = false;
+    u64 ticket = 0;
     CheckpointDone done;
     std::string path;
   };
@@ -642,7 +652,14 @@ class Shard {
     u64 write_lat_last_us = 0, write_lat_ewma_us = 0, write_lat_max_us = 0;
     u64 write_lat_hist[4] = {0, 0, 0, 0};  // < 1 ms, < 10 ms, < 100 ms, more
     u64 sync_writes = 0, sync_writes_total = 0;
+    // S4: the final sync's token. token_request_ns: when the part in
+    // progress asked for it (0 if it has not), which also ends its
+    // durable wait. Wait times and acquisitions are since start.
+    u64 token_request_ns = 0;
+    u64 token_wait_last_us = 0, token_wait_max_us = 0, token_wait_ewma_us = 0, token_acquired = 0;
+    u64 token_ticket = 0;  // the latest request's ticket + 1 (0: none yet)
   } ckpt_obs_;
+  SyncTokens* sync_tokens_ = nullptr;
   CkptIo ckpt_io_;
   // Tests only (Engine::debug_ckpt_hold_writes): completions kept unprocessed.
   struct HeldWrite {
@@ -754,6 +771,8 @@ void debug_ckpt_defer_writes(bool on);
 void debug_ckpt_release_writes(u32 n, bool newest_first);
 void debug_ckpt_fail_write(u64 index, int mode);
 void debug_ckpt_hold_sync(bool on);
+void debug_ckpt_release_syncs(u32 n);
+void debug_ckpt_fail_sync(u16 shard);
 void set_current_shard(Shard* s);
 
 }  // namespace snc
