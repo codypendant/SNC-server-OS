@@ -77,7 +77,10 @@ Decided by cody on 2026-11-04.
      bench/results/walcap-validation-devvm-20261109). Rev2 of the design
      (reply-only follow-ups and enforced `max_emits`, an exchange budget X
      that makes B2 structural intra-node, cross-node end frames as D.2) is
-     written and **waits for review**; implementation is not authorized
+     approved with conditions (handoff/PR85_Design_Review.txt); rev2.1 adds
+     them (per-invocation emit reservation, coalesced paged resume), and
+     **D.1 (intra-node) is authorized**; D.2 (cross-node) follows as its
+     own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.
