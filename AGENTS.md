@@ -1946,7 +1946,11 @@ or source comments.
     - `waiting_peak` is clarified.
 -   **Tests:** A1-A4 (`tests/test_admin_loop.cpp`); S4 T1-T9 unchanged
     and green.
--   **Evidence:** `bench/results/s41-validation-devvm-20261109/`.
+-   **Evidence:** `bench/results/s41-validation-devvm-20261109/` (README):
+    serial Release 43/43, ASan+UBSan 43/43 (run2; run1 cut by a task time
+    limit, kept as invalid), TSan 43/43, zero sanitizer reports; negatives
+    4 of 4 caught. The independent review's findings (A1 under TSan and
+    four small ones) were fixed before these runs.
 -   **Next action:** review. Then the follow-up intake slice if
     authorized. No S5/S6, R640, CP-1A or comparators.
 
