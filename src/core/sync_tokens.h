@@ -10,15 +10,16 @@
 // below R_now + K: at most R_now + K grants, of which R_now are released,
 // leaves at most K active.
 //
-// Order and progress (S4-I3): tickets are handed out in request order.
-// A ticket is eligible once releases + K passes it, which happens in
-// ticket order, so a later request is never eligible before an earlier
-// one. A later ticket may enter before an earlier eligible one has polled
-// again, but only within the same window of K: no ticket waits for more
-// than (its position in the queue) releases, and every active sync
-// completes (it holds no other resource), so every waiter is eventually
-// granted. A shard takes one ticket per checkpoint and cannot reacquire
-// before every earlier ticket is eligible.
+// Order and progress (S4-I3; corrected in S4.1): tickets are handed out
+// in request order, and a ticket becomes eligible once releases + K
+// passes it, which happens in ticket order and is never undone. Grants
+// are NOT FIFO: an eligible ticket acquires at its shard's next poll, so
+// a later eligible ticket may acquire (and even release, admitting the
+// next one) before an earlier one polls. The bound does not depend on
+// order. No starvation: an eligible shard keeps polling while its
+// checkpoint is active and every granted sync completes, so every waiter
+// acquires; a checkpoint has one ticket per shard and the next cannot
+// begin before every part completes, so overtaking is finite.
 //
 // Counters are monotonic for the life of the Engine and never reset, so
 // nothing drifts across checkpoints (S4-T9). K = 0: unlimited, every

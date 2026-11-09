@@ -14,8 +14,11 @@
 //   T2  exact release, K = 1 and 2: each released completion lets exactly
 //       one waiting shard into its sync, until all eight are done
 //   T3  fairness: parts become ready in a chosen order (WAL flush held per
-//       shard); tickets follow that order, and tokens are granted in
-//       ticket order, never by shard id; every waiter gets one. A part
+//       shard); tickets follow that order, and after each release exactly
+//       the parts inside the eligibility frontier (ticket < releases + K)
+//       have acquired, never by shard id; every waiter gets one. Ordered
+//       eligibility and eventual acquisition, not strict FIFO grants
+//       (docs/S4_SYNC_TOKENS.md section 2). A part
 //       waiting for its WAL reads sync_state 0, one waiting for a token 1,
 //       one syncing 2 (the HEALTH distinction)
 //   T4  foreground progress: with seven shards waiting for the one token,
@@ -471,8 +474,9 @@ void test_fairness() {
         CHECK_EQ(x[G_CKPT_TOKEN_TICKET] - 1 - base.requests, static_cast<u64>(i));
       }
       wait_until([&] { return delta(eng.sync_tokens(), base).grants == granted_at_once(k); }, "the first grants");
-      // Granted in ticket order: after r releases, exactly the parts with
-      // tickets below r + K have had a token.
+      // The eligibility frontier: after r releases, exactly the parts with
+      // tickets below r + K have had a token (every eligible one acquired,
+      // none outside).
       for (u64 r = 0; r <= kShards; ++r) {
         if (r > 0) {
           Engine::debug_ckpt_release_syncs(1);
@@ -505,7 +509,7 @@ void test_fairness() {
     rm_rf(dir);
   }
   std::printf("T3 fairness, K=1 and K=2: parts ready in the order 3 7 0 5 1 6 2 4 took tickets in that order and "
-              "were granted in it; every waiter acquired; WAL wait (sync_state 0), token wait (1) and sync (2) "
+              "after each release exactly the parts inside the eligibility frontier had acquired; every waiter acquired; WAL wait (sync_state 0), token wait (1) and sync (2) "
               "told apart\n");
 }
 

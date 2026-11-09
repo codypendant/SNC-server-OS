@@ -946,6 +946,17 @@ int main(int argc, char** argv) {
         clamp();
       }
     }
+    // S4.1 (tools/admin_loop.h): admin replies waiting for their client,
+    // and those closed unfinished (write deadline, send error, evicted).
+    if (const admin::Loop* al = admin_loop.load()) {
+      const admin::Counters& c = al->counters();
+      n += std::snprintf(b + n, sizeof(b) - n,
+                         " adm_out=%llu adm_out_hw=%llu adm_write_timeouts=%llu adm_write_failed=%llu "
+                         "adm_write_evicted=%llu",
+                         c.out.load(), c.out_hw.load(), c.write_timeouts.load(), c.write_failed.load(),
+                         c.write_evicted.load());
+      clamp();
+    }
     return std::string(b);
   };
 

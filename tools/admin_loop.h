@@ -13,6 +13,16 @@
 // line must arrive within kReadMs of the accept (as ha::read_line's 500 ms
 // before this loop); a non-MOVE line longer than kLineMax is refused.
 //
+// Replies from the loop (S4.1, docs/S4_SYNC_TOKENS.md section 9): sent
+// without blocking; what the socket does not take at once is kept and
+// sent as the client reads, on POLLOUT, so a large reply (GAUGES) is
+// delivered whole and a slow reader never holds HEALTH. A reply not fully
+// sent within the write deadline (kWriteMs by default), or whose send
+// fails, is closed unfinished and counted: every reply ends in a newline,
+// so a client sees a cut reply as a missing newline, never as a complete
+// one. At most kOutMax replies wait; a new one past that closes the
+// oldest waiting (counted).
+//
 // The counters are atomics, read by HEALTH (inexpensive observability, as
 // the review of PR #36 asked; no metrics subsystem).
 #pragma once
@@ -43,10 +53,15 @@ inline constexpr std::size_t kQueueMax = 16;   // ACCEPTED (review of PR #36, de
 inline constexpr std::size_t kHalfMax = 256;   // ACCEPTED (decision 3)
 inline constexpr int kReadMs = 500;
 inline constexpr std::size_t kLineMax = 64 * 1024;
+inline constexpr int kWriteMs = 5000;
+inline constexpr std::size_t kOutMax = 64;
 
 struct Counters {
   std::atomic<unsigned long long> queue_depth{0}, queue_hw{0}, busy{0};
   std::atomic<unsigned long long> half{0}, half_hw{0}, evicted{0}, timeouts{0};
+  // S4.1: replies waiting for the client to read; closed unfinished at the
+  // write deadline, on a send error, or to admit a newer one past kOutMax.
+  std::atomic<unsigned long long> out{0}, out_hw{0}, write_timeouts{0}, write_failed{0}, write_evicted{0};
 };
 
 inline u64 mono_ns() {
@@ -94,7 +109,10 @@ class Loop {
     std::function<void(int fd, std::string got, u64 deadline_ns)> move;
   };
 
-  Loop(int listen_fd, Handlers h) : lfd_(listen_fd), h_(std::move(h)) {
+  // write_ms: the reply write deadline; out_max: replies that may wait
+  // (tests lower both).
+  Loop(int listen_fd, Handlers h, int write_ms = kWriteMs, std::size_t out_max = kOutMax)
+      : lfd_(listen_fd), h_(std::move(h)), write_ms_(write_ms), out_max_(out_max) {
     ::fcntl(lfd_, F_SETFL, ::fcntl(lfd_, F_GETFL) | O_NONBLOCK);
   }
   // Starts answering. Separate from the constructor so the caller can
@@ -138,8 +156,54 @@ class Loop {
     u64 accepted_ns;
   };
 
+  struct Out {
+    int fd;
+    std::string buf;
+    std::size_t off;
+    u64 deadline_ns;
+  };
+  enum class Sent { DONE, BLOCKED, FAILED };
+
+  // As much as the socket takes now.
+  static Sent send_some(Out& o) {
+    while (o.off < o.buf.size()) {
+      const ssize_t r = ::send(o.fd, o.buf.data() + o.off, o.buf.size() - o.off, MSG_NOSIGNAL | MSG_DONTWAIT);
+      if (r < 0 && errno == EINTR) continue;
+      if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return Sent::BLOCKED;
+      if (r <= 0) return Sent::FAILED;
+      o.off += static_cast<std::size_t>(r);
+    }
+    return Sent::DONE;
+  }
+
+  // A reply from the loop thread: sent now if the socket takes it all,
+  // otherwise kept for POLLOUT until the write deadline. Never blocks.
+  void reply(int fd, const std::string& text, u64 now) {
+    Out o{fd, text + "\n", 0, now + static_cast<u64>(write_ms_) * 1000000};
+    switch (send_some(o)) {
+      case Sent::DONE: ::close(fd); return;
+      case Sent::FAILED:
+        ::close(fd);
+        c_.write_failed.fetch_add(1);
+        return;
+      case Sent::BLOCKED: break;
+    }
+    if (out_.size() >= out_max_) {
+      ::close(out_.front().fd);
+      out_.pop_front();
+      c_.write_evicted.fetch_add(1);
+    }
+    out_.push_back(std::move(o));
+    set_out(out_.size());
+  }
+
+  void set_out(std::size_t n) {
+    c_.out.store(n);
+    if (n > c_.out_hw.load()) c_.out_hw.store(n);
+  }
+
+  // Worker thread only, for its one-line refusal while stopping.
   static void reply_close(int fd, const std::string& reply) {
-    // Small replies on a fresh connection: the send buffer takes them.
     const std::string s = reply + "\n";
     ssize_t r;
     do r = ::send(fd, s.data(), s.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
@@ -159,14 +223,16 @@ class Loop {
       pfds.clear();
       pfds.push_back({lfd_, POLLIN, 0});
       for (const Conn& c : half) pfds.push_back({c.fd, POLLIN, 0});
-      // Wake for the next read deadline, or to see stop_.
+      for (const Out& o : out_) pfds.push_back({o.fd, POLLOUT, 0});
+      // Wake for the next read or write deadline, or to see stop_.
       int timeout = 100;
       const u64 now0 = mono_ns();
-      for (const Conn& c : half) {
-        const u64 dl = c.accepted_ns + u64{kReadMs} * 1000000;
+      auto until = [&](u64 dl) {
         const int ms = dl <= now0 ? 0 : static_cast<int>((dl - now0) / 1000000) + 1;
         if (ms < timeout) timeout = ms;
-      }
+      };
+      for (const Conn& c : half) until(c.accepted_ns + u64{kReadMs} * 1000000);
+      for (const Out& o : out_) until(o.deadline_ns);
       int n = ::poll(pfds.data(), pfds.size(), timeout);
       if (n < 0) {
         // Never give up the port: a silent admin port reads as a dead
@@ -178,6 +244,31 @@ class Loop {
         continue;
       }
       const u64 now = mono_ns();
+      // Waiting replies first, while pfds[1 + half.size() + i] is still
+      // out_[i] (reading below may add to out_ and evict its oldest).
+      {
+        const std::size_t base = 1 + half.size();
+        for (std::size_t i = 0; i < out_.size(); ++i) {
+          Out& o = out_[i];
+          if (pfds[base + i].revents != 0) {
+            const Sent st = send_some(o);
+            if (st != Sent::BLOCKED) {
+              if (st == Sent::FAILED) c_.write_failed.fetch_add(1);
+              ::close(o.fd);
+              o.fd = -1;
+              continue;
+            }
+          }
+          if (now >= o.deadline_ns) {
+            SNC_TRACE("admin_write_timeout sent=%zu of=%zu", o.off, o.buf.size());
+            ::close(o.fd);
+            o.fd = -1;
+            c_.write_timeouts.fetch_add(1);
+          }
+        }
+        for (auto it = out_.begin(); it != out_.end();) it = it->fd < 0 ? out_.erase(it) : it + 1;
+        set_out(out_.size());
+      }
       // Read what arrived. pfds[i + 1] is half[i] (half is not changed
       // before this pass ends; finished ones are marked fd = -1).
       for (std::size_t i = 0; n > 0 && i < half.size(); ++i) {
@@ -230,6 +321,9 @@ class Loop {
     }
     for (Conn& c : half) ::close(c.fd);
     set_half(0);
+    for (Out& o : out_) ::close(o.fd);  // stopping: unfinished replies end here
+    out_.clear();
+    set_out(0);
     ::close(lfd_);
   }
 
@@ -264,7 +358,7 @@ class Loop {
         return;
       }
       if (c.buf.size() > kLineMax) {
-        reply_close(c.fd, "NO line too long");
+        reply(c.fd, "NO line too long", now);
         c.fd = -1;
         return;
       }
@@ -274,7 +368,7 @@ class Loop {
   void dispatch(int fd, const std::string& line, u64 accepted_ns) {
     std::string reply;
     if (h_.inline_verb && h_.inline_verb(line, reply)) {
-      reply_close(fd, reply);
+      this->reply(fd, reply, mono_ns());
       if (trace::enabled()) {
         const u64 ms = (mono_ns() - accepted_ns) / 1000000;
         if (ms >= 20) SNC_TRACE("admin_inline_slow verb=%.16s total_ms=%llu", line.c_str(), (unsigned long long)ms);
@@ -285,7 +379,7 @@ class Loop {
     if (q_.size() >= kQueueMax) {
       g.unlock();
       c_.busy.fetch_add(1);
-      reply_close(fd, "NO busy");
+      this->reply(fd, "NO busy", mono_ns());
       return;
     }
     q_.push_back(Job{fd, line, accepted_ns});
@@ -328,6 +422,9 @@ class Loop {
 
   int lfd_;
   Handlers h_;
+  int write_ms_;
+  std::size_t out_max_;
+  std::deque<Out> out_;  // loop thread only
   Counters c_;
   std::atomic<bool> stop_{false}, stopped_{false};
   std::mutex mu_;

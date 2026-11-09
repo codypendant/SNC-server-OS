@@ -1,6 +1,6 @@
 # S4: staggered final checkpoint sync (node-level K tokens)
 
-Status: **S4 built, for review.**
+Status: **S4 core approved (PR #81, `docs/handoff/PR81_S4_Review.txt`); S4.1 (section 9: admin reply delivery, the fairness wording in section 2, `waiting_peak` in section 5) for review.**
 Work order: `docs/handoff/PR80_S33_Review_S4_Authorization.txt` (PR #80
 approved, S3 complete, S4 authorized and only S4). Design: option D of
 [CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md)
@@ -70,19 +70,42 @@ K hold a token. (A release counts only a completed grant: each release
 is made by the shard that holds the token, once, in
 `checkpoint_sync_complete`.)
 
-**Order and progress (S4-I3).** The window [R, R + K) moves only
-forward, so tickets become eligible strictly in ticket order: a later
-request is never eligible before an earlier one. A shard that has
-become eligible stays eligible (R never falls), and it re-checks at its
-very next loop step, so it is granted at once; a later ticket can enter
-before it only if that later ticket is also inside the same window, so
-neither the bound nor anyone's position is affected. Every granted sync
-completes: it waits on nothing but the device (no lock, no other token,
-no WAL), and its completion releases its token. So each release moves
-the window by one, and a waiter whose ticket is j places behind the
-window's start is granted after at most j releases. A shard takes one
-ticket per checkpoint (`Checkpoint::ticketed`) and cannot take another
-until its checkpoint is over, so no shard can lap the others.
+**Order and progress (S4-I3), corrected in S4.1.** What the allocator
+orders is *eligibility*, not grants. (Before S4.1 this section, the
+header comments, the PR and T3's output said tokens are "granted in
+ticket order"; that was stronger than the code. Review:
+`docs/handoff/PR81_S4_Review.txt` section 7.)
+
+- **Tickets** are handed out in the order parts became ready (one
+  `fetch_add`).
+- **Eligibility** follows ticket order: ticket t is eligible once
+  t < R + K. The frontier R + K only moves forward, so a later ticket
+  never becomes eligible before an earlier one, and an eligible ticket
+  stays eligible.
+- **Grants are not FIFO.** An eligible ticket acquires when its shard
+  next polls. A later eligible ticket can acquire first, and can even
+  complete and release before an earlier one has polled; the frontier
+  then moves and admits the next ticket, which may also acquire before
+  the earlier one. Example, K = 2: tickets 0 and 1 are eligible; 1
+  acquires, syncs and releases (R = 1) before 0 polls; ticket 2 is now
+  eligible (2 < 1 + 2) and may acquire before 0. The K bound is not
+  affected (it never depends on who holds the tokens).
+- **No starvation.** Every eligible ticket belongs to a shard whose loop
+  calls `checkpoint_step` on every iteration while its checkpoint is
+  active (an unstalled shard keeps polling), so it acquires at its next
+  poll, and eligibility is never lost. Every granted sync completes (it waits only on the device: no
+  lock, no other token, no WAL) and releases. A ticket j places behind
+  the frontier becomes eligible after at most j releases. Overtaking is
+  finite: a shard takes one ticket per checkpoint
+  (`Checkpoint::ticketed`), a checkpoint has one ticket per shard, and
+  the next checkpoint cannot begin until every part of this one has
+  completed (`Engine::checkpoint` waits for all and holds `control_mu_`),
+  so at most n - 1 tickets can overtake any ticket, and none can lap it.
+
+So the guarantee is: ordered ticket assignment, ordered eligibility,
+the K bound, and eventual acquisition by every waiter. Strict FIFO grant
+order is not guaranteed and is not needed for S4-I3; the allocator is
+unchanged in S4.1.
 
 **No abandoned tickets.** A ticket taken is always granted later: once a
 part has its ticket there is no cancellation. `Engine::stop()` waits for
@@ -183,6 +206,15 @@ Node (`Engine::sync_tokens()`, GAUGES header line): K, requests, grants,
 releases, active, waiting, active and waiting peaks, the longest token
 wait, syncs in flight and their peak.
 
+`waiting` (requests - grants) and `waiting_peak` count tickets taken and
+not yet granted. A ticket is taken just before its first `try_acquire`,
+so even a grant at that first poll is "waiting" for an instant, and
+`waiting_peak` can be above 0 (up to the shard count) when no shard was
+ever refused a token, for example at K = 0. They do not mean a shard
+experienced a denied wait; the per-shard `ckpt_token_wait_*` gauges and
+`ckpt_sync_state` = 1 are the signal for that (S4.1 clarification,
+review section 8).
+
 HEALTH appends `ckpt_sync_k`, `ckpt_sync_active`, `ckpt_sync_waiting`
 and `ckpt_slow_sync` (the slowest shard's sync state: `token`, `syncing`
 or `none`). The phase model is unchanged: a part waiting for a token is
@@ -224,7 +256,7 @@ a whole suite under a K, announced on stderr, like `SNC_CKPT_IO`).
 |---|---|
 | T1 | K = 1, 2, 4, 8, unlimited: with every part ready and completions held, exactly min(K, 8) syncs in flight (the independent count) at 400 observations, the rest waiting; then commit and exact recovery |
 | T2 | K = 1, 2: each released completion lets exactly one waiting part in, eight times |
-| T3 | K = 1, 2: parts made ready in the order 3 7 0 5 1 6 2 4 (WAL flush held per shard) take tickets in that order and are granted in it; every waiter acquires; sync_state 0 / 1 / 2 told apart |
+| T3 | K = 1, 2: parts made ready in the order 3 7 0 5 1 6 2 4 (WAL flush held per shard) take tickets in that order; after each released completion, exactly the parts inside the eligibility frontier have acquired (all of them, and none outside); every waiter acquires; sync_state 0 / 1 / 2 told apart. With completions held one at a time this is ordered eligibility and eventual acquisition, not a strict-FIFO test (section 2) |
 | T4 | K = 1, seven parts waiting: 800 durable deposits and 200 reads complete; every shard's WAL keeps flushing |
 | T5 | K = 1, 2, 8: crash with none synced, some synced, all synced before the manifest, manifest written but not the superblock, after the superblock; exact recovery each time, then a new checkpoint. A process crash (`_Exit`), not a power loss: "synced" is the shard's view (the completion processed), and with completions held the kernel may already have finished the sync; the page cache survives. So T5 tests the commit and superblock logic under staggering, not device durability, as S3 T7 does (S3_WRITEBACK.md section 9) |
 | T6 | K = 1: -EIO on the last part's sync with its token held; the abort (read from a SIGABRT handler) sees grants = releases and none in flight; previous checkpoint authoritative |
@@ -236,14 +268,59 @@ a whole suite under a K, announced on stderr, like `SNC_CKPT_IO`).
 
 ## 8. Validation, open items
 
-Open, not S4 (independent review): GAUGES for eight shards is now about
-20 KB in one non-blocking send, which a slow remote link could cut
-short (loopback is fine; the existing comment asks for one shard at a
-time above eight). `ckpt_slow_sync` reports the shard in the lowest
-phase only, like `ckpt_slow_phase`.
+Open: `ckpt_slow_sync` reports the shard in the lowest phase only, like
+`ckpt_slow_phase`. (The GAUGES truncation this section listed as open
+is fixed in S4.1, section 9.)
 
 
 Dev VM, regression only (no performance claim): full serial Release,
 ASan+UBSan, TSan and legacy (`SNC_CKPT_IO=legacy`), plus the whole
 suite under K = 1 (`SNC_CKPT_SYNC_TOKENS=1`). Every run, failed or not,
 is listed in `bench/results/s4-validation-devvm-20261109/README.md`.
+
+## 9. S4.1: admin replies complete or explicitly cut
+
+**The defect (review section 6, confirmed).** `admin::Loop::reply_close`
+sent each inline reply (HEALTH, GAUGES) with one
+`send(..., MSG_DONTWAIT)` and closed the fd. A positive partial write or
+`EAGAIN` was not handled, so a reply larger than what the socket took at
+once was cut silently. GAUGES for eight shards is about 20 KB.
+
+**The fix (`tools/admin_loop.h`).** Inline replies (and the loop's own
+"NO busy" / "NO line too long") go through `Loop::reply`:
+
+1. it sends what the socket takes now, without blocking;
+2. if all of it went, the fd is closed, as before;
+3. otherwise the rest waits in `out_` (loop thread only). The loop polls
+   those fds for `POLLOUT` next to the listener and the half-read
+   connections, and sends more whenever the client has read;
+4. a reply not finished within the write deadline (`kWriteMs`, 5 s), or
+   whose send fails, is closed unfinished and counted
+   (`write_timeouts`, `write_failed`);
+5. at most `kOutMax` (64) replies wait; one more closes the oldest
+   waiting (`write_evicted`).
+
+Every reply ends in its newline, so a client tells a cut reply from a
+complete one: a cut one has no newline. The loop never waits on a
+client, so HEALTH stays immediate behind any number of slow GAUGES
+readers. Memory is bounded by `kOutMax` replies. HEALTH appends
+`adm_out`, `adm_out_hw`, `adm_write_timeouts`, `adm_write_failed` and
+`adm_write_evicted`. The heavy worker's replies (STATUS, AUDIT, ...)
+already used a blocking write-all on their own thread and are
+unchanged. No engine code changes in S4.1.
+
+**Tests (`tests/test_admin_loop.cpp`, a real `admin::Loop` on loopback).**
+On loopback the socket takes about 2.8 MB at once, so GAUGES itself
+never needs a second send there. The test therefore uses an inline verb
+`BIG n` of the same kind with a 16 MiB reply and a 4 KiB client receive
+buffer:
+
+| Test | What it proves |
+|---|---|
+| A1 | slow reader: the reply waits for POLLOUT and arrives whole, ending in its newline; 20 HEALTH meanwhile, each prompt |
+| A2 | stalled reader: closed at the write deadline; what it read has no newline; `write_timeouts` = 1; HEALTH prompt meanwhile; nothing left waiting |
+| A3 | bound: one more than the limit closes the oldest (`write_evicted` = 1); HEALTH prompt |
+| A4 | small replies go out at once; nothing waits |
+
+Mutation N7 restores the one-call send and close; A1 must fail.
+

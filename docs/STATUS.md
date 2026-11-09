@@ -62,8 +62,10 @@ Decided by cody on 2026-11-04.
      there, PR #80), were approved, and S3 is complete
      ([handoff/PR80_S33_Review_S4_Authorization.txt](handoff/PR80_S33_Review_S4_Authorization.txt)).
      S4, the staggered final sync with K node tokens
-     ([S4_SYNC_TOKENS.md](S4_SYNC_TOKENS.md)), is built and waits for
-     review; K is a hypothesis, default 0 (unlimited). Required before S6, as its own reviewed
+     ([S4_SYNC_TOKENS.md](S4_SYNC_TOKENS.md), PR #81), had its core
+     approved ([handoff/PR81_S4_Review.txt](handoff/PR81_S4_Review.txt));
+     K is a hypothesis, default 0 (unlimited). S4.1 (admin replies sent
+     whole or cut visibly; the fairness wording) waits for review. Required before S6, as its own reviewed
      slice: follow-up intake backpressure (S1.1 section 3)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
