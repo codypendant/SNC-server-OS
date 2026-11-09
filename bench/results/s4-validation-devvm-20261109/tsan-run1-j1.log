@@ -1,0 +1,156 @@
+Test project /home/claude/snc-server-os/build-tsan
+      Start  1: test_rate_schedule
+ 1/42 Test  #1: test_rate_schedule ...............   Passed    0.03 sec
+      Start  2: test_object_id
+ 2/42 Test  #2: test_object_id ...................   Passed    0.27 sec
+      Start  3: test_local_map
+ 3/42 Test  #3: test_local_map ...................   Passed   14.72 sec
+      Start  4: test_pages
+ 4/42 Test  #4: test_pages .......................   Passed    3.54 sec
+      Start  5: test_runtime
+ 5/42 Test  #5: test_runtime .....................   Passed    1.46 sec
+      Start  6: test_execute
+ 6/42 Test  #6: test_execute .....................   Passed    1.82 sec
+      Start  7: test_persistence
+ 7/42 Test  #7: test_persistence .................   Passed    4.35 sec
+      Start  8: test_crash
+ 8/42 Test  #8: test_crash .......................   Passed    5.84 sec
+      Start  9: test_net
+ 9/42 Test  #9: test_net .........................   Passed    0.23 sec
+      Start 10: test_transfer
+10/42 Test #10: test_transfer ....................   Passed   13.07 sec
+      Start 11: test_replication
+11/42 Test #11: test_replication .................   Passed   41.90 sec
+      Start 12: test_cluster
+12/42 Test #12: test_cluster .....................   Passed   11.91 sec
+      Start 13: test_migrate
+13/42 Test #13: test_migrate .....................   Passed   67.45 sec
+      Start 14: test_resend_refusals
+14/42 Test #14: test_resend_refusals .............   Passed    0.12 sec
+      Start 15: test_proof
+15/42 Test #15: test_proof .......................   Passed    1.80 sec
+      Start 16: test_placement
+16/42 Test #16: test_placement ...................   Passed    0.31 sec
+      Start 17: test_stage_chain
+17/42 Test #17: test_stage_chain .................   Passed   58.14 sec
+      Start 18: test_gauges
+18/42 Test #18: test_gauges ......................   Passed   12.69 sec
+      Start 19: test_s1_admission
+19/42 Test #19: test_s1_admission ................   Passed   30.89 sec
+      Start 20: test_s2_pacing
+20/42 Test #20: test_s2_pacing ...................   Passed   27.07 sec
+      Start 21: test_s3_writeback
+21/42 Test #21: test_s3_writeback ................   Passed  203.22 sec
+      Start 22: test_lifecycle
+22/42 Test #22: test_lifecycle ...................   Passed   12.92 sec
+      Start 23: test_s4_sync_tokens
+23/42 Test #23: test_s4_sync_tokens ..............***Failed    1.15 sec
+TC config: K=257 refused, 256 accepted
+T6 child: before the failure grants=23 releases=23
+snc storage: checkpoint fdatasync failed: /tmp/snc-s4-31nNln/ckpt/0000000000000003/part-003.ckpt (errno 5)
+==================
+WARNING: ThreadSanitizer: data race (pid=29333)
+  Read of size 8 at 0x561c56a3f108 by thread T4:
+    #0 on_abort /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:733 (test_s4_sync_tokens+0x13a32) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #1 CallUserSignalHandler ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:2096 (libtsan.so.2+0x517d5) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #2 snc::storage_fatal(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) /home/claude/snc-server-os/src/core/storage.cpp:105 (test_s4_sync_tokens+0xf5cad) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #3 snc::Shard::checkpoint_sync_complete(int) /home/claude/snc-server-os/src/core/shard.cpp:2192 (test_s4_sync_tokens+0x54576) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #4 snc::Shard::checkpoint_sync_done(void*, int) /home/claude/snc-server-os/src/core/shard.cpp:2177 (test_s4_sync_tokens+0x543e5) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #5 reap_io /home/claude/snc-server-os/src/native/runtime.cpp:255 (test_s4_sync_tokens+0x135271) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #6 snc::NativeRuntime::Impl::loop(snc::Worker&) /home/claude/snc-server-os/src/native/runtime.cpp:375 (test_s4_sync_tokens+0x1362f5) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #7 snc::NativeRuntime::Impl::run(snc::Worker&, std::barrier<std::__empty_completion>&, std::latch&) /home/claude/snc-server-os/src/native/runtime.cpp:495 (test_s4_sync_tokens+0x1376ff) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #8 operator() /home/claude/snc-server-os/src/native/runtime.cpp:546 (test_s4_sync_tokens+0x137e51) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #9 __invoke_impl<void, snc::NativeRuntime::start()::<lambda()> > /usr/include/c++/13/bits/invoke.h:61 (test_s4_sync_tokens+0x1397b2) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #10 __invoke<snc::NativeRuntime::start()::<lambda()> > /usr/include/c++/13/bits/invoke.h:96 (test_s4_sync_tokens+0x139729) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #11 _M_invoke<0> /usr/include/c++/13/bits/std_thread.h:292 (test_s4_sync_tokens+0x13968a) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #12 operator() /usr/include/c++/13/bits/std_thread.h:299 (test_s4_sync_tokens+0x139630) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #13 _M_run /usr/include/c++/13/bits/std_thread.h:244 (test_s4_sync_tokens+0x1395e6) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #14 <null> <null> (libstdc++.so.6+0xecdb3) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+
+  Previous write of size 8 at 0x561c56a3f108 by main thread:
+    #0 operator() /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:785 (test_s4_sync_tokens+0x141e9) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #1 __invoke_impl<void, (anonymous namespace)::test_sync_failure()::<lambda()>&> /usr/include/c++/13/bits/invoke.h:61 (test_s4_sync_tokens+0x1f939) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #2 __invoke_r<void, (anonymous namespace)::test_sync_failure()::<lambda()>&> /usr/include/c++/13/bits/invoke.h:111 (test_s4_sync_tokens+0x1db10) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #3 _M_invoke /usr/include/c++/13/bits/std_function.h:290 (test_s4_sync_tokens+0x1a4f1) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #4 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s4_sync_tokens+0x2d612) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #5 fork_child /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:600 (test_s4_sync_tokens+0x12238) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #6 test_sync_failure /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:758 (test_s4_sync_tokens+0x1439b) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #7 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s4_sync_tokens+0x39c67) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #8 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s4_sync_tokens+0x369d7) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #9 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s4_sync_tokens+0x324a3) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #10 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s4_sync_tokens+0x2d612) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #11 main /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:934 (test_s4_sync_tokens+0x16110) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+
+  Location is global '(anonymous namespace)::g_abort_engine' of size 8 at 0x561c56a3f108 (test_s4_sync_tokens+0x1c6108)
+
+  Thread T4 (tid=29339, running) created by main thread at:
+    #0 pthread_create ../../../../src/libsanitizer/tsan/tsan_interceptors_posix.cpp:1022 (libtsan.so.2+0x5ac1a) (BuildId: 2a13a7710e361d06f7babbea53065ca2be93f738)
+    #1 std::thread::_M_start_thread(std::unique_ptr<std::thread::_State, std::default_delete<std::thread::_State> >, void (*)()) <null> (libstdc++.so.6+0xeceb0) (BuildId: 753c6c8608b61d4e67be8f0c890e03e0aa046b8b)
+    #2 snc::NativeRuntime::start() /home/claude/snc-server-os/src/native/runtime.cpp:545 (test_s4_sync_tokens+0x13802e) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #3 snc::Engine::recover() /home/claude/snc-server-os/src/core/engine.cpp:915 (test_s4_sync_tokens+0xa99be) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #4 snc::Engine::start_() /home/claude/snc-server-os/src/core/engine.cpp:589 (test_s4_sync_tokens+0xa5550) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #5 snc::Engine::start() /home/claude/snc-server-os/src/core/engine.cpp:564 (test_s4_sync_tokens+0xa5255) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #6 operator() /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:762 (test_s4_sync_tokens+0x13f97) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #7 __invoke_impl<void, (anonymous namespace)::test_sync_failure()::<lambda()>&> /usr/include/c++/13/bits/invoke.h:61 (test_s4_sync_tokens+0x1f939) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #8 __invoke_r<void, (anonymous namespace)::test_sync_failure()::<lambda()>&> /usr/include/c++/13/bits/invoke.h:111 (test_s4_sync_tokens+0x1db10) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #9 _M_invoke /usr/include/c++/13/bits/std_function.h:290 (test_s4_sync_tokens+0x1a4f1) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #10 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s4_sync_tokens+0x2d612) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #11 fork_child /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:600 (test_s4_sync_tokens+0x12238) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #12 test_sync_failure /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:758 (test_s4_sync_tokens+0x1439b) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #13 void std::__invoke_impl<void, void (*&)()>(std::__invoke_other, void (*&)()) <null> (test_s4_sync_tokens+0x39c67) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #14 std::enable_if<is_invocable_r_v<void, void (*&)()>, void>::type std::__invoke_r<void, void (*&)()>(void (*&)()) <null> (test_s4_sync_tokens+0x369d7) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #15 std::_Function_handler<void (), void (*)()>::_M_invoke(std::_Any_data const&) <null> (test_s4_sync_tokens+0x324a3) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #16 std::function<void ()>::operator()() const /usr/include/c++/13/bits/std_function.h:591 (test_s4_sync_tokens+0x2d612) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+    #17 /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:816: CHECK failed: text.find("Sanitizer") == std::string::npos
+main /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:934 (test_s4_sync_tokens+0x16110) (BuildId: 03f28f242caadfda85c822c5dd593cf2239be695)
+
+SUMMARY: ThreadSanitizer: data race /home/claude/snc-server-os/tests/test_s4_sync_tokens.cpp:733 in on_abort
+==================
+T6 abort: grants=24 releases=24 inflight=0
+
+      Start 24: test_witness
+24/42 Test #24: test_witness .....................   Passed   25.11 sec
+      Start 25: test_async_failover
+25/42 Test #25: test_async_failover ..............   Passed   14.16 sec
+      Start 26: test_control
+26/42 Test #26: test_control .....................   Passed    1.72 sec
+      Start 27: test_health
+27/42 Test #27: test_health ......................   Passed  163.07 sec
+      Start 28: test_gauges_admin
+28/42 Test #28: test_gauges_admin ................   Passed    4.80 sec
+      Start 29: test_fail_closed
+29/42 Test #29: test_fail_closed .................   Passed  286.53 sec
+      Start 30: test_s1
+30/42 Test #30: test_s1 ..........................   Passed  215.15 sec
+      Start 31: test_profile_check
+31/42 Test #31: test_profile_check ...............   Passed    0.11 sec
+      Start 32: test_baseline_retry
+32/42 Test #32: test_baseline_retry ..............   Passed  247.46 sec
+      Start 33: test_sync_readiness
+33/42 Test #33: test_sync_readiness ..............   Passed  276.79 sec
+      Start 34: test_baseline_move
+34/42 Test #34: test_baseline_move ...............   Passed  114.80 sec
+      Start 35: test_baseline_ha
+35/42 Test #35: test_baseline_ha .................   Passed  188.61 sec
+      Start 36: test_ready_order
+36/42 Test #36: test_ready_order .................   Passed  142.26 sec
+      Start 37: test_paxos_ballots
+37/42 Test #37: test_paxos_ballots ...............   Passed    2.33 sec
+      Start 38: test_witness_hardening
+38/42 Test #38: test_witness_hardening ...........   Passed   30.29 sec
+      Start 39: test_lab_witness_guard
+39/42 Test #39: test_lab_witness_guard ...........   Passed   15.77 sec
+      Start 40: test_index_wire
+40/42 Test #40: test_index_wire ..................   Passed    2.44 sec
+      Start 41: test_pilot
+41/42 Test #41: test_pilot .......................   Passed    0.07 sec
+      Start 42: test_net_bench_rate
+42/42 Test #42: test_net_bench_rate ..............   Passed   16.42 sec
+
+98% tests passed, 1 tests failed out of 42
+
+Total Test time (real) = 2263.02 sec
+
+The following tests FAILED:
+	 23 - test_s4_sync_tokens (Failed)
+Errors while running CTest

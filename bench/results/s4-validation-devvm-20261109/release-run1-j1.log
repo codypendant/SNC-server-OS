@@ -64,3 +64,26 @@ Test project /home/claude/snc-server-os/build
       Start 32: test_baseline_retry
 32/42 Test #32: test_baseline_retry ..............   Passed  248.29 sec
       Start 33: test_sync_readiness
+33/42 Test #33: test_sync_readiness ..............   Passed  309.71 sec
+      Start 34: test_baseline_move
+34/42 Test #34: test_baseline_move ...............   Passed  112.80 sec
+      Start 35: test_baseline_ha
+35/42 Test #35: test_baseline_ha .................   Passed  127.79 sec
+      Start 36: test_ready_order
+36/42 Test #36: test_ready_order .................   Passed  146.75 sec
+      Start 37: test_paxos_ballots
+37/42 Test #37: test_paxos_ballots ...............   Passed    2.13 sec
+      Start 38: test_witness_hardening
+38/42 Test #38: test_witness_hardening ...........   Passed    5.79 sec
+      Start 39: test_lab_witness_guard
+39/42 Test #39: test_lab_witness_guard ...........   Passed   14.46 sec
+      Start 40: test_index_wire
+40/42 Test #40: test_index_wire ..................   Passed    1.78 sec
+      Start 41: test_pilot
+41/42 Test #41: test_pilot .......................   Passed    0.09 sec
+      Start 42: test_net_bench_rate
+42/42 Test #42: test_net_bench_rate ..............   Passed   15.70 sec
+
+100% tests passed, 0 tests failed out of 42
+
+Total Test time (real) = 1626.17 sec

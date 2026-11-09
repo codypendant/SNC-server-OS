@@ -719,7 +719,9 @@ void test_crash() {
 }
 
 // T6: read from the abort itself. The token must already be back.
-Engine* g_abort_engine = nullptr;
+// Atomic: written by the test thread, read in the handler on a shard
+// thread (a plain pointer is a data race TSan reports).
+std::atomic<Engine*> g_abort_engine{nullptr};
 void put_u64(char*& p, u64 v) {
   char t[24];
   int n = 0;
@@ -730,8 +732,8 @@ void put_u64(char*& p, u64 v) {
   while (n > 0) *p++ = t[--n];
 }
 void on_abort(int) {
-  if (g_abort_engine != nullptr) {
-    const Engine::SyncTokenStats t = g_abort_engine->sync_tokens();
+  if (Engine* e = g_abort_engine.load(); e != nullptr) {
+    const Engine::SyncTokenStats t = e->sync_tokens();
     char b[160];
     char* p = b;
     const char* a = "T6 abort: grants=";
@@ -782,7 +784,7 @@ void test_sync_failure() {
     std::fprintf(stderr, "T6 child: before the failure grants=%llu releases=%llu\n", (unsigned long long)t.grants,
                  (unsigned long long)t.releases);
     std::fflush(stderr);
-    g_abort_engine = &eng;
+    g_abort_engine.store(&eng);
     std::signal(SIGABRT, on_abort);
     Engine::debug_hold_wal(bad, false);  // the last part syncs, holding the token, and fails
     bg.join();                           // must not return
