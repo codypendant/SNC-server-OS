@@ -1,0 +1,304 @@
+SNC SERVER OS — PR #82 REVIEW HANDOFF
+S4.1: ADMIN REPLY DELIVERY + TOKEN FAIRNESS CONTRACT
+
+DECISION
+
+PR #82: APPROVED.
+
+S4.1: COMPLETE.
+
+S4: COMPLETE.
+
+The two issues from PR #81 are closed:
+
+1. Admin inline replies no longer use a one-call nonblocking send followed by close. Partial/EAGAIN replies are retained and completed through POLLOUT, bounded by an output-count cap and a write deadline. Slow readers no longer hold the admin loop, so HEALTH remains responsive.
+
+2. The token-fairness contract now matches the allocator. Tickets establish an eligibility frontier; grants are not strict FIFO. The K bound and eventual acquisition argument remain valid.
+
+Accepted validation:
+- Release serial: 43/43
+- ASan+UBSan serial: 43/43, zero reports
+- TSan serial: 43/43, zero reports
+- S4 T1-T9 green in every complete run
+- S4.1 negative mutations: 4/4 caught
+- Independent review findings were fixed before the accepted runs
+
+No engine, token, checkpoint, format, recovery, lifecycle or replication semantics changed in S4.1.
+
+1. ADMIN OUTPUT FIX — APPROVED
+
+The new admin reply path is structurally correct for the defect found in PR #81.
+
+Loop::reply():
+- appends the protocol newline;
+- performs nonblocking send_some();
+- closes immediately if complete;
+- queues the unsent suffix when the socket blocks;
+- polls queued fds for POLLOUT;
+- resumes from the exact byte offset;
+- closes unfinished replies at the write deadline;
+- closes on send failure;
+- evicts the oldest waiting reply when the output count is full.
+
+The loop itself never blocks waiting for a slow client.
+
+This closes the original silent-truncation defect.
+
+A client now has an unambiguous framing rule:
+
+complete reply => terminating newline
+cut reply      => connection closes before terminating newline
+
+For GAUGES, which contains no embedded newline, this is sufficient to distinguish complete from incomplete output.
+
+2. HEALTH LIVENESS — APPROVED
+
+HEALTH remains an inline verb on the nonblocking loop.
+
+Slow GAUGES/output clients are represented as queued Out entries rather than turning the admin loop into a blocking writer.
+
+A1-A3 explicitly issue HEALTH requests while large replies are waiting and verify prompt responses.
+
+New HEALTH counters expose:
+- adm_out
+- adm_out_hw
+- adm_write_timeouts
+- adm_write_failed
+- adm_write_evicted
+
+The HEALTH response buffer was increased to 1536 bytes so the currently defined fields fit without the previous clamp creating a complete-looking truncated line.
+
+3. OUTPUT BOUNDS — APPROVED FOR CURRENT SNC_SERVER
+
+The waiting-output count is bounded by kOutMax (default 64), with oldest-waiter eviction.
+
+For the current snc_server inline verbs, reply sizes are themselves bounded:
+- HEALTH is fixed and small;
+- GAUGES refuses all-shard output above 8 shards and is bounded by the gauge schema;
+- debug inline replies are small.
+
+Therefore the actual server has a bounded waiting-output memory envelope.
+
+If admin::Loop is later reused with arbitrary-size inline handlers, add a byte budget as well as a reply-count budget. That is not a blocker for the current server.
+
+4. DEADLINE SEMANTICS — ACCEPTED WITH ONE WORDING NOTE
+
+The implementation checks an expired deadline after attempting send_some() on a POLLOUT-ready fd.
+
+Therefore a reply that becomes fully writable at the deadline may complete slightly after the nominal deadline instead of being forcibly cut first.
+
+This does not recreate the original failure:
+- the operation remains nonblocking;
+- a stalled reader is bounded;
+- no output can wait indefinitely;
+- HEALTH remains live.
+
+Treat kWriteMs as the bounded output lifetime / timeout policy, not a hard-real-time cutoff at the exact nanosecond.
+
+If future docs require strict "nothing is sent once now >= deadline" semantics, check the deadline before send_some(). No separate slice is required now.
+
+5. FAIRNESS CONTRACT — APPROVED
+
+The corrected contract is accurate:
+
+- tickets are assigned in request order;
+- releases move an eligibility frontier;
+- multiple tickets may be eligible at once;
+- a later eligible ticket may acquire before an earlier eligible ticket if its shard polls first;
+- the allocator does NOT promise strict FIFO grant order.
+
+The no-starvation argument is valid for the current checkpoint model:
+
+- one ticket per shard per checkpoint;
+- finite ticket population;
+- eligible shards continue polling;
+- active syncs complete and advance the frontier;
+- the next checkpoint cannot start until every part of the current checkpoint completes.
+
+Thus overtaking is finite and every progressing waiter eventually acquires.
+
+The K concurrency bound does not depend on FIFO grant order.
+
+6. WAITING_PEAK CLARIFICATION — ACCEPTED
+
+waiting = requests - grants is an accounting view.
+
+take_ticket() increments requests immediately before the first acquisition attempt, so a request that receives a token immediately can transiently contribute to waiting/waiting_peak even when its measured token wait is 0 us.
+
+Use per-shard ckpt_sync_state and token wait duration for "actually denied and waiting" interpretation.
+
+No engine change is needed.
+
+7. S4 FINAL STATUS
+
+S4-I1 hard K bound: CLOSED.
+S4-I2 token release/no leak: CLOSED.
+S4-I3 progress/no starvation: CLOSED with corrected non-FIFO contract.
+S4-I4 nonblocking shard wait: CLOSED.
+S4-I5 all parts complete before commit: CLOSED.
+S4-I6 K=0 rollback: CLOSED.
+CC-1..CC-5: unchanged and accepted.
+Admin observability defect found during S4 review: CLOSED.
+
+S4 IS COMPLETE.
+
+8. NEXT ENGINEERING RISK: FOLLOW-UP INTAKE BACKPRESSURE
+
+The next required boundedness problem remains the one identified in S1.1:
+
+Client WAL admission does not bound non-refusable internal follow-up work.
+
+While a destination shard's WAL is stalled:
+- healthy senders can keep sending follow-ups;
+- a sent follow-up leaves the sender's unsent-backlog count;
+- the destination applies and logs it even beyond the client WAL budget;
+- therefore the destination's internal WAL growth is not structurally bounded.
+
+A15 already demonstrated the mechanism:
+two senders delivered 2,050 credits to one stalled destination, producing ~50.9 MiB of destination WAL, about 1.6x the client budget.
+
+This must be solved before S6.
+
+9. NEXT AUTHORIZED SLICE: DESIGN ONLY
+
+Authorize:
+
+FOLLOW-UP INTAKE BACKPRESSURE — DESIGN NOTE ONLY.
+
+Do NOT implement yet.
+
+Reason:
+this changes message/ring draining and therefore can create distributed deadlocks if designed locally.
+
+The design must preserve:
+- non-refusable semantics for already accepted internal work;
+- bounded memory/WAL growth;
+- response progress;
+- control-message progress;
+- request/answer progress where required for draining;
+- sender-side backpressure;
+- no cyclic wait among shards;
+- recovery and replay semantics;
+- existing kEmitBacklog meaning unless explicitly revised.
+
+10. CRITICAL DESIGN ISSUE: THE CURRENT RING IS FIFO
+
+Do not assume we can simply "stop draining EMIT messages."
+
+A source->destination ring carries message traffic in FIFO order.
+
+If an EMIT at the head is left unconsumed, an answer/control message behind it cannot be consumed from that same FIFO.
+
+That can turn WAL backpressure into a protocol deadlock.
+
+The design note must explicitly solve this.
+
+At minimum compare:
+
+A. Dedicated follow-up ring/channel
+- EMIT traffic uses a separately bounded low-priority ring.
+- Destination can stop draining it while response/control traffic continues.
+- Sender retains excess work in its existing emit queues/gates.
+- Strongest structural separation, but touches runtime topology.
+
+B. Destination credits / advertised follow-up capacity
+- Sender enqueues EMIT only while destination has intake credits.
+- Must define credit publication, stale-credit behavior, recovery and failure semantics.
+- Avoids filling the destination ring, but adds distributed flow-control state.
+
+C. Bounded destination staging
+- Drain EMIT from the shared FIFO into a bounded staging queue so later response/control messages can pass.
+- Easier to retrofit, but the backlog has moved to destination memory and must have a proven byte/item bound.
+- Must prove it cannot recreate the same unbounded-work problem one layer higher.
+
+D. Another design with equivalent guarantees.
+
+"Stop at the first EMIT in the existing FIFO" is NOT sufficient unless the design proves that no required response/control traffic can be trapped behind it.
+
+11. HARD-CAP SEMANTICS TO DEFINE
+
+The design must define:
+- the destination intake signal;
+- client budget versus internal hard cap;
+- hysteresis / reopen threshold;
+- per-shard versus node-level cap;
+- whether the cap is bytes, records, or both;
+- the worst-case one-item overshoot;
+- which message classes remain drainable above the cap;
+- how sender backlog becomes bounded when the destination closes intake;
+- how local follow-ups are handled;
+- how cross-node follow-ups interact with the same policy;
+- what happens during shutdown, fencing, migration and recovery.
+
+Numeric defaults are hypotheses. Do not freeze them from the dev VM.
+
+12. REQUIRED PROOFS FOR THE DESIGN
+
+B1 — Destination WAL bound:
+A stalled destination cannot grow internal follow-up WAL without a structural upper bound.
+
+B2 — Sender bound:
+When destination intake closes, work remains/backs up at senders in a quantity bounded by explicit sender gates/queues.
+
+B3 — Response/control progress:
+Answers and control traffic required to drain the system cannot be blocked behind throttled follow-ups.
+
+B4 — No cyclic deadlock:
+Two or more mutually sending shards cannot each close intake and permanently prevent the messages needed to reopen it.
+
+B5 — Eventual progress:
+When destination WAL durability resumes, follow-up flow resumes and all accepted internal work settles.
+
+B6 — Correctness:
+No accepted follow-up is silently discarded, duplicated or converted into a client-visible refusal merely because intake is closed.
+
+B7 — Recovery:
+Crash while follow-ups are held at sender/intake boundaries recovers according to existing durable follow-up semantics.
+
+13. REQUIRED DESIGN-LEVEL TEST PLAN
+
+F1 — one destination WAL stalled, many healthy senders; prove destination WAL stops at the hard cap + declared overshoot.
+
+F2 — response behind follow-up; prove an answer/control message still makes progress while follow-up intake is closed.
+
+F3 — all destinations pressured; prove no cyclic deadlock.
+
+F4 — reopen; release WAL durability and prove every held follow-up settles exactly once.
+
+F5 — sender bound; measure every sender queue/ring and prove the declared system-wide bound.
+
+F6 — crash/restart while backed up; prove accepted work is neither lost nor duplicated.
+
+F7 — local plus cross-shard follow-ups; both obey the intended bound.
+
+F8 — cross-node case if the same path applies; prove node-link behavior or explicitly scope it out with a follow-up work item.
+
+F9 — negative mutation; remove the intake bound or response-priority mechanism and prove the targeted test fails.
+
+14. WHAT NOT TO START
+
+No implementation of follow-up intake until its design is reviewed.
+
+No S5 ioprio. S5 remains optional and evidence-driven.
+
+No S6.
+No R640 campaign.
+No CP-1A rerun.
+No comparators.
+No B2 begin-snapshot work.
+
+FINAL
+
+PR #82: APPROVED.
+
+S4.1: COMPLETE.
+
+S4: COMPLETE.
+
+NEXT AUTHORIZED:
+FOLLOW-UP INTAKE BACKPRESSURE DESIGN ONLY.
+
+Return the design for review before changing runtime ring/drain semantics.
+
+Always verify, never assume.
+Fix confirmed defects on site.
