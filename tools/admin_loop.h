@@ -112,7 +112,7 @@ class Loop {
   // write_ms: the reply write deadline; out_max: replies that may wait
   // (tests lower both).
   Loop(int listen_fd, Handlers h, int write_ms = kWriteMs, std::size_t out_max = kOutMax)
-      : lfd_(listen_fd), h_(std::move(h)), write_ms_(write_ms), out_max_(out_max) {
+      : lfd_(listen_fd), h_(std::move(h)), write_ms_(write_ms), out_max_(out_max == 0 ? 1 : out_max) {
     ::fcntl(lfd_, F_SETFL, ::fcntl(lfd_, F_GETFL) | O_NONBLOCK);
   }
   // Starts answering. Separate from the constructor so the caller can

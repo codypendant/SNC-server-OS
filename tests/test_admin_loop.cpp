@@ -16,6 +16,7 @@
 //      default), the oldest is closed and
 //      counted (write_evicted); HEALTH still answers
 //   A4 a reply the socket takes at once (HEALTH) leaves nothing waiting
+//      (a regression guard; it also passes with a one-call send)
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -83,6 +84,9 @@ std::string read_all(int fd, int pause_us, std::size_t chunk) {
 double health_ms(u16 port) {
   const auto t0 = std::chrono::steady_clock::now();
   const int fd = connect_to(port);
+  // Bounded: a loop held by a writer fails here instead of hanging.
+  timeval tv{3, 0};
+  CHECK_EQ(::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)), 0);
   send_line(fd, "HEALTH");
   const std::string r = read_all(fd, 0, 4096);
   ::close(fd);
@@ -126,11 +130,16 @@ void wait_for(const std::function<bool()>& p, const char* what) {
 }
 
 void test_slow_reader() {
-  Server s;
+  // A long deadline: this test is about delivery to a reader that reads;
+  // the deadline is A2's. (Under TSan 16 MiB through 4 KiB takes ~0.6 s,
+  // past A2's 400 ms; S4.1 independent review.)
+  Server s(30000);
   constexpr std::size_t kBig = 16u << 20;
   const int fd = connect_to(s.port, 4096);
   send_line(fd, "BIG " + std::to_string(kBig));
-  wait_for([&] { return s.c().out.load() == 1; }, "the reply waiting for its reader");
+  // No wait on the loop's counters here: what is checked is what the
+  // client receives (a one-call send must fail on the content below).
+  ::usleep(50000);
   // HEALTH while the big reply waits.
   double worst = 0;
   for (int i = 0; i < 20; ++i) worst = std::max(worst, health_ms(s.port));
@@ -147,6 +156,7 @@ void test_slow_reader() {
   }
   got += read_all(fd, 0, 1 << 16);
   ::close(fd);
+  CHECK_EQ(s.c().write_timeouts.load(), 0u);
   CHECK_EQ(got.size(), kBig + 1);
   CHECK(got.front() == 'G');
   CHECK(got.back() == '\n');
@@ -200,7 +210,10 @@ void test_bound() {
   const double ms = health_ms(s.port);
   CHECK(ms < 250.0);
   for (int fd : fds) ::close(fd);
+  // Clients closing with unread data reset the connection: each waiting
+  // reply then fails its next send and is closed (write_failed).
   wait_for([&] { return s.c().out.load() == 0; }, "all closed (deadline or error)");
+  CHECK_EQ(s.c().write_failed.load() + s.c().write_timeouts.load(), kMax);
   std::printf("A3 bound: %zu waiting replies, one more closed the oldest (write_evicted=1); HEALTH %.1f ms\n",
               kMax, ms);
 }

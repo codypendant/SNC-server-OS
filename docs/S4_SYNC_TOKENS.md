@@ -286,8 +286,11 @@ sent each inline reply (HEALTH, GAUGES) with one
 `EAGAIN` was not handled, so a reply larger than what the socket took at
 once was cut silently. GAUGES for eight shards is about 20 KB.
 
-**The fix (`tools/admin_loop.h`).** Inline replies (and the loop's own
-"NO busy" / "NO line too long") go through `Loop::reply`:
+**The fix (`tools/admin_loop.h`).** Inline replies go through
+`Loop::reply`. So do the loop's own short refusals ("NO busy", "NO line
+too long"); that is slightly wider than GAUGES, harmless, and keeps one
+send path on the loop thread (only the worker's "NO stopping" still uses
+the one-call `reply_close`):
 
 1. it sends what the socket takes now, without blocking;
 2. if all of it went, the fd is closed, as before;
@@ -296,9 +299,18 @@ once was cut silently. GAUGES for eight shards is about 20 KB.
    connections, and sends more whenever the client has read;
 4. a reply not finished within the write deadline (`kWriteMs`, 5 s), or
    whose send fails, is closed unfinished and counted
-   (`write_timeouts`, `write_failed`);
+   (`write_timeouts`, `write_failed`). The deadline is absolute, counted
+   from when the reply was queued, not reset by progress: a client that
+   reads steadily but too slowly for the whole reply in 5 s is cut too.
+   GAUGES (about 20 KB) normally fits the socket buffers, so only a
+   client that hardly reads at all reaches it;
 5. at most `kOutMax` (64) replies wait; one more closes the oldest
-   waiting (`write_evicted`).
+   waiting (`write_evicted`). A limit of 0 is taken as 1.
+
+HEALTH's own buffer grew from 768 to 1536 bytes: with every counter at
+its maximum the line is about 1.1 KB, and past 767 bytes the old clamp
+cut it while `reply` still added the newline, the one way a complete-looking
+reply could be short (review finding, theoretical with today's values).
 
 Every reply ends in its newline, so a client tells a cut reply from a
 complete one: a cut one has no newline. The loop never waits on a
@@ -317,10 +329,14 @@ buffer:
 
 | Test | What it proves |
 |---|---|
-| A1 | slow reader: the reply waits for POLLOUT and arrives whole, ending in its newline; 20 HEALTH meanwhile, each prompt |
+| A1 | slow reader (30 s deadline, so only delivery is tested): the reply waits for POLLOUT and arrives whole, ending in its newline; no timeout; 20 HEALTH meanwhile, each prompt |
 | A2 | stalled reader: closed at the write deadline; what it read has no newline; `write_timeouts` = 1; HEALTH prompt meanwhile; nothing left waiting |
-| A3 | bound: one more than the limit closes the oldest (`write_evicted` = 1); HEALTH prompt |
-| A4 | small replies go out at once; nothing waits |
+| A3 | bound: one more than the limit closes the oldest (`write_evicted` = 1); HEALTH prompt; when the clients close, every waiting reply fails and is closed |
+| A4 | small replies go out at once; nothing waits (regression guard only: it passes with a one-call send too) |
+
+The first A1 used A2's 400 ms deadline. Under TSan the 16 MiB transfer
+takes about 0.6 s, so A1 failed there 2 of 3 times (independent review);
+A1 now has its own 30 s deadline.
 
 Mutation N7 restores the one-call send and close; A1 must fail.
 
