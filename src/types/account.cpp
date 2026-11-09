@@ -227,10 +227,12 @@ Status transfer_validate(OpCtx& c, const ObjectHeader& h, ByteView args) {
     if (acct(*to)->balance_cents > std::numeric_limits<i64>::max() - t.amount) {
       return c.reject(kAppOverflow);
     }
-    return Status::OK;
+    return Status::OK;  // both change here, in one op: no follow-up, no exchange
   }
   if (a->n_out >= kMaxOutbox) return c.reject(kAppBusy);
-  return c.reserve(h.length + sizeof(OutEntry));
+  Status s = c.reserve(h.length + sizeof(OutEntry));
+  if (s == Status::OK) c.reserve_emits(1);  // the credit starts one exchange
+  return s;
 }
 void transfer_apply(OpCtx& c, ByteView args) {
   auto t = args_as<TransferArgs>(args);
@@ -352,6 +354,7 @@ void register_type() {
   t.initial_size = sizeof(AccountV1);
   t.max_size = sizeof(AccountV1) + kMaxEntries * sizeof(OutEntry);
   t.resume = resume;
+  t.max_resume_emits = kMaxEntries;  // one per outbox or inbox entry
   t.check = check;
   t.create_op = kOpCreate;
   t.delete_op = kOpDelete;
@@ -359,8 +362,11 @@ void register_type() {
 
   auto op = [&](OpID id, const char* name, OpKind kind, u32 max_args, u32 max_result,
                 Status (*v)(OpCtx&, const ObjectHeader&, ByteView), void (*a)(OpCtx&, ByteView),
-                bool keeps_index_key = false, bool unlogged = false) {
+                bool keeps_index_key = false, bool unlogged = false, u16 max_emits = 0,
+                bool followup = false) {
     OpDescriptor d;
+    d.max_emits = max_emits;
+    d.followup = followup;
     d.keeps_index_key = keeps_index_key;
     d.unlogged = unlogged;
     d.op_id = id;
@@ -386,18 +392,23 @@ void register_type() {
      read_validate, get_balance_apply);
   op(kOpDelete, "Account.delete", OpKind::DELETE, 0, 0, delete_validate, nullptr);
   op(kOpTransfer, "Account.transfer", OpKind::MUTATE, sizeof(TransferArgs), sizeof(BalanceResult),
-     transfer_validate, transfer_apply, /*keeps_index_key=*/true);
+     transfer_validate, transfer_apply, /*keeps_index_key=*/true, false, /*max_emits=*/1);
+  // Follow-ups (docs/FOLLOWUP_INTAKE_DESIGN.md 3.3): each replies at most
+  // once, to its source.
   op(kOpXferCredit, "Account.xfer_credit", OpKind::MUTATE, sizeof(CreditArgs), 0, credit_validate,
-     credit_apply, /*keeps_index_key=*/true);
+     credit_apply, /*keeps_index_key=*/true, false, /*max_emits=*/1, /*followup=*/true);
   op(kOpXferSettle, "Account.xfer_settle", OpKind::MUTATE, sizeof(SettleArgs), 0,
-     followup_validate<SettleArgs>, settle_apply, /*keeps_index_key=*/true);
+     followup_validate<SettleArgs>, settle_apply, /*keeps_index_key=*/true, false, /*max_emits=*/1,
+     /*followup=*/true);
   op(kOpXferForget, "Account.xfer_forget", OpKind::MUTATE, sizeof(SeqArgs), 0,
      followup_validate<SeqArgs>, forget_apply, /*keeps_index_key=*/true,
-     /*unlogged=*/true);  // a lost forget is redone: resume queries the sender
+     /*unlogged=*/true, /*max_emits=*/0, /*followup=*/true);  // a lost forget is redone: resume queries the sender
   op(kOpXferQuery, "Account.xfer_query", OpKind::MUTATE, sizeof(SeqArgs), 0,
-     followup_validate<SeqArgs>, query_apply, /*keeps_index_key=*/true);
+     followup_validate<SeqArgs>, query_apply, /*keeps_index_key=*/true, false, /*max_emits=*/1,
+     /*followup=*/true);
   op(kOpXferBounced, "Account.xfer_bounced", OpKind::MUTATE, sizeof(CreditArgs), 0,
-     followup_validate<CreditArgs>, bounced_apply, /*keeps_index_key=*/true);
+     followup_validate<CreditArgs>, bounced_apply, /*keeps_index_key=*/true, false, /*max_emits=*/0,
+     /*followup=*/true);
 
   IndexDescriptor idx;
   idx.index_id = kEmailIndex;

@@ -68,6 +68,10 @@ struct NodeLinks::In {
   u16 group = 0, shard = 0;
   std::vector<u8> buf = std::vector<u8>(kInBuf);
   std::size_t have = 0;
+  // Whole frames left in buf for want of budget (docs/FOLLOWUP_INTAKE_DESIGN.md
+  // 3.6): handed on before anything more is read.
+  bool backlog = false;
+  bool muted = false;  // paused with a backlog and a hang-up pending: no events
 };
 
 NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
@@ -208,20 +212,47 @@ void NodeLinks::accept_all() {
     if (i == in_.size()) in_.emplace_back();
     in_[i] = std::make_unique<In>();
     in_[i]->fd = fd;
-    watch(epfd_, fd, EPOLLIN | EPOLLRDHUP, tag(kTagIn, i));
+    watch(epfd_, fd, paused_ ? EPOLLRDHUP : EPOLLIN | EPOLLRDHUP, tag(kTagIn, i));
+  }
+}
+
+void NodeLinks::pause_reads(bool on) {
+  if (paused_ == on) return;
+  paused_ = on;
+  for (u32 i = 0; i < in_.size(); ++i) {
+    if (!in_[i]) continue;
+    const int op = in_[i]->muted ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
+    in_[i]->muted = false;
+    watch(epfd_, in_[i]->fd, on ? EPOLLRDHUP : EPOLLIN | EPOLLRDHUP, tag(kTagIn, i), op);
   }
 }
 
 void NodeLinks::close_in(u32 i) {
-  ::epoll_ctl(epfd_, EPOLL_CTL_DEL, in_[i]->fd, nullptr);
+  if (!in_[i]->muted) ::epoll_ctl(epfd_, EPOLL_CTL_DEL, in_[i]->fd, nullptr);
   ::close(in_[i]->fd);
   in_[i].reset();
 }
 
 // False once the connection is done with (closed, or a peer with another map).
-bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
+bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
   In& in = *in_[i];
   while (true) {
+    // Frames already read first, as many as the budget allows; more is
+    // read only once none are left over.
+    if (in.hello) {
+      std::size_t at = 0;
+      for (; in.have - at >= sizeof(Frame) && budget != 0; at += sizeof(Frame), --budget) {
+        Frame f;
+        std::memcpy(&f, in.buf.data() + at, sizeof(f));
+        on_frame(ctx, f);
+      }
+      if (at) {
+        std::memmove(in.buf.data(), in.buf.data() + at, in.have - at);
+        in.have -= at;
+      }
+      in.backlog = in.have >= sizeof(Frame);
+      if (in.backlog) return true;
+    }
     const ssize_t n = ::recv(in.fd, in.buf.data() + in.have, in.buf.size() - in.have, MSG_DONTWAIT);
     if (n == 0) return false;
     if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
@@ -257,11 +288,6 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
         if (j != i && in_[j] && in_[j]->hello && in_[j]->group == h.group && in_[j]->shard == h.shard) close_in(j);
       }
     }
-    for (; in.have - at >= sizeof(Frame); at += sizeof(Frame)) {
-      Frame f;
-      std::memcpy(&f, in.buf.data() + at, sizeof(f));
-      on_frame(ctx, f);
-    }
     if (at) {
       std::memmove(in.buf.data(), in.buf.data() + at, in.have - at);
       in.have -= at;
@@ -269,8 +295,16 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx) {
   }
 }
 
-bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx) {
+bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
   bool busy = false;
+  // Frames left over from earlier polls go first, oldest connection data
+  // before anything newly readable.
+  for (u32 i = 0; i < in_.size() && budget != 0; ++i) {
+    if (in_[i] && in_[i]->backlog) {
+      busy = true;
+      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
+    }
+  }
   if (listen_ < 0 && now_ns >= listen_retry_ns_) try_listen(now_ns);
   for (u32 i = 0; i < out_.size(); ++i) {
     Out& o = *out_[i];
@@ -287,7 +321,20 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx) {
     if (kind == kTagListen) {
       accept_all();
     } else if (kind == kTagIn) {
-      if (i < in_.size() && in_[i] && !read_in(i, on_frame, ctx)) close_in(i);
+      if (i >= in_.size() || !in_[i]) continue;
+      In& in = *in_[i];
+      if (budget == 0 && in.backlog) {
+        // Out of budget for this poll: its frames wait (level-triggered,
+        // it is reported again). Paused, the only event is a hang-up, which
+        // would be reported on every poll: no events from it until reads
+        // resume (pause_reads re-adds it).
+        if (paused_ && !in.muted) {
+          ::epoll_ctl(epfd_, EPOLL_CTL_DEL, in.fd, nullptr);  // HUP is reported even with no events
+          in.muted = true;
+        }
+        continue;
+      }
+      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
     } else if (kind == kTagOut && i < out_.size()) {
       Out& o = *out_[i];
       if (o.state == Out::State::CONNECTING) {

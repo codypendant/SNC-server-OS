@@ -401,6 +401,7 @@ void sri_debug_force_sync_io(bool on) { g_force_sync_io.store(on); }
 
 // Shards never sleep, so there is nothing to wake.
 void sri_watch_fd(int) {}
+void sri_wake(u16) {}
 
 // ---- NativeRuntime, Seastar edition -----------------------------------------
 

@@ -107,6 +107,13 @@ class OpCtx {
   // follow-up to another shard fits in one ring message.
   static constexpr u32 kMaxEmitArgs = 16;
   void emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op = 0);
+  // validate only, logged MUTATE ops: this invocation will emit at most `n`
+  // follow-ups (each starts an exchange, docs/FOLLOWUP_INTAKE_DESIGN.md
+  // 3.9.1). The engine refuses the op with E_OVERLOADED, before apply,
+  // when n > 0 and this shard's exchange budget is full. Above the op's
+  // max_emits, or outside validate, is a contract violation; the last call
+  // stands. Without a call a client-run apply may not emit.
+  void reserve_emits(u16 n);
   // The object whose emit is running this op; null for a client's op. Ops
   // meant only as follow-ups should reject a null source.
   const ObjectID& source() const { return source_; }
@@ -145,6 +152,8 @@ class OpCtx {
   u32 result_len_ = 0;
   u32 max_result_ = 0;
   bool result_overflow_ = false;
+  u16 emits_reserved_ = 0;  // reserve_emits (client-run invocations)
+  u32 emits_done_ = 0;      // emitted by this invocation or resume hook
 };
 
 // Per-shard counters.
@@ -154,13 +163,35 @@ struct ShardStats {
   u64 ops_served = 0;       // executed here on behalf of another shard
   u64 creates = 0;
   u64 deletes = 0;
-  u64 overloaded = 0;            // the five refused_* below, summed
+  u64 overloaded = 0;            // every refused_* below except refused_replay, summed
   u64 refused_followup = 0;      // follow-up backlog above kEmitBacklog
   u64 refused_ring = 0;          // forward or batch found the ring full
   u64 refused_waiter = 0;        // S1: waiter budget (Config::waiter_budget_bytes)
   u64 refused_wal_buffer = 0;    // S1: WAL buffer budget (Config::wal_buffer_budget_bytes)
   u64 refused_pending = 0;       // S1.1: pending budget (Config::pending_budget)
   u64 refused_replay = 0;        // S1.2: duplicates refused for waiter room (a subset of refused_waiter)
+  // Follow-up intake (docs/FOLLOWUP_INTAKE_DESIGN.md, D.1).
+  u64 refused_exchange = 0;      // exchange budget X full (client op reserved emits)
+  u64 refused_owner = 0;         // owner gate: a forwarded mutation, the owner's backlog above kEmitBacklog
+  u64 exchanges_started = 0;     // roots this shard emitted (client ops and resume hooks)
+  u64 exchanges_ended = 0;       // exchanges (of any origin shard on this node) that ended here
+  u64 exchanges_live = 0;        // this shard's started minus ended everywhere (as last read)
+  u64 exchanges_live_peak = 0;
+  u64 followups_gated = 0;       // times the WAL gate H stopped follow-up applies
+  u64 followups_staged_now = 0;  // emit_local_ waiting to apply
+  u64 followups_staged_peak = 0;
+  u64 window_waits = 0;          // sends stopped by a full per-pair window W
+  u64 window_outstanding = 0;    // sent to other shards, not yet taken out of their staging
+  u64 link_held_now = 0;         // follow-ups from node links held here
+  u64 link_held_peak = 0;
+  u64 link_pauses = 0;           // times node-link reads paused at L
+  u64 resume_passes = 0;         // resume scans run
+  u64 resume_triggers = 0;       // resume requests (each coalesced into the active or the owed scan)
+  u64 resume_coalesced = 0;      // ... that found a scan active or already owed
+  u64 resume_restarts = 0;       // scans restarted by a map rehash
+  u64 resume_objects = 0;        // objects whose hook ran
+  bool resume_active = false;    // a scan in progress
+  bool resume_owed = false;      // a pass owed after it
   u64 pending_now = 0;           // forwarded client requests awaiting an answer
   u64 pending_peak = 0;
   u64 gather_overloaded = 0;     // index gather legs dropped: ring full
@@ -508,6 +539,35 @@ class Engine {
     // (every part syncs as soon as it is ready). K is a hypothesis to be
     // characterized on the target hardware; 0..256.
     u32 ckpt_sync_tokens = 0;
+
+    // Follow-up intake backpressure (docs/FOLLOWUP_INTAKE_DESIGN.md, D.1).
+    // Every value is a provisional hypothesis. Rings always drain; these
+    // gate what drained follow-ups do.
+    // followup_wal_gate: a follow-up applies only while its shard's WAL
+    // active bytes + R <= followup_wal_cap_bytes (H), or the buffer is
+    // empty; R is the worst follow-up record group. H = 0 means
+    // max(2B, B + R), B = wal_buffer_budget_bytes; an explicit H below
+    // B + R is refused (std::invalid_argument, or a fail-stop if a type
+    // registered later raises R).
+    bool followup_wal_gate = true;
+    u64 followup_wal_cap_bytes = 0;
+    // followup_window (W): at most this many follow-ups from one shard to
+    // another of this node that the destination has not taken out of its
+    // staging; 0 = no window.
+    u32 followup_window = 64;
+    // exchange_gate: a client invocation that reserved follow-ups is
+    // refused (E_OVERLOADED) while its shard has exchange_budget (X)
+    // exchanges unfinished; resume scans page under the same budget.
+    // X >= 1; exchange_gate false disables it.
+    bool exchange_gate = true;
+    u32 exchange_budget = 1024;
+    // owner_followup_gate: the owner refuses a forwarded mutation, create
+    // or delete while its own follow-up backlog is above kEmitBacklog.
+    bool owner_followup_gate = true;
+    // link_hold_max (L): a shard stops reading its node links while it
+    // holds this many follow-ups that came over them, until half drain;
+    // 0 = never pause.
+    u32 link_hold_max = 1024;
   };
 
   explicit Engine(const Config& cfg);

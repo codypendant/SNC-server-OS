@@ -262,6 +262,7 @@ void test_followup_gate(bool legacy) {
   const std::string dir = temp_dir();
   Engine::Config c = config(2, dir);
   c.hold_emits = true;
+  c.exchange_gate = false;  // D.1: X (default 1024) would refuse first; this covers the backlog gate
   c.admission_legacy = legacy;
   if (legacy) {
     c.waiter_budget_bytes = 1;  // would refuse almost everything under s1
@@ -642,6 +643,7 @@ void test_read_flood() {
   const std::string dir = temp_dir();
   Engine::Config c = config(2, dir);
   c.hold_emits = true;
+  c.exchange_gate = false;  // D.1: X (default 1024) would refuse first; this covers the backlog gate
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 40);
@@ -1113,6 +1115,7 @@ void test_internal_overshoot() {
   const std::string dir = temp_dir();
   Engine::Config c = config(3, dir);
   c.hold_emits = true;
+  c.exchange_gate = false;  // D.1: X (default 1024) would refuse first; this covers the backlog gate
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 40);
@@ -1307,6 +1310,7 @@ void test_backlog_replay() {
   const std::string dir = temp_dir();
   Engine::Config c = config(2, dir);
   c.hold_emits = true;
+  c.exchange_gate = false;  // D.1: X (default 1024) would refuse first; this covers the backlog gate
   c.waiter_budget_bytes = kReplayWaiter + 8;  // one replay waiter
   Engine eng(c);
   eng.start();

@@ -36,6 +36,15 @@ struct OpDescriptor {
   // redoes after recovery (docs/TRANSFERS.md: dropping a finished inbox
   // entry). May not emit, use OpCtx::local, or change the indexed key.
   bool unlogged = false;
+  // Follow-ups (docs/FOLLOWUP_INTAKE_DESIGN.md 3.3, 3.9.1). max_emits: the
+  // most follow-ups one apply may emit (a hard ceiling; 0 = may not emit).
+  // A client-run apply emits at most what its validate reserved with
+  // OpCtx::reserve_emits. `followup`: the op runs only as a follow-up
+  // (OpCtx::source() set); clients get E_BAD_ARGS, and only such ops may
+  // be emitted. A follow-up apply emits at most once, and only to its
+  // source (the reply-only contract), so a follow-up op has max_emits 0 or 1.
+  u16 max_emits = 0;
+  bool followup = false;
 };
 
 // Secondary index (spec section 11): shard-local, non-unique, equality only.
@@ -62,6 +71,9 @@ struct TypeDescriptor {
   // Runs on every object of the type once recovery finishes, so it can
   // re-emit follow-ups its state says are pending (OpCtx::emit). Optional.
   void (*resume)(OpCtx& ctx) = nullptr;
+  // The most follow-ups one object's resume hook may emit (enforced; the
+  // scan pages resume work against the exchange budget per object).
+  u32 max_resume_emits = 0;
 };
 
 inline constexpr u32 kFirstUserTypeId = 256;

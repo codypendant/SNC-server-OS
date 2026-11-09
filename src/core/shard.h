@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ckpt_pacer.h"
+#include "followup_board.h"
 #include "node_link.h"
 #include "replication.h"
 #include "snc/cluster.h"
@@ -194,6 +195,25 @@ class Shard {
   // S4 (docs/S4_SYNC_TOKENS.md): the node's final-sync tokens, shared by
   // every shard of the Engine and owned by it.
   void set_sync_tokens(SyncTokens* t) { sync_tokens_ = t; }
+  // Follow-up intake (docs/FOLLOWUP_INTAKE_DESIGN.md, D.1). Set before the
+  // runtime runs ops, after set_admission; `board` is shared by every
+  // shard of the Engine and owned by it.
+  struct Intake {
+    bool wal_gate = true;
+    u64 wal_cap = 0;  // H; 0: max(2B, B + R)
+    u32 window = 64;  // W; 0: none
+    bool exchange_gate = true;
+    u32 exchange_budget = 1024;  // X >= 1
+    bool owner_gate = true;
+    u32 link_hold_max = 1024;  // L; 0: never pause
+  };
+  void set_intake(const Intake& in, FollowupBoard* board);
+  u64 followup_wal_cap() const { return wal_cap_; }
+  // Tests only: a resume trigger, as a link coming up (slot -1) or a slot
+  // becoming served would make (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.2).
+  void debug_resume(int slot) { owe_resume(wal_ ? wal_->next_lsn() - 1 : 0, slot); }
+  // A resume scan is running or owed (Engine::wait_emits).
+  bool resume_pending() const { return scan_.active || scan_.owed_all || scan_.owed_any; }
   // Copies this shard's counters into its gauge block: at most every
   // ShardGauges::kPublishNs, or at once when `force` or after a checkpoint
   // phase change. Shard thread only.
@@ -386,6 +406,7 @@ class Shard {
     ObjectID id;
   };
 
+  static constexpr u16 kNoShard = 0xffff;
   struct Emit {
     ObjectID source, target;
     OpID op = 0, fail_op = 0;
@@ -394,18 +415,38 @@ class Shard {
     u8 len = 0;
     bool remote = false;  // came over a node link: its source is another group's
     u32 epoch = 0;        // the placement epoch (low 32 bits) its source's owner emitted it at
+    // Intake accounting (docs/FOLLOWUP_INTAKE_DESIGN.md 3.2, 3.4), memory
+    // only. origin: the shard of this node that started its exchange
+    // (kNoShard: another node's). from: the shard of this node whose ring
+    // brought it here, owed an intake credit until it leaves staging
+    // (kNoShard: none owed). link_held: it came over a node link and is
+    // counted against L until it runs, leaves this shard or is dropped.
+    u16 origin = kNoShard;
+    u16 from = kNoShard;
+    bool link_held = false;
   };
   static constexpr u64 kEmitBacklog = 1024;
-  void route_emit(const Emit& e);
+  void route_emit(Emit e);
   bool send_emit(u16 dst, const Emit& e);
   void run_emit(const Emit& e);
   void serve_emit(const Msg& m);
-  void emit_result(const Emit& e, Status s);
+  bool emit_result(const Emit& e, Status s);
   bool run_emits();
   void queue_emits(u64 lsn);
   // Its target's slot is this group's by the map but not served (sealed or
   // staged): kept here until the slot or the map changes.
   bool stale(const Emit& e) const;
+  // Intake (D.1).
+  bool followup_gate_open() const;
+  bool window_open(u16 dst);
+  void end_exchange(u16 origin);
+  void release_link(Emit& e);
+  bool exchange_full();
+  u64 exchanges_live();
+  void publish_intake();
+  bool owner_refuses(MsgKind kind, u32 op_or_type) const;
+  bool resume_step();
+  void owe_resume(u64 lsn, int slot);  // slot -1: every slot
   void hold_emit(const Emit& e);
   void release_held();
   // Slot states.
@@ -625,6 +666,40 @@ class Shard {
   Fifo<Emit> emit_wait_;  // sorted by lsn
   bool emits_paused_ = false;
   bool resuming_ = false;
+  // Follow-up intake (docs/FOLLOWUP_INTAKE_DESIGN.md, D.1).
+  Intake intake_;
+  FollowupBoard* board_ = nullptr;
+  u64 wal_cap_ = 0;       // H
+  u64 followup_need_ = 0; // R: one follow-up apply's worst record group
+  std::vector<u64> sent_to_;      // [d]: sent to shard d over its ring
+  std::vector<u64> taken_cache_;  // [d]: board taken(d, id_) as last read
+  std::vector<u64> taken_from_;   // [s]: taken out of staging, from s (published)
+  std::vector<u64> taken_pub_;    // [s]: as last published
+  std::vector<u64> ended_at_;     // [o]: exchanges of origin o ended here (published)
+  std::vector<u64> ended_pub_;    // [o]: as last published
+  u64 started_ = 0;               // exchanges this shard started
+  u64 ended_own_ = 0;             // ... that ended here
+  u64 ended_seen_ = 0;            // ... that ended on other shards, as last read
+  u16 cur_origin_ = kNoShard;     // origin of the follow-up now running
+  u64 link_held_ = 0;             // follow-ups from node links held here (L)
+  bool links_paused_ = false;
+  // The resume scan (3.9.2): one at a time, with what triggers owed
+  // meanwhile; fixed size whatever the number of triggers.
+  struct ResumeScan {
+    bool active = false, all = false;
+    std::vector<u8> slots;  // [kSlots]: in this pass (when !all)
+    u64 base_lsn = 0;       // what its emits wait for at least
+    u64 mark = 0;           // WAL position at its start: newer objects wait for their own record
+    LocalMap::Walk walk;
+    std::vector<ObjectID> page;
+    std::size_t page_at = 0;
+    bool walk_done = false;
+    // Owed by triggers since the active pass started.
+    bool owed_all = false, owed_any = false;
+    std::vector<u8> owed_slots;  // [kSlots]
+    bool owed_lsn = false;       // some trigger asked to wait for the WAL so far
+  };
+  ResumeScan scan_;
   Checkpoint ckpt_;
   // Observability (S0): survives `ckpt_ = Checkpoint{}`.
   struct CkptObs {

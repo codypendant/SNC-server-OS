@@ -54,6 +54,7 @@ struct EngineHooks {
   std::atomic<u64>* epoch_hint;
   ShardGauges* gauges;  // one per shard (S0, observability)
   SyncTokens* sync_tokens;  // the node's final-sync tokens (S4)
+  FollowupBoard* intake;    // follow-up intake counters (D.1)
 };
 
 void hook_init(void* user) {
@@ -93,6 +94,15 @@ void hook_init(void* user) {
     s->set_pacing(p);
     s->set_ckpt_io(Shard::CkptIo{c.ckpt_io_dsync, c.ckpt_write_window});
     s->set_sync_tokens(h->sync_tokens);
+    Shard::Intake in;
+    in.wal_gate = c.followup_wal_gate;
+    in.wal_cap = c.followup_wal_cap_bytes;
+    in.window = c.followup_window;
+    in.exchange_gate = c.exchange_gate;
+    in.exchange_budget = c.exchange_budget;
+    in.owner_gate = c.owner_followup_gate;
+    in.link_hold_max = c.link_hold_max;
+    s->set_intake(in, h->intake);
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
@@ -223,6 +233,7 @@ struct EngineState {
   // S4 (docs/S4_SYNC_TOKENS.md): K for this Engine's lifetime.
   explicit EngineState(u32 sync_tokens_k) : sync_tokens(sync_tokens_k) {}
   SyncTokens sync_tokens;
+  std::unique_ptr<FollowupBoard> intake;  // D.1, one per Engine
 };
 
 // An Engine's state is owned by the Engine (Engine::state_), not by a file
@@ -457,8 +468,45 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     cfg_.ckpt_sync_tokens = static_cast<u32>(k);
     std::fprintf(stderr, "snc: SNC_CKPT_SYNC_TOKENS=%lu overrides ckpt_sync_tokens\n", k);
   }
+  // Validation only (D.1, docs/FOLLOWUP_INTAKE_DESIGN.md): run a whole suite
+  // under other intake values without editing every test's config.
+  // SNC_FOLLOWUP_INTAKE=off turns every D.1 gate off; SNC_FOLLOWUP_WINDOW,
+  // SNC_EXCHANGE_BUDGET and SNC_LINK_HOLD_MAX set W, X and L. Announced;
+  // anything else is refused.
+  auto env_u32 = [](const char* name, u32 max, u32& out) {
+    const char* e = std::getenv(name);
+    if (e == nullptr || e[0] == '\0') return;
+    char* end = nullptr;
+    const unsigned long v = std::strtoul(e, &end, 10);
+    if (e[0] < '0' || e[0] > '9' || *end != '\0' || v > max) {
+      throw std::invalid_argument(std::string(name) + " must be a number 0.." + std::to_string(max));
+    }
+    out = static_cast<u32>(v);
+    std::fprintf(stderr, "snc: %s=%lu overrides the configured value\n", name, v);
+  };
+  if (const char* e = std::getenv("SNC_FOLLOWUP_INTAKE"); e != nullptr && e[0] != '\0') {
+    const std::string v = e;
+    if (v != "off" && v != "on") throw std::invalid_argument("SNC_FOLLOWUP_INTAKE must be on or off");
+    const bool on = v == "on";
+    cfg_.followup_wal_gate = cfg_.exchange_gate = cfg_.owner_followup_gate = on;
+    if (!on) cfg_.followup_window = cfg_.link_hold_max = 0;
+    std::fprintf(stderr, "snc: SNC_FOLLOWUP_INTAKE=%s overrides the follow-up intake gates\n", v.c_str());
+  }
+  env_u32("SNC_FOLLOWUP_WINDOW", 1u << 20, cfg_.followup_window);
+  env_u32("SNC_EXCHANGE_BUDGET", 1u << 24, cfg_.exchange_budget);
+  env_u32("SNC_LINK_HOLD_MAX", 1u << 24, cfg_.link_hold_max);
   register_session_type();
   register_slot_state_type();
+  if (cfg_.exchange_gate && cfg_.exchange_budget == 0) {
+    throw std::invalid_argument("follow-up intake: exchange_budget must be at least 1 (exchange_gate false disables it)");
+  }
+  if (cfg_.followup_wal_gate && cfg_.followup_wal_cap_bytes != 0) {
+    u64 rmax = 0;
+    for (const TypeDescriptor& t : registry().types()) rmax = std::max<u64>(rmax, record_size(t.max_size));
+    if (cfg_.followup_wal_cap_bytes < cfg_.wal_buffer_budget_bytes + 2 * rmax) {
+      throw std::invalid_argument("follow-up intake: followup_wal_cap_bytes must be at least wal_buffer_budget_bytes + R");
+    }
+  }
   RuntimeConfig& rc = cfg_.runtime;
   if (rc.pages != PageMode::SMALL && rc.heap_reserve_bytes == 0) {
     // Room for the expected objects at 512 B each (docs/HUGEPAGES.md);
@@ -521,7 +569,9 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   state_->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
   state_->hooks = EngineHooks{&cfg_, &shards_, &state_->final_stats, &slots_, 1, &cluster_, &state_->serving, &state_->fenced,
                                &state_->replicating, state_->phases.data(), &state_->epoch_hint,
-                               state_->gauges.get(), &state_->sync_tokens};
+                               state_->gauges.get(), &state_->sync_tokens, nullptr};
+  state_->intake = std::make_unique<FollowupBoard>(cfg.runtime.n_shards);
+  state_->hooks.intake = state_->intake.get();
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -605,7 +655,7 @@ static void emit_totals(const Run& run, u64& in_flight, u64& emitted) {
   std::atomic<u64> queued{0}, sent{0}, received{0}, e{0};
   run([&](u16) {
     Shard* s = current_shard();
-    queued += s->emits_in_flight();
+    queued += s->emits_in_flight() + (s->resume_pending() ? 1 : 0);  // a resume pass may emit more
     sent += s->emits_sent();
     received += s->emits_received();
     e += s->stats().emits;

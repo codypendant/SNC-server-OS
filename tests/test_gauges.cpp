@@ -162,6 +162,7 @@ void test_concurrency() {
 void test_refused_followup() {
   Engine::Config c = config(2, "", false);
   c.hold_emits = true;
+  c.exchange_gate = false;  // D.1: X (default 1024) would refuse first; this covers the backlog gate
   Engine eng(c);
   eng.start();
   auto ids = create_accounts(eng, 64);
