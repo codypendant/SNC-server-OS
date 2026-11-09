@@ -70,8 +70,12 @@ Decided by cody on 2026-11-04.
      Required before S6: follow-up intake backpressure (S1.1 section 3).
      Its design only is authorized:
      [FOLLOWUP_INTAKE_DESIGN.md](FOLLOWUP_INTAKE_DESIGN.md) (option D,
-     credit-bounded destination staging) waits for review; no runtime,
-     ring or drain change before that
+     credit-bounded destination staging) was approved as the base
+     architecture in cody's review (handoff/PR83_Design_Review.txt), with R1
+     rejected: rev2 (reply-only follow-ups, enforced `max_emits`) comes
+     next, then review, then implementation. First, as ordered: the
+     `WalStream` active-buffer u32 overflow is fixed (checked growth,
+     1 GiB maximum, fail-stop; bench/results/walcap-validation-devvm-20261109)
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
      and pre-registered failure criteria.

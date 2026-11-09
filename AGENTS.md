@@ -1982,3 +1982,21 @@ or source comments.
     items; all are corrected in the note (section 12).
 -   **Next action:** review. No runtime, ring or drain change until then;
     no S5/S6, R640, CP-1A or comparators.
+
+### 2026-11-09 UTC --- Claude (Claude Code): WalStream active-buffer overflow fix
+
+-   **Classification:** REFINE (a storage fail-stop; formats unchanged).
+-   **What:** this is the first step of `docs/handoff/PR83_Design_Review.txt`
+    (option D approved as the base architecture; R1 rejected).
+    `WalStream::ensure_capacity` doubled a u32 capacity, which wrapped
+    past 2 GiB. Now:
+    - growth is checked in u64 (`grown_capacity`);
+    - `WalConfig::max_active_bytes` is explicit (default and hard maximum
+      1 GiB);
+    - `append` and `append_raw` fail stop before any state change.
+-   **Tests:** `test_wal_capacity` C1-C5; negatives 5 of 5. Serial
+    Release, ASan+UBSan and TSan all 44/44, with zero reports
+    (`bench/results/walcap-validation-devvm-20261109/`).
+-   **Known limit:** a standby has no receive-side bound; it now fails
+    stop at 1 GiB.
+-   **Next action:** FOLLOWUP_INTAKE_DESIGN rev2, then review.
