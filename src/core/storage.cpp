@@ -509,7 +509,11 @@ u64 scan_part(const std::string& d, u64 seq, u16 stream, const Uuid& uuid, const
 
 WalStream::WalStream(const WalConfig& cfg, u16 stream, u64 next_lsn)
     : cfg_(cfg), stream_(stream), next_lsn_(next_lsn), durable_lsn_(next_lsn - 1) {
-  active_cap_ = flushing_cap_ = 2u << 20;  // fits the largest record (1 MiB payload)
+  if (cfg_.max_active_bytes < kWalActiveInitial || cfg_.max_active_bytes > kWalActiveHardMax) {
+    storage_fatal("WAL max_active_bytes " + std::to_string(cfg_.max_active_bytes) + " outside [" +
+                  std::to_string(kWalActiveInitial) + ", " + std::to_string(kWalActiveHardMax) + "]");
+  }
+  active_cap_ = flushing_cap_ = static_cast<u32>(kWalActiveInitial);  // fits the largest record (1 MiB payload)
   // One block of headroom in front of each buffer: a segment's header goes
   // out in the same write as its first records.
   active_ = aligned_block(active_cap_ + kBlock) + kBlock;
@@ -563,11 +567,31 @@ void WalStream::open_segment(u64 first_lsn) {
   ++stats_.segments;
 }
 
-void WalStream::ensure_capacity(u32 extra) {
-  if (active_len_ + extra + kBlock <= active_cap_) return;
-  u32 cap = active_cap_;
-  while (active_len_ + extra + kBlock > cap) cap *= 2;
-  u8* bigger = aligned_block(cap + kBlock) + kBlock;
+u64 WalStream::grown_capacity(u64 cap, u64 len, u64 extra, u64 max) {
+  // Checked by subtraction, so no sum is ever formed that could wrap, for
+  // any u64 inputs.
+  if (len > max || extra > max - len || kBlock > max - len - extra) return 0;
+  const u64 need = len + extra + kBlock;  // <= max
+  if (cap == 0) cap = 1;
+  while (cap < need) {
+    if (cap > max / 2) return max;  // the next doubling would pass max: max fits need
+    cap *= 2;
+  }
+  return cap;
+}
+
+void WalStream::ensure_capacity(u64 extra) {
+  if (u64{active_len_} + extra + kBlock <= active_cap_) return;  // extra <= 2^32 here: no wrap
+  const u64 cap64 = grown_capacity(active_cap_, active_len_, extra, cfg_.max_active_bytes);
+  if (cap64 == 0) {
+    // Fail-stop (spec C7) before anything changes: growing would pass the
+    // supported maximum, and past it the u32 sizes would wrap.
+    storage_fatal("WAL stream " + std::to_string(stream_) + ": active buffer would exceed its supported maximum (" +
+                  std::to_string(active_len_) + " buffered + " + std::to_string(extra) + " + padding > " +
+                  std::to_string(cfg_.max_active_bytes) + " bytes)");
+  }
+  const u32 cap = static_cast<u32>(cap64);
+  u8* bigger = aligned_block(std::size_t{cap} + kBlock) + kBlock;
   std::memcpy(bigger, active_, active_len_);
   std::free(active_ - kBlock);
   active_ = bigger;
@@ -576,8 +600,10 @@ void WalStream::ensure_capacity(u32 extra) {
 
 u64 WalStream::append(RecType type, u32 type_id, const ObjectID& id, u64 version, u16 schema_ver,
                       const u8* payload, u32 payload_len, u16 flags) {
-  u32 size = record_size(payload_len);
-  ensure_capacity(size);
+  // Wide: record_size() in u32 would wrap for a payload near 4 GiB.
+  const u64 size64 = (u64{sizeof(WalRecord)} + payload_len + 7u) & ~u64{7};
+  ensure_capacity(size64);  // fail-stop if it cannot fit: size64 <= max < 2^32 below
+  const u32 size = static_cast<u32>(size64);
   u64 lsn = next_lsn_++;
   encode_record(active_ + active_len_, type, lsn, type_id, id, version, schema_ver, payload,
                 payload_len, flags);
@@ -597,7 +623,7 @@ bool WalStream::append_raw(const u8* rec) {
   WalRecord h;
   std::memcpy(&h, rec, sizeof(h));
   if (h.lsn != next_lsn_) return false;
-  ensure_capacity(h.total_len);
+  ensure_capacity(h.total_len);  // fail-stop if it cannot fit
   std::memcpy(active_ + active_len_, rec, h.total_len);
   ++next_lsn_;
   if (active_len_ == 0) {

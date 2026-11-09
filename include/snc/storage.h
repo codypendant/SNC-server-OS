@@ -118,6 +118,14 @@ u64 scan_part(const std::string& data_dir, u64 seq, u16 stream, const Uuid& uuid
 
 class SegmentPreparer;
 
+// WAL active-buffer limits. The buffer's sizes are u32 (and the flush pads
+// active_len up to a block in a u32), so the hard maximum stays well below
+// 2^31; the default is 1 GiB. The buffer starts at 2 MiB, which fits the
+// largest record (1 MiB payload), and doubles up to the maximum.
+inline constexpr u64 kWalActiveInitial = 2ull << 20;
+inline constexpr u64 kWalActiveMaxDefault = 1ull << 30;
+inline constexpr u64 kWalActiveHardMax = 1ull << 30;
+
 struct WalConfig {
   std::string data_dir;
   Uuid uuid{};
@@ -127,6 +135,11 @@ struct WalConfig {
   bool sync = true;              // false: wal_sync=none (development only)
   bool direct = true;            // O_DIRECT, falls back to buffered if refused
   SegmentPreparer* spares = nullptr;  // null: create segments on the shard thread
+  // The largest the active (unflushed) buffer may grow: the explicit
+  // supported maximum. An append that would need more is a fail-stop
+  // (storage_fatal) before any buffer or counter changes. At most
+  // kWalActiveHardMax, at least kWalActiveInitial.
+  u64 max_active_bytes = kWalActiveMaxDefault;
 };
 
 // Creates the next WAL segment of each stream ahead of time, on its own
@@ -199,6 +212,14 @@ class WalStream {
   // if its LSN is not next_lsn().
   bool append_raw(const u8* rec);
 
+  // The capacity the active buffer must grow to so that `len` buffered
+  // bytes plus `extra` more plus one block of padding fit: doubling from
+  // `cap`, clamped to `max`. 0 if they cannot fit within `max`. Pure and
+  // overflow-free for any inputs (u64 arithmetic, every value checked
+  // against `max` before it is combined): tests reach the boundaries with
+  // no allocation.
+  static u64 grown_capacity(u64 cap, u64 len, u64 extra, u64 max);
+
   // Call once per loop iteration. Starts a flush when due. Returns true while
   // unflushed records exist, so the loop keeps polling instead of sleeping.
   bool poll(u64 now_ns, bool force);
@@ -247,7 +268,7 @@ class WalStream {
   void start_flush();
   void open_segment(u64 first_lsn);
   bool take_spare(u64 first_lsn);
-  void ensure_capacity(u32 extra);
+  void ensure_capacity(u64 extra);
 
   WalConfig cfg_;
   u16 stream_;
