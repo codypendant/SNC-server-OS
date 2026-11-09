@@ -589,7 +589,17 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
     out.r.status = Status::E_BAD_ARGS;
     return;
   }
-  if (!client && !op->followup) contract_violation("a follow-up was emitted to an op not declared followup", op);
+  if (!client && !op->followup) {
+    // Every emit site checks this (OpCtx::emit), so only a frame from
+    // another node (a different op table, or a bad frame) gets here: it
+    // is dropped, never run, and the node keeps running.
+    if (!bad_followup_logged_) {
+      bad_followup_logged_ = true;
+      std::fprintf(stderr, "snc: shard %u: dropped a follow-up to op %u, which is not a follow-up op\n", id_, op->op_id);
+    }
+    out.r.status = Status::E_BAD_ARGS;
+    return;
+  }
   if (args.len > op->max_args) {
     out.r.status = Status::E_BAD_ARGS;
     return;
@@ -2628,6 +2638,13 @@ void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
     }
   }
   if (args.len > kMaxEmitArgs) contract_violation("emit args too large", op_);
+  // Reply-only (3.3): a follow-up runs only an op declared followup (its
+  // fail op too). Checked here, at the emitting op, so that the receiver
+  // can treat a frame that breaks it as foreign input, not as our bug.
+  for (OpID x : {op, fail_op}) {
+    const OpDescriptor* d = x != 0 ? registry().op(x) : nullptr;
+    if (d != nullptr && !d->followup) contract_violation("a follow-up was emitted to an op not declared followup", op_);
+  }
   Shard::Emit& e = s->emit_scratch_.emplace_back();
   e.source = obj_->id;
   e.target = target;
@@ -2809,7 +2826,6 @@ bool Shard::resume_step() {
     // a slot): the whole log up to this pass's start, which follows it.
     const u64 tail = wal_ ? wal_->next_lsn() - 1 : 0;
     sc.base_lsn = sc.owed_lsn ? tail : 0;
-    sc.mark = tail;
     sc.owed_all = sc.owed_any = sc.owed_lsn = false;
     map_.walk_begin(sc.walk);
     sc.page.clear();
@@ -2861,9 +2877,10 @@ bool Shard::resume_step() {
     t->resume(c);
     resuming_ = false;
     ++stats_.resume_objects;
-    // What it emits reflects its state now: an object changed since the
-    // pass began waits for its own record too.
-    const u64 lsn = o->last_lsn > sc.mark ? std::max(sc.base_lsn, o->last_lsn) : sc.base_lsn;
+    // What it emits reflects its state now (3.9.2): it waits for the WAL
+    // position current when the hook ran. (Not the pass's start: client
+    // ops run between start_serving and the pass, and between pages.)
+    const u64 lsn = std::max(sc.base_lsn, wal_ ? wal_->next_lsn() - 1 : 0);
     if (!emit_scratch_.empty()) queue_emits(lsn);
   }
   return did;

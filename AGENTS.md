@@ -2061,6 +2061,14 @@ or source comments.
     from epoll whenever the per-poll budget ran out, even when not paused,
     and never re-added it; `test_cluster` stalled. Now removed only while
     paused.
+-   **Defect found by the independent review and fixed:** the first
+    resume pass after start sent re-emits of objects changed before the
+    pass as if durable (lsn 0), so a crash could keep a credit and lose
+    its debit. Each re-emit now waits for the WAL position when its hook
+    ran (F16, negative N15). Also: a link frame to a non-followup op is
+    dropped instead of aborting the node (checked at the sender instead);
+    the design's claim that `quiesced()` counts a resume scan corrected
+    (it does not; counting it could hang a stop).
 -   **Not met in D.1 (D.2 scope):** a sender is not bounded across nodes
     (its exchange ends at the link). P1 performance not run.
 -   **Evidence:** `bench/results/intake-d1-validation-devvm-20261109/`.

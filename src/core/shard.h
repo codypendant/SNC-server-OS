@@ -211,7 +211,11 @@ class Shard {
   u64 followup_wal_cap() const { return wal_cap_; }
   // Tests only: a resume trigger, as a link coming up (slot -1) or a slot
   // becoming served would make (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.2).
-  void debug_resume(int slot) { owe_resume(wal_ ? wal_->next_lsn() - 1 : 0, slot); }
+  // Tests only: a resume trigger for one slot (-1: all); as_start: the
+  // trigger start_serving makes (no WAL position asked for).
+  void debug_resume(int slot, bool as_start = false) {
+    owe_resume(as_start || !wal_ ? 0 : wal_->next_lsn() - 1, slot);
+  }
   // A resume scan is running or owed (Engine::wait_emits).
   bool resume_pending() const { return scan_.active || scan_.owed_all || scan_.owed_any; }
   // Copies this shard's counters into its gauge block: at most every
@@ -683,13 +687,13 @@ class Shard {
   u16 cur_origin_ = kNoShard;     // origin of the follow-up now running
   u64 link_held_ = 0;             // follow-ups from node links held here (L)
   bool links_paused_ = false;
+  bool bad_followup_logged_ = false;  // a link frame to a non-followup op was dropped (logged once)
   // The resume scan (3.9.2): one at a time, with what triggers owed
   // meanwhile; fixed size whatever the number of triggers.
   struct ResumeScan {
     bool active = false, all = false;
     std::vector<u8> slots;  // [kSlots]: in this pass (when !all)
     u64 base_lsn = 0;       // what its emits wait for at least
-    u64 mark = 0;           // WAL position at its start: newer objects wait for their own record
     LocalMap::Walk walk;
     std::vector<ObjectID> page;
     std::size_t page_at = 0;

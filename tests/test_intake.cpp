@@ -136,7 +136,7 @@ void send_apply(OpCtx& c, ByteView args) {
   ++probe(c)->sent;
   RecvArgs r{a.seq, a.src, 0};
   // op 0: recv with a fail op; 1: recv with none (dropped where it fails).
-  c.emit(a.target, a.op > 1 ? a.op : kOpPRecv, ByteView(&r, sizeof(r)), a.op == 1 ? 0 : kOpPFail);
+  c.emit(a.target, a.op > 1 ? OpID{a.op} : OpID{kOpPRecv}, ByteView(&r, sizeof(r)), a.op == 1 ? OpID{0} : OpID{kOpPFail});
 }
 void recv_apply(OpCtx& c, ByteView args) {
   RecvArgs r;
@@ -1066,6 +1066,43 @@ void test_crash_recovery() {
               m0, err.substr(0, err.find('\n')).c_str());
 }
 
+// ---- F16: a resume pass never sends state that is not durable ----------------------------
+
+// The review of D.1 found that the first pass after start (a trigger with
+// no WAL position) gave objects changed before the pass began lsn 0, so
+// their re-emits left before their own records were durable: a crash then
+// keeps the credit and loses the debit. Each object's re-emits now wait
+// for the WAL position current when its hook runs.
+void test_resume_durability() {
+  account::register_type();
+  const std::string dir = temp_dir();
+  Engine::Config c = config(2, dir);
+  Engine eng(c);
+  eng.start();
+  constexpr u16 kS = 0, kD = 1;
+  const ObjectID from = make(eng, kS, account::kTypeId), to = make(eng, kD, account::kTypeId);
+  CHECK(eng.wait_emits(30));
+  const i64 m0 = money(eng);
+  Engine::debug_hold_wal(kS, true);
+  const u64 rx0 = eng.stats(kD).emits_received;
+  OneResult t = transfer(eng, kS, from, to, 5);  // the debit's record is not durable
+  CHECK_EQ(t.r.status, Status::OK);
+  on_shard(eng, kS, [] { current_shard()->debug_resume(-1, /*as_start=*/true); });
+  for (int i = 0; i < 100 && eng.stats(kS).resume_active; ++i) ::usleep(1000);
+  ::usleep(50000);
+  CHECK(!eng.stats(kS).resume_active);  // the pass ran
+  CHECK_EQ(eng.stats(kD).emits_received, rx0);  // and sent nothing yet
+  Engine::debug_hold_wal(kS, false);
+  CHECK(eng.wait_emits(30));
+  u64 entries = 0;
+  CHECK_EQ(money(eng, &entries), m0);
+  CHECK_EQ(entries, 0u);
+  expect_quiet(eng);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("F16 resume pass with no WAL position asked: an object's re-emit waited for its own undurable record\n");
+}
+
 // ---- G1: the owner gate -------------------------------------------------------------------
 
 void test_owner_gate() {
@@ -1130,6 +1167,7 @@ int main(int argc, char** argv) {
   run("F8", test_node_links);
   run("F11", test_rate_mismatch);
   run("F12", test_saturated_budget);
+  run("F16", test_resume_durability);
   run("G1", test_owner_gate);
   std::printf("test_intake: ok\n");
   return 0;

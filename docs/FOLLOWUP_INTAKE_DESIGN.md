@@ -526,9 +526,13 @@ Two things change indirectly:
   current when its hook runs, so a later page never sends state that is
   not yet durable. That is the rule `poll_links` and `map_changed`
   already use.
-- **Liveness.** `Engine::wait_emits` and `quiesced()` count an active or
-  owed scan as in flight. A scan stops when the shard is withdrawn or
-  becomes a standby.
+- **Liveness.** `Engine::wait_emits` counts an active or owed scan as in
+  flight. A scan stops when the shard is withdrawn or becomes a standby.
+  (Corrected in D.1: `quiesced()` does not count it, as it never counted
+  queued follow-ups. A clean stop waits for no other shard, and a scan
+  paged under X can wait on exchanges that only a stopped peer would
+  end, so counting it could hang the stop. An unfinished scan loses
+  nothing: the next start's pass re-emits whatever is unsettled.)
 
 #### 3.9.3 Accounting detail (implementation choice, D.1)
 
@@ -597,6 +601,23 @@ Where the code differs from, or adds detail to, the text above:
   256 objects per loop step, X checked before each object's hook. The
   owed state is `owed_all`, a per-slot byte array of 4,096 and
   `owed_lsn`; it is fixed size.
+- **Resume LSN** (found by the independent D.1 review, fixed before
+  any evidence run): each object's re-emits wait for the WAL position
+  current when its hook runs, as 3.9.2 says. The first version used the
+  pass's base position (0 for the trigger `start_serving` makes) for
+  objects older than the pass's start; but client ops run between
+  `start_serving` and the pass, so a transfer's re-emitted credit could
+  leave before its debit was durable (a crash then keeps the credit and
+  loses the debit). F16 checks this; negative N15 restores the bug.
+- **Follow-up op check at the sender**: `OpCtx::emit` stops the process
+  when a follow-up (or its fail op) names a registered op not declared
+  followup. The receiver drops such a follow-up (`E_BAD_ARGS`, logged
+  once per shard) instead of aborting: only a frame from another node
+  (a different op table, or a bad frame) can reach it.
+- **Wake-ups for X**: an exchange that ends on another shard is
+  published on the board, but nothing wakes its origin; a resume scan
+  waiting at X sees it at its next loop iteration (the native idle
+  wait is 1 ms). Latency only.
 - **Contract checks** are `contract_violation` (message, then abort) in
   `OpCtx::emit` and `reserve_emits`; `add_op` refuses `max_emits` on a
   non-MUTATE or unlogged op, `max_emits > 1` on a follow-up op, and a
@@ -635,11 +656,14 @@ at the receiver) in place of transfers where order must be observed:
 | F8 | 2 engines × 2 shards. Not met in D.1: "the sender's gate refuses" (the sender's exchanges end at the link, so it is not bounded across nodes; D.2) |
 | F11 | 4 shards; x's replies held, then released into d whose WAL is held at B |
 | F12-F15 | One test, 4 shards, X = 8 |
+| F16 (new) | A resume pass started with no WAL position (as at start) while an object's latest record is not durable: its re-emit is not sent until it is |
 | G1 | The owner gate (3.5) on its own |
 
 Negatives as run (`bench/results/intake-d1-validation-devvm-20261109/negative/`):
 N1 → F1, N2 (no window) → F11, N4 → F11, N6 → F8, N7 → F1, N8 → G1,
-N9 → F12, N10 → F4, N13 → F12, N14 → F12 (F15's part). Not run as
+N9 → F12, N10 → F4, N13 → F12, N14 → F12 (F15's part), and, from
+attempt 2, N7b (order only: an arrival skips staging while the gate is
+open) → F1 and N15 (the resume LSN defect) → F16. Not run as
 mutations: N3, N5, N11 (F10 checks each contract message directly) and
 N12. P1 (performance) is not run in D.1.
 

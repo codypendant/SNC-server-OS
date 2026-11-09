@@ -87,4 +87,16 @@ mutate no-coalescing F12 $F release \
     scan_.active = false;
     ++stats_.resume_restarts;
   }"
+# N7b. Order only: an arrival skips what is staged whenever the gate is open
+#      (the gate itself still holds), so per-source order breaks.
+mutate staging-order-only F1 $F release \
+  "  const bool gated = emit_local_.empty() && !followup_gate_open();
+  if (!emit_local_.empty() || gated) {" \
+  "  const bool gated = !followup_gate_open();
+  if (gated) {"
+# N15. The review's defect: a pass's re-emits wait only for the pass's base
+#      position (0 after start), not for the WAL when the hook ran.
+mutate resume-base-lsn F16 $F release \
+  "    const u64 lsn = std::max(sc.base_lsn, wal_ ? wal_->next_lsn() - 1 : 0);" \
+  "    const u64 lsn = sc.base_lsn;"
 echo done >> "$OUT/summary.txt"
