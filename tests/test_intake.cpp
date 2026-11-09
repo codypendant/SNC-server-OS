@@ -92,7 +92,7 @@ struct SendArgs {
   ObjectID target;
   u64 seq;
   u32 src;
-  u32 op;  // 0: kOpRecv; a bad op for the death tests
+  u32 op;  // 0: kOpPRecv (fail op kOpPFail); 1: kOpPRecv, no fail op; else that op (F10)
 };
 struct RecvArgs {
   u64 seq;
@@ -135,7 +135,8 @@ void send_apply(OpCtx& c, ByteView args) {
   std::memcpy(&a, args.data, sizeof(a));
   ++probe(c)->sent;
   RecvArgs r{a.seq, a.src, 0};
-  c.emit(a.target, a.op ? a.op : kOpPRecv, ByteView(&r, sizeof(r)), kOpPFail);
+  // op 0: recv with a fail op; 1: recv with none (dropped where it fails).
+  c.emit(a.target, a.op > 1 ? a.op : kOpPRecv, ByteView(&r, sizeof(r)), a.op == 1 ? 0 : kOpPFail);
 }
 void recv_apply(OpCtx& c, ByteView args) {
   RecvArgs r;
@@ -625,15 +626,30 @@ void test_drop_paths() {
     }
   }
   CHECK(eng.wait_emits(30));
-  const ProbeV1 q = get_probe(eng, a);
+  ProbeV1 q = get_probe(eng, a);
   CHECK_EQ(q.failed, sent);  // every one ran its fail op here, once
   CHECK_EQ(q.acked, 0u);
   expect_quiet(eng);
+  // With no fail op: dropped where the target is missing, ending there.
+  u64 dropped = 0;
+  for (const ObjectID& t : {gone, never3, never0}) {
+    u64 seq = 0;
+    for (int k = 0; k < 20; ++k) {
+      SendOut o = send_probes(eng, 0, a, t, 1, seq, 10, /*op=*/1);
+      seq = o.last_seq;
+      dropped += o.ok;
+      CHECK(eng.wait_emits(30));
+    }
+  }
+  q = get_probe(eng, a);
+  CHECK_EQ(q.failed, sent);
+  CHECK_EQ(q.sent, sent + dropped);
+  expect_quiet(eng);
   eng.stop();
   rm_rf(dir);
-  std::printf("F4 drop paths: %llu probes to a deleted and to never-created objects ran their fail op once each; "
-              "exchanges, windows and staging back to zero\n",
-              (unsigned long long)sent);
+  std::printf("F4 drop paths: %llu probes to a deleted and to never-created objects ran their fail op once each, "
+              "%llu more with no fail op were dropped there; exchanges, windows and staging back to zero\n",
+              (unsigned long long)sent, (unsigned long long)dropped);
 }
 
 // ---- F8: two engines over node links -------------------------------------------------------

@@ -569,6 +569,11 @@ void test_internal_drains() {
   // deposits are admitted at 0 and 256 active bytes and refused from 512.
   const u64 budget = mutation_wal_need(false) + 300;
   c.wal_buffer_budget_bytes = budget;
+  // The S1 property: client admission never refuses internal work. D.1's
+  // own follow-up gate (H) and window (W) would stage these credits past H;
+  // they are covered by test_intake, so here they are off.
+  c.followup_wal_gate = false;
+  c.followup_window = 0;
   Engine eng(c);
   eng.start();
   auto own = accounts(eng, 16);
