@@ -1954,3 +1954,31 @@ or source comments.
 -   **Next action:** review. Then the follow-up intake slice if
     authorized. No S5/S6, R640, CP-1A or comparators.
 
+
+### 2026-11-09 UTC --- Claude (Claude Code): follow-up intake backpressure design note, for review
+
+-   **Classification:** design only (no code). Proposes a REFINE of the
+    follow-up apply path; RECONSIDER options are listed, not chosen.
+-   **What:** `docs/handoff/PR82_S41_Review.txt` approved PR #82, so S4
+    is COMPLETE, and it authorized the design only.
+    `docs/FOLLOWUP_INTAKE_DESIGN.md` recommends option D:
+    - rings always drain;
+    - the apply of follow-ups is gated on the shard's own WAL active
+      bytes against a cap H;
+    - per-pair credits (W) are counted when an item leaves staging;
+    - node-link reads pause at L held items.
+    It gives proofs B1-B7, tests F1-F9 and the negatives.
+-   **Open for review:**
+    - Q1, the derived-backlog policy (R1 recommended; a gate on the
+      shard's own backlog deadlocks, section 7.1);
+    - Q2, a limit on emits per op;
+    - Q3, the defaults;
+    - Q4, a `u32` WAL active-buffer doubling that wraps past 2 GiB
+      (`storage.cpp:566-575`; also reachable through a standby's
+      unbounded `append_raw`; proposed as its own small fix);
+    - Q5, an owner-side follow-up gate for forwarded mutations (closes a
+      B2 gap that exists today).
+-   **Review:** an independent review found 3 HIGH, 6 MEDIUM and LOW
+    items; all are corrected in the note (section 12).
+-   **Next action:** review. No runtime, ring or drain change until then;
+    no S5/S6, R640, CP-1A or comparators.

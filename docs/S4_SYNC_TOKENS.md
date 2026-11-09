@@ -1,6 +1,6 @@
 # S4: staggered final checkpoint sync (node-level K tokens)
 
-Status: **S4 core approved (PR #81, `docs/handoff/PR81_S4_Review.txt`); S4.1 (section 9: admin reply delivery, the fairness wording in section 2, `waiting_peak` in section 5) for review.**
+Status: **COMPLETE.** S4 core approved (PR #81, `docs/handoff/PR81_S4_Review.txt`); S4.1 (PR #82: section 9, the fairness wording in section 2, `waiting_peak` in section 5) approved (`docs/handoff/PR82_S41_Review.txt`).
 Work order: `docs/handoff/PR80_S33_Review_S4_Authorization.txt` (PR #80
 approved, S3 complete, S4 authorized and only S4). Design: option D of
 [CHECKPOINT_BACKPRESSURE_DESIGN.md](CHECKPOINT_BACKPRESSURE_DESIGN.md)
