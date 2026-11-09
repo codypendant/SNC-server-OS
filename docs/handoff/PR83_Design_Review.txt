@@ -1,0 +1,9 @@
+cody, 2026-11-09 16:07 UTC (project thread), review of PR #83 and
+docs/FOLLOWUP_INTAKE_DESIGN.md, verbatim:
+
+Read PR #83 and docs/FOLLOWUP_INTAKE_DESIGN.md. My review is: Option D is approved as the base architecture, but implementation is NOT authorized yet.
+First, fix the confirmed WalStream::ensure_capacity u32 overflow/wrap defect as a small standalone PR. Use checked wide arithmetic, an explicit supported maximum, fail-stop before overflow, cover both append() and append_raw(), add boundary tests without requiring a giant allocation, and run full Release/ASan+UBSan/TSan.
+Second, revise the follow-up-intake design. R1 as written is rejected because "protocol shape + gauge" is not a structural bound. Make follow-up execution request/reply-shaped as an enforceable runtime contract: a follow-up op may emit only back to its source unless a future separately reviewed forwarding mode explicitly permits otherwise. Add enforced OpDescriptor::max_emits; current transfer ops should declare their actual maxima, mostly 0 or 1.
+Keep Option D: always drain shared rings, gate follow-up APPLY on destination WAL, use per-pair credits W, keep the owner-side gate for forwarded MUTATE/CREATE/DELETE, and use bounded node-link read pausing. Keep H >= B + R; provisional functional formula may be max(2B, B+R). W=64 and L=1024 remain hypotheses only.
+Order: WAL overflow fix first -> FOLLOWUP_INTAKE_DESIGN rev2 -> return for review -> only then implement Option D.
+No S5, S6, R640, CP-1A, comparators, or B2 snapshot work.

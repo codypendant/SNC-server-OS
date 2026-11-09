@@ -1,0 +1,1 @@
+<src>/tests/test_wal_capacity.cpp:181: CHECK failed: (sig2) == (6)

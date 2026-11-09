@@ -1,0 +1,1 @@
+<src>/tests/test_wal_capacity.cpp:173: CHECK failed: err.find("active buffer would exceed its supported maximum") != std::string::npos

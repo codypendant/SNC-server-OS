@@ -1,0 +1,7 @@
+base 0e6712a373b1362e0849aa6dda6d3ebce923231b
+no-max C3 rc=1 (expected non-zero)
+u32-size C3 rc=1 (expected non-zero)
+raw-unchecked C4 rc=1 (expected non-zero)
+sum-first C1 rc=1 (expected non-zero)
+no-open-check C5 rc=1 (expected non-zero)
+done

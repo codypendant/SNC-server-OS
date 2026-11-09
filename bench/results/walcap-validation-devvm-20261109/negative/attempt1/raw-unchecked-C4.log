@@ -1,0 +1,2 @@
+C4 child: 63 raw records buffered (4132296 bytes)
+<src>/tests/test_wal_capacity.cpp:209: CHECK failed: (sig) == (6)
