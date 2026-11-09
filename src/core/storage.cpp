@@ -572,6 +572,7 @@ u64 WalStream::grown_capacity(u64 cap, u64 len, u64 extra, u64 max) {
   // any u64 inputs.
   if (len > max || extra > max - len || kBlock > max - len - extra) return 0;
   const u64 need = len + extra + kBlock;  // <= max
+  if (cap > max) return max;  // never in WalStream (caps start at 2 MiB <= max): clamp anyway
   if (cap == 0) cap = 1;
   while (cap < need) {
     if (cap > max / 2) return max;  // the next doubling would pass max: max fits need
@@ -581,7 +582,7 @@ u64 WalStream::grown_capacity(u64 cap, u64 len, u64 extra, u64 max) {
 }
 
 void WalStream::ensure_capacity(u64 extra) {
-  if (u64{active_len_} + extra + kBlock <= active_cap_) return;  // extra <= 2^32 here: no wrap
+  if (u64{active_len_} + extra + kBlock <= active_cap_) return;  // extra < 2^32 + 64 here (both callers): the sum stays below 2^34
   const u64 cap64 = grown_capacity(active_cap_, active_len_, extra, cfg_.max_active_bytes);
   if (cap64 == 0) {
     // Fail-stop (spec C7) before anything changes: growing would pass the

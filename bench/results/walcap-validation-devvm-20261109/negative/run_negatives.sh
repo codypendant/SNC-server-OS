@@ -24,7 +24,9 @@ PY
   rm -rf "$WORK/src-$name" "$WORK/build-$name"
 }
 # M1. No maximum: growth never refuses (the defect's shape, minus the wrap).
-mutate no-max C3 '  if (cap64 == 0) {' '  if (false) {'
+# attempt1 used `if (cap64 == 0)` -> `if (false)`, which failed C3 through
+# heap corruption (cap 0), not unbounded growth; attempt2 removes the limit.
+mutate no-max C3 '  const u64 cap64 = grown_capacity(active_cap_, active_len_, extra, cfg_.max_active_bytes);' '  const u64 cap64 = grown_capacity(active_cap_, active_len_, extra, ~u64{0});'
 # M2. append() sizes the record in u32 again (wraps for a ~4 GiB payload).
 mutate u32-size C3 '  ensure_capacity(size64);  // fail-stop if it cannot fit: size64 <= max < 2^32 below' '  ensure_capacity(record_size(payload_len));'
 # M3. append_raw() skips the capacity check.

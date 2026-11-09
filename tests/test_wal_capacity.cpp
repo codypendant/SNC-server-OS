@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <string>
@@ -113,6 +114,8 @@ void c1_pure_boundaries() {
   CHECK_EQ(W::grown_capacity(two_mib, 0, 0xFFFFFFFFull, one_gib), 0u);
   CHECK_EQ(W::grown_capacity(two_mib, ~u64{0}, ~u64{0}, one_gib), 0u);
   CHECK_EQ(W::grown_capacity(two_mib, ~u64{0} - kBlock, 1, ~u64{0}), 0u);
+  // A capacity already above max (never in WalStream): clamped to max.
+  CHECK_EQ(W::grown_capacity(8ull << 20, 0, 1, 6ull << 20), 6ull << 20);
   // cap 0 (never in WalStream): still terminates.
   CHECK_EQ(W::grown_capacity(0, 10, 10, one_gib), 8192u);
   // The old u32 code wrapped exactly where these refuse.

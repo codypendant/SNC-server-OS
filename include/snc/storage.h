@@ -121,7 +121,13 @@ class SegmentPreparer;
 // WAL active-buffer limits. The buffer's sizes are u32 (and the flush pads
 // active_len up to a block in a u32), so the hard maximum stays well below
 // 2^31; the default is 1 GiB. The buffer starts at 2 MiB, which fits the
-// largest record (1 MiB payload), and doubles up to the maximum.
+// largest record (1 MiB payload), and doubles up to the maximum. The
+// hard maximum also keeps static_cast<int>(flushing_len_) in the flush
+// below 2^31. Known limit: a standby applies everything it receives with
+// no receive-side bound (replication.cpp Receiver::poll), so a standby
+// whose fsync falls far behind a fast link now stops at 1 GiB (fail-stop)
+// where before it hung or corrupted at 2 GiB; a standby budget is
+// separate work.
 inline constexpr u64 kWalActiveInitial = 2ull << 20;
 inline constexpr u64 kWalActiveMaxDefault = 1ull << 30;
 inline constexpr u64 kWalActiveHardMax = 1ull << 30;
