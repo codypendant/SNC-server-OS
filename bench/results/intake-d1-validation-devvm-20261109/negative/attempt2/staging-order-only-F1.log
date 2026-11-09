@@ -1,0 +1,2 @@
+F1/F5/F7/F2 stalled destination: 512 probes admitted, 31488 refused by X=64; WAL peak 262656 <= max(H=328192, R=66048); staging peak 64 <= (N-1)W + X + 1 = 177; node backlog peak 448 <= N(X+1) = 520; reads, batch and a forwarded mutation answered while staging; delivered once, in order
+test_intake: ok

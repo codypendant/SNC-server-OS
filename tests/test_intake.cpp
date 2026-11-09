@@ -40,6 +40,9 @@
 //   F15 ... repeated resume triggers coalesce: one active pass plus one
 //       owed, fixed scan state, exchanges within X + max(E, Rr); after
 //       release at most one more pass, and everything settles.
+//   F16 a resume pass with no WAL position asked waits for each object's
+//       own undurable record before re-emitting (the D.1 review defect).
+//   F17 order while d's gate opens and closes with its flushes.
 //   G1  the owner gate: a mutation forwarded to a shard whose follow-up
 //       backlog is past kEmitBacklog is refused there (refused_owner); a
 //       forwarded read is answered.
@@ -1103,6 +1106,61 @@ void test_resume_durability() {
   std::printf("F16 resume pass with no WAL position asked: an object's re-emit waited for its own undurable record\n");
 }
 
+// ---- F17: order while the gate opens and closes -------------------------------------------
+
+// No stall: d's WAL flushes as usual, but H is the smallest allowed, so
+// d's gate closes and reopens with its flushes while seven shards send.
+// An arrival must never run ahead of what is staged (3.1).
+void test_flapping_order() {
+  register_probe();
+  const std::string dir = temp_dir();
+  constexpr u16 kN = 8, kD = 1;
+  Engine::Config c = config(kN, dir);
+  c.followup_window = 64;
+  c.exchange_budget = 1024;
+  c.wal_buffer_budget_bytes = 96u << 10;
+  c.followup_wal_cap_bytes = c.wal_buffer_budget_bytes + big_r();
+  Engine eng(c);
+  eng.start();
+  std::vector<ObjectID> src(kN);
+  for (u16 s = 0; s < kN; ++s) src[s] = make(eng, s, kProbeType);
+  const ObjectID dst = make(eng, kD, kProbeType);
+  std::vector<u64> last(kN, 0);
+  u64 ok = 0;
+  std::vector<std::thread> th;
+  std::vector<SendOut> out(kN);
+  for (u16 s = 0; s < kN; ++s) {
+    if (s == kD) continue;
+    th.emplace_back([&, s] {
+      u64 seq = 0;
+      for (int r = 0; r < 200; ++r) {
+        SendOut o = send_probes(eng, s, src[s], dst, s, seq, 100);
+        seq = o.last_seq;
+        out[s].ok += o.ok;
+      }
+      out[s].last_seq = seq;
+    });
+  }
+  for (auto& t : th) t.join();
+  CHECK(eng.wait_emits(60));
+  const ProbeV1 p = get_probe(eng, dst);
+  for (u16 s = 0; s < kN; ++s) {
+    if (s == kD) continue;
+    ok += out[s].ok;
+    CHECK_EQ(p.last[s], out[s].last_seq);
+  }
+  const ShardStats d = eng.stats(kD);
+  CHECK(d.followups_gated > 0);  // the gate did close
+  CHECK_EQ(p.order_errors, 0u);
+  CHECK_EQ(p.received, ok);
+  expect_quiet(eng);
+  eng.stop();
+  rm_rf(dir);
+  std::printf("F17 gate opening and closing with d's flushes (H = B + R): %llu probes from 7 shards, gated %llu times, "
+              "delivered once in per-source order\n",
+              (unsigned long long)ok, (unsigned long long)d.followups_gated);
+}
+
 // ---- G1: the owner gate -------------------------------------------------------------------
 
 void test_owner_gate() {
@@ -1168,6 +1226,7 @@ int main(int argc, char** argv) {
   run("F11", test_rate_mismatch);
   run("F12", test_saturated_budget);
   run("F16", test_resume_durability);
+  run("F17", test_flapping_order);
   run("G1", test_owner_gate);
   std::printf("test_intake: ok\n");
   return 0;

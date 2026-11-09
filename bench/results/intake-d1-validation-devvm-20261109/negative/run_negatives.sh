@@ -89,7 +89,7 @@ mutate no-coalescing F12 $F release \
   }"
 # N7b. Order only: an arrival skips what is staged whenever the gate is open
 #      (the gate itself still holds), so per-source order breaks.
-mutate staging-order-only F1 $F release \
+mutate staging-order-only F17 $F release \
   "  const bool gated = emit_local_.empty() && !followup_gate_open();
   if (!emit_local_.empty() || gated) {" \
   "  const bool gated = !followup_gate_open();

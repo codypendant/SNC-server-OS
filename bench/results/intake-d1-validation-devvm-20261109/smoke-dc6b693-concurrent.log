@@ -1,0 +1,206 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/44 Test  #1: test_rate_schedule ...............   Passed    0.00 sec
+      Start  2: test_object_id
+ 2/44 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/44 Test  #3: test_local_map ...................   Passed    1.13 sec
+      Start  4: test_pages
+ 4/44 Test  #4: test_pages .......................   Passed    0.51 sec
+      Start  5: test_runtime
+ 5/44 Test  #5: test_runtime .....................   Passed    0.18 sec
+      Start  6: test_execute
+ 6/44 Test  #6: test_execute .....................   Passed    0.05 sec
+      Start  7: test_persistence
+ 7/44 Test  #7: test_persistence .................   Passed    0.49 sec
+      Start  8: test_crash
+ 8/44 Test  #8: test_crash .......................   Passed    0.65 sec
+      Start  9: test_net
+ 9/44 Test  #9: test_net .........................   Passed    0.18 sec
+      Start 10: test_transfer
+10/44 Test #10: test_transfer ....................   Passed    2.83 sec
+      Start 11: test_replication
+11/44 Test #11: test_replication .................   Passed   15.11 sec
+      Start 12: test_cluster
+12/44 Test #12: test_cluster .....................   Passed    4.95 sec
+      Start 13: test_migrate
+13/44 Test #13: test_migrate .....................   Passed   32.94 sec
+      Start 14: test_resend_refusals
+14/44 Test #14: test_resend_refusals .............   Passed    0.02 sec
+      Start 15: test_proof
+15/44 Test #15: test_proof .......................   Passed    0.90 sec
+      Start 16: test_placement
+16/44 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+17/44 Test #17: test_stage_chain .................   Passed    7.87 sec
+      Start 18: test_gauges
+18/44 Test #18: test_gauges ......................***Failed    0.06 sec
+/home/claude/snc-server-os/tests/test_gauges.cpp:184: CHECK failed: (st.refused_followup) == (refused)
+T4 ewma: exact
+T7 concurrency: 2630 consistent snapshots, 0 torn
+
+      Start 19: test_s1_admission
+19/44 Test #19: test_s1_admission ................***Failed    0.31 sec
+/home/claude/snc-server-os/tests/test_s1_admission.cpp:256: CHECK failed: r.r.status == Status::E_APP
+
+      Start 20: test_s2_pacing
+20/44 Test #20: test_s2_pacing ...................   Passed    3.12 sec
+      Start 21: test_s3_writeback
+21/44 Test #21: test_s3_writeback ................   Passed   19.52 sec
+      Start 22: test_lifecycle
+22/44 Test #22: test_lifecycle ...................   Passed    9.86 sec
+      Start 23: test_s4_sync_tokens
+23/44 Test #23: test_s4_sync_tokens ..............   Passed   43.47 sec
+      Start 24: test_admin_loop
+24/44 Test #24: test_admin_loop ..................   Passed    1.18 sec
+      Start 25: test_wal_capacity
+25/44 Test #25: test_wal_capacity ................   Passed    0.06 sec
+      Start 26: test_witness
+26/44 Test #26: test_witness .....................   Passed   23.73 sec
+      Start 27: test_async_failover
+27/44 Test #27: test_async_failover ..............   Passed   13.61 sec
+      Start 28: test_control
+28/44 Test #28: test_control .....................   Passed    1.49 sec
+      Start 29: test_health
+29/44 Test #29: test_health ......................   Passed  154.50 sec
+      Start 30: test_gauges_admin
+30/44 Test #30: test_gauges_admin ................   Passed    3.95 sec
+      Start 31: test_fail_closed
+31/44 Test #31: test_fail_closed .................***Failed  225.34 sec
+f1: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '15 samples, served 0'}
+f2: ok {'slot': 1326, 'source': 1, 'source_standby': 2, 'dest': 3, 'accounts': 31, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 31, 'digest': 12904129235563988296, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write_at_promoted_source': 'E_MIGRATING', 'commit': 'STOPPED committed', 'dest_activate': 'OK', 'two_serving_after_commit': False, 'write_at_promoted_source_after_commit': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_dest': 1000000}
+f3: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '15 samples, served 0', 'transfer_into_unproven': 'OK', 'slot_unchanged': True, 'status_unproven': ['unproven=1']}
+f4: ok {'slot': 1326, 'm1': '0x2', 'm1_epoch': 2, 'm3': '0x6', 'm3_epoch': 2, 'promoted_info': {'phase': 3, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': '6:2'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f5: ok {'slot': 1326, 'm3': '0x2', 'promoted_info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 4, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': 'c:4'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f5b: ok {'slot': 1326, 'm5': '0x2', 'before_unseal': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 3, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'sealed', 'arrived': '7:3'}, 'driver': 'DONE', 'promoted_info': {'phase': 0, 'group': 1, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 3, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '1', 'proof': 'missing', 'arrived': '7:3'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '8 samples, served 0'}
+f7: ok {'slot': 1326, 'roles_seen': ['m', 'p'], 'driver': 'DONE', 'gate_waited': True, 'probe': '1402 samples'}
+f8_f9: ok {'slot': 1326, 'balances_ok': True, 'a_after_restart': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'foreign', 'arrived': '2:2'}, 'probe': '43 samples, A served 0', 'never_moved': 'OK'}
+f10: ok {'prepared': {'a_serving': 1, 'a_flags': '0', 'b_phase': 0, 'b_serving': 0}, 'sealed': {'a_serving': 1, 'a_flags': '1', 'b_phase': 0, 'b_serving': 0}, 'staged': {'a_serving': 1, 'a_flags': '1', 'b_phase': 3, 'b_serving': 0}, 'final_balance': 1000003}
+f11: ok {'slot': 1326, 'moves': 9, 'arrivals': 1, 'balance': 1000009}
+f13:f3: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '58 samples, served 0', 'transfer_into_unproven': 'OK', 'slot_unchanged': True, 'status_unproven': ['unproven=1']}
+f13:f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '51 samples, served 0'}
+f15: ok {'role_after': 's', 'info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 6, 'live_digest': 10608692316155999574, 'flags': '0', 'proof': 'ok', 'arrived': '0:0'}, 'role_file': 'standby\n'}
+f17:f1: ok {'slot': 1326, 'source': 1, 'dest': 3, 'dest_standby': 4, 'accounts_before': 31, 'accounts_committed': 41, 'promoted_info': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 31, 'live_digest': 12904129235563988296, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'read_first_accounts': {'E_MIGRATING': 31}, 'read_later_accounts': {'E_MIGRATING': 10}, 'balance_of_deposited_account': None, 'create_in_slot': 'E_MIGRATING', 'probe': '11 samples, served 0'}
+f17:f5: ok {'slot': 1326, 'm3': '0x2', 'promoted_info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 21, 'digest': 1835515613204348619, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 4, 'live_count': 21, 'live_digest': 1835515613204348619, 'flags': '0', 'proof': 'missing', 'arrived': 'c:4'}, 'read_later_accounts': {'E_MIGRATING': 10}}
+f17:f6: ok {'slot': 1326, 'promoted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 8752578208065530997, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 8752578208065530997, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'write': 'E_MIGRATING', 'finish': 'DONE', 'balance_at_b': 1004242, 'probe': '5 samples, served 0'}
+f18: ok {'slot': 1326, 'info': {'phase': 1, 'group': 0, 'move': 2, 'epoch': 2, 'count': 6, 'digest': 10608692316155999574, 'durable': 1, 'serving': 1, 'map_group': 1, 'map_epoch': 2, 'live_count': 6, 'live_digest': 10608692316155999574, 'flags': '0', 'proof': 'ok', 'arrived': '2:2'}, 'moved': {'OK': 6}, 'never_moved': 'OK'}
+role: ok {'roles': ('primary\n', 'standby\n'), 'crash_rc': 9, 'final_role': 'primary\n'}
+backfill: ok {'in_progress': 'NO a move is in progress', 'no_primary': 'NO no primary answers in group 1', 'backfill': 'BACKFILLED 1 at epoch 4; UNRESOLVED 2 1314:owner-not-active,1558:owner-unsealed', 'arrived': {1326: ('0x2', 2)}, 'again': 'NOTHING; UNRESOLVED 2 1314:owner-not-active,1558:owner-unsealed', 'v1_epoch_then_v2_epoch': ('epoch=3', 4)}
+stuck: ok {'slot': 1326, 'driver': 'STUCK the destination holds no evidence of move 0000000000000002 (proof=missing): slot 1326 stays unavailable until repaired', 'move_cleared': True, 'arrived': (2, 2), 'source': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'dest': {'phase': 0, 'group': 0, 'move': 0, 'epoch': 0, 'count': 0, 'digest': 0, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 0, 'live_digest': 0, 'flags': '0', 'proof': 'missing', 'arrived': '2:2'}, 'other_move': 'DONE', 'again': 'DONE'}
+prepared: ok {'slot': 1326, 'restarted_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'driver': 'DONE', 'final': {'OK': 11}}
+f10_reseal: ok {'slot': 1326, 'resealed': True, 'promoted': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'sealed', 'arrived': '0:0'}, 'abort': 'ABORTED', 'after': {'phase': 0, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 1, 'map_group': 0, 'map_epoch': 1, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '1', 'proof': 'ok', 'arrived': '0:0'}, 'read': {'OK': 11}}
+f7_prepared: ok {'slot': 1326, 'roles_seen': ['m', 'p'], 'driver': 'DONE', 'probe': '744 samples', 'final': {'OK': 11}}
+legacy_primary: ok {'no_flag': (None, False), 'crash': (9, None, False), 'adopted': ('primary\n', True, {'OK': 6}), 'final': ('primary\n', True)}
+legacy_standby: ok {'refused': 'snc_server: not started: --adopt-role primary: group member 127.0.0.1:30243 is serving as primary or promoting (role p) of this space', 'adopted[]': ('standby\n', True), "adopted['--adopt-role', 'standby']": ('standby\n', True)}
+legacy_stale: ok {'promoting': 'snc_server: not started: --adopt-role primary: group member 127.0.0.1:28880 is serving as primary or promoting (role m) of this space', 'refused': "snc_server: not started: --adopt-role primary: group member 127.0.0.1:28880 is at term 1, newer than this directory's 0 (this directory is stale)"}
+f19: ok {'after_first': (4, 1, True, 1), 'log_order': (3, 7, 10), 'after_second': (8, 2, True, 0), 'slot': 1326, 'balances_ok': True, 'probe': '304 samples, A served 0', 'a_info': {'phase': 2, 'group': 1, 'move': 2, 'epoch': 2, 'count': 11, 'digest': 12709609981747641926, 'durable': 1, 'serving': 0, 'map_group': 1, 'map_epoch': 2, 'live_count': 11, 'live_digest': 12709609981747641926, 'flags': '0', 'proof': 'foreign', 'arrived': '2:2'}, 'never_moved': 'OK'}
+f19r: FAILED; logs in /tmp/snc-fc-f19r-_0tut8e_
+--- node 1
+control: node 1, group 0 member 0, placement epoch 1
+recovery: checkpoint before serving in 0.00s
+snc_server shards=2 ports 23340-23341 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 0 of 2 (member 0), slots 0-2047, node links on ports 22591-22592 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 37463a8104612156e3f55cc1853249a1  replicating to 127.0.0.1:24518 (sync)
+witness: recorded NOT READY (this primary started) at v=2
+witness: standby back in sync (READY after v=2)
+snc: shard 0: slot 1326 sealed for move 2 (11 objects)
+snc: placement epoch 2 adopted (was 1)
+--- node 2
+control: node 2, group 0 member 1, placement epoch 1
+recovery: checkpoint before serving in 0.00s
+snc_server shards=2 ports 25851-25852 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 0 of 2 (member 1), slots 0-2047, node links on ports 28028-28029 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 37463a8104612156e3f55cc1853249a1  standby, listening on 24518-24519
+snc: placement epoch 2 adopted (was 1)
+--- node 3
+control: node 3, group 1 member 0, placement epoch 1
+recovery: checkpoint before serving in 0.00s
+snc_server shards=2 ports 28107-28108 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 1 of 2 (member 0), slots 2048-4095, node links on ports 20523-20524 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 42eeebb2f5b2f80d4ac094a0d73adc90  replicating to 127.0.0.1:21286 (sync)
+witness: recorded NOT READY (this primary started) at v=2
+witness: standby back in sync (READY after v=2)
+snc: shard 0: slot 1326 staged for move 2 (11 objects)
+snc: stage_chain slot=1326 move=2 objs=11 status=OK units=2 (check 1 put 0 scan 0 drop 0 stage 1) unit_ms p50=0.753 p95=0.753 p99=0.753 max=0.754 (check) put=0 dropped=0 bytes=0 window_hw=0 window_waits=0 scan_restarts=0 shard_ms=0.8 chain_ms=0.9 wait_ms=1.7 listed_entries=11 gone=0 report_units=1 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 1326 active here (move 2, epoch 2)
+control: node 3, group 1 member 0, placement epoch 2
+snc: seeded from 127.0.0.1:28084: checkpoint 1, 3 files, 0.0 MiB
+snc: shard 0: slot 1326 MIGRATION_STATE_INCOMPLETE: placement says arrived by move 2 at epoch 2; local state none move 0 - not serving
+snc_server shards=2 ports 28107-28108 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 1 of 2 (member 0), slots 1326-4095, node links on ports 20523-20524 while primary (map crc ccc344d4, placement epoch 2)
+space uuid 42eeebb2f5b2f80d4ac094a0d73adc90  standby, listening on 21625-21626
+--- node 4
+cluster: group 1 of 2 (member 1), slots 2048-4095, node links on ports 31710-31711 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 42eeebb2f5b2f80d4ac094a0d73adc90  standby, listening on 21286-21287
+snc: placement epoch 2 adopted (was 1)
+snc: start barrier done: serving as a primary
+promoted to primary: term 1, in 0.008s
+control: node 4, group 1 member 1, placement epoch 2
+snc_server shards=2 ports 29745-29746 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 1 of 2 (member 1), slots 1326-4095, node links on ports 31710-31711 while primary (map crc ccc344d4, placement epoch 2)
+space uuid 42eeebb2f5b2f80d4ac094a0d73adc90  replicating to 127.0.0.1:21625 (sync)
+witness: granted, continuing without the standby
+snc: shard 0: standby unreachable, continuing without it
+snc: seed of checkpoint 1 sent
+snc: shard 1: standby unreachable, continuing without it
+snc: shard 0: standby caught up, replication is synchronous again
+snc: shard 1: standby caught up, replication is synchronous again
+snc: standby shard 0 stopped acking: treating it as down
+witness: granted, continuing without the standby
+snc: shard 0: standby unreachable, continuing without it
+snc: shard 0: standby caught up, replication is synchronous again
+witness: standby back in sync (READY after v=6)
+Traceback (most recent call last):
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 1641, in <module>
+    main()
+    ~~~~^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 1622, in main
+    fn(c, ev)
+    ~~^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 1023, in scenario_f19r
+    scenario_f19(c, ev, forced=True)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 999, in scenario_f19
+    assert None not in order and order[0] < order[1] < order[2], (order, lines[-20:])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ((None, 5, 13), ['snc_server shards=2 ports 29745-29746 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1', 'cluster: group 1 of 2 (member 1), slots 1326-4095, node links on ports 31710-31711 while primary (map crc ccc344d4, placement epoch 2)', 'space uuid 42eeebb2f5b2f80d4ac094a0d73adc90  replicating to 127.0.0.1:21625 (sync)', 'witness: granted, continuing without the standby', 'snc: shard 0: standby unreachable, continuing without it', 'snc: seed of checkpoint 1 sent', 'snc: shard 1: standby unreachable, continuing without it', 'snc: shard 0: standby caught up, replication is synchronous again', 'snc: shard 1: standby caught up, replication is synchronous again', 'snc: standby shard 0 stopped acking: treating it as down', 'witness: granted, continuing without the standby', 'snc: shard 0: standby unreachable, continuing without it', 'snc: shard 0: standby caught up, replication is synchronous again', 'witness: standby back in sync (READY after v=6)'])
+
+      Start 32: test_s1
+32/44 Test #32: test_s1 ..........................   Passed   61.98 sec
+      Start 33: test_profile_check
+33/44 Test #33: test_profile_check ...............   Passed    0.23 sec
+      Start 34: test_baseline_retry
+34/44 Test #34: test_baseline_retry ..............   Passed  248.02 sec
+      Start 35: test_sync_readiness
+35/44 Test #35: test_sync_readiness ..............   Passed  300.10 sec
+      Start 36: test_baseline_move
+36/44 Test #36: test_baseline_move ...............   Passed  112.76 sec
+      Start 37: test_baseline_ha
+37/44 Test #37: test_baseline_ha .................   Passed  126.37 sec
+      Start 38: test_ready_order
+38/44 Test #38: test_ready_order .................   Passed  145.57 sec
+      Start 39: test_paxos_ballots
+39/44 Test #39: test_paxos_ballots ...............   Passed    2.01 sec
+      Start 40: test_witness_hardening
+40/44 Test #40: test_witness_hardening ...........   Passed    5.73 sec
+      Start 41: test_lab_witness_guard
+41/44 Test #41: test_lab_witness_guard ...........   Passed   14.57 sec
+      Start 42: test_index_wire
+42/44 Test #42: test_index_wire ..................   Passed    1.73 sec
+      Start 43: test_pilot
+43/44 Test #43: test_pilot .......................   Passed    0.10 sec
+      Start 44: test_net_bench_rate
+44/44 Test #44: test_net_bench_rate ..............   Passed   15.68 sec
+
+93% tests passed, 3 tests failed out of 44
+
+Total Test time (real) = 1602.90 sec
+
+The following tests FAILED:
+	 18 - test_gauges (Failed)
+	 19 - test_s1_admission (Failed)
+	 31 - test_fail_closed (Failed)
+Errors while running CTest
+rc=8

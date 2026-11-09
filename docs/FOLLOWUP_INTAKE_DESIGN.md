@@ -656,6 +656,7 @@ at the receiver) in place of transfers where order must be observed:
 | F8 | 2 engines × 2 shards. Not met in D.1: "the sender's gate refuses" (the sender's exchanges end at the link, so it is not bounded across nodes; D.2) |
 | F11 | 4 shards; x's replies held, then released into d whose WAL is held at B |
 | F12-F15 | One test, 4 shards, X = 8 |
+| F17 (new) | No stall; H = B + R so d's gate closes and reopens with its flushes while 7 shards send: per-source order holds |
 | F16 (new) | A resume pass started with no WAL position (as at start) while an object's latest record is not durable: its re-emit is not sent until it is |
 | G1 | The owner gate (3.5) on its own |
 
@@ -663,7 +664,10 @@ Negatives as run (`bench/results/intake-d1-validation-devvm-20261109/negative/`)
 N1 → F1, N2 (no window) → F11, N4 → F11, N6 → F8, N7 → F1, N8 → G1,
 N9 → F12, N10 → F4, N13 → F12, N14 → F12 (F15's part), and, from
 attempt 2, N7b (order only: an arrival skips staging while the gate is
-open) → F1 and N15 (the resume LSN defect) → F16. Not run as
+open) → F17 and N15 (the resume LSN defect) → F16. (Attempt 2 pointed
+N7b at F1, which it passed: with the WAL held the gate never reopens
+while items are staged. F17 was added to catch it; attempt 3 is the
+complete run.) Not run as
 mutations: N3, N5, N11 (F10 checks each contract message directly) and
 N12. P1 (performance) is not run in D.1.
 
