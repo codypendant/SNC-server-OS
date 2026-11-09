@@ -38,8 +38,11 @@ Code read (main at 3bcde70):
 
 ## 0. Summary
 
-Option D stays as approved. Every mechanism below acts on the apply of
-follow-ups, or on admission. None stops a ring.
+Option D stays as approved (items 1-3, 6, 7). Item 4 is the contract the
+review asked for. Item 5, the exchange budget X, is a **new client-visible
+gate** that is not part of the approved D, and needs its own approval
+(Q5). Every mechanism below acts on the apply of follow-ups, or on
+admission. None stops a ring.
 
 1. **Rings always drain.** Every inbound ring is drained completely, as
    today, so no answer or control message can be trapped behind a
@@ -57,8 +60,8 @@ follow-ups, or on admission. None stops a ring.
    would need its own review.
 5. **The exchange budget (X, new).** The contract makes every follow-up
    part of an **exchange**: a chain between two objects with at most one
-   follow-up in existence at a time. A shard admits new client work that
-   can start exchanges only while it has fewer than X of its own
+   follow-up in existence at a time. A shard admits client ops that may
+   emit (`max_emits > 0`) only while it has fewer than X of its own
    exchanges unfinished. Replies never wait for this budget; only
    admission does.
 6. **The owner-side gate.** The shard that owns an object applies the
@@ -68,13 +71,16 @@ follow-ups, or on admission. None stops a ring.
    node links, frame-limited, while it holds L or more follow-ups from
    links.
 
-**Result: B2 becomes structural.** Under the contract, applying a
-follow-up never increases the number of follow-ups in existence
-(conservation, 6.2). Follow-ups are created only when an exchange starts,
-and starts are bounded by X at their origin. So every follow-up queue on
-the node, at senders and destinations, including the "derived" ones that
-revision 1 left to object state, is bounded by N·(X + E) plus the
-starts made by resume passes (6.2, Q1).
+**Result: B2 becomes structural intra-node, given Q1.** Under the
+contract, applying a follow-up never increases the number of follow-ups
+in existence (conservation, 6.2). Follow-ups are created only when an
+exchange starts, and client starts are bounded by X at their origin. So
+every follow-up queue of an intra-node exchange, at senders and
+destinations, including the "derived" ones that revision 1 left to object
+state, is bounded by N·(X + E) plus resume and re-route roots (6.2).
+Resume roots are structurally bounded only if resume passes are paced by
+X (Q1). Exchanges that cross nodes are bounded structurally only with
+D.2.
 
 **Deadlock freedom (B4).** No follow-up in flight ever waits for X. Only
 client admission waits for X, and it is refused rather than queued.
@@ -133,9 +139,9 @@ source:
 
 | Op | Runs as | Emits | To |
 |---|---|---|---|
-| `transfer` | client op | 1 (`credit`), or 0 when the target is on the same shard (`local()`) | the target (starts an exchange) |
+| `transfer` | client op | 0 when the target is on this shard and `local()` finds it (applied in place); otherwise 1 (`credit`), including on this shard when `local()` returns null (slot sealed or staged, object missing, wrong type), when it goes to `emit_local_` and may bounce | the target (starts an exchange) |
 | `xfer_credit` | follow-up | exactly 1 (`settle`: ok, refused or retry) | the source |
-| `xfer_settle` | follow-up | 1 (`forget`, or `credit` on retry), or 0 if the entry's `to` is not the source | the source (`outbox[i].to == source` is checked) |
+| `xfer_settle` | follow-up | 1 (`forget`, or `credit` on retry), or 0 if there is no matching entry (including on a retry) | the source (`outbox[i].to == source` is checked) |
 | `xfer_query` | follow-up | 1 (`forget` or `credit`), or 0 | the source |
 | `xfer_forget` | follow-up, unlogged | 0 (unlogged ops may not emit) | none |
 | `xfer_bounced` | follow-up (the engine's fail op) | 0 | none |
@@ -220,7 +226,8 @@ because the target's type is known only after the lookup.
 
 - `taken[s][d]` is written only by d, padded to a cache line, and
   published once per loop iteration. d adds one each time an item from s
-  leaves its staging, by any path (3.7).
+  leaves its staging, by any path (3.7), and also when `serve_emit` runs
+  an item inline without staging it (`shard.cpp:2715`).
 - s sends the head of `emit_remote_[d]` only while
   `sent[d] − taken_cache[d] < W`.
 - `Emit` gains a memory-only field `u16 from`. It is cleared when the
@@ -238,6 +245,11 @@ raises `contract_violation` (fail-stop, as other contract checks do) at
 emit number `max_emits + 1`. An op that does not declare it may not emit
 at all, so a new emitting type has to opt in explicitly.
 
+**Emit only inside apply.** Today `OpCtx::emit` checks only the op kind,
+so `validate` could call it. The contract allows `emit` only during
+`apply` of a logged op (unlogged ops already may not emit, `shard.cpp:598`)
+and during resume hooks; anything else is a `contract_violation`.
+
 **Reply-only.** When an op runs as a follow-up (`ctx.source()` is not
 null, that is, it was reached through `run_emit`):
 - it may emit only to `ctx.source()`. Any other target is a
@@ -254,8 +266,10 @@ null, that is, it was reached through `run_emit`):
 **Unchanged by the contract:**
 - **Client-run ops** emit up to `max_emits` follow-ups, to any target.
   Each one starts an exchange (3.4).
-- **Resume hooks** (`resume_all`, `resume_slot`, `map_changed`) emit to
-  any target, with no per-object limit. Each emit starts an exchange;
+- **Resume hooks** (`resume_all`, `resume_slot`, `map_changed`) run with
+  no op (`op_ == nullptr`, `shard.cpp:1666`, `3034`), so the `max_emits`
+  check is skipped while `resuming_`. They emit to any target, with no
+  per-object limit. Each emit starts an exchange;
   the hooks are bounded by object state. Q1 proposes pacing them.
 - **The engine's fail op** (`emit_result`) is the reply of the exchange
   it belongs to.
@@ -300,21 +314,28 @@ an exchange:
 must know its origin o. Two cases:
 - **Normal hop.** The exchange alternates between o and its peer p, so o
   is either the sender or the receiver of each hop. One spare `Msg` flag
-  bit, `kMsgEmitOriginSender` (bit 5; bits 0-4 are in use), says which.
-  `Emit` gains a memory-only `u16 origin`. No other field changes.
-- **Re-route.** A slot move can make `route_emit` re-route an item to a
-  third shard q, as in `run_emit` (foreign target) or `release_held`. In
-  that case the exchange ends at the re-routing shard (counted to o), and
-  the re-routed item becomes a new root, started by the re-routing shard.
-  Re-routes happen only on map and slot-state changes, so they are
-  finite.
+  bit, `kMsgEmitOriginSender` (bit 5), says which. Bits 0-4 are in use;
+  bit 4 is overloaded (`kMsgEmitRemote` on EMIT, the private
+  `kMsgRespDurable` on RESP, `shard.cpp:21`), and bit 5 is free in both.
+  `Emit` gains a memory-only `u16 origin`, with a reserved value
+  `kOriginRemote` for items that arrived from a node link (their origin
+  is on another node; see 3.6). No other field changes.
+- **Re-route.** Within a node, slot owners are static
+  (`owner[s] = s % n_shards`, `slot_map.h:26`). So a re-route never
+  reaches a third shard on the same node: an item re-routed by
+  `run_emit` (foreign target, `shard.cpp:2651`) or `release_held` either
+  goes to another node or stays local. That is also why one origin bit is
+  enough. A re-route that leaves the node ends the exchange at the
+  re-routing shard (counted to o). Re-routes happen only on map and
+  slot-state changes, so they are finite.
 
 **Local exchanges** (o = p, the target on the same shard) are counted the
 same way. They need no `Msg` bit.
 
-**The admission rule (the only place X is waited on).** A client-run
-MUTATE, CREATE or DELETE is admitted only while `live_o < X`, in
-addition to the existing gates. Otherwise it is refused with
+**The admission rule (the only place X is waited on).** A client-run op
+that may emit (`max_emits > 0`; today only `transfer`) is admitted only
+while `live_o < X`, in addition to the existing gates. Ops that cannot
+emit (deposit, withdraw, create, delete, reads) are not affected by X. Otherwise it is refused with
 `E_OVERLOADED` and never queued. It is checked at the shard that will
 apply it:
 - the origin, for a local op;
@@ -338,7 +359,7 @@ its replies move through the queues under only the H and W rules.
 paths) refuse a MUTATE, CREATE or DELETE with `E_OVERLOADED` in two
 cases:
 - the owner's `emits_in_flight` is above `kEmitBacklog`;
-- `live_owner ≥ X`.
+- the op may emit (`max_emits > 0`) and `live_owner ≥ X`.
 
 The check is made before `run_exec`, and the answer goes back as an
 ordinary RESP or MULTI_RESP (B3). It is replay-safe: only unsequenced
@@ -365,6 +386,10 @@ requests are forwarded (`shard.cpp:207-213`).
 - **Link loss:**
   - exchanges in flight on a dropped link are counted as ended at both
     ends: the connection's start and end counters reset with it;
+  - every end frame carries the connection generation (incremented per
+    connection), and an end frame for an older generation is ignored.
+    Otherwise an exchange staged at the receiver during the drop could
+    end later and be counted a second time on the new connection;
   - the `resume_all` that every reconnect already runs starts them
     again, as today.
 - **Until D.2:**
@@ -383,15 +408,24 @@ requests are forwarded (`shard.cpp:207-213`).
 |---|---|---|---|
 | Applied, emits 1 | Runs | Returned | Continues (the reply carries the origin) |
 | Applied, emits 0; or refused by `validate` | Runs or is refused | Returned | **Ends** (`ended[x][o]++`) |
-| Engine fail op (`E_NOT_FOUND` and the like) | `fail_op` runs on the source | Returned | Continues |
+| Engine fail op (`E_NOT_FOUND`, `E_TYPE_MISMATCH`, `E_UNKNOWN_OP`) with a `fail_op` | `fail_op` runs on the source | Returned | Continues |
+| The same errors with `fail_op == 0` (`shard.cpp:2744-2763`; e.g. settle, forget or query to a deleted target) | Dropped (existing) | Returned | **Ends** |
+| Arrives while `withdrawn_`, inline from `serve_emit` (`run_emit` returns early, `shard.cpp:2638`) | Dropped (existing) | Returned | **Ends** |
+| Run inline by `serve_emit` (`shard.cpp:2715`), never staged | As the rows above | Returned when it runs | As the rows above |
+| `route_emit` drops: misrouted `e.remote` (2564); no links (2572, where recovery resume roots to other nodes go) | Dropped (existing) | n/a (not yet sent) | **Ends** |
+| Link-down purge of `emit_node_` in `run_emits` (2610); misrouted link frame in `on_link_frame` (1700) | Dropped (existing) | n/a | **Ends** (a local root; a link-origin item has no local origin) |
 | `stale(e)` | Dropped (existing) | Returned | **Ends**; `map_changed` resume starts it again |
 | `withdraw` | Today staged items are never dropped (`emits_paused_` stops `run_emits`). Under D, `withdraw` drops every item in `emit_local_` that came from another shard | Returned | **Ends**; the new primary resumes |
 | Newer epoch, or sealed or staged slot → `hold_emit` | Held (existing) | Returned | Continues while held (a slot seal is bounded) |
-| Foreign → re-routed | Re-routed (existing) | Returned | **Ends**; the re-routed item is a new root |
+| Foreign → re-routed (to another node, 3.4) | Re-routed (existing) | Returned | **Ends** here |
 | Engine stop, or crash | Left for resume | Process-wide reset | Process-wide reset |
 
-Every row says what happens to both counters. A path that changes
-neither is a leak, and F9 (N3, N10) tests it.
+Every row says what happens to both counters. "Ends" means any
+disposition that emits nothing and leaves no item. A path that changes
+neither is a leak: enough leaks would make the shard refuse emitting
+client ops forever, a liveness outage. F9 (N3, N10) tests it, and the
+implementation adds a debug invariant: once the node is idle, Σ `live_o`
+equals the follow-ups counted in every queue (zero when quiescent).
 
 ### 3.8 What does not change
 
@@ -439,8 +473,10 @@ Two things change indirectly:
 | L | 1024 | The same order as `kEmitBacklog` | F8 |
 
 - **Configuration:** config fields, plus env overrides as in S4.
-- **Rollback:** `intake_gate = off`, W = 0, X = 0 (no budget), and
-  `owner_gate = off` together restore today's behaviour.
+- **Rollback:** `intake_gate = off`, W = 0, `exchange_budget = off`, and
+  `owner_gate = off` together restore today's behaviour. X has its own
+  off switch because `live_o < 0` would refuse everything; X = 0 is
+  rejected at start.
 - **What stays enforced under rollback:** the contract checks (3.3). The
   only existing emitter already satisfies them.
 
@@ -483,16 +519,25 @@ the exchange with one follow-up. Each apply of that follow-up emits 0
 or re-route moves the one follow-up, and a re-route ends this exchange
 and starts another.
 
-**Corollary.** Every follow-up that exists anywhere on the node is
-counted by exactly one live exchange. So, for any shard s,
+**Corollary (intra-node).** Every follow-up of an exchange whose two
+objects are on this node is counted by exactly one live exchange. So, for
+any shard s, counting only such follow-ups,
 
     emits_in_flight(s) + staged(s) + in transit to or from s
         ≤ Σ_o live_o
         ≤ N·(X + E) + Σ_o (resume roots_o + re-route roots_o)
 
-**Resume roots.** The resume roots are bounded by object state: for
-Account, one per outbox or inbox entry. With Q1's pacing they are at
-most X more per shard, which makes the whole bound structural.
+Follow-ups of exchanges that cross nodes (link-origin items and their
+replies in `emit_node_`) are in no local `live_o` until D.2; they are
+bounded by L, by `kEmitBacklog` and by link pausing, as in revision 1
+(3.6).
+
+**Resume roots.** Each resume pass emits at most one root per outbox or
+inbox entry (object state). But passes are not deduplicated: every link
+flap and map change re-runs `resume_all` (`shard.cpp:1730`, `2990`), so
+without pacing the bound is object state times outstanding passes. With
+Q1's pacing, a pass waits while `live_o ≥ X`, so resume adds at most X
+per shard, and the whole intra-node bound becomes structural.
 
 **Re-route roots.** These are at most one per follow-up held or in
 flight at a map or slot-state change.
@@ -722,6 +767,14 @@ Every slice rule applies:
    ops set it, and `run_emit` refuses (contract violation) to run an op
    without it.
 
+5. **Q5, approve X.** The exchange budget X is a new client-visible
+   gate, beyond the approved D: emitting client ops (today `transfer`)
+   see `E_OVERLOADED` while the applying shard has X or more of its own
+   exchanges unfinished. It is what makes B2 structural (6.2). Approve
+   it, or keep D without X and accept that B2 stays bounded only by the
+   sender gate and rates, as revision 1 stated?
+   Recommendation: approve X.
+
 ## 11. Not in this slice
 
 Implementation of any part of D; S5; S6; R640; CP-1A; comparators; B2
@@ -738,7 +791,34 @@ begin-snapshot work.
 | The u32 WAL finding (Q4) | Fixed in PR #84 |
 | Rejected: backlog gate | Also rejected: deferred credits (7.2) and queued roots (7.3), with the money-duplication order hazard |
 
-## 13. Independent review of revision 1 (summary)
+## 13. Independent reviews
+
+### 13.1 Revision 2
+
+A read-only reviewer checked revision 2 against main at 3bcde70 and
+cody's review.
+- **Confirmed:** the flag bits; the Account emit table (apart from the
+  corrections below); how `cur_source_` is set (non-null exactly for
+  follow-ups, including the fail op); the line references; the
+  conservation lemma intra-node; no wait cycle in 6.4 (X is
+  refusal-only; W, L and pausing bottom out in the WAL flush; the settle
+  retry loop is application behaviour bounded per hop by H); every point
+  of cody's review is covered, with no implementation claimed.
+- **Found and corrected here:**
+  - 1 HIGH: the 3.7 table missed drop paths (the withdrawn inline drop,
+    fail op without `fail_op`, `route_emit` and link drops), any of which
+    would leak `live_o`. Rows added, "ends" defined, an idle invariant
+    added;
+  - 6 MEDIUM: the B2 claim overstated (now intra-node and conditional on
+    Q1; resume passes are not deduplicated); X is a new gate needing its
+    own approval (Q5); X gated non-emitting ops (now only
+    `max_emits > 0`); the re-route description (owners are static within
+    a node); D.2 link-loss double counting (generation tags); table
+    facts (`transfer` on a null `local()`, settle with no entry);
+  - 4 LOW: resume hooks have no op; emit outside apply; X = 0 ambiguous;
+    the inline credit-return path; the bit 4 overload.
+
+### 13.2 Revision 1 (summary)
 
 A read-only reviewer checked revision 1 against the code at 83280f9 and
 the work order.

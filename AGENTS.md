@@ -2019,7 +2019,10 @@ or source comments.
     - cross-node end frames are specified as sub-slice D.2, a wire
       change.
 -   **Open for review:** Q1 resume pacing by X; Q2 build D.1 then D.2;
-    Q3 defaults (all hypotheses); Q4 a declared follow-up flag on ops.
--   **Review:** independent review, see section 13 of the note.
+    Q3 defaults (all hypotheses); Q4 a declared follow-up flag on ops;
+    Q5 approve X, a new client-visible gate beyond the approved D.
+-   **Review:** an independent review found 1 HIGH (missing drop paths
+    in the exit table, which would leak the budget), 6 MEDIUM and 4 LOW;
+    all are corrected in the note (section 13.1).
 -   **Next action:** review. No implementation of D; no S5, S6, R640,
     CP-1A, comparators or B2 snapshot work.
