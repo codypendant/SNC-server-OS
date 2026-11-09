@@ -2000,3 +2000,26 @@ or source comments.
 -   **Known limit:** a standby has no receive-side bound; it now fails
     stop at 1 GiB.
 -   **Next action:** FOLLOWUP_INTAKE_DESIGN rev2, then review.
+
+### 2026-11-09 UTC --- Claude (Claude Code): follow-up intake design rev2, for review
+
+-   **Classification:** design only (no code). REFINE of option D, as
+    approved in `docs/handoff/PR83_Design_Review.txt`.
+-   **What:** `docs/FOLLOWUP_INTAKE_DESIGN.md` revision 2:
+    - R1 is dropped, as the review rejected it;
+    - the reply-only contract is specified as enforced: a follow-up may
+      emit only to its source, and at most once;
+    - `OpDescriptor::max_emits` is enforced (default 0), with Account's
+      actual maxima declared;
+    - an origin **exchange budget X**, checked only at client admission
+      (refused, never queued), makes the sender bound B2 structural
+      intra-node by conservation (section 6.2);
+    - D is kept: drain always, H = max(2B, B+R) with H >= B+R hard, W,
+      the owner gate (now also X) and link pausing L;
+    - cross-node end frames are specified as sub-slice D.2, a wire
+      change.
+-   **Open for review:** Q1 resume pacing by X; Q2 build D.1 then D.2;
+    Q3 defaults (all hypotheses); Q4 a declared follow-up flag on ops.
+-   **Review:** independent review, see section 13 of the note.
+-   **Next action:** review. No implementation of D; no S5, S6, R640,
+    CP-1A, comparators or B2 snapshot work.
