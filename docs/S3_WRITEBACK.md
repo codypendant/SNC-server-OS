@@ -15,7 +15,7 @@ retained buffer memory is bounded by the window, not the checkpoint size.
 The final `fdatasync` stays. `--ckpt-io legacy` restores the write path
 before S3. CC-1..CC-5 are unchanged (section 7).
 
-Not in S3 (by the work order): S4 sync tokens, staggered sync, follow-up
+Not in S3 (by the work order; S4 is now [S4_SYNC_TOKENS.md](S4_SYNC_TOKENS.md)): S4 sync tokens, staggered sync, follow-up
 intake backpressure (its own pre-S6 slice), B2, C2, R640 load.
 
 `RWF_DSYNC` is a Linux durability flag for `pwritev2` and io_uring, with

@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/neg/src-token-bypass/tests/test_s4_sync_tokens.cpp:338: CHECK failed: (t.syncs_inflight) == (e)

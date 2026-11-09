@@ -829,7 +829,7 @@ review before the next slice starts.
 | S2 | B1: time-budgeted walk, controller (7.2) with only the walk budget, target and hard maximum (7.3), HEALTH fields (7.4) | `--ckpt-pacing off` (256 per iteration) | T1, T7, T15, T16 |
 | S3-D | short note choosing C1, C2 or C3 against 3C's criteria; may propose a dev-VM micro-characterization (approval needed) | n/a | n/a |
 | S3 | the chosen bounded writeback, the window in the controller | `--ckpt-io legacy` | T2, T3, T8, T18 (+ T18-L for C2) |
-| S4 | D: sync token; K sweep (model or non-campaign characterization) | `ckpt_sync_tokens = 0` (unlimited, today) | T11 |
+| S4 | D: sync token; K sweep (model or non-campaign characterization). Built: [S4_SYNC_TOKENS.md](S4_SYNC_TOKENS.md) (the K sweep is left to the R640 characterization) | `ckpt_sync_tokens = 0` (unlimited, today) | T11 (S4-T9 at K = 1) |
 | S5 | E: ioprio switch, only if still useful | off by default | A/B |
 | S6 | preregistered R640 regression (section 9) | | full |
 | Later | B2 after the CP-1A rerun unless S6 requires it; F only if campaign-scale evidence requires it | separate design | T13 |

@@ -1,0 +1,11 @@
+attempt2: all six mutations applied, built and failed the named test.
+
+token-leak (rc=124, empty log): the mutant hangs inside Engine::start(),
+before T2's own checks run. With K=1 the checkpoint that recovery takes at
+start gets its first token back never, so the other seven parts wait
+forever and Engine::checkpoint's latch never opens (main thread backtrace
+from a separate reproduction of the same mutant at f9b0264:
+token-leak-T2-backtrace.txt). The 600 s timeout ends it. Caught, but by a
+hang, not a diagnostic.
+fatal-path-leak: the abort saw grants=24 releases=23 (the failed sync's
+token not returned).

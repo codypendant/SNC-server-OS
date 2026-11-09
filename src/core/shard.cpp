@@ -45,6 +45,12 @@ std::atomic<bool> g_debug_ckpt_release_newest{false};
 std::atomic<u64> g_debug_ckpt_fail_at{0};
 std::atomic<int> g_debug_ckpt_fail_mode{0};
 std::atomic<bool> g_debug_ckpt_hold_sync{false};  // the final fdatasync's completion held (S3.1)
+// Tests only (S4; Engine::debug_ckpt_release_syncs, debug_ckpt_fail_sync).
+// Release: while the sync hold is on, each token lets one held final-sync
+// completion be processed. Fail: a bit per shard (id & 63); that shard's
+// next final fdatasync completes with -EIO. Consumed once.
+std::atomic<u64> g_debug_ckpt_sync_release{0};
+std::atomic<u64> g_debug_ckpt_fail_sync{0};
 
 [[noreturn]] void contract_violation(const char* what, const OpDescriptor* op) {
   std::fprintf(stderr, "snc: handler contract violated: %s (op %s)\n", what, op ? op->name : "?");
@@ -84,7 +90,12 @@ void debug_ckpt_fail_write(u64 index, int mode) {
   g_debug_ckpt_fail_mode.store(mode);
   g_debug_ckpt_fail_at.store(mode == 0 ? 0 : index + 1);
 }
-void debug_ckpt_hold_sync(bool on) { g_debug_ckpt_hold_sync.store(on); }
+void debug_ckpt_hold_sync(bool on) {
+  if (on) g_debug_ckpt_sync_release.store(0);  // a new hold starts with no tokens left
+  g_debug_ckpt_hold_sync.store(on);
+}
+void debug_ckpt_release_syncs(u32 n) { g_debug_ckpt_sync_release.fetch_add(n); }
+void debug_ckpt_fail_sync(u16 shard) { g_debug_ckpt_fail_sync.fetch_or(u64{1} << (shard & 63)); }
 void set_current_shard(Shard* s) { tl_shard = s; }
 
 Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, PageMode pages)
@@ -949,6 +960,15 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_CKPT_WRITE_LAT_GE100MS] = o.write_lat_hist[3];
   v[G_CKPT_SYNC_WRITES] = o.sync_writes;
   v[G_CKPT_SYNC_WRITES_TOTAL] = o.sync_writes_total;
+  v[G_CKPT_SYNC_TOKENS] = sync_tokens_ != nullptr ? sync_tokens_->limit : 0;
+  const bool token_wait = active && ckpt_.ticketed && !ckpt_.token_held;
+  v[G_CKPT_SYNC_STATE] = token_wait ? 1 : active && ckpt_.syncing ? 2 : 0;
+  v[G_CKPT_TOKEN_WAIT_SINCE_NS] = token_wait ? o.token_request_ns : 0;
+  v[G_CKPT_TOKEN_WAIT_LAST_US] = o.token_wait_last_us;
+  v[G_CKPT_TOKEN_WAIT_MAX_US] = o.token_wait_max_us;
+  v[G_CKPT_TOKEN_WAIT_EWMA_US] = o.token_wait_ewma_us;
+  v[G_CKPT_TOKEN_ACQUIRED] = o.token_acquired;
+  v[G_CKPT_TOKEN_TICKET] = o.token_ticket;
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
 }
@@ -1929,6 +1949,7 @@ void Shard::begin_checkpoint(const std::string& data_dir, const Uuid& uuid, u64 
   ckpt_obs_.write_lat_last_us = ckpt_obs_.write_lat_ewma_us = ckpt_obs_.write_lat_max_us = 0;
   for (u64& b : ckpt_obs_.write_lat_hist) b = 0;
   ckpt_obs_.sync_writes = 0;
+  ckpt_obs_.token_request_ns = 0;  // S4
   pacer_ = ckpt::reset(pacing_.cfg, t0);
   ckpt_enter(CkptPhase::SNAPSHOT, t0);
   c.start_lsn = wal_ ? wal_->next_lsn() : 0;
@@ -1964,7 +1985,12 @@ void Shard::ckpt_enter(CkptPhase p, u64 now) {
     case CkptPhase::SNAPSHOT: o.snapshot_us = us; break;
     case CkptPhase::WALK: o.walk_us = us; break;
     case CkptPhase::DRAIN: o.drain_us = us; break;
-    case CkptPhase::DURABLE_WAIT: o.durable_wait_us = us; break;
+    case CkptPhase::DURABLE_WAIT:
+      // S4: the durable wait ends when the part asks for its sync token;
+      // the token wait is reported on its own (token_wait_*), so this
+      // time keeps its S0 meaning whatever K is.
+      o.durable_wait_us = o.token_request_ns != 0 ? (o.token_request_ns - o.phase_since_ns) / 1000 : us;
+      break;
     case CkptPhase::SYNC:
       o.last_snapshot_us = o.snapshot_us;
       o.last_walk_us = o.walk_us;
@@ -2126,7 +2152,11 @@ void Shard::checkpoint_process_held() {
     }
     checkpoint_write_complete(h.w, h.result);
   }
-  if (ckpt_sync_held_ && !g_debug_ckpt_hold_sync.load(std::memory_order_relaxed)) {
+  if (ckpt_sync_held_) {
+    if (g_debug_ckpt_hold_sync.load(std::memory_order_relaxed)) {
+      u64 t = g_debug_ckpt_sync_release.load(std::memory_order_relaxed);
+      if (t == 0 || !g_debug_ckpt_sync_release.compare_exchange_strong(t, t - 1)) return;
+    }
     ckpt_sync_held_ = false;
     checkpoint_sync_complete(ckpt_sync_result_);
   }
@@ -2134,6 +2164,11 @@ void Shard::checkpoint_process_held() {
 
 void Shard::checkpoint_sync_done(void* ctx, int result) {
   auto* s = static_cast<Shard*>(ctx);
+  const u64 bit = u64{1} << (s->id_ & 63);
+  if ((g_debug_ckpt_fail_sync.load(std::memory_order_relaxed) & bit) != 0 &&
+      (g_debug_ckpt_fail_sync.fetch_and(~bit) & bit) != 0) {
+    result = -EIO;  // tests: the injected final-sync failure (S4-T6)
+  }
   if (g_debug_ckpt_hold_sync.load(std::memory_order_relaxed)) {
     s->ckpt_sync_held_ = true;  // tests: processed by checkpoint_process_held
     s->ckpt_sync_result_ = result;
@@ -2145,6 +2180,13 @@ void Shard::checkpoint_sync_done(void* ctx, int result) {
 void Shard::checkpoint_sync_complete(int result) {
   Shard* s = this;
   Checkpoint& c = s->ckpt_;
+  // S4-I2: the token is released on every outcome, before anything else,
+  // so the failure path below releases it too before the process ends.
+  sync_tokens_->sync_finished();
+  if (c.token_held) {
+    c.token_held = false;
+    sync_tokens_->release();
+  }
   if (result < 0) {
     errno = -result;
     storage_fatal("checkpoint fdatasync failed: " + c.path);
@@ -2312,9 +2354,33 @@ void Shard::checkpoint_step() {
   if (c.writes_inflight == 0 && ckpt_obs_.phase == CkptPhase::DRAIN) {
     ckpt_enter(CkptPhase::DURABLE_WAIT, sri_now_ns());  // observability (S0)
   }
+  // S4 (docs/S4_SYNC_TOKENS.md): the final sync waits for one of the
+  // node's K tokens. The ticket is taken only once this part could sync
+  // (every write done, the WAL durable here to max_lsn), and the same
+  // condition is evaluated again at every step up to the grant, so CC-3's
+  // check still precedes the sync. Waiting is this check failing at a
+  // step: the shard returns to its loop and keeps serving (S4-I4).
   if (c.writes_inflight == 0 && lsn_local_durable(c.max_lsn)) {
+    const u64 now = sri_now_ns();
+    CkptObs& o = ckpt_obs_;
+    if (!c.ticketed) {
+      c.ticket = sync_tokens_->take_ticket();
+      c.ticketed = true;
+      o.token_request_ns = now;
+      o.token_ticket = c.ticket + 1;
+      gauges_dirty_ = true;
+    }
+    if (!sync_tokens_->try_acquire(c.ticket)) return;
+    c.token_held = true;
+    const u64 waited = (now - o.token_request_ns) / 1000;
+    o.token_wait_last_us = waited;
+    if (waited > o.token_wait_max_us) o.token_wait_max_us = waited;
+    o.token_wait_ewma_us = o.token_wait_ewma_us == 0 ? waited : (o.token_wait_ewma_us * 7 + waited) / 8;
+    ++o.token_acquired;
+    sync_tokens_->note_wait(waited);
+    sync_tokens_->sync_started();
     c.syncing = true;
-    ckpt_enter(CkptPhase::SYNC, sri_now_ns());  // observability (S0)
+    ckpt_enter(CkptPhase::SYNC, now);  // observability (S0)
     sri_fdatasync(c.fd, &Shard::checkpoint_sync_done, this);
   }
 }

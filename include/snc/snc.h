@@ -499,6 +499,14 @@ class Engine {
     // both. The window is a provisional hypothesis; 1..64.
     bool ckpt_io_dsync = true;
     u32 ckpt_write_window = 4;
+
+    // Staggered final sync (slice S4, docs/S4_SYNC_TOKENS.md): at most
+    // ckpt_sync_tokens shards of this node issue their part's final
+    // fdatasync at once; the others wait, in request order, without
+    // blocking their threads. 0 = unlimited, the behaviour before S4
+    // (every part syncs as soon as it is ready). K is a hypothesis to be
+    // characterized on the target hardware; 0..256.
+    u32 ckpt_sync_tokens = 0;
   };
 
   explicit Engine(const Config& cfg);
@@ -585,9 +593,19 @@ class Engine {
   static void debug_ckpt_release_writes(u32 n, bool newest_first);
   static void debug_ckpt_fail_write(u64 index, int mode);
   static void debug_ckpt_hold_commit(bool on);
+  // S4-T5: Engine::checkpoint stops after the manifest is written and
+  // before the superblock names it, until released; reached() says so.
+  static void debug_ckpt_hold_superblock(bool on);
+  static bool debug_ckpt_superblock_reached();
   // Sync hold (S3.1): the final fdatasync's completion is kept by its
   // shard (the phase stays SYNC) until the hold is turned off.
   static void debug_ckpt_hold_sync(bool on);
+  // S4: while the sync hold is on, let `n` more held final-sync
+  // completions be processed (each releases its token); turning the hold
+  // on clears any left. Fail: `shard`'s next final fdatasync completes
+  // with -EIO (fatal, as a real one is).
+  static void debug_ckpt_release_syncs(u32 n);
+  static void debug_ckpt_fail_sync(u16 shard);
   static bool debug_ckpt_commit_reached();
   static void debug_force_sync_io(bool on);
   // Tests only (S3.2, docs/ENGINE_LIFECYCLE.md): while on, every gated
@@ -738,6 +756,22 @@ class Engine {
   // values. Observability only.
   GaugeSnapshot gauges(u16 shard) const;
   const NodeCkptGauges& checkpoint_gauges() const;
+  // S4 (docs/S4_SYNC_TOKENS.md): the node's final-sync tokens, counted
+  // since construction (never reset). active = grants - releases and
+  // waiting = requests - grants, from one stable reading of grants (the
+  // others read just after it: active may read low, waiting high, never
+  // past their bounds). Any thread, any time; observability only.
+  struct SyncTokenStats {
+    u32 limit = 0;  // K; 0 = unlimited
+    u64 requests = 0, grants = 0, releases = 0;
+    u64 active = 0, waiting = 0;
+    u64 active_peak = 0, waiting_peak = 0, wait_max_us = 0;
+    // Final fdatasyncs in flight now and at most, counted around the sync
+    // itself, independently of the tokens (equal to active when no shard
+    // bypasses its token).
+    u64 syncs_inflight = 0, syncs_inflight_peak = 0;
+  };
+  SyncTokenStats sync_tokens() const;
 
   // Control path: visit every live object owned by `shard` on its thread.
   // Intended for tests and checks, not the hot path.

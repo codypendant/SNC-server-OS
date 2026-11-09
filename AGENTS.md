@@ -1905,3 +1905,28 @@ or source comments.
 -   **Next action:** review; S3 closes if clean. No S4, R640 load,
     CP-1A, competitors or follow-up intake slice.
 
+### 2026-11-09 UTC --- Claude (Claude Code): S4 staggered final checkpoint sync, for review
+
+-   **Classification:** REFINE (checkpoint final-sync scheduling).
+    What is written, chunk size, window, `RWF_DSYNC`, phases, formats,
+    recovery, manifest and superblock, commit rule, S1, S2, lifecycle,
+    replication, promotion and `kEmitBacklog` unchanged.
+-   **What:** `docs/handoff/PR80_S33_Review_S4_Authorization.txt` (S3
+    complete; S4 authorized, only S4).
+    - A ready part takes a ticket from the node's `SyncTokens` and syncs
+      once its ticket is inside the window of K (`ticket < releases + K`);
+      until then its step returns and the shard keeps serving.
+    - The sync's completion returns the token first, before the fatal
+      path.
+    - `Config::ckpt_sync_tokens` / `--ckpt-sync-tokens`, default 0 =
+      unlimited (the S3 path). K is a hypothesis; none is chosen.
+    - Gauges (`ckpt_sync_state` 0/1/2, token waits, ticket), node counts
+      (`Engine::sync_tokens()`), HEALTH `ckpt_sync_*`.
+-   **Review:** independent review found no engine bug; a test race,
+    overclaiming comments and env parsing fixed
+    (`docs/S4_SYNC_TOKENS.md`).
+-   **Tests:** S4-T1..T9, TC (`tests/test_s4_sync_tokens.cpp`); six
+    negative mutations (T10).
+-   **Evidence:** `bench/results/s4-validation-devvm-20261109/`.
+-   **Next action:** review. No S5/S6, R640, CP-1A, comparators or
+    follow-up intake slice.

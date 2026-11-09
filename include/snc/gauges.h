@@ -155,6 +155,18 @@ enum Gauge : u32 {
   G_CKPT_WRITE_LAT_GE100MS,  //   100 ms or more
   G_CKPT_SYNC_WRITES,        // chunk writes that took the synchronous fallback (a run with any is not valid evidence)
   G_CKPT_SYNC_WRITES_TOTAL,  // the same since start
+  // S4 (docs/S4_SYNC_TOKENS.md): the final fdatasync's node-level token.
+  // The phase model is unchanged: a part waiting for a token is still in
+  // DURABLE_WAIT, with sync_state 1; the node-wide counts are in
+  // Engine::sync_tokens().
+  G_CKPT_SYNC_TOKENS,          // K, final syncs allowed at once on the node (configured; 0 = unlimited)
+  G_CKPT_SYNC_STATE,           // now: 0 not at the final sync, 1 waiting for a token, 2 syncing
+  G_CKPT_TOKEN_WAIT_SINCE_NS,  // when the token wait in progress began (steady clock); 0 if none
+  G_CKPT_TOKEN_WAIT_LAST_US,   // token request to grant, of the last grant
+  G_CKPT_TOKEN_WAIT_MAX_US,    // since start
+  G_CKPT_TOKEN_WAIT_EWMA_US,   // since start
+  G_CKPT_TOKEN_ACQUIRED,       // tokens acquired since start (one per part sync)
+  G_CKPT_TOKEN_TICKET,         // the latest request's place in the node's order, + 1 (0 = none yet)
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -180,6 +192,8 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_chunks", "ckpt_buf_bytes", "ckpt_buf_bytes_peak", "ckpt_write_lat_last_us",
     "ckpt_write_lat_ewma_us", "ckpt_write_lat_max_us", "ckpt_write_lat_lt1ms", "ckpt_write_lat_lt10ms",
     "ckpt_write_lat_lt100ms", "ckpt_write_lat_ge100ms", "ckpt_sync_writes", "ckpt_sync_writes_total",
+    "ckpt_sync_tokens", "ckpt_sync_state", "ckpt_token_wait_since_ns", "ckpt_token_wait_last_us",
+    "ckpt_token_wait_max_us", "ckpt_token_wait_ewma_us", "ckpt_token_acquired", "ckpt_token_ticket",
     "published_ns",
 };
 

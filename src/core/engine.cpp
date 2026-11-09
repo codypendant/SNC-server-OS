@@ -36,6 +36,9 @@ constexpr u32 kMaxCkptWriteWindow = 64;
 // Tests only (Engine::debug_ckpt_hold_commit).
 std::atomic<bool> g_debug_ckpt_hold_commit{false};
 std::atomic<bool> g_debug_ckpt_commit_reached{false};
+// Tests only (S4-T5; Engine::debug_ckpt_hold_superblock).
+std::atomic<bool> g_debug_ckpt_hold_sb{false};
+std::atomic<bool> g_debug_ckpt_sb_reached{false};
 
 struct EngineHooks {
   Engine::Config* cfg;
@@ -50,6 +53,7 @@ struct EngineHooks {
   std::atomic<u8>* phases;
   std::atomic<u64>* epoch_hint;
   ShardGauges* gauges;  // one per shard (S0, observability)
+  SyncTokens* sync_tokens;  // the node's final-sync tokens (S4)
 };
 
 void hook_init(void* user) {
@@ -88,6 +92,7 @@ void hook_init(void* user) {
     p.cfg.warn_pct = c.ckpt_warn_pct;
     s->set_pacing(p);
     s->set_ckpt_io(Shard::CkptIo{c.ckpt_io_dsync, c.ckpt_write_window});
+    s->set_sync_tokens(h->sync_tokens);
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
@@ -215,6 +220,9 @@ struct EngineState {
   // the node's checkpoint.
   std::unique_ptr<ShardGauges[]> gauges;
   NodeCkptGauges node_ckpt;
+  // S4 (docs/S4_SYNC_TOKENS.md): K for this Engine's lifetime.
+  explicit EngineState(u32 sync_tokens_k) : sync_tokens(sync_tokens_k) {}
+  SyncTokens sync_tokens;
 };
 
 // An Engine's state is owned by the Engine (Engine::state_), not by a file
@@ -439,6 +447,16 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     cfg_.ckpt_io_dsync = v == "dsync";
     std::fprintf(stderr, "snc: SNC_CKPT_IO=%s overrides ckpt_io\n", v.c_str());
   }
+  // Validation only (S4, docs/S4_SYNC_TOKENS.md): SNC_CKPT_SYNC_TOKENS=K
+  // overrides Config::ckpt_sync_tokens the same way, so a whole suite can
+  // run under a bound. Announced; anything but a number is refused.
+  if (const char* e = std::getenv("SNC_CKPT_SYNC_TOKENS"); e != nullptr && e[0] != '\0') {
+    char* end = nullptr;
+    const unsigned long k = std::strtoul(e, &end, 10);
+    if (e[0] < '0' || e[0] > '9' || *end != '\0' || k > kMaxShards) throw std::invalid_argument("SNC_CKPT_SYNC_TOKENS must be 0..256");
+    cfg_.ckpt_sync_tokens = static_cast<u32>(k);
+    std::fprintf(stderr, "snc: SNC_CKPT_SYNC_TOKENS=%lu overrides ckpt_sync_tokens\n", k);
+  }
   register_session_type();
   register_slot_state_type();
   RuntimeConfig& rc = cfg_.runtime;
@@ -472,6 +490,9 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     if (cfg_.ckpt_write_window < 1 || cfg_.ckpt_write_window > kMaxCkptWriteWindow) {
       throw std::invalid_argument("checkpoint writeback: need 1 <= ckpt_write_window <= 64");
     }
+    if (cfg_.ckpt_sync_tokens > kMaxShards) {
+      throw std::invalid_argument("checkpoint sync tokens: need 0 (unlimited) <= ckpt_sync_tokens <= 256");
+    }
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
@@ -495,12 +516,12 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
       std::copy(cfg.cluster_arrived.begin(), cfg.cluster_arrived.end(), cluster_.arrived.begin());
     }
   }
-  state_ = std::make_unique<EngineState>();
+  state_ = std::make_unique<EngineState>(cfg_.ckpt_sync_tokens);
   state_->final_stats.assign(cfg.runtime.n_shards, ShardStats{});
   state_->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
   state_->hooks = EngineHooks{&cfg_, &shards_, &state_->final_stats, &slots_, 1, &cluster_, &state_->serving, &state_->fenced,
                                &state_->replicating, state_->phases.data(), &state_->epoch_hint,
-                               state_->gauges.get()};
+                               state_->gauges.get(), &state_->sync_tokens};
   ShardHooks h;
   h.init = hook_init;
   h.on_message = hook_message;
@@ -1307,6 +1328,13 @@ CheckpointReport Engine::checkpoint() {
   }
   for (const auto& t : registry().types()) m.types.push_back({t.type_id, t.schema_ver, t.name});
   write_manifest(dir, m);
+  // Tests only (S4-T5): the manifest names this checkpoint, the superblock
+  // does not yet. A crash here must recover from the previous one.
+  if (g_debug_ckpt_hold_sb.load()) {
+    g_debug_ckpt_sb_reached.store(true);
+    while (g_debug_ckpt_hold_sb.load()) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    g_debug_ckpt_sb_reached.store(false);
+  }
   // Replication: the first LSN each shard's standby may still need, and
   // seeds in progress (docs/REPLICATION.md). WAL from there is kept.
   std::vector<u64> keep_from(n, 0);
@@ -1785,8 +1813,12 @@ void Engine::debug_ckpt_defer_writes(bool on) { snc::debug_ckpt_defer_writes(on)
 void Engine::debug_ckpt_release_writes(u32 n, bool newest_first) { snc::debug_ckpt_release_writes(n, newest_first); }
 void Engine::debug_ckpt_fail_write(u64 index, int mode) { snc::debug_ckpt_fail_write(index, mode); }
 void Engine::debug_ckpt_hold_sync(bool on) { snc::debug_ckpt_hold_sync(on); }
+void Engine::debug_ckpt_release_syncs(u32 n) { snc::debug_ckpt_release_syncs(n); }
+void Engine::debug_ckpt_fail_sync(u16 shard) { snc::debug_ckpt_fail_sync(shard); }
 void Engine::debug_ckpt_hold_commit(bool on) { g_debug_ckpt_hold_commit.store(on); }
 bool Engine::debug_ckpt_commit_reached() { return g_debug_ckpt_commit_reached.load(); }
+void Engine::debug_ckpt_hold_superblock(bool on) { g_debug_ckpt_hold_sb.store(on); }
+bool Engine::debug_ckpt_superblock_reached() { return g_debug_ckpt_sb_reached.load(); }
 void Engine::debug_force_sync_io(bool on) { sri_debug_force_sync_io(on); }
 
 bool Engine::replicating() const { return state_ && state_->replicating.load(); }
@@ -1825,6 +1857,25 @@ GaugeSnapshot Engine::gauges(u16 shard) const {
 const NodeCkptGauges& Engine::checkpoint_gauges() const {
   static const NodeCkptGauges none;
   return state_ ? state_->node_ckpt : none;
+}
+
+Engine::SyncTokenStats Engine::sync_tokens() const {
+  SyncTokenStats st;
+  if (!state_) return st;
+  const SyncTokens& t = state_->sync_tokens;
+  const SyncTokens::Snapshot s = t.snapshot();
+  st.limit = t.limit;
+  st.requests = s.requests;
+  st.grants = s.grants;
+  st.releases = s.releases;
+  st.active = s.active;
+  st.waiting = s.waiting;
+  st.active_peak = t.active_peak.load(std::memory_order_acquire);
+  st.waiting_peak = t.waiting_peak.load(std::memory_order_acquire);
+  st.wait_max_us = t.wait_max_us.load(std::memory_order_acquire);
+  st.syncs_inflight = t.inflight.load(std::memory_order_acquire);
+  st.syncs_inflight_peak = t.inflight_peak.load(std::memory_order_acquire);
+  return st;
 }
 
 ShardStats Engine::stats(u16 shard) const {

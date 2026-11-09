@@ -1,0 +1,4 @@
+/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/neg/src-fatal-path-leak/tests/test_s4_sync_tokens.cpp:811: CHECK failed: (r1) == (g1)
+T6 child: before the failure grants=23 releases=23
+snc storage: checkpoint fdatasync failed: /tmp/snc-s4-IPvI5j/ckpt/0000000000000003/part-003.ckpt (errno 5)
+T6 abort: grants=24 releases=23 inflight=0

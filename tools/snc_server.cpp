@@ -16,7 +16,7 @@
 //                   [--admission s1|legacy] [--waiter-budget-bytes N]
 //                   [--wal-buffer-budget-bytes N] [--pending-budget N]
 //                   [--ckpt-pacing on|off] [--ckpt-target-ms N] [--ckpt-max-age-ms N]
-//                   [--ckpt-io legacy|dsync] [--ckpt-window N]
+//                   [--ckpt-io legacy|dsync] [--ckpt-window N] [--ckpt-sync-tokens K]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
 //                   [--control HOST:PORT,... --node-id N]
@@ -134,7 +134,7 @@ std::string gauges_line(const Engine& eng, const std::string& arg) {
   const u16 n = eng.shard_count();
   u16 lo = 0, hi = n;
   // The answer goes out in one non-blocking send (inline verbs never wait):
-  // about 1.7 KB per shard, so beyond 8 shards ask for one at a time.
+  // about 2.5 KB per shard (S4), so beyond 8 shards ask for one at a time.
   if (arg.empty() && n > 8) return "NO GAUGES <shard> needed above 8 shards, shard < " + std::to_string(n);
   if (!arg.empty()) {
     char* end = nullptr;
@@ -156,6 +156,21 @@ std::string gauges_line(const Engine& eng, const std::string& arg) {
                 (unsigned long long)ng.last_shards_us.load() / 1000, (unsigned long long)ng.last_commit_us.load() / 1000,
                 (unsigned long long)ng.last_reclaim_us.load() / 1000, (unsigned long long)ng.completed.load());
   out += b;
+  {
+    // S4 (docs/S4_SYNC_TOKENS.md): the node's final-sync tokens.
+    const Engine::SyncTokenStats t = eng.sync_tokens();
+    std::snprintf(b, sizeof(b),
+                  " sync_tokens_k=%u sync_tokens_requests=%llu sync_tokens_grants=%llu sync_tokens_releases=%llu "
+                  "sync_tokens_active=%llu sync_tokens_waiting=%llu sync_tokens_active_peak=%llu "
+                  "sync_tokens_waiting_peak=%llu sync_tokens_wait_max_us=%llu syncs_inflight=%llu "
+                  "syncs_inflight_peak=%llu",
+                  t.limit, (unsigned long long)t.requests, (unsigned long long)t.grants,
+                  (unsigned long long)t.releases, (unsigned long long)t.active, (unsigned long long)t.waiting,
+                  (unsigned long long)t.active_peak, (unsigned long long)t.waiting_peak,
+                  (unsigned long long)t.wait_max_us, (unsigned long long)t.syncs_inflight,
+                  (unsigned long long)t.syncs_inflight_peak);
+    out += b;
+  }
   for (u16 s = lo; s < hi; ++s) {
     const GaugeSnapshot g = eng.gauges(s);
     for (u32 i = 0; i < kGaugeCount; ++i) {
@@ -391,6 +406,18 @@ int main(int argc, char** argv) {
         return 2;
       }
       cfg.ckpt_write_window = static_cast<u32>(n);
+    }
+    else if (k == "--ckpt-sync-tokens") {
+      // docs/S4_SYNC_TOKENS.md: final syncs at once on the node; 0 = unlimited.
+      const char* v = val();
+      char* end = nullptr;
+      errno = 0;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (v[0] < '0' || v[0] > '9' || end == v || *end != '\0' || errno == ERANGE || n > 256) {
+        std::fprintf(stderr, "--ckpt-sync-tokens takes 0 (unlimited) to 256\n");
+        return 2;
+      }
+      cfg.ckpt_sync_tokens = static_cast<u32>(n);
     }
     else if (k == "--adopt-role") {
       // docs/LEGACY_ROLE.md: once, for a data directory from before role files.
@@ -860,13 +887,14 @@ int main(int argc, char** argv) {
       const u64 phase = ng.phase.load(std::memory_order_relaxed);
       const u64 started = ng.started_ns.load(std::memory_order_relaxed);
       int slow = -1;
-      u64 slow_phase = 0;
+      u64 slow_phase = 0, slow_sync_state = 0;
       for (u16 s = 0; s < n_shards; ++s) {
         const GaugeSnapshot g = eng.gauges(s);
         const u64 p = g[G_CKPT_PHASE];
         if (p != 0 && (slow < 0 || p < slow_phase)) {
           slow = s;
           slow_phase = p;
+          slow_sync_state = g[G_CKPT_SYNC_STATE];
         }
       }
       n += std::snprintf(b + n, sizeof(b) - n, " ckpt=%s ckpt_age_ms=%llu ckpt_last_ms=%llu ckpt_done=%llu",
@@ -901,6 +929,20 @@ int main(int argc, char** argv) {
       if (slow >= 0) {
         n += std::snprintf(b + n, sizeof(b) - n, " ckpt_slow_shard=%d ckpt_slow_phase=%s", slow,
                            ckpt_phase_name(slow_phase));
+        clamp();
+      }
+      // S4 (docs/S4_SYNC_TOKENS.md section 5): the final-sync tokens. K
+      // (0 = unlimited), syncs holding a token now, parts waiting for one,
+      // and the slowest shard's sync state: token (waiting for a token,
+      // phase durable_wait), syncing (phase sync), none (anything else:
+      // a durable_wait with sync=none is the WAL, not the token).
+      {
+        const Engine::SyncTokenStats t = eng.sync_tokens();
+        static const char* const kSync[] = {"none", "token", "syncing"};
+        n += std::snprintf(b + n, sizeof(b) - n,
+                           " ckpt_sync_k=%u ckpt_sync_active=%llu ckpt_sync_waiting=%llu ckpt_slow_sync=%s",
+                           t.limit, (unsigned long long)t.active, (unsigned long long)t.waiting,
+                           slow >= 0 ? kSync[slow_sync_state < 3 ? slow_sync_state : 0] : "none");
         clamp();
       }
     }
