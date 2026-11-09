@@ -1,1 +1,1 @@
-/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwal/src-sum-first/tests/test_wal_capacity.cpp:114: CHECK failed: (W::grown_capacity(two_mib, ~u64{0}, ~u64{0}, one_gib)) == (0u)
+<src>/tests/test_wal_capacity.cpp:114: CHECK failed: (W::grown_capacity(two_mib, ~u64{0}, ~u64{0}, one_gib)) == (0u)

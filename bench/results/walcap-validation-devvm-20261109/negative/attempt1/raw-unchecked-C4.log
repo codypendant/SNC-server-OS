@@ -1,2 +1,2 @@
 C4 child: 63 raw records buffered (4132296 bytes)
-/tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwal/src-raw-unchecked/tests/test_wal_capacity.cpp:209: CHECK failed: (sig) == (6)
+<src>/tests/test_wal_capacity.cpp:209: CHECK failed: (sig) == (6)
