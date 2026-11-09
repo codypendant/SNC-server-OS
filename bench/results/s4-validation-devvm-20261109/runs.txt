@@ -4,3 +4,4 @@ asan run1 start sha e12d622e4cb691a0685b2826aa99c4c4bdca94f4 2026-11-09T02:18:13
 asan run1 rc=0 02:49:09
 tsan run1 start sha e12d622e4cb691a0685b2826aa99c4c4bdca94f4 2026-11-09T02:49:46Z env: SNC_SANITIZED=1
 tsan run1 rc=8 (ctest: test_s4_sync_tokens failed; the rc line was not written because the wrapper shell was stopped by mistake while ctest kept running; result read from tsan-run1-j1.log) 03:27:30
+release run2 start sha 6cb1cee623978daceb6db0d1f206c85f63aa49a4 2026-11-09T03:29:01Z env: SNC_X=0
