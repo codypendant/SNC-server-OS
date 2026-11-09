@@ -52,3 +52,38 @@ Test project /home/claude/snc-server-os/build
       Start 26: test_control
 26/42 Test #26: test_control .....................   Passed    1.49 sec
       Start 27: test_health
+27/42 Test #27: test_health ......................   Passed  154.80 sec
+      Start 28: test_gauges_admin
+28/42 Test #28: test_gauges_admin ................   Passed    3.95 sec
+      Start 29: test_fail_closed
+29/42 Test #29: test_fail_closed .................   Passed  225.97 sec
+      Start 30: test_s1
+30/42 Test #30: test_s1 ..........................   Passed   65.09 sec
+      Start 31: test_profile_check
+31/42 Test #31: test_profile_check ...............   Passed    0.12 sec
+      Start 32: test_baseline_retry
+32/42 Test #32: test_baseline_retry ..............   Passed  249.06 sec
+      Start 33: test_sync_readiness
+33/42 Test #33: test_sync_readiness ..............   Passed  312.63 sec
+      Start 34: test_baseline_move
+34/42 Test #34: test_baseline_move ...............   Passed  112.79 sec
+      Start 35: test_baseline_ha
+35/42 Test #35: test_baseline_ha .................   Passed  125.51 sec
+      Start 36: test_ready_order
+36/42 Test #36: test_ready_order .................   Passed  148.89 sec
+      Start 37: test_paxos_ballots
+37/42 Test #37: test_paxos_ballots ...............   Passed    2.05 sec
+      Start 38: test_witness_hardening
+38/42 Test #38: test_witness_hardening ...........   Passed    5.90 sec
+      Start 39: test_lab_witness_guard
+39/42 Test #39: test_lab_witness_guard ...........   Passed   14.87 sec
+      Start 40: test_index_wire
+40/42 Test #40: test_index_wire ..................   Passed    1.77 sec
+      Start 41: test_pilot
+41/42 Test #41: test_pilot .......................   Passed    0.08 sec
+      Start 42: test_net_bench_rate
+42/42 Test #42: test_net_bench_rate ..............   Passed   15.71 sec
+
+100% tests passed, 0 tests failed out of 42
+
+Total Test time (real) = 1630.32 sec
