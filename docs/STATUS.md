@@ -79,7 +79,9 @@ Decided by cody on 2026-11-04.
      that makes B2 structural intra-node, cross-node end frames as D.2) is
      approved with conditions (handoff/PR85_Design_Review.txt); rev2.1 adds
      them (per-invocation emit reservation, coalesced paged resume), and
-     **D.1 (intra-node) is authorized**; D.2 (cross-node) follows as its
+     D.1 (intra-node) was authorized. **D.1 is implemented and returned for
+     review** (section 3.9.6 there; tests/test_intake.cpp;
+     bench/results/intake-d1-validation-devvm-20261109); D.2 (cross-node) follows as its
      own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

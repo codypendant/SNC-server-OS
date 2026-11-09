@@ -2042,3 +2042,27 @@ or source comments.
     - B2 updated (no resume term), and tests F12-F15.
 -   **Next action:** implement D.1, then return it for review. D.2 is a
     separate slice, required before S6.
+
+### 2026-11-09 UTC --- Claude (Claude Code): follow-up intake D.1 (intra-node), implementation
+
+-   **Classification:** implementation of the approved design. KEEP
+    (option D, reply-only contract, X, owner gate); REFINE (as-built
+    details in `docs/FOLLOWUP_INTAKE_DESIGN.md` 3.9.6).
+-   **What:** the H gate per item at apply, the per-pair window W
+    returned when an item leaves staging, the exchange budget X checked on
+    the invocation's reservation after validate (sequenced replays
+    answered before it), the owner gate, link reads paused at L, a
+    coalesced paged resume under X, and the contract checks (`max_emits`,
+    the `followup` flag, reply-only, `max_resume_emits`).
+    `tests/test_intake.cpp`: F1-F8, F10-F15 and G1 (owner gate).
+    Older backlog-gate tests run with `exchange_gate` off; A6 with H and
+    W off (3.9.6 says why).
+-   **Defect found and fixed on site:** link reads removed a connection
+    from epoll whenever the per-poll budget ran out, even when not paused,
+    and never re-added it; `test_cluster` stalled. Now removed only while
+    paused.
+-   **Not met in D.1 (D.2 scope):** a sender is not bounded across nodes
+    (its exchange ends at the link). P1 performance not run.
+-   **Evidence:** `bench/results/intake-d1-validation-devvm-20261109/`.
+-   **Next action:** WAIT for the D.1 review. No D.2, S5, S6, R640,
+    CP-1A, comparators or B2 snapshot work.

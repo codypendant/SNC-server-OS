@@ -565,6 +565,84 @@ Negatives added: N13, X checked on static `max_emits` instead of the
 reservation → F12 fails. N14, triggers queue full passes instead of
 coalescing → F15's pass count exceeds active + 1.
 
+#### 3.9.6 D.1 as built (implementation notes, for the D.1 review)
+
+Where the code differs from, or adds detail to, the text above:
+
+- **R** is computed when the engine starts, from the registered types:
+  `R = 2 · record_size(max over types of max_size)` (66,048 bytes with
+  Account registered). A type registered later that raises R past what
+  an explicit H allows stops the process (fail-stop), as 3.1 says.
+- **H** defaults to `max(2B, B + R)`; an explicit `followup_wal_cap_bytes`
+  below `B + R` is refused with `std::invalid_argument`.
+- **Leaving the node ends the exchange** (3.9.3): counted when the item
+  is pushed onto a node link, or when it is dropped because the link is
+  down. A follow-up that arrives over a link carries origin "none"
+  (`kMsgEmitOriginNone` inside the node) and is not counted. So in D.1
+  a sender is not bounded across nodes; D.2 adds that accounting.
+- **Origin on the ring**: `Msg::flags` bit 5 (`kMsgEmitOriginSender`) and
+  bit 6 (`kMsgEmitOriginNone`); neither set means the receiver is the
+  origin. `send_emit` aborts if an exchange would reach a third shard.
+- **Withdraw** (a fenced primary): staged follow-ups stay queued, as
+  before D.1 (the new primary resumes them); an item that reaches
+  `run_emit` on a withdrawn shard ends its exchange.
+- **Link pausing** (3.6): reads pause (`EPOLL_CTL_MOD` to hang-up only)
+  when L link follow-ups are held, and resume at L/2; while not paused, at
+  most L − held frames are read per poll, the rest stay in the buffer.
+  A connection is removed from epoll only while paused with frames
+  buffered. (A first version also removed it when the per-poll budget
+  ran out without a pause, and never re-added it: `test_cluster` stalled
+  for good. Found and fixed before any evidence run.)
+- **Resume scan** (3.9.2): pages of 64 IDs from a resumable map walk,
+  256 objects per loop step, X checked before each object's hook. The
+  owed state is `owed_all`, a per-slot byte array of 4,096 and
+  `owed_lsn`; it is fixed size.
+- **Contract checks** are `contract_violation` (message, then abort) in
+  `OpCtx::emit` and `reserve_emits`; `add_op` refuses `max_emits` on a
+  non-MUTATE or unlogged op, `max_emits > 1` on a follow-up op, and a
+  non-MUTATE follow-up op. A client invoking a follow-up op gets
+  `E_BAD_ARGS`.
+- **Environment overrides**: `SNC_FOLLOWUP_INTAKE=on|off` (off turns
+  every D.1 gate off, including W and L), `SNC_FOLLOWUP_WINDOW`,
+  `SNC_EXCHANGE_BUDGET`, `SNC_LINK_HOLD_MAX`. Each is announced on
+  stderr; a malformed value is refused.
+- **Stats** (`ShardStats`): `refused_exchange`, `refused_owner`,
+  `exchanges_started`, `exchanges_ended`, `exchanges_live`,
+  `exchanges_live_peak`, `followups_gated`, `followups_staged_now`,
+  `followups_staged_peak`, `window_waits`, `window_outstanding`,
+  `link_held_now`, `link_held_peak`, `link_pauses`, `resume_passes`,
+  `resume_triggers`, `resume_coalesced`, `resume_restarts`,
+  `resume_objects`, `resume_active`, `resume_owed`. They are not yet in
+  the gauge snapshot or `snc-admin` (no new gauge slots in D.1).
+- **Older tests.** X's default (1,024) equals `kEmitBacklog`, so X now
+  refuses an exchange-producing client before the S1 backlog gate does.
+  The S1 tests that characterize the backlog gate (`test_gauges` T1,
+  `test_s1_admission` A1/A8, A7, A15, A18) run with `exchange_gate`
+  off. `test_s1_admission` A6 (internal work is never refused by client
+  admission) runs with the H gate and W off: with them on, the credits
+  past H are staged, which is D.1's purpose.
+
+Tests as built (`tests/test_intake.cpp`, 8 shards unless noted). They use
+a probe type (one exchange per send, per-source sequence numbers checked
+at the receiver) in place of transfers where order must be observed:
+
+| Test | Differences from section 9 and 3.9.5 |
+|---|---|
+| F1/F5/F7/F2 | Probes, not transfers; H = B + R (the smallest allowed) so follow-ups close it; staging bound checked as (N−1)W + X + 1 |
+| F3 | W = 1, X = 4, H = B + R |
+| F4 | Deleted and never-created targets, with and without a fail op; hold, stale, re-route and withdraw paths are not driven here (they are in the existing migration and failover suites) |
+| F6 | 4 shards, transfers, SIGKILL in a child while d's gate is closed |
+| F8 | 2 engines × 2 shards. Not met in D.1: "the sender's gate refuses" (the sender's exchanges end at the link, so it is not bounded across nodes; D.2) |
+| F11 | 4 shards; x's replies held, then released into d whose WAL is held at B |
+| F12-F15 | One test, 4 shards, X = 8 |
+| G1 | The owner gate (3.5) on its own |
+
+Negatives as run (`bench/results/intake-d1-validation-devvm-20261109/negative/`):
+N1 → F1, N2 (no window) → F11, N4 → F11, N6 → F8, N7 → F1, N8 → G1,
+N9 → F12, N10 → F4, N13 → F12, N14 → F12 (F15's part). Not run as
+mutations: N3, N5, N11 (F10 checks each contract message directly) and
+N12. P1 (performance) is not run in D.1.
+
 ## 4. Cap semantics
 
 | Question | Answer |
