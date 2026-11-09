@@ -10,3 +10,8 @@ note: release-run3 failed only test_baseline_retry q5_kill_kill at harness start
 release-run4 disk 9.7G free
 release-run4 start sha b2b31bb0a50a1368f081ff2009866584bdf48663 2026-11-09T22:00:44Z dir build env: SNC_X=0
 release-run4 rc=0 22:27:40 100% tests passed, 0 tests failed out of 45
+asan-run1 disk 9.6G free
+asan-run1 start sha bc3130940f3f4d33bcb619661f765cb18679dc23 2026-11-09T22:28:52Z dir build-asan env: SNC_SANITIZED=1
+asan-run1 rc=0 22:58:09 100% tests passed, 0 tests failed out of 45
+tsan-run1 disk 9.5G free
+tsan-run1 start sha bc3130940f3f4d33bcb619661f765cb18679dc23 2026-11-09T22:58:59Z dir build-tsan env: SNC_SANITIZED=1
