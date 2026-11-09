@@ -1,2 +1,6 @@
 base 617a0805591d01d6b4f4f8a674b5e8a01cfdaf9c
 one-call-send A1 (release) rc=1 (expected non-zero)
+blocking-write A1 (release) rc=1 (expected non-zero)
+no-deadline A2 (release) rc=1 (expected non-zero)
+no-bound A3 (release) rc=1 (expected non-zero)
+done
