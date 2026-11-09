@@ -1,0 +1,108 @@
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/45 Test  #1: test_rate_schedule ...............   Passed    0.00 sec
+      Start  2: test_object_id
+ 2/45 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/45 Test  #3: test_local_map ...................   Passed    1.18 sec
+      Start  4: test_pages
+ 4/45 Test  #4: test_pages .......................   Passed    0.62 sec
+      Start  5: test_runtime
+ 5/45 Test  #5: test_runtime .....................   Passed    0.22 sec
+      Start  6: test_execute
+ 6/45 Test  #6: test_execute .....................   Passed    0.06 sec
+      Start  7: test_persistence
+ 7/45 Test  #7: test_persistence .................   Passed    0.40 sec
+      Start  8: test_crash
+ 8/45 Test  #8: test_crash .......................   Passed    0.69 sec
+      Start  9: test_net
+ 9/45 Test  #9: test_net .........................   Passed    0.03 sec
+      Start 10: test_transfer
+10/45 Test #10: test_transfer ....................   Passed    2.92 sec
+      Start 11: test_replication
+11/45 Test #11: test_replication .................   Passed   15.38 sec
+      Start 12: test_cluster
+12/45 Test #12: test_cluster .....................   Passed    4.94 sec
+      Start 13: test_migrate
+13/45 Test #13: test_migrate .....................   Passed   32.01 sec
+      Start 14: test_resend_refusals
+14/45 Test #14: test_resend_refusals .............   Passed    0.02 sec
+      Start 15: test_proof
+15/45 Test #15: test_proof .......................   Passed    0.93 sec
+      Start 16: test_placement
+16/45 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+17/45 Test #17: test_stage_chain .................   Passed    6.52 sec
+      Start 18: test_gauges
+18/45 Test #18: test_gauges ......................   Passed    0.70 sec
+      Start 19: test_s1_admission
+19/45 Test #19: test_s1_admission ................   Passed    6.57 sec
+      Start 20: test_s2_pacing
+20/45 Test #20: test_s2_pacing ...................   Passed    3.27 sec
+      Start 21: test_s3_writeback
+21/45 Test #21: test_s3_writeback ................   Passed   20.29 sec
+      Start 22: test_lifecycle
+22/45 Test #22: test_lifecycle ...................   Passed    7.74 sec
+      Start 23: test_s4_sync_tokens
+23/45 Test #23: test_s4_sync_tokens ..............   Passed   44.54 sec
+      Start 24: test_admin_loop
+24/45 Test #24: test_admin_loop ..................   Passed    1.19 sec
+      Start 25: test_wal_capacity
+25/45 Test #25: test_wal_capacity ................   Passed    0.06 sec
+      Start 26: test_intake
+26/45 Test #26: test_intake ......................   Passed    2.12 sec
+      Start 27: test_witness
+27/45 Test #27: test_witness .....................   Passed   23.72 sec
+      Start 28: test_async_failover
+28/45 Test #28: test_async_failover ..............   Passed   13.61 sec
+      Start 29: test_control
+29/45 Test #29: test_control .....................   Passed    1.48 sec
+      Start 30: test_health
+30/45 Test #30: test_health ......................   Passed  154.52 sec
+      Start 31: test_gauges_admin
+31/45 Test #31: test_gauges_admin ................   Passed    3.95 sec
+      Start 32: test_fail_closed
+32/45 Test #32: test_fail_closed .................   Passed  224.78 sec
+      Start 33: test_s1
+33/45 Test #33: test_s1 ..........................   Passed   57.65 sec
+      Start 34: test_profile_check
+34/45 Test #34: test_profile_check ...............   Passed    0.07 sec
+      Start 35: test_baseline_retry
+35/45 Test #35: test_baseline_retry ..............***Failed  343.16 sec
+PASS q1_kill {"promoted_s": 0.97, "bench": {"rc": 0, "exited_after_s": 15.06, "failovers": 2, "replayed": 44, "timeouts": 0, "resends": 64, "max_resend_age_ms": 991, "accounts": 2000, "deposits": 1730340, "mismatches": 0, "ops_s": 115351, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 115351  (exec 1730340 + index 0 in 15.00s)  served_all 1730340", "  total latency ns  n 1730340  p50 442368  p95 868352  p99 1277952  p99.9 2883584  max 1471728048", "  deposit latency ns  n 1730340  p50 442368  p95 868352  p99 1277952  p99.9 2883584  max 1471728048", "  failovers 2  replayed 44  timeouts 0  resends 64  max_resend_age_ms 991", "  retry claim: max_resend_age_ms 991, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 1730340 deposits, 0 mismatches"]}, "pass": true, "scenario": "q1_kill", "seconds": 15.9}
+PASS q1_stop {"promoted_s": 1.07, "bench": {"rc": 0, "exited_after_s": 20.03, "failovers": 2, "replayed": 78, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10204, "accounts": 2000, "deposits": 1214355, "mismatches": 0, "ops_s": 60716, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 60716  (exec 1214355 + index 0 in 20.00s)  served_all 1214355", "  total latency ns  n 1214355  p50 442368  p95 917504  p99 1409024  p99.9 3276800  max 10204863499", "  deposit latency ns  n 1214355  p50 442368  p95 917504  p99 1409024  p99.9 3276800  max 10204863499", "  failovers 2  replayed 78  timeouts 2  resends 64  max_resend_age_ms 10204", "  retry claim: max_resend_age_ms 10204, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 1214355 deposits, 0 mismatches"]}, "old_primary_role": "f", "pass": true, "scenario": "q1_stop", "seconds": 20.8}
+PASS q1_stall {"primary_after": 0, "bench": {"rc": 0, "exited_after_s": 20.05, "failovers": 2, "replayed": 126, "timeouts": 2, "resends": 64, "max_resend_age_ms": 7001, "accounts": 2000, "deposits": 1041507, "mismatches": 0, "ops_s": 52072, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 52072  (exec 1041507 + index 0 in 20.00s)  served_all 1041507", "  total latency ns  n 1041507  p50 720896  p95 1277952  p99 1802240  p99.9 3538944  max 7002794464", "  deposit latency ns  n 1041507  p50 720896  p95 1277952  p99 1802240  p99.9 3538944  max 7002794464", "  failovers 2  replayed 126  timeouts 2  resends 64  max_resend_age_ms 7001", "  retry claim: max_resend_age_ms 7001, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 1041507 deposits, 0 mismatches"]}, "pass": true, "scenario": "q1_stall", "seconds": 20.9}
+PASS q5_kill_kill {"second_failure_waits_for_catch_up": true, "first_promoted_s": 0.93, "term_1": 1, "rejoin_delay_s": 0.0, "witness_state_at_rejoin": [4, 1, 1, true], "rejoined_standby_s": 0.02, "witness_state_at_second_failure": [6, 1, 1, false], "caught_up_s": 1.25, "ready_s": 1.25, "node1_unacked_at_second_failure": 64, "second_promoted_s": 0.97, "term_2": 2, "bench": {"rc": 0, "exited_after_s": 45.05, "failovers": 4, "replayed": 392, "timeouts": 0, "resends": 256, "max_resend_age_ms": 941, "accounts": 2000, "deposits": 9956249, "mismatches": 0, "ops_s": 221247, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 221247  (exec 9956249 + index 0 in 45.00s)  served_all 9956249", "  total latency ns  n 9956249  p50 466944  p95 966656  p99 1441792  p99.9 3014656  max 1492823894", "  deposit latency ns  n 9956249  p50 466944  p95 966656  p99 1441792  p99.9 3014656  max 1492823894", "  failovers 4  replayed 392  timeouts 0  resends 256  max_resend_age_ms 941", "  retry claim: max_resend_age_ms 941, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 9956249 deposits, 0 mismatches"]}, "pass": true, "scenario": "q5_kill_kill", "seconds": 47.9}
+PASS q5_catchup_race {"second_failure_waits_for_catch_up": false, "first_promoted_s": 0.92, "term_1": 1, "rejoin_delay_s": 0.0, "witness_state_at_rejoin": [4, 1, 1, true], "rejoined_standby_s": 0.02, "witness_state_at_second_failure": [4, 1, 1, true], "node1_unacked_at_second_failure": 906570, "second_promoted_s": null, "term_2": null, "bench": {"rc": 1, "exited_after_s": 45.06, "tail": ["thread 0: failover: no primary answered: a standby: Resource temporarily unavailable"]}, "no_promotion_while_catching_up": true, "pass": true, "scenario": "q5_catchup_race", "seconds": 45.5}
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 348, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 513, "disk_stopped_on_cancel": 37, "at_end": {"rss_kb": 202292, "repl_retained": 33551784, "wal_unacked": 197262, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 513, "disk_stopped_on_cancel": 37}, "stopped_acking": 38, "witness_state_when_caught_up": [6, 1, 1, true], "ready": false, "ready_after_caught_up_s": 30.02, "second_promoted": false, "bench": {"rc": 1, "exited_after_s": 172.33, "tail": []}, "checks": {"cancel_path_exercised": true, "readers_bounded": true, "read_ahead_bounded": true, "rss_bounded": true, "caught_up_no_reader_left": false, "ready_before_failover": false, "exact_after_failover": false}, "series": [{"rss_kb": 59500, "repl_retained": 33540432, "wal_unacked": 5300440, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 0, "disk_started": 0, "disk_stopped_on_cancel": 0}, {"rss_kb": 195372, "repl_retained": 33545928, "wal_unacked": 5277134, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 4, "disk_stopped_on_cancel": 4}, {"rss_kb": 284588, "repl_retained": 33538320, "wal_unacked": 5034434, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 8, "disk_stopped_on_cancel": 8}, {"rss_kb": 265872, "repl_retained": 33547200, "wal_unacked": 4819418, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 12, "disk_stopped_on_cancel": 12}, {"rss_kb": 165012, "repl_retained": 33540216, "wal_unacked": 4109002, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 16, "disk_stopped_on_cancel": 16}, {"rss_kb": 163244, "repl_retained": 33543696, "wal_unacked": 3735970, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 20, "disk_stopped_on_cancel": 20}, {"rss_kb": 164556, "repl_retained": 33535608, "wal_unacked": 3079368, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 24, "disk_stopped_on_cancel": 24}, {"rss_kb": 164868, "repl_retained": 33533880, "wal_unacked": 2677152, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 28, "disk_stopped_on_cancel": 28}, {"rss_kb": 165552, "repl_retained": 33539808, "wal_unacked": 2119256, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 32, "disk_stopped_on_cancel": 32}, {"rss_kb": 165036, "repl_retained": 33545496, "wal_unacked": 1635340, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 36, "disk_stopped_on_cancel": 36}, {"rss_kb": 200648, "repl_retained": 33552672, "wal_unacked": 876896, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 41, "disk_stopped_on_cancel": 37}, {"rss_kb": 237440, "repl_retained": 33542712, "wal_unacked": 236672, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 51, "disk_stopped_on_cancel": 37},
+PASS r11_guard {"promoted": true, "bench": {"rc": 3, "exited_after_s": 15.06, "failovers": 2, "replayed": 124, "timeouts": 0, "resends": 64, "max_resend_age_ms": 993, "accounts": 2000, "deposits": 1760156, "mismatches": 0, "ops_s": 117338, "errors": 0, "retry_claim_limit_ms": 100, "retry_claim": "INVALID", "tail": ["  total ops/s 117338  (exec 1760156 + index 0 in 15.00s)  served_all 1760156", "  total latency ns  n 1760156  p50 417792  p95 884736  p99 1343488  p99.9 3276800  max 994324496", "  deposit latency ns  n 1760156  p50 417792  p95 884736  p99 1343488  p99.9 3276800  max 994324496", "  failovers 2  replayed 124  timeouts 0  resends 64  max_resend_age_ms 993", "  retry claim: max_resend_age_ms 993, limit 100 (TTL 1 s / 10): INVALID", "  verify: 2000 accounts, 1760156 deposits, 0 mismatches"]}, "pass": true, "scenario": "r11_guard", "seconds": 15.9}
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+
+      Start 36: test_sync_readiness
+36/45 Test #36: test_sync_readiness ..............   Passed  317.82 sec
+      Start 37: test_baseline_move
+37/45 Test #37: test_baseline_move ...............   Passed  112.72 sec
+      Start 38: test_baseline_ha
+38/45 Test #38: test_baseline_ha .................   Passed  124.99 sec
+      Start 39: test_ready_order
+39/45 Test #39: test_ready_order .................   Passed  146.07 sec
+      Start 40: test_paxos_ballots
+40/45 Test #40: test_paxos_ballots ...............   Passed    2.02 sec
+      Start 41: test_witness_hardening
+41/45 Test #41: test_witness_hardening ...........   Passed    5.72 sec
+      Start 42: test_lab_witness_guard
+42/45 Test #42: test_lab_witness_guard ...........   Passed   14.74 sec
+      Start 43: test_index_wire
+43/45 Test #43: test_index_wire ..................   Passed    1.75 sec
+      Start 44: test_pilot
+44/45 Test #44: test_pilot .......................   Passed    0.05 sec
+      Start 45: test_net_bench_rate
+45/45 Test #45: test_net_bench_rate ..............   Passed   15.68 sec
+
+98% tests passed, 1 tests failed out of 45
+
+Total Test time (real) = 1716.94 sec
+
+The following tests FAILED:
+	 35 - test_baseline_retry (Failed)
+Errors while running CTest

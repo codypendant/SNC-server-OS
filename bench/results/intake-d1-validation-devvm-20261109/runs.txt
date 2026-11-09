@@ -1,0 +1,5 @@
+release-run1 start sha ea9d3b83a4f6bb534cce52d45fb95114767270d4 2026-11-09T20:05:12Z dir build env: SNC_X=0
+release-run1 rc=8 20:33:48 98% tests passed, 1 tests failed out of 45
+release-run2 start sha ea9d3b83a4f6bb534cce52d45fb95114767270d4 2026-11-09T20:53:21Z dir build env: SNC_X=0
+release-run2 rc=8 21:21:58 98% tests passed, 1 tests failed out of 45
+note 21:40Z: release-run1 and release-run2 failed only test_baseline_retry b3_stalled_catchup (the standby never caught up). It failed the same way on main af5afeb (3 of 3, b3-compare/), so not D.1. Root cause: the session's disk allowance was nearly spent (the shell hit "no space left" at 21:28; a leaked 6.8 GB /tmp/snc-health-* test directory and old sanitizer build directories), and b3 catches up from WAL files on disk. After freeing about 8 GB, b3 passed 2 of 2 on D.1 (b3-compare/d1-4, d1-5). Both runs kept; neither is headline evidence.
