@@ -1,0 +1,13 @@
+cody, 2026-11-09 19:09 UTC (project thread), verbatim:
+
+PR #85 review: APPROVED WITH REQUIRED DESIGN CONDITIONS.
+The rev2 architecture is accepted: reply-only follow-ups, enforced max_emits, exchange budget X, Option D WAL/staging credits, owner-side gate, and D.1/D.2 split.
+Decisions: Q1 YES, Q2 YES, Q3 YES as hypotheses only, Q4 YES add explicit followup descriptor flag, Q5 YES approve exchange budget X.
+Before implementing D.1, make two corrections:
+1. Dynamic exchange reservation. Do not gate every invocation merely because OpDescriptor::max_emits > 0. Add an invocation-level emit reservation during validate, analogous to resource reservation. Static max_emits remains the hard contract ceiling. X admission checks the actual reserved roots after validation and before mutation. Account.transfer must reserve 0 when local(to) succeeds and 1 when it will create a follow-up exchange. Apply may not exceed the reservation. Sequenced replay must occur before the X check.
+2. Coalesced resume pacing. Page resume work under X, but allow only one active resume scan per shard plus an owed/dirty generation flag. Repeated reconnect/map-change triggers must coalesce rather than queue unlimited resume passes. If a trigger occurs during a scan, run at most one additional pass after the active scan completes.
+Update B2 and tests accordingly. Add tests proving same-shard transfers continue when X is saturated, exchange-producing transfers refuse, replay still succeeds while X is saturated, and repeated resume triggers do not create unbounded scan state.
+Then D.1 implementation is authorized.
+D.1 is not the end of the overall slice. Return D.1 for review. After D.1 approval, build D.2 cross-node exchange accounting/wire change as a separate reviewed slice. D.2 is required before S6.
+No S5, S6, R640, CP-1A, comparators, or B2 snapshot work.
+Always verify, never assume. Fix confirmed defects on site.

@@ -1,6 +1,10 @@
-# Follow-up intake backpressure: design note, revision 2 (for review)
+# Follow-up intake backpressure: design note, revision 2.1
 
-Status: **design only, for review. Nothing here is implemented.**
+Status: **revision 2 approved with required conditions**
+(`docs/handoff/PR85_Design_Review.txt`). Revision 2.1 adds those
+conditions (section 3.9), which supersede revision 2 where they differ.
+D.1 implementation is authorized once 2.1 is recorded; D.2 is a separate
+reviewed slice, required before S6.
 
 History:
 - **Revision 1** (PR #83): option D, reviewed independently (section 13).
@@ -12,9 +16,15 @@ History:
   - follow-up execution must become request/reply-shaped as an enforced
     runtime contract, with an enforced `OpDescriptor::max_emits`;
   - the WAL u32 overflow had to be fixed first. It was: PR #84.
-- **Revision 2** (this note) adds that contract (section 3.3). It also
+- **Revision 2** (PR #85) adds that contract (section 3.3). It also
   adds the one mechanism the contract makes possible and the structural
   bound needs: a per-origin **exchange budget** (section 3.4).
+- **cody's review of revision 2** (`docs/handoff/PR85_Design_Review.txt`):
+  approved with conditions. Q1-Q5 all yes (Q3 as hypotheses only).
+  Required: a dynamic, per-invocation emit reservation in place of the
+  static `max_emits > 0` gate, and coalesced resume pacing.
+- **Revision 2.1** (this note) adds both, with the B2 and test updates
+  (section 3.9).
 
 Work orders:
 - `docs/handoff/PR82_S41_Review.txt` sections 8-14;
@@ -332,10 +342,13 @@ must know its origin o. Two cases:
 **Local exchanges** (o = p, the target on the same shard) are counted the
 same way. They need no `Msg` bit.
 
-**The admission rule (the only place X is waited on).** A client-run op
-that may emit (`max_emits > 0`; today only `transfer`) is admitted only
-while `live_o < X`, in addition to the existing gates. Ops that cannot
-emit (deposit, withdraw, create, delete, reads) are not affected by X. Otherwise it is refused with
+**The admission rule (the only place X is waited on).** *Superseded in
+2.1 by the per-invocation reservation (3.9.1): X checks the roots the
+invocation reserved in `validate`, not the static `max_emits`.* A
+client-run op that may emit (`max_emits > 0`; today only `transfer`) is
+admitted only while `live_o < X`, in addition to the existing gates. Ops
+that cannot emit (deposit, withdraw, create, delete, reads) are not
+affected by X. Otherwise it is refused with
 `E_OVERLOADED` and never queued. It is checked at the shard that will
 apply it:
 - the origin, for a local op;
@@ -359,7 +372,7 @@ its replies move through the queues under only the H and W rules.
 paths) refuse a MUTATE, CREATE or DELETE with `E_OVERLOADED` in two
 cases:
 - the owner's `emits_in_flight` is above `kEmitBacklog`;
-- the op may emit (`max_emits > 0`) and `live_owner ≥ X`.
+- the invocation reserved roots (3.9.1) and `live_owner ≥ X`.
 
 The check is made before `run_exec`, and the answer goes back as an
 ordinary RESP or MULTI_RESP (B3). It is replay-safe: only unsequenced
@@ -446,6 +459,111 @@ Two things change indirectly:
   it. This is measured in F1.
 - Clients see `E_OVERLOADED` in one new case: the X budget is full at the
   applying shard.
+
+### 3.9 Revision 2.1: cody's conditions (supersede 3.4 and Q1 where they differ)
+
+#### 3.9.1 Dynamic exchange reservation
+
+- **`OpCtx::reserve_emits(u16 n)`**, callable only from `validate` of a
+  logged MUTATE, like `reserve()` for payload. It records how many roots
+  this invocation may emit. `n > max_emits` is a `contract_violation`:
+  static `max_emits` stays the hard ceiling. Calls do not accumulate; the
+  last value stands (as `reserve()` keeps the largest).
+- **Apply may not exceed the reservation.** For a client-run invocation,
+  emit number `reserved + 1` is a `contract_violation`. Without a call,
+  the reservation is 0, so an op that forgets to reserve cannot emit.
+- **Follow-up invocations** are not reserved: X does not apply to them.
+  Their ceiling is the reply rule (at most one emit, to the source) and
+  `min(max_emits, 1)`.
+- **X admission** runs in `run_exec` after `validate` and before the
+  first mutation, next to S1's `admit()`: a client invocation with
+  `reserved > 0` is refused with `E_OVERLOADED` (`refused_exchange`)
+  while `live_o ≥ X`. An invocation that reserved 0 is never refused by
+  X, whatever its op's `max_emits`.
+- **Replay first.** `replay_if_seen` already runs before `validate` in
+  `run_exec` (and in `execute`'s backlog path), so a resent sequenced
+  mutation gets its stored answer while X is saturated. Forwarded
+  requests are unsequenced (`shard.cpp:207-213`).
+- **`Account.transfer`** reserves 0 when `local(to)` succeeds (one atomic
+  two-object op, no follow-up) and 1 otherwise. `apply` takes the same
+  branch: `local()` cannot change between validate and apply (same
+  thread, no yield), and the debug build checks the count.
+- **Bound.** Each admitted client invocation adds at most its
+  reservation, at most E, so client work keeps `live_o < X + E`.
+
+#### 3.9.2 Coalesced, paged resume
+
+- **One scan per shard.** A resume trigger (`start_serving`, link up,
+  `map_changed`, `resume_slot`) no longer walks the map synchronously.
+  It marks work owed:
+  - a full pass, or
+  - the slot, in a per-shard bitmap of `kSlots` bits.
+- **Coalescing.** If no scan is active, the owed work becomes the active
+  scan's filter, and the owed set is cleared. If a scan is active, the
+  trigger only adds to the owed set, so any number of triggers during a
+  scan cost at most one more pass after it ends. Scan state is fixed
+  size: one map walk (`LocalMap::Walk`), two `kSlots` bitmaps and two
+  flags, whatever the number of triggers.
+- **Paging under X.** Each loop iteration the scan:
+  1. collects up to a page of object IDs with `walk_step`, stopping
+     after an empty bucket. That is the walk's documented contract:
+     every object present for the whole walk is visited once;
+  2. runs the resume hook object by object, only while
+     `live_o < X`. It stops for the iteration as soon as
+     `live_o ≥ X`, keeping the rest of the page.
+- **Rehash.** A rehash during a scan restarts the walk (the walk's
+  contract). Objects already visited are visited again; resume emits
+  are idempotent for the protocol (credits and queries carry the entry's
+  sequence).
+- **Per object.** `TypeDescriptor::max_resume_emits`, enforced like
+  `max_emits` (`resuming_`), bounds one object's hook. For Account it
+  is `kMaxEntries`, the most outbox and inbox entries it can hold.
+- **Bound.** Roots are added only while `live_o < X`: a client
+  invocation adds at most E, and a resumed object at most `Rr`
+  (`max_resume_emits`). So `live_o < X + max(E, Rr)` at all times,
+  resume included.
+- **LSN.** Each object's emits wait for durability of the WAL position
+  current when its hook runs, so a later page never sends state that is
+  not yet durable. That is the rule `poll_links` and `map_changed`
+  already use.
+- **Liveness.** `Engine::wait_emits` and `quiesced()` count an active or
+  owed scan as in flight. A scan stops when the shard is withdrawn or
+  becomes a standby.
+
+#### 3.9.3 Accounting detail (implementation choice, D.1)
+
+- **Leaving the node.** An item ends its exchange where it leaves the
+  node: pushed onto a node link (counted at the push), or dropped there.
+- **Re-routing.** A re-route therefore needs no rule of its own: inside
+  a node the target either stays here, or the item later leaves through
+  a link.
+- **Link arrivals.** Items arriving from a link carry `kOriginRemote`
+  and are never counted (D.2).
+
+#### 3.9.4 B2, updated
+
+The intra-node bound of 6.2 becomes
+
+    Σ items of intra-node exchanges ≤ Σ_o live_o < N·(X + max(E, Rr))
+
+with no resume or re-route term. Resume is paged under X (3.9.2), and a
+re-route that leaves the node ends its exchange. This holds for any
+number of resume triggers, because the scan state is fixed size and
+emits only while `live_o < X`.
+
+#### 3.9.5 Tests added by 2.1
+
+| Test | Setup | Pass criterion |
+|---|---|---|
+| F12 | X saturated (a stalled peer shard holds every exchange of shard o); transfers between two accounts both on o | They succeed (`refused_exchange` unchanged); their reservation is 0 |
+| F13 | Same state; a transfer from o to an account on another shard | `E_OVERLOADED`, `refused_exchange` +1; balances unchanged |
+| F14 | Same state; resend a sequenced transfer that was applied before saturation | Replayed answer (`replayed`), not a refusal |
+| F15 | Saturate X, then fire many resume triggers (map changes, `resume_slot`) during and after a scan | Scan state stays fixed size; at most one owed pass runs after the active scan; `live_o < X + max(E, Rr)` throughout; everything settles after release |
+| F10 additions | Death tests: apply emits more than reserved; `reserve_emits` above `max_emits`; `reserve_emits` outside validate; a resume hook past `max_resume_emits` | SIGABRT with the contract message |
+
+Negatives added: N13, X checked on static `max_emits` instead of the
+reservation → F12 fails. N14, triggers queue full passes instead of
+coalescing → F15's pass count exceeds active + 1.
 
 ## 4. Cap semantics
 
@@ -744,7 +862,11 @@ Every slice rule applies:
 - every run reported;
 - an independent review.
 
-## 10. Questions for the review
+## 10. Questions for the review (all answered: `docs/handoff/PR85_Design_Review.txt`)
+
+Decisions: Q1 yes (with coalescing, 3.9.2); Q2 yes; Q3 yes, as
+hypotheses only; Q4 yes, an explicit follow-up flag on the descriptor;
+Q5 yes, X approved (with per-invocation reservation, 3.9.1).
 
 1. **Q1, resume pacing.** Resume roots (recovery, link-up, map change)
    are bounded today only by object state. Should the implementation
@@ -777,7 +899,7 @@ Every slice rule applies:
 
 ## 11. Not in this slice
 
-Implementation of any part of D; S5; S6; R640; CP-1A; comparators; B2
+D.2 (a separate reviewed slice after D.1 is approved); S5; S6; R640; CP-1A; comparators; B2
 begin-snapshot work.
 
 ## 12. Changes from revision 1

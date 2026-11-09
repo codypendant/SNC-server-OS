@@ -2026,3 +2026,19 @@ or source comments.
     all are corrected in the note (section 13.1).
 -   **Next action:** review. No implementation of D; no S5, S6, R640,
     CP-1A, comparators or B2 snapshot work.
+
+### 2026-11-09 UTC --- Claude (Claude Code): follow-up intake design rev2.1 (review conditions)
+
+-   **Classification:** design only. REFINE.
+-   **What:** cody approved rev2 with conditions
+    (`docs/handoff/PR85_Design_Review.txt`; Q1-Q5 yes, Q3 as hypotheses).
+    `docs/FOLLOWUP_INTAKE_DESIGN.md` section 3.9 adds them:
+    - a per-invocation emit reservation in `validate`
+      (`OpCtx::reserve_emits`), which X checks after validation and
+      before mutation. Static `max_emits` stays the hard ceiling, and
+      `transfer` reserves 0 when `local(to)` succeeds;
+    - a coalesced, paged resume: one scan per shard plus owed state,
+      paged under X;
+    - B2 updated (no resume term), and tests F12-F15.
+-   **Next action:** implement D.1, then return it for review. D.2 is a
+    separate slice, required before S6.
