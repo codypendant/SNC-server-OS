@@ -2130,3 +2130,37 @@ or source comments.
 -   **Next action:** D.2. Still forbidden until D.2 is approved: S6, the
     R640 campaign, a CP-1A rerun, comparators, B2 begin-snapshot work,
     and S5 unless separately justified by evidence.
+
+### 2026-11-10 UTC --- Claude (Claude Code): D.2 design, for review
+
+-   **What:** `docs/CROSS_NODE_EXCHANGE_DESIGN.md`. It is design only, as
+    cody chose ("design first"). No D.2 code until it is approved.
+-   **Mechanism:** an exchange stays counted at its origin until it ends
+    on either node. Data frames keep 64 bytes and gain two origin bits.
+    The peer counts what it holds per origin and sends coalesced ENDs.
+    After any connection change, the peer's SYNC reports what it
+    physically holds and what it received on the origin's current
+    connection, and the origin overwrites its count with the exact value.
+    Heartbeats and silence detection turn a partition into a drop, and
+    release frees a dead peer's count. A pushing shard adopts uncounted
+    items. Wire v2 is fail-closed.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the D.1 mechanisms.
+    -   REFINE the section 3.6 D.2 sketch: SYNC replaces generations,
+        because of flap amplification and restart collisions (2.3).
+    -   RECONSIDER nothing.
+-   **Acceptance mapping:** sections 4-6, tests X1-X12 (with X7b),
+    negatives ND1-ND14.
+-   **Pre-review:** an adversarial agent review of the first draft found
+    7 issues. They are all fixed and listed in section 12:
+    -   F1: a leak on a foreign-link purge;
+    -   F2: a fenced primary's second incarnation, now counted per
+        incarnation;
+    -   F3: silence detection versus read pausing;
+    -   F4: nonce resets;
+    -   F5: double-counting wording;
+    -   F6: a one-way failure blocking release;
+    -   F7: bounds.
+-   **Questions:** section 10. They cover the version policy, release,
+    adoption above X, SYNC instead of generations, and the timer defaults.
+-   **Next action:** WAIT for the cody/Codex design review.
