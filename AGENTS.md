@@ -2194,3 +2194,35 @@ or source comments.
     -   REFINE binding, release, incarnations and the proof.
     -   RECONSIDER adoption, which is removed.
 -   **Next action:** WAIT for the rev2 review. No D.2 code.
+
+### 2026-11-10 UTC --- Claude (Claude Code): PR #92 review filed; D.2 design rev3, for review
+
+-   **Review:** PR #92 got DESIGN REV2 SUBSTANTIALLY APPROVED WITH TWO
+    CORRECTNESS BLOCKERS, IMPLEMENTATION HOLD. It is filed verbatim as
+    `docs/handoff/PR92_D2_Design_Rev2_Review.md`.
+-   **Rev3 (narrow):** `docs/CROSS_NODE_EXCHANGE_DESIGN.md`.
+    -   HelloAck proves identity only (IDENTIFIED). A link is BOUND only
+        after both the HelloAck and the exact SYNC naming the current
+        connection (nonce and `conn_seq`, `pushed = 0`), in either order.
+        No counted DATA before BOUND.
+    -   FINAL is removed. Only a SYNC naming the current connection
+        applies; all others are ignored and counted. No history of old
+        connections is kept. Lost items drop out at the next binding, or
+        by quarantine, which gains a not-bound trigger.
+    -   On silent retirement, the old sockets are fenced (removed from
+        epoll and reset) before the entry retires and the new
+        incarnation is accepted.
+    -   `blocked_since_` survives the links closing, so quarantine comes
+        at most `T_hb + T_release` after the block, matching X19.
+    -   An independent adversarial check of the draft found nine issues
+        (SYNC/binding cycle, SYNC routing and stream position, field
+        names, 3.3, fencing in every link state, blocked-bit delivery,
+        incarnation order); all fixed, listed in section 12.
+    -   Tests X19b, X24-X27 and negatives ND27-ND35 added; X3/X4 check the
+        accounting equation at every exact SYNC. Section 14 maps every
+        review item.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the rev2 architecture as reviewed.
+    -   REFINE the reconciliation state machine, fencing and timing.
+    -   RECONSIDER the FINAL SYNC, which is removed.
+-   **Next action:** WAIT for the rev3 review. No D.2 code.
