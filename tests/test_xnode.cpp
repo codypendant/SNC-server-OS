@@ -1306,10 +1306,13 @@ void x29_generation() {
     net.px(0, 1).replay(old.back());
     ++replays;
     wait_until([&] { return entry(*B, 0, 0).c.m_conflicts > mc0; }, "old Hello refused", 10);
+    // Still bound to the current instance: the replay retired nothing. (Not
+    // at this instant: under TSan, with T_dead 200 ms and load, the link
+    // can be reset and rebound meanwhile; it must rebind to the same one.)
+    wait_until(bound_both, "bound after the replay", 20);
     const EntryView w = entry(*B, 0, 0);
     CHECK_EQ(w.e.inc, prev);
     CHECK_EQ(w.e.serial, serial0);
-    CHECK(bound_both());
   };
   {
     Load ab(net, L, 0, 1), ba(net, L, 1, 0);

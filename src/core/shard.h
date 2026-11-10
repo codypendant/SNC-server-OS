@@ -859,6 +859,7 @@ class Shard {
   void check_reserved(const OpDescriptor* op);
   ShardGauges* gauges_ = nullptr;
   u64 gauges_published_ns_ = 0;
+  u64 gauges_cost_ns_ = 0;  // the last publish's duration (spacing, publish_gauges)
   bool gauges_dirty_ = false;
   u64 waiters_peak_ = 0, waiter_bytes_ = 0, waiter_bytes_peak_ = 0, emits_peak_ = 0;
 

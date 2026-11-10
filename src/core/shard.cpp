@@ -940,9 +940,12 @@ bool Shard::poll() {
 
 void Shard::publish_gauges(u64 now, bool force) {
   if (gauges_ == nullptr) return;
-  if (!force && !gauges_dirty_ && now - gauges_published_ns_ < ShardGauges::kPublishNs) return;
+  // At most every kPublishNs, and never more than a fifth of the loop: a
+  // publish slower than kPublishNs (a sanitizer build: about 60 us for the
+  // D.2 gauge set under TSan) would otherwise run on every iteration.
+  const u64 gap = std::max<u64>(ShardGauges::kPublishNs, 4 * gauges_cost_ns_);
+  if (!force && !gauges_dirty_ && now - gauges_published_ns_ < gap) return;
   gauges_dirty_ = false;
-  gauges_published_ns_ = now;
   std::array<u64, kGaugeCount> v{};
   v[G_REFUSED_FOLLOWUP] = stats_.refused_followup;
   v[G_REFUSED_RING] = stats_.refused_ring;
@@ -1156,6 +1159,9 @@ void Shard::publish_gauges(u64 now, bool force) {
   }
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
+  const u64 end = sri_now_ns();
+  gauges_cost_ns_ = end - now;
+  gauges_published_ns_ = end;
 }
 
 bool Shard::quiesced() const {

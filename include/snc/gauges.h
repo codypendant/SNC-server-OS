@@ -16,6 +16,8 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <thread>
 
 #include "snc/types.h"
 
@@ -399,12 +401,20 @@ struct alignas(64) ShardGauges {
   // Main thread only.
   void set_committed_start_lsn(u64 lsn) { committed_.store(lsn, std::memory_order_relaxed); }
 
-  // Any thread. Retries up to 64 times; if the writer was mid-publish every
-  // time, returns consistent = false with the fields of the last attempt
-  // that read an even seq (zeros if none did).
+  // Any thread but a shard's. Retries up to 64 times, yielding between
+  // tries, then up to 64 more 100 us apart (about 10 ms in all), so a slow
+  // publish or a slow reader (a sanitizer build) still gets a whole copy.
+  // If the writer was mid-publish every time, returns consistent = false
+  // with the fields of the last attempt that read an even seq (zeros if
+  // none did).
   GaugeSnapshot read() const {
     GaugeSnapshot out;
-    for (int attempt = 0; attempt < 64; ++attempt) {
+    for (int attempt = 0; attempt < 128; ++attempt) {
+      if (attempt >= 64) {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+      } else if (attempt != 0) {
+        std::this_thread::yield();
+      }
       const u64 s1 = seq_.load(std::memory_order_acquire);
       if (s1 & 1) continue;  // publish in progress
       for (u32 i = 0; i < kGaugeCount; ++i) out.v[i] = v_[i].load(std::memory_order_acquire);
