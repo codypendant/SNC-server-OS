@@ -1980,6 +1980,13 @@ void x8_slot_move() {
 // end by ENDs on the tag and A's count returns to 0.
 void x12_variant(u16 dest) {
   Net net;
+  // The wire to B is held across a slot move (a durable seal and stage).
+  // Held longer than T_dead, B closes its In as silent and the held
+  // credits never arrive (no stale drop to show; seen once under ASan in
+  // a full suite). A long T_dead keeps the hold backpressure, not death.
+  net.dead_ms = 5000;
+  net.release_ms = 10000;
+  net.block_ms = 5000;
   net.build({{0, 0}, {1, 0}, {2, 0}}, {1, 2, 1});
   net.start_all();
   Ledger L = make_ledger(net, 16);
@@ -2012,11 +2019,12 @@ void x12_variant(u16 dest) {
   CHECK(S.acc[1].size() >= 2);
   const MoveCounters m0 = move_counters(net);
   LinkProxy& wire = net.px(0, 1, 1);  // A's Out connection to B's shard 1
-  u64 count_at_move = 0;
+  u64 count_at_move = 0, t_hold = 0;
   {
     Load ab(net, S, 0, 1, 16);
     sleep_ms(100);
     wire.set(LinkProxy::HOLD, LinkProxy::PASS);
+    t_hold = sri_now_ns();
     wait_until([&] { return wire.held_fwd() >= 1024; }, "credits held on the wire", 20);
   }
   sleep_ms(50);
@@ -2028,6 +2036,8 @@ void x12_variant(u16 dest) {
   }
   move_slot(net, slot, 0, dest, 0x120 + dest);
   wire.set(LinkProxy::PASS, LinkProxy::PASS);
+  const u64 hold_ms = (sri_now_ns() - t_hold) / 1000000;
+  CHECK_MSG(hold_ms < net.dead_ms, "X12: the wire was held %llu ms, not below T_dead", (unsigned long long)hold_ms);
   wait_until([&] { return entry(A, 1, 0, 1).e.count == 0; }, "A's count back to 0", 20);
   if (dest == 2) net.px(1, 2).refuse(false);
   const MoveCounters m = move_counters(net);
@@ -2037,17 +2047,24 @@ void x12_variant(u16 dest) {
   // 2.6, cannot be reached with the account type: a tagged reply targets
   // its item's source, and a moved source makes the item itself stale
   // first. Disclosed in the evidence.)
-  CHECK(m.stale > m0.stale);
+  CHECK_MSG(m.stale > m0.stale,
+            "X12%s: no stale drop (hand-off %llu, tag %llu, reply %llu, resume %llu; A out_resets %llu, B silence "
+            "closes %llu, A bindings %llu; held %llu ms, T_dead %u ms)",
+            dest == 1 ? "a" : "b", (unsigned long long)(m.handoff_drops - m0.handoff_drops),
+            (unsigned long long)(m.tag_drops - m0.tag_drops), (unsigned long long)(m.reply_drops - m0.reply_drops),
+            (unsigned long long)(m.drops_to_resume - m0.drops_to_resume),
+            (unsigned long long)entry(A, 1, 0, 1).c.out_resets, (unsigned long long)entry(B, 0, 0, 0, 1).c.silence_closes,
+            (unsigned long long)entry(A, 1, 0, 1).c.bindings, (unsigned long long)hold_ms, net.dead_ms);
   ledger_move(L, slot, 0, dest);
   settle(net, L, dest == 1 ? "X12 hand-off" : "X12 foreign");
   std::printf("X12%s %s: A's count %llu (credits held on the wire to B's shard 1) when the source slot moved %s; "
               "stale drops %llu, hand-off drops %llu, tag drops %llu, unbound purges at B %llu, ENDs sent %llu; A's "
-              "count back to 0; settled, money conserved\n",
+              "count back to 0; settled, money conserved (wire held %llu ms)\n",
               dest == 1 ? "a" : "b", dest == 1 ? "hand-off" : "foreign", (unsigned long long)count_at_move,
               dest == 1 ? "into B" : "to C, B's link to C down", (unsigned long long)(m.stale - m0.stale),
               (unsigned long long)(m.handoff_drops - m0.handoff_drops),
               (unsigned long long)(m.tag_drops - m0.tag_drops), (unsigned long long)B.stats(1).xnode_unbound_purged,
-              (unsigned long long)(m.ends_sent - m0.ends_sent));
+              (unsigned long long)(m.ends_sent - m0.ends_sent), (unsigned long long)hold_ms);
 }
 void x12_purge_handoff() {
   x12_variant(1);

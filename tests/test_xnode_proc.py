@@ -208,6 +208,11 @@ def x7(work, stop_not_kill=False):
     load = None
     try:
         ids = make_ids(c)
+        # Failover needs a READY group, and a standby still catching up
+        # under constant writes may not get there (docs/SYNC_READINESS.md,
+        # liveness under load): both groups READY before the load starts.
+        for g in (0, 1):
+            fc.wait(lambda: (fc.ha_state(c, g) or (0, 0, True))[2] is False, f"group {g} READY", timeout=60)
         load = Load(c, ids, 15)
         time.sleep(3)
         g1 = gauges(c, 1)
