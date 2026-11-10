@@ -2214,7 +2214,11 @@ or source comments.
         incarnation is accepted.
     -   `blocked_since_` survives the links closing, so quarantine comes
         at most `T_hb + T_release` after the block, matching X19.
-    -   Tests X24-X27 and negatives ND27-ND33 added; X3/X4 check the
+    -   An independent adversarial check of the draft found nine issues
+        (SYNC/binding cycle, SYNC routing and stream position, field
+        names, 3.3, fencing in every link state, blocked-bit delivery,
+        incarnation order); all fixed, listed in section 12.
+    -   Tests X19b, X24-X27 and negatives ND27-ND35 added; X3/X4 check the
         accounting equation at every exact SYNC. Section 14 maps every
         review item.
 -   **KEEP / REFINE / RECONSIDER:**
