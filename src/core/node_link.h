@@ -49,6 +49,8 @@ class NodeLinks {
     u16 member;
     u64 incarnation;
     u64 conn;
+    u32 conn_seq;
+    u32 serial;  // the entry's serial when the frame was read (2.3, per item tag)
   };
 
   struct Options {
@@ -63,8 +65,59 @@ class NodeLinks {
     // An older incarnation of (link, member) was fenced and is retired
     // (2.7): its sockets are already reset. Called on the shard's thread.
     void (*on_retire)(void* ctx, u32 link, u16 member, u64 incarnation) = nullptr;
+    // An Out connection became BOUND (2.4): resume what was purged.
+    void (*on_bound)(void* ctx, u32 link) = nullptr;
     void* ctx = nullptr;
   };
+
+  // ---- Accounting entries (2.3): one per (link, member), for that
+  // member's current incarnation. Memory only; they go with this instance.
+  enum class EntryState : u8 { ACTIVE, QUARANTINED };
+  struct Entry {
+    u64 inc = 0;     // 0: no instance seen
+    u32 serial = 1;  // bumps at retirement: an older tag never matches
+    // As the origin: our counted items pushed to it, not yet ended or
+    // back; part of live only while `gates` (2.8).
+    u64 count = 0;
+    bool gates = true;
+    EntryState state = EntryState::ACTIVE;
+    // As the peer: its items here, ENDs owed to it, a SYNC owed (2.5).
+    u64 held_for = 0;
+    u64 end_owed = 0;
+    bool sync_owed = false;
+  };
+  const Entry& entry(u32 link, u16 m) const { return entries_[mbase_[link] + m]; }
+  // Counted DATA may go on `link` (2.4): BOUND, or up when accounting is
+  // off (rollback: no binding). Not ready: down for queueing.
+  bool ready(u32 link) const;
+  bool bound(u32 link) const;
+  int bound_member(u32 link) const;  // -1: none
+  // Push our own exchange's follow-up, counted by us (COUNTED_BY_SENDER,
+  // 2.6). The link must be bound.
+  void push_counted(u32 link, Frame f);
+  // Σ count over gating entries (xnode_remote_live, 2.8).
+  u64 xnode_live() const { return xnode_live_; }
+  u64 debt() const;
+  bool accounting() const { return opt_.accounting; }
+  // Counters (section 7).
+  struct Counters {
+    u64 bindings = 0, identified = 0, bind_mismatch = 0, syncs_sent = 0, syncs_exact = 0, syncs_stale = 0;
+    u64 sync_correction = 0, ignored_frames = 0, sync_r_anomalies = 0;
+  };
+  const Counters& counters() const { return ctr_; }
+
+  // Tests only (X3, X4, X28): the values at the SYNC barrier (peer, when
+  // the SYNC is appended) and at its apply (origin).
+  struct SyncProbe {
+    bool barrier;  // true: appended at the peer; false: applied at the origin
+    u64 conn;
+    u32 conn_seq;
+    u64 k, r;               // held_for and rx at the barrier, as carried
+    u64 pushed;             // origin: cur pushed when applied
+    u64 count_before, count_after;  // origin
+    u64 end_owed_cleared;   // peer: ENDs subsumed by k
+  };
+  static void (*debug_sync_probe)(const SyncProbe& p);
 
   // Opens the listener; call on the shard's thread.
   NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options& opt);
@@ -127,6 +180,12 @@ class NodeLinks {
   void on_heartbeat(u32 in_index, const Frame& f, u64 now_ns);
   void push_heartbeat(u32 link, u64 now_ns);
   void liveness(u64 now_ns);  // 2.10 silence and Out-side checks, 2.12 B steering
+  Entry& ent(u32 link, u16 m) { return entries_[mbase_[link] + m]; }
+  void set_count(Entry& e, u64 v);
+  void push_syncs();
+  void on_sync(u32 in_index, const Frame& f);
+  void try_bind(u32 link);
+  void identified_out(u32 link);
   u64& highest(u32 link, u16 member) { return (*opt_.highest)[mbase_[link] + member]; }
   // Invariant M at the peer (2.12 C): may member m's instance `inc` be
   // accepted on `link`? Fences and retires an older incarnation first.
@@ -157,6 +216,9 @@ class NodeLinks {
     bool paused = false;
   };
   std::vector<Peer> peer_;  // per (link, member)
+  std::vector<Entry> entries_;  // per (link, member)
+  u64 xnode_live_ = 0;
+  Counters ctr_;
   bool blocked_ = false;
   u64 heartbeats_sent_ = 0, silence_closes_ = 0, out_resets_ = 0, steers_ = 0;
   u64 last_liveness_ns_ = 0;

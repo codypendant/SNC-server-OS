@@ -437,6 +437,13 @@ class Shard {
     u16 origin = kNoShard;
     u16 from = kNoShard;
     bool link_held = false;
+    // D.2 (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.3): another node's exchange,
+    // counted there by the instance this tag names (link, member, entry
+    // serial); memory only. Its replies inherit it.
+    bool tagged = false;
+    u16 peer_member = 0;
+    u32 peer_link = 0;
+    u32 peer_serial = 0;
   };
   static constexpr u64 kEmitBacklog = 1024;
   void route_emit(Emit e);

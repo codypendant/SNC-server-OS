@@ -19,6 +19,8 @@
 
 namespace snc {
 
+void (*NodeLinks::debug_sync_probe)(const NodeLinks::SyncProbe& p) = nullptr;
+
 // Wire v2 Hello (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.2).
 struct HelloV2 {
   u32 magic;  // "SNC2"
@@ -117,6 +119,12 @@ struct NodeLinks::Out {
   u64 last_r = 0;
   u64 pushed = 0;  // counted frames pushed on this connection (D.2)
   u64 steer_since_ns = 0;  // 2.12 B
+  // Binding (2.4): IDENTIFIED (HelloAck), SYNCED (the exact SYNC naming
+  // this conn and conn_seq), BOUND once both name the same instance.
+  bool synced = false;
+  u16 sync_member = 0;
+  u64 sync_incarnation = 0;
+  bool is_bound = false;
 };
 
 struct NodeLinks::In {
@@ -158,6 +166,7 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options&
   if (opt_.highest == nullptr) opt_.highest = &own_highest_;
   if (opt_.highest->size() < slots) opt_.highest->resize(slots, 0);
   peer_.assign(slots, Peer{});
+  entries_.assign(slots, Entry{});
   listen_port_ = static_cast<u16>(map.groups[group].members[member].link_port + shard);
   try_listen(sri_now_ns());
 }
@@ -255,6 +264,9 @@ void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   o.ack_have = 0;
   o.identified = false;
   o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = 0;
+  // No record of this connection is kept (2.3): its count stays,
+  // conservatively, until the next binding's SYNC.
+  o.synced = o.is_bound = false;
 }
 
 // ---- Liveness (2.10, 2.12 B) ----------------------------------------------------------
@@ -298,7 +310,10 @@ void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
   Peer& p = peer_[mbase_[in.from.link] + in.from.member];
   const bool blocked = (f.op & 2u) != 0;
   if (blocked && p.blocked_since_ns == 0) p.blocked_since_ns = now_ns;
-  if (!blocked) p.blocked_since_ns = 0;
+  if (!blocked && p.blocked_since_ns != 0) {
+    p.blocked_since_ns = 0;
+    try_bind(in.from.link);
+  }
   p.paused = (f.op & 1u) != 0;
   // About our Out connection on this link, if this instance acknowledged it.
   Out& o = *out_[in.from.link];
@@ -402,6 +417,7 @@ bool NodeLinks::read_ack(u32 i, u64 now_ns) {
   o.identified = true;
   o.ack_member = a.member;
   o.ack_incarnation = a.incarnation;
+  identified_out(i);
   return true;
 }
 
@@ -452,11 +468,166 @@ bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_
     }
     const u64 old = hi;
     hi = inc;
+    // Retire the old entry (2.7): its items are purged by the shard (no
+    // END: its instance is gone), its END debt is discarded, its count
+    // zeroed. The slot's serial bumps, so no older tag matches.
     if (opt_.on_retire) opt_.on_retire(opt_.ctx, l, m, old);
+    Entry& e = ent(l, m);
+    set_count(e, 0);
+    const u32 serial = e.serial + 1;
+    e = Entry{};
+    e.serial = serial;
+    e.inc = inc;
     return true;
   }
   hi = inc;
+  ent(l, m).inc = inc;
   return true;
+}
+
+// ---- Accounting (2.4-2.6) ---------------------------------------------------------------
+
+bool NodeLinks::bound(u32 l) const { return out_[l]->state == Out::State::UP && out_[l]->is_bound; }
+
+bool NodeLinks::ready(u32 l) const { return opt_.accounting ? bound(l) : up(l); }
+
+int NodeLinks::bound_member(u32 l) const { return bound(l) ? out_[l]->ack_member : -1; }
+
+void NodeLinks::set_count(Entry& e, u64 v) {
+  if (e.gates) xnode_live_ = xnode_live_ - e.count + v;
+  e.count = v;
+}
+
+u64 NodeLinks::debt() const {
+  u64 d = 0;
+  for (const Entry& e : entries_) {
+    if (!e.gates) d += e.count;
+  }
+  return d;
+}
+
+void NodeLinks::push_counted(u32 l, Frame f) {
+  Out& o = *out_[l];
+  f.pad[1] = COUNTED_BY_SENDER;
+  Entry& e = ent(l, o.ack_member);
+  set_count(e, e.count + 1);
+  ++o.pushed;
+  push(l, f);
+}
+
+// The HelloAck named an instance (2.4 step 3). A SYNC already read for this
+// connection (step 4 first) must name the same one. The peer owes us a
+// SYNC on its own Out connection; here, ours to it becomes possible (2.5).
+void NodeLinks::identified_out(u32 l) {
+  Out& o = *out_[l];
+  ++ctr_.identified;
+  if (o.synced && (o.sync_member != o.ack_member || o.sync_incarnation != o.ack_incarnation)) {
+    ++ctr_.bind_mismatch;
+    std::fprintf(stderr, "snc: node link: link %u: HelloAck and binding SYNC name different instances, resetting\n", l);
+    drop_out(l, now_ns_, /*reset=*/true);
+    return;
+  }
+  for (const auto& in : in_) {
+    if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+        in->from.incarnation == o.ack_incarnation) {
+      ent(l, o.ack_member).sync_owed = true;
+      break;
+    }
+  }
+  try_bind(l);
+}
+
+void NodeLinks::try_bind(u32 l) {
+  Out& o = *out_[l];
+  if (!opt_.accounting || o.state != Out::State::UP || o.is_bound || !o.identified || !o.synced) return;
+  if (o.sync_member != o.ack_member || o.sync_incarnation != o.ack_incarnation) return;
+  if (peer_blocked_since(l, o.ack_member) != 0) return;  // never bound to a blocked instance (2.12 A)
+  o.is_bound = true;
+  Entry& e = ent(l, o.ack_member);
+  if (!e.gates) {
+    e.gates = true;
+    xnode_live_ += e.count;
+  }
+  e.state = EntryState::ACTIVE;
+  ++ctr_.bindings;
+  connected_ = true;  // resume_all, re-sending what was purged while unbound
+  if (opt_.on_bound) opt_.on_bound(opt_.ctx, l);
+}
+
+// Owed SYNCs, each on an Out connection identified with its target, FIFO
+// after every byte already in Out::buf (the accounting barrier, 2.5): k,
+// R and the ENDs it subsumes are read now, as it is appended.
+void NodeLinks::push_syncs() {
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state != Out::State::UP || !o.identified) continue;
+    Entry& e = ent(l, o.ack_member);
+    if (!e.sync_owed || e.inc != o.ack_incarnation || !room(l)) continue;
+    const In* cur = nullptr;
+    for (const auto& in : in_) {
+      if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+          in->from.incarnation == e.inc) {
+        cur = in.get();
+        break;
+      }
+    }
+    if (cur == nullptr) continue;  // no connection of its to name
+    Frame f{};
+    f.pad[0] = SYNC;
+    f.source.hi = cur->from.conn;
+    f.op = cur->from.conn_seq;
+    f.source.lo = cur->rx;
+    f.target.hi = e.held_for;
+    f.target.lo = e.inc;
+    const u64 cleared = e.end_owed;
+    e.end_owed = 0;
+    e.sync_owed = false;
+    push(l, f);
+    ++ctr_.syncs_sent;
+    if (debug_sync_probe) {
+      debug_sync_probe(SyncProbe{true, cur->from.conn, cur->from.conn_seq, e.held_for, cur->rx, 0, 0, 0, cleared});
+    }
+  }
+}
+
+// A SYNC from instance f (2.5): applied only if it names our current Out
+// connection to that link, conn and conn_seq, and f is the instance it is
+// identified or synced with (or none yet). Every other SYNC is stale.
+void NodeLinks::on_sync(u32 i, const Frame& fr) {
+  const From& f = in_[i]->from;
+  if (fr.target.lo != opt_.incarnation) {
+    ++ctr_.ignored_frames;
+    return;
+  }
+  Out& o = *out_[f.link];
+  const bool names_cur = o.state == Out::State::UP && o.conn != 0 && fr.source.hi == o.conn && fr.op == o.conn_seq;
+  const bool same = o.identified ? (o.ack_member == f.member && o.ack_incarnation == f.incarnation)
+                    : o.synced    ? (o.sync_member == f.member && o.sync_incarnation == f.incarnation)
+                                  : true;
+  if (!names_cur || !same) {
+    ++ctr_.syncs_stale;
+    return;
+  }
+  u64 r = fr.source.lo;
+  if (r > o.pushed) {  // cannot have received more than we pushed on it
+    ++ctr_.sync_r_anomalies;
+    r = o.pushed;
+  }
+  Entry& e = ent(f.link, f.member);
+  const u64 before = e.count;
+  const u64 after = fr.target.hi + (o.pushed - r);
+  set_count(e, after);
+  ctr_.sync_correction += before > after ? before - after : after - before;
+  ++ctr_.syncs_exact;
+  if (debug_sync_probe) {
+    debug_sync_probe(SyncProbe{false, o.conn, o.conn_seq, fr.target.hi, r, o.pushed, before, after, 0});
+  }
+  if (!o.synced) {
+    o.synced = true;
+    o.sync_member = f.member;
+    o.sync_incarnation = f.incarnation;
+    try_bind(f.link);
+  }
 }
 
 bool NodeLinks::flush(u32 i, u64 now_ns) {
@@ -558,7 +729,8 @@ bool NodeLinks::accept_hello(u32 i, const HelloV2& h) {
   connected_ = true;
   in.group = h.group;
   in.shard = h.shard;
-  in.from = From{l, h.member, h.incarnation, h.conn};
+  in.from = From{l, h.member, h.incarnation, h.conn, h.conn_seq, ent(l, h.member).serial};
+  ent(l, h.member).sync_owed = true;  // a new Hello from it (2.5)
   // Its earlier connection, if still open, goes with whatever it has not
   // delivered: frames from one instance must not run out of the order it
   // sent them in (a credit overtaking its own forget would credit twice,
@@ -584,6 +756,18 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
         if (kind(f) == HEARTBEAT) {
           on_heartbeat(i, f, now_ns_);
           continue;
+        }
+        if (kind(f) == SYNC) {
+          if (opt_.accounting) on_sync(i, f);
+          continue;
+        }
+        if (kind(f) != DATA) {
+          ++ctr_.ignored_frames;
+          continue;
+        }
+        if (opt_.accounting && (flags(f) & COUNTED_BY_SENDER)) {
+          ++in.rx;
+          ++ent(in.from.link, in.from.member).held_for;
         }
         --budget;
         on_frame(ctx, in.from, f);
@@ -703,7 +887,8 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
         const u8* p = reinterpret_cast<const u8*>(&h);
         o.buf.assign(p, p + sizeof(h));
         o.off = 0;
-        connected_ = true;
+        // Resume runs at binding with accounting (2.4); without it, at connect.
+        if (!opt_.accounting) connected_ = true;
         ++connects_;
       } else if (o.state == Out::State::UP) {
         // The peer sends one HelloAck and nothing else: anything more,
@@ -712,6 +897,7 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
       }
     }
   }
+  if (opt_.accounting) push_syncs();
   for (u32 i = 0; i < out_.size(); ++i) busy |= flush(i, now_ns);
   return busy;
 }

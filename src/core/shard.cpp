@@ -1818,8 +1818,7 @@ void Shard::start_links() {
 // to the owner. route_emit drops it if it is stale (Shard::stale).
 void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLinks::Frame& f) {
   auto* s = static_cast<Shard*>(ctx);
-  (void)from;
-  if (NodeLinks::kind(f) != NodeLinks::DATA) return;  // control frames: D.2 accounting
+  if (NodeLinks::kind(f) != NodeLinks::DATA) return;  // control frames are the links' own
   ++s->stats_.node_emits_received;
   const u32 mine = static_cast<u32>(s->cluster_->epoch);
   const bool newer = f.epoch > mine;
@@ -1845,6 +1844,13 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLink
   // (3.6); its exchange belongs to no shard of this node (D.2).
   e.origin = kNoShard;
   e.link_held = true;
+  if (NodeLinks::flags(f) & NodeLinks::COUNTED_BY_SENDER) {
+    // Counted at its origin by the instance that sent it (2.6): tagged.
+    e.tagged = true;
+    e.peer_link = from.link;
+    e.peer_member = from.member;
+    e.peer_serial = from.serial;
+  }
   if (++s->link_held_ > s->stats_.link_held_peak) s->stats_.link_held_peak = s->link_held_;
   if (newer) {
     // Whatever we still run from older maps must run first: a follow-up
@@ -3047,8 +3053,9 @@ bool Shard::run_emits() {
   for (u32 i = 0; i < emit_node_.size(); ++i) {
     Fifo<Emit>& q = emit_node_[i];
     if (q.empty()) continue;
-    if (!links_->up(i)) {
-      // Lost with the link: re-emitted when it comes back up.
+    if (!links_->ready(i)) {
+      // Lost with the link, or the link is not bound (D.2, 2.4: down for
+      // queueing): re-emitted when it comes back up, or at the binding.
       stats_.node_emits_dropped += q.size();
       emit_ready_count_ -= q.size();
       while (!q.empty()) {
@@ -3068,7 +3075,11 @@ bool Shard::run_emits() {
       f.len = e.len;
       f.epoch = e.epoch;
       std::memcpy(f.args, e.args, e.len);
-      links_->push(i, f);
+      if (links_->accounting() && e.origin == id_) {
+        links_->push_counted(i, f);  // this shard's exchange: counted until it ends (D.2, 2.6)
+      } else {
+        links_->push(i, f);
+      }
       // Leaving the node ends its exchange here (D.1, 3.9.3).
       release_link(e);
       end_exchange(e.origin);
