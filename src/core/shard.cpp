@@ -1787,7 +1787,10 @@ void Shard::resume_all(u64 lsn) { owe_resume(lsn, -1); }
 
 void Shard::start_links() {
   if (cluster_ == nullptr || links_) return;
-  links_ = std::make_unique<NodeLinks>(*cluster_, group_, member_, id_);
+  NodeLinks::Options o;
+  o.member = member_;
+  o.accounting = xnode_.accounting;
+  links_ = std::make_unique<NodeLinks>(*cluster_, group_, id_, o);
   emit_node_.resize(links_->size());
 }
 
@@ -1797,8 +1800,10 @@ void Shard::start_links() {
 // the target is not ours, the sender is behind: drop it; the sender
 // refreshes too (it polls), and its resume pass after the refresh sends it
 // to the owner. route_emit drops it if it is stale (Shard::stale).
-void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
+void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLinks::Frame& f) {
   auto* s = static_cast<Shard*>(ctx);
+  (void)from;
+  if (NodeLinks::kind(f) != NodeLinks::DATA) return;  // control frames: D.2 accounting
   ++s->stats_.node_emits_received;
   const u32 mine = static_cast<u32>(s->cluster_->epoch);
   const bool newer = f.epoch > mine;

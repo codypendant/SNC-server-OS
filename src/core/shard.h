@@ -208,6 +208,11 @@ class Shard {
     u32 link_hold_max = 1024;  // L; 0: never pause
   };
   void set_intake(const Intake& in, FollowupBoard* board);
+  // Cross-node exchange accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md, D.2).
+  struct Xnode {
+    bool accounting = true;  // SNC_XNODE_ACCOUNTING; off: D.1 counting on the v2 wire
+  };
+  void set_xnode(const Xnode& x) { xnode_ = x; }
   u64 followup_wal_cap() const { return wal_cap_; }
   // Tests only: a resume trigger, as a link coming up (slot -1) or a slot
   // becoming served would make (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.2).
@@ -577,7 +582,7 @@ class Shard {
   // Runs every object's resume hook; what they emit waits for `lsn`.
   void resume_all(u64 lsn);
   bool poll_links();
-  static void on_link_frame(void* ctx, const NodeLinks::Frame& f);
+  static void on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLinks::Frame& f);
   void start_sender(const std::string& data_dir, u64 next_lsn);
 
   // Dispatch.
@@ -813,6 +818,7 @@ class Shard {
   std::vector<u32> moved_at_;
   u16 group_ = 0, member_ = 0;
   std::unique_ptr<NodeLinks> links_;
+  Xnode xnode_;
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
   // Stage chains (S1): per slot, the running chain's (token, move); and

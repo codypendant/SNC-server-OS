@@ -103,6 +103,9 @@ void hook_init(void* user) {
     in.owner_gate = c.owner_followup_gate;
     in.link_hold_max = c.link_hold_max;
     s->set_intake(in, h->intake);
+    Shard::Xnode x;
+    x.accounting = c.xnode_accounting;
+    s->set_xnode(x);
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
@@ -490,11 +493,18 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     const bool on = v == "on";
     cfg_.followup_wal_gate = cfg_.exchange_gate = cfg_.owner_followup_gate = on;
     if (!on) cfg_.followup_window = cfg_.link_hold_max = 0;
+    if (!on) cfg_.xnode_accounting = false;
     std::fprintf(stderr, "snc: SNC_FOLLOWUP_INTAKE=%s overrides the follow-up intake gates\n", v.c_str());
   }
   env_u32("SNC_FOLLOWUP_WINDOW", 1u << 20, cfg_.followup_window);
   env_u32("SNC_EXCHANGE_BUDGET", 1u << 24, cfg_.exchange_budget);
   env_u32("SNC_LINK_HOLD_MAX", 1u << 24, cfg_.link_hold_max);
+  if (const char* e = std::getenv("SNC_XNODE_ACCOUNTING"); e != nullptr && e[0] != '\0') {
+    const std::string v = e;
+    if (v != "off" && v != "on") throw std::invalid_argument("SNC_XNODE_ACCOUNTING must be on or off");
+    cfg_.xnode_accounting = v == "on";
+    std::fprintf(stderr, "snc: SNC_XNODE_ACCOUNTING=%s overrides cross-node accounting\n", v.c_str());
+  }
   register_session_type();
   register_slot_state_type();
   if (cfg_.exchange_gate && cfg_.exchange_budget == 0) {

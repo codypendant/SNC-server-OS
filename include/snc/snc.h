@@ -568,6 +568,11 @@ class Engine {
     // holds this many follow-ups that came over them, until half drain;
     // 0 = never pause.
     u32 link_hold_max = 1024;
+    // Cross-node exchange accounting (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md):
+    // a cross-node exchange stays live at its origin until it ends.
+    // SNC_XNODE_ACCOUNTING=off (or SNC_FOLLOWUP_INTAKE=off) restores D.1
+    // counting on the v2 wire. It must match on every node of a cluster.
+    bool xnode_accounting = true;
   };
 
   explicit Engine(const Config& cfg);
