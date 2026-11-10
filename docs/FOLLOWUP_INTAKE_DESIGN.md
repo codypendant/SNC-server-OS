@@ -633,8 +633,9 @@ Where the code differs from, or adds detail to, the text above:
   `followups_staged_peak`, `window_waits`, `window_outstanding`,
   `link_held_now`, `link_held_peak`, `link_pauses`, `resume_passes`,
   `resume_triggers`, `resume_coalesced`, `resume_restarts`,
-  `resume_objects`, `resume_active`, `resume_owed`. They are not yet in
-  the gauge snapshot or `snc-admin` (no new gauge slots in D.1).
+  `resume_objects`, `resume_active`, `resume_owed`. Since the closure
+  PR they are also published in each shard's gauge block and on the
+  admin `GAUGES` line (3.9.7).
 - **Older tests.** X's default (1,024) equals `kEmitBacklog`, so X now
   refuses an exchange-producing client before the S1 backlog gate does.
   The S1 tests that characterize the backlog gate (`test_gauges` T1,
@@ -669,7 +670,51 @@ N7b at F1, which it passed: with the WAL held the gate never reopens
 while items are staged. F17 was added to catch it; attempt 3 is the
 complete run.) Not run as
 mutations: N3, N5, N11 (F10 checks each contract message directly) and
-N12. P1 (performance) is not run in D.1.
+N12. P1 (performance) was not run in the D.1 PR; it is in the closure
+PR (3.9.7).
+
+#### 3.9.7 D.1 closure (PR #87 review)
+
+The review approved the D.1 core and held D.1's completion on three
+items (`docs/handoff/PR87_D1_Review.txt`):
+
+- **Witness "primary up" race, fixed.** `snc_witness` printed "primary
+  up" only when its own proposal learned the space. A witness that
+  learned the chosen space from a peer's COMMIT before it first reached
+  a node skipped that branch, and its first poll of the serving primary
+  printed nothing: its `announced` term was still unset. A harness
+  waiting for the line then timed out (release run 3 of the D.1
+  validation). The witness now prints the line once, from whichever
+  path first sees the space served.
+  - The regression test is `test_health` T12: the witness's paths to
+    both nodes start cut (two proxies), it learns the space from its
+    peers (checked with `READ ha/0`), the paths heal, and it must print
+    the line exactly once.
+  - It is deterministic. The old witness fails it 3 of 3 times; the
+    fixed one passes 3 of 3.
+- **Operability.** Each shard's gauge block (`include/snc/gauges.h`,
+  `intake_*`) carries the effective settings and the state, and the
+  admin `GAUGES` line prints them as `s<N>.intake_*`:
+  - *Settings:* H and R in bytes, W, X, L, and each gate's on/off.
+  - *State and counters:*
+    - gate open, and the count of applies the gate stopped;
+    - exchange and owner refusals;
+    - exchanges live, live peak, started and ended;
+    - staged now and peak;
+    - window outstanding and window waits;
+    - link held now and peak, paused, and pauses;
+    - the resume scan's active and owed flags, and its pass, trigger,
+      coalesced, restart and object counts.
+  - They are published from counters the shard already keeps. Nothing
+    it decides by is changed: exchanges live is read as `stats()` reads
+    it, not through the cache that `exchange_full` uses.
+  - Tests: `test_intake` F12 (every gauge against the shard's counters,
+    while saturated and after it drains), F8 (link hold) and G2
+    (rollback reports every gate off); `test_gauges_admin` T8d (the
+    admin line, with W and X set by environment).
+- **P1.** The preregistered regression matrix, on the dev VM, against
+  rollback. It is a regression check only; no default changes. See
+  `bench/results/intake-d1-closure-devvm-20261110/p1/`.
 
 ## 4. Cap semantics
 

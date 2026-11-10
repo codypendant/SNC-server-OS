@@ -1,0 +1,1640 @@
+=== rep 0 uniform w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.26s (383715 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 441, follow-ups/op 1.50, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 147162  (73581 per shard)  errors 0
+  latency ns  p50 360448  p95 589824  p99 966656  p99.9 3276800
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3043574 records, 933.2 MiB written (17% padding), 68209 flushes (44.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 16123; segment opens on shard 0, longest rollover 83 us
+checkpoint: 100000 objects, 24.4 MiB in 0.59s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 cross w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (458018 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 157583, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 130246  (65123 per shard)  errors 0
+  latency ns  p50 376832  p95 655360  p99 1179648  p99.9 3407872
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3226105 records, 992.5 MiB written (14% padding), 60777 flushes (53.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 123249; segment opens on shard 0, longest rollover 121 us
+checkpoint: 100000 objects, 24.4 MiB in 0.57s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 uniform w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (493188 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 151118  (75559 per shard)  errors 0
+  latency ns  p50 352256  p95 557056  p99 917504  p99.9 3604480
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3122875 records, 955.1 MiB written (16% padding), 69077 flushes (45.2 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6460; segment opens on shard 0, longest rollover 85 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 cross w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (457952 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142629  (71315 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 917504  p99.9 2949120
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3523360 records, 1084.9 MiB written (14% padding), 64742 flushes (54.4 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20626; segment opens on shard 0, longest rollover 89 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 cross w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (406010 creates/s), RSS 506.6 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 55971, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 140902  (70451 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 933888  p99.9 3014656
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3481888 records, 1074.6 MiB written (14% padding), 64601 flushes (53.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22637; segment opens on shard 0, longest rollover 97 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 uniform w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.18s (562219 creates/s), RSS 506.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 152837  (76418 per shard)  errors 0
+  latency ns  p50 344064  p95 557056  p99 851968  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3157293 records, 969.0 MiB written (17% padding), 70647 flushes (44.7 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 7259; segment opens on shard 0, longest rollover 98 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 uniform w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (469000 creates/s), RSS 507.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 149396  (74698 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 933888  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3088471 records, 940.7 MiB written (16% padding), 66600 flushes (46.4 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20907; segment opens on shard 0, longest rollover 90 us
+checkpoint: 100000 objects, 24.4 MiB in 0.59s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 uniform w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (410325 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 1270, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142648  (71324 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 901120  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2952827 records, 904.9 MiB written (16% padding), 66219 flushes (44.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 5928; segment opens on shard 0, longest rollover 99 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 cross rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (478637 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145183  (72592 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 917504  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 3008
+wal: 3584608 records, 1101.8 MiB written (14% padding), 65267 flushes (54.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6555; segment opens on shard 0, longest rollover 313 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 0 cross w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (459961 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 138961  (69481 per shard)  errors 0
+  latency ns  p50 401408  p95 638976  p99 966656  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3435232 records, 1060.7 MiB written (15% padding), 64018 flushes (53.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 21446; segment opens on shard 0, longest rollover 142 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 cross w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (440192 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 7479, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 130278  (65139 per shard)  errors 0
+  latency ns  p50 417792  p95 671744  p99 1032192  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3226870 records, 1014.1 MiB written (16% padding), 62551 flushes (51.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 23770; segment opens on shard 0, longest rollover 125 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 uniform w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (465968 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 518, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 146420  (73210 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 819200  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3028687 records, 925.8 MiB written (16% padding), 67421 flushes (44.9 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 5305; segment opens on shard 0, longest rollover 82 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 cross w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (433433 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 4552, follow-ups/op 3.00, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143877  (71939 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 901120  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3553315 records, 1100.9 MiB written (15% padding), 66308 flushes (53.6 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 16126; segment opens on shard 0, longest rollover 88 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 uniform w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (465564 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 152682  (76341 per shard)  errors 0
+  latency ns  p50 352256  p95 557056  p99 802816  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3154299 records, 960.7 MiB written (16% padding), 68034 flushes (46.4 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 3385; segment opens on shard 0, longest rollover 107 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 uniform w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (427894 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153510  (76755 per shard)  errors 0
+  latency ns  p50 352256  p95 557056  p99 786432  p99.9 2293760
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3170735 records, 971.5 MiB written (16% padding), 70204 flushes (45.2 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 4651; segment opens on shard 0, longest rollover 92 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 uniform rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (479004 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 155172  (77586 per shard)  errors 0
+  latency ns  p50 335872  p95 557056  p99 819200  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 92
+wal: 3204113 records, 978.9 MiB written (16% padding), 70492 flushes (45.5 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 15788; segment opens on shard 0, longest rollover 84 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 0 cross w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (477822 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 40962, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 133787  (66894 per shard)  errors 0
+  latency ns  p50 409600  p95 638976  p99 917504  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3311128 records, 1046.9 MiB written (17% padding), 64718 flushes (51.2 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4218; segment opens on shard 0, longest rollover 114 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 0 cross w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (490322 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 1728, follow-ups/op 3.00, settled 5.0 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144604  (72302 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 901120  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3570976 records, 1101.9 MiB written (14% padding), 65853 flushes (54.2 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 7369; segment opens on shard 0, longest rollover 105 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 cross w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (516039 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 30624, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143358  (71679 per shard)  errors 0
+  latency ns  p50 368640  p95 606208  p99 917504  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3540832 records, 1099.1 MiB written (15% padding), 66362 flushes (53.4 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 24504; segment opens on shard 0, longest rollover 105 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 uniform w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (497041 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 152521  (76260 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 786432  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3150964 records, 956.0 MiB written (16% padding), 66685 flushes (47.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 4101; segment opens on shard 0, longest rollover 88 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 0 cross no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (469529 creates/s), RSS 508.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 6.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 135968  (67984 per shard)  errors 0
+  latency ns  p50 401408  p95 655360  p99 950272  p99.9 2949120
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3363328 records, 1034.7 MiB written (14% padding), 61490 flushes (54.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 23187; segment opens on shard 0, longest rollover 101 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 0 uniform no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (490243 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 150750  (75375 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 819200  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3115734 records, 944.3 MiB written (16% padding), 65508 flushes (47.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 21716; segment opens on shard 0, longest rollover 95 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 uniform w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (486429 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143525  (71763 per shard)  errors 0
+  latency ns  p50 360448  p95 638976  p99 950272  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2971232 records, 907.1 MiB written (16% padding), 65156 flushes (45.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20881; segment opens on shard 0, longest rollover 95 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 cross no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (401054 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 26528, follow-ups/op 3.00, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 128394  (64197 per shard)  errors 0
+  latency ns  p50 417792  p95 704512  p99 1048576  p99.9 3080192
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3181696 records, 979.3 MiB written (14% padding), 58273 flushes (54.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 13602; segment opens on shard 0, longest rollover 106 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 cross w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (403282 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 33823, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 129497  (64749 per shard)  errors 0
+  latency ns  p50 417792  p95 671744  p99 999424  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3208192 records, 992.5 MiB written (15% padding), 59661 flushes (53.8 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6634; segment opens on shard 0, longest rollover 157 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 cross w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (508875 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 15852, follow-ups/op 3.00, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 133621  (66811 per shard)  errors 0
+  latency ns  p50 409600  p95 638976  p99 901120  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3307171 records, 1026.1 MiB written (15% padding), 62317 flushes (53.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 7525; segment opens on shard 0, longest rollover 144 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 uniform no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (493511 creates/s), RSS 507.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 141620  (70810 per shard)  errors 0
+  latency ns  p50 376832  p95 638976  p99 999424  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2932903 records, 891.3 MiB written (16% padding), 62665 flushes (46.8 records/flush), 14 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 10060; segment opens on shard 0, longest rollover 107 us
+checkpoint: 100000 objects, 24.4 MiB in 0.52s, 12 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 cross w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (484424 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 137326  (68663 per shard)  errors 0
+  latency ns  p50 401408  p95 622592  p99 933888  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3396064 records, 1049.9 MiB written (15% padding), 63007 flushes (53.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 7046; segment opens on shard 0, longest rollover 106 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 uniform w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (396356 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 1671, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144345  (72172 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 884736  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2986621 records, 913.2 MiB written (16% padding), 67208 flushes (44.4 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 15461; segment opens on shard 0, longest rollover 90 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 cross rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (401327 creates/s), RSS 507.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 133810  (66905 per shard)  errors 0
+  latency ns  p50 409600  p95 655360  p99 950272  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3311584 records, 1024.3 MiB written (15% padding), 61758 flushes (53.6 records/flush), 17 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 14942; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 15 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 1 cross w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (417550 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 5.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 139776  (69888 per shard)  errors 0
+  latency ns  p50 385024  p95 638976  p99 950272  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3454912 records, 1076.5 MiB written (15% padding), 65679 flushes (52.6 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 7670; segment opens on shard 0, longest rollover 99 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 uniform rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (416815 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 147886  (73943 per shard)  errors 0
+  latency ns  p50 352256  p95 589824  p99 868352  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3058307 records, 931.9 MiB written (16% padding), 66276 flushes (46.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22576; segment opens on shard 0, longest rollover 90 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 1 uniform w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (486141 creates/s), RSS 506.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 6.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153925  (76963 per shard)  errors 0
+  latency ns  p50 344064  p95 540672  p99 770048  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3179155 records, 978.8 MiB written (17% padding), 72730 flushes (43.7 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 21462; segment opens on shard 0, longest rollover 98 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 cross w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (501030 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 29527, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 139094  (69547 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 950272  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3438466 records, 1066.6 MiB written (15% padding), 66277 flushes (51.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8969; segment opens on shard 0, longest rollover 132 us
+checkpoint: 100000 objects, 24.4 MiB in 0.85s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 cross w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (450613 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142050  (71025 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 966656  p99.9 2949120
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3509440 records, 1079.0 MiB written (14% padding), 64078 flushes (54.8 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 10652; segment opens on shard 0, longest rollover 88 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 uniform w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (511132 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 170, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 146121  (73060 per shard)  errors 0
+  latency ns  p50 360448  p95 589824  p99 933888  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3022861 records, 923.9 MiB written (16% padding), 67080 flushes (45.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 21964; segment opens on shard 0, longest rollover 94 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 uniform w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (463603 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 148112  (74056 per shard)  errors 0
+  latency ns  p50 360448  p95 589824  p99 835584  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3062807 records, 944.2 MiB written (17% padding), 70719 flushes (43.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 6412; segment opens on shard 0, longest rollover 181 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 uniform w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (520771 creates/s), RSS 506.6 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 151378  (75689 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 868352  p99.9 2293760
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3128132 records, 953.9 MiB written (16% padding), 68081 flushes (45.9 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 10172; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 uniform w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (520545 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 80, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 152278  (76139 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 851968  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3146182 records, 958.1 MiB written (16% padding), 68081 flushes (46.2 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 23492; segment opens on shard 0, longest rollover 95 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 cross w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (492793 creates/s), RSS 506.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 58528, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 139518  (69759 per shard)  errors 0
+  latency ns  p50 376832  p95 638976  p99 966656  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3448576 records, 1057.7 MiB written (14% padding), 64505 flushes (53.5 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 9258; segment opens on shard 0, longest rollover 86 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 1 cross w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (487005 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 5618, follow-ups/op 3.00, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 138838  (69419 per shard)  errors 0
+  latency ns  p50 393216  p95 655360  p99 1015808  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3432352 records, 1060.2 MiB written (15% padding), 63448 flushes (54.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22758; segment opens on shard 0, longest rollover 105 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 cross w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (539032 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 8832, follow-ups/op 3.00, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 141399  (70699 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 884736  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3493792 records, 1077.7 MiB written (14% padding), 64467 flushes (54.2 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 13509; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 1 uniform w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (473724 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 148180  (74090 per shard)  errors 0
+  latency ns  p50 360448  p95 589824  p99 917504  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3064181 records, 926.6 MiB written (15% padding), 63434 flushes (48.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20575; segment opens on shard 0, longest rollover 189 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 1 uniform w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (485587 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 141666  (70833 per shard)  errors 0
+  latency ns  p50 368640  p95 622592  p99 901120  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2933794 records, 896.4 MiB written (16% padding), 64695 flushes (45.3 records/flush), 15 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 11063; segment opens on shard 0, longest rollover 126 us
+checkpoint: 100000 objects, 24.4 MiB in 0.57s, 13 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 uniform w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.27s (371822 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 147077  (73539 per shard)  errors 0
+  latency ns  p50 360448  p95 589824  p99 835584  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3042004 records, 927.1 MiB written (16% padding), 66052 flushes (46.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20452; segment opens on shard 0, longest rollover 80 us
+checkpoint: 100000 objects, 24.4 MiB in 0.58s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 uniform w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (462631 creates/s), RSS 507.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 150125  (75063 per shard)  errors 0
+  latency ns  p50 352256  p95 557056  p99 835584  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3102893 records, 947.1 MiB written (16% padding), 67942 flushes (45.7 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8875; segment opens on shard 0, longest rollover 115 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 uniform rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (430412 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 149072  (74536 per shard)  errors 0
+  latency ns  p50 360448  p95 573440  p99 835584  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 101
+wal: 3081843 records, 939.5 MiB written (16% padding), 67141 flushes (45.9 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4913; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 2 cross w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (443682 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 60117, follow-ups/op 3.00, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 132432  (66216 per shard)  errors 0
+  latency ns  p50 409600  p95 655360  p99 917504  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3278608 records, 1041.5 MiB written (17% padding), 64505 flushes (50.8 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6766; segment opens on shard 0, longest rollover 108 us
+checkpoint: 100000 objects, 24.4 MiB in 0.74s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 uniform w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (498276 creates/s), RSS 508.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 19, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144818  (72409 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 868352  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2996819 records, 915.1 MiB written (16% padding), 66617 flushes (45.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4395; segment opens on shard 0, longest rollover 150 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 cross w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (446119 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 27720, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 136888  (68444 per shard)  errors 0
+  latency ns  p50 393216  p95 638976  p99 950272  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3385576 records, 1041.4 MiB written (14% padding), 63451 flushes (53.4 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 16992; segment opens on shard 0, longest rollover 114 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 cross rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (457202 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 132026  (66013 per shard)  errors 0
+  latency ns  p50 409600  p95 671744  p99 999424  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3268864 records, 1012.8 MiB written (15% padding), 60956 flushes (53.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22887; segment opens on shard 0, longest rollover 99 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 2 cross no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (489493 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 47968, follow-ups/op 3.00, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 137499  (68750 per shard)  errors 0
+  latency ns  p50 385024  p95 638976  p99 966656  p99.9 3145728
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 32
+wal: 3400288 records, 1051.1 MiB written (15% padding), 62921 flushes (54.0 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 23337; segment opens on shard 0, longest rollover 79 us
+checkpoint: 100000 objects, 24.4 MiB in 0.73s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 uniform w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (409173 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145229  (72614 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 884736  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3005099 records, 912.8 MiB written (16% padding), 63878 flushes (47.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22725; segment opens on shard 0, longest rollover 90 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 cross w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (412448 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 136212  (68106 per shard)  errors 0
+  latency ns  p50 401408  p95 638976  p99 966656  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3369376 records, 1041.6 MiB written (15% padding), 62596 flushes (53.8 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4196; segment opens on shard 0, longest rollover 81 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 uniform w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (494761 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 69, follow-ups/op 1.50, settled 5.0 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142081  (71041 per shard)  errors 0
+  latency ns  p50 368640  p95 622592  p99 933888  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2942101 records, 904.6 MiB written (17% padding), 66930 flushes (44.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4363; segment opens on shard 0, longest rollover 102 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 cross w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (406969 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 11139, follow-ups/op 3.00, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 135089  (67545 per shard)  errors 0
+  latency ns  p50 401408  p95 655360  p99 933888  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3342307 records, 1035.6 MiB written (15% padding), 62460 flushes (53.5 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 11346; segment opens on shard 0, longest rollover 92 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 cross w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (489014 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 136970  (68485 per shard)  errors 0
+  latency ns  p50 401408  p95 622592  p99 884736  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3387520 records, 1052.4 MiB written (15% padding), 64047 flushes (52.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4467; segment opens on shard 0, longest rollover 120 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 uniform no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (443164 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 137783  (68891 per shard)  errors 0
+  latency ns  p50 385024  p95 655360  p99 999424  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2855904 records, 872.9 MiB written (16% padding), 62984 flushes (45.3 records/flush), 14 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 9536; segment opens on shard 0, longest rollover 95 us
+checkpoint: 100000 objects, 24.4 MiB in 0.51s, 12 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 uniform w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (506816 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 5.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 150323  (75161 per shard)  errors 0
+  latency ns  p50 352256  p95 573440  p99 851968  p99.9 2490368
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3107027 records, 952.7 MiB written (17% padding), 69058 flushes (45.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 22916; segment opens on shard 0, longest rollover 88 us
+checkpoint: 100000 objects, 24.4 MiB in 0.72s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 2 cross w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (501373 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143464  (71732 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 851968  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3543328 records, 1103.2 MiB written (15% padding), 67155 flushes (52.8 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 6692; segment opens on shard 0, longest rollover 88 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 cross w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (472298 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 18979, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 133818  (66909 per shard)  errors 0
+  latency ns  p50 401408  p95 638976  p99 983040  p99.9 2818048
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3311872 records, 1025.3 MiB written (15% padding), 62879 flushes (52.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22844; segment opens on shard 0, longest rollover 92 us
+checkpoint: 100000 objects, 24.4 MiB in 0.79s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 cross w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (476829 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 26888, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 140850  (70425 per shard)  errors 0
+  latency ns  p50 385024  p95 638976  p99 917504  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3480640 records, 1075.0 MiB written (15% padding), 64378 flushes (54.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 23415; segment opens on shard 0, longest rollover 109 us
+checkpoint: 100000 objects, 24.4 MiB in 0.72s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 uniform w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (413311 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145894  (72947 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 851968  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3018558 records, 921.6 MiB written (16% padding), 66186 flushes (45.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 5642; segment opens on shard 0, longest rollover 83 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 2 uniform w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (459070 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143326  (71663 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 917504  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2966953 records, 911.8 MiB written (17% padding), 67148 flushes (44.2 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 5407; segment opens on shard 0, longest rollover 113 us
+checkpoint: 100000 objects, 24.4 MiB in 0.59s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 uniform w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (539165 creates/s), RSS 507.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153033  (76517 per shard)  errors 0
+  latency ns  p50 344064  p95 573440  p99 835584  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3161276 records, 965.0 MiB written (16% padding), 69392 flushes (45.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4463; segment opens on shard 0, longest rollover 91 us
+checkpoint: 100000 objects, 24.4 MiB in 0.63s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 2 cross w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (443474 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 17056, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 138884  (69442 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 983040  p99.9 3014656
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3433504 records, 1062.0 MiB written (15% padding), 63742 flushes (53.9 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 14716; segment opens on shard 0, longest rollover 107 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 cross w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (460589 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 139244  (69622 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 950272  p99.9 2752512
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3442144 records, 1062.9 MiB written (15% padding), 63651 flushes (54.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 26273; segment opens on shard 0, longest rollover 672 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 cross w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (523698 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142916  (71458 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 884736  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3530176 records, 1098.5 MiB written (15% padding), 66469 flushes (53.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 5061; segment opens on shard 0, longest rollover 140 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 uniform w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (501600 creates/s), RSS 507.3 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 150394  (75197 per shard)  errors 0
+  latency ns  p50 352256  p95 589824  p99 851968  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3108430 records, 946.7 MiB written (16% padding), 67202 flushes (46.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 11924; segment opens on shard 0, longest rollover 97 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 cross no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (479652 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 14209, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 137021  (68511 per shard)  errors 0
+  latency ns  p50 401408  p95 655360  p99 917504  p99.9 2162688
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 864
+wal: 3388672 records, 1044.7 MiB written (14% padding), 62391 flushes (54.3 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 11645; segment opens on shard 0, longest rollover 221 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 cross w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (499442 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 46851, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144441  (72221 per shard)  errors 0
+  latency ns  p50 376832  p95 589824  p99 819200  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3566944 records, 1123.0 MiB written (16% padding), 69182 flushes (51.6 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 23215; segment opens on shard 0, longest rollover 121 us
+checkpoint: 100000 objects, 24.4 MiB in 0.71s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 3 uniform w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (470759 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 149121  (74560 per shard)  errors 0
+  latency ns  p50 360448  p95 573440  p99 819200  p99.9 2097152
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3082902 records, 939.5 MiB written (16% padding), 66842 flushes (46.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6921; segment opens on shard 0, longest rollover 87 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 uniform w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (393011 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 141503  (70752 per shard)  errors 0
+  latency ns  p50 376832  p95 622592  p99 917504  p99.9 3014656
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2930501 records, 891.8 MiB written (16% padding), 63121 flushes (46.4 records/flush), 14 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20405; segment opens on shard 0, longest rollover 89 us
+checkpoint: 100000 objects, 24.4 MiB in 0.54s, 12 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 uniform w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (453920 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143255  (71628 per shard)  errors 0
+  latency ns  p50 368640  p95 606208  p99 819200  p99.9 2293760
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2965622 records, 912.9 MiB written (17% padding), 67765 flushes (43.8 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 7934; segment opens on shard 0, longest rollover 82 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 cross rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (460146 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 6.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 140244  (70122 per shard)  errors 0
+  latency ns  p50 385024  p95 638976  p99 933888  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3466144 records, 1068.4 MiB written (14% padding), 63742 flushes (54.4 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4704; segment opens on shard 0, longest rollover 89 us
+checkpoint: 100000 objects, 24.4 MiB in 0.75s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 3 cross w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (533097 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 141462  (70731 per shard)  errors 0
+  latency ns  p50 393216  p95 606208  p99 884736  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3495712 records, 1087.8 MiB written (15% padding), 66302 flushes (52.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 15107; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 cross w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (451715 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144122  (72061 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 802816  p99.9 2293760
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3559168 records, 1091.6 MiB written (14% padding), 64739 flushes (55.0 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 21387; segment opens on shard 0, longest rollover 89 us
+checkpoint: 100000 objects, 24.4 MiB in 0.73s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 3 cross w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (409427 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 3.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 143138  (71569 per shard)  errors 0
+  latency ns  p50 393216  p95 589824  p99 802816  p99.9 1572864
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3535456 records, 1108.1 MiB written (16% padding), 68208 flushes (51.8 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 6458; segment opens on shard 0, longest rollover 106 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 uniform w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (504208 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 1051, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 155405  (77703 per shard)  errors 0
+  latency ns  p50 344064  p95 540672  p99 753664  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3208247 records, 971.5 MiB written (15% padding), 70712 flushes (45.4 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 26978; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 3 uniform w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (539159 creates/s), RSS 506.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 7.0 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 156682  (78341 per shard)  errors 0
+  latency ns  p50 335872  p95 540672  p99 770048  p99.9 1835008
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3235606 records, 993.3 MiB written (17% padding), 73090 flushes (44.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 24665; segment opens on shard 0, longest rollover 119 us
+checkpoint: 100000 objects, 24.4 MiB in 0.63s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 cross w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (485812 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 91694, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 121589  (60795 per shard)  errors 0
+  latency ns  p50 425984  p95 737280  p99 1277952  p99.9 4325376
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3018400 records, 932.1 MiB written (15% padding), 56448 flushes (53.5 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 16708; segment opens on shard 0, longest rollover 91 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 3 cross w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (477776 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 142809, follow-ups/op 3.00, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 146779  (73389 per shard)  errors 0
+  latency ns  p50 360448  p95 557056  p99 819200  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3622969 records, 1118.8 MiB written (15% padding), 68724 flushes (52.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 12722; segment opens on shard 0, longest rollover 171 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 3 uniform rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (490828 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153880  (76940 per shard)  errors 0
+  latency ns  p50 344064  p95 573440  p99 851968  p99.9 2162688
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3178361 records, 964.6 MiB written (16% padding), 67207 flushes (47.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 5608; segment opens on shard 0, longest rollover 96 us
+checkpoint: 100000 objects, 24.4 MiB in 0.63s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 3 uniform w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (491544 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 64, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153126  (76563 per shard)  errors 0
+  latency ns  p50 352256  p95 557056  p99 851968  p99.9 2293760
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3162975 records, 971.0 MiB written (17% padding), 71986 flushes (43.9 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 6225; segment opens on shard 0, longest rollover 80 us
+checkpoint: 100000 objects, 24.4 MiB in 0.64s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 3 uniform no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (438332 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 157632  (78816 per shard)  errors 0
+  latency ns  p50 344064  p95 524288  p99 770048  p99.9 1998848
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3253259 records, 989.5 MiB written (16% padding), 69822 flushes (46.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 5032; segment opens on shard 0, longest rollover 82 us
+checkpoint: 100000 objects, 24.4 MiB in 0.61s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 cross w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (426967 creates/s), RSS 507.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144267  (72134 per shard)  errors 0
+  latency ns  p50 376832  p95 606208  p99 901120  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3562528 records, 1097.8 MiB written (14% padding), 65516 flushes (54.4 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8251; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 uniform w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (533096 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 16854, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 148400  (74200 per shard)  errors 0
+  latency ns  p50 360448  p95 573440  p99 835584  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3068142 records, 946.1 MiB written (17% padding), 70576 flushes (43.5 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 18069; segment opens on shard 0, longest rollover 96 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 3 uniform w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.18s (554446 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 4686, follow-ups/op 1.50, settled 4.2 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153038  (76519 per shard)  errors 0
+  latency ns  p50 344064  p95 557056  p99 786432  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 19.9  ring-full events 0
+wal: 3159071 records, 967.1 MiB written (16% padding), 72701 flushes (43.5 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 26771; segment opens on shard 0, longest rollover 91 us
+checkpoint: 100000 objects, 24.4 MiB in 0.60s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 uniform w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (433854 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 319, follow-ups/op 1.50, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145795  (72898 per shard)  errors 0
+  latency ns  p50 360448  p95 622592  p99 933888  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3016273 records, 920.4 MiB written (16% padding), 68057 flushes (44.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 9983; segment opens on shard 0, longest rollover 115 us
+checkpoint: 100000 objects, 24.4 MiB in 0.63s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 uniform w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.25s (399230 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 148340  (74170 per shard)  errors 0
+  latency ns  p50 352256  p95 589824  p99 835584  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3067480 records, 935.3 MiB written (16% padding), 66671 flushes (46.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 19661; segment opens on shard 0, longest rollover 116 us
+checkpoint: 100000 objects, 24.4 MiB in 0.67s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 cross rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (484111 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.8 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 135379  (67689 per shard)  errors 0
+  latency ns  p50 401408  p95 671744  p99 999424  p99.9 2883584
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 128
+wal: 3349312 records, 1038.4 MiB written (15% padding), 62608 flushes (53.5 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8169; segment opens on shard 0, longest rollover 115 us
+checkpoint: 100000 objects, 24.4 MiB in 0.79s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 4 cross w64-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (412840 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142419  (71210 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 917504  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3518368 records, 1088.7 MiB written (15% padding), 65627 flushes (53.6 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 3963; segment opens on shard 0, longest rollover 102 us
+checkpoint: 100000 objects, 24.4 MiB in 0.73s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 cross w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (480286 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 3712, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142528  (71264 per shard)  errors 0
+  latency ns  p50 385024  p95 622592  p99 917504  p99.9 2621440
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3520867 records, 1084.7 MiB written (14% padding), 64839 flushes (54.3 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20688; segment opens on shard 0, longest rollover 122 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 4 cross w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (521593 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 146663  (73332 per shard)  errors 0
+  latency ns  p50 376832  p95 589824  p99 835584  p99.9 2228224
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3620416 records, 1110.3 MiB written (14% padding), 65680 flushes (55.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8244; segment opens on shard 0, longest rollover 86 us
+checkpoint: 100000 objects, 24.4 MiB in 0.70s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 4 uniform w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (487791 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 945, follow-ups/op 1.50, settled 4.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145287  (72644 per shard)  errors 0
+  latency ns  p50 368640  p95 622592  p99 901120  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3005751 records, 911.1 MiB written (16% padding), 65899 flushes (45.6 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 8253; segment opens on shard 0, longest rollover 113 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 uniform w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (450696 creates/s), RSS 507.2 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 144385  (72193 per shard)  errors 0
+  latency ns  p50 368640  p95 606208  p99 884736  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 2988225 records, 914.4 MiB written (16% padding), 65315 flushes (45.8 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 22397; segment opens on shard 0, longest rollover 93 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 uniform w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (495872 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 147254  (73627 per shard)  errors 0
+  latency ns  p50 368640  p95 573440  p99 786432  p99.9 2162688
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3045632 records, 934.1 MiB written (17% padding), 67986 flushes (44.8 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 23357; segment opens on shard 0, longest rollover 106 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 4 cross w16-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (527652 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 139005  (69503 per shard)  errors 0
+  latency ns  p50 393216  p95 638976  p99 884736  p99.9 2162688
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3436384 records, 1073.0 MiB written (15% padding), 65752 flushes (52.3 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 4816; segment opens on shard 0, longest rollover 89 us
+checkpoint: 100000 objects, 24.4 MiB in 0.69s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 cross w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (444906 creates/s), RSS 506.7 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 17615, follow-ups/op 3.00, settled 6.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 140077  (70039 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 901120  p99.9 3014656
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3462112 records, 1076.5 MiB written (15% padding), 65015 flushes (53.3 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 13649; segment opens on shard 0, longest rollover 96 us
+checkpoint: 100000 objects, 24.4 MiB in 0.72s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 uniform w256-x1024 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.24s (419858 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 153005  (76502 per shard)  errors 0
+  latency ns  p50 352256  p95 589824  p99 819200  p99.9 1572864
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3160748 records, 958.9 MiB written (16% padding), 66477 flushes (47.5 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 3464; segment opens on shard 0, longest rollover 102 us
+checkpoint: 100000 objects, 24.4 MiB in 0.65s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 cross w256-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (488561 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 21215, follow-ups/op 3.00, settled 4.7 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 142741  (71371 per shard)  errors 0
+  latency ns  p50 385024  p95 606208  p99 851968  p99.9 2686976
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3526129 records, 1079.8 MiB written (14% padding), 65209 flushes (54.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 3985; segment opens on shard 0, longest rollover 92 us
+checkpoint: 100000 objects, 24.4 MiB in 0.75s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 cross w64-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (482855 creates/s), RSS 507.6 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 121977, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145131  (72566 per shard)  errors 0
+  latency ns  p50 368640  p95 573440  p99 802816  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3583420 records, 1104.7 MiB written (14% padding), 66102 flushes (54.2 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20945; segment opens on shard 0, longest rollover 83 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 cross no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.21s (487200 creates/s), RSS 506.9 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 3.00, settled 4.9 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 148414  (74207 per shard)  errors 0
+  latency ns  p50 368640  p95 573440  p99 851968  p99.9 2424832
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3662176 records, 1131.4 MiB written (15% padding), 67753 flushes (54.1 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 6407; segment opens on shard 0, longest rollover 107 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 cross w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (502645 creates/s), RSS 507.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 54664, follow-ups/op 3.00, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 116790  (58395 per shard)  errors 0
+  latency ns  p50 458752  p95 786432  p99 1114112  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 2903176 records, 902.7 MiB written (15% padding), 57083 flushes (50.9 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 33816; segment opens on shard 0, longest rollover 115 us
+checkpoint: 100000 objects, 24.4 MiB in 0.72s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 uniform w64-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '64', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.22s (464150 creates/s), RSS 506.8 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 5.1 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 158791  (79396 per shard)  errors 0
+  latency ns  p50 335872  p95 557056  p99 802816  p99.9 1998848
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3276500 records, 998.1 MiB written (16% padding), 70907 flushes (46.2 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 7162; segment opens on shard 0, longest rollover 102 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=64 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 4 cross w16-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (521797 creates/s), RSS 507.0 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 34858, follow-ups/op 3.00, settled 4.6 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 146616  (73308 per shard)  errors 0
+  latency ns  p50 368640  p95 589824  p99 851968  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 3.00  msg payload bytes/op 40.0  ring-full events 0
+wal: 3618931 records, 1125.7 MiB written (15% padding), 68682 flushes (52.7 records/flush), 18 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 20994; segment opens on shard 0, longest rollover 138 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 16 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+
+=== rep 4 uniform rollback rc=0 env={'SNC_FOLLOWUP_INTAKE': 'off'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.18s (565972 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.3 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 157671  (78836 per shard)  errors 0
+  latency ns  p50 344064  p95 540672  p99 802816  p99.9 2064384
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3254111 records, 988.4 MiB written (16% padding), 69170 flushes (47.0 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 20593; segment opens on shard 0, longest rollover 106 us
+checkpoint: 100000 objects, 24.4 MiB in 0.63s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_INTAKE=off overrides the follow-up intake gates
+
+=== rep 4 uniform no-window rc=0 env={'SNC_FOLLOWUP_WINDOW': '0', 'SNC_EXCHANGE_BUDGET': '1024'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.19s (530118 creates/s), RSS 507.1 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.5 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 158051  (79026 per shard)  errors 0
+  latency ns  p50 335872  p95 557056  p99 851968  p99.9 2359296
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3261797 records, 995.5 MiB written (16% padding), 71309 flushes (45.7 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 3284; segment opens on shard 0, longest rollover 84 us
+checkpoint: 100000 objects, 24.4 MiB in 0.62s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=0 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=1024 overrides the configured value
+
+=== rep 4 uniform w16-x256 rc=0 env={'SNC_FOLLOWUP_WINDOW': '16', 'SNC_EXCHANGE_BUDGET': '256'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.23s (427139 creates/s), RSS 506.5 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 2241, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 145915  (72958 per shard)  errors 0
+  latency ns  p50 360448  p95 638976  p99 950272  p99.9 2555904
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3017731 records, 928.7 MiB written (17% padding), 68388 flushes (44.1 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <1024 max 12165; segment opens on shard 0, longest rollover 101 us
+checkpoint: 100000 objects, 24.4 MiB in 0.68s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=16 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=256 overrides the configured value
+
+=== rep 4 uniform w256-x4096 rc=0 env={'SNC_FOLLOWUP_WINDOW': '256', 'SNC_EXCHANGE_BUDGET': '4096'}
+snc_bench backend=native shards=2 pinned=2/2 durability=DURABLE (WAL, RWF_DSYNC)
+load: 100000 objects in 0.20s (499399 creates/s), RSS 507.4 B/object, heap 320.0 B/object, local maps 2.0 MiB
+pages: asked 4k, map 4k, heap 4k (arena 0 MiB/shard), spilled allocs 0
+transfers: 100% of ops, rejected 0, turned away 0, follow-ups/op 1.50, settled 4.4 ms after the run
+run: remote_target=0% reads=50% depth=32 seconds=8.00
+  ops/s 160309  (80154 per shard)  errors 0
+  latency ns  p50 335872  p95 524288  p99 753664  p99.9 2064384
+  local ops 100.0%  cross-shard msgs/op 1.50  msg payload bytes/op 20.0  ring-full events 0
+wal: 3306784 records, 1007.0 MiB written (16% padding), 71355 flushes (46.3 records/flush), 16 segments, O_DIRECT 2/2, group commit 50 us
+wal flush latency us (log2 bucket upper bound): p50 <256 p99 <512 max 14329; segment opens on shard 0, longest rollover 109 us
+checkpoint: 100000 objects, 24.4 MiB in 0.66s, 14 WAL segments deleted
+snc: SNC_FOLLOWUP_WINDOW=256 overrides the configured value
+snc: SNC_EXCHANGE_BUDGET=4096 overrides the configured value
+

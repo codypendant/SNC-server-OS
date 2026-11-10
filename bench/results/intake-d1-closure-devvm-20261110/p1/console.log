@@ -1,0 +1,134 @@
+rep 0 uniform w16-x256   rc=0 ops/s 147162 p99 966656 turned_away 441
+rep 0 cross   w256-x256  rc=0 ops/s 130246 p99 1179648 turned_away 157583
+rep 0 uniform w256-x1024 rc=0 ops/s 151118 p99 917504 turned_away 0
+rep 0 cross   w64-x4096  rc=0 ops/s 142629 p99 917504 turned_away 0
+rep 0 cross   w64-x256   rc=0 ops/s 140902 p99 933888 turned_away 55971
+rep 0 uniform w16-x1024  rc=0 ops/s 152837 p99 851968 turned_away 0
+rep 0 uniform w64-x1024  rc=0 ops/s 149396 p99 933888 turned_away 0
+rep 0 uniform w256-x256  rc=0 ops/s 142648 p99 901120 turned_away 1270
+rep 0 cross   rollback   rc=0 ops/s 145183 p99 917504 turned_away 0
+rep 0 cross   w16-x4096  rc=0 ops/s 138961 p99 966656 turned_away 0
+rep 0 cross   w16-x1024  rc=0 ops/s 130278 p99 1032192 turned_away 7479
+rep 0 uniform w64-x256   rc=0 ops/s 146420 p99 819200 turned_away 518
+rep 0 cross   w256-x4096 rc=0 ops/s 143877 p99 901120 turned_away 4552
+rep 0 uniform w256-x4096 rc=0 ops/s 152682 p99 802816 turned_away 0
+rep 0 uniform w16-x4096  rc=0 ops/s 153510 p99 786432 turned_away 0
+rep 0 uniform rollback   rc=0 ops/s 155172 p99 819200 turned_away 0
+rep 0 cross   w16-x256   rc=0 ops/s 133787 p99 917504 turned_away 40962
+rep 0 cross   w64-x1024  rc=0 ops/s 144604 p99 901120 turned_away 1728
+rep 0 cross   w256-x1024 rc=0 ops/s 143358 p99 917504 turned_away 30624
+rep 0 uniform w64-x4096  rc=0 ops/s 152521 p99 786432 turned_away 0
+rep 0 cross   no-window  rc=0 ops/s 135968 p99 950272 turned_away 0
+rep 0 uniform no-window  rc=0 ops/s 150750 p99 819200 turned_away 0
+rep 1 uniform w256-x4096 rc=0 ops/s 143525 p99 950272 turned_away 0
+rep 1 cross   no-window  rc=0 ops/s 128394 p99 1048576 turned_away 26528
+rep 1 cross   w64-x256   rc=0 ops/s 129497 p99 999424 turned_away 33823
+rep 1 cross   w16-x4096  rc=0 ops/s 133621 p99 901120 turned_away 15852
+rep 1 uniform no-window  rc=0 ops/s 141620 p99 999424 turned_away 0
+rep 1 cross   w64-x4096  rc=0 ops/s 137326 p99 933888 turned_away 0
+rep 1 uniform w16-x256   rc=0 ops/s 144345 p99 884736 turned_away 1671
+rep 1 cross   rollback   rc=0 ops/s 133810 p99 950272 turned_away 0
+rep 1 cross   w16-x1024  rc=0 ops/s 139776 p99 950272 turned_away 0
+rep 1 uniform rollback   rc=0 ops/s 147886 p99 868352 turned_away 0
+rep 1 uniform w16-x1024  rc=0 ops/s 153925 p99 770048 turned_away 0
+rep 1 cross   w16-x256   rc=0 ops/s 139094 p99 950272 turned_away 29527
+rep 1 cross   w256-x4096 rc=0 ops/s 142050 p99 966656 turned_away 0
+rep 1 uniform w64-x256   rc=0 ops/s 146121 p99 933888 turned_away 170
+rep 1 uniform w16-x4096  rc=0 ops/s 148112 p99 835584 turned_away 0
+rep 1 uniform w64-x1024  rc=0 ops/s 151378 p99 868352 turned_away 0
+rep 1 uniform w256-x256  rc=0 ops/s 152278 p99 851968 turned_away 80
+rep 1 cross   w256-x256  rc=0 ops/s 139518 p99 966656 turned_away 58528
+rep 1 cross   w64-x1024  rc=0 ops/s 138838 p99 1015808 turned_away 5618
+rep 1 cross   w256-x1024 rc=0 ops/s 141399 p99 884736 turned_away 8832
+rep 1 uniform w64-x4096  rc=0 ops/s 148180 p99 917504 turned_away 0
+rep 1 uniform w256-x1024 rc=0 ops/s 141666 p99 901120 turned_away 0
+rep 2 uniform w256-x1024 rc=0 ops/s 147077 p99 835584 turned_away 0
+rep 2 uniform w256-x4096 rc=0 ops/s 150125 p99 835584 turned_away 0
+rep 2 uniform rollback   rc=0 ops/s 149072 p99 835584 turned_away 0
+rep 2 cross   w16-x256   rc=0 ops/s 132432 p99 917504 turned_away 60117
+rep 2 uniform w64-x256   rc=0 ops/s 144818 p99 868352 turned_away 19
+rep 2 cross   w256-x1024 rc=0 ops/s 136888 p99 950272 turned_away 27720
+rep 2 cross   rollback   rc=0 ops/s 132026 p99 999424 turned_away 0
+rep 2 cross   no-window  rc=0 ops/s 137499 p99 966656 turned_away 47968
+rep 2 uniform w64-x1024  rc=0 ops/s 145229 p99 884736 turned_away 0
+rep 2 cross   w64-x4096  rc=0 ops/s 136212 p99 966656 turned_away 0
+rep 2 uniform w16-x256   rc=0 ops/s 142081 p99 933888 turned_away 69
+rep 2 cross   w256-x4096 rc=0 ops/s 135089 p99 933888 turned_away 11139
+rep 2 cross   w16-x1024  rc=0 ops/s 136970 p99 884736 turned_away 0
+rep 2 uniform no-window  rc=0 ops/s 137783 p99 999424 turned_away 0
+rep 2 uniform w16-x1024  rc=0 ops/s 150323 p99 851968 turned_away 0
+rep 2 cross   w16-x4096  rc=0 ops/s 143464 p99 851968 turned_away 0
+rep 2 cross   w64-x256   rc=0 ops/s 133818 p99 983040 turned_away 18979
+rep 2 cross   w256-x256  rc=0 ops/s 140850 p99 917504 turned_away 26888
+rep 2 uniform w256-x256  rc=0 ops/s 145894 p99 851968 turned_away 0
+rep 2 uniform w16-x4096  rc=0 ops/s 143326 p99 917504 turned_away 0
+rep 2 uniform w64-x4096  rc=0 ops/s 153033 p99 835584 turned_away 0
+rep 2 cross   w64-x1024  rc=0 ops/s 138884 p99 983040 turned_away 17056
+rep 3 cross   w256-x4096 rc=0 ops/s 139244 p99 950272 turned_away 0
+rep 3 cross   w64-x1024  rc=0 ops/s 142916 p99 884736 turned_away 0
+rep 3 uniform w64-x1024  rc=0 ops/s 150394 p99 851968 turned_away 0
+rep 3 cross   no-window  rc=0 ops/s 137021 p99 917504 turned_away 14209
+rep 3 cross   w16-x256   rc=0 ops/s 144441 p99 819200 turned_away 46851
+rep 3 uniform w64-x4096  rc=0 ops/s 149121 p99 819200 turned_away 0
+rep 3 uniform w256-x4096 rc=0 ops/s 141503 p99 917504 turned_away 0
+rep 3 uniform w16-x4096  rc=0 ops/s 143255 p99 819200 turned_away 0
+rep 3 cross   rollback   rc=0 ops/s 140244 p99 933888 turned_away 0
+rep 3 cross   w16-x4096  rc=0 ops/s 141462 p99 884736 turned_away 0
+rep 3 cross   w64-x4096  rc=0 ops/s 144122 p99 802816 turned_away 0
+rep 3 cross   w16-x1024  rc=0 ops/s 143138 p99 802816 turned_away 0
+rep 3 uniform w64-x256   rc=0 ops/s 155405 p99 753664 turned_away 1051
+rep 3 uniform w256-x1024 rc=0 ops/s 156682 p99 770048 turned_away 0
+rep 3 cross   w64-x256   rc=0 ops/s 121589 p99 1277952 turned_away 91694
+rep 3 cross   w256-x256  rc=0 ops/s 146779 p99 819200 turned_away 142809
+rep 3 uniform rollback   rc=0 ops/s 153880 p99 851968 turned_away 0
+rep 3 uniform w16-x256   rc=0 ops/s 153126 p99 851968 turned_away 64
+rep 3 uniform no-window  rc=0 ops/s 157632 p99 770048 turned_away 0
+rep 3 cross   w256-x1024 rc=0 ops/s 144267 p99 901120 turned_away 0
+rep 3 uniform w16-x1024  rc=0 ops/s 148400 p99 835584 turned_away 16854
+rep 3 uniform w256-x256  rc=0 ops/s 153038 p99 786432 turned_away 4686
+rep 4 uniform w256-x256  rc=0 ops/s 145795 p99 933888 turned_away 319
+rep 4 uniform w64-x1024  rc=0 ops/s 148340 p99 835584 turned_away 0
+rep 4 cross   rollback   rc=0 ops/s 135379 p99 999424 turned_away 0
+rep 4 cross   w64-x1024  rc=0 ops/s 142419 p99 917504 turned_away 0
+rep 4 cross   w64-x4096  rc=0 ops/s 142528 p99 917504 turned_away 3712
+rep 4 cross   w256-x4096 rc=0 ops/s 146663 p99 835584 turned_away 0
+rep 4 uniform w64-x256   rc=0 ops/s 145287 p99 901120 turned_away 945
+rep 4 uniform w16-x1024  rc=0 ops/s 144385 p99 884736 turned_away 0
+rep 4 uniform w16-x4096  rc=0 ops/s 147254 p99 786432 turned_away 0
+rep 4 cross   w16-x1024  rc=0 ops/s 139005 p99 884736 turned_away 0
+rep 4 cross   w256-x1024 rc=0 ops/s 140077 p99 901120 turned_away 17615
+rep 4 uniform w256-x1024 rc=0 ops/s 153005 p99 819200 turned_away 0
+rep 4 cross   w256-x256  rc=0 ops/s 142741 p99 851968 turned_away 21215
+rep 4 cross   w64-x256   rc=0 ops/s 145131 p99 802816 turned_away 121977
+rep 4 cross   no-window  rc=0 ops/s 148414 p99 851968 turned_away 0
+rep 4 cross   w16-x256   rc=0 ops/s 116790 p99 1114112 turned_away 54664
+rep 4 uniform w64-x4096  rc=0 ops/s 158791 p99 802816 turned_away 0
+rep 4 cross   w16-x4096  rc=0 ops/s 146616 p99 851968 turned_away 34858
+rep 4 uniform rollback   rc=0 ops/s 157671 p99 802816 turned_away 0
+rep 4 uniform no-window  rc=0 ops/s 158051 p99 851968 turned_away 0
+rep 4 uniform w16-x256   rc=0 ops/s 145915 p99 950272 turned_away 2241
+rep 4 uniform w256-x4096 rc=0 ops/s 160309 p99 753664 turned_away 0
+P1 follow-up intake matrix: 5 reps x 8.0s, shards 2, objects 100000
+cell: ops/s median [min..max]  ratio-to-rollback  p99 us median  turned-away median  bad runs
+uniform w16-x256      145915 [142081..153126]   0.948       934       441  0
+uniform w16-x1024     150323 [144385..153925]   0.977       852         0  0
+uniform w16-x4096     147254 [143255..153510]   0.957       819         0  0
+uniform w64-x256      146121 [144818..155405]   0.950       868       518  0
+uniform w64-x1024     149396 [145229..151378]   0.971       868         0  0
+uniform w64-x4096     152521 [148180..158791]   0.991       819         0  0
+uniform w256-x256     145894 [142648..153038]   0.948       852       319  0
+uniform w256-x1024    151118 [141666..156682]   0.982       836         0  0
+uniform w256-x4096    150125 [141503..160309]   0.976       836         0  0
+uniform no-window     150750 [137783..158051]   0.980       852         0  0
+uniform rollback      153880 [147886..157671]   1.000       836         0  0
+cross   w16-x256      133787 [116790..144441]   0.988       918     46851  0
+cross   w16-x1024     139005 [130278..143138]   1.027       885         0  0
+cross   w16-x4096     141462 [133621..146616]   1.045       885         0  0
+cross   w64-x256      133818 [121589..145131]   0.988       983     55971  0
+cross   w64-x1024     142419 [138838..144604]   1.052       918      1728  0
+cross   w64-x4096     142528 [136212..144122]   1.053       918         0  0
+cross   w256-x256     140850 [130246..146779]   1.040       918     58528  0
+cross   w256-x1024    141399 [136888..144267]   1.044       901     17615  0
+cross   w256-x4096    142050 [135089..146663]   1.049       934         0  0
+cross   no-window     137021 [128394..148414]   1.012       950     14209  0
+cross   rollback      135379 [132026..145183]   1.000       950         0  0
