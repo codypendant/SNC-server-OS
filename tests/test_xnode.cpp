@@ -821,6 +821,12 @@ void x18_timers() {
 void x22_unbound() {
   Net net;
   net.exchange_budget = 16;
+  // Long T_dead: B's Out connection to A is never reset in this test, so
+  // A accepts no new In from B, and the only resume A runs after the
+  // reconnect is its binding's (ND22).
+  net.dead_ms = 5000;
+  net.release_ms = 10000;
+  net.block_ms = 5000;
   net.build({{0, 0}, {1, 0}});
   net.px(0, 1).set(LinkProxy::PASS, LinkProxy::DROP);  // A's Out to B: no HelloAck ever reaches A
   net.start_all();
@@ -837,9 +843,13 @@ void x22_unbound() {
     purged = s.xnode_unbound_purged;
     CHECK(purged > 0);
     CHECK(aa.ok() > 0);  // intra-node work served
+    const u64 acc0 = net.px(1, 0).accepted();
+    const u64 r0 = net.nodes[0].eng->stats(0).node_resumes;
     net.px(0, 1).set(LinkProxy::PASS, LinkProxy::PASS);
     net.px(0, 1).cut();  // reconnect: the HelloAck goes through now
     wait_until([&] { return bound_to(*net.nodes[0].eng, 1, 0); }, "bound after acks resume");
+    wait_until([&] { return net.nodes[0].eng->stats(0).node_resumes > r0; }, "A resumed at its binding", 5);
+    CHECK_EQ(net.px(1, 0).accepted(), acc0);  // not from a new In: the binding's resume
   }
   settle(net, L, "X22");
   std::printf("X22 unbound link: no HelloAck, %llu roots for B purged while unbound, no counted DATA, live below X; "
@@ -1905,7 +1915,11 @@ MoveCounters move_counters(Net& net) {
 }
 
 // X8 slot move: a slot of A's moves to C under load between A and B (its
-// accounts among those transferred to and from).
+// accounts among those transferred to and from), and back, until a
+// cross-node follow-up has been misrouted (sent by a map the receiver no
+// longer holds) at least once: that disposition must end its item too
+// (ND2b). The race that produces one is hit in about 4 moves of 10, so
+// up to 20 moves are made.
 void x8_slot_move() {
   Net net;
   net.build({{0, 0}, {1, 0}, {2, 0}});
@@ -1917,24 +1931,31 @@ void x8_slot_move() {
   }, "bound");
   const u16 slot = slot_of(L.acc[0][0]);
   const MoveCounters m0 = move_counters(net);
-  {
-    Load ab(net, L, 0, 1), ba(net, L, 1, 0);
-    sleep_ms(200);
-    move_slot(net, slot, 0, 2, 0x81);
-    sleep_ms(300);
+  u16 at = 0;
+  int moves = 0;
+  for (; moves < 20 && (moves == 0 || move_counters(net).misrouted == m0.misrouted); ++moves) {
+    const u16 to = at == 0 ? 2 : 0;
+    {
+      Load ab(net, L, at, 1), ba(net, L, 1, at);
+      sleep_ms(200);
+      move_slot(net, slot, at, to, 0x81 + static_cast<u64>(moves));
+      sleep_ms(300);
+    }
+    ledger_move(L, slot, at, to);
+    at = to;
   }
-  ledger_move(L, slot, 0, 2);
   {
-    Load cb(net, L, 2, 1), bc(net, L, 1, 2);  // the moved accounts serve from C
+    Load cb(net, L, at, 1), bc(net, L, 1, at);  // the moved accounts serve from where they are now
     sleep_ms(200);
   }
   settle(net, L, "X8");
   const MoveCounters m = move_counters(net);
-  std::printf("X8 slot move: slot %u moved A -> C under load; drops to resume %llu, hand-off drops %llu, "
-              "misrouted %llu, ENDs sent %llu; settled, money conserved, counts 0\n",
-              slot, (unsigned long long)(m.drops_to_resume - m0.drops_to_resume),
-              (unsigned long long)(m.handoff_drops - m0.handoff_drops),
-              (unsigned long long)(m.misrouted - m0.misrouted), (unsigned long long)(m.ends_sent - m0.ends_sent));
+  CHECK_MSG(m.misrouted > m0.misrouted, "X8: no follow-up misrouted in %d moves", moves);
+  std::printf("X8 slot move: slot %u moved %d time(s) between A and C under load; misrouted %llu (each ended), "
+              "drops to resume %llu, hand-off drops %llu, ENDs sent %llu; settled, money conserved, counts 0\n",
+              slot, moves, (unsigned long long)(m.misrouted - m0.misrouted),
+              (unsigned long long)(m.drops_to_resume - m0.drops_to_resume),
+              (unsigned long long)(m.handoff_drops - m0.handoff_drops), (unsigned long long)(m.ends_sent - m0.ends_sent));
 }
 
 // X12 foreign purge and hand-off: A's counted credits to accounts on B's
