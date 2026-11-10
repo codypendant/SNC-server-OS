@@ -1,0 +1,12 @@
+F10 contract: 8 violations stop the process with their message; a client calling a follow-up op gets E_BAD_ARGS
+F6 SIGKILL with d's intake closed and exchanges in flight, then recovery: transfers settled, money conserved (172000), no entries left (child: 465 transfers admitted, 8180 follow-ups gated on d, 12 staged; killing)
+F1/F5/F7/F2 stalled destination: 512 probes admitted, 31488 refused by X=64; WAL peak 262656 <= max(H=328192, R=66048); staging peak 96 <= (N-1)W + X + 1 = 177; node backlog peak 448 <= N(X+1) = 520; reads, batch and a forwarded mutation answered while staging; delivered once, in order
+F3 every shard stalled, W=1, X=4, H=B+R: 32 probes on every pair delivered once in order after release (1888 refused); no deadlock
+F4 drop paths: 480 probes to a deleted and to never-created objects ran their fail op once each, 480 more with no fail op were dropped there; exchanges, windows and staging back to zero
+F8 node links, L=8: receiver gated, link reads paused 1 time(s), held peak 8 <= L, no reconnect; 6001 probes delivered once in order across nodes (0 refused; the sender's bound is D.2)
+F11 rate mismatch: d's gate closed (WAL held at B, then 256 replies); x's backlog toward d peaked at 256 > W = 4 and stayed <= live(d) + live(x); d's staging <= W; 256 exchanges, 50 more refused by X = 256; settled in order
+F12-F15 X=8 saturated (8 transfers o->p admitted): a same-shard transfer ran; o->q refused (refused_exchange +1, WAL unchanged); a sequenced resend replayed; 2001 resume triggers made 1 pass(es) while saturated and 2 in all; settled, conserved
+F16 resume pass with no WAL position asked: an object's re-emit waited for its own undurable record
+F17 gate opening and closing with d's flushes (H = B + R): 12778 probes from 7 shards, gated 89 times, delivered once in per-source order
+G1 owner gate: a deposit forwarded to a shard with 1025 follow-ups queued was refused there (refused_owner); a forwarded read was answered
+test_intake: ok

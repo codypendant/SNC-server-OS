@@ -16,3 +16,7 @@ asan-run1 rc=0 22:58:09 100% tests passed, 0 tests failed out of 45
 tsan-run1 disk 9.5G free
 tsan-run1 start sha bc3130940f3f4d33bcb619661f765cb18679dc23 2026-11-09T22:58:59Z dir build-tsan env: SNC_SANITIZED=1
 tsan-run1 NOTE 2026-11-10T00:3xZ: test_intake (F11) CHECK failed at test_intake.cpp:868 (cross-shard snapshot order, test defect), then exit() destructors raced shard threads -> SEGV -> TSan report deadlock; hung 4490 s, killed by PID. Tests 27+ of this run overlapped standalone TSan test_intake reruns: run invalid as headline.
+tsan-run1 rc=8 00:49:09 98% tests passed, 1 tests failed out of 45
+tsan-run2 disk 9.5G free
+tsan-run2 start sha cf0d51fc315ccb42d19c9b1fe5dc44063508af5c 2026-11-10T00:49:22Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run2 INTERRUPTED 2026-11-10T01:16:49Z: container restarted during test 36 (test_sync_readiness); tests 1-35 passed, 0 TSan warnings so far. Incomplete: not headline.
