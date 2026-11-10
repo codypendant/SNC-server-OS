@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -515,6 +516,107 @@ void NodeLinks::push_counted(u32 l, Frame f) {
   push(l, f);
 }
 
+bool NodeLinks::dispose(u32 l, u16 m, u32 serial) {
+  Entry& e = ent(l, m);
+  if (e.serial != serial) {
+    ++ctr_.stale_tags;  // its instance retired (2.7): nothing is owed to it
+    return false;
+  }
+  if (e.held_for == 0) {
+    underflow("held_for", l, m, 0, 1);
+    ++ctr_.held_underflow;
+  } else {
+    --e.held_for;
+  }
+  ++e.end_owed;
+  ++ctr_.dispositions;
+  return true;
+}
+
+bool NodeLinks::push_reply(u32 l, u16 m, u32 serial, Frame f) {
+  if (!bound(l) || out_[l]->ack_member != m) return false;
+  Entry& e = ent(l, m);
+  if (e.serial != serial || e.inc != out_[l]->ack_incarnation) return false;
+  if (e.held_for == 0) {
+    underflow("held_for", l, m, 0, 1);
+    ++ctr_.held_underflow;
+  } else {
+    --e.held_for;
+  }
+  f.pad[1] = COUNTED_BY_RECEIVER;
+  ++ctr_.replies_pushed;
+  push(l, f);
+  return true;
+}
+
+bool NodeLinks::take_reply(const From& from) {
+  Entry& e = ent(from.link, from.member);
+  if (e.serial != from.serial || e.inc != from.incarnation) {
+    ++ctr_.stale_tags;
+    return false;
+  }
+  if (e.count == 0) {
+    underflow("count (counted reply)", from.link, from.member, 0, 1);
+    return false;
+  }
+  set_count(e, e.count - 1);
+  ++ctr_.replies_returned;
+  return true;
+}
+
+// xnode_end_underflow (2.6): must never happen. Counted, logged, and fatal
+// in a debug build.
+void NodeLinks::underflow(const char* what, u32 l, u16 m, u64 have, u64 n) {
+  if (std::strcmp(what, "held_for") != 0) ++ctr_.end_underflow;
+  std::fprintf(stderr, "snc: node link: link %u member %u: %s underflow (have %llu, ending %llu)\n", l, m, what,
+               (unsigned long long)have, (unsigned long long)n);
+#ifndef NDEBUG
+  std::abort();
+#endif
+}
+
+// Coalesced END debt (2.6), one END(n) per entry, only on an Out
+// connection bound to exactly that entry. Otherwise it waits as a number.
+void NodeLinks::push_ends() {
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (!bound(l) || !room(l)) continue;
+    Out& o = *out_[l];
+    Entry& e = ent(l, o.ack_member);
+    if (e.end_owed == 0 || e.inc != o.ack_incarnation) continue;
+    Frame f{};
+    f.pad[0] = END;
+    f.source.hi = e.end_owed;
+    f.target.lo = e.inc;
+    ++ctr_.ends_sent;
+    ctr_.end_items_sent += e.end_owed;
+    e.end_owed = 0;
+    push(l, f);
+  }
+}
+
+// END(n) from instance f, for us: n of our counted items there ended.
+void NodeLinks::on_end(u32 i, const Frame& fr) {
+  const From& f = in_[i]->from;
+  if (fr.target.lo != opt_.incarnation) {
+    ++ctr_.ignored_frames;
+    return;
+  }
+  Entry& e = ent(f.link, f.member);
+  if (e.serial != f.serial || e.inc != f.incarnation) {
+    ++ctr_.stale_tags;
+    return;
+  }
+  const u64 n = fr.source.hi;
+  ++ctr_.ends_received;
+  ctr_.end_items_received += n;
+  if (n > e.count) {
+    underflow("count (END)", f.link, f.member, e.count, n);
+    set_count(e, 0);
+  } else {
+    set_count(e, e.count - n);
+  }
+}
+
 // The HelloAck named an instance (2.4 step 3). A SYNC already read for this
 // connection (step 4 first) must name the same one. The peer owes us a
 // SYNC on its own Out connection; here, ours to it becomes possible (2.5).
@@ -761,6 +863,10 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
           if (opt_.accounting) on_sync(i, f);
           continue;
         }
+        if (kind(f) == END) {
+          if (opt_.accounting) on_end(i, f);
+          continue;
+        }
         if (kind(f) != DATA) {
           ++ctr_.ignored_frames;
           continue;
@@ -897,7 +1003,10 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
       }
     }
   }
-  if (opt_.accounting) push_syncs();
+  if (opt_.accounting) {
+    push_ends();
+    push_syncs();
+  }
   for (u32 i = 0; i < out_.size(); ++i) busy |= flush(i, now_ns);
   return busy;
 }

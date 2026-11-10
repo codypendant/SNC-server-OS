@@ -460,6 +460,15 @@ class Shard {
   bool followup_gate_open() const;
   bool window_open(u16 dst);
   void end_exchange(u16 origin);
+  // Any disposition of an item other than its counted push or reply: its
+  // exchange ends here (D.1), or, tagged, an END is owed to the instance
+  // that counts it (D.2, 2.6).
+  void end_item(const Emit& e);
+  // D.2 (2.7): drop every item tagged by (link, member, serial), or every
+  // tagged item (link < 0), with no END: its counting instance is gone.
+  void purge_tagged(long link, u16 member, u32 serial);
+  static void on_links_retire(void* ctx, u32 link, u16 member, u64 incarnation);
+  u64 xnode_live() const { return links_ ? links_->xnode_live() : 0; }
   void release_link(Emit& e);
   bool exchange_full();
   u64 exchanges_live();
@@ -660,6 +669,25 @@ class Shard {
     std::size_t size() const { return buf_.size() - head_; }
     T& front() { return buf_[head_]; }
     void push_back(const T& v) { buf_.push_back(v); }
+    // Removes, in order, what `drop` returns true for (calling it once per item).
+    template <typename P>
+    std::size_t remove_if(P drop) {
+      std::size_t w = head_, n = 0;
+      for (std::size_t r = head_; r < buf_.size(); ++r) {
+        if (drop(buf_[r])) {
+          ++n;
+          continue;
+        }
+        if (w != r) buf_[w] = buf_[r];
+        ++w;
+      }
+      buf_.resize(w);
+      if (head_ == buf_.size()) {
+        buf_.clear();
+        head_ = 0;
+      }
+      return n;
+    }
     void pop_front() {
       if (++head_ == buf_.size()) {
         buf_.clear();
@@ -701,6 +729,10 @@ class Shard {
   u64 ended_own_ = 0;             // ... that ended here
   u64 ended_seen_ = 0;            // ... that ended on other shards, as last read
   u16 cur_origin_ = kNoShard;     // origin of the follow-up now running
+  // D.2: the peer tag of the follow-up now running; its reply inherits it.
+  bool cur_tagged_ = false;
+  u16 cur_peer_member_ = 0;
+  u32 cur_peer_link_ = 0, cur_peer_serial_ = 0;
   u64 link_held_ = 0;             // follow-ups from node links held here (L)
   bool links_paused_ = false;
   bool bad_followup_logged_ = false;  // a link frame to a non-followup op was dropped (logged once)

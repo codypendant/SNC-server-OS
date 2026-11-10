@@ -214,6 +214,11 @@ struct ShardStats {
   u64 node_emits_received = 0;   // ... received from another group's node
   u64 node_emits_dropped = 0;    // ... dropped, their link down (resume re-emits them)
   u64 node_emits_misrouted = 0;  // ... received for a slot not ours, from a node behind ours
+  // Cross-node accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.6, 2.7, 2.9).
+  u64 xnode_tag_drops = 0;       // tagged replies dropped at push: their counting entry is not bound there (END owed)
+  u64 xnode_handoff_drops = 0;   // tagged items dropped at an in-node hand-off (END owed)
+  u64 xnode_reply_drops = 0;     // counted replies dropped on arrival: no count for them
+  u64 xnode_retire_purged = 0;   // tagged items purged with no END: their counting instance is gone
   // Slot moves (docs/MIGRATION.md).
   u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
   u64 emits_held_now = 0;        // ... held at this moment

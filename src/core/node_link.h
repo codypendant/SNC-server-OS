@@ -95,6 +95,18 @@ class NodeLinks {
   // Push our own exchange's follow-up, counted by us (COUNTED_BY_SENDER,
   // 2.6). The link must be bound.
   void push_counted(u32 link, Frame f);
+  // An item here tagged (link, member, serial) leaves us other than by its
+  // counted reply (2.6): one more END owed to that entry, if the tag is
+  // still current (false: a retired instance's, nothing owed).
+  bool dispose(u32 link, u16 member, u32 serial);
+  // Push the counted reply of an item tagged (member, serial) on `link`
+  // (COUNTED_BY_RECEIVER, 2.6): only if the link is bound to exactly that
+  // entry. False: not pushed, the caller drops it and disposes of it.
+  bool push_reply(u32 link, u16 member, u32 serial, Frame f);
+  // A COUNTED_BY_RECEIVER frame from `from`: our exchange returns (2.6).
+  // False: its entry has no count for it (xnode_end_underflow, or a
+  // retired entry's): the caller drops it.
+  bool take_reply(const From& from);
   // Σ count over gating entries (xnode_remote_live, 2.8).
   u64 xnode_live() const { return xnode_live_; }
   u64 debt() const;
@@ -103,6 +115,12 @@ class NodeLinks {
   struct Counters {
     u64 bindings = 0, identified = 0, bind_mismatch = 0, syncs_sent = 0, syncs_exact = 0, syncs_stale = 0;
     u64 sync_correction = 0, ignored_frames = 0, sync_r_anomalies = 0;
+    // END (2.6): frames and the items they carried, each way; replies
+    // pushed and returned; dispositions; stale tags; underflows (must
+    // stay 0: an END or a counted reply with no count for it).
+    u64 ends_sent = 0, end_items_sent = 0, ends_received = 0, end_items_received = 0;
+    u64 replies_pushed = 0, replies_returned = 0, dispositions = 0, stale_tags = 0;
+    u64 end_underflow = 0, held_underflow = 0;
   };
   const Counters& counters() const { return ctr_; }
 
@@ -183,6 +201,9 @@ class NodeLinks {
   Entry& ent(u32 link, u16 m) { return entries_[mbase_[link] + m]; }
   void set_count(Entry& e, u64 v);
   void push_syncs();
+  void push_ends();
+  void on_end(u32 in_index, const Frame& f);
+  void underflow(const char* what, u32 link, u16 member, u64 have, u64 n);
   void on_sync(u32 in_index, const Frame& f);
   void try_bind(u32 link);
   void identified_out(u32 link);

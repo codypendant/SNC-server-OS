@@ -1069,7 +1069,7 @@ void Shard::publish_gauges(u64 now, bool force) {
         outstanding += sent_to_[x] - board_->taken(x, id_).load(std::memory_order_acquire);
       }
     }
-    v[G_INTAKE_EXCHANGES_LIVE] = started_ - ended_own_ - elsewhere;
+    v[G_INTAKE_EXCHANGES_LIVE] = started_ - ended_own_ - elsewhere + xnode_live();
     v[G_INTAKE_WINDOW_OUTSTANDING] = outstanding;
   }
   v[G_INTAKE_WINDOW_WAITS] = stats_.window_waits;
@@ -1806,6 +1806,8 @@ void Shard::start_links() {
   o.hb_ns = xnode_.hb_ns;
   o.dead_ns = xnode_.dead_ns;
   o.highest = &peer_highest_;
+  o.on_retire = &Shard::on_links_retire;
+  o.ctx = this;
   links_ = std::make_unique<NodeLinks>(*cluster_, group_, id_, o);
   emit_node_.resize(links_->size());
 }
@@ -1820,16 +1822,7 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLink
   auto* s = static_cast<Shard*>(ctx);
   if (NodeLinks::kind(f) != NodeLinks::DATA) return;  // control frames are the links' own
   ++s->stats_.node_emits_received;
-  const u32 mine = static_cast<u32>(s->cluster_->epoch);
-  const bool newer = f.epoch > mine;
-  if (newer && s->epoch_hint_) {
-    u64 cur = s->epoch_hint_->load();
-    while (f.epoch > cur && !s->epoch_hint_->compare_exchange_weak(cur, f.epoch)) {}
-  }
-  if (!newer && s->foreign(f.target)) {
-    ++s->stats_.node_emits_misrouted;
-    return;
-  }
+  const u8 fl = s->links_->accounting() ? NodeLinks::flags(f) : 0;
   Emit e;
   e.source = f.source;
   e.target = f.target;
@@ -1840,17 +1833,44 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLink
   e.lsn = 0;
   e.remote = true;
   e.epoch = f.epoch;
-  // Counted against L until it runs, leaves this shard or is dropped
-  // (3.6); its exchange belongs to no shard of this node (D.2).
+  // Its exchange belongs to no shard of this node (D.2), unless it is our
+  // own coming back.
   e.origin = kNoShard;
-  e.link_held = true;
-  if (NodeLinks::flags(f) & NodeLinks::COUNTED_BY_SENDER) {
+  // Accounted before the misroute check (2.6): a drop is a disposition.
+  if (fl & NodeLinks::COUNTED_BY_RECEIVER) {
+    // Our own exchange returns, counted out by the entry it was pushed to:
+    // live again here (it was ended at its counted push, 2.6).
+    if (!s->links_->take_reply(from)) {
+      ++s->stats_.xnode_reply_drops;  // nothing counted it: dropped (resume re-sends, 2.9)
+      return;
+    }
+    if (s->ended_own_ == 0) {
+      std::fprintf(stderr, "snc: shard %u: a counted reply returned with no exchange ended\n", s->id_);
+      std::abort();
+    }
+    --s->ended_own_;
+    --s->stats_.exchanges_ended;
+    e.origin = s->id_;
+  } else if (fl & NodeLinks::COUNTED_BY_SENDER) {
     // Counted at its origin by the instance that sent it (2.6): tagged.
     e.tagged = true;
     e.peer_link = from.link;
     e.peer_member = from.member;
     e.peer_serial = from.serial;
   }
+  const u32 mine = static_cast<u32>(s->cluster_->epoch);
+  const bool newer = f.epoch > mine;
+  if (newer && s->epoch_hint_) {
+    u64 cur = s->epoch_hint_->load();
+    while (f.epoch > cur && !s->epoch_hint_->compare_exchange_weak(cur, f.epoch)) {}
+  }
+  if (!newer && s->foreign(f.target)) {
+    ++s->stats_.node_emits_misrouted;
+    s->end_item(e);
+    return;
+  }
+  // Counted against L until it runs, leaves this shard or is dropped (3.6).
+  e.link_held = true;
   if (++s->link_held_ > s->stats_.link_held_peak) s->stats_.link_held_peak = s->link_held_;
   if (newer) {
     // Whatever we still run from older maps must run first: a follow-up
@@ -1859,6 +1879,37 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLink
     return;
   }
   s->route_emit(e);
+}
+
+// D.2 (2.7): an older incarnation of (link, member) is retired. Every item
+// it counts goes, with no END (no instance can receive one).
+void Shard::on_links_retire(void* ctx, u32 link, u16 member, u64 /*incarnation*/) {
+  auto* s = static_cast<Shard*>(ctx);
+  s->purge_tagged(static_cast<long>(link), member, s->links_->entry(link, member).serial);
+}
+
+void Shard::purge_tagged(long link, u16 member, u32 serial) {
+  auto match = [&](const Emit& e) {
+    return e.tagged && (link < 0 || (e.peer_link == static_cast<u32>(link) && e.peer_member == member &&
+                                     e.peer_serial == serial));
+  };
+  u64 n = 0;
+  auto drop = [&](Emit& e, bool ready) {
+    if (!match(e)) return false;
+    if (e.from != kNoShard) ++taken_from_[e.from];
+    release_link(e);
+    if (ready) --emit_ready_count_;
+    ++n;
+    return true;
+  };
+  emit_local_.erase(std::remove_if(emit_local_.begin(), emit_local_.end(), [&](Emit& e) { return drop(e, true); }),
+                    emit_local_.end());
+  for (auto& q : emit_remote_) q.remove_if([&](Emit& e) { return drop(e, true); });
+  for (auto& q : emit_node_) q.remove_if([&](Emit& e) { return drop(e, true); });
+  emit_wait_.remove_if([&](Emit& e) { return drop(e, false); });
+  emit_held_.erase(std::remove_if(emit_held_.begin(), emit_held_.end(), [&](Emit& e) { return drop(e, false); }),
+                   emit_held_.end());
+  stats_.xnode_retire_purged += n;
 }
 
 bool Shard::poll_links() {
@@ -1944,6 +1995,7 @@ void Shard::withdraw() {
   if (withdraw_flag_) withdraw_flag_->store(true);
   std::fprintf(stderr, "snc: shard %u: fenced (a newer primary exists), leaving the data plane\n", id_);
   links_.reset();         // the listener and every link, in and out
+  purge_tagged(-1, 0, 0);  // their counting instances went with them (D.2, 2.7)
   emits_paused_ = true;   // queued follow-ups stay queued; the new primary resumes them
   // What waits for the standby's ack will never get it here. Whether it
   // committed is up to what the new primary received: E_FENCED, in doubt.
@@ -2578,7 +2630,7 @@ ShardStats Shard::stats() const {
         outstanding += sent_to_[x] - board_->taken(x, id_).load(std::memory_order_acquire);
       }
     }
-    s.exchanges_live = started_ - ended_own_ - elsewhere;
+    s.exchanges_live = started_ - ended_own_ - elsewhere + xnode_live();
     s.window_outstanding = outstanding;
   }
   s.followups_staged_now = emit_local_.size();
@@ -2732,6 +2784,10 @@ void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
     ++s->stats_.exchanges_started;
   } else {
     e.origin = s->cur_origin_;  // the reply continues its exchange
+    e.tagged = s->cur_tagged_;   // ... and, another node's, its peer tag (D.2, 2.6)
+    e.peer_link = s->cur_peer_link_;
+    e.peer_member = s->cur_peer_member_;
+    e.peer_serial = s->cur_peer_serial_;
   }
 }
 
@@ -2789,6 +2845,14 @@ void Shard::end_exchange(u16 origin) {
   else ++ended_at_[origin];
 }
 
+void Shard::end_item(const Emit& e) {
+  if (!e.tagged) {
+    end_exchange(e.origin);
+    return;
+  }
+  if (links_) links_->dispose(e.peer_link, e.peer_member, e.peer_serial);
+}
+
 void Shard::release_link(Emit& e) {
   if (!e.link_held) return;
   e.link_held = false;
@@ -2809,7 +2873,8 @@ u64 Shard::exchanges_live() {
                  (unsigned long long)ended, (unsigned long long)started_);
     std::abort();
   }
-  const u64 live = started_ - ended;
+  // D.2 (2.8): our items counted at gating remote entries are live too.
+  const u64 live = started_ - ended + xnode_live();
   if (live > stats_.exchanges_live_peak) stats_.exchanges_live_peak = live;
   return live;
 }
@@ -2818,7 +2883,7 @@ u64 Shard::exchanges_live() {
 // them only when it says full.
 bool Shard::exchange_full() {
   if (!intake_.exchange_gate) return false;
-  if (started_ - ended_own_ - ended_seen_ < intake_.exchange_budget) return false;
+  if (started_ - ended_own_ - ended_seen_ + xnode_live() < intake_.exchange_budget) return false;
   return exchanges_live() >= intake_.exchange_budget;
 }
 
@@ -2976,7 +3041,7 @@ void Shard::route_emit(Emit e) {
       --emit_ready_count_;
       ++stats_.emits_stale;
       release_link(e);
-      end_exchange(e.origin);
+      end_item(e);
       return;
     }
     if (group != group_ && e.remote) {
@@ -2986,7 +3051,7 @@ void Shard::route_emit(Emit e) {
       --emit_ready_count_;
       ++stats_.node_emits_misrouted;
       release_link(e);
-      end_exchange(e.origin);
+      end_item(e);
       return;
     }
     if (group != group_) {
@@ -2996,7 +3061,7 @@ void Shard::route_emit(Emit e) {
         --emit_ready_count_;
         ++stats_.node_emits_dropped;
         release_link(e);
-        end_exchange(e.origin);
+        end_item(e);
         return;
       }
       emit_node_[links_->link_of(group, cluster_->shard_of(slot))].push_back(e);
@@ -3004,6 +3069,15 @@ void Shard::route_emit(Emit e) {
     }
   }
   u16 owner = owner_of(e.target);
+  if (e.tagged && owner != id_) {
+    // An in-node hand-off (its target's slot moved into this node, 2.6):
+    // never handed on untagged. Dropped, END owed; the map change resumes it.
+    --emit_ready_count_;
+    ++stats_.xnode_handoff_drops;
+    release_link(e);
+    end_item(e);
+    return;
+  }
   if (owner == id_) {
     emit_local_.push_back(e);
     if (emit_local_.size() > stats_.followups_staged_peak) stats_.followups_staged_peak = emit_local_.size();
@@ -3060,7 +3134,7 @@ bool Shard::run_emits() {
       emit_ready_count_ -= q.size();
       while (!q.empty()) {
         release_link(q.front());
-        end_exchange(q.front().origin);
+        end_item(q.front());
         q.pop_front();
       }
       continue;
@@ -3075,14 +3149,28 @@ bool Shard::run_emits() {
       f.len = e.len;
       f.epoch = e.epoch;
       std::memcpy(f.args, e.args, e.len);
-      if (links_->accounting() && e.origin == id_) {
-        links_->push_counted(i, f);  // this shard's exchange: counted until it ends (D.2, 2.6)
+      release_link(e);
+      if (links_->accounting() && e.tagged) {
+        // Another node's exchange: its counted reply, only on a link bound
+        // to the entry that counts it (2.6). Otherwise dropped, END owed.
+        if (!links_->push_reply(i, e.peer_member, e.peer_serial, f)) {
+          ++stats_.xnode_tag_drops;
+          ++stats_.node_emits_dropped;
+          end_item(e);
+          q.pop_front();
+          --emit_ready_count_;
+          did = true;
+          continue;
+        }
+      } else if (links_->accounting() && e.origin == id_) {
+        // This shard's exchange: ended here as in D.1 (3.9.3), and counted
+        // live in the entry it goes to until it ends there or comes back.
+        links_->push_counted(i, f);
+        end_exchange(e.origin);
       } else {
         links_->push(i, f);
+        end_item(e);  // leaving the node ends its exchange here (D.1, 3.9.3)
       }
-      // Leaving the node ends its exchange here (D.1, 3.9.3).
-      release_link(e);
-      end_exchange(e.origin);
       q.pop_front();
       --emit_ready_count_;
       ++stats_.node_emits_sent;
@@ -3106,7 +3194,7 @@ void Shard::run_emit(const Emit& in) {
   // sources re-send them to the new primary (docs/TRANSFERS.md).
   if (withdrawn_) {
     release_link(e);
-    end_exchange(e.origin);
+    end_item(e);
     return;
   }
   if (cluster_ && e.epoch > static_cast<u32>(cluster_->epoch)) {
@@ -3116,7 +3204,7 @@ void Shard::run_emit(const Emit& in) {
   if (stale(e)) {
     ++stats_.emits_stale;
     release_link(e);
-    end_exchange(e.origin);
+    end_item(e);
     return;
   }
   if (cluster_ && !serving(slot_of(e.target))) {
@@ -3135,14 +3223,19 @@ void Shard::run_emit(const Emit& in) {
   out.r.id = e.target;
   cur_source_ = e.source;
   cur_origin_ = e.origin;
+  cur_tagged_ = e.tagged;
+  cur_peer_link_ = e.peer_link;
+  cur_peer_member_ = e.peer_member;
+  cur_peer_serial_ = e.peer_serial;
   const u64 emitted = stats_.emits;
   run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out,
            /*client=*/false);
   cur_source_ = ObjectID{};
   cur_origin_ = kNoShard;
+  cur_tagged_ = false;
   const bool replied = stats_.emits != emitted;
   // No reply and no fail op: the exchange is over (3.4, 3.7).
-  if (!emit_result(e, out.r.status) && !replied) end_exchange(e.origin);
+  if (!emit_result(e, out.r.status) && !replied) end_item(e);
 }
 
 bool Shard::send_emit(u16 dst, const Emit& e) {
