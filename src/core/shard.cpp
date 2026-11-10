@@ -1805,6 +1805,7 @@ void Shard::start_links() {
   o.accounting = xnode_.accounting;
   o.hb_ns = xnode_.hb_ns;
   o.dead_ns = xnode_.dead_ns;
+  o.release_ns = xnode_.release_ns;
   o.highest = &peer_highest_;
   o.on_retire = &Shard::on_links_retire;
   o.ctx = this;

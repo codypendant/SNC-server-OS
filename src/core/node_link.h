@@ -59,6 +59,7 @@ class NodeLinks {
     bool accounting = true;  // Hello flag bit 0; a mismatch is refused (2.12 D)
     u64 hb_ns = 100'000'000;      // T_hb (2.10)
     u64 dead_ns = 1'000'000'000;  // T_dead (2.10)
+    u64 release_ns = 3'000'000'000;  // T_release (2.8)
     // Per (link, member): the highest incarnation seen (2.12 C). Owned by
     // the shard so it outlives this instance; sized here.
     std::vector<u64>* highest = nullptr;
@@ -85,6 +86,10 @@ class NodeLinks {
     u64 held_for = 0;
     u64 end_owed = 0;
     bool sync_owed = false;
+    // Quarantine triggers (2.8): when an In connection from it, and a
+    // binding of our Out connection to it, were last seen.
+    u64 in_alive_ns = 0;
+    u64 bound_ns = 0;
   };
   const Entry& entry(u32 link, u16 m) const { return entries_[mbase_[link] + m]; }
   // Counted DATA may go on `link` (2.4): BOUND, or up when accounting is
@@ -121,6 +126,10 @@ class NodeLinks {
     u64 ends_sent = 0, end_items_sent = 0, ends_received = 0, end_items_received = 0;
     u64 replies_pushed = 0, replies_returned = 0, dispositions = 0, stale_tags = 0;
     u64 end_underflow = 0, held_underflow = 0;
+    // Quarantine (2.8), by trigger; a count raised while not gating (must
+    // stay 0: the debt is non-increasing).
+    u64 quarantines = 0, q_in_down = 0, q_blocked = 0, q_not_bound = 0, quarantine_out_resets = 0;
+    u64 debt_increases = 0;
   };
   const Counters& counters() const { return ctr_; }
 
@@ -204,6 +213,8 @@ class NodeLinks {
   void push_ends();
   void on_end(u32 in_index, const Frame& f);
   void underflow(const char* what, u32 link, u16 member, u64 have, u64 n);
+  void quarantine_check(u64 now_ns);
+  void quarantine(u32 link, u16 member, u64 now_ns);
   void on_sync(u32 in_index, const Frame& f);
   void try_bind(u32 link);
   void identified_out(u32 link);

@@ -386,6 +386,61 @@ void NodeLinks::liveness(u64 now_ns) {
       ++steers_;
     }
   }
+  if (opt_.accounting) quarantine_check(now_ns);
+}
+
+// 2.8: an ACTIVE entry is quarantined when its In side has been down, it
+// has been blocked, or (holding a count) it has not been our bound entry,
+// for T_release.
+void NodeLinks::quarantine_check(u64 now_ns) {
+  for (const auto& in : in_) {
+    if (!in || !in->hello) continue;
+    Entry& e = ent(in->from.link, in->from.member);
+    if (e.inc == in->from.incarnation) e.in_alive_ns = now_ns;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (bound(l)) ent(l, out_[l]->ack_member).bound_ns = now_ns;
+  }
+  const u64 rel = opt_.release_ns;
+  for (u32 l = 0; l < out_.size(); ++l) {
+    for (u16 m = 0; m < link_members_[l]; ++m) {
+      Entry& e = ent(l, m);
+      if (e.inc == 0 || e.state != EntryState::ACTIVE) continue;
+      const u64 blocked = peer_[mbase_[l] + m].blocked_since_ns;
+      if (now_ns - e.in_alive_ns >= rel) {
+        ++ctr_.q_in_down;
+      } else if (blocked != 0 && now_ns - blocked >= rel) {
+        ++ctr_.q_blocked;
+      } else if (e.count != 0 && now_ns - e.bound_ns >= rel) {
+        ++ctr_.q_not_bound;
+      } else {
+        continue;
+      }
+      quarantine(l, m, now_ns);
+    }
+  }
+}
+
+// The steps, in order (2.8): the Out connection naming the entry, in any
+// state, is reset first (its unsent queue discarded), then the count stops
+// gating.
+void NodeLinks::quarantine(u32 l, u16 m, u64 now_ns) {
+  Entry& e = ent(l, m);
+  Out& o = *out_[l];
+  const bool names = (o.identified && o.ack_member == m && o.ack_incarnation == e.inc) ||
+                     (o.synced && o.sync_member == m && o.sync_incarnation == e.inc);
+  if (o.state != Out::State::DOWN && names) {
+    drop_out(l, now_ns, /*reset=*/true);
+    ++ctr_.quarantine_out_resets;
+  }
+  e.state = EntryState::QUARANTINED;
+  if (e.gates) {
+    e.gates = false;
+    xnode_live_ -= e.count;
+  }
+  ++ctr_.quarantines;
+  std::fprintf(stderr, "snc: node link: link %u member %u incarnation %llu quarantined, debt %llu\n", l, m,
+               (unsigned long long)e.inc, (unsigned long long)e.count);
 }
 
 // The acceptor's HelloAck (2.4): read once, up to its 32 bytes. Anything
@@ -479,10 +534,14 @@ bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_
     e = Entry{};
     e.serial = serial;
     e.inc = inc;
+    e.in_alive_ns = e.bound_ns = now_ns;
+    peer_[mbase_[l] + m] = Peer{};  // its blocked_since_ goes with it (2.8)
     return true;
   }
   hi = inc;
-  ent(l, m).inc = inc;
+  Entry& e = ent(l, m);
+  e.inc = inc;
+  e.in_alive_ns = e.bound_ns = now_ns;
   return true;
 }
 
@@ -495,6 +554,13 @@ bool NodeLinks::ready(u32 l) const { return opt_.accounting ? bound(l) : up(l); 
 int NodeLinks::bound_member(u32 l) const { return bound(l) ? out_[l]->ack_member : -1; }
 
 void NodeLinks::set_count(Entry& e, u64 v) {
+  if (!e.gates && v > e.count) {
+    // Never: no counted DATA reaches a quarantined entry, and the only SYNC
+    // that applies (a binding one) cannot raise its count (2.8).
+    ++ctr_.debt_increases;
+    std::fprintf(stderr, "snc: node link: quarantined count raised from %llu to %llu\n", (unsigned long long)e.count,
+                 (unsigned long long)v);
+  }
   if (e.gates) xnode_live_ = xnode_live_ - e.count + v;
   e.count = v;
 }
