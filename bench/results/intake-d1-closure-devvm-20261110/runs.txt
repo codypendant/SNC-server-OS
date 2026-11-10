@@ -1,0 +1,14 @@
+release-run1 disk 11G free
+release-run1 start sha c73526da5fec7f7f763255c331f2852338b621d6 2026-11-10T02:35:29Z dir build env: SNC_X=0
+release-run1 tmp snc dirs before: 664
+release-run1 tmp snc dirs after: 664
+release-run1 rc=0 03:02:42 100% tests passed, 0 tests failed out of 45
+asan-run1 disk 11G free
+asan-run1 start sha c73526da5fec7f7f763255c331f2852338b621d6 2026-11-10T03:03:40Z dir build-asan env: SNC_SANITIZED=1
+asan-run1 tmp snc dirs before: 664
+asan-run1 tmp snc dirs after: 664
+asan-run1 rc=0 03:33:49 100% tests passed, 0 tests failed out of 45
+tsan-run1 disk 11G free
+tsan-run1 start sha c73526da5fec7f7f763255c331f2852338b621d6 2026-11-10T03:34:25Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run1 tmp snc dirs before: 664
+tsan-run1 FAILED+INTERRUPTED: test_intake failed at test_intake.cpp:299 CHECK(g.consistent) (test defect: fresh_gauges read the seqlock once; the shard republishes every 50 us and a read gives up after 64 overlapping tries, likely under TSan); then the container restarted at 03:44 during test 28. Tests 1-27 otherwise passed, 0 TSan warnings. Fix: read until consistent. Standalone TSan test_intake after the fix: 5 of 5 pass, 0 warnings. Kept; not headline.

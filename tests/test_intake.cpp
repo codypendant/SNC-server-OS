@@ -295,9 +295,14 @@ GaugeSnapshot fresh_gauges(Engine& eng, u16 s) {
                                          .count());
     current_shard()->publish_gauges(now, true);
   });
-  GaugeSnapshot g = eng.gauges(s);
-  CHECK(g.consistent);
-  return g;
+  // The shard keeps publishing every 50 us, and a read gives up after 64
+  // tries that overlap a publish (likely under TSan): read until whole.
+  for (int i = 0; i < 100000; ++i) {
+    GaugeSnapshot g = eng.gauges(s);
+    if (g.consistent) return g;
+  }
+  CHECK(false);
+  return {};
 }
 
 // Creates an object of `type` owned by shard s (created from s, which
