@@ -1,11 +1,17 @@
-# Follow-up intake D.2: cross-node exchange accounting (design rev2, for review)
+# Follow-up intake D.2: cross-node exchange accounting (design rev3, for review)
 
-**Status: design rev2, for review. No D.2 code until it is approved.**
+**Status: design rev3, for review. No D.2 code until it is approved.**
 
 - Rev1 was PR #91. Its review ruled: DESIGN DIRECTION APPROVED, IMPLEMENTATION
   HOLD (`docs/handoff/PR91_D2_Design_Review.md`, verbatim).
-- Rev2 answers every required correction. Section 13 maps each review item
-  to the section that addresses it.
+- Rev2 was PR #92. Its review ruled: SUBSTANTIALLY APPROVED WITH TWO
+  CORRECTNESS BLOCKERS, IMPLEMENTATION HOLD
+  (`docs/handoff/PR92_D2_Design_Rev2_Review.md`, verbatim).
+- Rev3 is narrow. It changes only the reconciliation state machine
+  (IDENTIFIED vs BOUND, current-connection SYNC, no FINAL), fencing on
+  silent retirement, and the blocked-primary timing, with their tests.
+  The rest of rev2 stands as reviewed. Section 14 maps each rev2 review
+  item; section 13 still maps the rev1 items.
 - D.2 builds on D.1 as approved and merged
   (`docs/FOLLOWUP_INTAKE_DESIGN.md`, 3.1-3.9), which stays unchanged.
 
@@ -35,8 +41,10 @@ pile up at a peer toward a slow node.
    the same socket (2.4). The binding is never inferred from a reverse
    Hello. A link that is up but unbound is treated as down for queueing.
 4. **END, coalesced per entry.** Debts of two instances are never mixed.
-5. **SYNC for exact reconciliation.** Approved from rev1. It now also
-   covers a connection the receiver has *finally closed* (2.5).
+5. **SYNC for exact reconciliation.** Approved from rev1. Rev3 scopes it
+   to the current connection only. HelloAck proves identity, and an exact
+   current SYNC, sent before any counted DATA, makes the link BOUND. No
+   history of old connections is kept (2.4, 2.5).
 6. **Release by quarantine.** A peer instance is quarantined when its
    inbound side has been down, or it has reported itself blocked, for
    `T_release`:
@@ -44,6 +52,9 @@ pile up at a peer toward a slow node.
    - no counted DATA goes to it until it is bound again;
    - its count stops gating X and becomes an explicit, non-increasing
      debt `D` (2.8).
+
+   Rev3 adds a third trigger: an entry that has not been bound for
+   `T_release` (2.8).
 
    A blocked primary also leaves the links after `T_block` (2.12).
 7. **No adoption.** Rev1 let a shard count work it did not admit. Rev2
@@ -159,7 +170,9 @@ off  size  field
  24     8  conn           (this connection's nonce: 64 random bits per connection)
  32     8  incarnation    (this links instance, 2.1)
  40     2  member         (this process's member index in its group)
- 42     6  zero
+ 42     1  flags          (bit 0: accounting on, 2.12 D)
+ 43     1  zero
+ 44     4  conn_seq       (1, 2, 3, ... per (instance, link): orders this instance's connections, 2.5)
 ```
 
 **Frame: 64 bytes, as today.** `pad[0]` is the kind, `pad[1]` the flags,
@@ -169,15 +182,15 @@ and `pad[2]` = 0.
 |---|---|
 | 0 DATA | As today. Flags: bit 0 COUNTED_BY_SENDER (the sender's exchange; the sender counts it), bit 1 COUNTED_BY_RECEIVER (a reply in the receiver's exchange). Exactly one bit is set with accounting on; neither is set in rollback (2.11). |
 | 1 END | `op` = n ≥ 1; `source.hi` = the target incarnation, whose items ended |
-| 2 SYNC | `source.hi` = `conn` named; `source.lo` = R; `target.hi` = k; `target.lo` = the target incarnation; `op` bit 0 = FINAL (that connection is closed at the sender of the SYNC) |
+| 2 SYNC | `source.hi` = `conn` named (the receiver's current Out connection, as the sender sees it); `op` = its `conn_seq`; `source.lo` = R; `target.hi` = k; `target.lo` = the target incarnation |
 | 3 HEARTBEAT | `source.hi` = `conn` of the sender's current In connection from the receiver's instance (0 = none); `source.lo` = R on it; `op` bit 0 = the sender's reads are paused |
 
 **HelloAck: 32 bytes**, written only by the accepting side, back on the
 accepted socket (2.4). Fields: magic `SNCA`, conn echoed, the acceptor's
 incarnation, member.
 
-**Hello flags.** The Hello's 6 trailing bytes carry a flags byte. Bit 0
-is accounting on. A mismatch is refused like a version mismatch (2.12 D).
+**Hello flags.** Bit 0 of the flags byte is accounting on. A mismatch is
+refused like a version mismatch (2.12 D).
 
 **HEARTBEAT** `op` bit 1 = the sender is blocked (2.12).
 
@@ -200,7 +213,7 @@ remote instance, at most `members` of them).
 |---|---|
 | `count_[l][e]` | s's counted items pushed to e and not yet ended or back |
 | `gates_[l][e]` | `count_` is part of `live_s = started − ended` (now signed) only while this is true. It is false while QUARANTINED, and that `count_` is the debt D (2.8). Never added twice. |
-| `out_conn_[l][e]`, `pushed_[l][e]`, `out_closed_[l][e]` | The nonce of s's last Out connection that was bound to e, the counted frames pushed on it, and whether s has since closed it. They are zeroed together (rev1 review F4). |
+| `cur_[l]` (per link, not per entry) | s's current Out connection: nonce, `conn_seq`, link state (UNBOUND, IDENTIFIED, SYNCED, BOUND), the entry it names (from the HelloAck or the binding SYNC), and `pushed`, the counted frames pushed on it. Created at connect, and cleared as a whole when the connection drops (rev1 F4). **No record of older connections is kept** (rev2 review item 1). |
 | `state_[l][e]` | BOUND, UNBOUND, QUARANTINED or RETIRED |
 
 **As the peer, for origin entry e:**
@@ -209,7 +222,7 @@ remote instance, at most `members` of them).
 |---|---|
 | `held_for_[l][e]` | Items of e's exchanges now at s |
 | `end_owed_[l][e]` | Coalesced ENDs owed to e |
-| `in_conn_[l][e]`, `rx_[l][e]`, `in_final_[l][e]` | The nonce of e's last In connection, the counted frames received on it, and whether s has closed it. Kept after close, frozen, for the FINAL SYNC. |
+| `in_conn_[l][e]`, `in_seq_[l][e]`, `rx_[l][e]` | The nonce and `conn_seq` of e's current In connection, and the counted frames received on it. Cleared when that connection closes. |
 | `sync_owed_[l][e]` | A SYNC is owed to e |
 
 **Link-level state:**
@@ -233,8 +246,8 @@ picks its member on its own, and may be attached to a different instance
 (section 12, rev2 G2). So the receiving end now answers on the accepted
 socket itself.
 
-1. s's Out connection to p connects, with Hello nonce c. `bound_[l]` =
-   none and the link is UNBOUND, so no counted DATA is pushed.
+1. s's Out connection to p connects, with Hello nonce c and the next
+   `conn_seq` q. The link is UNBOUND, so no counted DATA is pushed.
 2. p reads s's Hello and accepts it (2.12 says when p refuses). p then
    writes one 32-byte HelloAck back on that same accepted socket:
 
@@ -243,91 +256,142 @@ socket itself.
    ```
 
    It is the only thing ever written in that direction. Otherwise the
-   link stays one-way.
-3. s's Out side reads the HelloAck. Today a readable Out socket means
-   closed (`node_link.cpp:357-362`). In v2 it reads up to 32 bytes once,
-   then treats anything further as a protocol error, and a hang-up as
-   today. If `conn == c`, s sets `bound_[l] = e`, where e is the entry for
-   (p's member, p's incarnation): created if new, or retiring an older
-   incarnation of that member (2.7). Then:
-   - `cur_out_conn_` and `out_conn_[l][e] = c`, and `pushed_[l][e] = 0`;
-   - `state_ = BOUND` (gates X);
-   - **`resume_all` runs.** Items purged while unbound (below) are
-     re-sent now that they can flow. Connect alone is no longer enough,
-     because resume at connect would run before binding.
-4. Nothing else binds. A reverse Hello, a heartbeat or a SYNC never sets
-   `bound_`.
+   link stays one-way. p also owes s a current SYNC naming (c, q), on
+   p's own Out connection to s (2.5).
+3. **IDENTIFIED.** s's Out side reads the HelloAck. Today a readable Out
+   socket means closed (`node_link.cpp:357-362`). In v2 it reads up to 32
+   bytes once, then treats anything further as a protocol error, and a
+   hang-up as today. If `conn == c`, `cur_[l]` becomes IDENTIFIED with
+   entry e, the entry for (p's member, p's incarnation). It is created if
+   new, or it retires an older incarnation of that member (2.7). Still no
+   counted DATA flows.
+4. **SYNCED.** s reads, on an In connection whose Hello names e, a SYNC
+   targeted at s that names (c, q). Since nothing counted was pushed on c,
+   `pushed = 0`, and the SYNC sets `count_[l][e] = k` exactly (2.5).
+   Still no counted DATA flows.
 
-**Why this is proof.** The HelloAck arrives on the same TCP connection
-that carried c, written by the process that accepted it. That process is
-the instance it names. There is no inference from any other connection.
+   Steps 3 and 4 may happen **in either order**. The HelloAck travels on
+   s's Out socket and the SYNC on an In socket, two TCP connections, so
+   s may read the SYNC first. A SYNC naming (c, q) cannot be stale: c is
+   the current connection's random nonce, which only the instance that
+   accepted c has seen. So s applies it at once, and records its sender
+   as the entry `cur_[l]` names. The later HelloAck must name that same
+   instance. If it names another, which invariant M rules out, s resets
+   the Out connection and counts `xnode_bind_mismatch`. Ignoring the
+   early SYNC instead would leave the link unbound until quarantine,
+   since p sends no second one unprompted.
+5. **BOUND,** once both the HelloAck and the binding SYNC have been read,
+   naming the same entry e. Then:
+   - `cur_[l]` becomes BOUND;
+   - `gates_` becomes true, which ends a quarantine (2.8);
+   - **`resume_all` runs**, re-sending what was purged while unbound.
 
-**Counting at binding.** Counted DATA on c starts at `pushed_ = 0`.
-Whatever e still holds from an earlier connection stays in e's count,
-conservatively. That count is corrected exactly by:
+   Counted DATA may flow from now on.
+6. Nothing else identifies or binds. A reverse Hello, a heartbeat or a
+   SYNC that names another connection never changes `cur_[l]`.
 
-- the FINAL SYNC for the closed connection;
-- the current SYNC that e sends on reading the Hello (2.5), which rides
-  e's own Out stream as before.
+**Why this is proof.**
 
-**While a link is UNBOUND (review G1).** A link that is up but not bound
-is treated as **down for queueing**:
+- **Identity.** The HelloAck arrives on the same TCP connection that
+  carried c, written by the process that accepted it. That process is
+  the instance it names.
+- **Accounting readiness.** The SYNC comes from that same instance,
+  because the reverse In connection's Hello says so. It names c, which
+  that instance alone has seen. It is exact because nothing counted has
+  been pushed on c yet.
+
+There is no inference from any other connection.
+
+**Why one exact SYNC at binding covers all history.** k is everything e
+physically holds of s's, whichever older connection brought it. Items
+lost on any older connection are not in k, and nothing is in flight on c.
+So `count = k` is exact for the whole entry, however many older
+connections came and went, and no per-connection history is needed. Rapid
+forward flapping creates no records: each drop clears `cur_[l]`, and the
+count keeps a conservative over-count until the next binding sets it
+exactly.
+
+**Between a drop and the next binding,** `count_` still includes items
+lost on the dropped wire. It over-counts, so admission is held back by at
+most that count. That lasts until the next binding, or until quarantine
+at `T_release` stops the count from gating.
+
+**While a link is not BOUND (review G1).** UNBOUND, IDENTIFIED or SYNCED, the
+link is treated as **down for queueing**:
 
 - `run_emits` purges `emit_node_[l]` with `end_exchange`, as D.1 does for
   a down link;
 - `route_emit` queues nothing there.
 
-So a link that never binds, such as a one-way failure (2.8) or a peer
-that never acknowledges, holds nothing in `live_s`. Admission at s is
-unaffected beyond D.1. The binding runs `resume_all`, which re-sends what
-was purged.
+So a link that never binds holds nothing in `live_s`. That covers a
+one-way failure (2.8), a peer that never acknowledges, and a dead reverse
+path. Admission at s is unaffected beyond D.1. The binding runs
+`resume_all`, which re-sends what was purged.
 
-### 2.5 SYNC: exact reconciliation, per entry
+### 2.5 SYNC: exact reconciliation, current connection only (rev2 review item 1)
 
-**p sends a SYNC to entry e (owed flag, pushed ahead of other frames to
-that link when there is room):**
+**p sends a SYNC to entry e.** The SYNC is owed as a flag and pushed ahead
+of p's other frames to that link when there is room. p sends one:
 
-1. as the first frame of every new Out connection to s;
-2. on reading a new Hello from e: the current SYNC, `FINAL = 0`;
-3. on closing e's In connection, with FINAL = 1, naming that closed
-   connection. Once closed, no further frame from it can be read, so R is
-   final.
+1. as the first frame of every new Out connection p opens to s, naming
+   the current In connection from e as p sees it, if any;
+2. on reading a new Hello from e (step 2 of 2.4).
 
-Each SYNC carries `(in_conn, rx, held_for, e's incarnation, final)` for
-e, read when it enters p's stream. `end_owed_[l][e]` is cleared at that
-moment, because k already excludes those items.
+It carries `(in_conn, in_seq, rx, held_for, e's incarnation)`, read when
+it enters p's stream. `end_owed_[l][e]` is cleared at that moment,
+because k already excludes those items.
 
-**s applies SYNC(conn, R, k) arriving from instance f, targeted at s,
-to entry f:**
+**FINAL is removed.** Rev2 had a FINAL SYNC for closed connections, and
+its arithmetic was wrong. It added the `pushed − R` frames that a closed
+connection never delivered, so it kept lost work as live (rev2 review
+item 1). The binding SYNC of 2.4 makes it unnecessary: lost work drops
+out of the count at the next binding, and quarantine covers a peer that
+never comes back.
 
-| Case | Action |
-|---|---|
-| **Exact, current:** f is `bound_[l]`, conn = `cur_out_conn_[l]`, FINAL = 0 | `count_[l][f] = k + (pushed_[l][f] − R)` |
-| **Exact, final:** conn = `out_conn_[l][f]`, s has closed that connection (`out_closed_`), FINAL = 1 | `count_[l][f] = k + (pushed_[l][f] − R)` for that connection's pushes. Pushes made since, on a newer connection bound to f, are added unchanged. |
-| **Partial** (anything else) | `count_[l][f] = max(count_[l][f], k)`. It only raises. |
+**s applies SYNC(conn, seq, R, k) from instance f, targeted at s, only
+when all of these hold:**
+
+- `conn` and `seq` equal `cur_[l]`'s nonce and `conn_seq`;
+- f is the entry `cur_[l]` names, or `cur_[l]` names none yet (UNBOUND
+  awaiting both, step 4 of 2.4: this SYNC then names f).
+
+Then:
+
+    count_[l][f] = k + (cur_[l].pushed − R)
+
+For the binding SYNC, `pushed = 0`, so `count = k`. **Every other SYNC is
+ignored** and counted as `xnode_syncs_stale`. That includes one naming an
+older connection, an older seq, another instance or another link. So a
+SYNC can never raise or overwrite state from a superseded connection.
 
 While `gates_` is true, every change to `count_` changes `ended_own_` by
 the opposite amount, so `live_s` stays `started − ended`. While it is
-false (quarantine), the change is to the debt only.
+false (quarantine), only the debt changes.
 
-`pushed_` is kept per connection: the current one and the last closed
-one, each with its nonce, for each entry.
+**Ordering of control frames from one instance.** p's SYNCs, ENDs and
+counted replies to s reach s in p's emission order. Within one of p's Out
+connections, TCP keeps the order. Across p's reconnects, s closes p's
+older In connection (same member) on reading the newer Hello, before
+reading any frame of the newer one (`node_link.cpp:284-289`, per member
+in v2). After that, no frame of the older connection can be read.
 
-**Exactness argument** (unchanged from rev1, extended to FINAL). p's
-SYNC follows, in its stream, every END and counted reply p emitted before
-computing k, so s has applied those first. Every item s counted for f
-then sits in exactly one of three places:
+So a frame that p emitted before a SYNC is applied before it, and one
+emitted after is applied after. Nonces give identity and `conn_seq`
+gives order. Neither is used for the other job (the review's point).
+
+**Exactness argument.** A SYNC follows, in p's stream, every END and
+counted reply p emitted before computing k, so s has applied those
+first. Every item s counted for f is then in exactly one of three
+places:
 
 1. at f: in k;
-2. lost (a dropped wire, or a purged queue at f): neither in k nor in
-   flight;
-3. in flight on the named connection: `pushed − R`.
+2. lost on a dropped wire, or in a purged queue at f: it is neither in k
+   nor in flight, so it drops out;
+3. in flight on the current connection c: `pushed − R` of them, still
+   to be received and counted at f.
 
-For the current connection, frames still in flight will be counted at f
-when they arrive. For a FINAL SYNC the connection is closed at f, so
-`pushed − R` were lost. Old connections cannot deliver after f has read
-a newer Hello or closed them (`node_link.cpp:284-289`). The case that
-cannot be made exact is applied as partial, and only raises.
+The SYNC names c, so these are exactly the frames on c, and older
+connections contribute nothing in flight.
 
 ### 2.6 Lifecycle of each item, and END (review item 3)
 
@@ -382,7 +446,7 @@ closed or silent (2.12 C). That covers a QUARANTINED entry too. In both cases th
 |---|---|
 | `held_for_[l][e]` | Set to 0. Every item tagged e is **purged eagerly** in one pass over `emit_local_`, `emit_remote_`, `emit_node_`, `emit_wait_` and the held-emit list. These are dropped with no END (their instance is gone). |
 | `end_owed_[l][e]` | Discarded, never sent: no instance can receive it, and it is never merged into another entry. |
-| `in_conn_`, `rx_`, `in_final_`, `sync_owed_` | Cleared |
+| `in_conn_`, `in_seq_`, `rx_`, `sync_owed_` | Cleared |
 | Queued DATA carrying the tag | Purged with the items above |
 | Replies waiting for durability (`emit_wait_`) | Purged with the items above |
 | `count_[l][e]` (s as origin toward e) | Set to 0, with `ended_own_` adjusted if `gates_`: e's memory is gone, and so are the items. |
@@ -437,11 +501,23 @@ and a flag `gates_`:
 - flipping the flag moves `count_` into or out of `live_s`, with
   `ended_own_` adjusted (signed).
 
-**Trigger.** Either holds:
+**Trigger.** Any of these holds:
 
 1. s's In side from entry e has been down for `T_release`, with no open
    In connection from e;
-2. e's heartbeats report e **blocked** (2.12) for `T_release`.
+2. `now − blocked_since_[l][e] ≥ T_release`. `blocked_since_` is set at
+   the first HEARTBEAT from e with the blocked bit. It is cleared only by
+   a HEARTBEAT from e without the bit, or by e's retirement. It is **not**
+   reset when e's connections close, or when e leaves the links (2.12 A):
+   an instance that blocked and then left keeps its original deadline
+   (rev2 review item 3).
+3. e has a nonzero `count_` but has not been s's BOUND entry on link l
+   for `T_release`. For example, s's Out connection failed over to
+   another member while e stays connected and unblocked.
+
+   No SYNC can ever apply to e again unless it is bound, so items lost on
+   its last wire would otherwise gate X forever. Quarantine is safe here:
+   no counted DATA goes to an entry that is not bound anyway.
 
 **Steps.** s performs them atomically, before the released count stops
 gating:
@@ -462,11 +538,12 @@ gating:
 
 | Event | Effect |
 |---|---|
-| A HelloAck from e binds a new connection (2.4), **and** s has a live In connection from e whose heartbeat names that connection (both directions work, 3.3) | `state_ = BOUND`, `gates_ = true`. The count is still the one kept during quarantine, now gating again, and it is corrected by the SYNCs that follow. A HelloAck alone, with the In side down, leaves the link unbound. |
+| A binding to e (2.4): the HelloAck and the exact current SYNC over e's live In connection, in either order (both directions work by construction, 3.3) | `count_ = k` (exact, when the SYNC is read), `gates_ = true` at BOUND. One of the two alone leaves the link not BOUND, still down for queueing. |
 | Retirement of e (2.7) | `count_ = 0` (`gates_` was false, so `live_s` does not change) |
 
-**While quarantined,** SYNCs (exact or partial) and ENDs from e still act
-on `count_`. A counted reply decrements it and becomes s's local item,
+**While quarantined,** ENDs and counted replies from e still act on
+`count_`. The only SYNC that can apply is the binding SYNC of a new
+connection, which leads to BOUND and so ends the quarantine. A counted reply decrements it and becomes s's local item,
 which enters `live_s` (+1, while the debt falls by 1).
 
 **Why the debt cannot grow.**
@@ -474,9 +551,12 @@ which enters `live_s` (+1, while the debt falls by 1).
 - While e is QUARANTINED, no counted DATA can reach it. That would need a
   binding, and a binding makes the state BOUND.
 - `count_` therefore only falls, or is corrected downward by exact SYNCs.
-- A partial SYNC can raise it only to k, the number of items e reports
-  actually holding of ours. That cannot exceed what was counted at
-  quarantine plus nothing, because nothing new was sent.
+- The only SYNC that can apply while quarantined is a binding SYNC
+  (pushed = 0), which sets `count_ = k`. It cannot raise the count:
+  every item e holds of s's was counted by s, and its END or counted
+  reply has not been sent, so `count_ ≥ k` whenever the SYNC is read.
+  ENDs and replies only lower it. So no control frame can raise the
+  count.
 
 So D per entry is non-increasing while quarantined. Each further
 quarantine needs a binding first, and a binding resets nothing upward.
@@ -602,19 +682,30 @@ both from the documented fenced-primary limit (`CLUSTER.md`, Limits):
 - It recreates them, as a **new instance** with a new incarnation, when it
   is unblocked.
 - Its HEARTBEAT carries a blocked bit from the moment it blocks, so peers
-  can quarantine it at `T_release` (2.8) even before it leaves.
+  start `blocked_since_` then. They quarantine it at `blocked_since_ +
+  T_release`, whether it is still linked or has already left (2.8).
 
 `CLUSTER.md` names this as the next step ("withdrawing while blocked ...
 needs no new protocol"). Data and clients are unchanged: it still blocks
 writes as today.
 
-**Why this is enough:**
+**The window, from the written state machine (rev2 review item 3).**
+Take t0 as the moment the primary blocks.
 
-- the peers' Out connections then fail over to the promoted member;
-- the fenced-alive window is bounded by `T_block` + `T_dead`;
-- during it, the promoted member's count toward that group may stall
-  admission, for at most that window;
-- that is stated as a limit, and X7b measures it.
+| Time | Event |
+|---|---|
+| ≈ t0 + `T_hb` | Peers see the blocked bit and set `blocked_since_` |
+| t0 + `T_block` | The primary leaves the links. Peers' Out connections fail over to the promoted member, and their In side from the old instance goes down. Its `blocked_since_` is kept |
+| ≤ t0 + `T_hb` + `T_release` | Peers quarantine the old entry, so its count stops gating X |
+
+So the old instance's count can hold a peer's admission for at most
+`T_hb + T_release` after it blocks. The promoted member's own entry is
+separate (2.7). It starts gating only from its own binding, with an
+exact count.
+
+A primary that blocks while its heartbeats cannot reach a peer is
+covered by the In-down trigger: at most `T_dead + T_release` after its
+last frame. X19 checks the first deadline, and X7b the second.
 
 **B. Member steering.** p's Out link to group A shard o normally tries
 members in turn (`node_link.cpp:172-185`). In v2 it also drops and moves
@@ -632,6 +723,27 @@ it.
   naming member m with a new incarnation only once the older
   incarnation's In connection from m has closed, or has been silent for
   `T_dead`. Until then the new connection is refused and retried.
+- **Fencing before retirement (rev2 review item 2; part of M1).** When the
+  older incarnation's transport is not yet observed closed, p fences it
+  before anything else, in this order and on the shard thread:
+  1. it removes the older In socket from epoll, and resets it
+     (`SO_LINGER{1,0}`, then `close`). Bytes still buffered or in flight
+     on it can no longer be read, because no reader exists;
+  2. it resets any Out connection whose `cur_[l]` is identified with, or
+     bound to, the older entry, and removes it from epoll;
+  3. only then does it retire the entry (2.7): purge, zero, discard END
+     debt;
+  4. only then does it accept the new incarnation's connection.
+
+  A retired entry therefore has no socket left that could deliver a
+  frame. Any later frame claiming that incarnation would need a new
+  connection, and its Hello is refused, because the entry is RETIRED and
+  newer incarnations of m exist. A retired incarnation is never accepted
+  again: p keeps, per member, the last 4 retired incarnations to check
+  this, a fixed-size list. A Hello naming one of them is refused, and
+  counted in `xnode_m_conflicts`.
+- **The same fencing applies to observed closes,** where steps 1 and 2 are
+  no-ops for sockets already gone.
 - **Restarts.** A crashed process's connections close at once. A host
   that died hard is detected by silence. So this delays a restart by at
   most `T_dead`.
@@ -651,14 +763,19 @@ an accounting bit. A mismatch is refused like a version mismatch, so
 
 ### 3.1 s's Out connection to p drops (s → p wire lost)
 
-1. s marks it closed (`out_closed_`). Its count stays, conservatively.
-   The link is unbound, so its queue is purged (2.4).
-2. s reconnects with a new nonce.
+1. s clears `cur_[l]`, keeping no record of the old connection. The
+   count stays conservatively and still includes what was lost on the
+   wire. The link is not bound, so its queue is purged (2.4).
+2. s reconnects with a new nonce and the next `conn_seq`.
 3. p closes the old In connection, either on reading the new Hello or on
-   the hang-up. It sends a FINAL SYNC for the old connection and a
-   HelloAck on the new one.
-4. s binds and runs `resume_all`. The FINAL SYNC removes the lost items
-   exactly.
+   the hang-up. It writes the HelloAck, and sends a current SYNC naming
+   the new connection. Its `rx` is 0 and k is what p holds.
+4. s reads the HelloAck and the SYNC, in either order (2.4); the SYNC
+   sets `count = k`, and both together make the link BOUND. The lost
+   items drop out exactly here. Then it runs `resume_all`.
+5. However many times steps 1-3 repeat before a SYNC gets through
+   (X24), only the SYNC naming the current connection can apply. Every
+   earlier one is ignored, so no lost generation is resurrected.
 
 ### 3.2 p's Out connection to s drops (p → s wire, its queue and ENDs lost)
 
@@ -693,8 +810,9 @@ X14 checks both variants.
 ### 3.4 Both directions, then heal
 
 1. Silence detects the loss, then quarantine applies.
-2. On heal, the binding has both directions, so `gates_` turns true.
-3. The FINAL and current SYNCs from p correct the count exactly.
+2. On heal, the binding needs both directions: the HelloAck goes s → p,
+   and the SYNC comes p → s.
+3. The binding SYNC sets the count exactly, and `gates_` turns true.
 
 ### 3.5 Crash and restart of o (same member)
 
@@ -710,15 +828,19 @@ X14 checks both variants.
 ### 3.6 Failover of p's group; the old primary fenced but running
 
 - o's Out connection drops and reconnects to member m′, which is p′. The
-  HelloAck from p′ binds it.
-- o's entry for old p keeps its count, but nothing is bound to it, so no
-  DATA reaches it. Old p's In connection to o survives, because the
-  replacement rule is now per member. Its ENDs, counted replies and
-  FINAL SYNC correct the old entry.
-- Old p is blocked: it cannot reach its standby. Its heartbeats say so,
-  so o quarantines its entry after `T_release`. After `T_block` it leaves
-  the links (2.12 A). Its entry then quarantines on silence, and retires
-  when its member restarts.
+  HelloAck and the current SYNC from p′ bind it, with an exact k.
+- o's entry for old p keeps its count, but it is not bound, so no DATA
+  reaches it. Old p's In connection to o survives, because the
+  replacement rule is now per member. Its ENDs and counted replies
+  decrement the old entry. Its SYNCs are ignored, since they do not name
+  o's current connection.
+- The old entry stops gating at the earliest of three deadlines (2.8):
+  - blocked, at `blocked_since + T_release`;
+  - In down, at `T_release`;
+  - not bound, at `T_release`.
+
+  After `T_block`, old p leaves the links (2.12 A). The old entry retires
+  when its member's next instance connects, after fencing (2.12 C).
 - p's Out connection to A.o is steered to the member whose In connection
   is live (2.12 B), so the ENDs and SYNCs for p′'s exchanges reach o's
   live instance.
@@ -789,11 +911,12 @@ an exact SYNC that does not count it.
 **Every item that disappears without an END or a reply** was lost on a
 wire or in a purged queue at the peer. Both are connection events:
 
-- the receiver closes the connection, which owes a FINAL SYNC;
-- or the sender reconnects, and the receiver sends a current SYNC on the
-  Hello.
+- the sender's next binding applies an exact current SYNC, `count = k`,
+  before any counted DATA;
+- if no binding comes, the entry is quarantined: In down, blocked, or
+  not bound for `T_release`.
 
-Either SYNC removes the lost item exactly. Drops at receipt owe ENDs
+The binding SYNC removes the lost item exactly. Drops at receipt owe ENDs
 (2.6), so they are not left to a SYNC (review G9).
 
 **A peer that never sends a SYNC** is quarantined, so its count leaves
@@ -953,7 +1076,7 @@ Per shard. Per-entry state is summed, plus a count of entries by state.
 |---|---|
 | Configuration | `xnode_accounting`, `xnode_hb_ms`, `xnode_dead_ms`, `xnode_release_ms`, `xnode_block_ms` |
 | State now | `xnode_remote_live`, `xnode_debt`, `xnode_held_for_peers`, `xnode_end_owed`, `xnode_links_unbound`, `xnode_entries_bound`, `xnode_entries_quarantined`, `xnode_blocked` (this shard has left the links while blocked) |
-| Counters | `xnode_bindings`, `xnode_syncs_sent`, `xnode_syncs_exact`, `xnode_syncs_final`, `xnode_syncs_partial`, `xnode_sync_correction` (Σ \|change\|), `xnode_ends_sent`, `xnode_ends_received`, `xnode_quarantines`, `xnode_retirements`, `xnode_retire_purged`, `xnode_drops_to_resume`, `xnode_ignored_frames`, `xnode_end_underflow` (must stay 0), `xnode_heartbeats_sent`, `xnode_silence_closes`, `xnode_out_resets`, `xnode_unbound_purged`, `xnode_steers`, `xnode_m_conflicts`, `xnode_block_leaves`, `link_version_refusals`, `link_accounting_refusals` |
+| Counters | `xnode_bindings`, `xnode_syncs_sent`, `xnode_syncs_exact`, `xnode_syncs_stale` (ignored: not the current connection), `xnode_identified`, `xnode_bind_mismatch`, `xnode_fenced`, `xnode_sync_correction` (Σ \|change\|), `xnode_ends_sent`, `xnode_ends_received`, `xnode_quarantines`, `xnode_retirements`, `xnode_retire_purged`, `xnode_drops_to_resume`, `xnode_ignored_frames`, `xnode_end_underflow` (must stay 0), `xnode_heartbeats_sent`, `xnode_silence_closes`, `xnode_out_resets`, `xnode_unbound_purged`, `xnode_steers`, `xnode_m_conflicts`, `xnode_block_leaves`, `link_version_refusals`, `link_accounting_refusals` |
 
 `xnode_remote_live` is Σ `count_` over gating entries, and `xnode_debt` is the same over quarantined entries. `intake_exchanges_live` is `started − ended`. It includes the first and excludes the second.
 
@@ -970,8 +1093,8 @@ read from GAUGES.
 |---|---|---|
 | X1 stalled remote | B's flush stalls; A's clients run cross-node transfers flat out | A's `emit_node_` ≤ `live_A + live_B`; `live_A` < X + max(E, Rr); Out buffer ≤ `kOutCap`; B's held ≤ L; A's clients see `E_OVERLOADED`. Unstall: all settle, money conserved, counts 0 |
 | X2 rate mismatch | F11 across nodes | B's queue toward A ≤ `live_A + live_B` at every sample; settles |
-| X3 forward drop | The proxy cuts o → p repeatedly | No underflow; a FINAL SYNC and a HelloAck binding per cycle; counts 0 at quiescence |
-| X4 return drop | The proxy cuts p → o repeatedly | The same |
+| X3 forward drop | The proxy cuts o → p repeatedly | Per cycle a HelloAck, then a binding SYNC; no counted DATA between them; at each binding `count_` equals p's `held_for_`, read from both GAUGES on the same quiesced cycle; no underflow; counts 0 at quiescence |
+| X4 return drop | The proxy cuts p → o repeatedly | The same, plus: each current SYNC sets `count_ = k + pushed − R`, checked against the proxy's own count of delivered counted frames, before and after the SYNC |
 | X5 blackhole and heal | The proxy stops forwarding both ways, then heals | Silence close (unpaused only); quarantine after `T_release`; debt fixed then repaid at binding; settles |
 | X6 crash of o | kill -9 A, restart | B retires the old entry and purges it; new binding k = 0; settles; money conserved |
 | X7 failover of B | Lab pair with witnesses; kill B's primary | Binds to p′ with k = 0; the old entry quarantines, then retires on restart; settles |
@@ -987,11 +1110,15 @@ read from GAUGES.
 | **X16 END debt at a switch** (review) | p holds ENDs owed to o1 when o1′ (a new incarnation of the same member) connects, and others to member 2 | o1's debt is discarded, never sent to o1′; member 2's debt is sent only on a binding to member 2; o1′'s count is exact |
 | **X17 churn cycles** (review) | 20 cycles of slot moves, releases, reconnects and restarts under load | At every sample: physical ≤ Σ_s (1 + 2·Q_s)(X + max(E, Rr)); `live_s` < X + max(E, Rr) at every shard; settles |
 | X18 timer constraints | Start with `T_dead ≤ T_hb`, or `T_release ≤ T_dead` | The engine refuses to start, with a message |
-| X19 blocked primary leaves links (rev2 check G3) | Cut B's primary off from its standby and witnesses, while A still reaches it | Its heartbeats say blocked; A quarantines it at `T_release`; it leaves the links at `T_block`; A's Out connections move to the promoted member; A's admission recovers within `T_block` + `T_dead`; on unblock it rejoins as a new instance |
+| X19 blocked primary leaves links (rev2 check G3; deadline per rev2 review item 3) | Cut B's primary off from its standby and witnesses, while A still reaches it | The blocked bit reaches A within `T_hb`; it leaves the links at `T_block`; `blocked_since_` survives its leaving; A quarantines the old entry by `blocked_since + T_release` (≤ `T_hb + T_release` after the block); A's Out connections move to the promoted member, which binds with an exact k; on unblock it rejoins as a new instance |
 | X20 member steering (G2) | Old and new members both accept; pin p's Out connection to the old one while only the new one's In connection is live | p's Out connection moves to the live member within `T_dead`; ENDs reach it; counts settle |
 | X21 M conflict (G8) | Two in-memory engines claiming the same member | The second's Hellos are refused while the first is live; `xnode_m_conflicts` > 0; neither retires the other; no underflow |
 | X22 unbound link does not hold X (G1) | A peer accepts but never sends a HelloAck (test hook) | Cross-node roots are purged while unbound; `live_s` stays below X from intra-node work; once acks resume, the binding runs `resume_all` and all settles |
 | X23 accounting mismatch (G7) | One engine with `SNC_XNODE_ACCOUNTING=off` | Links refused both ways, with message and gauge |
+| **X24 repeated forward flaps before reverse reconciliation** (rev2 review) | The proxy delays p → o control frames; o → p is flapped at least 5 times under load, so several connections close before any SYNC reaches o; then the delay is lifted | SYNCs naming earlier connections are ignored (`xnode_syncs_stale` ≥ the flap count); none raises `count_`; the first applied SYNC names the current connection and sets `count_ = held_for_` at p; no counted DATA before it; no underflow; counts 0 at quiescence |
+| **X25 delayed old frames after silent replacement** (rev2 review) | Old instance of member m: connection held open but silent past `T_dead` (proxy stall), with DATA, END and SYNC frames queued in the proxy; then a new instance of m connects; the proxy then releases the old frames | The old In socket is reset and removed from epoll before the retirement; the old Out connection (if bound) is reset; the old entry is purged exactly once (`xnode_retire_purged` once); no released old frame is read; the new entry starts at 0 and binds with an exact k; no underflow; no uncounted item |
+| X27 SYNC before HelloAck | The proxy delays the HelloAck on o's Out socket until after p's binding SYNC reaches o, on each reconnect | o binds on the HelloAck's arrival, with `count_ = k` from the earlier SYNC; no counted DATA before both; `xnode_bind_mismatch` 0 |
+| X26 not-bound quarantine | Fail o's Out connection over to member 2 while member 1 stays connected and unblocked, with items lost on its last wire | Member 1's entry stops gating `T_release` after it was last bound; its ENDs still decrement it; no underflow |
 
 ### 8.2 Negatives
 
@@ -1002,8 +1129,8 @@ must fail.
 |---|---|
 | ND1 end the exchange at push (D.1) | X1, X2 |
 | ND2 omit the END on one disposition (misrouted) | X8, X3 |
-| ND3 treat a partial SYNC as exact | X3, X4 |
-| ND4 no current SYNC on a new Hello | X3 (count stays high until the FINAL SYNC; nonzero at a checkpoint sample) |
+| ND3 apply a SYNC from an instance other than the identified one | X13 |
+| ND4 no current SYNC on a new Hello | X3 (never binds: no settlement) |
 | ND5 a counted reply does not decrement | X1 (never 0) |
 | ND6 both an END and a counted reply for one item | X3 (underflow) |
 | ND7 keep `end_owed_` when pushing a SYNC | X4 (double end) |
@@ -1026,6 +1153,13 @@ must fail.
 | ND24 hand off a tagged reply in-node untagged | X12 (uncounted item: debug abort or count nonzero) |
 | ND25 leave quarantine on a HelloAck alone | X14b (debt grows across releases) |
 | ND26 two split counters (`remote_` and `debt_`) with the rev2-draft SYNC rule | X5 (count stuck after a partial SYNC during quarantine) |
+| **ND27 the rev2 FINAL rule: a SYNC for a closed connection sets `count = k + (pushed − R)`** (rev2 review) | X24, X3 (the count keeps lost frames; nonzero at quiescence) |
+| **ND28 apply a SYNC naming an older connection (stale)** (rev2 review) | X24 (`count_` raised after a newer binding; underflow later) |
+| **ND29 counted DATA after the HelloAck, before the binding SYNC** (rev2 review) | X3, X24 (binding SYNC with `pushed` ≠ 0; the count is off by the frames in flight) |
+| **ND30 accept a new incarnation after silence without fencing the old socket** (rev2 review) | X25 (an old frame reaches the new entry or a retired one: underflow, or an uncounted item) |
+| ND31 reset `blocked_since_` when the old instance's links close | X19 (quarantine later than `T_hb + T_release`) |
+| ND32 no not-bound quarantine trigger | X26 (member 1's count gates forever) |
+| ND33 ignore a binding SYNC read before its HelloAck | X27 (the link never binds; quarantined at `T_release`) |
 
 ### 8.3 Existing tests
 
@@ -1093,6 +1227,16 @@ The plan is one PR, in this commit order, each one green:
    fenced-alive window. Is it in scope for D.2? The alternative is to
    accept that window as unbounded and documented.
 
+**Rev3 questions.**
+
+9. **FINAL removed (2.5).** The review offered either a FINAL with
+   explicit semantics or none. Rev3 has none: only the current
+   connection's SYNC applies, and lost items drop out at the next
+   binding, or by quarantine. Approve?
+10. **Not-bound quarantine (2.8, trigger 3).** Without FINAL, an entry
+    that stays connected but is no longer s's bound entry could keep lost
+    items forever. Rev3 quarantines it after `T_release`. Approve?
+
 ## 11. Not in this slice
 
 S5; S6; R640; CP-1A; comparators; B2 begin-snapshot work. Any change to
@@ -1132,12 +1276,12 @@ following sound:
 | G1: a link that is up but never binds kept its queue, counted in `live_s`, so X filled and the shard refused every client: a regression against D.1 | High | Unbound means down for queueing: purge and end; `resume_all` at binding (2.4). X22, ND21, ND22 |
 | G2: binding through a SYNC on the reverse link can be impossible when that link is attached to another member (a fenced old one) | High | HelloAck on the same socket (2.4); member steering of the reverse link (2.12 B). X20, ND15 |
 | G3: a fenced primary that stays connected, but never makes anything durable, is never quarantined, and its count holds X | High | Blocked bit in HEARTBEAT, which triggers quarantine; a blocked primary leaves the links after `T_block` (2.8, 2.12 A). X19 |
-| G4: the `remote_`/`debt_` split let items sit in both counters, or neither, after a partial or FINAL SYNC during quarantine | Medium | One counter plus a gating flag (2.3, 2.8). ND26 |
+| G4 (rev3: the FINAL SYNC it mentions is removed): the `remote_`/`debt_` split let items sit in both counters, or neither, after a partial or FINAL SYNC during quarantine | Medium | One counter plus a gating flag (2.3, 2.8). ND26 |
 | G5: "a retired item does not exist" is false while another peer has not yet retired that incarnation | Medium | Term U, bounded per (peer, member) (5.2, 5.3) |
 | G6: an in-node hand-off produced an untagged, uncounted item | Medium | Drop to resume, with END (2.6, 2.9). ND24 |
 | G7: mixed accounting settings on the same v2 wire | Low | Accounting bit in Hello; refused (2.12 D). X23 |
 | G8: invariant M was weaker than stated (no lock for in-memory engines; network namespaces), and two live instances would retire each other | Low | The peer refuses a new incarnation while the old one is live (2.12 C). X21, ND23 |
-| G9: RST wording; FINAL = 0 needed in the exact-current case; a drop at receipt leaked until some later SYNC | Low | Corrected (2.5, 2.6, 2.8); drops at receipt owe ENDs |
+| G9 (rev3: FINAL removed, so its first half no longer applies): RST wording; FINAL = 0 needed in the exact-current case; a drop at receipt leaked until some later SYNC | Low | Corrected (2.5, 2.6, 2.8); drops at receipt owe ENDs |
 | G10: the per-member In replacement was not argued against `TRANSFERS.md` ordering | Low | Argued (2.7) |
 
 ## 13. PR #91 review: required corrections and where they are
@@ -1153,3 +1297,16 @@ following sound:
 | 6 Mixed-version wording | 2.11: client transport is unaffected, but cross-node settlement and availability can be. X9 |
 | 6 Timer constraints | 2.10: enforced ordering; safety does not depend on the values. X18 |
 | Section 10 answers | Q1 fail-closed: kept. Q4 SYNC: kept. Q5 timers: kept as hypotheses. Q2, Q3 and Q6: re-asked as 10.4, 10.1 and 10.6 |
+
+## 14. PR #92 review: required corrections and where they are
+
+| Review item | Rev3 |
+|---|---|
+| 1 BLOCKER: HelloAck identity used as accounting-ready binding | 2.4: HelloAck makes the link IDENTIFIED only. BOUND needs both it and the exact SYNC naming the current conn and `conn_seq` with `pushed = 0`, which sets `count_ = k`, in either order; then `resume_all`. No counted DATA before BOUND. X3, X24, X27, ND29, ND33 |
+| 2 Exact current SYNC before counted DATA | 2.4, 2.5, 3.1. ND4, ND29 |
+| 3 FINAL arithmetic added lost `pushed − R` | 2.5: FINAL removed. Only a SYNC naming `cur_[l]` applies: `count = k + (cur.pushed − R)`. Lost items drop out at the next binding (3.1, 4.2) or by quarantine, including the new not-bound trigger (2.8). X24, X26, ND27, ND32 |
+| 4 Stale control-frame ordering and supersession | 2.2 (`conn_seq` in Hello and SYNC), 2.3 (`cur_[l]` cleared at drop, no history), 2.5 (non-current SYNCs ignored, `xnode_syncs_stale`). X24, ND28 |
+| 5 BLOCKER: retirement on silence without fencing | 2.12 C: remove the old In socket from epoll and reset it, reset any Out connection identified with or bound to the old entry, retire, then accept the new incarnation. 2.7 row for `in_conn_`, `in_seq_`, `rx_`, `sync_owed_`. X25, ND30 |
+| 6 Blocked-primary timing and X19 | 2.8 trigger 2: `blocked_since_` survives the links closing. 2.12 A timing table: quarantine ≤ `T_hb + T_release` after the block. X19, ND31 |
+| 7 X24, X25, stronger X3/X4, negatives | 8.1: X3, X4 check the accounting equation at every exact SYNC; X24, X25, X26 added. 8.2: ND27-ND32 |
+
