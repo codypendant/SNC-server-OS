@@ -96,10 +96,11 @@ Decided by cody on 2026-11-04.
      current-connection SYNC only, fencing before silent retirement,
      blocked-primary timing) got REV3 CORE PROTOCOL APPROVED,
      IMPLEMENTATION HOLD ON TWO NARROW ITEMS
-     (handoff/PR93_D2_Design_Rev3_Review.md). Design rev4 is up for review
-     ([CROSS_NODE_EXCHANGE_DESIGN.md](CROSS_NODE_EXCHANGE_DESIGN.md)
-     section 15: SYNC accounting barrier, persistent monotonic incarnation
-     generation); no D.2 code until it is approved.
+     (handoff/PR93_D2_Design_Rev3_Review.md). Design rev4 (PR #94: SYNC accounting
+     barrier, persistent monotonic incarnation generation) is APPROVED and
+     **D.2 implementation is AUTHORIZED**
+     (handoff/PR94_D2_Design_Rev4_Review.md), in the section 9 commit
+     order, as one PR returned for independent review.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

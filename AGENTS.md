@@ -2254,3 +2254,15 @@ or source comments.
     -   RECONSIDER the clock-based incarnation, which is replaced.
 -   **Next action:** WAIT for the rev4 review. No D.2 code.
 
+### 2026-11-10 UTC --- Claude (Claude Code): PR #94 review filed; D.2 implementation authorized
+
+-   **Review:** PR #94 (design rev4) APPROVED; D.2 implementation
+    AUTHORIZED. Filed verbatim as
+    `docs/handoff/PR94_D2_Design_Rev4_Review.md`.
+    `--links-generation-min` is approved with fail-closed semantics.
+-   **Next action:** implement D.2 as one PR, in the design's section 9
+    commit order, each commit green. Run X1-X29 (with X19b), ND1-ND37,
+    and the Release, ASan+UBSan and TSan serial suites, keeping every
+    attempt. Then return it for independent review. S5, S6, R640, CP-1A,
+    comparators and B2 begin-snapshot stay forbidden.
+

@@ -1,6 +1,8 @@
-# Follow-up intake D.2: cross-node exchange accounting (design rev4, for review)
+# Follow-up intake D.2: cross-node exchange accounting (design rev4, approved; implementation authorized)
 
-**Status: design rev4, for review. No D.2 code until it is approved.**
+**Status: design rev4 APPROVED (PR #94); D.2 implementation AUTHORIZED**
+**(`docs/handoff/PR94_D2_Design_Rev4_Review.md`, verbatim).** `--links-generation-min`
+is approved with fail-closed semantics.
 
 - Rev1 was PR #91. Its review ruled: DESIGN DIRECTION APPROVED, IMPLEMENTATION
   HOLD (`docs/handoff/PR91_D2_Design_Review.md`, verbatim).
@@ -937,7 +939,7 @@ X14 checks both variants.
 
 ### 3.5 Crash and restart of o (same member)
 
-- The new instance draws a new incarnation. Its connections can be
+- The new instance allocates and persists a new incarnation generation (2.1). Its connections can be
   accepted once the old process's connections are closed: at once after
   a crash, or after `T_dead` of silence for a dead host (2.12 C).
 - p reads its Hello (member m, new incarnation). Corollary M1 applies,
