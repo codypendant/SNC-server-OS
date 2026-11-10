@@ -602,6 +602,7 @@ class Shard {
   // Runs every object's resume hook; what they emit waits for `lsn`.
   void resume_all(u64 lsn);
   bool poll_links();
+  void leave_links();
   static void on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLinks::Frame& f);
   void start_sender(const std::string& data_dir, u64 next_lsn);
 
@@ -864,6 +865,14 @@ class Shard {
   Xnode xnode_;
   std::vector<u64> peer_highest_;  // per (link, member): highest incarnation seen (2.12 C), outlives links_
   bool links_no_gen_said_ = false;
+  // D.2 (2.12 A): this primary is blocked (sync replication, the standby
+  // gone or not acknowledging for T_dead) since then (0: not); it left the
+  // node links after T_block and recreates them once unblocked.
+  u64 xnode_blocked_since_ = 0;
+  bool xnode_left_ = false;
+  u64 wait_front_lsn_ = 0, wait_front_ns_ = 0;
+  bool xnode_blocked_now(u64 now);
+  bool poll_blocked();
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
   // Stage chains (S1): per slot, the running chain's (token, move); and

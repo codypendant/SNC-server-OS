@@ -922,6 +922,7 @@ bool Shard::poll() {
   }
   bool busy = run_emits();
   busy |= resume_step();
+  if (cluster_ != nullptr && !withdrawn_) busy |= poll_blocked();
   if (links_) busy |= poll_links();
   if (wal_ && !((g_debug_hold_wal.load(std::memory_order_relaxed) >> (id_ & 63)) & 1)) {
     busy |= wal_->poll(sri_now_ns(), /*force=*/false);
@@ -1911,6 +1912,75 @@ void Shard::purge_tagged(long link, u16 member, u32 serial) {
   emit_held_.erase(std::remove_if(emit_held_.begin(), emit_held_.end(), [&](Emit& e) { return drop(e, false); }),
                    emit_held_.end());
   stats_.xnode_retire_purged += n;
+}
+
+// 2.12 A: blocked means sync replication is in force and either the
+// standby connection is down or the oldest record waiting only for its
+// ack (durable here) has waited T_dead. Read from the waiter state.
+bool Shard::xnode_blocked_now(u64 now) {
+  if (!repl_cfg_.sync || !repl_hold_ || sender_ == nullptr || wal_ == nullptr) return false;
+  if (!sender_->live()) return true;
+  if (waiters_.empty() || waiters_.front().lsn > wal_->durable_lsn()) {
+    wait_front_lsn_ = 0;
+    return false;
+  }
+  if (waiters_.front().lsn != wait_front_lsn_) {
+    wait_front_lsn_ = waiters_.front().lsn;
+    wait_front_ns_ = now;
+  }
+  return now - wait_front_ns_ >= xnode_.dead_ns;
+}
+
+// The blocked bit goes out at once; blocked for T_block, the links go
+// (a blocked primary must not hold its peers' counts or Out connections);
+// unblocked, they come back as a new instance with a new incarnation.
+bool Shard::poll_blocked() {
+  const u64 now = sri_now_ns();
+  const bool b = xnode_blocked_now(now);
+  stats_.xnode_blocked = b ? 1 : 0;
+  if (!b) {
+    xnode_blocked_since_ = 0;
+    if (links_) links_->set_blocked(false);
+    if (xnode_left_) {
+      xnode_left_ = false;
+      ++stats_.xnode_rejoins;
+      std::fprintf(stderr, "snc: shard %u: unblocked, rejoining the node links as a new instance\n", id_);
+      start_links();
+      return true;
+    }
+    return false;
+  }
+  if (xnode_blocked_since_ == 0) xnode_blocked_since_ = now;
+  if (links_) {
+    links_->set_blocked(true);
+    if (now - xnode_blocked_since_ >= xnode_.block_ns) {
+      std::fprintf(stderr, "snc: shard %u: blocked for T_block (no standby acknowledging), leaving the node links\n",
+                   id_);
+      leave_links();
+      xnode_left_ = true;
+      ++stats_.xnode_blocked_leaves;
+      return true;
+    }
+  }
+  return false;
+}
+
+// The links instance goes, listener included: its counts and entries with
+// it, every tagged item purged (no END: its counting instance is gone),
+// and what waits for a link dropped (resumed when links come back).
+void Shard::leave_links() {
+  links_.reset();
+  links_paused_ = false;
+  purge_tagged(-1, 0, 0);
+  for (auto& q : emit_node_) {
+    stats_.node_emits_dropped += q.size();
+    emit_ready_count_ -= q.size();
+    while (!q.empty()) {
+      release_link(q.front());
+      end_item(q.front());
+      q.pop_front();
+    }
+  }
 }
 
 bool Shard::poll_links() {

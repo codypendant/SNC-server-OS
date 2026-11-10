@@ -221,6 +221,9 @@ struct ShardStats {
   u64 xnode_retire_purged = 0;   // tagged items purged with no END: their counting instance is gone
   u64 xnode_drops_to_resume = 0; // another shard's exchange re-routed to a link: dropped, resumed (2.9)
   u64 xnode_uncounted = 0;       // untagged, no origin, accounting on: must stay 0
+  u64 xnode_blocked = 0;         // 1 while this primary is blocked (2.12 A)
+  u64 xnode_blocked_leaves = 0;  // times it left the node links, blocked for T_block
+  u64 xnode_rejoins = 0;         // times it recreated them (a new incarnation) once unblocked
   // Slot moves (docs/MIGRATION.md).
   u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
   u64 emits_held_now = 0;        // ... held at this moment
