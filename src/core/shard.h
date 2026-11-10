@@ -469,6 +469,12 @@ class Shard {
   void purge_tagged(long link, u16 member, u32 serial);
   static void on_links_retire(void* ctx, u32 link, u16 member, u64 incarnation);
   u64 xnode_live() const { return links_ ? links_->xnode_live() : 0; }
+
+ public:
+  // Tests (D.2): this shard's links instance (null: none). Shard thread.
+  const NodeLinks* links_for_test() const { return links_.get(); }
+
+ private:
   void release_link(Emit& e);
   bool exchange_full();
   u64 exchanges_live();

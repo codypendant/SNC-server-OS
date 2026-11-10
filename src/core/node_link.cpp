@@ -22,6 +22,7 @@
 namespace snc {
 
 void (*NodeLinks::debug_sync_probe)(const NodeLinks::SyncProbe& p) = nullptr;
+int NodeLinks::debug_out_sndbuf = 0;
 
 // Wire v2 Hello (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.2).
 struct HelloV2 {
@@ -116,6 +117,7 @@ struct NodeLinks::Out {
   // Liveness (2.10): when this connection last pushed a frame; what the
   // peer's heartbeats say about it.
   u64 last_push_ns = 0;
+  bool blocked_sent = false;  // the blocked bit as this connection last carried it
   u64 mismatch_since_ns = 0;  // heartbeats name another conn, or none
   u64 r_stuck_since_ns = 0;   // R not advancing, peer not paused, frames outstanding
   u64 last_r = 0;
@@ -234,6 +236,7 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
   }
   o.fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   nodelay(o.fd);
+  if (debug_out_sndbuf > 0) ::setsockopt(o.fd, SOL_SOCKET, SO_SNDBUF, &debug_out_sndbuf, sizeof(debug_out_sndbuf));
   const int r = ::connect(o.fd, res->ai_addr, res->ai_addrlen);
   ::freeaddrinfo(res);
   if (r != 0 && errno != EINPROGRESS) {
@@ -269,6 +272,7 @@ void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   // No record of this connection is kept (2.3): its count stays,
   // conservatively, until the next binding's SYNC.
   o.synced = o.is_bound = false;
+  o.blocked_sent = false;
 }
 
 // ---- Liveness (2.10, 2.12 B) ----------------------------------------------------------
@@ -295,16 +299,17 @@ void NodeLinks::push_heartbeat(u32 l, u64 now_ns) {
   }
   f.op = (paused_ ? 1u : 0u) | (blocked_ ? 2u : 0u);
   push(l, f);
+  o.blocked_sent = blocked_;
   ++heartbeats_sent_;
 }
 
 void NodeLinks::set_blocked(bool on) {
   if (blocked_ == on) return;
   blocked_ = on;
-  // At once, not after T_hb of idleness (2.12 A).
-  for (u32 l = 0; l < out_.size(); ++l) {
-    if (out_[l]->identified) push_heartbeat(l, now_ns_);
-  }
+  // At once, not after T_hb of idleness (2.12 A); a connection that
+  // cannot take it now (not up, or full) gets it as soon as it can
+  // (liveness), not only when it next falls idle.
+  for (u32 l = 0; l < out_.size(); ++l) push_heartbeat(l, now_ns_);
 }
 
 void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
@@ -341,7 +346,10 @@ void NodeLinks::liveness(u64 now_ns) {
   // Heartbeats on every connection idle for T_hb.
   for (u32 l = 0; l < out_.size(); ++l) {
     Out& o = *out_[l];
-    if (o.state == Out::State::UP && now_ns - o.last_push_ns >= opt_.hb_ns) push_heartbeat(l, now_ns);
+    if (o.state == Out::State::UP &&
+        (now_ns - o.last_push_ns >= opt_.hb_ns || (blocked_ && !o.blocked_sent))) {
+      push_heartbeat(l, now_ns);
+    }
   }
   // In side: silent for T_dead, but only while reads are not paused and
   // nothing is left unread (a paused or backlogged connection is
@@ -408,16 +416,20 @@ void NodeLinks::quarantine_check(u64 now_ns) {
       Entry& e = ent(l, m);
       if (e.inc == 0 || e.state != EntryState::ACTIVE) continue;
       const u64 blocked = peer_[mbase_[l] + m].blocked_since_ns;
+      const char* why;
       if (now_ns - e.in_alive_ns >= rel) {
         ++ctr_.q_in_down;
+        why = "its In side down";
       } else if (blocked != 0 && now_ns - blocked >= rel) {
         ++ctr_.q_blocked;
+        why = "blocked";
       } else if (e.count != 0 && now_ns - e.bound_ns >= rel) {
         ++ctr_.q_not_bound;
+        why = "not bound";
       } else {
         continue;
       }
-      quarantine(l, m, now_ns);
+      quarantine(l, m, now_ns, why);
     }
   }
 }
@@ -425,7 +437,7 @@ void NodeLinks::quarantine_check(u64 now_ns) {
 // The steps, in order (2.8): the Out connection naming the entry, in any
 // state, is reset first (its unsent queue discarded), then the count stops
 // gating.
-void NodeLinks::quarantine(u32 l, u16 m, u64 now_ns) {
+void NodeLinks::quarantine(u32 l, u16 m, u64 now_ns, const char* why) {
   Entry& e = ent(l, m);
   Out& o = *out_[l];
   const bool names = (o.identified && o.ack_member == m && o.ack_incarnation == e.inc) ||
@@ -440,8 +452,8 @@ void NodeLinks::quarantine(u32 l, u16 m, u64 now_ns) {
     xnode_live_ -= e.count;
   }
   ++ctr_.quarantines;
-  std::fprintf(stderr, "snc: node link: link %u member %u incarnation %llu quarantined, debt %llu\n", l, m,
-               (unsigned long long)e.inc, (unsigned long long)e.count);
+  std::fprintf(stderr, "snc: node link: link %u member %u incarnation %llu quarantined (%s for T_release), debt %llu\n",
+               l, m, (unsigned long long)e.inc, why, (unsigned long long)e.count);
 }
 
 // The acceptor's HelloAck (2.4): read once, up to its 32 bytes. Anything
@@ -487,7 +499,17 @@ bool NodeLinks::read_ack(u32 i, u64 now_ns) {
 // one is accepted.
 bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_in) {
   u64& hi = highest(l, m);
-  if (inc == hi) return true;
+  if (inc == hi) {
+    // The highest seen outlives a links instance (the shard keeps it), so
+    // a new instance of ours (a blocked primary rejoining, 2.12) meets a
+    // known incarnation with its entry still empty: take it.
+    Entry& e = ent(l, m);
+    if (e.inc == 0) {
+      e.inc = inc;
+      e.in_alive_ns = e.bound_ns = now_ns;
+    }
+    return true;
+  }
   if (inc < hi) {
     ++m_conflicts_;
     std::fprintf(stderr,
@@ -558,6 +580,28 @@ NodeLinks::Counters NodeLinks::totals() const {
   c.m_conflicts = m_conflicts_;
   c.fenced = fenced_;
   return c;
+}
+
+NodeLinks::OutView NodeLinks::out_view(u32 l) const {
+  const Out& o = *out_[l];
+  OutView v;
+  v.up = o.state == Out::State::UP;
+  v.identified = o.identified;
+  v.synced = o.synced;
+  v.bound = bound(l);
+  v.member = o.ack_member;
+  v.incarnation = o.ack_incarnation;
+  v.conn = o.conn;
+  v.conn_seq = o.conn_seq;
+  v.pushed = o.pushed;
+  v.queued = o.buf.size() - o.off;
+  return v;
+}
+
+u32 NodeLinks::ins_from(u32 l, u16 m) const {
+  u32 n = 0;
+  for (const auto& in : in_) n += in && in->hello && in->from.link == l && in->from.member == m;
+  return n;
 }
 
 NodeLinks::State NodeLinks::state() const {

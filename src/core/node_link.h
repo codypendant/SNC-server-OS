@@ -146,6 +146,16 @@ class NodeLinks {
     u64 entries = 0, entries_quarantined = 0, entry_slots = 0, highest_incarnation = 0;
   };
   State state() const;
+  // Tests: our Out connection on `link`, and the bytes queued in it.
+  struct OutView {
+    bool up = false, identified = false, synced = false, bound = false;
+    u16 member = 0;
+    u64 incarnation = 0, conn = 0, pushed = 0, queued = 0;
+    u32 conn_seq = 0;
+  };
+  OutView out_view(u32 link) const;
+  // Tests: open In connections from (link, member).
+  u32 ins_from(u32 link, u16 member) const;
   const Counters& counters() const { return ctr_; }
 
   // Tests only (X3, X4, X28): the values at the SYNC barrier (peer, when
@@ -160,6 +170,9 @@ class NodeLinks {
     u64 end_owed_cleared;   // peer: ENDs subsumed by k
   };
   static void (*debug_sync_probe)(const SyncProbe& p);
+  // Tests only (X28): SO_SNDBUF for Out sockets made from now on (0: the
+  // kernel's), so a stalled peer fills Out::buf quickly.
+  static int debug_out_sndbuf;
 
   // Opens the listener; call on the shard's thread.
   NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options& opt);
@@ -229,7 +242,7 @@ class NodeLinks {
   void on_end(u32 in_index, const Frame& f);
   void underflow(const char* what, u32 link, u16 member, u64 have, u64 n);
   void quarantine_check(u64 now_ns);
-  void quarantine(u32 link, u16 member, u64 now_ns);
+  void quarantine(u32 link, u16 member, u64 now_ns, const char* why);
   void on_sync(u32 in_index, const Frame& f);
   void try_bind(u32 link);
   void identified_out(u32 link);

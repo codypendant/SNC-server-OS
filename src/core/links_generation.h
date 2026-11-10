@@ -46,6 +46,11 @@ class LinksGeneration {
   // temporary written, 2: it is fsynced, 3: renamed; 0: off), as a crash
   // there would leave the files.
   static void debug_crash_after(int stage);
+  // Tests only (X29): a fake wall clock, in ms. Nothing here reads it; it
+  // exists so X29 can step the clock (same millisecond, backward, forward
+  // then back) and show that the incarnations do not depend on it (the
+  // rev3 clock scheme, negative ND37, does read it, and fails).
+  static u64 (*debug_clock_ms)();
 
  private:
   LinksGeneration() = default;

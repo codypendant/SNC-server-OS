@@ -58,14 +58,14 @@ if(SNC_SEASTAR)
 endif()
 
 enable_testing()
-foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster test_migrate test_resend_refusals test_proof test_placement test_stage_chain test_gauges test_s1_admission test_s2_pacing test_s3_writeback test_lifecycle test_s4_sync_tokens test_admin_loop test_wal_capacity test_intake)
+foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runtime test_execute test_persistence test_crash test_net test_transfer test_replication test_cluster test_migrate test_resend_refusals test_proof test_placement test_stage_chain test_gauges test_s1_admission test_s2_pacing test_s3_writeback test_lifecycle test_s4_sync_tokens test_admin_loop test_wal_capacity test_intake test_xnode)
   add_executable(${t} tests/${t}.cpp)
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})
 endforeach()
 # A hung S3 test fails the suite instead of stalling it (a CHECK failure
 # exits with the engine running, which can hang under a sanitizer).
-set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens test_intake PROPERTIES TIMEOUT 2400)
+set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens test_intake test_xnode PROPERTIES TIMEOUT 2400)
 
 add_executable(snc_bench bench/snc_bench.cpp)
 target_link_libraries(snc_bench PRIVATE snc_core)
@@ -100,6 +100,10 @@ if(PYTHON3)
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_baseline_move COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_move.py
            ${CMAKE_BINARY_DIR} q2_lost_move q10_sealed q10_committed)
+  # D.2 with processes (docs/CROSS_NODE_EXCHANGE_DESIGN.md 8.1); x9 (mixed
+  # version) runs by name with --old, a build of the last D.1 commit.
+  add_test(NAME test_xnode_proc COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_xnode_proc.py
+           ${CMAKE_BINARY_DIR} x6 x7 x7b)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py
            ${CMAKE_BINARY_DIR} h1_measurement q3_runtime q3_restart q4_normal)
   # The causal order of NOT READY and READY (docs/SYNC_READINESS.md 7).

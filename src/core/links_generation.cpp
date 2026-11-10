@@ -46,6 +46,7 @@ bool fsync_dir(const std::string& dir) {
 }  // namespace
 
 void LinksGeneration::debug_crash_after(int stage) { g_crash_after.store(stage); }
+u64 (*LinksGeneration::debug_clock_ms)() = nullptr;
 
 std::unique_ptr<LinksGeneration> LinksGeneration::test_allocator() {
   std::unique_ptr<LinksGeneration> g(new LinksGeneration());

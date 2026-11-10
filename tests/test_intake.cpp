@@ -24,10 +24,11 @@
 //   F5  bounds sampled during F1 and F3 (per pair, per shard, node total).
 //   F6  SIGKILL with intake closed, then recovery: transfers settle,
 //       money is conserved, no entries left.
-//   F8  two engines over node links (D.1 scope: L pausing; cross-node
-//       exchange accounting, which bounds the sender, is D.2): the
-//       receiver's WAL held, its link reads pause at L with no disconnect,
-//       and everything settles in order after release.
+//   F8  two engines over node links: the receiver's WAL held, its link
+//       reads pause at L with no disconnect, and everything settles in
+//       order after release. With cross-node exchange accounting (D.2,
+//       docs/CROSS_NODE_EXCHANGE_DESIGN.md 8.3) the sender's gate also
+//       refuses: its exchanges stay live while held at the receiver.
 //   F11 rate mismatch: d fills X with probes to x; x's replies are held,
 //       then released into d whose WAL is held at its budget B, so d's gate
 //       closes: x's backlog toward d grows past W yet stays within
@@ -783,7 +784,7 @@ void test_node_links() {
   u64 connects0 = 0;
   for (u16 s = 0; s < kSh; ++s) connects0 += a.stats(s).node_connects + b.stats(s).node_connects;
   Engine::debug_hold_wal(1, true);
-  u64 seq = warm.last_seq, ok = warm.ok, refused = 0, held_peak = 0;
+  u64 seq = warm.last_seq, ok = warm.ok, refused = 0, held_peak = 0, live_peak = 0;
   for (int round = 0; round < 60; ++round) {
     SendOut o = send_probes(a, 0, src, dst, 0, seq, 100);
     seq = o.last_seq;
@@ -793,6 +794,8 @@ void test_node_links() {
       held_peak = std::max(held_peak, b.stats(s).link_held_now);
       CHECK(b.stats(s).link_held_now <= kL);
     }
+    // D.2: the sender's exchanges sent across stay live: below X + max(E, Rr).
+    live_peak = std::max(live_peak, a.stats(0).exchanges_live);
     ::usleep(2000);
   }
   const ShardStats bs = b.stats(1), as = a.stats(0);
@@ -809,10 +812,17 @@ void test_node_links() {
   }
   CHECK(bs.link_held_peak <= kL);
   CHECK(bs.wal.active_bytes_peak <= cb.followup_wal_cap_bytes);
-  // The sender is not bounded here: a follow-up that leaves for another
-  // node ends its exchange (D.1), so A's backlog sits in its link's send
-  // buffer. Cross-node exchange accounting is D.2.
-  (void)as;
+  // D.2: the sender's gate refuses across nodes. Its exchanges stay live
+  // while their follow-ups are held at B, so X fills and A refuses new
+  // sends (D.1 ended them at the push: nothing refused, A's backlog sat in
+  // its link's send buffer).
+  // (With SNC_XNODE_ACCOUNTING=off, the rollback, X10: D.1 as before.)
+  const bool accounting = fresh_gauges(a, 0)[G_XNODE_ACCOUNTING] != 0;
+  if (accounting) {
+    CHECK(refused > 0);
+    CHECK(as.refused_exchange >= refused);
+  }
+  CHECK(live_peak <= ca.exchange_budget);  // live < X + max(E, Rr), E = 1 for a probe, no resume hook
   Engine::debug_hold_wal(1, false);
   for (int i = 0; i < 60000; ++i) {
     OneResult r = one(a, 0, [&](Completion cbk, void* ctx) {
@@ -851,9 +861,11 @@ void test_node_links() {
   a.stop();
   rm_rf(dir);
   std::printf("F8 node links, L=%u: receiver gated, link reads paused %llu time(s), held peak %llu <= L, no reconnect; "
-              "%llu probes delivered once in order across nodes (%llu refused; the sender's bound is D.2)\n",
+              "%llu probes delivered once in order across nodes; the sender's gate refused %llu across nodes (live "
+              "peak %llu, X = %u)%s\n",
               kL, (unsigned long long)bs.link_pauses, (unsigned long long)held_peak, (unsigned long long)ok,
-              (unsigned long long)refused);
+              (unsigned long long)refused, (unsigned long long)live_peak, ca.exchange_budget,
+              accounting ? "" : " [accounting off: D.1]");
 }
 
 // ---- F11 ----------------------------------------------------------------------------------
