@@ -2011,7 +2011,8 @@ bool Shard::xnode_blocked_now(u64 now) {
 // unblocked, they come back as a new instance with a new incarnation.
 bool Shard::poll_blocked() {
   const u64 now = sri_now_ns();
-  const bool b = xnode_blocked_now(now);
+  const bool b = xnode_blocked_now(now) ||
+                 (links_ && NodeLinks::debug_blocked_incarnation.load(std::memory_order_relaxed) == links_->incarnation());
   stats_.xnode_blocked = b ? 1 : 0;
   if (!b) {
     xnode_blocked_since_ = 0;
@@ -3224,8 +3225,18 @@ void Shard::route_emit(Emit e) {
   }
   u16 owner = owner_of(e.target);
   if (e.tagged && owner != id_) {
-    // An in-node hand-off (its target's slot moved into this node, 2.6):
-    // never handed on untagged. Dropped, END owed; the map change resumes it.
+    // Cannot occur (2.9.1, proof I2): a tagged item never goes to another
+    // shard of this node (its target is this shard's object, by the
+    // sender's routing, or its sender's object on another node, and a
+    // move of either after its epoch makes it stale). An invariant check:
+    // counted (xnode_handoff_drops, must stay 0, every test checks), fatal
+    // in a debug build, fail-closed in a release one: never handed on
+    // untagged, dropped with its END owed, the resume pass re-sends it.
+    std::fprintf(stderr, "snc: shard %u: invariant I2 violated: a tagged follow-up routed to shard %u of this node, "
+                 "dropped\n", id_, owner);
+#ifndef NDEBUG
+    std::abort();
+#endif
     --emit_ready_count_;
     ++stats_.xnode_handoff_drops;
     release_link(e);
@@ -3323,18 +3334,26 @@ bool Shard::run_emits() {
         links_->push_counted(i, f);
         end_exchange(e.origin);
       } else if (links_->accounting()) {
-        // Drop-to-resume (2.9): another shard's exchange re-routed here
-        // after a slot move cannot be counted by the shard that admitted
-        // it, and is never adopted. It ends (D.1); the map change that
-        // re-routed it resumes it. Untagged with no origin cannot occur.
+        // Cannot occur (2.9.1, proof I1): with accounting on, an untagged
+        // item at a node link is this shard's exchange. Another in-node
+        // shard's exchange never reaches one (every shard of a node adopts
+        // the same maps in order; a follow-up goes only back to its
+        // source; a move after its epoch makes it stale), and untagged
+        // with no origin is never made. An invariant check, not a path:
+        // counted (xnode_drops_to_resume, xnode_uncounted: both must stay
+        // 0, every test checks), fatal in a debug build, and fail-closed
+        // in a release one (dropped and ended, never adopted; the resume
+        // pass re-sends it).
         if (e.origin == kNoShard) {
           ++stats_.xnode_uncounted;
-          std::fprintf(stderr, "snc: shard %u: an uncounted cross-node follow-up with accounting on, dropped\n", id_);
-#ifndef NDEBUG
-          std::abort();
-#endif
+        } else {
+          ++stats_.xnode_drops_to_resume;
         }
-        ++stats_.xnode_drops_to_resume;
+        std::fprintf(stderr, "snc: shard %u: invariant I1 violated: an untagged cross-node follow-up of %s with "
+                     "accounting on, dropped\n", id_, e.origin == kNoShard ? "no exchange" : "another shard's exchange");
+#ifndef NDEBUG
+        std::abort();
+#endif
         ++stats_.node_emits_dropped;
         end_item(e);
         q.pop_front();

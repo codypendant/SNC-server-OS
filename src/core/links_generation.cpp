@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 #include <atomic>
@@ -55,9 +56,29 @@ std::unique_ptr<LinksGeneration> LinksGeneration::test_allocator() {
   return g;
 }
 
-std::unique_ptr<LinksGeneration> LinksGeneration::open_file(const std::string& path, bool fresh, u64 min) {
+LinksGeneration::~LinksGeneration() {
+  if (lock_fd_ >= 0) ::close(lock_fd_);  // releases the flock
+}
+
+std::unique_ptr<LinksGeneration> LinksGeneration::open_file(const std::string& path, bool fresh, u64 min,
+                                                            bool own_lock) {
   std::unique_ptr<LinksGeneration> g(new LinksGeneration());
   g->path_ = path;
+  if (own_lock) {
+    // Before the file is read: a value read without the lock could be one
+    // another allocator is about to pass.
+    const std::string lp = path + ".lock";
+    const int lfd = ::open(lp.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+    if (lfd < 0) throw std::runtime_error("links generation: cannot open " + lp + ": " + std::strerror(errno));
+    if (::flock(lfd, LOCK_EX | LOCK_NB) != 0) {
+      const int err = errno;
+      ::close(lfd);
+      throw std::runtime_error("links generation: " + path + " is in use by another engine (" + lp +
+                               " is locked: " + std::strerror(err) +
+                               "); two allocators on one file could hand out the same incarnation, refusing to start");
+    }
+    g->lock_fd_ = lfd;  // from here, the destructor releases it on any throw below
+  }
   const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
     if (errno != ENOENT) throw std::runtime_error("links generation: cannot open " + path + ": " + std::strerror(errno));

@@ -216,10 +216,10 @@ struct ShardStats {
   u64 node_emits_misrouted = 0;  // ... received for a slot not ours, from a node behind ours
   // Cross-node accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.6, 2.7, 2.9).
   u64 xnode_tag_drops = 0;       // tagged replies dropped at push: their counting entry is not bound there (END owed)
-  u64 xnode_handoff_drops = 0;   // tagged items dropped at an in-node hand-off (END owed)
+  u64 xnode_handoff_drops = 0;   // invariant I2 check (2.9.1), must stay 0: a tagged item routed in-node, dropped (END owed)
   u64 xnode_reply_drops = 0;     // counted replies dropped on arrival: no count for them
   u64 xnode_retire_purged = 0;   // tagged items purged with no END: their counting instance is gone
-  u64 xnode_drops_to_resume = 0; // another shard's exchange re-routed to a link: dropped, resumed (2.9)
+  u64 xnode_drops_to_resume = 0; // invariant I1 check (2.9.1), must stay 0: another shard's exchange at a link, dropped
   u64 xnode_uncounted = 0;       // untagged, no origin, accounting on: must stay 0
   u64 xnode_blocked = 0;         // 1 while this primary is blocked (2.12 A)
   u64 xnode_blocked_leaves = 0;  // times it left the node links, blocked for T_block

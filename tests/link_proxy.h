@@ -50,6 +50,7 @@ class LinkProxy {
     // Kinds in delivery order (D data, E end, S sync, H heartbeat, R a
     // counted reply), the heartbeats left out; capped.
     std::string order;
+    std::string first_end;  // the first END frame delivered, its 64 bytes as on the wire (X35)
     bool open = true;
     u64 undelivered = 0;  // forward bytes the target refused (its socket gone)
   };
@@ -240,7 +241,7 @@ class LinkProxy {
       p.info.hello = true;
       p.info.hello_bytes.assign(reinterpret_cast<const char*>(p.parse.data()), 48);
       if (magic == 0x324e4353) {  // "SNC2": u32 magic, u16 group, u16 shard, u32 crc, u32 version,
-                                  // u64 epoch, u64 conn, u64 incarnation, u16 member, u16 flags, u32 conn_seq
+                                  // u64 epoch, u64 conn, u64 incarnation, u16 member, u8 flags, u8 zero, u32 conn_seq
         std::memcpy(&p.info.conn, p.parse.data() + 24, 8);
         std::memcpy(&p.info.incarnation, p.parse.data() + 32, 8);
         std::memcpy(&p.info.member, p.parse.data() + 40, 2);
@@ -266,8 +267,11 @@ class LinkProxy {
           }
           break;
         case NodeLinks::END:
+          if (p.info.first_end.empty()) {
+            p.info.first_end.assign(reinterpret_cast<const char*>(p.parse.data() + at), sizeof(NodeLinks::Frame));
+          }
           ++p.info.ends;
-          p.info.end_items += f.source.hi;
+          p.info.end_items += NodeLinks::end_n(f);
           k = 'E';
           break;
         case NodeLinks::SYNC:

@@ -14,6 +14,17 @@
 // and a crash before then can only bring back the previous value, whose
 // successor was never used. One mutex serializes allocations: one counter
 // serves every shard of the engine.
+//
+// Exclusive across processes (2.1): one allocator per file, ever. In a data
+// directory, the engine's data-directory lock (invariant M, held from
+// recovery until stop) already makes this process the file's only user, so
+// the file is opened with `own_lock` false. An explicit
+// --links-generation-file has no such owner: the allocator takes
+// flock(LOCK_EX | LOCK_NB) on the stable file `<path>.lock` (never the
+// generation file itself, whose inode each store replaces by rename) and
+// holds it for its lifetime. Held by another allocator (another process,
+// or another engine of this one): open_file throws, and the engine refuses
+// to start. The lock file is never deleted.
 #pragma once
 
 #include <memory>
@@ -32,7 +43,8 @@ class LinksGeneration {
   // explicit floor, --links-generation-min). Otherwise, or if the file is
   // truncated or fails its check: throws (the engine refuses to start).
   // The stored value is raised to `min` durably before any allocation.
-  static std::unique_ptr<LinksGeneration> open_file(const std::string& path, bool fresh, u64 min);
+  // `own_lock`: take and hold `<path>.lock` (above) before reading it.
+  static std::unique_ptr<LinksGeneration> open_file(const std::string& path, bool fresh, u64 min, bool own_lock);
   // In-process tests: one process-wide counter shared by every engine.
   static std::unique_ptr<LinksGeneration> test_allocator();
 
@@ -52,9 +64,14 @@ class LinksGeneration {
   // rev3 clock scheme, negative ND37, does read it, and fails).
   static u64 (*debug_clock_ms)();
 
+  ~LinksGeneration();
+  LinksGeneration(const LinksGeneration&) = delete;
+  LinksGeneration& operator=(const LinksGeneration&) = delete;
+
  private:
   LinksGeneration() = default;
   bool store(u64 v);
+  int lock_fd_ = -1;  // `<path>.lock`, flocked, while this allocator lives (own_lock)
   Source source_ = Source::FILE;
   std::string path_;
   mutable std::mutex mu_;

@@ -106,7 +106,15 @@ Decided by cody on 2026-11-04.
      retirement, durable links generation, blocked-primary leave and
      rejoin, heartbeats and silence detection, D.2 GAUGES; X1-X32 with
      X19b, the negatives and P2 are in
-     bench/results/xnode-d2-validation-devvm-20261110.
+     bench/results/xnode-d2-validation-devvm-20261110. The independent
+     review of PR #95 ruled CHANGES REQUIRED
+     (handoff/PR95_D2_Implementation_Review.md): an explicit generation
+     file is now locked (X33), a blocked-bit clear stays pending under a
+     full queue (X34), the END layout is specified as implemented and
+     checked byte for byte (X35), and ND10 and ND24 are closed by proofs
+     I1 and I2 (design 2.9.1). The fixes and the rerun gate are in
+     bench/results/xnode-d2-review-fixes-devvm-20261110; returned for
+     review again, not complete.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

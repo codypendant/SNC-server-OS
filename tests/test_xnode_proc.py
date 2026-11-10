@@ -33,6 +33,10 @@ live, held for peers, END owed) with no underflow.
        (its data directories have no links_generation: started with
        --links-generation-min 1, the floor no peer ever saw); all settle,
        nothing lost or doubled.
+  x33  explicit generation file: two engines (two processes, no data
+       directory) given one --links-generation-file. The second is refused
+       while the first lives; after the first is killed it starts, above
+       every incarnation the first allocated.
 
 Every scenario prints one JSON line.
 
@@ -132,7 +136,8 @@ class Load:
 
 
 ZERO = ("xnode_remote_live", "xnode_held_for_peers", "xnode_end_owed")
-NEVER = ("xnode_end_underflow", "xnode_held_underflow", "xnode_debt_increases", "xnode_uncounted")
+NEVER = ("xnode_end_underflow", "xnode_held_underflow", "xnode_debt_increases", "xnode_uncounted",
+         "xnode_drops_to_resume", "xnode_handoff_drops")  # the last two: invariants I1, I2 (design 2.9.1)
 
 
 def counts_zero(c, res, debt_zero=True):
@@ -304,7 +309,64 @@ def x9(work):
         c.stop()
 
 
-SCEN = {"x6": x6, "x7": x7, "x7b": lambda w: x7(w, stop_not_kill=True), "x9": x9}
+def gen_value(path):
+    """The links generation stored in a links_generation file (2.1: u32
+    magic, u32 version, u64 generation, u32 crc, u32 zero)."""
+    import struct
+    b = open(path, "rb").read()
+    assert len(b) == 24, len(b)
+    return struct.unpack_from("<Q", b, 8)[0]
+
+
+def x33(work):
+    """X33 (process form): two engines, in two processes, given one
+    explicit --links-generation-file (no data directory). The second is
+    refused while the first lives and writes nothing; once the first is
+    gone it starts, and its incarnations are above every one the first
+    allocated (PR #95 review item 1; design 2.1)."""
+    gen = f"{work}/links_generation"
+    (l0, l1, c0, c1) = fc.free_ports(4, span=2)
+    cluster = f"127.0.0.1:{l0}:2:{c0},127.0.0.1:{l1}:2:{c1}"
+    procs = []
+
+    def start(name, group, port):
+        args = [f"{BUILD}/snc_server", "--shards", "2", "--objects", "1000", "--port", str(port), "--cluster", cluster,
+                "--group", str(group), "--member", "0", "--links-generation-file", gen]
+        p = subprocess.Popen(args, stdout=open(f"{work}/{name}.log", "a"), stderr=subprocess.STDOUT)
+        procs.append(p)
+        return p
+
+    res = {}
+    try:
+        a = start("a", 0, c0)
+        fc.wait(lambda: os.path.exists(gen) and gen_value(gen) >= 2, "A allocated its 2 shards' incarnations")
+        time.sleep(0.3)
+        va = gen_value(gen)
+        b = start("b1", 1, c1)
+        rc = b.wait(timeout=30)
+        blog = open(f"{work}/b1.log").read()
+        res["b_refused_rc"] = rc
+        res["b_refused_msg"] = "is in use by another engine" in blog
+        res["a_alive"] = a.poll() is None
+        res["value_while_refused"] = gen_value(gen)
+        a.send_signal(signal.SIGKILL)
+        a.wait()
+        b = start("b2", 1, c1)
+        fc.wait(lambda: gen_value(gen) >= va + 2, "B allocated its 2 shards' incarnations")
+        res["b_alive"] = b.poll() is None
+        res["a_last"] = va
+        res["b_last"] = gen_value(gen)
+        res["pass"] = (rc != 0 and res["b_refused_msg"] and res["a_alive"] and res["value_while_refused"] == va
+                       and res["b_alive"] and res["b_last"] == va + 2)
+        return res
+    finally:
+        for p in procs:
+            if p.poll() is None:
+                p.kill()
+                p.wait()
+
+
+SCEN = {"x6": x6, "x7": x7, "x7b": lambda w: x7(w, stop_not_kill=True), "x9": x9, "x33": x33}
 
 
 def main():

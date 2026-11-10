@@ -818,7 +818,11 @@ void Engine::open_links_generation_(bool fresh) {
                          "node links stay closed\n");
     return;
   }
-  state_->links_gen = LinksGeneration::open_file(path, fresh, cfg_.links_generation_min);
+  // An explicit file takes its own lock (2.1); the data directory's file is
+  // covered by the data-directory lock this engine already holds (invariant
+  // M, taken in recover() before this runs).
+  const bool explicit_file = !cfg_.links_generation_file.empty();
+  state_->links_gen = LinksGeneration::open_file(path, fresh, cfg_.links_generation_min, explicit_file);
 }
 
 // Shard s's replication settings, as standby or as primary.

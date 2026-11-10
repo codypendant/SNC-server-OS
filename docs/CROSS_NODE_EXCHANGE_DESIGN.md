@@ -178,6 +178,20 @@ structural and independent of churn, timers and flap counts.
   test-local monotonic allocator shared by every engine of the test.
   `CLOCK_REALTIME` is never used.
 
+  **The lock (PR #95 review item 1).** The allocator of an explicit
+  `--links-generation-file` takes `flock(LOCK_EX | LOCK_NB)` on the stable
+  file `<path>.lock`, before it reads the generation, and holds it for its
+  lifetime. It never locks the generation file itself: each store replaces
+  that inode by `rename`. If the lock is held by another allocator (another
+  process, or another engine of the same one), the engine refuses to start,
+  naming the file. The lock file is never deleted. The data directory's
+  `links_generation` is not locked separately: the data-dir lock below
+  (invariant M) already makes the engine holding it the file's only user,
+  from recovery until stop, and the generation is opened after that lock is
+  taken. Either way, at most one allocator ever reads and advances a given
+  generation file, so no two links instances get the same incarnation (X33,
+  and `test_xnode_proc.py` x33 with two processes).
+
   **Restoring an older data directory** can roll the generation back.
   Peers then refuse the member's Hellos (2.12 C), loudly and counted, and
   never silently accept a lower generation. This is a recovery exclusion
@@ -244,13 +258,40 @@ and `pad[2]` = 0.
 | Kind | Meaning and fields |
 |---|---|
 | 0 DATA | As today. Flags: bit 0 COUNTED_BY_SENDER (the sender's exchange; the sender counts it), bit 1 COUNTED_BY_RECEIVER (a reply in the receiver's exchange). Exactly one bit is set with accounting on; neither is set in rollback (2.11). |
-| 1 END | `op` = n ≥ 1; `source.hi` = the target incarnation, whose items ended |
+| 1 END | `source.hi` = n ≥ 1 (u64); `target.lo` = the target incarnation, whose items ended; every other field 0. (Amended after the PR #95 review: rev4 listed `op` = n and `source.hi` = the target. The implementation's layout is the specified one: n is a u64 count, and `op` is only u32. Byte layout below.) |
 | 2 SYNC | `source.hi` = `conn` named (the receiver's current Out connection, as the sender sees it); `op` = its `conn_seq`; `source.lo` = R; `target.hi` = k; `target.lo` = the target incarnation |
 | 3 HEARTBEAT | `source.hi` = `conn` of the sender's current In connection from the receiver's instance (0 = none); `source.lo` = R on it; `op` bit 0 = the sender's reads are paused |
 
+**Frame bytes** (little-endian, like every SNC format; an `ObjectID` is
+`hi` then `lo`):
+
+```
+off  size  field                  END            SYNC                HEARTBEAT
+  0     8  source.hi              n (>= 1)       conn named          conn of the sender's In connection (0: none)
+  8     8  source.lo              0              R                   R on it
+ 16     8  target.hi              0              k                   0
+ 24     8  target.lo              target inc.    target inc.         0
+ 32     4  op                     0              conn_seq            bit 0 paused, bit 1 blocked
+ 36     4  fail_op                0              0                   0
+ 40     1  len                    0              0                   0
+ 41     1  kind (pad[0])          1              2                   3
+ 42     1  flags (pad[1])         0              0                   0
+ 43     1  pad[2]                 0              0                   0
+ 44     4  epoch                  0              0                   0
+ 48    16  args                   0              0                   0
+```
+
+DATA (kind 0) carries the follow-up as today: source, target, op,
+fail_op, len, epoch, args, and the counted flags in byte 42. Senders write
+0 in every field the table gives as 0. The one END encoder and decoder
+(`NodeLinks::end_frame`, `end_n`, `end_target`) serve the sender, the
+receiver and the test fault proxy, and X35 checks them and a real END on
+the wire against this table byte for byte.
+
 **HelloAck: 32 bytes**, written only by the accepting side, back on the
-accepted socket (2.4). Fields: magic `SNCA`, conn echoed, the acceptor's
-incarnation, member.
+accepted socket (2.4): u32 magic `SNCA` at 0, u32 0 at 4, the echoed conn
+(u64) at 8, the acceptor's incarnation (u64) at 16, its member (u16) at
+24, then 6 zero bytes.
 
 **Hello flags.** Bit 0 of the flags byte is accounting on. A mismatch is
 refused like a version mismatch (2.12 D).
@@ -258,8 +299,8 @@ refused like a version mismatch (2.12 D).
 **HEARTBEAT** `op` bit 1 = the sender is blocked (2.12).
 
 **Receiver checks.** A receiver applies an END or SYNC only if its target
-incarnation equals the receiver's own incarnation. Otherwise it is
-ignored and counted (`xnode_ignored_frames`).
+incarnation equals the receiver's own incarnation, and an END only if n ≥
+1. Otherwise it is ignored and counted (`xnode_ignored_frames`).
 
 **The sending instance** of any frame is the one named in the Hello of the
 In connection it arrived on. That is the only reliable identity: the
@@ -674,9 +715,9 @@ objects:
 | Drop | Resume trigger |
 |---|---|
 | Tag mismatch at push (slot moved, or another instance bound) | Map change, or the binding (which runs `resume_all`, 2.4) |
-| In-node hand-off of a tagged reply (slot moved into this node) | Map change |
+| In-node hand-off of a tagged reply (slot moved into this node) | Cannot occur (2.9.1, I2): an invariant check |
 | Purge of an UNBOUND link's queue (2.4) | The binding |
-| Re-route of a local exchange to another node | Map change |
+| Re-route of a local exchange to another node | Cannot occur (2.9.1, I1): an invariant check |
 | Counted reply with no count | The connect that delivered it |
 | Arrival for a RETIRED or replaced entry | The new instance's connect |
 | Retirement purge | The new instance's connect |
@@ -689,6 +730,96 @@ never correctness.
 **Bound.** No follow-up is ever counted by a shard that did not admit
 its exchange's root. So `live_s < X + max(E, Rr)` holds exactly as in D.1,
 with no adoption term.
+
+### 2.9.1 Two drops that cannot occur (PR #95 review item 4)
+
+The negatives ND10 (adopt instead of drop on a re-route) and ND24 (hand a
+tagged reply on in-node untagged) were never caught: no test reached
+their branches. The review asked whether that is a property of the
+account type or of the runtime. It is the runtime's, for every legal op
+type, by these premises (each checked in the code named):
+
+- **P1, one map sequence per node.** Every shard of a node adopts the
+  same placement maps, in the same order (`Engine::update_placement` runs
+  `set_map` on every shard, under `map_mu_`). A shard's `moved_at_[slot]`
+  is the epoch of the last adopted map that changed the slot's group; at
+  start every slot's is the start epoch (`Shard::set_cluster`).
+- **P2, reply-only.** A follow-up's op emits at most once, and only to
+  its source (`OpCtx::emit`, a contract violation otherwise, D.1 3.3). A
+  fail op runs on the source, on behalf of the target (`emit_result`).
+  Only a root (a client op or a resume hook) starts an exchange, and its
+  origin is the shard it ran on.
+- **P3, staleness.** A follow-up whose epoch is older than a move of its
+  source's or its target's slot is dropped, both when it is routed
+  (`route_emit`) and when it runs (`run_emit`); one emitted under a newer
+  map than the shard's is held until the shard adopts it.
+- **P4, fixed shard of a slot.** Within a group the shard of a slot is
+  `slot % n_shards`, on every node (`SlotMap::make_default`,
+  `ClusterMap::shard_of`), and never changes.
+- **P5, entering a group.** A slot enters a group only by being staged at
+  that group's primary, which refuses unless its own map shows the slot
+  foreign (`stage_unit`: `E_MOVED`); the move then commits at a new
+  epoch, a change P1 records.
+- **P6, a link switch drops its queue.** A node link that is not bound
+  (down, or moving to another member) drops every queued item
+  (`run_emits`, unbound purge), and a connection's `Out::buf` goes with
+  it. An item pushed to a member was routed while the link was bound to
+  that member.
+
+**I1: an untagged item at a node link is the shard's own exchange.** An
+untagged item with origin q ≠ s at shard s is another in-node shard's
+exchange (only roots set an origin, P2, and cross-node items are tagged
+or are replies to s's own exchange). It is one of: q's item to s's object
+T; s's reply to it, or its fail op, both to q's object Rq (P2); or either
+of those after being held. q routed its item to s by the map at its
+epoch e, so T's slot was s's group then. For s to send T's item to a node
+link, T's group must have changed after e in a map s adopted, so the item
+is stale (P1, P3). The reply goes to Rq, which q ran an op on under the
+map at e: its group was s's then. The item was not stale when it ran at
+s (P3), so no adopted map changed Rq's group after e; the reply's own
+epoch is s's map at that run, so for it to reach a node link Rq's group
+must change after that, and the reply is stale when routed (P3). Held
+items are routed again through the same checks. So the I1 branch is
+never taken. It stays as an invariant check: `xnode_drops_to_resume`
+(and `xnode_uncounted` for no origin) count it and must stay 0, every X
+test and every process test checks both, a debug build aborts, and a
+release build fails closed (drops and ends the item, never adopts it).
+
+**I2: a tagged item never goes to another shard of this node.** A tagged
+item at shard s is another node's exchange: an arrival counted by its
+sender, or s's reply or fail op for one (P2). An arrival was routed by its
+sender to shard `shard_of(slot of T)` of T's group under the sender's map
+at its epoch e; if s still holds T's slot in its group, T's shard is s
+(P4); if not, the item is misrouted or stale, never routed in-node. A
+reply or fail op goes to the arrival's source R on the sender's node: the
+sender ran an op on R under its map at e, so R's group was the sender's
+then. For the reply to be routed to a shard of s's group, R's slot must
+have entered s's group after e. That needs a staging at the group's
+primary whose own map showed R foreign (P5). If that primary is s's
+node, it adopted both changes after e, so the arrival or its reply is
+stale (P1, P3). If it was another member, s's node became the primary
+only later, after that move committed; the arrival then reached s's node
+over a link bound to it after the promotion, so the sender routed it
+after that binding (P6). But the move into s's group took R from the
+sender, which sealed R before the move committed and runs no op on a
+sealed slot; and a follow-up it emitted before the seal is routed when
+its record is durable, which comes before the seal's (one WAL, in
+order): in the same durability callback (`release_waiters` routes
+waiting follow-ups first), at worst one loop pass after the seal is
+seen durable. The commit, the promotion and the new binding all come
+after that. So no such arrival exists, and the I2 branch is never
+taken. (This last step is an ordering argument about one shard loop
+pass against a commit, a failover and a binding, not a check in the
+code; it is stated here so a review can weigh it.) It stays as an invariant check: `xnode_handoff_drops` counts it
+and must stay 0, every X test and every process test checks it, a debug
+build aborts, and a release build fails closed (drops the item with its
+END owed, never hands it on untagged).
+
+**The negatives become premise mutations.** ND10 now removes the source
+half of P3 (a follow-up whose source moved is no longer stale), and ND24
+removes the staleness check when a follow-up runs. Each must be caught by
+X8, X12 or X17, through the invariant counters or another check
+(`bench/results/xnode-d2-review-fixes-devvm-20261110/README.md`).
 
 ### 2.10 Liveness: heartbeats and silence (rev1 F3, approved)
 
@@ -792,7 +923,14 @@ both from the documented fenced-primary limit (`CLUSTER.md`, Limits):
   is unblocked.
 - Its HEARTBEAT carries a blocked bit from the moment it blocks. A
   change of the bit sends a HEARTBEAT **at once** on every identified Out
-  connection, not only after `T_hb` of idleness. It is appended FIFO to
+  connection, not only after `T_hb` of idleness. **Both edges stay
+  pending (PR #95 review item 2):** each Out connection records the bit
+  it last carried (none, for a new connection). Whenever that differs
+  from the current bit, a HEARTBEAT is owed on that connection until one
+  is appended. A connection that could not take it at the change (full,
+  or not up) gets it at the next liveness pass that finds room, every
+  `T_hb/4`, whatever traffic it carries. So a clear is never left behind
+  steady DATA (X34, ND39). It is appended FIFO to
   `Out::buf`, ahead only of work not yet pushed (the barrier of 2.5).
   `Out::buf` is capped (`kOutCap`), so it reaches the peer behind at most
   that many bytes. So peers start

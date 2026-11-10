@@ -10,7 +10,10 @@
 // exchanges are 0, every transfer settled, money conserved, and the
 // must-stay-0 counters (end and held underflows, debt increases, uncounted
 // items) are 0.
+#include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -540,6 +543,11 @@ void check_zero_counters(Node& n, const char* when) {
     CHECK_MSG(g[G_XNODE_HELD_UNDERFLOW] == 0, "%s: node %u held underflow", when, n.index);
     CHECK_MSG(g[G_XNODE_DEBT_INCREASES] == 0, "%s: node %u debt increases", when, n.index);
     CHECK_MSG(g[G_XNODE_UNCOUNTED] == 0, "%s: node %u uncounted", when, n.index);
+    // Invariants I1 and I2 (2.9.1): their checks must never fire.
+    CHECK_MSG(g[G_XNODE_DROPS_TO_RESUME] == 0, "%s: node %u invariant I1 (drops to resume %llu)", when, n.index,
+              (unsigned long long)g[G_XNODE_DROPS_TO_RESUME]);
+    CHECK_MSG(g[G_XNODE_HANDOFF_DROPS] == 0, "%s: node %u invariant I2 (hand-off drops %llu)", when, n.index,
+              (unsigned long long)g[G_XNODE_HANDOFF_DROPS]);
     CHECK_MSG(g[G_XNODE_ENTRIES] <= g[G_XNODE_ENTRY_SLOTS], "%s: node %u entries %llu > slots %llu", when, n.index,
               (unsigned long long)g[G_XNODE_ENTRIES], (unsigned long long)g[G_XNODE_ENTRY_SLOTS]);
   }
@@ -2235,10 +2243,7 @@ void x30_forged() {
     const u64 inc_a = entry(B, 0, 0).e.inc;  // A's incarnation, as B holds it
     const EntryView v0 = entry(A, 1, 0);
     CHECK_EQ(v0.e.count, 0u);
-    NodeLinks::Frame end{};
-    end.pad[0] = NodeLinks::END;
-    end.source.hi = 5;
-    end.target.lo = inc_a + 7;  // not A's
+    const NodeLinks::Frame end = NodeLinks::end_frame(5, inc_a + 7);  // not A's
     net.px(1, 0).inject(end);  // on B's Out connection to A
     wait_until([&] { return entry(A, 1, 0).c.ignored_frames > v0.c.ignored_frames; }, "the END ignored", 10);
     NodeLinks::Frame sync{};
@@ -2388,6 +2393,233 @@ void x32_stale_heartbeat() {
               "(3 T_dead); A's Out connection kept (out_resets +0). (b) the same heartbeat every T_hb/2: reset "
               "after %llu ms (T_dead %u ms); rebound, counts 0\n",
               3 * net.dead_ms, (unsigned long long)reset_ms, net.dead_ms);
+}
+
+// X33 explicit generation-file exclusivity (PR #95 review item 1; 2.1).
+// One allocator per --links-generation-file: a second one, while the first
+// lives, is refused (in this process, and the lock is seen held from another
+// process); the first keeps allocating; once it is gone, the second opens
+// and allocates above every value the first exposed. (The process form,
+// two snc_server processes on one file, is test_xnode_proc.py x33.)
+void x33_generation_file_lock() {
+  const std::string path = g_root + "/x33.links_generation";
+  u64 last_a = 0;
+  std::string msg;
+  int child_rc = -1;
+  {
+    auto a = LinksGeneration::open_file(path, /*fresh=*/true, 0, /*own_lock=*/true);
+    u64 v = 0;
+    CHECK(a->next(v) && v == 1);
+    CHECK(a->next(v) && v == 2);
+    bool refused = false;
+    try {
+      auto b = LinksGeneration::open_file(path, /*fresh=*/false, 0, /*own_lock=*/true);
+    } catch (const std::exception& e) {
+      refused = true;
+      msg = e.what();
+    }
+    CHECK_MSG(refused, "X33: a second allocator opened %s while the first lives", path.c_str());
+    CHECK_MSG(msg.find("in use by another engine") != std::string::npos, "X33: refusal message: %s", msg.c_str());
+    // Another process sees the lock held (only async-signal-safe calls in
+    // the child).
+    const std::string lp = path + ".lock";
+    const pid_t pid = ::fork();
+    CHECK(pid >= 0);
+    if (pid == 0) {
+      const int fd = ::open(lp.c_str(), O_RDWR | O_CLOEXEC);
+      if (fd < 0) ::_exit(2);
+      ::_exit(::flock(fd, LOCK_EX | LOCK_NB) != 0 && errno == EWOULDBLOCK ? 0 : 1);
+    }
+    int st = 0;
+    CHECK_EQ(::waitpid(pid, &st, 0), pid);
+    child_rc = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+    CHECK_MSG(child_rc == 0, "X33: another process could take %s (rc %d)", lp.c_str(), child_rc);
+    // The refusal changed nothing: the first allocator goes on.
+    CHECK(a->next(v) && v == 3);
+    last_a = a->last();
+  }
+  auto b = LinksGeneration::open_file(path, /*fresh=*/false, 0, /*own_lock=*/true);
+  CHECK_EQ(b->last(), last_a);
+  u64 v = 0;
+  CHECK(b->next(v));
+  CHECK_MSG(v > last_a, "X33: the second allocator's first value %llu is not above the first's last %llu",
+            (unsigned long long)v, (unsigned long long)last_a);
+  std::printf("X33 explicit generation file: a second allocator refused while the first lived (\"%s\"); another "
+              "process found the lock held; the first allocated on to %llu; after it, the second opened and allocated "
+              "%llu\n",
+              msg.substr(0, 60).c_str(), (unsigned long long)last_a, (unsigned long long)v);
+}
+
+// X34 blocked clear under a full Out queue (PR #95 review item 2; 2.12 A):
+// P's blocked bit reaches A; then P's Out connection takes no new frame
+// (debug_full_incarnation: room() false, as if Out::buf were at its cap)
+// while P unblocks, so the clearing HEARTBEAT cannot be appended then. Room
+// comes back under steady traffic in both directions, before P's link has
+// been idle for T_hb (so an idle heartbeat is not what carries it): the
+// clear must still go at once, A drop blocked_since, and binding work
+// without a retirement or T_release.
+void x34_blocked_clear_full() {
+  Net net;
+  net.hb_ms = 1000;     // an idle heartbeat is at least this late: far above the bound checked
+  net.dead_ms = 5000;   // the held-back window is far from silence
+  net.release_ms = 30000;
+  net.block_ms = 30000;  // no quarantine and no leaving: only the clear can undo the bit
+  net.build({{0, 0}, {1, 0}});
+  net.start_all();
+  Ledger L = make_ledger(net, 8);
+  Engine& A = *net.nodes[0].eng;
+  Engine& P = *net.nodes[1].eng;
+  wait_until([&] { return bound_to(A, 1, 0) && bound_to(P, 0, 0); }, "bound");
+  const u64 inc_p = entry(A, 1, 0).e.inc;
+  double full_ms = 0, clear_ms = -1;
+  u64 data_after = 0;
+  bool held_while_full = false;
+  {
+    Load ab(net, L, 0, 1), pa(net, L, 1, 0);
+    sleep_ms(200);
+    NodeLinks::debug_blocked_incarnation.store(inc_p);
+    wait_until([&] { return entry(A, 1, 0).blocked_since != 0; }, "A holds P's blocked bit", 5);
+    sleep_ms(20);  // traffic again since the bit
+    const auto t_full = Clock::now();
+    NodeLinks::debug_full_incarnation.store(inc_p);
+    sleep_ms(20);
+    NodeLinks::debug_blocked_incarnation.store(0);
+    wait_until([&] { return gauges(P)[G_XNODE_BLOCKED] == 0; }, "P unblocked", 5);
+    sleep_ms(50);  // P's loop runs on, its clear unsendable
+    held_while_full = entry(A, 1, 0).blocked_since != 0;
+    const u64 d0 = net.px(1, 0).total().data;
+    const auto t_room = Clock::now();
+    full_ms = std::chrono::duration<double, std::milli>(t_room - t_full).count();
+    NodeLinks::debug_full_incarnation.store(0);
+    while (entry(A, 1, 0).blocked_since != 0 && since(t_room) < 3.0 * net.hb_ms / 1000) sleep_ms(1);
+    if (entry(A, 1, 0).blocked_since == 0) clear_ms = since(t_room) * 1000;
+    sleep_ms(100);
+    data_after = net.px(1, 0).total().data - d0;
+    ab.stop();
+    pa.stop();
+  }
+  NodeLinks::debug_blocked_incarnation.store(0);
+  NodeLinks::debug_full_incarnation.store(0);
+  CHECK_MSG(held_while_full, "X34: A cleared P's blocked bit while P's Out queue took no frame");
+  CHECK_MSG(full_ms < net.hb_ms / 2.0, "X34: held back %.0f ms, not well under T_hb %u (the test needs traffic to "
+            "resume before an idle heartbeat is due)", full_ms, net.hb_ms);
+  CHECK_MSG(clear_ms >= 0, "X34: A still holds P's blocked bit %.0f ms after room came back (the clear was never "
+            "appended)", 3.0 * net.hb_ms);
+  // Owed heartbeats go at the next liveness pass, every T_hb/4 (2.12 A).
+  CHECK_MSG(clear_ms <= net.hb_ms / 4.0 + 100, "X34: the clear reached A %.0f ms after room came back (T_hb %u: "
+            "not within T_hb/4)", clear_ms, net.hb_ms);
+  CHECK_MSG(data_after > 0, "X34: no DATA from P after room came back (not under traffic)");
+  // Gating works again with no retirement and no T_release: a new Out
+  // connection of A's binds to the same instance of P.
+  const EntryView v0 = entry(A, 1, 0);
+  net.px(0, 1).cut();
+  const auto t_cut = Clock::now();
+  wait_rebound(A, 1, 0, v0.out.conn, "A rebound to P after the clear", 5);
+  const double rebind_ms = since(t_cut) * 1000;
+  const EntryView v1 = entry(A, 1, 0);
+  CHECK_EQ(v1.e.inc, inc_p);
+  CHECK(v1.e.state == NodeLinks::EntryState::ACTIVE);
+  CHECK_EQ(v1.c.quarantines, 0u);
+  CHECK_EQ(v1.c.q_blocked, 0u);
+  CHECK_EQ(v1.c.retirements, v0.c.retirements);
+  CHECK(v1.c.bindings > v0.c.bindings);
+  settle(net, L, "X34");
+  std::printf("X34 blocked clear under a full Out queue: P blocked, A saw the bit; P's Out queue took no frame for "
+              "%.0f ms, P unblocked within it (A still held the bit); room back under traffic (%llu DATA frames from P "
+              "in the next 100 ms): A cleared the bit %.1f ms later (T_hb %u: at the next liveness pass, T_hb/4; idle "
+              "heartbeats not due); A's new Out "
+              "connection bound to the same instance %.0f ms after a cut (no quarantine, no retirement); settled, money "
+              "conserved\n",
+              full_ms, (unsigned long long)data_after, clear_ms, net.hb_ms, rebind_ms);
+}
+
+// X35 END wire conformance (PR #95 review item 3; 2.2 as amended): the v2
+// END layout byte for byte. (a) The one encoder (used by the sender and
+// the fault proxy) against the documented table: kind 1 at byte 41, n
+// little-endian at bytes 0..7 (source.hi), the target incarnation at
+// bytes 24..31 (target.lo), every other byte 0. (b) A real END, as B
+// wrote it on the wire to A, checked against the same table, and its
+// target is A's incarnation. (c) The receiver reads that layout and no
+// other: an END with the rev4 table's mapping (n in op, the target
+// incarnation in source.hi) and an END with n = 0 are both ignored and
+// change no count.
+void x35_end_wire() {
+  const auto check_end = [](const u8* b, u64 n, u64 inc, const char* what) {
+    u8 want[64] = {};
+    want[41] = NodeLinks::END;
+    for (int i = 0; i < 8; ++i) {
+      want[0 + i] = static_cast<u8>(n >> (8 * i));
+      want[24 + i] = static_cast<u8>(inc >> (8 * i));
+    }
+    for (int i = 0; i < 64; ++i) {
+      CHECK_MSG(b[i] == want[i], "X35 %s: byte %d is 0x%02x, the v2 END layout says 0x%02x", what, i, b[i], want[i]);
+    }
+  };
+  const u64 n = 0x1122334455667788ull, inc = 0x99aabbccddeeff01ull;
+  const NodeLinks::Frame f = NodeLinks::end_frame(n, inc);
+  check_end(reinterpret_cast<const u8*>(&f), n, inc, "(a) encoder");
+  CHECK(NodeLinks::kind(f) == NodeLinks::END);
+  CHECK_EQ(NodeLinks::end_n(f), n);
+  CHECK_EQ(NodeLinks::end_target(f), inc);
+
+  Net net;
+  net.build({{0, 0}, {1, 0}});
+  net.start_all();
+  Ledger L = make_ledger(net, 8);
+  Engine& A = *net.nodes[0].eng;
+  Engine& B = *net.nodes[1].eng;
+  wait_until([&] { return bound_to(A, 1, 0) && bound_to(B, 0, 0); }, "bound");
+  const u64 inc_a = entry(B, 0, 0).e.inc;  // A's incarnation, as B holds it
+  std::string wire;
+  int cuts = 0;
+  {
+    // B's Out connection to A cut under load until B has put an END on it
+    // (an END owed for A's items B held when their replies were lost).
+    Load ab(net, L, 0, 1), ba(net, L, 1, 0);
+    for (; cuts < 60 && wire.empty(); ++cuts) {
+      sleep_ms(80);
+      const u64 old = out_conn(B, 0);
+      net.px(1, 0).cut();
+      wait_rebound(B, 0, 0, old, "B rebound");
+      sleep_ms(40);
+      for (const LinkProxy::Conn& c : net.px(1, 0).conns()) {
+        if (!c.first_end.empty()) {
+          wire = c.first_end;
+          break;
+        }
+      }
+    }
+  }
+  CHECK_MSG(!wire.empty(), "X35: no END on B's Out connection to A in %d cuts", cuts);
+  NodeLinks::Frame w;
+  std::memcpy(&w, wire.data(), sizeof(w));
+  const u64 wn = NodeLinks::end_n(w);
+  CHECK(wn >= 1);
+  check_end(reinterpret_cast<const u8*>(wire.data()), wn, inc_a, "(b) on the wire");
+  settle(net, L, "X35");
+
+  // (c) Quiescent (A's count 0): the rev4 mapping, and n = 0.
+  const EntryView v0 = entry(A, 1, 0);
+  CHECK_EQ(v0.e.count, 0u);
+  NodeLinks::Frame rev4{};
+  rev4.pad[0] = NodeLinks::END;
+  rev4.op = 1;               // rev4: op = n
+  rev4.source.hi = inc_a;    // rev4: source.hi = the target incarnation
+  net.px(1, 0).inject(rev4);
+  wait_until([&] { return entry(A, 1, 0).c.ignored_frames > v0.c.ignored_frames; }, "the rev4-mapped END ignored", 10);
+  net.px(1, 0).inject(NodeLinks::end_frame(0, inc_a));
+  wait_until([&] { return entry(A, 1, 0).c.ignored_frames > v0.c.ignored_frames + 1; }, "the END with n = 0 ignored",
+             10);
+  sleep_ms(50);
+  const EntryView v1 = entry(A, 1, 0);
+  CHECK_EQ(v1.e.count, 0u);
+  CHECK_EQ(v1.c.ends_received, v0.c.ends_received);
+  CHECK_EQ(v1.c.end_underflow, 0u);
+  settle_counts(net, "X35c");
+  std::printf("X35 END wire layout: the encoder matches the v2 table byte for byte (kind 1 at 41, n at 0..7, target "
+              "incarnation at 24..31, the rest 0); a real END B wrote to A (n %llu, after %d cuts) matches it, target "
+              "= A's incarnation; the receiver ignored an END in the rev4 mapping and one with n = 0, no count changed\n",
+              (unsigned long long)wn, cuts);
 }
 
 // X17 churn: 20 cycles of slot moves, releases (a blackholed pair past
@@ -2631,6 +2863,7 @@ const Test kTests[] = {
     {"X8", x8_slot_move},     {"X12", x12_purge_handoff},
     {"X19", x19_blocked},     {"X19b", x19b_undeliverable},
     {"X30", x30_forged},     {"X31", x31_retire_purge}, {"X32", x32_stale_heartbeat},
+    {"X33", x33_generation_file_lock}, {"X34", x34_blocked_clear_full}, {"X35", x35_end_wire},
     {"X17", x17_churn},
 };
 

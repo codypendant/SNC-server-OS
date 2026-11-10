@@ -103,7 +103,7 @@ if(PYTHON3)
   # D.2 with processes (docs/CROSS_NODE_EXCHANGE_DESIGN.md 8.1); x9 (mixed
   # version) runs by name with --old, a build of the last D.1 commit.
   add_test(NAME test_xnode_proc COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_xnode_proc.py
-           ${CMAKE_BINARY_DIR} x6 x7 x7b)
+           ${CMAKE_BINARY_DIR} x6 x7 x7b x33)
   add_test(NAME test_baseline_ha COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_baseline_ha.py
            ${CMAKE_BINARY_DIR} h1_measurement q3_runtime q3_restart q4_normal)
   # The causal order of NOT READY and READY (docs/SYNC_READINESS.md 7).

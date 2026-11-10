@@ -23,6 +23,8 @@ namespace snc {
 
 void (*NodeLinks::debug_sync_probe)(const NodeLinks::SyncProbe& p) = nullptr;
 int NodeLinks::debug_out_sndbuf = 0;
+std::atomic<u64> NodeLinks::debug_blocked_incarnation{0};
+std::atomic<u64> NodeLinks::debug_full_incarnation{0};
 
 // Wire v2 Hello (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.2).
 struct HelloV2 {
@@ -117,7 +119,12 @@ struct NodeLinks::Out {
   // Liveness (2.10): when this connection last pushed a frame; what the
   // peer's heartbeats say about it.
   u64 last_push_ns = 0;
-  bool blocked_sent = false;  // the blocked bit as this connection last carried it
+  // The blocked bit as this connection last carried it: -1 none yet (a new
+  // connection; the peer's view of this instance may be an older
+  // connection's), else 0 or 1. Whenever it differs from blocked_, a
+  // HEARTBEAT is owed on this connection until one is appended (2.12 A,
+  // both edges: PR #95 review item 2).
+  std::int8_t blocked_sent = -1;
   u64 mismatch_since_ns = 0;  // heartbeats name another conn, or none
   u64 r_stuck_since_ns = 0;   // R not advancing, peer not paused, frames outstanding
   u64 last_r = 0;
@@ -212,6 +219,7 @@ bool NodeLinks::up(u32 i) const { return out_[i]->state == Out::State::UP; }
 
 bool NodeLinks::room(u32 i) const {
   const Out& o = *out_[i];
+  if (debug_full_incarnation.load(std::memory_order_relaxed) == opt_.incarnation) return false;
   return o.state == Out::State::UP && o.buf.size() - o.off < kOutCap;
 }
 
@@ -273,7 +281,7 @@ void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   // No record of this connection is kept (2.3): its count stays,
   // conservatively, until the next binding's SYNC.
   o.synced = o.is_bound = false;
-  o.blocked_sent = false;
+  o.blocked_sent = -1;
 }
 
 // ---- Liveness (2.10, 2.12 B) ----------------------------------------------------------
@@ -300,7 +308,7 @@ void NodeLinks::push_heartbeat(u32 l, u64 now_ns) {
   }
   f.op = (paused_ ? 1u : 0u) | (blocked_ ? 2u : 0u);
   push(l, f);
-  o.blocked_sent = blocked_;
+  o.blocked_sent = blocked_ ? 1 : 0;
   ++heartbeats_sent_;
 }
 
@@ -309,7 +317,10 @@ void NodeLinks::set_blocked(bool on) {
   blocked_ = on;
   // At once, not after T_hb of idleness (2.12 A); a connection that
   // cannot take it now (not up, or full) gets it as soon as it can
-  // (liveness), not only when it next falls idle.
+  // (the next liveness pass, every T_hb/4: blocked_ != blocked_sent), not
+  // only when it next falls idle. Both edges: a clear left unsent would
+  // keep the peer's blocked_since_, so no binding, then a quarantine at
+  // T_release.
   for (u32 l = 0; l < out_.size(); ++l) push_heartbeat(l, now_ns_);
 }
 
@@ -349,11 +360,12 @@ void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
 }
 
 void NodeLinks::liveness(u64 now_ns) {
-  // Heartbeats on every connection idle for T_hb.
+  // Heartbeats on every connection idle for T_hb, and on every one that
+  // does not yet carry the current blocked bit (either edge, or none yet).
   for (u32 l = 0; l < out_.size(); ++l) {
     Out& o = *out_[l];
     if (o.state == Out::State::UP &&
-        (now_ns - o.last_push_ns >= opt_.hb_ns || (blocked_ && !o.blocked_sent))) {
+        (now_ns - o.last_push_ns >= opt_.hb_ns || o.blocked_sent != (blocked_ ? 1 : 0))) {
       push_heartbeat(l, now_ns);
     }
   }
@@ -737,10 +749,7 @@ void NodeLinks::push_ends() {
     Out& o = *out_[l];
     Entry& e = ent(l, o.ack_member);
     if (e.end_owed == 0 || e.inc != o.ack_incarnation) continue;
-    Frame f{};
-    f.pad[0] = END;
-    f.source.hi = e.end_owed;
-    f.target.lo = e.inc;
+    const Frame f = end_frame(e.end_owed, e.inc);
     ++ctr_.ends_sent;
     ctr_.end_items_sent += e.end_owed;
     e.end_owed = 0;
@@ -751,7 +760,8 @@ void NodeLinks::push_ends() {
 // END(n) from instance f, for us: n of our counted items there ended.
 void NodeLinks::on_end(u32 i, const Frame& fr) {
   const From& f = in_[i]->from;
-  if (fr.target.lo != opt_.incarnation) {
+  const u64 n = end_n(fr);
+  if (end_target(fr) != opt_.incarnation || n == 0) {  // another incarnation's, or malformed (n >= 1, 2.2)
     ++ctr_.ignored_frames;
     return;
   }
@@ -760,7 +770,6 @@ void NodeLinks::on_end(u32 i, const Frame& fr) {
     ++ctr_.stale_tags;
     return;
   }
-  const u64 n = fr.source.hi;
   ++ctr_.ends_received;
   ctr_.end_items_received += n;
   if (n > e.count) {

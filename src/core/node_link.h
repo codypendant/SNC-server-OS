@@ -20,6 +20,8 @@
 // docs/TRANSFERS.md).
 #pragma once
 
+#include <atomic>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -42,6 +44,26 @@ class NodeLinks {
   enum : u8 { COUNTED_BY_SENDER = 1, COUNTED_BY_RECEIVER = 2 };  // DATA flags (pad[1])
   static u8 kind(const Frame& f) { return f.pad[0]; }
   static u8 flags(const Frame& f) { return f.pad[1]; }
+  // Wire v2 frame offsets (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.2, little-
+  // endian; ObjectID is hi then lo): source.hi 0, source.lo 8, target.hi 16,
+  // target.lo 24, op 32, fail_op 36, len 40, kind 41, flags 42, pad 43,
+  // epoch 44, args 48..63.
+  static_assert(offsetof(Frame, source) == 0 && offsetof(Frame, target) == 16 && offsetof(Frame, op) == 32 &&
+                offsetof(Frame, fail_op) == 36 && offsetof(Frame, len) == 40 && offsetof(Frame, pad) == 41 &&
+                offsetof(Frame, epoch) == 44 && offsetof(Frame, args) == 48);
+  // END (2.2, as amended after the PR #95 review): kind 1; n (u64, >= 1)
+  // in source.hi, bytes 0..7; the target incarnation in target.lo, bytes
+  // 24..31; every other byte 0. The one encoder and decoder: the sender,
+  // the receiver and the tests' fault proxy all use these.
+  static Frame end_frame(u64 n, u64 target_incarnation) {
+    Frame f{};
+    f.pad[0] = END;
+    f.source.hi = n;
+    f.target.lo = target_incarnation;
+    return f;
+  }
+  static u64 end_n(const Frame& f) { return f.source.hi; }
+  static u64 end_target(const Frame& f) { return f.target.lo; }
 
   // Who sent a frame: the In connection's Hello (2.2, "the sending instance").
   struct From {
@@ -173,6 +195,13 @@ class NodeLinks {
   // Tests only (X28): SO_SNDBUF for Out sockets made from now on (0: the
   // kernel's), so a stalled peer fills Out::buf quickly.
   static int debug_out_sndbuf;
+  // Tests only (X34): the links instance with this incarnation is treated
+  // as blocked by its shard (ORed into the shard's own blocked test, so the
+  // real set_blocked path runs), and takes no new frame on any of its Out
+  // connections (room() false, as if every Out::buf were at its cap; bytes
+  // already queued still drain). 0: off (no instance has incarnation 0).
+  static std::atomic<u64> debug_blocked_incarnation;
+  static std::atomic<u64> debug_full_incarnation;
 
   // Opens the listener; call on the shard's thread.
   NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options& opt);

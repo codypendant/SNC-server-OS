@@ -208,8 +208,9 @@ enum Gauge : u32 {
   // configuration; state now, summed over entries (xnode_entries is
   // bounded by xnode_entry_slots, the members of every link); counters,
   // cumulative across links instances. xnode_end_underflow,
-  // xnode_held_underflow, xnode_debt_increases and xnode_uncounted must
-  // stay 0.
+  // xnode_held_underflow, xnode_debt_increases, xnode_uncounted,
+  // xnode_drops_to_resume and xnode_handoff_drops must stay 0 (the last two
+  // count invariant checks I1 and I2, 2.9.1).
   G_XNODE_ACCOUNTING,
   G_XNODE_HB_MS,
   G_XNODE_DEAD_MS,
