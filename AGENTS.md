@@ -2164,3 +2164,33 @@ or source comments.
 -   **Questions:** section 10. They cover the version policy, release,
     adoption above X, SYNC instead of generations, and the timer defaults.
 -   **Next action:** WAIT for the cody/Codex design review.
+
+### 2026-11-10 UTC --- Claude (Claude Code): PR #91 review filed; D.2 design rev2, for review
+
+-   **Review:** PR #91 got DESIGN DIRECTION APPROVED, IMPLEMENTATION HOLD.
+    It is filed verbatim as `docs/handoff/PR91_D2_Design_Review.md`.
+    There were four blockers, plus explicit release and adoption terms in
+    B2.
+-   **Rev2:** `docs/CROSS_NODE_EXCHANGE_DESIGN.md` is rewritten.
+    -   Out connections stay UNBOUND until an exact SYNC from the
+        receiving instance names their nonce.
+    -   Invariant M gives one live links instance per (group, shard,
+        member), from listener-before-links and a data-dir lock. So
+        entries per link are at most the member count, and an entry
+        retires only on its own member's new incarnation.
+    -   State is per entry, END debt is never combined, and every field
+        has a defined transition.
+    -   Release is a quarantine: it resets the Out connection, sends no
+        counted DATA until re-binding, and keeps a non-increasing debt.
+    -   Adoption is replaced by drop-to-resume, so `live_s < X +
+        max(E, Rr)` holds exactly.
+    -   B2: physical ≤ live + D, with D ≤ Q_o(X + max), independent of
+        churn.
+    -   Tests now run X1-X18, with negatives ND1-ND20. Section 13 maps
+        every review item.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the approved direction: origin counting, END, SYNC, 64-byte
+        DATA, fail-closed, no `TCP_USER_TIMEOUT`.
+    -   REFINE binding, release, incarnations and the proof.
+    -   RECONSIDER adoption, which is removed.
+-   **Next action:** WAIT for the rev2 review. No D.2 code.

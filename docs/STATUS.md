@@ -85,10 +85,14 @@ Decided by cody on 2026-11-04.
      fix, D.1 GAUGES, P1 matrix) merged as PR #89 and was APPROVED: **D.1
      is COMPLETE** (handoff/PR89_D1_Closure_Review.md; section 3.9.7
      there; bench/results/intake-d1-closure-devvm-20261110). **D.2 is
-     authorized** as the next slice. Its design is up for review first
+     authorized** as the next slice. Its design rev1 (PR #91) got DESIGN
+     DIRECTION APPROVED, IMPLEMENTATION HOLD
+     (handoff/PR91_D2_Design_Review.md): 4 blockers plus proof terms.
+     Design rev2 is up for review
      ([CROSS_NODE_EXCHANGE_DESIGN.md](CROSS_NODE_EXCHANGE_DESIGN.md):
-     origin counting across nodes, END and SYNC frames, heartbeats,
-     release, fail-closed wire v2); no D.2 code until it is approved.
+     exact Out-to-instance binding, quarantine with explicit bounded debt,
+     per-member entries, drop to resume instead of adoption); no D.2 code
+     until it is approved.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
