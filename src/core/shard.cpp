@@ -3168,6 +3168,25 @@ bool Shard::run_emits() {
         // live in the entry it goes to until it ends there or comes back.
         links_->push_counted(i, f);
         end_exchange(e.origin);
+      } else if (links_->accounting()) {
+        // Drop-to-resume (2.9): another shard's exchange re-routed here
+        // after a slot move cannot be counted by the shard that admitted
+        // it, and is never adopted. It ends (D.1); the map change that
+        // re-routed it resumes it. Untagged with no origin cannot occur.
+        if (e.origin == kNoShard) {
+          ++stats_.xnode_uncounted;
+          std::fprintf(stderr, "snc: shard %u: an uncounted cross-node follow-up with accounting on, dropped\n", id_);
+#ifndef NDEBUG
+          std::abort();
+#endif
+        }
+        ++stats_.xnode_drops_to_resume;
+        ++stats_.node_emits_dropped;
+        end_item(e);
+        q.pop_front();
+        --emit_ready_count_;
+        did = true;
+        continue;
       } else {
         links_->push(i, f);
         end_item(e);  // leaving the node ends its exchange here (D.1, 3.9.3)
