@@ -1,0 +1,25 @@
+release-run1 start sha ea9d3b83a4f6bb534cce52d45fb95114767270d4 2026-11-09T20:05:12Z dir build env: SNC_X=0
+release-run1 rc=8 20:33:48 98% tests passed, 1 tests failed out of 45
+release-run2 start sha ea9d3b83a4f6bb534cce52d45fb95114767270d4 2026-11-09T20:53:21Z dir build env: SNC_X=0
+release-run2 rc=8 21:21:58 98% tests passed, 1 tests failed out of 45
+note 21:40Z: release-run1 and release-run2 failed only test_baseline_retry b3_stalled_catchup (the standby never caught up). It failed the same way on main af5afeb (3 of 3, b3-compare/), so not D.1. Root cause: the session's disk allowance was nearly spent (the shell hit "no space left" at 21:28; a leaked 6.8 GB /tmp/snc-health-* test directory and old sanitizer build directories), and b3 catches up from WAL files on disk. After freeing about 8 GB, b3 passed 2 of 2 on D.1 (b3-compare/d1-4, d1-5). Both runs kept; neither is headline evidence.
+release-run3 disk 9.7G free
+release-run3 start sha b2b31bb0a50a1368f081ff2009866584bdf48663 2026-11-09T21:29:54Z dir build env: SNC_X=0
+release-run3 rc=8 21:56:25 98% tests passed, 1 tests failed out of 45
+note: release-run3 failed only test_baseline_retry q5_kill_kill at harness start-up: witness w2 never printed "primary up" within 15 s (w0 and w1 did; node 0 served). Re-run alone 4 of 4 passed (q5-rerun/). Cause, from reading tools/snc_witness.cpp watch(): a witness prints "primary up" only when its own proposal learns the space; one that first sees the space already chosen (accepted from a peer's proposal before its own first poll) skips that branch and prints nothing, and tests/test_health.py's start-up waits for that line from every witness. A harness/logging race in code D.1 does not touch; proposed to cody as a separate fix, not made here. Run kept; not headline evidence.
+release-run4 disk 9.7G free
+release-run4 start sha b2b31bb0a50a1368f081ff2009866584bdf48663 2026-11-09T22:00:44Z dir build env: SNC_X=0
+release-run4 rc=0 22:27:40 100% tests passed, 0 tests failed out of 45
+asan-run1 disk 9.6G free
+asan-run1 start sha bc3130940f3f4d33bcb619661f765cb18679dc23 2026-11-09T22:28:52Z dir build-asan env: SNC_SANITIZED=1
+asan-run1 rc=0 22:58:09 100% tests passed, 0 tests failed out of 45
+tsan-run1 disk 9.5G free
+tsan-run1 start sha bc3130940f3f4d33bcb619661f765cb18679dc23 2026-11-09T22:58:59Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run1 NOTE 2026-11-10T00:3xZ: test_intake (F11) CHECK failed at test_intake.cpp:868 (cross-shard snapshot order, test defect), then exit() destructors raced shard threads -> SEGV -> TSan report deadlock; hung 4490 s, killed by PID. Tests 27+ of this run overlapped standalone TSan test_intake reruns: run invalid as headline.
+tsan-run1 rc=8 00:49:09 98% tests passed, 1 tests failed out of 45
+tsan-run2 disk 9.5G free
+tsan-run2 start sha cf0d51fc315ccb42d19c9b1fe5dc44063508af5c 2026-11-10T00:49:22Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run2 INTERRUPTED 2026-11-10T01:16:49Z: container restarted during test 36 (test_sync_readiness); tests 1-35 passed, 0 TSan warnings so far. Incomplete: not headline.
+tsan-run3 disk 8.9G free
+tsan-run3 start sha b09866764078aacaab0db8367521ee8848c7b17c 2026-11-10T01:17:17Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run3 rc=0 01:55:08 100% tests passed, 0 tests failed out of 45

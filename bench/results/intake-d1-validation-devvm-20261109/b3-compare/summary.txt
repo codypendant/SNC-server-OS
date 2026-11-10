@@ -1,0 +1,9 @@
+d1 run 1 rc=1 "caught_up": false "wal_unacked": 231162
+main run 1 rc=1 "caught_up": false "wal_unacked": 212356
+d1 run 2 rc=1 "caught_up": false "wal_unacked": 213120
+main run 2 rc=1 "caught_up": false "wal_unacked": 212184
+d1 run 3 rc=1 "caught_up": false "wal_unacked": 229710
+main run 3 rc=1 "caught_up": false "wal_unacked": 188942
+done
+d1 run 4 (after freeing disk) rc=0 "caught_up": true
+d1 run 5 (after freeing disk) rc=0 "caught_up": true

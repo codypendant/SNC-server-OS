@@ -45,8 +45,13 @@ class NodeLinks {
 
   // Connects, accepts, sends what is queued and hands each frame received
   // to on_frame. True if it did anything.
+  // At most `budget` frames are handed on per call (whole frames left over
+  // wait in the connection's buffer, docs/FOLLOWUP_INTAKE_DESIGN.md 3.6).
   using OnFrame = void (*)(void* ctx, const Frame& f);
-  bool poll(u64 now_ns, OnFrame on_frame, void* ctx);
+  bool poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget = ~u32{0});
+  // Paused: inbound connections are watched for hang-ups only, so nothing
+  // more is read from them (nor does the poll spin on them).
+  void pause_reads(bool on);
   // A link came up, outbound or inbound, since the last call.
   bool take_connected() {
     const bool r = connected_;
@@ -64,7 +69,7 @@ class NodeLinks {
   void drop_out(u32 i, u64 now_ns);
   bool flush(u32 i, u64 now_ns);
   void accept_all();
-  bool read_in(u32 i, OnFrame on_frame, void* ctx);
+  bool read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget);
   void close_in(u32 i);
   void try_listen(u64 now_ns);
 
@@ -79,6 +84,7 @@ class NodeLinks {
   std::vector<std::unique_ptr<Out>> out_;
   std::vector<std::unique_ptr<In>> in_;  // null = free entry
   bool connected_ = false;
+  bool paused_ = false;
   u64 connects_ = 0;
   u64 last_check_ns_ = 0;
 };

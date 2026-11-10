@@ -32,6 +32,11 @@ enum MsgFlags : u8 {
   kMsgAllowUndurable = 1u << 2,
   kMsgDurApplied = 1u << 3,
   kMsgEmitRemote = 1u << 4,  // EMIT: arrived over a node link (docs/MIGRATION.md)
+  // EMIT (docs/FOLLOWUP_INTAKE_DESIGN.md 3.4): which shard started the
+  // follow-up's exchange: the sender (set), the receiver (clear), or no
+  // shard of this node (OriginNone: it came over a node link).
+  kMsgEmitOriginSender = 1u << 5,
+  kMsgEmitOriginNone = 1u << 6,
 };
 
 inline constexpr u32 kMsgInlineBytes = 16;

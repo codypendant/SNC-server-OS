@@ -57,6 +57,10 @@ void sri_publish(u16 dst);
 // destination, `must_deliver` ones included): a resource gauge for tests
 // (docs/EXPERIMENTAL_BASELINE.md T-Q4).
 u64 sri_overflow_queued();
+// Wake shard `dst` from its idle wait (or make its next wait return at
+// once), for a shard waiting on state this shard changed outside the
+// rings (a follow-up intake window, docs/FOLLOWUP_INTAKE_DESIGN.md 3.2).
+void sri_wake(u16 dst);
 
 u64 sri_now_ns();
 // Backend name for reports: "native" or "seastar". Valid on any thread.

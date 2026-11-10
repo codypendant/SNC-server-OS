@@ -104,7 +104,19 @@ Shard::Shard(u16 id, const SlotMap& slots, u64 lease, u64 expected_objects, Page
       map_(expected_objects / (slots.n_shards ? slots.n_shards : 1) + 1024, pages),
       minter_(lease),
       alloc_(sri_allocator()),
-      result_scratch_(kMaxResult) {}
+      result_scratch_(kMaxResult) {
+  // Intake off until set_intake (D.1): a Shard without it behaves as before.
+  intake_ = Intake{false, 0, 0, false, 1, false, 0};
+  const u16 n = slots_.n_shards ? slots_.n_shards : 1;
+  sent_to_.assign(n, 0);
+  taken_cache_.assign(n, 0);
+  taken_from_.assign(n, 0);
+  taken_pub_.assign(n, 0);
+  ended_at_.assign(n, 0);
+  ended_pub_.assign(n, 0);
+  scan_.slots.assign(kSlots, 0);
+  scan_.owed_slots.assign(kSlots, 0);
+}
 
 Shard::~Shard() {
   if (ckpt_.fd >= 0) ::close(ckpt_.fd);
@@ -234,6 +246,31 @@ void Shard::set_admission(const Admission& a) {
   peer_record_max_ = 0;
   for (const TypeDescriptor& t : registry().types()) {
     peer_record_max_ = std::max<u64>(peer_record_max_, record_size(t.max_size));
+  }
+}
+
+// D.1 (docs/FOLLOWUP_INTAKE_DESIGN.md 3.1): R is one follow-up apply's
+// worst record group (its record at the largest type's max_size, plus a
+// local() peer record), H defaults to max(2B, B + R), and H >= B + R is
+// required, or clients admitted under B could keep the head follow-up
+// from ever fitting (B5).
+void Shard::set_intake(const Intake& in, FollowupBoard* board) {
+  intake_ = in;
+  board_ = board;
+  u64 rmax = 0;
+  for (const TypeDescriptor& t : registry().types()) rmax = std::max<u64>(rmax, record_size(t.max_size));
+  followup_need_ = rmax + std::max(peer_record_max_, rmax);
+  const u64 b = adm_.wal_buffer_budget_bytes;
+  const u64 floor = b + followup_need_;
+  wal_cap_ = in.wal_cap != 0 ? in.wal_cap : std::max(2 * b, floor);
+  if (in.wal_gate && wal_cap_ < floor) {
+    std::fprintf(stderr, "snc: shard %u: followup_wal_cap_bytes %llu is below B + R = %llu\n", id_,
+                 (unsigned long long)wal_cap_, (unsigned long long)floor);
+    std::abort();
+  }
+  if (in.exchange_gate && in.exchange_budget == 0) {
+    std::fprintf(stderr, "snc: shard %u: exchange_budget must be at least 1\n", id_);
+    std::abort();
   }
 }
 
@@ -468,6 +505,8 @@ void Shard::prepare_ctx(OpCtx& c, ObjectHeader* obj, const TypeDescriptor* t,
   c.peer_ = nullptr;
   c.applying_ = false;
   c.result_overflow_ = false;
+  c.emits_reserved_ = 0;
+  c.emits_done_ = 0;
 }
 
 Status Shard::validate_checked(OpCtx& c, const OpDescriptor* op, ByteView args) {
@@ -544,6 +583,23 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
     out.r.status = Status::E_TYPE_MISMATCH;
     return;
   }
+  // The reply-only contract (docs/FOLLOWUP_INTAKE_DESIGN.md 3.3): follow-up
+  // ops run only as follow-ups, and follow-ups run only follow-up ops.
+  if (client && op->followup) {
+    out.r.status = Status::E_BAD_ARGS;
+    return;
+  }
+  if (!client && !op->followup) {
+    // Every emit site checks this (OpCtx::emit), so only a frame from
+    // another node (a different op table, or a bad frame) gets here: it
+    // is dropped, never run, and the node keeps running.
+    if (!bad_followup_logged_) {
+      bad_followup_logged_ = true;
+      std::fprintf(stderr, "snc: shard %u: dropped a follow-up to op %u, which is not a follow-up op\n", id_, op->op_id);
+    }
+    out.r.status = Status::E_BAD_ARGS;
+    return;
+  }
   if (args.len > op->max_args) {
     out.r.status = Status::E_BAD_ARGS;
     return;
@@ -578,6 +634,17 @@ void Shard::run_exec(ObjectID target, u64 hash, OpID op_id, ByteView args,
     // R1 (docs/S1_ADMISSION.md 3): a client's logged mutation reserves its
     // worst case here, after validate and before apply, its first change.
     // Follow-ups (client = false) and unlogged ops are not refused.
+    // D.1 (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.1): an invocation that
+    // reserved follow-ups starts that many exchanges; refused, before its
+    // first change, while this shard's exchange budget is full. Sequenced
+    // replays were answered above, before validate.
+    if (client && c.emits_reserved_ != 0 && exchange_full()) {
+      if (!emit_scratch_.empty()) contract_violation("emit outside apply", op);
+      ++stats_.overloaded;
+      ++stats_.refused_exchange;
+      out.r.status = Status::E_OVERLOADED;
+      return;
+    }
     const bool reserve = client && !op->unlogged;
     if (reserve) {
       const u64 wal_need = record_size(t->max_size) + peer_record_max_ +
@@ -852,6 +919,7 @@ bool Shard::poll() {
     withdraw();
   }
   bool busy = run_emits();
+  busy |= resume_step();
   if (links_) busy |= poll_links();
   if (wal_ && !((g_debug_hold_wal.load(std::memory_order_relaxed) >> (id_ & 63)) & 1)) {
     busy |= wal_->poll(sri_now_ns(), /*force=*/false);
@@ -862,6 +930,7 @@ bool Shard::poll() {
     checkpoint_step();
     busy = true;
   }
+  publish_intake();
   if (gauges_) publish_gauges(sri_now_ns());
   return busy;
 }
@@ -1396,8 +1465,13 @@ void Shard::serve_multi(const Msg& m) {
     opts.allow_undurable = q.flags & kMsgAllowUndurable;
     opts.durability = (q.flags & kMsgDurApplied) ? Durability::APPLIED : Durability::DURABLE;
     RunOut out;
-    run(MsgKind::EXEC_REQ, q.target, q.op, ByteView(q.args, q.len), opts, out);
-    (void)admit_answer_wait(out);  // as serve
+    if (owner_refuses(MsgKind::EXEC_REQ, q.op)) {
+      out.r.id = q.target;
+      out.r.status = Status::E_OVERLOADED;
+    } else {
+      run(MsgKind::EXEC_REQ, q.target, q.op, ByteView(q.args, q.len), opts, out);
+      (void)admit_answer_wait(out);  // as serve
+    }
     auto& r = *reinterpret_cast<BatchResp*>(&recs[i]);
     r.slot = q.slot;
     r.gen = q.gen;
@@ -1519,11 +1593,16 @@ void Shard::serve(const Msg& m) {
   opts.allow_undurable = m.flags & kMsgAllowUndurable;
   opts.durability = (m.flags & kMsgDurApplied) ? Durability::APPLIED : Durability::DURABLE;
   RunOut out;
-  run(m.kind, m.target, m.op_id, ByteView(m.data(), m.len), opts, out);
-  // S1.1: a forwarded READ (or unreserved answer) that must wait takes a
-  // REMOTE waiter under the budget, or is answered E_OVERLOADED now. The
-  // answer always goes back, so the origin's pending slot is freed.
-  (void)admit_answer_wait(out);
+  if (owner_refuses(m.kind, m.op_id)) {
+    out.r.id = m.target;
+    out.r.status = Status::E_OVERLOADED;
+  } else {
+    run(m.kind, m.target, m.op_id, ByteView(m.data(), m.len), opts, out);
+    // S1.1: a forwarded READ (or unreserved answer) that must wait takes a
+    // REMOTE waiter under the budget, or is answered E_OVERLOADED now. The
+    // answer always goes back, so the origin's pending slot is freed.
+    (void)admit_answer_wait(out);
+  }
   u8* args_buf = (m.flags & kMsgArgsExternal) ? m.ext.ptr : nullptr;
 
   if (out.wait_lsn != 0 && !durable(out.wait_lsn)) {
@@ -1656,22 +1735,9 @@ void Shard::finish_recovery(const WalConfig& wal_cfg, u64 next_lsn) {
 // what they emit is ready at once.
 void Shard::start_serving() { resume_all(0); }
 
-void Shard::resume_all(u64 lsn) {
-  resuming_ = true;
-  map_.for_each([&](const ObjectHeader* o) {
-    if (o->deleted() || !serving(slot_of(o->id))) return;
-    const TypeDescriptor* t = registry().type(o->type_id);
-    if (t == nullptr || t->resume == nullptr) return;
-    OpCtx c;
-    c.obj_ = const_cast<ObjectHeader*>(o);
-    c.type_ = t;
-    t->resume(c);
-    // Resume hooks emit a handful each: hand them on per object.
-    if (emit_scratch_.size() >= 4096) queue_emits(lsn);
-  });
-  resuming_ = false;
-  queue_emits(lsn);
-}
+// D.1 (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.2): a request for a resume
+// pass, run by resume_step in pages under the exchange budget.
+void Shard::resume_all(u64 lsn) { owe_resume(lsn, -1); }
 
 // ---- Node links (docs/CLUSTER.md) ------------------------------------------------------
 
@@ -1710,6 +1776,11 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
   e.lsn = 0;
   e.remote = true;
   e.epoch = f.epoch;
+  // Counted against L until it runs, leaves this shard or is dropped
+  // (3.6); its exchange belongs to no shard of this node (D.2).
+  e.origin = kNoShard;
+  e.link_held = true;
+  if (++s->link_held_ > s->stats_.link_held_peak) s->stats_.link_held_peak = s->link_held_;
   if (newer) {
     // Whatever we still run from older maps must run first: a follow-up
     // its source's new owner sent cannot overtake one its old owner did.
@@ -1720,7 +1791,21 @@ void Shard::on_link_frame(void* ctx, const NodeLinks::Frame& f) {
 }
 
 bool Shard::poll_links() {
-  bool busy = links_->poll(sri_now_ns(), &Shard::on_link_frame, this);
+  // D.1 (3.6): reads pause while L follow-ups from links are held here,
+  // until half of them drain; at most L - held frames are taken per poll.
+  const u64 lmax = intake_.link_hold_max;
+  if (lmax != 0) {
+    if (!links_paused_ && link_held_ >= lmax) {
+      links_paused_ = true;
+      links_->pause_reads(true);
+      ++stats_.link_pauses;
+    } else if (links_paused_ && link_held_ <= lmax / 2) {
+      links_paused_ = false;
+      links_->pause_reads(false);
+    }
+  }
+  const u32 budget = lmax == 0 ? ~u32{0} : link_held_ >= lmax ? 0 : static_cast<u32>(lmax - link_held_);
+  bool busy = links_->poll(sri_now_ns(), &Shard::on_link_frame, this, budget);
   if (links_->take_connected()) {
     // Whatever was sent on a link before it dropped, or dropped while it
     // was down, may be lost: re-emit everything unsettled. What the hooks
@@ -2413,6 +2498,22 @@ ShardStats Shard::stats() const {
   map_.for_each([&](const ObjectHeader* o) { s.objects += !o->deleted(); });
   s.emits_in_flight = emits_in_flight();
   s.emits_held_now = emit_held_.size();
+  {
+    u64 elsewhere = 0, outstanding = 0;
+    if (board_ != nullptr) {
+      for (u16 x = 0; x < board_->size(); ++x) {
+        if (x == id_) continue;
+        elsewhere += board_->ended(x, id_).load(std::memory_order_acquire);
+        outstanding += sent_to_[x] - board_->taken(x, id_).load(std::memory_order_acquire);
+      }
+    }
+    s.exchanges_live = started_ - ended_own_ - elsewhere;
+    s.window_outstanding = outstanding;
+  }
+  s.followups_staged_now = emit_local_.size();
+  s.link_held_now = link_held_;
+  s.resume_active = scan_.active;
+  s.resume_owed = scan_.owed_all || scan_.owed_any;
   s.slots_unproven = unproven_count();
   if (links_) s.node_connects = links_->connects();
   s.local_map_bytes = map_.memory_bytes();
@@ -2507,12 +2608,43 @@ ObjectHeader* OpCtx::local(const ObjectID& id, u32 type_id) {
 
 // ---- Follow-ups (docs/TRANSFERS.md) ------------------------------------------------
 
+void OpCtx::reserve_emits(u16 n) {
+  if (op_ == nullptr || op_->kind != OpKind::MUTATE || op_->unlogged || applying_) {
+    contract_violation("reserve_emits outside the validate of a logged MUTATE op", op_);
+  }
+  if (n > op_->max_emits) contract_violation("reserve_emits above the op's max_emits", op_);
+  emits_reserved_ = n;
+}
+
+// The follow-up contract (docs/FOLLOWUP_INTAKE_DESIGN.md 3.3, 3.9.1): a
+// resume hook emits at most its type's max_resume_emits per object; an op
+// emits only from apply, at most its max_emits; a client-run apply at
+// most what validate reserved; a follow-up apply once at most, and only
+// back to its source (reply-only). Anything else stops the process.
 void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
   Shard* s = tl_shard;
-  if (!s->resuming_ && (op_ == nullptr || op_->kind != OpKind::MUTATE)) {
-    contract_violation("emit from a non-MUTATE op", op_);
+  ++emits_done_;
+  if (s->resuming_) {
+    if (emits_done_ > type_->max_resume_emits) contract_violation("a resume hook emitted more than max_resume_emits", op_);
+  } else {
+    if (op_ == nullptr || op_->kind != OpKind::MUTATE) contract_violation("emit from a non-MUTATE op", op_);
+    if (!applying_) contract_violation("emit outside apply", op_);
+    if (emits_done_ > op_->max_emits) contract_violation("an op emitted more than its max_emits", op_);
+    if (!source_.is_null()) {
+      if (!(target == source_)) contract_violation("a follow-up emitted to a target other than its source", op_);
+      if (emits_done_ > 1) contract_violation("a follow-up emitted more than once", op_);
+    } else if (emits_done_ > emits_reserved_) {
+      contract_violation("an op emitted more than it reserved (reserve_emits)", op_);
+    }
   }
   if (args.len > kMaxEmitArgs) contract_violation("emit args too large", op_);
+  // Reply-only (3.3): a follow-up runs only an op declared followup (its
+  // fail op too). Checked here, at the emitting op, so that the receiver
+  // can treat a frame that breaks it as foreign input, not as our bug.
+  for (OpID x : {op, fail_op}) {
+    const OpDescriptor* d = x != 0 ? registry().op(x) : nullptr;
+    if (d != nullptr && !d->followup) contract_violation("a follow-up was emitted to an op not declared followup", op_);
+  }
   Shard::Emit& e = s->emit_scratch_.emplace_back();
   e.source = obj_->id;
   e.target = target;
@@ -2521,6 +2653,15 @@ void OpCtx::emit(const ObjectID& target, OpID op, ByteView args, OpID fail_op) {
   e.len = static_cast<u8>(args.len);
   e.epoch = s->cluster_ ? static_cast<u32>(s->cluster_->epoch) : 0;
   if (args.len) std::memcpy(e.args, args.data, args.len);
+  if (source_.is_null()) {
+    // A root: a client-run op's or a resume hook's. It starts an exchange
+    // this shard owns until the exchange ends, wherever that is (3.4).
+    e.origin = s->id_;
+    ++s->started_;
+    ++s->stats_.exchanges_started;
+  } else {
+    e.origin = s->cur_origin_;  // the reply continues its exchange
+  }
 }
 
 void Shard::queue_emits(u64 lsn) {
@@ -2540,9 +2681,214 @@ void Shard::queue_emits(u64 lsn) {
   emit_scratch_.clear();
 }
 
+// ---- Follow-up intake (docs/FOLLOWUP_INTAKE_DESIGN.md, D.1) --------------------------
+
+// 3.1: per item, immediately before it runs (no yield before its append).
+// The empty-buffer clause is S1's progress rule: one item always fits.
+bool Shard::followup_gate_open() const {
+  if (!intake_.wal_gate || !wal_) return true;
+  const u64 a = wal_->active_bytes();
+  return a == 0 || a + followup_need_ <= wal_cap_;
+}
+
+// 3.2: at most W follow-ups to `dst` that `dst` has not taken out of its
+// staging. Full: flag that we wait (Dekker, against publish_intake on
+// `dst`: we store the flag then read `taken`, it stores `taken` then reads
+// the flag), so `dst` wakes us when it takes one.
+bool Shard::window_open(u16 dst) {
+  if (intake_.window == 0 || board_ == nullptr) return true;
+  const u64 w = intake_.window;
+  if (sent_to_[dst] - taken_cache_[dst] < w) return true;
+  taken_cache_[dst] = board_->taken(dst, id_).load(std::memory_order_acquire);
+  if (sent_to_[dst] - taken_cache_[dst] < w) return true;
+  board_->wait(id_, dst).store(1, std::memory_order_relaxed);
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  taken_cache_[dst] = board_->taken(dst, id_).load(std::memory_order_acquire);
+  if (sent_to_[dst] - taken_cache_[dst] < w) return true;
+  ++stats_.window_waits;
+  return false;
+}
+
+// 3.4: the exchange of a follow-up that ran and emitted nothing, or was
+// dropped, or left this node, is over; its origin shard counts it.
+void Shard::end_exchange(u16 origin) {
+  if (origin == kNoShard) return;  // another node's (D.2)
+  ++stats_.exchanges_ended;
+  if (origin == id_) ++ended_own_;
+  else ++ended_at_[origin];
+}
+
+void Shard::release_link(Emit& e) {
+  if (!e.link_held) return;
+  e.link_held = false;
+  --link_held_;
+}
+
+u64 Shard::exchanges_live() {
+  if (board_ != nullptr) {
+    u64 sum = 0;
+    for (u16 x = 0; x < board_->size(); ++x) {
+      if (x != id_) sum += board_->ended(x, id_).load(std::memory_order_acquire);
+    }
+    ended_seen_ = sum;
+  }
+  const u64 ended = ended_own_ + ended_seen_;
+  if (ended > started_) {
+    std::fprintf(stderr, "snc: shard %u: exchanges ended (%llu) exceed started (%llu)\n", id_,
+                 (unsigned long long)ended, (unsigned long long)started_);
+    std::abort();
+  }
+  const u64 live = started_ - ended;
+  if (live > stats_.exchanges_live_peak) stats_.exchanges_live_peak = live;
+  return live;
+}
+
+// The cached count only overestimates (ends elsewhere only grow): reread
+// them only when it says full.
+bool Shard::exchange_full() {
+  if (!intake_.exchange_gate) return false;
+  if (started_ - ended_own_ - ended_seen_ < intake_.exchange_budget) return false;
+  return exchanges_live() >= intake_.exchange_budget;
+}
+
+// Once per loop iteration: what this shard took and ended, for the shards
+// that count on it; then wake a sender whose window to us was full.
+void Shard::publish_intake() {
+  if (board_ == nullptr) return;
+  bool took = false;
+  for (u16 o = 0; o < ended_at_.size(); ++o) {
+    if (ended_at_[o] != ended_pub_[o]) {
+      board_->ended(id_, o).store(ended_at_[o], std::memory_order_release);
+      ended_pub_[o] = ended_at_[o];
+    }
+  }
+  for (u16 src = 0; src < taken_from_.size(); ++src) {
+    if (taken_from_[src] != taken_pub_[src]) {
+      board_->taken(id_, src).store(taken_from_[src], std::memory_order_release);
+      took = true;
+    }
+  }
+  if (!took) return;
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  for (u16 src = 0; src < taken_from_.size(); ++src) {
+    if (taken_from_[src] == taken_pub_[src]) continue;
+    taken_pub_[src] = taken_from_[src];
+    std::atomic<u64>& w = board_->wait(src, id_);
+    if (w.load(std::memory_order_relaxed) != 0) {
+      w.store(0, std::memory_order_relaxed);
+      sri_wake(src);
+    }
+  }
+}
+
+// 3.5: forwarded new mutation work is refused by the owner while its own
+// follow-up backlog is past the gate its clients see.
+bool Shard::owner_refuses(MsgKind kind, u32 op_or_type) const {
+  if (!intake_.owner_gate || adm_.legacy || emits_in_flight() <= kEmitBacklog) return false;
+  if (kind == MsgKind::EXEC_REQ) {
+    const OpDescriptor* d = registry().op(op_or_type);
+    if (d == nullptr || d->kind == OpKind::READ) return false;
+  }
+  const_cast<Shard*>(this)->stats_.overloaded++;
+  const_cast<Shard*>(this)->stats_.refused_owner++;
+  return true;
+}
+
+// 3.9.2: what a trigger asks for joins the pass owed after the active one,
+// so triggers during a pass cost at most one more pass.
+void Shard::owe_resume(u64 lsn, int slot) {
+  ++stats_.resume_triggers;
+  if (scan_.active || scan_.owed_all || scan_.owed_any) ++stats_.resume_coalesced;
+  if (slot < 0) {
+    scan_.owed_all = true;
+  } else {
+    scan_.owed_slots[static_cast<u16>(slot)] = 1;
+    scan_.owed_any = true;
+  }
+  if (lsn != 0) scan_.owed_lsn = true;
+}
+
+bool Shard::resume_step() {
+  ResumeScan& sc = scan_;
+  if (repl_cfg_.standby || withdrawn_) {
+    // Nothing resumes here any more (a standby never did).
+    sc.active = sc.owed_all = sc.owed_any = sc.owed_lsn = false;
+    sc.page.clear();
+    return false;
+  }
+  if (!sc.active) {
+    if (!sc.owed_all && !sc.owed_any) return false;
+    sc.active = true;
+    sc.all = sc.owed_all;
+    sc.slots.swap(sc.owed_slots);
+    std::fill(sc.owed_slots.begin(), sc.owed_slots.end(), u8{0});
+    // A trigger that asked to wait for the WAL so far (link up, map change,
+    // a slot): the whole log up to this pass's start, which follows it.
+    const u64 tail = wal_ ? wal_->next_lsn() - 1 : 0;
+    sc.base_lsn = sc.owed_lsn ? tail : 0;
+    sc.owed_all = sc.owed_any = sc.owed_lsn = false;
+    map_.walk_begin(sc.walk);
+    sc.page.clear();
+    sc.page_at = 0;
+    sc.walk_done = false;
+    ++stats_.resume_passes;
+  }
+  constexpr u32 kObjectsPerStep = 256;
+  constexpr std::size_t kPage = 64;
+  bool did = false;
+  u32 budget = kObjectsPerStep;
+  while (budget != 0) {
+    if (sc.page_at == sc.page.size()) {
+      sc.page.clear();
+      sc.page_at = 0;
+      if (sc.walk_done) {
+        sc.active = false;  // an owed pass starts at the next poll
+        return true;
+      }
+      // A rehash moved everything: start the walk again (objects seen
+      // twice re-emit what they did; their exchanges are idempotent).
+      if (map_.generation() != sc.walk.gen) {
+        map_.walk_begin(sc.walk);
+        ++stats_.resume_restarts;
+      }
+      sc.walk_done = map_.walk_step(
+          sc.walk,
+          [&](const ObjectHeader* o) {
+            if (!o->deleted() && (sc.all || sc.slots[slot_of(o->id)])) sc.page.push_back(o->id);
+          },
+          [&] { return sc.page.size() >= kPage; });
+      did = true;
+      continue;
+    }
+    // Paged under X: roots are added only while the budget has room, so a
+    // pass adds at most one object's max_resume_emits past it.
+    if (exchange_full()) break;
+    const ObjectID id = sc.page[sc.page_at++];
+    --budget;
+    did = true;
+    ObjectHeader* o = map_.find(id);
+    if (o == nullptr || o->deleted() || !serving(slot_of(id))) continue;
+    const TypeDescriptor* t = registry().type(o->type_id);
+    if (t == nullptr || t->resume == nullptr) continue;
+    OpCtx c;
+    c.obj_ = o;
+    c.type_ = t;
+    resuming_ = true;
+    t->resume(c);
+    resuming_ = false;
+    ++stats_.resume_objects;
+    // What it emits reflects its state now (3.9.2): it waits for the WAL
+    // position current when the hook ran. (Not the pass's start: client
+    // ops run between start_serving and the pass, and between pages.)
+    const u64 lsn = std::max(sc.base_lsn, wal_ ? wal_->next_lsn() - 1 : 0);
+    if (!emit_scratch_.empty()) queue_emits(lsn);
+  }
+  return did;
+}
+
 // Ready follow-ups wait per destination: local ones run at the next poll,
 // remote ones go out in order until that destination's ring is full.
-void Shard::route_emit(const Emit& e) {
+void Shard::route_emit(Emit e) {
   ++emit_ready_count_;
   if (cluster_) {
     if (e.epoch > static_cast<u32>(cluster_->epoch)) {
@@ -2558,6 +2904,8 @@ void Shard::route_emit(const Emit& e) {
     if (stale(e)) {
       --emit_ready_count_;
       ++stats_.emits_stale;
+      release_link(e);
+      end_exchange(e.origin);
       return;
     }
     if (group != group_ && e.remote) {
@@ -2566,6 +2914,8 @@ void Shard::route_emit(const Emit& e) {
       // own map is refreshed). Nothing is forwarded twice.
       --emit_ready_count_;
       ++stats_.node_emits_misrouted;
+      release_link(e);
+      end_exchange(e.origin);
       return;
     }
     if (group != group_) {
@@ -2574,6 +2924,8 @@ void Shard::route_emit(const Emit& e) {
         // they come up.
         --emit_ready_count_;
         ++stats_.node_emits_dropped;
+        release_link(e);
+        end_exchange(e.origin);
         return;
       }
       emit_node_[links_->link_of(group, cluster_->shard_of(slot))].push_back(e);
@@ -2583,6 +2935,7 @@ void Shard::route_emit(const Emit& e) {
   u16 owner = owner_of(e.target);
   if (owner == id_) {
     emit_local_.push_back(e);
+    if (emit_local_.size() > stats_.followups_staged_peak) stats_.followups_staged_peak = emit_local_.size();
   } else {
     if (emit_remote_.size() <= owner) emit_remote_.resize(slots_.n_shards);
     emit_remote_[owner].push_back(e);
@@ -2591,18 +2944,41 @@ void Shard::route_emit(const Emit& e) {
 
 bool Shard::run_emits() {
   if (emits_paused_ || emit_ready_count_ == 0) return false;
-  emit_running_.swap(emit_local_);  // runs may emit more into emit_local_
-  emit_ready_count_ -= emit_running_.size();
-  for (const Emit& e : emit_running_) run_emit(e);
-  emit_running_.clear();
+  bool did = false;
+  if (!emit_local_.empty()) {
+    emit_running_.swap(emit_local_);  // runs may emit more into emit_local_
+    std::size_t i = 0;
+    for (; i < emit_running_.size(); ++i) {
+      // 3.1: each follow-up applies only while the WAL has room for it.
+      if (!followup_gate_open()) {
+        ++stats_.followups_gated;
+        break;
+      }
+      --emit_ready_count_;
+      run_emit(emit_running_[i]);
+      did = true;
+    }
+    if (i < emit_running_.size()) {
+      // The rest wait, still ahead of whatever the runs queued.
+      emit_running_.erase(emit_running_.begin(), emit_running_.begin() + static_cast<std::ptrdiff_t>(i));
+      emit_running_.insert(emit_running_.end(), emit_local_.begin(), emit_local_.end());
+      emit_local_.swap(emit_running_);
+    }
+    emit_running_.clear();
+  }
   for (u16 dst = 0; dst < emit_remote_.size(); ++dst) {
     Fifo<Emit>& q = emit_remote_[dst];
     while (!q.empty()) {
+      if (!window_open(dst)) break;      // 3.2: dst has W of ours in staging
       if (!send_emit(dst, q.front())) break;  // ring full: keep the rest in order
+      ++sent_to_[dst];
+      release_link(q.front());
       q.pop_front();
       --emit_ready_count_;
+      did = true;
     }
   }
+  bool node_left = false;
   for (u32 i = 0; i < emit_node_.size(); ++i) {
     Fifo<Emit>& q = emit_node_[i];
     if (q.empty()) continue;
@@ -2610,11 +2986,15 @@ bool Shard::run_emits() {
       // Lost with the link: re-emitted when it comes back up.
       stats_.node_emits_dropped += q.size();
       emit_ready_count_ -= q.size();
-      while (!q.empty()) q.pop_front();
+      while (!q.empty()) {
+        release_link(q.front());
+        end_exchange(q.front().origin);
+        q.pop_front();
+      }
       continue;
     }
     while (!q.empty() && links_->room(i)) {
-      const Emit& e = q.front();
+      Emit& e = q.front();
       NodeLinks::Frame f{};
       f.source = e.source;
       f.target = e.target;
@@ -2624,24 +3004,43 @@ bool Shard::run_emits() {
       f.epoch = e.epoch;
       std::memcpy(f.args, e.args, e.len);
       links_->push(i, f);
+      // Leaving the node ends its exchange here (D.1, 3.9.3).
+      release_link(e);
+      end_exchange(e.origin);
       q.pop_front();
       --emit_ready_count_;
       ++stats_.node_emits_sent;
+      did = true;
     }
+    node_left |= !q.empty();
   }
-  return true;
+  // A link without room keeps the loop awake, as before D.1.
+  return did || node_left;
 }
 
-void Shard::run_emit(const Emit& e) {
+void Shard::run_emit(const Emit& in) {
+  Emit e = in;
+  // It leaves staging, whatever happens to it next: its sender's intake
+  // window gets the room back (3.2, 3.7). Copies (held, re-routed) owe none.
+  if (e.from != kNoShard) {
+    ++taken_from_[e.from];
+    e.from = kNoShard;
+  }
   // Fenced: nothing runs here any more. Follow-ups are recoverable: their
   // sources re-send them to the new primary (docs/TRANSFERS.md).
-  if (withdrawn_) return;
+  if (withdrawn_) {
+    release_link(e);
+    end_exchange(e.origin);
+    return;
+  }
   if (cluster_ && e.epoch > static_cast<u32>(cluster_->epoch)) {
     hold_emit(e);  // from a shard of this node that adopted a newer map first (route_emit)
     return;
   }
   if (stale(e)) {
     ++stats_.emits_stale;
+    release_link(e);
+    end_exchange(e.origin);
     return;
   }
   if (cluster_ && !serving(slot_of(e.target))) {
@@ -2652,24 +3051,38 @@ void Shard::run_emit(const Emit& e) {
     else hold_emit(e);
     return;
   }
+  release_link(e);
   ExecOptions opts;
   opts.durability = Durability::APPLIED;  // the follow-up's own emits wait for its record
   opts.allow_undurable = true;
   RunOut out;
   out.r.id = e.target;
   cur_source_ = e.source;
+  cur_origin_ = e.origin;
+  const u64 emitted = stats_.emits;
   run_exec(e.target, snc_hash64(e.target), e.op, ByteView(e.args, e.len), opts, out,
            /*client=*/false);
   cur_source_ = ObjectID{};
-  emit_result(e, out.r.status);
+  cur_origin_ = kNoShard;
+  const bool replied = stats_.emits != emitted;
+  // No reply and no fail op: the exchange is over (3.4, 3.7).
+  if (!emit_result(e, out.r.status) && !replied) end_exchange(e.origin);
 }
 
 bool Shard::send_emit(u16 dst, const Emit& e) {
+  // The exchange is between this shard and dst (owners within a node are
+  // fixed, so a reply never reaches a third shard): one bit names its origin.
+  if (e.origin != kNoShard && e.origin != id_ && e.origin != dst) {
+    std::fprintf(stderr, "snc: shard %u: follow-up exchange of shard %u sent to a third shard %u\n", id_,
+                 e.origin, dst);
+    std::abort();
+  }
   Msg* m = sri_claim(dst);
   if (m == nullptr) return false;
   zero_header(*m);
   m->kind = MsgKind::EMIT;
-  m->flags = kMsgArgsInline | (e.remote ? kMsgEmitRemote : 0);
+  m->flags = kMsgArgsInline | (e.remote ? kMsgEmitRemote : 0) |
+             (e.origin == kNoShard ? kMsgEmitOriginNone : e.origin == id_ ? kMsgEmitOriginSender : 0);
   m->src_shard = id_;
   m->op_id = e.op;
   m->req_id = e.source.hi;
@@ -2695,6 +3108,8 @@ void Shard::serve_emit(const Msg& m) {
   e.fail_op = OpID{m.status} | (OpID{m.aux} << 16);
   e.len = static_cast<u8>(m.len & 0xff);
   e.remote = (m.flags & kMsgEmitRemote) != 0;
+  e.origin = (m.flags & kMsgEmitOriginNone) ? kNoShard : (m.flags & kMsgEmitOriginSender) ? m.src_shard : id_;
+  e.from = m.src_shard;  // owed a credit once it leaves staging (3.2)
   if (cluster_) {
     // Both shards' maps are this node's: the sender's epoch is within a
     // few of ours, so the nearest value with these low 24 bits is it.
@@ -2705,11 +3120,14 @@ void Shard::serve_emit(const Msg& m) {
     e.epoch = e32;
   }
   if (e.len) std::memcpy(e.args, m.inline_data, e.len);
-  if (!emit_local_.empty()) {
-    // Behind what this shard has queued to run (released when a slot was
-    // activated or the map changed): in order, never ahead of it.
+  // Rings always drain (3.1): a follow-up behind others, or one the WAL has
+  // no room for, is staged in order; never ahead of what is queued.
+  const bool gated = emit_local_.empty() && !followup_gate_open();
+  if (!emit_local_.empty() || gated) {
+    if (gated) ++stats_.followups_gated;
     ++emit_ready_count_;
     emit_local_.push_back(e);
+    if (emit_local_.size() > stats_.followups_staged_peak) stats_.followups_staged_peak = emit_local_.size();
     return;
   }
   run_emit(e);
@@ -2741,7 +3159,8 @@ void Shard::release_held() {
   for (const Emit& e : held) route_emit(e);
 }
 
-void Shard::emit_result(const Emit& e, Status s) {
+// True when it routed the fail op, which continues the exchange.
+bool Shard::emit_result(const Emit& e, Status s) {
   switch (s) {
     case Status::E_NOT_FOUND:
     case Status::E_TYPE_MISMATCH:
@@ -2757,11 +3176,13 @@ void Shard::emit_result(const Emit& e, Status s) {
         f.remote = false;  // from here, on behalf of the missing target (a slot of ours)
         f.epoch = cluster_ ? static_cast<u32>(cluster_->epoch) : 0;
         route_emit(f);
+        return true;
       }
       break;
     default:
       break;
   }
+  return false;
 }
 
 
@@ -3026,18 +3447,7 @@ void Shard::resume_slot(u16 slot) {
   // proof (D1d: an older seal reopened) must not re-emit its stale
   // objects' obligations (docs/MIGRATION_FAIL_CLOSED.md 12).
   if (cluster_ && !serving(slot)) return;
-  resuming_ = true;
-  map_.for_each([&](const ObjectHeader* o) {
-    if (o->deleted() || slot_of(o->id) != slot) return;
-    const TypeDescriptor* t = registry().type(o->type_id);
-    if (t == nullptr || t->resume == nullptr) return;
-    OpCtx c;
-    c.obj_ = const_cast<ObjectHeader*>(o);
-    c.type_ = t;
-    t->resume(c);
-  });
-  resuming_ = false;
-  queue_emits(wal_ ? wal_->next_lsn() - 1 : 0);
+  owe_resume(wal_ ? wal_->next_lsn() - 1 : 0, slot);
 }
 
 SlotReport Shard::slot_report_head(u16 slot) {

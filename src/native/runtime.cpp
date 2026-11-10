@@ -210,6 +210,15 @@ bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
   return false;
 }
 
+void sri_wake(u16 dst) {
+  // Unconditional: the waiter may be about to sleep, and its sleep check
+  // does not look at what we changed; a pending eventfd count makes that
+  // sleep return at once.
+  u64 one = 1;
+  ssize_t n = ::write(tl_rt->workers[dst]->efd, &one, sizeof(one));
+  (void)n;
+}
+
 void sri_watch_fd(int fd) { tl_worker->idle_fds.push_back(pollfd{fd, POLLIN, 0}); }
 
 void sri_fdatasync(int fd, IoDone done, void* ctx) {

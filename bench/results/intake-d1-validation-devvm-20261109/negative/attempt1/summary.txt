@@ -1,0 +1,12 @@
+base ddad6ccfb039768fc742116a727d6229dacc9442
+no-wal-gate F1 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-wal-gate/tests/test_intake.cpp:493: CHECK failed: d.wal.active_bytes_peak <= std::max(H, R)
+no-window F11 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-window/tests/test_intake.cpp:866: CHECK failed: sd.followups_staged_now <= kW + 1
+credit-at-drain F11 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-credit-at-drain/tests/test_intake.cpp:866: CHECK failed: sd.followups_staged_now <= kW + 1
+no-link-pause F8 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-link-pause/tests/test_intake.cpp:758: CHECK failed: b.stats(s).link_held_now <= kL
+no-staging-order F1 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-staging-order/tests/test_intake.cpp:493: CHECK failed: d.wal.active_bytes_peak <= std::max(H, R)
+no-owner-gate G1 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-owner-gate/tests/test_intake.cpp:1095: CHECK failed: (dep.r.status) == (Status::E_OVERLOADED)
+no-exchange-budget F12 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-exchange-budget/tests/test_intake.cpp:955: CHECK failed: rx0 >= 1
+drop-no-end F4 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-drop-no-end/tests/test_intake.cpp:345: CHECK failed: (st.exchanges_live) == (0u)
+static-reservation F12 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-static-reservation/tests/test_intake.cpp:958: CHECK failed: (local.r.status) == (Status::OK)
+no-coalescing F12 (release) rc=1 (expected non-zero): /tmp/claude-0/-home-claude-snc-server-os/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-no-coalescing/tests/test_intake.cpp:980: CHECK failed: r1.resume_passes - r0.resume_passes <= 1
+done

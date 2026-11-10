@@ -33,6 +33,11 @@ void Registry::add_op(const OpDescriptor& op) {
   if (!type(op.type_id)) die("op for unknown type", op.op_id);
   if (op.validate == nullptr) die("op has no validate", op.op_id);
   if (op.max_args > kMaxArgs || op.max_result > kMaxResult) die("op limits too large", op.op_id);
+  // Follow-up contract (docs/FOLLOWUP_INTAKE_DESIGN.md 3.3): only logged
+  // MUTATE ops emit, and a follow-up op replies at most once.
+  if (op.max_emits != 0 && (op.kind != OpKind::MUTATE || op.unlogged)) die("only a logged MUTATE op may emit", op.op_id);
+  if (op.followup && op.max_emits > 1) die("a follow-up op emits at most once (reply-only)", op.op_id);
+  if (op.followup && op.kind != OpKind::MUTATE) die("a follow-up op must be a MUTATE", op.op_id);
   if (ops_.size() <= op.op_id) ops_.resize(op.op_id + 1);
   if (ops_[op.op_id].op_id != 0) die("duplicate op id", op.op_id);
   ops_[op.op_id] = op;

@@ -2042,3 +2042,46 @@ or source comments.
     - B2 updated (no resume term), and tests F12-F15.
 -   **Next action:** implement D.1, then return it for review. D.2 is a
     separate slice, required before S6.
+
+### 2026-11-09 UTC --- Claude (Claude Code): follow-up intake D.1 (intra-node), implementation
+
+-   **Classification:** implementation of the approved design. KEEP
+    (option D, reply-only contract, X, owner gate); REFINE (as-built
+    details in `docs/FOLLOWUP_INTAKE_DESIGN.md` 3.9.6).
+-   **What:** the H gate per item at apply, the per-pair window W
+    returned when an item leaves staging, the exchange budget X checked on
+    the invocation's reservation after validate (sequenced replays
+    answered before it), the owner gate, link reads paused at L, a
+    coalesced paged resume under X, and the contract checks (`max_emits`,
+    the `followup` flag, reply-only, `max_resume_emits`).
+    `tests/test_intake.cpp`: F1-F8, F10-F15 and G1 (owner gate).
+    Older backlog-gate tests run with `exchange_gate` off; A6 with H and
+    W off (3.9.6 says why).
+-   **Defect found and fixed on site:** link reads removed a connection
+    from epoll whenever the per-poll budget ran out, even when not paused,
+    and never re-added it; `test_cluster` stalled. Now removed only while
+    paused.
+-   **Defect found by the independent review and fixed:** the first
+    resume pass after start sent re-emits of objects changed before the
+    pass as if durable (lsn 0), so a crash could keep a credit and lose
+    its debit. Each re-emit now waits for the WAL position when its hook
+    ran (F16, negative N15). Also: a link frame to a non-followup op is
+    dropped instead of aborting the node (checked at the sender instead);
+    the design's claim that `quiesced()` counts a resume scan corrected
+    (it does not; counting it could hang a stop).
+-   **Not met in D.1 (D.2 scope):** a sender is not bounded across nodes
+    (its exchange ends at the link). P1 performance not run.
+-   **Test defect found by TSan and fixed:** F11 compared two shards'
+    stats read in the wrong order (x before d), so d could end exchanges
+    between the reads; reading d first is sound. The failed CHECK then
+    ran exit() with engine threads live, which crashed a shard and hung
+    TSan; test_intake now uses _Exit on a failed check and a 2400 s ctest
+    timeout.
+-   **Evidence:** `bench/results/intake-d1-validation-devvm-20261109/`
+    (README lists every run in order). Headline: Release run 4 45/45,
+    ASan+UBSan run 1 45/45 with 0 reports, TSan run 3 45/45 with 0
+    warnings, negatives 12/12. Release runs 1-3, TSan runs 1-2 kept with
+    their causes (disk allowance; witness "primary up" logging race,
+    proposed as a separate fix; F11; a container restart).
+-   **Next action:** WAIT for the D.1 review. No D.2, S5, S6, R640,
+    CP-1A, comparators or B2 snapshot work.
