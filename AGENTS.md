@@ -2071,6 +2071,17 @@ or source comments.
     (it does not; counting it could hang a stop).
 -   **Not met in D.1 (D.2 scope):** a sender is not bounded across nodes
     (its exchange ends at the link). P1 performance not run.
--   **Evidence:** `bench/results/intake-d1-validation-devvm-20261109/`.
+-   **Test defect found by TSan and fixed:** F11 compared two shards'
+    stats read in the wrong order (x before d), so d could end exchanges
+    between the reads; reading d first is sound. The failed CHECK then
+    ran exit() with engine threads live, which crashed a shard and hung
+    TSan; test_intake now uses _Exit on a failed check and a 2400 s ctest
+    timeout.
+-   **Evidence:** `bench/results/intake-d1-validation-devvm-20261109/`
+    (README lists every run in order). Headline: Release run 4 45/45,
+    ASan+UBSan run 1 45/45 with 0 reports, TSan run 3 45/45 with 0
+    warnings, negatives 12/12. Release runs 1-3, TSan runs 1-2 kept with
+    their causes (disk allowance; witness "primary up" logging race,
+    proposed as a separate fix; F11; a container restart).
 -   **Next action:** WAIT for the D.1 review. No D.2, S5, S6, R640,
     CP-1A, comparators or B2 snapshot work.

@@ -20,3 +20,6 @@ tsan-run1 rc=8 00:49:09 98% tests passed, 1 tests failed out of 45
 tsan-run2 disk 9.5G free
 tsan-run2 start sha cf0d51fc315ccb42d19c9b1fe5dc44063508af5c 2026-11-10T00:49:22Z dir build-tsan env: SNC_SANITIZED=1
 tsan-run2 INTERRUPTED 2026-11-10T01:16:49Z: container restarted during test 36 (test_sync_readiness); tests 1-35 passed, 0 TSan warnings so far. Incomplete: not headline.
+tsan-run3 disk 8.9G free
+tsan-run3 start sha b09866764078aacaab0db8367521ee8848c7b17c 2026-11-10T01:17:17Z dir build-tsan env: SNC_SANITIZED=1
+tsan-run3 rc=0 01:55:08 100% tests passed, 0 tests failed out of 45
