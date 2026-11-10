@@ -227,6 +227,7 @@ void test_durable() {
   }
   std::printf("durable: %llu transfers ok, %llu rejected\n", (unsigned long long)ok,
               (unsigned long long)rejected);
+  CHECK_EQ(std::system(("rm -rf " + dir).c_str()), 0);
 }
 
 // One shard owns everything, so every transfer is one op changing both
@@ -297,6 +298,7 @@ void test_local() {
   }
   std::printf("local: %llu transfers ok, %llu rejected\n", (unsigned long long)ok,
               (unsigned long long)rejected);
+  CHECK_EQ(std::system(("rm -rf " + dir).c_str()), 0);
 }
 
 // create_near puts accounts in their group's slot, so transfers inside a
@@ -373,6 +375,7 @@ void test_placement() {
     eng.stop();
   }
   std::printf("placement: %u groups of %u, transfers inside groups stayed local\n", kGroups, kPer);
+  CHECK_EQ(std::system(("rm -rf " + dir).c_str()), 0);
 }
 
 // The child runs transfers until killed. Without the acks we cannot know
@@ -468,7 +471,7 @@ void test_crash() {
     eng.stop();
   }
   std::printf("crash: 4 rounds conserved\n");
-  std::system(("rm -rf " + dir).c_str());  // about 250 MB a run otherwise
+  CHECK_EQ(std::system(("rm -rf " + dir).c_str()), 0);  // about 250 MB a run otherwise
 }
 
 }  // namespace
