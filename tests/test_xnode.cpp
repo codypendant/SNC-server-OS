@@ -737,9 +737,17 @@ void x4_return_drop() {
   wait_until([&] { return bound_to(*net.nodes[0].eng, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0); }, "bound");
   clear_probes();
   u64 nonzero = 0;
+  // A SYNC that subsumed owed ENDs (ND7: they must not go again). At least
+  // 10 cuts, and more until one such SYNC was pushed (most runs: at once).
+  auto subsumed = [] {
+    u64 n = 0;
+    for (const auto& p : probes()) n += p.barrier && p.end_owed_cleared > 0;
+    return n;
+  };
+  int cycles = 0;
   {
     Load ab(net, L, 0, 1), ba(net, L, 1, 0);
-    for (int cycle = 0; cycle < 10; ++cycle) {
+    for (; cycles < 10 || (subsumed() == 0 && cycles < 60); ++cycles) {
       sleep_ms(80);
       const u64 old = out_conn(*net.nodes[1].eng, 0);
       net.px(1, 0).cut();
@@ -747,6 +755,7 @@ void x4_return_drop() {
       check_zero_counters(net.nodes[0], "X4 cycle");
     }
   }
+  CHECK_MSG(subsumed() > 0, "X4: no SYNC subsumed owed ENDs in %d cuts", cycles);
   settle(net, L, "X4");
   check_probes("X4");
   // A's SYNCs applied at A over A's Out connections: R never above what the
@@ -762,9 +771,10 @@ void x4_return_drop() {
     }
   }
   CHECK(nonzero >= 1);
-  std::printf("X4 return drop: 10 cuts of p->o; %llu current SYNCs on a connection with counted frames pushed, each "
-              "count = k + pushed - R and equal to its barrier, R within the proxy's delivered count; settled\n",
-              (unsigned long long)nonzero);
+  std::printf("X4 return drop: %d cuts of p->o; %llu SYNCs subsumed owed ENDs; %llu current SYNCs on a connection "
+              "with counted frames pushed, each count = k + pushed - R and equal to its barrier, R within the proxy's "
+              "delivered count; settled\n",
+              cycles, (unsigned long long)subsumed(), (unsigned long long)nonzero);
 }
 
 // X10 rollback: accounting off on both: the D.1 behaviour on the v2 wire.
