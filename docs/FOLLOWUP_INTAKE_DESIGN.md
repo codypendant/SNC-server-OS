@@ -390,7 +390,10 @@ requests are forwarded (`shard.cpp:207-213`).
 - Each `read_in` call takes at most L − held frames, and keeps a
   partial frame for later.
 
-**D.2, a separate sub-slice: cross-node exchanges.**
+**D.2, a separate sub-slice: cross-node exchanges.** Superseded by the
+D.2 design, `docs/CROSS_NODE_EXCHANGE_DESIGN.md` (SYNC reconciliation
+instead of generations, section 2.3 there). The sketch below is kept as
+reviewed.
 - An exchange whose two objects are on different nodes ends on either
   node. Its origin can count it only if the ending is reported back.
 - D.2 adds an **end frame**: a `Frame` with a kind byte (in `pad[0]`)
