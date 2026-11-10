@@ -39,6 +39,11 @@ that spins on that shard's thread, in the real process (--debug-admin).
       requests beyond the queue bound get "NO busy"; DEBUG STALL is refused
       without --debug-admin.
 
+  T12 a witness that learns the chosen space from its peers before it
+      ever reaches a node (its node paths cut at start, healed once it
+      has learned) still prints "primary up" (it used to print nothing,
+      so a harness waiting for that line timed out).
+
 T7 (eligibility) and T10's fallback and upgrade pickup use fake nodes:
 tests/test_witness.py and test_health_fake() below.
 
@@ -324,7 +329,7 @@ class Pair:
             raise
 
     def _start(self, verbs=("health",) * 3, proxied=False, objects="100000", extra=(), poll_ms=POLL_MS,
-               witness_extra=(), node_bin=None, witness_bins=None, ready=True):
+               witness_extra=(), node_bin=None, witness_bins=None, ready=True, blind=None):
         self.work = tempfile.mkdtemp(prefix="snc-health-")
         b = free_block(100)
         self.b = b
@@ -349,6 +354,16 @@ class Pair:
             n0_wit = [px + 5 + i for i in range(3)]
             self.proxies += [Proxy(px + 5 + i, self.wit[i]) for i in range(3)]
         self.to0_adm, self.to0_cli = to0_adm, to0_cli
+        # blind: the witness whose paths to both nodes start cut (proxies
+        # b+98, b+99), so it can learn the space only from its peers.
+        node_adm = [[to0_adm, self.adm[1]] for _ in range(3)]
+        self.blind_px = []
+        if blind is not None:
+            self.blind_px = [Proxy(b + 98, to0_adm), Proxy(b + 99, self.adm[1])]
+            for x in self.blind_px:
+                x.cut()
+            self.proxies += self.blind_px
+            node_adm[blind] = [b + 98, b + 99]
         common = ["--space-uuid", UUID, "--objects", objects, "--shards", "2", "--debug-admin",
                   "--replica-timeout-ms", "500"] + list(extra)
         self.args = [
@@ -368,14 +383,16 @@ class Pair:
         self.nodes[0] = Proc([node_bin] + self.args[0])
         assert wait_port(self.adm[0], proc=self.nodes[0]), "node 0 did not start\n" + self.nodes[0].text()
         peers = ",".join(f"127.0.0.1:{p}" for p in self.wit)
-        self.w = [Proc([witness_bins[i], "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{to0_adm}",
-                        "--standby", f"127.0.0.1:{self.adm[1]}", "--state", f"{self.work}/w{i}.state",
+        self.w = [Proc([witness_bins[i], "--port", str(self.wit[i]), "--primary", f"127.0.0.1:{node_adm[i][0]}",
+                        "--standby", f"127.0.0.1:{node_adm[i][1]}", "--state", f"{self.work}/w{i}.state",
                         "--failover-ms", str(FAILOVER_MS), "--poll-ms", str(poll_ms), "--id", str(i),
                         "--peers", peers, "--health-verb", verbs[i]] +
                        (list(witness_extra) + ["--new-state", "1"] if witness_bins[i] == f"{BUILD}/snc_witness"
                         else []))
                   for i in range(3)]
-        for w in self.w:
+        for i, w in enumerate(self.w):
+            if i == blind:
+                continue
             assert w.wait_for(r"primary up|failover learned", 15), (
                 "a witness never saw the primary\n" + "\n".join(f"-- w{i}\n" + x.text() for i, x in enumerate(self.w)) +
                 "\n-- node 0\n" + self.nodes[0].text())
@@ -893,7 +910,38 @@ def t10b():
         shutil.rmtree(work, ignore_errors=True)
 
 
-TESTS = dict(t1=t1, t2=t2, t3=t3, t4=t4, t5=t5, t6=t6, t7=t7, t8=t8, t10=t10, t10b=t10b, t11=t11)
+def t12():
+    """A witness that learns the space from its peers' COMMIT before it
+    reaches any node still reports "primary up" (release-run3 of
+    intake-d1-validation-devvm-20261109: w2 printed nothing)."""
+    c = Pair(blind=2, ready=False)
+    try:
+        # The space is chosen by w0 and w1; w2 learns it as an acceptor.
+        t_end = time.time() + 15
+        learned = None
+        while time.time() < t_end:
+            r, _ = ask(c.wit[2], "READ ha/0", 1.0)
+            if r and r.startswith("STATE ") and r.split()[1] != "0":
+                learned = r
+                break
+            time.sleep(0.05)
+        assert learned, "w2 never learned the chosen space\n" + c.w[2].text()
+        assert not re.search(r"primary up", c.w[2].text()), c.w[2].text()
+        log(f"  w2 learned from its peers before reaching a node: {learned.strip()}")
+        for x in c.blind_px:
+            x.heal()
+        assert c.w[2].wait_for(r"primary up", 15), "w2 never printed primary up\n" + c.w[2].text()
+        n = len(re.findall(r"primary up", c.w[2].text()))
+        assert n == 1, f"primary up printed {n} times\n" + c.w[2].text()
+        for i in (0, 1):
+            m = len(re.findall(r"primary up", c.w[i].text()))
+            assert m == 1, f"w{i} printed primary up {m} times\n" + c.w[i].text()
+        log("  w2 printed primary up once after its node paths healed; w0 and w1 once each")
+    finally:
+        c.stop()
+
+
+TESTS = dict(t1=t1, t2=t2, t3=t3, t4=t4, t5=t5, t6=t6, t7=t7, t8=t8, t10=t10, t10b=t10b, t11=t11, t12=t12)
 
 
 def main():

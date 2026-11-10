@@ -763,6 +763,10 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
   auto primary_ok = t0;  // last time the current primary answered as primary
   u64 watched = 0;       // the state version primary_ok refers to
   u64 announced = ~0ull;  // the term last reported serving (~0: none yet)
+  // "primary up" is printed once, by whichever path first sees the space
+  // served: this witness's own proposal learning it, or (when a peer's
+  // proposal was chosen first) its first poll of the primary serving.
+  bool up_reported = false;
   auto t_decided = t0;
   double silent_s = 0;   // how long the old primary had been silent then
   u64 decided_term = ~0ull;  // the term of a promotion this witness's proposal made
@@ -789,6 +793,7 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
             }) == "OK") {
           std::printf("t=%.2f group %u primary up: term %llu\n", secs(t0, now), group, term);
           std::fflush(stdout);
+          up_reported = true;
         }
         break;
       }
@@ -815,7 +820,14 @@ void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
           std::printf("t=%.2f group %u failover learned: node %u serves as primary, term %llu\n",
                       secs(t0, now), group, p, st.term);
           std::fflush(stdout);
+        } else if (!up_reported) {
+          // The space was chosen by a peer's proposal before this witness
+          // proposed (it never ran the branch above).
+          std::printf("t=%.2f group %u primary up: term %llu (learned from a peer)\n", secs(t0, now), group,
+                      st.term);
+          std::fflush(stdout);
         }
+        up_reported = true;
         announced = st.term;
       } else if (f["role"] == "s" && term + 1 == st.term && f["uuid"] == st.uuid) {
         // Decided: never undone, since a lost reply may hide a promotion

@@ -1038,6 +1038,50 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_CKPT_TOKEN_WAIT_EWMA_US] = o.token_wait_ewma_us;
   v[G_CKPT_TOKEN_ACQUIRED] = o.token_acquired;
   v[G_CKPT_TOKEN_TICKET] = o.token_ticket;
+  // D.1 intake: the settings in force and its state, so no backpressure
+  // decision is internal-only.
+  v[G_INTAKE_WAL_GATE] = intake_.wal_gate && wal_ ? 1 : 0;
+  v[G_INTAKE_WAL_CAP_BYTES] = wal_cap_;
+  v[G_INTAKE_NEED_BYTES] = followup_need_;
+  v[G_INTAKE_WINDOW] = board_ != nullptr ? intake_.window : 0;
+  v[G_INTAKE_EXCHANGE_GATE] = intake_.exchange_gate ? 1 : 0;
+  v[G_INTAKE_EXCHANGE_BUDGET] = intake_.exchange_gate ? intake_.exchange_budget : 0;
+  v[G_INTAKE_OWNER_GATE] = intake_.owner_gate && !adm_.legacy ? 1 : 0;
+  v[G_INTAKE_LINK_HOLD_MAX] = intake_.link_hold_max;
+  v[G_INTAKE_GATE_OPEN] = followup_gate_open() ? 1 : 0;
+  v[G_INTAKE_GATED] = stats_.followups_gated;
+  v[G_INTAKE_REFUSED_EXCHANGE] = stats_.refused_exchange;
+  v[G_INTAKE_REFUSED_OWNER] = stats_.refused_owner;
+  v[G_INTAKE_EXCHANGES_LIVE_PEAK] = stats_.exchanges_live_peak;
+  v[G_INTAKE_EXCHANGES_STARTED] = stats_.exchanges_started;
+  v[G_INTAKE_EXCHANGES_ENDED] = stats_.exchanges_ended;
+  v[G_INTAKE_STAGED_NOW] = emit_local_.size();
+  v[G_INTAKE_STAGED_PEAK] = stats_.followups_staged_peak;
+  {
+    // Read as stats() does: no cache this shard decides by is touched.
+    u64 elsewhere = 0, outstanding = 0;
+    if (board_ != nullptr) {
+      for (u16 x = 0; x < board_->size(); ++x) {
+        if (x == id_) continue;
+        elsewhere += board_->ended(x, id_).load(std::memory_order_acquire);
+        outstanding += sent_to_[x] - board_->taken(x, id_).load(std::memory_order_acquire);
+      }
+    }
+    v[G_INTAKE_EXCHANGES_LIVE] = started_ - ended_own_ - elsewhere;
+    v[G_INTAKE_WINDOW_OUTSTANDING] = outstanding;
+  }
+  v[G_INTAKE_WINDOW_WAITS] = stats_.window_waits;
+  v[G_INTAKE_LINK_HELD_NOW] = link_held_;
+  v[G_INTAKE_LINK_HELD_PEAK] = stats_.link_held_peak;
+  v[G_INTAKE_LINK_PAUSED] = links_paused_ ? 1 : 0;
+  v[G_INTAKE_LINK_PAUSES] = stats_.link_pauses;
+  v[G_INTAKE_RESUME_ACTIVE] = scan_.active ? 1 : 0;
+  v[G_INTAKE_RESUME_OWED] = scan_.owed_all || scan_.owed_any ? 1 : 0;
+  v[G_INTAKE_RESUME_PASSES] = stats_.resume_passes;
+  v[G_INTAKE_RESUME_TRIGGERS] = stats_.resume_triggers;
+  v[G_INTAKE_RESUME_COALESCED] = stats_.resume_coalesced;
+  v[G_INTAKE_RESUME_RESTARTS] = stats_.resume_restarts;
+  v[G_INTAKE_RESUME_OBJECTS] = stats_.resume_objects;
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
 }

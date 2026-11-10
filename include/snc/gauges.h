@@ -167,6 +167,40 @@ enum Gauge : u32 {
   G_CKPT_TOKEN_WAIT_EWMA_US,   // since start
   G_CKPT_TOKEN_ACQUIRED,       // tokens acquired since start (one per part sync)
   G_CKPT_TOKEN_TICKET,         // the latest request's place in the node's order, + 1 (0 = none yet)
+  // Follow-up intake D.1 (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.6). The
+  // effective settings first (after config, env overrides and defaults),
+  // then state now, then counters since start.
+  G_INTAKE_WAL_GATE,           // 1 when the WAL gate H is on
+  G_INTAKE_WAL_CAP_BYTES,      // H, effective (max(2B, B + R) unless set)
+  G_INTAKE_NEED_BYTES,         // R: the room one follow-up apply needs
+  G_INTAKE_WINDOW,             // W per shard pair; 0 = no window
+  G_INTAKE_EXCHANGE_GATE,      // 1 when the exchange budget X is on
+  G_INTAKE_EXCHANGE_BUDGET,    // X (0 when the gate is off)
+  G_INTAKE_OWNER_GATE,         // 1 when the owner gate is on
+  G_INTAKE_LINK_HOLD_MAX,      // L; 0 = node-link reads never pause
+  G_INTAKE_GATE_OPEN,          // now: 1 when a follow-up may apply (H has room)
+  G_INTAKE_GATED,              // times H stopped follow-up applies
+  G_INTAKE_REFUSED_EXCHANGE,   // client ops refused: X full
+  G_INTAKE_REFUSED_OWNER,      // forwarded mutations refused by the owner gate
+  G_INTAKE_EXCHANGES_LIVE,     // this shard's exchanges not yet ended (any shard of this node)
+  G_INTAKE_EXCHANGES_LIVE_PEAK,
+  G_INTAKE_EXCHANGES_STARTED,
+  G_INTAKE_EXCHANGES_ENDED,    // exchanges (of any origin here) that ended on this shard
+  G_INTAKE_STAGED_NOW,         // follow-ups staged here, waiting to apply
+  G_INTAKE_STAGED_PEAK,
+  G_INTAKE_WINDOW_OUTSTANDING, // sent to this node's other shards, not yet taken from their staging
+  G_INTAKE_WINDOW_WAITS,       // sends stopped by a full window
+  G_INTAKE_LINK_HELD_NOW,      // follow-ups from node links held here
+  G_INTAKE_LINK_HELD_PEAK,
+  G_INTAKE_LINK_PAUSED,        // now: 1 while node-link reads are paused
+  G_INTAKE_LINK_PAUSES,
+  G_INTAKE_RESUME_ACTIVE,      // now: 1 while a resume scan runs
+  G_INTAKE_RESUME_OWED,        // now: 1 while another pass is owed after it
+  G_INTAKE_RESUME_PASSES,
+  G_INTAKE_RESUME_TRIGGERS,
+  G_INTAKE_RESUME_COALESCED,
+  G_INTAKE_RESUME_RESTARTS,
+  G_INTAKE_RESUME_OBJECTS,
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -194,6 +228,14 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "ckpt_write_lat_lt100ms", "ckpt_write_lat_ge100ms", "ckpt_sync_writes", "ckpt_sync_writes_total",
     "ckpt_sync_tokens", "ckpt_sync_state", "ckpt_token_wait_since_ns", "ckpt_token_wait_last_us",
     "ckpt_token_wait_max_us", "ckpt_token_wait_ewma_us", "ckpt_token_acquired", "ckpt_token_ticket",
+    "intake_wal_gate", "intake_wal_cap_bytes", "intake_need_bytes", "intake_window", "intake_exchange_gate",
+    "intake_exchange_budget", "intake_owner_gate", "intake_link_hold_max", "intake_gate_open", "intake_gated",
+    "intake_refused_exchange", "intake_refused_owner", "intake_exchanges_live", "intake_exchanges_live_peak",
+    "intake_exchanges_started", "intake_exchanges_ended", "intake_staged_now", "intake_staged_peak",
+    "intake_window_outstanding", "intake_window_waits", "intake_link_held_now", "intake_link_held_peak",
+    "intake_link_paused", "intake_link_pauses", "intake_resume_active", "intake_resume_owed",
+    "intake_resume_passes", "intake_resume_triggers", "intake_resume_coalesced", "intake_resume_restarts",
+    "intake_resume_objects",
     "published_ns",
 };
 

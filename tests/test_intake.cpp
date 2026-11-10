@@ -73,6 +73,7 @@
 #include "../src/core/shard.h"  // Shard::debug_resume (F15)
 #include "harness.h"
 #include "snc/cluster.h"
+#include "snc/gauges.h"
 #include "snc/slot_map.h"
 #include "snc/types/account.h"
 #include "snc/wal_format.h"
@@ -284,6 +285,24 @@ void on_shard(Engine& eng, u16 s, const std::function<void()>& fn) {
     l.count_down();
   });
   l.wait();
+}
+
+// Shard s's gauge block, published now (not at the next periodic publish).
+GaugeSnapshot fresh_gauges(Engine& eng, u16 s) {
+  on_shard(eng, s, [] {
+    const u64 now = static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                         std::chrono::steady_clock::now().time_since_epoch())
+                                         .count());
+    current_shard()->publish_gauges(now, true);
+  });
+  // The shard keeps publishing every 50 us, and a read gives up after 64
+  // tries that overlap a publish (likely under TSan): read until whole.
+  for (int i = 0; i < 100000; ++i) {
+    GaugeSnapshot g = eng.gauges(s);
+    if (g.consistent) return g;
+  }
+  CHECK(false);
+  return {};
 }
 
 // Creates an object of `type` owned by shard s (created from s, which
@@ -779,6 +798,15 @@ void test_node_links() {
   const ShardStats bs = b.stats(1), as = a.stats(0);
   CHECK(bs.followups_gated > 0);
   CHECK(bs.link_pauses >= 1);
+  {
+    // The link-hold gauges (read after the stats: both counters only grow).
+    const GaugeSnapshot g = fresh_gauges(b, 1);
+    CHECK_EQ(g[G_INTAKE_LINK_HOLD_MAX], u64{kL});
+    CHECK(g[G_INTAKE_LINK_PAUSES] >= bs.link_pauses);
+    CHECK(g[G_INTAKE_LINK_HELD_PEAK] >= bs.link_held_peak && g[G_INTAKE_LINK_HELD_PEAK] <= kL);
+    CHECK(g[G_INTAKE_LINK_HELD_NOW] <= kL);
+    CHECK(g[G_INTAKE_GATED] >= bs.followups_gated);
+  }
   CHECK(bs.link_held_peak <= kL);
   CHECK(bs.wal.active_bytes_peak <= cb.followup_wal_cap_bytes);
   // The sender is not bounded here: a follow-up that leaves for another
@@ -1006,12 +1034,57 @@ void test_saturated_budget() {
   CHECK(r1.resume_owed);
   const u32 rr = registry().type(account::kTypeId)->max_resume_emits;
   CHECK(r1.exchanges_live_peak <= kX + std::max<u32>(1, rr));
+  // G2: GAUGES carries the effective settings and this state (p's WAL is
+  // still held, so nothing here moves between the two reads).
+  {
+    const GaugeSnapshot g = fresh_gauges(eng, kO);
+    const ShardStats st = eng.stats(kO);
+    CHECK_EQ(g[G_INTAKE_WAL_GATE], 1u);
+    CHECK_EQ(g[G_INTAKE_WAL_CAP_BYTES], c.followup_wal_cap_bytes);
+    CHECK_EQ(g[G_INTAKE_NEED_BYTES], R);
+    CHECK_EQ(g[G_INTAKE_WINDOW], 2u);
+    CHECK_EQ(g[G_INTAKE_EXCHANGE_GATE], 1u);
+    CHECK_EQ(g[G_INTAKE_EXCHANGE_BUDGET], u64{kX});
+    CHECK_EQ(g[G_INTAKE_OWNER_GATE], 1u);
+    CHECK_EQ(g[G_INTAKE_LINK_HOLD_MAX], 1024u);
+    CHECK_EQ(g[G_INTAKE_EXCHANGES_LIVE], st.exchanges_live);
+    CHECK(g[G_INTAKE_EXCHANGES_LIVE] >= kX);
+    CHECK_EQ(g[G_INTAKE_EXCHANGES_LIVE_PEAK], st.exchanges_live_peak);
+    CHECK_EQ(g[G_INTAKE_EXCHANGES_STARTED], st.exchanges_started);
+    CHECK_EQ(g[G_INTAKE_REFUSED_EXCHANGE], st.refused_exchange);
+    CHECK_EQ(g[G_INTAKE_REFUSED_OWNER], st.refused_owner);
+    CHECK_EQ(g[G_INTAKE_WINDOW_OUTSTANDING], st.window_outstanding);
+    CHECK_EQ(g[G_INTAKE_WINDOW_WAITS], st.window_waits);
+    CHECK_EQ(g[G_INTAKE_RESUME_ACTIVE], st.resume_active ? 1u : 0u);
+    CHECK_EQ(g[G_INTAKE_RESUME_OWED], 1u);
+    CHECK_EQ(g[G_INTAKE_RESUME_TRIGGERS], st.resume_triggers);
+    CHECK_EQ(g[G_INTAKE_RESUME_COALESCED], st.resume_coalesced);
+    CHECK_EQ(g[G_INTAKE_RESUME_PASSES], st.resume_passes);
+    CHECK_EQ(g[G_INTAKE_RESUME_OBJECTS], st.resume_objects);
+    // p, whose WAL is held, has the window's follow-ups staged.
+    const GaugeSnapshot gp = fresh_gauges(eng, kP);
+    const ShardStats sp = eng.stats(kP);
+    CHECK_EQ(gp[G_INTAKE_STAGED_NOW], sp.followups_staged_now);
+    CHECK_EQ(gp[G_INTAKE_STAGED_PEAK], sp.followups_staged_peak);
+    CHECK_EQ(gp[G_INTAKE_EXCHANGES_ENDED], sp.exchanges_ended);
+    CHECK_EQ(gp[G_INTAKE_GATED], sp.followups_gated);
+  }
   // Release: the active pass finishes, then exactly one owed pass.
   Engine::debug_hold_wal(kP, false);
   CHECK(eng.wait_emits(60));
   const ShardStats r2 = eng.stats(kO);
   CHECK(r2.resume_passes - r0.resume_passes <= 2);
   CHECK(!r2.resume_active && !r2.resume_owed);
+  {
+    const GaugeSnapshot g = fresh_gauges(eng, kO);
+    CHECK_EQ(g[G_INTAKE_EXCHANGES_LIVE], 0u);
+    CHECK_EQ(g[G_INTAKE_RESUME_ACTIVE], 0u);
+    CHECK_EQ(g[G_INTAKE_RESUME_OWED], 0u);
+    CHECK_EQ(g[G_INTAKE_STAGED_NOW], 0u);
+    CHECK_EQ(g[G_INTAKE_GATE_OPEN], 1u);
+    CHECK_EQ(g[G_INTAKE_WINDOW_OUTSTANDING], 0u);
+    CHECK_EQ(g[G_INTAKE_RESUME_PASSES], r2.resume_passes);
+  }
   u64 entries = 0;
   CHECK_EQ(money(eng, &entries), m0);
   CHECK_EQ(entries, 0u);
@@ -1023,6 +1096,35 @@ void test_saturated_budget() {
               "pass(es) while saturated and %llu in all; settled, conserved\n",
               kX, (unsigned long long)admitted, (unsigned long long)(r1.resume_passes - r0.resume_passes),
               (unsigned long long)(r2.resume_passes - r0.resume_passes));
+}
+
+// ---- G2: GAUGES under rollback, and the link-hold gauges ----------------------------------
+
+void test_gauges_rollback() {
+  const std::string dir = temp_dir();
+  Engine::Config c = config(2, dir);
+  c.followup_wal_gate = false;
+  c.followup_window = 0;
+  c.exchange_gate = false;
+  c.owner_followup_gate = false;
+  c.link_hold_max = 0;
+  Engine eng(c);
+  eng.start();
+  for (u16 s = 0; s < 2; ++s) {
+    const GaugeSnapshot g = fresh_gauges(eng, s);
+    CHECK_EQ(g[G_INTAKE_WAL_GATE], 0u);
+    CHECK_EQ(g[G_INTAKE_WINDOW], 0u);
+    CHECK_EQ(g[G_INTAKE_EXCHANGE_GATE], 0u);
+    CHECK_EQ(g[G_INTAKE_EXCHANGE_BUDGET], 0u);
+    CHECK_EQ(g[G_INTAKE_OWNER_GATE], 0u);
+    CHECK_EQ(g[G_INTAKE_LINK_HOLD_MAX], 0u);
+    CHECK_EQ(g[G_INTAKE_GATE_OPEN], 1u);
+    CHECK_EQ(g[G_INTAKE_LINK_PAUSED], 0u);
+  }
+  eng.stop();
+  rm_rf(dir);
+  std::printf("G2 GAUGES: effective H/W/X/L and the intake state match the shard's own counters (F12); "
+              "rollback reports every gate off\n");
 }
 
 // ---- F6 -----------------------------------------------------------------------------------
@@ -1249,6 +1351,7 @@ int main(int argc, char** argv) {
   run("F16", test_resume_durability);
   run("F17", test_flapping_order);
   run("G1", test_owner_gate);
+  run("G2", test_gauges_rollback);
   std::printf("test_intake: ok\n");
   return 0;
 }

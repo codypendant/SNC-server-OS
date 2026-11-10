@@ -11,6 +11,9 @@ under a short net_bench load.
   T8b GAUGES answers one key=value line with every published gauge of every
       shard; GAUGES 1 only shard 1's; GAUGES 9 is refused ("NO ...").
       STATUS and RESOURCES keep their keys.
+  T8d GAUGES reports the follow-up intake settings in force (the server
+      runs with SNC_FOLLOWUP_WINDOW=16 and SNC_EXCHANGE_BUDGET=256 set) and
+      its state (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.6).
   T8c GAUGES and HEALTH answer while a shard is stalled (DEBUG STALL 0
       2000): they read published values and never wait on a shard.
 
@@ -45,6 +48,16 @@ ckpt_io_dsync ckpt_window ckpt_window_full ckpt_final_pending ckpt_window_full_s
 ckpt_buf_bytes ckpt_buf_bytes_peak ckpt_write_lat_last_us ckpt_write_lat_ewma_us ckpt_write_lat_max_us
 ckpt_write_lat_lt1ms ckpt_write_lat_lt10ms ckpt_write_lat_lt100ms ckpt_write_lat_ge100ms ckpt_sync_writes
 ckpt_sync_writes_total
+ckpt_sync_tokens ckpt_sync_state ckpt_token_wait_since_ns ckpt_token_wait_last_us ckpt_token_wait_max_us
+ckpt_token_wait_ewma_us ckpt_token_acquired ckpt_token_ticket
+intake_wal_gate intake_wal_cap_bytes intake_need_bytes intake_window intake_exchange_gate
+intake_exchange_budget intake_owner_gate intake_link_hold_max intake_gate_open intake_gated
+intake_refused_exchange intake_refused_owner intake_exchanges_live intake_exchanges_live_peak
+intake_exchanges_started intake_exchanges_ended intake_staged_now intake_staged_peak
+intake_window_outstanding intake_window_waits intake_link_held_now intake_link_held_peak
+intake_link_paused intake_link_pauses intake_resume_active intake_resume_owed
+intake_resume_passes intake_resume_triggers intake_resume_coalesced intake_resume_restarts
+intake_resume_objects
 published_ns""".split()
 DERIVED = "ckpt_phase_name ckpt_age_ms ckpt_phase_age_ms wal_flush_age_ms committed_start_lsn wal_replay_records consistent".split()
 HEALTH_OLD = "role term uuid epoch leases shards stall_ms stall_shard main_ms adm_q adm_q_hw adm_busy adm_half adm_half_hw adm_evicted adm_timeouts".split()
@@ -117,7 +130,8 @@ def main():
     cli, adm = base, base + 3  # client ports base, base+1 (2 shards)
     srv = subprocess.Popen([f"{BUILD}/snc_server", "--shards", "2", "--port", str(cli), "--data-dir", f"{work}/d",
                             "--admin-port", str(adm), "--objects", "100000", "--checkpoint-s", "1",
-                            "--debug-admin"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                            "--debug-admin"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                           env=dict(os.environ, SNC_FOLLOWUP_WINDOW="16", SNC_EXCHANGE_BUDGET="256"))
     try:
         assert wait_port(adm, srv), "snc_server did not start"
         r = subprocess.run([f"{BUILD}/net_bench", "--port", str(cli), "--threads", "2", "--objects", "20000",
@@ -168,6 +182,21 @@ def main():
         assert res == RESOURCES_KEYS, res
         log(f"T8b GAUGES: {n_keys} keys (wal_direct s0={g['s0.wal_direct']}, ckpt_last_ms={g['ckpt_last_ms']}); "
             f"GAUGES 1 scoped; GAUGES 9 refused; STATUS and RESOURCES unchanged")
+
+        # T8d
+        for s in range(2):
+            p = f"s{s}."
+            assert g[p + "intake_wal_gate"] == "1" and g[p + "intake_exchange_gate"] == "1", g
+            assert g[p + "intake_window"] == "16" and g[p + "intake_exchange_budget"] == "256", g
+            assert g[p + "intake_owner_gate"] == "1" and g[p + "intake_link_hold_max"] == "1024", g
+            cap, need = int(g[p + "intake_wal_cap_bytes"]), int(g[p + "intake_need_bytes"])
+            assert need > 0 and cap >= need, g
+            assert g[p + "intake_gate_open"] in ("0", "1") and g[p + "intake_link_paused"] == "0", g
+            for k in ("exchanges_live", "staged_now", "window_outstanding", "link_held_now", "resume_passes"):
+                assert int(g[p + "intake_" + k]) >= 0, g
+        log(f"T8d GAUGES intake: W={g['s0.intake_window']} X={g['s0.intake_exchange_budget']} "
+            f"H={g['s0.intake_wal_cap_bytes']} R={g['s0.intake_need_bytes']} L={g['s0.intake_link_hold_max']} "
+            f"exchanges_live s0={g['s0.intake_exchanges_live']}")
 
         # T8c
         assert ask(adm, "DEBUG STALL 0 2000").startswith("OK")

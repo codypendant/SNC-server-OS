@@ -1,0 +1,11 @@
+cody, 2026-11-10 02:08 UTC (project thread), verbatim:
+
+PR #87 review: D.1 core implementation APPROVED, D.1 completion HOLD.
+The H/W/X mechanism, dynamic reserve_emits, replay ordering, reply-only contract, owner gate, resume coalescing/pacing, link pausing, exchange accounting, and resume-LSN fix are accepted. Validation accepted: Release 45/45, ASan+UBSan 45/45 zero reports, TSan 45/45 zero warnings, negatives 12/12.
+Before D.1 is marked COMPLETE, make one closure PR:
+Fix the confirmed snc_witness primary up logging race found during the D.1 validation. Fix-on-site means it cannot be deferred. Add deterministic regression coverage.
+Run the preregistered P1 regression matrix: W={16,64,256}, X={256,1024,4096}, plus rollback/no-window. Report overhead; do not tune production defaults from the dev VM.
+Expose D.1 operability through GAUGES/admin: effective H/W/X/L plus exchange, staging, window, link-hold, gating and resume state/counters. No silent internal-only backpressure state.
+Do not start D.2 until this closure PR returns for review.
+No S5, S6, R640, CP-1A, comparators or B2 snapshot work.
+Always verify, never assume. Fix confirmed defects on site.

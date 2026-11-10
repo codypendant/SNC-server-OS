@@ -2085,3 +2085,35 @@ or source comments.
     proposed as a separate fix; F11; a container restart).
 -   **Next action:** WAIT for the D.1 review. No D.2, S5, S6, R640,
     CP-1A, comparators or B2 snapshot work.
+
+### 2026-11-10 UTC --- Claude (Claude Code): D.1 closure PR (PR #87 review)
+
+-   **Review:** the D.1 core was APPROVED and D.1's completion was held
+    on three items (`docs/handoff/PR87_D1_Review.txt`). Classification:
+    KEEP (D.1 as approved); REFINE (operability, a witness logging fix).
+-   **Witness fix (defect found during D.1 validation, fixed on site):**
+    `snc_witness` printed "primary up" only from its own proposal. A
+    witness that learned the chosen space from a peer's COMMIT first
+    printed nothing. It now prints the line once, from whichever path
+    sees the space served first. The regression test is `test_health`
+    T12 (the witness's node paths cut, then healed); it is
+    deterministic: the old witness fails it 3/3, the fixed one passes
+    3/3.
+-   **Operability:** 33 `intake_*` gauges per shard on the admin
+    `GAUGES` line. They give the effective H, R, W, X and L and each
+    gate's on/off, plus the exchange, staging, window, link-hold, gate
+    and resume state and counters. They are published from existing
+    counters and change no decision. Tests: `test_intake` F12, F8 and
+    G2; `test_gauges_admin` T8d.
+-   **P1:** preregistered before the run, on the dev VM, against
+    rollback. 110/110 runs were valid. The default (W 64, X 1024) is
+    within rollback's range. X = 256 is about 5% below on uniform
+    transfers and refuses 4-5% of cross-shard transfers. No default
+    changed (`bench/results/intake-d1-closure-devvm-20261110/p1/REPORT.md`).
+-   **Also fixed:** `test_transfer` leaked three /tmp dirs per pass
+    (PR #88). The new gauge test read the seqlock once and failed
+    under TSan (test only; it now reads until consistent).
+-   **Evidence:** `bench/results/intake-d1-closure-devvm-20261110/`
+    (README lists every run).
+-   **Next action:** WAIT for the closure review. No D.2, S5, S6, R640,
+    CP-1A, comparators or B2 snapshot work.

@@ -1,0 +1,65 @@
+Test project /home/claude/snc-server-os/build-tsan
+      Start  1: test_rate_schedule
+ 1/45 Test  #1: test_rate_schedule ...............   Passed    0.02 sec
+      Start  2: test_object_id
+ 2/45 Test  #2: test_object_id ...................   Passed    0.24 sec
+      Start  3: test_local_map
+ 3/45 Test  #3: test_local_map ...................   Passed   11.15 sec
+      Start  4: test_pages
+ 4/45 Test  #4: test_pages .......................   Passed    2.75 sec
+      Start  5: test_runtime
+ 5/45 Test  #5: test_runtime .....................   Passed    1.12 sec
+      Start  6: test_execute
+ 6/45 Test  #6: test_execute .....................   Passed    1.16 sec
+      Start  7: test_persistence
+ 7/45 Test  #7: test_persistence .................   Passed    3.23 sec
+      Start  8: test_crash
+ 8/45 Test  #8: test_crash .......................   Passed    4.73 sec
+      Start  9: test_net
+ 9/45 Test  #9: test_net .........................   Passed    0.36 sec
+      Start 10: test_transfer
+10/45 Test #10: test_transfer ....................   Passed   10.68 sec
+      Start 11: test_replication
+11/45 Test #11: test_replication .................   Passed   35.98 sec
+      Start 12: test_cluster
+12/45 Test #12: test_cluster .....................   Passed    9.53 sec
+      Start 13: test_migrate
+13/45 Test #13: test_migrate .....................   Passed   56.13 sec
+      Start 14: test_resend_refusals
+14/45 Test #14: test_resend_refusals .............   Passed    0.08 sec
+      Start 15: test_proof
+15/45 Test #15: test_proof .......................   Passed    1.61 sec
+      Start 16: test_placement
+16/45 Test #16: test_placement ...................   Passed    0.23 sec
+      Start 17: test_stage_chain
+17/45 Test #17: test_stage_chain .................   Passed   42.26 sec
+      Start 18: test_gauges
+18/45 Test #18: test_gauges ......................   Passed   12.73 sec
+      Start 19: test_s1_admission
+19/45 Test #19: test_s1_admission ................   Passed   22.59 sec
+      Start 20: test_s2_pacing
+20/45 Test #20: test_s2_pacing ...................   Passed   21.06 sec
+      Start 21: test_s3_writeback
+21/45 Test #21: test_s3_writeback ................   Passed  165.22 sec
+      Start 22: test_lifecycle
+22/45 Test #22: test_lifecycle ...................   Passed   12.27 sec
+      Start 23: test_s4_sync_tokens
+23/45 Test #23: test_s4_sync_tokens ..............   Passed  157.16 sec
+      Start 24: test_admin_loop
+24/45 Test #24: test_admin_loop ..................   Passed    1.73 sec
+      Start 25: test_wal_capacity
+25/45 Test #25: test_wal_capacity ................   Passed    0.35 sec
+      Start 26: test_intake
+26/45 Test #26: test_intake ......................***Failed    4.98 sec
+F10 contract: 8 violations stop the process with their message; a client calling a follow-up op gets E_BAD_ARGS
+/home/claude/snc-server-os/tests/test_intake.cpp:299: CHECK failed: g.consistent
+F6 SIGKILL with d's intake closed and exchanges in flight, then recovery: transfers settled, money conserved (172000), no entries left (child: 465 transfers admitted, 5349 follow-ups gated on d, 12 staged; killing)
+F1/F5/F7/F2 stalled destination: 512 probes admitted, 31488 refused by X=64; WAL peak 262656 <= max(H=328192, R=66048); staging peak 80 <= (N-1)W + X + 1 = 177; node backlog peak 448 <= N(X+1) = 520; reads, batch and a forwarded mutation answered while staging; delivered once, in order
+F3 every shard stalled, W=1, X=4, H=B+R: 32 probes on every pair delivered once in order after release (1888 refused); no deadlock
+F4 drop paths: 480 probes to a deleted and to never-created objects ran their fail op once each, 480 more with no fail op were dropped there; exchanges, windows and staging back to zero
+F8 node links, L=8: receiver gated, link reads paused 1 time(s), held peak 8 <= L, no reconnect; 6001 probes delivered once in order across nodes (0 refused; the sender's bound is D.2)
+F11 rate mismatch: d's gate closed (WAL held at B, then 256 replies); x's backlog toward d peaked at 256 > W = 4 and stayed <= live(d) + live(x); d's staging <= W; 256 exchanges, 50 more refused by X = 256; settled in order
+
+      Start 27: test_witness
+27/45 Test #27: test_witness .....................   Passed   24.83 sec
+      Start 28: test_async_failover
