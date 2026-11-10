@@ -2266,3 +2266,38 @@ or source comments.
     attempt. Then return it for independent review. S5, S6, R640, CP-1A,
     comparators and B2 begin-snapshot stay forbidden.
 
+
+### 2026-11-10 UTC --- Claude (Claude Code): D.2 implemented, for independent review
+
+-   **What:** D.2 cross-node exchange accounting, implemented to design
+    rev4 in the section 9 commit order (steps 1-10). Later commits fix
+    what validation found. Evidence:
+    `bench/results/xnode-d2-validation-devvm-20261110/README.md`.
+-   **Results:**
+    -   Release, ASan+UBSan and TSan complete serial suites pass 47 of 47
+        at beda8a2. 66d5145 changes only X4, and test_xnode passes there
+        in all three builds.
+    -   X1-X32 with X19b, plus the process tests x6, x7, x7b and x9, pass.
+    -   Negatives: 36 of 39 caught at beda8a2. ND10 and ND24 hit
+        unreachable branches. ND7 was missed by chance; X4 now forces the
+        case, and ND7 is caught 3 of 3.
+    -   P2 shows no measurable cost.
+-   **Product defects found and fixed on site:**
+    -   A rejoining links instance never bound.
+    -   The blocked bit could arrive late under traffic.
+    -   A single stale heartbeat could reset a healthy Out connection
+        (X15, then X32; ND38).
+    -   The step 9 gauge publish was slower than its 50 us interval under
+        TSan, which blocked slot moves (bisected to a69da05).
+-   **Disclosures:**
+    -   The step 10 commits from 8ef83d3 to 6489cec are not green in every
+        build. The fixes are later commits; history was not rewritten,
+        because 8ef83d3 was already pushed.
+    -   A pre-D.2 data directory needs `--links-generation-min 1` once.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the rev4 protocol as approved.
+    -   REFINE the meaning of "holds for T_dead" in design 2.10: it must
+        be shown by fresh heartbeats.
+-   **Next action:** WAIT for independent review of the D.2 PR. Do not
+    merge it, and do not call D.2 complete until it is approved. S5, S6,
+    R640, CP-1A, comparators and B2 stay forbidden.

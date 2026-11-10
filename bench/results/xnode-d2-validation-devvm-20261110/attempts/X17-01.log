@@ -1,0 +1,48 @@
+snc: shard 0: slot 24 sealed for move 1700 (1 objects)
+snc: shard 0: slot 24 staged for move 1700 (1 objects)
+snc: stage_chain slot=24 move=1700 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.045 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=248 window_hw=248 window_waits=0 scan_restarts=0 shard_ms=1.1 chain_ms=4.0 wait_ms=2.3 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 1700, epoch 2)
+snc: placement epoch 2 adopted (was 1)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 1 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+snc: shard 0: slot 1696 sealed for move 1704 (1 objects)
+snc: shard 0: slot 1696 staged for move 1704 (1 objects)
+snc: stage_chain slot=1696 move=1704 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.013 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=632 window_hw=632 window_waits=0 scan_restarts=0 shard_ms=1.0 chain_ms=1.7 wait_ms=2.5 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 3 adopted (was 2)
+snc: placement epoch 3 adopted (was 2)
+snc: placement epoch 3 adopted (was 2)
+snc: shard 0: slot 1696 active here (move 1704, epoch 3)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 2 quarantined (its In side down for T_release), debt 0
+snc: shard 0: slot 3232 sealed for move 1708 (1 objects)
+snc: shard 0: slot 3232 staged for move 1708 (1 objects)
+snc: stage_chain slot=3232 move=1708 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.149 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=568 window_hw=568 window_waits=0 scan_restarts=0 shard_ms=1.2 chain_ms=2.1 wait_ms=2.4 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 4 adopted (was 3)
+snc: shard 0: slot 3232 active here (move 1708, epoch 4)
+snc: placement epoch 4 adopted (was 3)
+snc: placement epoch 4 adopted (was 3)
+snc: node link: link 1 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 1 member 0 incarnation 2 quarantined (its In side down for T_release), debt 64
+snc: shard 0: slot 205 sealed for move 170c (1 objects)
+snc: shard 0: slot 205 staged for move 170c (1 objects)
+snc: stage_chain slot=205 move=170c objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.046 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=664 window_hw=664 window_waits=0 scan_restarts=0 shard_ms=1.1 chain_ms=1.6 wait_ms=2.4 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 5 adopted (was 4)
+snc: placement epoch 5 adopted (was 4)
+snc: shard 0: slot 205 active here (move 170c, epoch 5)
+snc: placement epoch 5 adopted (was 4)
+snc: node link: link 1 member 0 incarnation 2 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 2 quarantined (its In side down for T_release), debt 64
+snc: shard 0: slot 1446 sealed for move 1710 (1 objects)
+snc: shard 0: slot 1446 staged for move 1710 (1 objects)
+snc: stage_chain slot=1446 move=1710 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.040 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=632 window_hw=632 window_waits=0 scan_restarts=0 shard_ms=1.0 chain_ms=1.7 wait_ms=2.5 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 6 adopted (was 5)
+snc: placement epoch 6 adopted (was 5)
+snc: placement epoch 6 adopted (was 5)
+snc: shard 0: slot 1446 active here (move 1710, epoch 6)
+snc: node link: link 0 member 0 incarnation 3 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 2 quarantined (its In side down for T_release), debt 64
+X17 churn: 20 cycles (5 slot moves, 5 releases, 5 reconnects, 5 restarts) under load; at all 1357 samples live_s < X + max(E, Rr) = 1088 (peak 134) and physical <= 16320 (peak 466); settled, money conserved, counts 0
+  (X17: 9.2 s)
+test_xnode: ok

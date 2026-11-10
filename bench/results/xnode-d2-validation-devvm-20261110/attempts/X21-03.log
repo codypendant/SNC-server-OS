@@ -1,0 +1,14 @@
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+X21 M conflict: the second instance's Hellos refused 11 times while the first was live (5 x T_dead), no retirement either way; accepted once the first stopped (one retirement); no underflow
+  (X21: 1.3 s)
+test_xnode: ok

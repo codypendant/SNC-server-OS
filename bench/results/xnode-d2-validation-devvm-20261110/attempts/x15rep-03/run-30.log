@@ -1,0 +1,3 @@
+NLDBG out reset link 0 mismatch_age 204 stuck_age -1 last_hb_age 204 pushed 9466 last_r 0
+X15: member 1: out_resets +1 steers +0 quarantine_out_resets +0 fenced +0 silence_closes +0; B: silence_closes +0 fenced +0 out_resets +0
+/home/claude/snc-server-os/tests/test_xnode.cpp:1557: CHECK failed: out_conn(*net.nodes[1].eng, 1) == m1_conn: X15: member 1's connection to B was replaced

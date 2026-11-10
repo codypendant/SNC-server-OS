@@ -1,0 +1,20 @@
+FAIL normal: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-wk413esl
+Exception in thread Thread-2 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+test_s1: FAILED ['normal']

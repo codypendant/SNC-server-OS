@@ -1,0 +1,6 @@
+control: node 3, group 1 member 0, placement epoch 1
+recovery: checkpoint before serving in 0.01s
+snc_server shards=2 ports 24384-24385 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 1 of 2 (member 0), slots 2048-4095, node links on ports 29080-29081 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 24dcea40170e94230a6451c67b1dc45b  replicating to 127.0.0.1:28893 (sync)
+witness: recorded NOT READY (this primary started) at v=2

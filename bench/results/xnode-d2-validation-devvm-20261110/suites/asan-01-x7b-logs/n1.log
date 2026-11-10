@@ -1,0 +1,11 @@
+control: node 1, group 0 member 0, placement epoch 1
+recovery: checkpoint before serving in 0.01s
+snc_server shards=2 ports 29829-29830 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 0 of 2 (member 0), slots 0-2047, node links on ports 21866-21867 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid e169075e0178ecb530e751c1d6642a88  replicating to 127.0.0.1:26407 (sync)
+witness: recorded NOT READY (this primary started) at v=2
+witness: standby back in sync (READY after v=2)
+snc: node link: link 1 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+snc: node link: link 0 member 0 incarnation 2 quarantined (its In side down for T_release), debt 0
+snc: node link: link 1 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+snc: node link: link 0 member 0 incarnation 2 quarantined (its In side down for T_release), debt 11

@@ -182,8 +182,8 @@ mutate ND13 "X11" $NL \
   "  p.paused = false;"
 # ND14 carry pushed across a reconnect.
 mutate ND14 "X3" $NL \
-  "  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = 0;" \
-  "  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.steer_since_ns = 0;"
+  "  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = o.hb_ns = 0;" \
+  "  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.steer_since_ns = o.hb_ns = 0;"
 # ND15 bind from the reverse SYNC alone (no HelloAck needed).
 mutate ND15 "X13 X20 X27" $NL \
   "  if (!opt_.accounting || o.state != Out::State::UP || o.is_bound || !o.identified || !o.synced) return;" \

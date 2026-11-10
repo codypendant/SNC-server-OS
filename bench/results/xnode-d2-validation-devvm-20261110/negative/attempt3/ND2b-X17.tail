@@ -1,0 +1,3 @@
+X17 churn: 20 cycles (5 slot moves, 5 releases, 5 reconnects, 5 restarts) under load; at all 1356 samples live_s < X + max(E, Rr) = 1088 (peak 191) and physical <= 16320 (peak 374); settled, money conserved, counts 0
+  (X17: 9.3 s)
+test_xnode: ok

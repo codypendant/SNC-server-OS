@@ -1,0 +1,3 @@
+X22 unbound link: no HelloAck, 1536 roots for B purged while unbound, no counted DATA, live below X; after acks resume the binding resumes all and everything settles
+  (X22: 1.2 s)
+test_xnode: ok

@@ -3,7 +3,8 @@
 // Each shard owns one block. Only its own thread writes it, copying
 // counters it already keeps into atomics (release/acquire, see
 // ShardGauges), at most every
-// kPublishNs and on checkpoint phase changes. Any thread may read it
+// kPublishNs (and never more often than 4x a publish's own duration) and
+// on checkpoint phase changes. Any thread may read it
 // without a shard task, a lock a shard holds or an allocation, so
 // HEALTH and the GAUGES verb never wait on a shard (docs/HEALTH_DECOUPLING.md
 // HL-1). A sequence number (odd while a publish is under way) lets a

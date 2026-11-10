@@ -1,0 +1,13 @@
+0fc00e4 /tmp/snc-* now 666, free 9.5G; D.2 step 1: node-link wire v2: 100% tests passed, 0 tests failed out of 17
+52e5691 /tmp/snc-* now 666, free 9.5G; D.2 step 2: invariant M and the persistent links incarnation: 100% tests passed, 0 tests failed out of 17
+4c15567 /tmp/snc-* now 666, free 9.5G; D.2 step 3: heartbeats, silence, member steering: 100% tests passed, 0 tests failed out of 17
+dd6d2bc /tmp/snc-* now 666, free 9.5G; D.2 step 4: entries, binding and the exact current-connectio: 100% tests passed, 0 tests failed out of 17
+5653317 /tmp/snc-* now 666, free 9.5G; D.2 step 5: END, dispositions, retirement, live gating: 100% tests passed, 0 tests failed out of 17
+0ec79b8 /tmp/snc-* now 666, free 9.5G; D.2 step 6: quarantine: 100% tests passed, 0 tests failed out of 17
+936fa4f /tmp/snc-* now 666, free 9.5G; D.2 step 7: drop-to-resume, no adoption: 100% tests passed, 0 tests failed out of 17
+eafa9c6 /tmp/snc-* now 666, free 9.5G; D.2 step 8: a blocked primary leaves the node links: 100% tests passed, 0 tests failed out of 17
+a69da05 /tmp/snc-* now 666, free 9.5G; D.2 step 9: gauges: 100% tests passed, 0 tests failed out of 17
+8ef83d3 /tmp/snc-* now 666, free 8.1G; D.2 step 10: positive tests, process tests, and two defects : 95% tests passed, 1 tests failed out of 19
+cdfca8d /tmp/snc-* now 666, free 6.7G; D.2 step 10 (cont.): tests strengthened from the first negat: 89% tests passed, 2 tests failed out of 19
+c64330d /tmp/snc-* now 666, free 5.3G; D.2 step 10 (cont.): X8 and X22 deterministic for ND2b and N: 95% tests passed, 1 tests failed out of 19
+finished

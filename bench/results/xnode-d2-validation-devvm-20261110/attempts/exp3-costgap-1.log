@@ -1,0 +1,2 @@
+PASS normal (12.9 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '2699 deposits tried, 5 created', 'transfer_into_S_during_chain': 'OK', 'deposit_to_S_at_source': 'E_MIGRATING', 'read_S_at_destination': 'E_MOVED', 'dest_mid_chain': {'phase': 0, 'serving': 0, 'live_count': 64}, 'chain': {'status': 'OK', 'units': '16449', 'put': '20', 'max': '2.300', 'window_hw': '744'}, 'probe': '1724 samples, served 0', 'balances': '65 exact at node 3'}
+test_s1: OK

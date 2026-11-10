@@ -1,0 +1,4 @@
+936fa4f rc=0 PASS normal (16.4 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '3805 dep
+8ef83d3 rc=1 FAIL normal: AssertionError: timed out: node 3's chain held
+a69da05 rc=1 FAIL normal: AssertionError: timed out: node 3's chain held
+eafa9c6 rc=0 PASS normal (16.9 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '3913 dep

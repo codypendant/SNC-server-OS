@@ -1,0 +1,45 @@
+Test project /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/percommit-wt/build
+      Start  7: test_persistence
+ 1/17 Test  #7: test_persistence .................   Passed    0.55 sec
+      Start  8: test_crash
+ 2/17 Test  #8: test_crash .......................   Passed    0.83 sec
+      Start 10: test_transfer
+ 3/17 Test #10: test_transfer ....................   Passed    3.59 sec
+      Start 11: test_replication
+ 4/17 Test #11: test_replication .................   Passed   16.86 sec
+      Start 12: test_cluster
+ 5/17 Test #12: test_cluster .....................   Passed    5.18 sec
+      Start 13: test_migrate
+ 6/17 Test #13: test_migrate .....................   Passed   35.72 sec
+      Start 14: test_resend_refusals
+ 7/17 Test #14: test_resend_refusals .............   Passed    0.05 sec
+      Start 15: test_proof
+ 8/17 Test #15: test_proof .......................   Passed    1.02 sec
+      Start 16: test_placement
+ 9/17 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+10/17 Test #17: test_stage_chain .................Subprocess aborted***Exception:   3.96 sec
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: shard 0: slot 2048 staged for move 7 (245 objects)
+snc: stage_chain slot=2048 move=7 objs=245 status=OK units=1 (check 1 put 0 scan 0 drop 0 stage 0) unit_ms p50=0.664 p95=0.664 p99=0.664 max=0.665 (check) put=168 dropped=36 bytes=50592 window_hw=0 window_waits=0 scan_restarts=0 shard_ms=0.7 chain_ms=0.7 wait_ms=1.4 listed_entries=245 gone=36 report_units=0 report_restarts=0 runs=0
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: shard 0: slot 2048 staged for move 7 (245 objects)
+snc: stage_chain slot=2048 move=7 objs=245 status=OK units=602 (check 126 put 167 scan 273 drop 35 stage 1) unit_ms p50=0.001 p95=0.002 p99=0.005 max=0.036 (put) put=168 dropped=36 bytes=50592 window_hw=41664 window_waits=0 scan_restarts=0 shard_ms=0.9 chain_ms=1.6 wait_ms=1.8 listed_entries=245 gone=36 report_units=257 report_restarts=0 runs=1
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: shard 0: slot 2048 staged for move 7 (201 objects)
+snc: stage_chain slot=2048 move=7 objs=201 status=OK units=1 (check 1 put 0 scan 0 drop 0 stage 0) unit_ms p50=0.808 p95=0.808 p99=0.808 max=0.809 (check) put=136 dropped=37 bytes=42904 window_hw=0 window_waits=0 scan_restarts=0 shard_ms=0.8 chain_ms=0.9 wait_ms=1.5 listed_entries=201 gone=37 report_units=0 report_restarts=0 runs=0
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 0: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: node link: refused group 0 shard 1: no such peer (its cluster shape crc bde5a42f, ours bde5a42f)
+snc: shard 0: slot 204Errors while running CTest

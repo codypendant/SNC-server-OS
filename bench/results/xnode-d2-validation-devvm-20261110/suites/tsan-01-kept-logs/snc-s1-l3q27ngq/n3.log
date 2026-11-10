@@ -1,0 +1,6 @@
+control: node 3, group 1 member 0, placement epoch 1
+recovery: checkpoint before serving in 0.01s
+snc_server shards=2 ports 26044-26045 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+cluster: group 1 of 2 (member 0), slots 2048-4095, node links on ports 23264-23265 while primary (map crc d5fcc27c, placement epoch 1)
+space uuid 7eaf2cbf3951f6845ebf3ccd5162f6c9  replicating to 127.0.0.1:20809 (async)
+debug: move stop at put unit 5 hold:4000

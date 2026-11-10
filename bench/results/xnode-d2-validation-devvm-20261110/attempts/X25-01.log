@@ -1,0 +1,1 @@
+/home/claude/snc-server-os/tests/test_xnode.cpp:1660: CHECK failed: undelivered >= held: X25: 8320 of 8320 old bytes reached B

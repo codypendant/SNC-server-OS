@@ -1,0 +1,3 @@
+X8 slot move: slot 24 moved A -> C under load; drops to resume 0, hand-off drops 0, misrouted 6, ENDs sent 1620; settled, money conserved, counts 0
+  (X8: 1.0 s)
+test_xnode: ok

@@ -1,0 +1,3 @@
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+AssertionError: ('pattern not unique', 'src/core/node_link.cpp', '  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = 0;')

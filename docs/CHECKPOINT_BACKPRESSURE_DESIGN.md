@@ -893,6 +893,13 @@ sequence number, odd while a publish runs, lets a reader take a
 consistent snapshot (`ShardGauges::read`, up to 64 retries; the
 `consistent` flag says whether it got one).
 
+D.2 amendment (beda8a2, found by the TSan suite): the interval is at
+least 4x the last publish's duration, counted from the publish's end,
+so a publish slower than 50 µs (the D.2 gauge set under TSan, about
+60 µs) does not run on every loop iteration. The reader yields between
+its first 64 tries, then makes up to 64 more 100 µs apart (about 10 ms).
+Release is unchanged.
+
 **Memory-order contract (S0.1, `docs/handoff/PR69_S0_Review.txt`).**
 - The writer stores the odd sequence (release), then each field
   (release), then the even sequence (release).

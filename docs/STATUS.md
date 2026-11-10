@@ -100,7 +100,13 @@ Decided by cody on 2026-11-04.
      barrier, persistent monotonic incarnation generation) is APPROVED and
      **D.2 implementation is AUTHORIZED**
      (handoff/PR94_D2_Design_Rev4_Review.md), in the section 9 commit
-     order, as one PR returned for independent review.
+     order, as one PR returned for independent review. **D.2 is
+     implemented, FOR REVIEW, not complete**: wire v2, per-(link, member)
+     entries, HelloAck plus exact SYNC binding, END frames, quarantine and
+     retirement, durable links generation, blocked-primary leave and
+     rejoin, heartbeats and silence detection, D.2 GAUGES; X1-X32 with
+     X19b, the negatives and P2 are in
+     bench/results/xnode-d2-validation-devvm-20261110.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

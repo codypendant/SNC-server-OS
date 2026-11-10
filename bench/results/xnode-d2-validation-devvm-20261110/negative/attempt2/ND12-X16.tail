@@ -1,0 +1,3 @@
+X16 END debt at a switch: 41 ENDs owed to member 0 while bound to member 1 (whose ENDs were sent on its binding); member 0 restarted: the debt discarded at the retirement, no END toward it; its new instance bound with an exact SYNC and settled; no underflow
+  (X16: 0.9 s)
+test_xnode: ok

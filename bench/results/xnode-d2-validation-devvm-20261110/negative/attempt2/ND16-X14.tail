@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND16/tests/test_xnode.cpp:937: CHECK failed: b.e.held_for <= phys0: X14: physical at p 32 above the first quarantine's 0

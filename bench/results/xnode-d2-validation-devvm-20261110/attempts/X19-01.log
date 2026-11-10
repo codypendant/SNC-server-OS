@@ -1,0 +1,3 @@
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (blocked for T_release), debt 64
+/home/claude/snc-server-os/tests/test_xnode.cpp:2021: CHECK failed: !bound_while_blocked

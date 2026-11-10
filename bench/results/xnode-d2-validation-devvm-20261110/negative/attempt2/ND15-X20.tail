@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND15/tests/test_xnode.cpp:1638: CHECK failed: took * 1000 <= kDeadMs + 400: X20: steered 700 ms after the old member's connection went

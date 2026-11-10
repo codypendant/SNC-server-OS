@@ -1,0 +1,9 @@
+snc_witness: port 27670, 3 witnesses
+snc_witness: group 0: state version 0, term 0, primary node 0
+snc_witness: group 1: state version 0, term 0, primary node 0
+snc_witness: liveness polled with HEALTH (STATUS for nodes without it)
+t=0.51 group 0 primary up: term 0
+t=0.57 group 0 NOTREADY: primary term 0 NOT READY: OK v=2
+t=0.60 group 0 READY: primary term 0 READY after=2: OK v=3
+t=0.76 group 1 primary up: term 0
+t=0.82 group 1 NOTREADY: primary term 0 NOT READY: OK v=2

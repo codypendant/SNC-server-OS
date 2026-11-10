@@ -1,0 +1,3 @@
+X11 stalled remote (1200 ms, 114 samples): live_A peak 64 < X + max(E, Rr) = 1088; A's Out buffer peak 0 <= kOutCap; B held peak 0 <= L = 64; A's queue peak 14 <= live_A + live_B; 2220031 E_OVERLOADED; no silence close or Out reset while paused; settled, money conserved
+  (X11: 1.6 s)
+test_xnode: ok

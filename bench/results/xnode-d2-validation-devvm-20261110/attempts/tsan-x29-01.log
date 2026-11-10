@@ -1,0 +1,49 @@
+snc: node link: refused link 0 member 0 incarnation 1: below the highest seen (2): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 2: below the highest seen (3): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 4: below the highest seen (5): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 5: below the highest seen (6): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 6: below the highest seen (7): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 7: below the highest seen (8): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 8: below the highest seen (9): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 9: below the highest seen (10): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 10: below the highest seen (11): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 11: below the highest seen (12): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 12: below the highest seen (13): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 13: below the highest seen (14): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 14: below the highest seen (15): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 15: below the highest seen (16): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 16: below the highest seen (17): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 17: below the highest seen (18): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 18: below the highest seen (19): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 19 quarantined (its In side down for T_release), debt 64
+snc: node link: refused link 0 member 0 incarnation 19: below the highest seen (20): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 20 quarantined (its In side down for T_release), debt 131
+snc: node link: refused link 0 member 0 incarnation 20: below the highest seen (21): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 21 quarantined (its In side down for T_release), debt 160
+snc: node link: refused link 0 member 0 incarnation 21: below the highest seen (22): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 22 quarantined (its In side down for T_release), debt 138
+snc: node link: refused link 0 member 0 incarnation 22: below the highest seen (23): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 23 quarantined (its In side down for T_release), debt 0
+snc: node link: refused link 0 member 0 incarnation 23: below the highest seen (24): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 24 quarantined (its In side down for T_release), debt 64
+snc: node link: refused link 0 member 0 incarnation 24: below the highest seen (25): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 25 quarantined (its In side down for T_release), debt 138
+snc: node link: refused link 0 member 0 incarnation 25: below the highest seen (26): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 26 quarantined (its In side down for T_release), debt 128
+snc: links generation: cannot store 27 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: node link: link 0 member 0 incarnation 27 quarantined (its In side down for T_release), debt 128
+snc: links generation: cannot store 28 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: node link: link 0 member 0 incarnation 28 quarantined (its In side down for T_release), debt 128
+snc: links generation: cannot store 29 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: links generation: raising /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation from 0 to the operator floor 31 (--links-generation-min)
+snc: node link: link 0 member 0 incarnation 30 quarantined (its In side down for T_release), debt 0
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation is truncated or corrupt; refusing to start (never reused or reset: restart with --links-generation-min G after establishing a safe floor))
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation is truncated or corrupt; refusing to start (never reused or reset: restart with --links-generation-min G after establishing a safe floor))
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-H6W0EQ/net1/n0/links_generation is missing in a data directory that already holds state; refusing to guess a lower links incarnation (peers would refuse it). Restart with --links-generation-min G, G above the highest incarnation the peers report for this member (GAUGES xnode_highest_incarnation, or their refusal log))
+X29 generation: 25 restarts under a faked clock (same ms, stepped back, forward and back, 20 rapid), each incarnation above the last; 25 replayed old Hellos refused, none retired the new entry; bind within 163 ms of each restart; a crash at each of 3 update steps never reused a value; corrupt, truncated and missing files refused at start; --links-generation-min 31 recovered (incarnation 32); settled
+  (X29: 27.7 s)
+test_xnode: ok

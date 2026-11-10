@@ -1,0 +1,3 @@
+X20 member steering: the Out connection moved from member 1 to the live member 0 130 ms after the old one's connection went (T_dead 200 ms); ENDs reached it; counts 0
+  (X20: 0.4 s)
+test_xnode: ok

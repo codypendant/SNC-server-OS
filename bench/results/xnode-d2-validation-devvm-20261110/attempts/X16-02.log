@@ -1,0 +1,18 @@
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+X16 diag: m0 owed 0 count 0 held 0 disp 26695; m1 ends 849 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 53601; m1 ends 1710 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 80840; m1 ends 2542 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 108345; m1 ends 3403 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 135617; m1 ends 4248 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 161492; m1 ends 5096 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 188384; m1 ends 5963 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 215360; m1 ends 6818 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 242126; m1 ends 7627 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 269760; m1 ends 8528 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 298106; m1 ends 9406 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 325613; m1 ends 10243 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 353423; m1 ends 11141 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 379539; m1 ends 12008 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 406702; m1 ends 12868 (from 0)
+X16 diag: m0 owed 0 count 0 held 0 disp 434312; m1 ends 13769 (from 0)
+/home/claude/snc-server-os/tests/test_xnode.cpp:627: CHECK failed: since(t0) < timeout_s: timed out: ENDs owed to member 0, ENDs sent to member 1

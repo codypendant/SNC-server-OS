@@ -1,0 +1,2 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND25/tests/test_xnode.cpp:942: CHECK failed: a.e.state == NodeLinks::EntryState::QUARANTINED && !a.out.bound
+X14a one-way partition (all of p->o, HelloAck included): quarantined once (1 quarantine(s)), physical at p <= 0 and debt <= 64 non-increasing over 146 samples in 5 x T_release, no re-binding, no counted DATA while unbound, 116869 intra-node transfers served meanwhile; healed exact and settled

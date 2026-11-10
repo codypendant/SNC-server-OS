@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND34/tests/test_xnode.cpp:2088: CHECK failed: t_ab >= 0 && (t_ab - t_pb) * 1000 <= net.hb_ms / 2: X19: blocked bit at A 95 ms after the block (T_hb 80: not sent at once)

@@ -1,0 +1,10 @@
+snc: shard 0: slot 24 sealed for move 81 (1 objects)
+snc: shard 0: slot 24 staged for move 81 (1 objects)
+snc: stage_chain slot=24 move=81 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.090 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=1016 window_hw=1016 window_waits=0 scan_restarts=0 shard_ms=1.1 chain_ms=2.2 wait_ms=2.2 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 81, epoch 2)
+X8 slot move: slot 24 moved A -> C under load; drops to resume 0, hand-off drops 0, misrouted 0, ENDs sent 1614; settled, money conserved, counts 0
+  (X8: 1.0 s)
+test_xnode: ok

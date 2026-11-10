@@ -1,0 +1,3 @@
+X24 forward flaps: 6 reconnects while p -> o was held; 5 SYNCs naming earlier connections ignored, none applied; the first applied names the current connection: count 15 -> 0 = k at p, pushed 0; settled, no underflow
+  (X24: 1.1 s)
+test_xnode: ok

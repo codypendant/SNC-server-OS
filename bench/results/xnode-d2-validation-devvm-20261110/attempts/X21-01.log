@@ -1,0 +1,2 @@
+snc: node link: cannot listen on port 21811 (Address already in use), retrying
+/home/claude/snc-server-os/tests/test_xnode.cpp:624: CHECK failed: since(t0) < timeout_s: timed out: the second refused

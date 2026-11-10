@@ -2,7 +2,10 @@
 
 **Status: design rev4 APPROVED (PR #94); D.2 implementation AUTHORIZED**
 **(`docs/handoff/PR94_D2_Design_Rev4_Review.md`, verbatim).** `--links-generation-min`
-is approved with fail-closed semantics.
+is approved with fail-closed semantics. **D.2 is implemented as specified
+here and returned for independent review (not complete until approved);**
+evidence and the deviations found while testing are in
+`bench/results/xnode-d2-validation-devvm-20261110/README.md`.
 
 - Rev1 was PR #91. Its review ruled: DESIGN DIRECTION APPROVED, IMPLEMENTATION
   HOLD (`docs/handoff/PR91_D2_Design_Review.md`, verbatim).

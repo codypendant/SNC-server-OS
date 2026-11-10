@@ -1,0 +1,3 @@
+X25 delayed old frames: B's shard 1 paused (WAL held), 7488 bytes of the old instance's frames held past T_dead with B's side open; the new incarnation admitted by its HelloAck with the old In still open: the old In fenced (closed) and the old entry retired once; on release, B's reads resumed, B read none of the old frames (no DATA, END, SYNC or reply counted, none ignored or stale); the new entry bound with an exact SYNC; settled, money conserved, no underflow
+  (X25: 1.2 s)
+test_xnode: ok
