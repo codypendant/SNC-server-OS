@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <sys/random.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -108,6 +109,14 @@ struct NodeLinks::Out {
   bool identified = false;
   u16 ack_member = 0;
   u64 ack_incarnation = 0;
+  // Liveness (2.10): when this connection last pushed a frame; what the
+  // peer's heartbeats say about it.
+  u64 last_push_ns = 0;
+  u64 mismatch_since_ns = 0;  // heartbeats name another conn, or none
+  u64 r_stuck_since_ns = 0;   // R not advancing, peer not paused, frames outstanding
+  u64 last_r = 0;
+  u64 pushed = 0;  // counted frames pushed on this connection (D.2)
+  u64 steer_since_ns = 0;  // 2.12 B
 };
 
 struct NodeLinks::In {
@@ -116,6 +125,7 @@ struct NodeLinks::In {
   u16 group = 0, shard = 0;
   From from{};
   u64 last_read_ns = 0;  // bytes last read (2.10, 2.12 C: silence)
+  u64 rx = 0;            // counted frames received on it (R)
   std::vector<u8> buf = std::vector<u8>(kInBuf);
   std::size_t have = 0;
   // Whole frames left in buf for want of budget (docs/FOLLOWUP_INTAKE_DESIGN.md
@@ -147,6 +157,7 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options&
   const u32 slots = mbase_.empty() ? 0 : mbase_.back() + link_members_.back();
   if (opt_.highest == nullptr) opt_.highest = &own_highest_;
   if (opt_.highest->size() < slots) opt_.highest->resize(slots, 0);
+  peer_.assign(slots, Peer{});
   listen_port_ = static_cast<u16>(map.groups[group].members[member].link_port + shard);
   try_listen(sri_now_ns());
 }
@@ -194,6 +205,7 @@ void NodeLinks::push(u32 i, const Frame& f) {
   Out& o = *out_[i];
   const u8* p = reinterpret_cast<const u8*>(&f);
   o.buf.insert(o.buf.end(), p, p + sizeof(f));
+  o.last_push_ns = now_ns_;
 }
 
 void NodeLinks::start_connect(u32 i, u64 now_ns) {
@@ -242,6 +254,122 @@ void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   o.conn = 0;
   o.ack_have = 0;
   o.identified = false;
+  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = 0;
+}
+
+// ---- Liveness (2.10, 2.12 B) ----------------------------------------------------------
+
+// What the sender sees of its In connection from the receiver's instance:
+// conn (0: none), R on it, and whether its reads are paused or it is
+// blocked. Pushed FIFO like any frame (2.5: no frame is ever put ahead of
+// bytes already in the buffer).
+void NodeLinks::push_heartbeat(u32 l, u64 now_ns) {
+  (void)now_ns;
+  Out& o = *out_[l];
+  if (o.state != Out::State::UP || !room(l)) return;
+  Frame f{};
+  f.pad[0] = HEARTBEAT;
+  if (o.identified) {
+    for (const auto& in : in_) {
+      if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+          in->from.incarnation == o.ack_incarnation) {
+        f.source.hi = in->from.conn;
+        f.source.lo = in->rx;
+        break;
+      }
+    }
+  }
+  f.op = (paused_ ? 1u : 0u) | (blocked_ ? 2u : 0u);
+  push(l, f);
+  ++heartbeats_sent_;
+}
+
+void NodeLinks::set_blocked(bool on) {
+  if (blocked_ == on) return;
+  blocked_ = on;
+  // At once, not after T_hb of idleness (2.12 A).
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (out_[l]->identified) push_heartbeat(l, now_ns_);
+  }
+}
+
+void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
+  const In& in = *in_[i];
+  Peer& p = peer_[mbase_[in.from.link] + in.from.member];
+  const bool blocked = (f.op & 2u) != 0;
+  if (blocked && p.blocked_since_ns == 0) p.blocked_since_ns = now_ns;
+  if (!blocked) p.blocked_since_ns = 0;
+  p.paused = (f.op & 1u) != 0;
+  // About our Out connection on this link, if this instance acknowledged it.
+  Out& o = *out_[in.from.link];
+  if (o.state != Out::State::UP || !o.identified || o.ack_member != in.from.member ||
+      o.ack_incarnation != in.from.incarnation) {
+    return;
+  }
+  if (f.source.hi != o.conn) {
+    if (o.mismatch_since_ns == 0) o.mismatch_since_ns = now_ns;
+    return;
+  }
+  o.mismatch_since_ns = 0;
+  const u64 r = f.source.lo;
+  if (r != o.last_r || p.paused || o.pushed <= r) {
+    o.last_r = r;
+    o.r_stuck_since_ns = 0;
+  } else if (o.r_stuck_since_ns == 0) {
+    o.r_stuck_since_ns = now_ns;
+  }
+}
+
+void NodeLinks::liveness(u64 now_ns) {
+  // Heartbeats on every connection idle for T_hb.
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state == Out::State::UP && now_ns - o.last_push_ns >= opt_.hb_ns) push_heartbeat(l, now_ns);
+  }
+  // In side: silent for T_dead, but only while reads are not paused and
+  // nothing is left unread (a paused or backlogged connection is
+  // backpressure, not death).
+  for (u32 j = 0; j < in_.size(); ++j) {
+    if (!in_[j] || paused_ || in_[j]->backlog || now_ns - in_[j]->last_read_ns < opt_.dead_ns) continue;
+    int unread = 0;
+    if (::ioctl(in_[j]->fd, FIONREAD, &unread) == 0 && unread > 0) continue;
+    close_in(j, /*reset=*/true);
+    ++silence_closes_;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state != Out::State::UP) continue;
+    // Out side: the peer does not see this connection, or reads nothing of
+    // it while not paused, for T_dead. (No TCP_USER_TIMEOUT.)
+    if ((o.mismatch_since_ns != 0 && now_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
+        (o.r_stuck_since_ns != 0 && now_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {
+      drop_out(l, now_ns, /*reset=*/true);
+      ++out_resets_;
+      continue;
+    }
+    // Member steering (2.12 B): a live In connection from another member
+    // of that shard, and none from the one this link is attached to.
+    const u16 at = static_cast<u16>(o.at);
+    int other = -1;
+    bool from_at = false;
+    for (const auto& in : in_) {
+      if (!in || !in->hello || in->from.link != l || now_ns - in->last_read_ns >= opt_.dead_ns) continue;
+      if (in->from.member == at) from_at = true;
+      else other = in->from.member;
+    }
+    if (other < 0 || from_at) {
+      o.steer_since_ns = 0;
+      continue;
+    }
+    if (o.steer_since_ns == 0) {
+      o.steer_since_ns = now_ns;
+    } else if (now_ns - o.steer_since_ns >= opt_.dead_ns) {
+      drop_out(l, now_ns, /*reset=*/true);
+      o.at = static_cast<std::size_t>(other);
+      o.retry_ns = now_ns;
+      ++steers_;
+    }
+  }
 }
 
 // The acceptor's HelloAck (2.4): read once, up to its 32 bytes. Anything
@@ -450,10 +578,16 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
     // read only once none are left over.
     if (in.hello) {
       std::size_t at = 0;
-      for (; in.have - at >= sizeof(Frame) && budget != 0; at += sizeof(Frame), --budget) {
+      for (; in.have - at >= sizeof(Frame) && budget != 0; at += sizeof(Frame)) {
         Frame f;
         std::memcpy(&f, in.buf.data() + at, sizeof(f));
+        if (kind(f) == HEARTBEAT) {
+          on_heartbeat(i, f, now_ns_);
+          continue;
+        }
+        --budget;
         on_frame(ctx, in.from, f);
+        if (!in_[i]) return false;  // the frame's handling closed it
       }
       if (at) {
         std::memmove(in.buf.data(), in.buf.data() + at, in.have - at);
@@ -492,12 +626,17 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
 
 bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
   bool busy = false;
+  now_ns_ = now_ns;
+  if (now_ns - last_liveness_ns_ >= opt_.hb_ns / 4) {
+    last_liveness_ns_ = now_ns;
+    liveness(now_ns);
+  }
   // Frames left over from earlier polls go first, oldest connection data
   // before anything newly readable.
   for (u32 i = 0; i < in_.size() && budget != 0; ++i) {
     if (in_[i] && in_[i]->backlog) {
       busy = true;
-      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
+      if (!read_in(i, on_frame, ctx, budget) && in_[i]) close_in(i);
     }
   }
   if (listen_ < 0 && now_ns >= listen_retry_ns_) try_listen(now_ns);
@@ -531,7 +670,7 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
         }
         continue;
       }
-      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
+      if (!read_in(i, on_frame, ctx, budget) && in_[i]) close_in(i);
     } else if (kind == kTagOut && i < out_.size()) {
       Out& o = *out_[i];
       if (o.state == Out::State::CONNECTING) {

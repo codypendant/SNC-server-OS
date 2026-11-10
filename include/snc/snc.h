@@ -573,6 +573,15 @@ class Engine {
     // SNC_XNODE_ACCOUNTING=off (or SNC_FOLLOWUP_INTAKE=off) restores D.1
     // counting on the v2 wire. It must match on every node of a cluster.
     bool xnode_accounting = true;
+    // Node-link liveness timers (D.2, 2.10), hypotheses: heartbeat after
+    // T_hb idle; silence after T_dead; release (quarantine) after
+    // T_release; a blocked primary leaves the links after T_block. The
+    // engine refuses to start unless T_hb < T_dead < T_release,
+    // T_dead >= 3 T_hb and T_block >= T_dead.
+    u32 xnode_hb_ms = 100;
+    u32 xnode_dead_ms = 1000;
+    u32 xnode_release_ms = 3000;
+    u32 xnode_block_ms = 2000;
     // The links incarnation generation (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md
     // 2.1): kept in <data_dir>/links_generation. links_generation_file names
     // it for an engine with no data directory; links_generation_min is the

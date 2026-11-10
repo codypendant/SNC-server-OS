@@ -55,6 +55,7 @@ class NodeLinks {
     u16 member = 0;
     u64 incarnation = 0;     // this links instance (2.1)
     bool accounting = true;  // Hello flag bit 0; a mismatch is refused (2.12 D)
+    u64 hb_ns = 100'000'000;      // T_hb (2.10)
     u64 dead_ns = 1'000'000'000;  // T_dead (2.10)
     // Per (link, member): the highest incarnation seen (2.12 C). Owned by
     // the shard so it outlives this instance; sized here.
@@ -98,6 +99,17 @@ class NodeLinks {
   u64 m_conflicts() const { return m_conflicts_; }
   u64 fenced() const { return fenced_; }
   u16 members(u32 link) const { return link_members_[link]; }
+  // 2.12 A: this instance's primary is blocked (sync replication with no
+  // standby acknowledging). A change is announced at once in a HEARTBEAT.
+  void set_blocked(bool on);
+  bool blocked() const { return blocked_; }
+  // What member m of `link` last said in its heartbeats (2.8 trigger 2):
+  // blocked since (0: not blocked), and whether its reads are paused.
+  u64 peer_blocked_since(u32 link, u16 m) const { return peer_[mbase_[link] + m].blocked_since_ns; }
+  u64 heartbeats_sent() const { return heartbeats_sent_; }
+  u64 silence_closes() const { return silence_closes_; }
+  u64 out_resets() const { return out_resets_; }
+  u64 steers() const { return steers_; }
   // The placement epoch announced on connections made from now on.
   void set_epoch(u64 e) { epoch_ = e; }
 
@@ -112,6 +124,9 @@ class NodeLinks {
   bool accept_hello(u32 i, const struct HelloV2& h);
   bool read_ack(u32 i, u64 now_ns);
   void close_in(u32 i, bool reset = false);
+  void on_heartbeat(u32 in_index, const Frame& f, u64 now_ns);
+  void push_heartbeat(u32 link, u64 now_ns);
+  void liveness(u64 now_ns);  // 2.10 silence and Out-side checks, 2.12 B steering
   u64& highest(u32 link, u16 member) { return (*opt_.highest)[mbase_[link] + member]; }
   // Invariant M at the peer (2.12 C): may member m's instance `inc` be
   // accepted on `link`? Fences and retires an older incarnation first.
@@ -137,6 +152,15 @@ class NodeLinks {
   u64 connects_ = 0;
   u64 version_refusals_ = 0, accounting_refusals_ = 0, m_conflicts_ = 0, fenced_ = 0;
   std::vector<u64> own_highest_;  // when the shard keeps none
+  struct Peer {
+    u64 blocked_since_ns = 0;
+    bool paused = false;
+  };
+  std::vector<Peer> peer_;  // per (link, member)
+  bool blocked_ = false;
+  u64 heartbeats_sent_ = 0, silence_closes_ = 0, out_resets_ = 0, steers_ = 0;
+  u64 last_liveness_ns_ = 0;
+  u64 now_ns_ = 0;  // the poll's time, for push stamps
   u64 last_check_ns_ = 0;
 };
 

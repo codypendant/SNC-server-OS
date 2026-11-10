@@ -1803,6 +1803,7 @@ void Shard::start_links() {
   o.member = member_;
   o.incarnation = inc;
   o.accounting = xnode_.accounting;
+  o.hb_ns = xnode_.hb_ns;
   o.dead_ns = xnode_.dead_ns;
   o.highest = &peer_highest_;
   links_ = std::make_unique<NodeLinks>(*cluster_, group_, id_, o);

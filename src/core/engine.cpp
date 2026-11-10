@@ -109,6 +109,10 @@ void hook_init(void* user) {
     Shard::Xnode x;
     x.accounting = c.xnode_accounting;
     x.gen = h->links_gen;
+    x.hb_ns = u64{c.xnode_hb_ms} * 1'000'000;
+    x.dead_ns = u64{c.xnode_dead_ms} * 1'000'000;
+    x.release_ns = u64{c.xnode_release_ms} * 1'000'000;
+    x.block_ns = u64{c.xnode_block_ms} * 1'000'000;
     s->set_xnode(x);
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
@@ -565,6 +569,18 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
+  {
+    // D.2 (2.10): the timers' ordering is enforced; their values are not.
+    const Config& c = cfg_;
+    if (!(c.xnode_hb_ms > 0 && c.xnode_hb_ms < c.xnode_dead_ms && c.xnode_dead_ms < c.xnode_release_ms &&
+          c.xnode_dead_ms >= 3 * c.xnode_hb_ms && c.xnode_block_ms >= c.xnode_dead_ms)) {
+      throw std::invalid_argument(
+          "node-link timers: need 0 < T_hb < T_dead < T_release, T_dead >= 3 T_hb and T_block >= T_dead "
+          "(xnode_hb_ms " + std::to_string(c.xnode_hb_ms) + ", xnode_dead_ms " + std::to_string(c.xnode_dead_ms) +
+          ", xnode_release_ms " + std::to_string(c.xnode_release_ms) + ", xnode_block_ms " +
+          std::to_string(c.xnode_block_ms) + ")");
+    }
+  }
   if (!cfg.cluster.empty()) {
     if (cfg.group_id >= cfg.cluster.size() || cfg.member >= cfg.cluster[cfg.group_id].members.size() ||
         cfg.cluster[cfg.group_id].n_shards != cfg.runtime.n_shards) {
