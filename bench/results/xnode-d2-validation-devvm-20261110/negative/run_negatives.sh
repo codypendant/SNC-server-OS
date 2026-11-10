@@ -5,7 +5,8 @@
 # negative/run_negatives.sh): a patched copy of the repository in WORK
 # (outside the repo), one Release build per mutation, then the named tests;
 # nothing of the mutation is in the shipped source. CHECK_ONLY=1: only check
-# that every pattern applies.
+# that every pattern applies. FROM_WORKTREE=1: iterate from the working
+# tree with kept builds (not for recorded runs).
 # Usage: run_negatives.sh REPO WORK OUT_DIR [ND...]   (no ND: all)
 set -u
 REPO=${1:?repo}; WORK=${2:?work dir}; OUT=$(realpath -m "${3:?out dir}")
@@ -23,8 +24,16 @@ mutate() {  # name "tests" file old new [old new | @file ...]
   local name=$1 tests=$2 file=$3
   shift 3
   if [ "$ONLY" != "  " ] && [[ "$ONLY" != *" $name "* ]]; then return; fi
-  clean "$name"
-  mkdir -p "$WORK/src-$name" && git -C "$REPO" archive HEAD | tar -x -C "$WORK/src-$name"
+  if [ -n "${FROM_WORKTREE:-}" ]; then
+    # Iterating on tests: the working tree's tracked files, and the build
+    # kept (incremental); the recorded runs use HEAD and clean builds.
+    rm -rf "${WORK:?}/src-${name:?}"
+    mkdir -p "$WORK/src-$name"
+    (cd "$REPO" && git ls-files -z | tar --null -T - -cf - | tar -x -C "$WORK/src-$name")
+  else
+    clean "$name"
+    mkdir -p "$WORK/src-$name" && git -C "$REPO" archive HEAD | tar -x -C "$WORK/src-$name"
+  fi
   python3 - "$WORK/src-$name" "$file" "$@" <<'PY'
 import sys
 root, first, rest = sys.argv[1], sys.argv[2], sys.argv[3:]
@@ -41,22 +50,27 @@ while i < len(rest):
 PY
   if [ $? -ne 0 ]; then echo "$name MUTATION NOT APPLIED (pattern did not match)" >> "$OUT/summary.txt"; clean "$name"; return; fi
   if [ -n "${CHECK_ONLY:-}" ]; then echo "$name applies" >> "$OUT/summary.txt"; clean "$name"; return; fi
-  cmake -S "$WORK/src-$name" -B "$WORK/build-$name" -G Ninja -DCMAKE_BUILD_TYPE=Release > /dev/null 2>&1
+  [ -f "$WORK/build-$name/build.ninja" ] ||
+    cmake -S "$WORK/src-$name" -B "$WORK/build-$name" -G Ninja -DCMAKE_BUILD_TYPE=Release > /dev/null 2>&1
   if ! cmake --build "$WORK/build-$name" --target test_xnode -j8 > "$OUT/$name-build.log" 2>&1; then
     echo "$name BUILD FAILED" >> "$OUT/summary.txt"; clean "$name"; return
   fi
   rm -f -- "${OUT:?}/${name:?}-build.log"
   local caught="" t rc
   for t in $tests; do
-    (cd "$WORK/build-$name" && ulimit -f 2097152 && timeout 600 ./test_xnode "$t" > "$OUT/$name-$t.log" 2>&1)
+    # A failing mutant leaves its data directories: under TMPDIR, inside
+    # the work directory, removed with it.
+    rm -rf "${WORK:?}/tmp-${name:?}" && mkdir -p "$WORK/tmp-$name"
+    (cd "$WORK/build-$name" && ulimit -f 2097152 && TMPDIR="$WORK/tmp-$name" timeout 600 ./test_xnode "$t" > "$OUT/$name-$t.log" 2>&1)
     rc=$?
+    rm -rf "${WORK:?}/tmp-${name:?}"
     grep -v "^snc: " "$OUT/$name-$t.log" | tail -4 > "$OUT/$name-$t.tail"
     echo "$name $t rc=$rc (expected non-zero): $(grep -m1 -E 'CHECK failed|timed out' "$OUT/$name-$t.log" | cut -c1-240)" >> "$OUT/summary.txt"
     rm -f -- "${OUT:?}/${name:?}-${t:?}.log"
     [ $rc -ne 0 ] && caught="$caught $t"
   done
   echo "$name => ${caught:-NOT CAUGHT}" >> "$OUT/summary.txt"
-  clean "$name"
+  if [ -n "${FROM_WORKTREE:-}" ]; then rm -rf "${WORK:?}/src-${name:?}"; else clean "$name"; fi
 }
 
 # ND1 end the exchange at push (D.1): the counted push does not count.
@@ -85,7 +99,7 @@ mutate ND2b "X8 X3 X17" $SH \
   "    ++s->stats_.node_emits_misrouted;
     if (!e.tagged) s->end_item(e);"
 # ND3 apply a SYNC from an instance other than the identified one.
-mutate ND3 "X13" $NL \
+mutate ND3 "X30 X13" $NL \
   "  if (!names_cur || !same) {" \
   "  if (!names_cur) {"
 # ND4 no current SYNC on a new Hello.
@@ -124,7 +138,9 @@ mutate ND9 "X5 X4" $NL \
   if (o.identified) set_count(ent(i, o.ack_member), 0);
   o.at = (o.at + 1) % o.members.size();"
 # ND10 adopt instead of drop on a re-route (rev1): pushed counted by this shard.
-mutate ND10 "X17 X8" $SH \
+# Expected NOT caught: the branch is unreachable with the account type (see
+# the evidence README: every emit older than a move of its slots is stale).
+mutate ND10 "X8 X17" $SH \
   "        ++stats_.xnode_drops_to_resume;
         ++stats_.node_emits_dropped;
         end_item(e);" \
@@ -143,7 +159,7 @@ mutate ND11 "X12" $SH \
       }
       continue;"
 # ND12 no incarnation check on END or SYNC.
-mutate ND12 "X13 X16 X25" $NL \
+mutate ND12 "X30 X13 X16 X25" $NL \
   "  if (fr.target.lo != opt_.incarnation) {
     ++ctr_.ignored_frames;
     return;
@@ -193,7 +209,7 @@ mutate ND17 "X16" $NL \
     }
     if (e.end_owed == 0 || e.inc != o.ack_incarnation) continue;"
 # ND18 no eager retirement purge.
-mutate ND18 "X15 X25 X16" $SH \
+mutate ND18 "X31 X15" $SH \
   "  s->purge_tagged(static_cast<long>(link), member, s->links_->entry(link, member).serial);" \
   "  (void)s;
   (void)link;

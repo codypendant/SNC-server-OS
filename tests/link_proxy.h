@@ -123,6 +123,17 @@ class LinkProxy {
     p->replayed = true;
     pairs_.push_back(std::move(p));
   }
+  // A forged frame (defense-in-depth tests, X30), put into the forward
+  // stream of every open connection at the next frame boundary, as if its
+  // dialer had sent it there.
+  void inject(const NodeLinks::Frame& f) {
+    std::lock_guard<std::mutex> g(mu_);
+    for (auto& p : pairs_) {
+      if (p->sfd < 0) continue;
+      const u8* b = reinterpret_cast<const u8*>(&f);
+      p->inject.insert(p->inject.end(), b, b + sizeof(f));
+    }
+  }
   std::vector<Conn> conns() const {
     std::lock_guard<std::mutex> g(mu_);
     std::vector<Conn> v;
@@ -166,6 +177,8 @@ class LinkProxy {
     int fwd = PASS, rev = PASS;
     std::vector<u8> fbuf, rbuf;
     u64 fwd_written = 0;  // bytes of the forward stream delivered (for parsing)
+    u64 fwd_read = 0;     // bytes of the forward stream read from the dialer
+    std::vector<u8> inject;  // forged frames waiting for a frame boundary
     std::vector<u8> parse;
     Conn info;
     bool replayed = false;
@@ -276,6 +289,17 @@ class LinkProxy {
       if (n == 0) return false;
       if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) return false;
       if (n > 0 && mode != DROP) buf.insert(buf.end(), tmp, tmp + n);
+      if (n > 0 && fwd && mode != DROP) p.fwd_read += static_cast<u64>(n);
+    }
+    if (fwd && !p.inject.empty() && p.fwd_read >= 48) {
+      // The last frame boundary read; usable if nothing past it has been
+      // delivered yet (else wait for the next one).
+      const u64 bnd = p.fwd_read - (p.fwd_read - 48) % sizeof(NodeLinks::Frame);
+      if (bnd >= p.fwd_written) {
+        buf.insert(buf.begin() + static_cast<std::ptrdiff_t>(bnd - p.fwd_written), p.inject.begin(), p.inject.end());
+        p.fwd_read += p.inject.size();
+        p.inject.clear();
+      }
     }
     if (mode == PASS && !buf.empty()) {
       if (to < 0) {
@@ -288,7 +312,10 @@ class LinkProxy {
         return false;
       }
       if (w > 0) {
-        if (fwd) delivered(p, buf.data(), static_cast<std::size_t>(w));
+        if (fwd) {
+          delivered(p, buf.data(), static_cast<std::size_t>(w));
+          p.fwd_written += static_cast<u64>(w);
+        }
         buf.erase(buf.begin(), buf.begin() + w);
       }
     }

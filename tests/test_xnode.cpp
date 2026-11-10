@@ -19,6 +19,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <latch>
@@ -978,12 +979,15 @@ void x24_flaps() {
   net.dead_ms = 2000;
   net.release_ms = 5000;
   net.block_ms = 2000;
+  // X high enough that A keeps admitting while p -> o is held (its ENDs
+  // with it): each identified-but-unbound window has traffic to refuse.
+  net.exchange_budget = 1u << 16;
   net.build({{0, 0}, {1, 0}});
   net.start_all();
-  Ledger L = make_ledger(net, 8);
+  Ledger L = make_ledger(net, 256);  // many accounts: those with transfers lost on a cut stay full until resumed
   Engine& A = *net.nodes[0].eng;
   wait_until([&] { return bound_to(A, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0); }, "bound");
-  u64 stale = 0;
+  u64 stale = 0, refused_unbound = 0;
   NodeLinks::SyncProbe applied{};
   {
     Load ab(net, L, 0, 1), ba(net, L, 1, 0);
@@ -1006,8 +1010,14 @@ void x24_flaps() {
       const EntryView v = entry(A, 1, 0);
       CHECK(!v.out.bound);
       CHECK_EQ(v.out.pushed, 0u);  // no counted DATA before its binding SYNC
+      const u64 u0 = A.stats(0).xnode_unbound_purged;
       sleep_ms(20);
+      const EntryView w = entry(A, 1, 0);
+      CHECK(w.out.identified && !w.out.bound && w.out.conn == v.out.conn);
+      CHECK_EQ(w.out.pushed, 0u);  // ... while follow-ups for it were being refused
+      refused_unbound += A.stats(0).xnode_unbound_purged - u0;
     }
+    CHECK_MSG(refused_unbound > 0, "X24: no follow-up reached the identified, unbound link (no traffic to test)");
     const u64 cur = out_conn(A, 1);
     net.px(1, 0).set(LinkProxy::PASS, LinkProxy::PASS);
     wait_until([&] { return bound_to(A, 1, 0); }, "bound after release");
@@ -1027,10 +1037,11 @@ void x24_flaps() {
             (unsigned long long)stale);
   settle(net, L, "X24");
   check_probes("X24");
-  std::printf("X24 forward flaps: 6 reconnects while p -> o was held; %llu SYNCs naming earlier connections ignored, "
+  std::printf("X24 forward flaps: 6 reconnects while p -> o was held; %llu follow-ups refused (purged) on the "
+              "identified, unbound connections, none pushed; %llu SYNCs naming earlier connections ignored, "
               "none applied; the first applied names the current connection: count %llu -> %llu = k at p, "
               "pushed 0; settled, no underflow\n",
-              (unsigned long long)stale, (unsigned long long)applied.count_before,
+              (unsigned long long)refused_unbound, (unsigned long long)stale, (unsigned long long)applied.count_before,
               (unsigned long long)applied.count_after);
 }
 
@@ -1485,6 +1496,11 @@ void x15_alternation() {
   Ledger L = make_ledger(net, 8);
   Engine& B = *net.nodes[2].eng;
   wait_until([&] { return entry(B, 0, 0).e.inc != 0 && entry(B, 0, 1).e.inc != 0; }, "both members admitted");
+  wait_until([&] { return entry(*net.nodes[1].eng, 1, 0).out.identified; }, "member 1's connection to B up");
+  // Member 1's own connection to B is another stream (2.7): member 0's
+  // restarts must never close it.
+  const u64 m1_conn = out_conn(*net.nodes[1].eng, 1);
+  const u64 m1_inc = entry(B, 0, 1).e.inc;
   std::atomic<bool> stop{false};
   std::atomic<u64> samples{0}, max_entries{0};
   std::thread sampler([&] {
@@ -1514,9 +1530,13 @@ void x15_alternation() {
   sampler.join();
   const u64 rets = entry(B, 0, 0).c.retirements - ret0;
   CHECK(rets >= 10);
+  CHECK_MSG(out_conn(*net.nodes[1].eng, 1) == m1_conn, "X15: member 1's connection to B was replaced");
+  CHECK_EQ(entry(B, 0, 1).e.inc, m1_inc);
+  CHECK_EQ(entry(B, 0, 1).ins, 1u);
   const u64 purged = B.stats(0).xnode_retire_purged;
   settle_counts(net, "X15");
-  std::printf("X15 incarnation alternation: 10 restarts of member 0 with member 1 alive; entries <= 2 (members) at "
+  std::printf("X15 incarnation alternation: 10 restarts of member 0 with member 1 alive (its connection to B never "
+              "replaced); entries <= 2 (members) at "
               "all %llu samples (max %llu); %llu retirements, %llu items purged by them; counts 0, no underflow\n",
               (unsigned long long)samples.load(), (unsigned long long)max_entries.load(), (unsigned long long)rets,
               (unsigned long long)purged);
@@ -1622,56 +1642,86 @@ void x20_steering() {
               old, nw, took * 1000, kDeadMs);
 }
 
-// X25 delayed old frames after silent replacement: the old instance's
-// connection to B is held open but silent (its frames held in the proxy)
-// past T_dead; a new instance connects; then the proxy releases the old
-// frames toward B.
+// X25 delayed old frames after silent replacement: B's shard 1 has its
+// link reads paused (backpressure: its WAL held, so a silent In there is
+// not closed for silence) while the old instance of A, which sent to it,
+// stops; its last frames are held in the proxy with B's side of the
+// connection open. Past T_dead a new instance of A appears, first only
+// through B's Out connection to it (its HelloAck: the new incarnation is
+// admitted there, 2.12 C, with the old In still open at B). The old In
+// must be fenced (closed) before the retirement; then the old frames are
+// released and B's reads resume: B reads none of them.
 void x25_delayed_old() {
   Net net;
-  net.build({{0, 0}, {1, 0}});
+  net.exchange_budget = 256;
+  net.link_hold_max = 8;
+  net.tweak = [](Engine::Config& c, const Node& nd) {
+    if (nd.index == 1) c.wal_buffer_budget_bytes = 32u << 10;
+  };
+  net.build({{0, 0}, {1, 0}}, {1, 2});
   net.start_all();
-  Ledger L = make_ledger(net, 8);
+  Ledger L = make_ledger(net, 8, {0, 1});
   Engine& B = *net.nodes[1].eng;
-  wait_until([&] { return bound_to(*net.nodes[0].eng, 1, 0) && bound_to(B, 0, 0); }, "bound");
-  const u64 inc_old = entry(B, 0, 0).e.inc;
-  const u64 ret0 = entry(B, 0, 0).c.retirements;
+  LinkProxy& wire = net.px(0, 1, 1);  // A's Out connection to B's shard 1
+  wait_until([&] { return entry(*net.nodes[0].eng, 1, 0, 1).out.bound && entry(B, 0, 0, 0, 1).out.bound; }, "bound");
+  const u64 inc_old = entry(B, 0, 0, 0, 1).e.inc;
+  const u64 ret0 = entry(B, 0, 0, 0, 1).c.retirements;
+  u64 held = 0;
   {
-    Load ab(net, L, 0, 1), ba(net, L, 1, 0);
+    Load ab(net, L, 0, 1, 256, /*may_lose=*/true), ab2(net, L, 0, 1, 256, /*may_lose=*/true);
     sleep_ms(150);
-    net.px(0, 1).set(LinkProxy::HOLD, LinkProxy::PASS);  // A's frames to B: held, the connection open
+    Engine::debug_hold_wal(1, true);  // B's shard 1 (A has no shard 1)
+    wait_until([&] { return gauges(B, 1)[G_INTAKE_LINK_PAUSED] != 0; }, "B's shard 1 link reads paused", 20);
+    wire.set(LinkProxy::HOLD, LinkProxy::PASS);  // A's further frames to B's shard 1: held, the connection open
     sleep_ms(60);
+    ab.stop();
+    ab2.stop();
   }
-  const u64 held = net.px(0, 1).held_fwd();
+  held = wire.held_fwd();
   CHECK(held > 0);
   net.stop(0);  // the old instance is gone; its connection to B stays open at the proxy
   sleep_ms(kDeadMs + 100);  // silent past T_dead
-  net.px(0, 1).set(LinkProxy::PASS, LinkProxy::PASS, /*all=*/false);
+  CHECK(gauges(B, 1)[G_INTAKE_LINK_PAUSED] != 0);
+  CHECK_EQ(entry(B, 0, 0, 0, 1).ins, 1u);  // the old In, still open at B (paused: not closed for silence)
+  // The new instance: its own connections to B's shard 1 refused for now,
+  // so it reaches B's shard 1 only through B's Out connection (the
+  // HelloAck).
+  wire.refuse(true);
   net.start(0, /*init=*/false);
-  wait_until([&] { return bound_to(*net.nodes[0].eng, 1, 0) && bound_to(B, 0, 0); }, "the new instance bound", 20);
-  const EntryView v = entry(B, 0, 0);
-  CHECK(v.e.inc > inc_old);
+  wait_until([&] { return entry(B, 0, 0, 0, 1).e.inc > inc_old; }, "the new incarnation admitted by its HelloAck", 20);
+  const EntryView v = entry(B, 0, 0, 0, 1);
   CHECK_EQ(v.c.retirements, ret0 + 1);
-  settle(net, L, "X25 before the release");
-  // Now the old frames are released toward B, with nothing else moving:
-  // its old socket is gone, so B reads none of them.
-  const u64 rx0 = B.stats(0).node_emits_received;
-  const EntryView b0 = entry(B, 0, 0);
-  net.px(0, 1).set_open(LinkProxy::PASS, LinkProxy::PASS);
-  wait_until([&] { return net.px(0, 1).held_fwd() == 0; }, "old frames released", 10);
+  CHECK_EQ(v.ins, 0u);  // fenced: the old In closed before the retirement
+  // Now the old frames are released toward B and B's reads resume, with
+  // nothing else moving toward B's shard 1 (its Out connection to A is not
+  // bound: the new instance's SYNC cannot reach it yet). The old socket
+  // is gone, so B reads none of them.
+  const u64 rx0 = B.stats(1).node_emits_received;
+  wire.set(LinkProxy::PASS, LinkProxy::PASS);  // the held connection, and new ones from now on
+  Engine::debug_hold_wal(1, false);
+  wait_until([&] { return wire.held_fwd() == 0; }, "old frames released", 10);
+  wait_until([&] { return gauges(B, 1)[G_INTAKE_LINK_PAUSED] == 0; }, "B's reads resumed", 20);
   sleep_ms(300);
-  const EntryView b1 = entry(B, 0, 0);
-  CHECK_EQ(B.stats(0).node_emits_received, rx0);
-  CHECK_EQ(b1.c.ends_received, b0.c.ends_received);
-  CHECK_EQ(b1.c.syncs_exact + b1.c.syncs_stale, b0.c.syncs_exact + b0.c.syncs_stale);
-  CHECK_EQ(b1.c.replies_returned, b0.c.replies_returned);
-  CHECK_EQ(b1.c.ignored_frames, b0.c.ignored_frames);
+  const EntryView b1 = entry(B, 0, 0, 0, 1);
+  CHECK_EQ(B.stats(1).node_emits_received, rx0);
+  CHECK_EQ(b1.c.ends_received, v.c.ends_received);
+  CHECK_EQ(b1.c.syncs_exact + b1.c.syncs_stale, v.c.syncs_exact + v.c.syncs_stale);
+  CHECK_EQ(b1.c.replies_returned, v.c.replies_returned);
+  CHECK_EQ(b1.c.ignored_frames, v.c.ignored_frames);
+  CHECK_EQ(b1.c.stale_tags, v.c.stale_tags);
   CHECK_EQ(b1.c.retirements, ret0 + 1);  // purged exactly once
-  CHECK_EQ(entry(B, 0, 0).e.inc, v.e.inc);
+  CHECK_EQ(b1.e.inc, v.e.inc);
+  wire.refuse(false);
+  wire.refuse(false);
+  wait_until([&] { return entry(*net.nodes[0].eng, 1, 0, 1).out.bound && entry(B, 0, 0, 0, 1).out.bound; },
+             "the new instance bound", 20);
   settle(net, L, "X25");
   check_probes("X25");
-  std::printf("X25 delayed old frames: %llu bytes of the old instance's frames held past T_dead; the new instance "
-              "accepted, the old entry retired once; on release B read none of them (no DATA, END, SYNC or "
-              "reply counted; its socket gone); the new entry bound with an exact SYNC; settled, money conserved, no underflow\n",
+  std::printf("X25 delayed old frames: B's shard 1 paused (WAL held), %llu bytes of the old instance's frames held "
+              "past T_dead with B's side open; the new incarnation admitted by its HelloAck with the old In still "
+              "open: the old In fenced (closed) and the old entry retired once; on release, B's reads resumed, B "
+              "read none of the old frames (no DATA, END, SYNC or reply counted, none ignored or stale); the new "
+              "entry bound with an exact SYNC; settled, money conserved, no underflow\n",
               (unsigned long long)held);
 }
 
@@ -1976,6 +2026,12 @@ void x19_variant(bool undeliverable) {
   const char* name = undeliverable ? "X19b" : "X19";
   Net net;
   if (undeliverable) NodeLinks::debug_out_sndbuf = 4096;
+  if (!undeliverable) {
+    // T_hb well above the bit's own latency, so a bit that waited for an
+    // idle heartbeat (ND34) is told apart from one sent at once.
+    net.hb_ms = 80;
+    net.dead_ms = 240;
+  }
   net.build({{0, 0}, {1, 0}, {1, 1, true, true, 1}}, {}, undeliverable ? 4096 : 0);
   net.start_all();
   Ledger L = make_ledger(net, 8);
@@ -1984,7 +2040,8 @@ void x19_variant(bool undeliverable) {
   wait_until([&] { return bound_to(A, 1, 0) && bound_to(P, 0, 0); }, "bound");
   const u64 inc_p = entry(A, 1, 0).e.inc;
   double t_pb = -1, t_ab = -1, t_left = -1, t_q = -1;
-  bool bound_while_blocked = false, survived_leave = false;
+  bool bound_while_blocked = false, survived_leave = false, recut = false, reidentified = false;
+  u64 cut_conn = 0;
   u64 bindings_at_bit = 0;
   EntryView at_q{};
   {
@@ -1994,6 +2051,7 @@ void x19_variant(bool undeliverable) {
       net.px(1, 0).set(LinkProxy::STALL, LinkProxy::PASS);  // A reads nothing more from P
       sleep_ms(100);
     }
+    bindings_at_bit = entry(A, 1, 0).c.bindings;  // (the bit may be seen on the first sample)
     net.repl[1]->refuse(true);
     net.repl[1]->cut();
     const auto t0 = Clock::now();
@@ -2007,6 +2065,16 @@ void x19_variant(bool undeliverable) {
       // the quarantine).
       if (t_ab >= 0 && v.c.bindings > bindings_at_bit) bound_while_blocked = true;
       if (t_ab < 0) bindings_at_bit = v.c.bindings;
+      if (!undeliverable && t_ab >= 0 && !recut && now - t_ab >= 0.05) {
+        // A's Out connection to P goes once after the bit (and after A's
+        // quarantine checks saw it bound with the bit set, so the blocked
+        // trigger stays the first due): it reconnects (HelloAck and SYNC
+        // from the blocked P) but must not bind.
+        cut_conn = v.out.conn;
+        net.px(0, 1).cut();
+        recut = true;
+      }
+      if (recut && t_left < 0 && v.out.identified && v.out.conn != cut_conn) reidentified = true;
       if (t_left < 0 && gauges(P)[G_XNODE_LEFT] != 0) t_left = now;
       if (t_left >= 0 && !survived_leave && v.blocked_since != 0 && now > t_left + 0.02) survived_leave = true;
       if (v.e.inc == inc_p && v.e.state == NodeLinks::EntryState::QUARANTINED) {
@@ -2017,11 +2085,12 @@ void x19_variant(bool undeliverable) {
     }
     CHECK(t_pb >= 0);
     if (!undeliverable) {
-      CHECK_MSG(t_ab >= 0 && (t_ab - t_pb) * 1000 <= kHbMs + 30, "%s: blocked bit at A %.0f ms after the block",
-                name, (t_ab - t_pb) * 1000);
-      CHECK(!bound_while_blocked);
+      CHECK_MSG(t_ab >= 0 && (t_ab - t_pb) * 1000 <= net.hb_ms / 2, "%s: blocked bit at A %.0f ms after the block "
+                "(T_hb %u: not sent at once)", name, (t_ab - t_pb) * 1000, net.hb_ms);
+      CHECK_MSG(!bound_while_blocked, "%s: A bound again to the blocked P", name);
+      CHECK_MSG(reidentified, "%s: A's Out connection never reconnected to the blocked P", name);
       CHECK(at_q.c.q_blocked >= 1);
-      CHECK_MSG((t_q - t_pb) * 1000 <= kHbMs + kReleaseMs + 100, "%s: quarantined %.0f ms after the block", name,
+      CHECK_MSG((t_q - t_pb) * 1000 <= net.hb_ms + kReleaseMs + 100, "%s: quarantined %.0f ms after the block", name,
                 (t_q - t_pb) * 1000);
     } else {
       CHECK(t_ab < 0 || !bound_while_blocked);
@@ -2066,12 +2135,12 @@ void x19_variant(bool undeliverable) {
   }
   check_probes(name);
   if (!undeliverable) {
-    std::printf("X19 blocked primary: blocked bit at A %.0f ms after P blocked (T_hb %u, under END traffic); no "
-                "binding to it; P left the links %.0f ms after the block (T_block %u); A kept its blocked_since "
+    std::printf("X19 blocked primary: blocked bit at A %.0f ms after P blocked (T_hb %u, under END traffic); A's "
+                "Out connection to P cut after the bit: reconnected, not bound to it; P left the links %.0f ms after the block (T_block %u); A kept its blocked_since "
                 "after; quarantined %.0f ms after the block (<= T_hb + T_release = %u), by the blocked trigger; "
                 "unblocked, P rejoined as incarnation %llu (was %llu), bound exactly; settled, money conserved\n",
-                (t_ab - t_pb) * 1000, kHbMs, (t_left - t_pb) * 1000, kBlockMs, (t_q - t_pb) * 1000,
-                kHbMs + kReleaseMs, (unsigned long long)inc_after, (unsigned long long)inc_p);
+                (t_ab - t_pb) * 1000, net.hb_ms, (t_left - t_pb) * 1000, kBlockMs, (t_q - t_pb) * 1000,
+                net.hb_ms + kReleaseMs, (unsigned long long)inc_after, (unsigned long long)inc_p);
   } else {
     std::printf("X19b blocked primary, bit undeliverable: A not reading P; P left %.0f ms after the block; A "
                 "quarantined its entry %.0f ms after the block (<= T_block + T_release = %u) by the In-down "
@@ -2082,6 +2151,126 @@ void x19_variant(bool undeliverable) {
 }
 void x19_blocked() { x19_variant(false); }
 void x19b_undeliverable() { x19_variant(true); }
+
+// X30 forged control frames (defense in depth behind the nonce and the
+// fencing; ND3, ND12): frames a correct peer never sends, put into a live
+// connection's stream by the proxy. Each must be ignored and change no
+// count. (a) END and SYNC naming another incarnation of the receiver;
+// (b) a SYNC naming the receiver's current Out connection exactly, but
+// from another member than the one that connection is identified with.
+void x30_forged() {
+  {
+    Net net;
+    net.build({{0, 0}, {1, 0}});
+    net.start_all();
+    Engine& A = *net.nodes[0].eng;
+    Engine& B = *net.nodes[1].eng;
+    wait_until([&] { return bound_to(A, 1, 0) && bound_to(B, 0, 0); }, "bound");
+    sleep_ms(100);
+    const u64 inc_a = entry(B, 0, 0).e.inc;  // A's incarnation, as B holds it
+    const EntryView v0 = entry(A, 1, 0);
+    CHECK_EQ(v0.e.count, 0u);
+    NodeLinks::Frame end{};
+    end.pad[0] = NodeLinks::END;
+    end.source.hi = 5;
+    end.target.lo = inc_a + 7;  // not A's
+    net.px(1, 0).inject(end);  // on B's Out connection to A
+    wait_until([&] { return entry(A, 1, 0).c.ignored_frames > v0.c.ignored_frames; }, "the END ignored", 10);
+    NodeLinks::Frame sync{};
+    sync.pad[0] = NodeLinks::SYNC;
+    sync.source.hi = v0.out.conn;  // A's current Out connection, exactly
+    sync.op = v0.out.conn_seq;
+    sync.source.lo = 0;
+    sync.target.hi = 1000;
+    sync.target.lo = inc_a - 1;  // not A's
+    net.px(1, 0).inject(sync);
+    wait_until([&] { return entry(A, 1, 0).c.ignored_frames > v0.c.ignored_frames + 1; }, "the SYNC ignored", 10);
+    sleep_ms(50);
+    const EntryView v1 = entry(A, 1, 0);
+    CHECK_EQ(v1.e.count, 0u);
+    CHECK_EQ(v1.c.ends_received, v0.c.ends_received);
+    CHECK_EQ(v1.c.syncs_exact, v0.c.syncs_exact);
+    CHECK_EQ(v1.c.syncs_stale, v0.c.syncs_stale);
+    check_zero_counters(net.nodes[0], "X30a");
+    settle_counts(net, "X30a");
+  }
+  {
+    Net net;
+    net.build({{0, 0}, {1, 0}, {1, 1}});
+    net.start_all();
+    Engine& A = *net.nodes[0].eng;
+    u16 bm = 0;
+    wait_until([&] {
+      for (u16 m = 0; m < 2; ++m) {
+        if (bound_to(A, 1, m) && entry(A, 1, static_cast<u16>(1 - m)).e.inc != 0) {
+          bm = m;
+          return true;
+        }
+      }
+      return false;
+    }, "bound to one member, the other admitted");
+    const u16 other = static_cast<u16>(1 - bm);
+    sleep_ms(100);
+    const u64 inc_a = entry(*net.nodes[1 + other].eng, 0, 0).e.inc;
+    const EntryView v0 = entry(A, 1, bm), w0 = entry(A, 1, other);
+    NodeLinks::Frame sync{};
+    sync.pad[0] = NodeLinks::SYNC;
+    sync.source.hi = v0.out.conn;  // names A's current Out connection (to member bm) exactly
+    sync.op = v0.out.conn_seq;
+    sync.source.lo = 0;
+    sync.target.hi = 1000;
+    sync.target.lo = inc_a;
+    net.px(static_cast<u16>(1 + other), 0).inject(sync);  // ... but on the other member's connection
+    wait_until([&] { return entry(A, 1, other).c.syncs_stale > w0.c.syncs_stale; }, "the SYNC ignored as stale", 10);
+    sleep_ms(50);
+    const EntryView v1 = entry(A, 1, bm), w1 = entry(A, 1, other);
+    CHECK_EQ(w1.c.syncs_exact, w0.c.syncs_exact);
+    CHECK_EQ(w1.e.count, 0u);
+    CHECK_EQ(v1.e.count, 0u);
+    CHECK(v1.out.bound && v1.out.conn == v0.out.conn);
+    check_zero_counters(net.nodes[0], "X30b");
+    settle_counts(net, "X30b");
+  }
+  std::printf("X30 forged control frames: an END and a SYNC naming another incarnation of the receiver ignored; a "
+              "SYNC naming the receiver's current Out connection exactly but sent by another member ignored as "
+              "stale; no count changed, no underflow\n");
+}
+
+// X31 eager retirement purge (2.7, ND18): B's shard 1 holds A's tagged
+// replies (its WAL held) when A restarts. The retirement of A's old entry
+// purges them at once, while B is still held, not when they would next
+// be pushed.
+void x31_retire_purge() {
+  Net net;
+  net.build({{0, 0}, {1, 0}}, {1, 2});
+  net.start_all();
+  Ledger L = make_ledger(net, 8, {0, 1});
+  Engine& B = *net.nodes[1].eng;
+  wait_until([&] { return entry(*net.nodes[0].eng, 1, 0, 1).out.bound && entry(B, 0, 0, 0, 1).out.bound; }, "bound");
+  const u64 inc_old = entry(B, 0, 0, 0, 1).e.inc;
+  const u64 p0 = B.stats(1).xnode_retire_purged;
+  u64 held = 0, purged = 0;
+  {
+    Load ab(net, L, 0, 1, 32, /*may_lose=*/true);
+    sleep_ms(100);
+    Engine::debug_hold_wal(1, true);  // B's shard 1 (A has no shard 1): its replies wait for durability
+    sleep_ms(150);
+    held = entry(B, 0, 0, 0, 1).e.held_for;
+    ab.stop();
+  }
+  CHECK(held > 0);
+  net.restart(0);
+  wait_until([&] { return entry(B, 0, 0, 0, 1).e.inc > inc_old; }, "A's new instance admitted", 20);
+  // Still held: what the retirement purged went at once.
+  purged = B.stats(1).xnode_retire_purged - p0;
+  CHECK_MSG(purged > 0, "X31: the retirement purged nothing of %llu items held for the old instance",
+            (unsigned long long)held);
+  Engine::debug_hold_wal(1, false);
+  settle(net, L, "X31");
+  std::printf("X31 eager retirement purge: %llu items held at B for A's old instance (B's WAL held); A restarted: "
+              "the retirement purged %llu of B's queued items at once, B still held; settled, money conserved\n",
+              (unsigned long long)held, (unsigned long long)purged);
+}
 
 // X17 churn: 20 cycles of slot moves, releases (a blackholed pair past
 // T_release, then healed), reconnects and restarts under load on three
@@ -2189,6 +2378,131 @@ void x17_churn() {
               (unsigned long long)max_live.load(), (unsigned long long)phys_bound, (unsigned long long)max_phys.load());
 }
 
+// P2 (8.4, dev VM, not tuning): cross-node transfers on two engines, A <->
+// B, accounting on against the rollback (off), each for `secs` seconds;
+// the per-frame overhead (control frames per DATA frame, from the proxies'
+// counts), the heartbeat rate (idle and under load), the binding latency
+// after a connect (accounting on), and the drops to resume. Run by name.
+struct P2Run {
+  double tps = 0;
+  u64 data = 0, ends = 0, end_items = 0, syncs = 0, hbs = 0, counted = 0, replies = 0;
+  double hb_idle_per_s = 0;
+  u64 drops_to_resume = 0, unbound_purged = 0;
+};
+P2Run p2_run(bool accounting, double secs) {
+  Net net;
+  net.hb_ms = 100;
+  net.dead_ms = 1000;
+  net.release_ms = 3000;
+  net.block_ms = 2000;  // the engine defaults
+  net.exchange_budget = 1024;
+  net.build({{0, 0, true, accounting}, {1, 0, true, accounting}});
+  net.start_all();
+  Ledger L = make_ledger(net, 64);
+  wait_until([&] {
+    return accounting ? bound_to(*net.nodes[0].eng, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0)
+                      : entry(*net.nodes[0].eng, 1, 0).out.up && entry(*net.nodes[1].eng, 0, 0).out.up;
+  }, "links");
+  P2Run r;
+  // Idle heartbeat rate, one connection.
+  {
+    const u64 h0 = net.px(0, 1).total().heartbeats;
+    sleep_ms(2000);
+    r.hb_idle_per_s = (net.px(0, 1).total().heartbeats - h0) / 2.0;
+  }
+  auto tot = [&] {
+    LinkProxy::Conn a = net.px(0, 1).total(), b = net.px(1, 0).total();
+    a.data += b.data;
+    a.ends += b.ends;
+    a.end_items += b.end_items;
+    a.syncs += b.syncs;
+    a.heartbeats += b.heartbeats;
+    a.counted_sender += b.counted_sender;
+    a.counted_receiver += b.counted_receiver;
+    return a;
+  };
+  const LinkProxy::Conn t0 = tot();
+  u64 ok = 0;
+  {
+    Load ab(net, L, 0, 1, 256), ba(net, L, 1, 0, 256);
+    sleep_ms(static_cast<u32>(secs * 1000));
+    ok = ab.ok() + ba.ok();
+  }
+  const LinkProxy::Conn t1 = tot();
+  r.tps = ok / secs;
+  r.data = t1.data - t0.data;
+  r.ends = t1.ends - t0.ends;
+  r.end_items = t1.end_items - t0.end_items;
+  r.syncs = t1.syncs - t0.syncs;
+  r.hbs = t1.heartbeats - t0.heartbeats;
+  r.counted = t1.counted_sender - t0.counted_sender;
+  r.replies = t1.counted_receiver - t0.counted_receiver;
+  for (Node& n : net.nodes) {
+    const ShardStats st = n.eng->stats(0);
+    r.drops_to_resume += st.xnode_drops_to_resume;
+    r.unbound_purged += st.xnode_unbound_purged;
+  }
+  settle(net, L, accounting ? "P2 on" : "P2 off");
+  return r;
+}
+void p2_bench() {
+  const char* env = std::getenv("SNC_P2_SECS");
+  const double secs = env ? std::atof(env) : 5.0;
+  const char* rounds_env = std::getenv("SNC_P2_ROUNDS");
+  const int rounds = rounds_env ? std::atoi(rounds_env) : 3;
+  for (int round = 0; round < rounds; ++round) {
+    for (bool acc : {true, false}) {
+      const P2Run r = p2_run(acc, secs);
+      const double ctl = static_cast<double>(r.ends + r.syncs + r.hbs);
+      std::printf("P2 round %d accounting %s: %.0f transfers/s over %.1f s; DATA frames %llu (counted by sender %llu, "
+                  "counted replies %llu); END frames %llu carrying %llu items (%.1f per frame); SYNC %llu; heartbeats "
+                  "%llu under load, %.1f/s idle per connection; control frames per DATA frame %.4f; drops to resume "
+                  "%llu, unbound purges %llu\n",
+                  round, acc ? "on" : "off", r.tps, secs, (unsigned long long)r.data, (unsigned long long)r.counted,
+                  (unsigned long long)r.replies, (unsigned long long)r.ends, (unsigned long long)r.end_items,
+                  r.ends ? static_cast<double>(r.end_items) / r.ends : 0.0, (unsigned long long)r.syncs,
+                  (unsigned long long)r.hbs, r.hb_idle_per_s, r.data ? ctl / r.data : 0.0,
+                  (unsigned long long)r.drops_to_resume, (unsigned long long)r.unbound_purged);
+      std::fflush(stdout);
+    }
+  }
+  // Binding latency after a connect (accounting on): the Out connection
+  // cut 20 times, idle and under load; from the cut to BOUND on the new one.
+  for (bool loaded : {false, true}) {
+    Net net;
+    net.hb_ms = 100;
+    net.dead_ms = 1000;
+    net.release_ms = 3000;
+    net.block_ms = 2000;
+    net.build({{0, 0}, {1, 0}});
+    net.start_all();
+    Ledger L = make_ledger(net, 64);
+    Engine& A = *net.nodes[0].eng;
+    wait_until([&] { return bound_to(A, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0); }, "bound");
+    std::vector<double> ms;
+    {
+      std::unique_ptr<Load> ab, ba;
+      if (loaded) {
+        ab = std::make_unique<Load>(net, L, 0, 1, 256);
+        ba = std::make_unique<Load>(net, L, 1, 0, 256);
+      }
+      for (int i = 0; i < 20; ++i) {
+        sleep_ms(100);
+        const u64 old = out_conn(A, 1);
+        const auto t0 = Clock::now();
+        net.px(0, 1).cut();
+        wait_rebound(A, 1, 0, old, "rebound");
+        ms.push_back(since(t0) * 1000);
+      }
+    }
+    settle(net, L, "P2 binding");
+    std::sort(ms.begin(), ms.end());
+    std::printf("P2 binding latency (%s): cut to BOUND on the new connection, 20 cuts: min %.2f ms, median %.2f ms, "
+                "max %.2f ms (reconnect backoff included)\n",
+                loaded ? "under load" : "idle", ms.front(), ms[ms.size() / 2], ms.back());
+  }
+}
+
 const Test kTests[] = {
     {"X3", x3_forward_drop}, {"X4", x4_return_drop}, {"X5", x5_blackhole}, {"X10", x10_rollback},
     {"X18", x18_timers},     {"X22", x22_unbound},   {"X23", x23_mismatch},
@@ -2198,6 +2512,7 @@ const Test kTests[] = {
     {"X1", x1_stalled},       {"X11", x11_backpressure}, {"X2", x2_rate_mismatch},
     {"X8", x8_slot_move},     {"X12", x12_purge_handoff},
     {"X19", x19_blocked},     {"X19b", x19b_undeliverable},
+    {"X30", x30_forged},     {"X31", x31_retire_purge},
     {"X17", x17_churn},
 };
 
@@ -2206,10 +2521,22 @@ const Test kTests[] = {
 int main(int argc, char** argv) {
   account::register_type();
   NodeLinks::debug_sync_probe = &on_probe;
-  char tmpl[] = "/tmp/snc-xnode-XXXXXX";
-  CHECK(::mkdtemp(tmpl) != nullptr);
+  // Under $TMPDIR when set (the negatives run each mutant there, so a
+  // failing mutant's directory goes with its work directory).
+  const char* td = std::getenv("TMPDIR");
+  std::string tmpl = std::string(td != nullptr && td[0] != '\0' ? td : "/tmp") + "/snc-xnode-XXXXXX";
+  CHECK(::mkdtemp(tmpl.data()) != nullptr);
   g_root = tmpl;
   std::set<std::string> want(argv + 1, argv + argc);
+  if (want.count("P2")) {
+    p2_bench();
+    want.erase("P2");
+    if (want.empty()) {
+      rm_rf(g_root);
+      std::printf("test_xnode: ok\n");
+      return 0;
+    }
+  }
   for (const Test& t : kTests) {
     if (!want.empty() && !want.count(t.name)) continue;
     const auto t0 = Clock::now();
