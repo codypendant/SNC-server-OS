@@ -224,6 +224,7 @@ struct ShardStats {
   u64 xnode_blocked = 0;         // 1 while this primary is blocked (2.12 A)
   u64 xnode_blocked_leaves = 0;  // times it left the node links, blocked for T_block
   u64 xnode_rejoins = 0;         // times it recreated them (a new incarnation) once unblocked
+  u64 xnode_unbound_purged = 0;  // queued for a link that was not bound (or down): dropped, resumed at binding
   // Slot moves (docs/MIGRATION.md).
   u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
   u64 emits_held_now = 0;        // ... held at this moment

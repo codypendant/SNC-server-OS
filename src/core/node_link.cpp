@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -527,6 +528,7 @@ bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_
     // Retire the old entry (2.7): its items are purged by the shard (no
     // END: its instance is gone), its END debt is discarded, its count
     // zeroed. The slot's serial bumps, so no older tag matches.
+    ++ctr_.retirements;
     if (opt_.on_retire) opt_.on_retire(opt_.ctx, l, m, old);
     Entry& e = ent(l, m);
     set_count(e, 0);
@@ -543,6 +545,39 @@ bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_
   e.inc = inc;
   e.in_alive_ns = e.bound_ns = now_ns;
   return true;
+}
+
+NodeLinks::Counters NodeLinks::totals() const {
+  Counters c = ctr_;
+  c.heartbeats_sent = heartbeats_sent_;
+  c.silence_closes = silence_closes_;
+  c.out_resets = out_resets_;
+  c.steers = steers_;
+  c.version_refusals = version_refusals_;
+  c.accounting_refusals = accounting_refusals_;
+  c.m_conflicts = m_conflicts_;
+  c.fenced = fenced_;
+  return c;
+}
+
+NodeLinks::State NodeLinks::state() const {
+  State st;
+  st.remote_live = xnode_live_;
+  st.entry_slots = entries_.size();
+  for (const Entry& e : entries_) {
+    if (e.inc == 0) continue;
+    ++st.entries;
+    if (!e.gates) st.debt += e.count;
+    if (e.state == EntryState::QUARANTINED) ++st.entries_quarantined;
+    st.held_for += e.held_for;
+    st.end_owed += e.end_owed;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (ready(l)) ++st.links_bound;
+    else ++st.links_unbound;
+  }
+  for (u64 h : *opt_.highest) st.highest_incarnation = std::max(st.highest_incarnation, h);
+  return st;
 }
 
 // ---- Accounting (2.4-2.6) ---------------------------------------------------------------

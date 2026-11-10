@@ -1085,6 +1085,75 @@ void Shard::publish_gauges(u64 now, bool force) {
   v[G_INTAKE_RESUME_COALESCED] = stats_.resume_coalesced;
   v[G_INTAKE_RESUME_RESTARTS] = stats_.resume_restarts;
   v[G_INTAKE_RESUME_OBJECTS] = stats_.resume_objects;
+  {
+    v[G_XNODE_ACCOUNTING] = xnode_.accounting ? 1 : 0;
+    v[G_XNODE_HB_MS] = xnode_.hb_ns / 1'000'000;
+    v[G_XNODE_DEAD_MS] = xnode_.dead_ns / 1'000'000;
+    v[G_XNODE_RELEASE_MS] = xnode_.release_ns / 1'000'000;
+    v[G_XNODE_BLOCK_MS] = xnode_.block_ns / 1'000'000;
+    if (links_) {
+      const NodeLinks::State st = links_->state();
+      v[G_XNODE_INCARNATION] = links_->incarnation();
+      v[G_XNODE_REMOTE_LIVE] = st.remote_live;
+      v[G_XNODE_DEBT] = st.debt;
+      v[G_XNODE_HELD_FOR_PEERS] = st.held_for;
+      v[G_XNODE_END_OWED] = st.end_owed;
+      v[G_XNODE_LINKS_UNBOUND] = st.links_unbound;
+      v[G_XNODE_LINKS_BOUND] = st.links_bound;
+      v[G_XNODE_ENTRIES] = st.entries;
+      v[G_XNODE_ENTRIES_QUARANTINED] = st.entries_quarantined;
+      v[G_XNODE_ENTRY_SLOTS] = st.entry_slots;
+    }
+    u64 hi = 0;
+    for (u64 h : peer_highest_) hi = std::max(hi, h);
+    v[G_XNODE_HIGHEST_INCARNATION] = hi;
+    v[G_XNODE_BLOCKED] = stats_.xnode_blocked;
+    v[G_XNODE_LEFT] = xnode_left_ ? 1 : 0;
+    const NodeLinks::Counters c = xnode_totals();
+    v[G_XNODE_BINDINGS] = c.bindings;
+    v[G_XNODE_IDENTIFIED] = c.identified;
+    v[G_XNODE_BIND_MISMATCH] = c.bind_mismatch;
+    v[G_XNODE_SYNCS_SENT] = c.syncs_sent;
+    v[G_XNODE_SYNCS_EXACT] = c.syncs_exact;
+    v[G_XNODE_SYNCS_STALE] = c.syncs_stale;
+    v[G_XNODE_SYNC_CORRECTION] = c.sync_correction;
+    v[G_XNODE_SYNC_R_ANOMALIES] = c.sync_r_anomalies;
+    v[G_XNODE_ENDS_SENT] = c.ends_sent;
+    v[G_XNODE_END_ITEMS_SENT] = c.end_items_sent;
+    v[G_XNODE_ENDS_RECEIVED] = c.ends_received;
+    v[G_XNODE_END_ITEMS_RECEIVED] = c.end_items_received;
+    v[G_XNODE_REPLIES_PUSHED] = c.replies_pushed;
+    v[G_XNODE_REPLIES_RETURNED] = c.replies_returned;
+    v[G_XNODE_DISPOSITIONS] = c.dispositions;
+    v[G_XNODE_STALE_TAGS] = c.stale_tags;
+    v[G_XNODE_END_UNDERFLOW] = c.end_underflow;
+    v[G_XNODE_HELD_UNDERFLOW] = c.held_underflow;
+    v[G_XNODE_DEBT_INCREASES] = c.debt_increases;
+    v[G_XNODE_QUARANTINES] = c.quarantines;
+    v[G_XNODE_Q_IN_DOWN] = c.q_in_down;
+    v[G_XNODE_Q_BLOCKED] = c.q_blocked;
+    v[G_XNODE_Q_NOT_BOUND] = c.q_not_bound;
+    v[G_XNODE_QUARANTINE_OUT_RESETS] = c.quarantine_out_resets;
+    v[G_XNODE_RETIREMENTS] = c.retirements;
+    v[G_XNODE_RETIRE_PURGED] = stats_.xnode_retire_purged;
+    v[G_XNODE_DROPS_TO_RESUME] = stats_.xnode_drops_to_resume;
+    v[G_XNODE_TAG_DROPS] = stats_.xnode_tag_drops;
+    v[G_XNODE_HANDOFF_DROPS] = stats_.xnode_handoff_drops;
+    v[G_XNODE_REPLY_DROPS] = stats_.xnode_reply_drops;
+    v[G_XNODE_UNBOUND_PURGED] = stats_.xnode_unbound_purged;
+    v[G_XNODE_UNCOUNTED] = stats_.xnode_uncounted;
+    v[G_XNODE_IGNORED_FRAMES] = c.ignored_frames;
+    v[G_XNODE_HEARTBEATS_SENT] = c.heartbeats_sent;
+    v[G_XNODE_SILENCE_CLOSES] = c.silence_closes;
+    v[G_XNODE_OUT_RESETS] = c.out_resets;
+    v[G_XNODE_STEERS] = c.steers;
+    v[G_XNODE_FENCED] = c.fenced;
+    v[G_XNODE_M_CONFLICTS] = c.m_conflicts;
+    v[G_XNODE_BLOCK_LEAVES] = stats_.xnode_blocked_leaves;
+    v[G_XNODE_REJOINS] = stats_.xnode_rejoins;
+    v[G_LINK_VERSION_REFUSALS] = c.version_refusals;
+    v[G_LINK_ACCOUNTING_REFUSALS] = c.accounting_refusals;
+  }
   v[G_PUBLISHED_NS] = now;
   gauges_->publish(v);
 }
@@ -1968,7 +2037,14 @@ bool Shard::poll_blocked() {
 // The links instance goes, listener included: its counts and entries with
 // it, every tagged item purged (no END: its counting instance is gone),
 // and what waits for a link dropped (resumed when links come back).
+NodeLinks::Counters Shard::xnode_totals() const {
+  NodeLinks::Counters c = xnode_prev_;
+  if (links_) c.add(links_->totals());
+  return c;
+}
+
 void Shard::leave_links() {
+  if (links_) xnode_prev_.add(links_->totals());
   links_.reset();
   links_paused_ = false;
   purge_tagged(-1, 0, 0);
@@ -2065,6 +2141,7 @@ void Shard::withdraw() {
   withdrawn_ = true;
   if (withdraw_flag_) withdraw_flag_->store(true);
   std::fprintf(stderr, "snc: shard %u: fenced (a newer primary exists), leaving the data plane\n", id_);
+  if (links_) xnode_prev_.add(links_->totals());
   links_.reset();         // the listener and every link, in and out
   purge_tagged(-1, 0, 0);  // their counting instances went with them (D.2, 2.7)
   emits_paused_ = true;   // queued follow-ups stay queued; the new primary resumes them
@@ -3202,6 +3279,7 @@ bool Shard::run_emits() {
       // Lost with the link, or the link is not bound (D.2, 2.4: down for
       // queueing): re-emitted when it comes back up, or at the binding.
       stats_.node_emits_dropped += q.size();
+      if (links_->accounting()) stats_.xnode_unbound_purged += q.size();
       emit_ready_count_ -= q.size();
       while (!q.empty()) {
         release_link(q.front());

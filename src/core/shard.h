@@ -870,6 +870,8 @@ class Shard {
   // node links after T_block and recreates them once unblocked.
   u64 xnode_blocked_since_ = 0;
   bool xnode_left_ = false;
+  NodeLinks::Counters xnode_prev_;  // counters of links instances gone (gauges are cumulative)
+  NodeLinks::Counters xnode_totals() const;
   u64 wait_front_lsn_ = 0, wait_front_ns_ = 0;
   bool xnode_blocked_now(u64 now);
   bool poll_blocked();

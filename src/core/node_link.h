@@ -116,21 +116,36 @@ class NodeLinks {
   u64 xnode_live() const { return xnode_live_; }
   u64 debt() const;
   bool accounting() const { return opt_.accounting; }
-  // Counters (section 7).
+  // Counters (section 7). END (2.6): frames and items each way, replies
+  // pushed and returned, dispositions, stale tags, underflows (must stay
+  // 0). Quarantine (2.8) by trigger; debt_increases (must stay 0). The
+  // rest are the links' own (2.10, 2.11, 2.12).
+#define SNC_XNODE_COUNTERS(X)                                                                          \
+  X(bindings) X(identified) X(bind_mismatch) X(syncs_sent) X(syncs_exact) X(syncs_stale)                \
+  X(sync_correction) X(ignored_frames) X(sync_r_anomalies) X(ends_sent) X(end_items_sent)               \
+  X(ends_received) X(end_items_received) X(replies_pushed) X(replies_returned) X(dispositions)           \
+  X(stale_tags) X(end_underflow) X(held_underflow) X(quarantines) X(q_in_down) X(q_blocked)             \
+  X(q_not_bound) X(quarantine_out_resets) X(debt_increases) X(retirements) X(heartbeats_sent)           \
+  X(silence_closes) X(out_resets) X(steers) X(version_refusals) X(accounting_refusals) X(m_conflicts)   \
+  X(fenced)
   struct Counters {
-    u64 bindings = 0, identified = 0, bind_mismatch = 0, syncs_sent = 0, syncs_exact = 0, syncs_stale = 0;
-    u64 sync_correction = 0, ignored_frames = 0, sync_r_anomalies = 0;
-    // END (2.6): frames and the items they carried, each way; replies
-    // pushed and returned; dispositions; stale tags; underflows (must
-    // stay 0: an END or a counted reply with no count for it).
-    u64 ends_sent = 0, end_items_sent = 0, ends_received = 0, end_items_received = 0;
-    u64 replies_pushed = 0, replies_returned = 0, dispositions = 0, stale_tags = 0;
-    u64 end_underflow = 0, held_underflow = 0;
-    // Quarantine (2.8), by trigger; a count raised while not gating (must
-    // stay 0: the debt is non-increasing).
-    u64 quarantines = 0, q_in_down = 0, q_blocked = 0, q_not_bound = 0, quarantine_out_resets = 0;
-    u64 debt_increases = 0;
+#define SNC_X(n) u64 n = 0;
+    SNC_XNODE_COUNTERS(SNC_X)
+#undef SNC_X
+    void add(const Counters& o) {
+#define SNC_X(n) n += o.n;
+      SNC_XNODE_COUNTERS(SNC_X)
+#undef SNC_X
+    }
   };
+  // Every counter of this instance (ctr_ and the links' own).
+  Counters totals() const;
+  // State now (section 7), summed over entries and links.
+  struct State {
+    u64 remote_live = 0, debt = 0, held_for = 0, end_owed = 0, links_unbound = 0, links_bound = 0;
+    u64 entries = 0, entries_quarantined = 0, entry_slots = 0, highest_incarnation = 0;
+  };
+  State state() const;
   const Counters& counters() const { return ctr_; }
 
   // Tests only (X3, X4, X28): the values at the SYNC barrier (peer, when
