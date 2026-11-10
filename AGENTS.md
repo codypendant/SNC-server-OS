@@ -2226,3 +2226,31 @@ or source comments.
     -   REFINE the reconciliation state machine, fencing and timing.
     -   RECONSIDER the FINAL SYNC, which is removed.
 -   **Next action:** WAIT for the rev3 review. No D.2 code.
+
+### 2026-11-10 UTC --- Claude (Claude Code): PR #93 review filed; D.2 design rev4, for review
+
+-   **Review:** PR #93 got REV3 CORE PROTOCOL APPROVED, IMPLEMENTATION
+    HOLD ON TWO NARROW CORRECTNESS ITEMS. It is filed verbatim as
+    `docs/handoff/PR93_D2_Design_Rev3_Review.md`. Q9 (remove FINAL) and
+    Q10 (not-bound quarantine) were approved.
+-   **Rev4 (narrow):** `docs/CROSS_NODE_EXCHANGE_DESIGN.md`.
+    -   SYNC accounting barrier: the SYNC is appended FIFO after every
+        byte already in `Out::buf`, whose frames have already done their
+        accounting at `push`. It preempts only work not yet pushed, and
+        its fields are read at the append. HEARTBEAT follows the same
+        rule.
+    -   The incarnation is a persistent per-member generation
+        (`links_generation`, with CRC). It is incremented and made
+        durable under the data-dir lock before the listener or any Out
+        connection opens. A bad file fails closed, and no clock or
+        randomness is involved. A restored data directory needs
+        `--links-generation-min`.
+    -   X28/ND36 and X29/ND37 added. X3/X4 record `count_`, `held_for_`,
+        `pushed` and `rx` at the barrier and at the apply. Section 15
+        maps the review.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP everything approved through rev3.
+    -   REFINE the SYNC stream position.
+    -   RECONSIDER the clock-based incarnation, which is replaced.
+-   **Next action:** WAIT for the rev4 review. No D.2 code.
+

@@ -91,12 +91,15 @@ Decided by cody on 2026-11-04.
      Design rev2 (PR #92: exact Out-to-instance binding, quarantine with
      explicit bounded debt, per-member entries, drop to resume) got
      SUBSTANTIALLY APPROVED WITH TWO CORRECTNESS BLOCKERS, IMPLEMENTATION
-     HOLD (handoff/PR92_D2_Design_Rev2_Review.md). Design rev3 is up for
-     review ([CROSS_NODE_EXCHANGE_DESIGN.md](CROSS_NODE_EXCHANGE_DESIGN.md)
-     section 14: HelloAck identity split from the exact binding SYNC, FINAL
-     removed, current-connection SYNC only, fencing before silent
-     retirement, blocked-primary timing); no D.2 code until it is
-     approved.
+     HOLD (handoff/PR92_D2_Design_Rev2_Review.md). Design rev3 (PR #93:
+     HelloAck identity split from the exact binding SYNC, FINAL removed,
+     current-connection SYNC only, fencing before silent retirement,
+     blocked-primary timing) got REV3 CORE PROTOCOL APPROVED,
+     IMPLEMENTATION HOLD ON TWO NARROW ITEMS
+     (handoff/PR93_D2_Design_Rev3_Review.md). Design rev4 is up for review
+     ([CROSS_NODE_EXCHANGE_DESIGN.md](CROSS_NODE_EXCHANGE_DESIGN.md)
+     section 15: SYNC accounting barrier, persistent monotonic incarnation
+     generation); no D.2 code until it is approved.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
