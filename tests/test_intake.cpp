@@ -80,6 +80,20 @@
 using namespace snc;
 using namespace snc::test;
 
+// A failed check must fail the test, not hang it: std::exit runs static
+// destructors (the type registry) while engine threads still use them,
+// which crashed a shard and deadlocked TSan's own report path (tsan-run1).
+// Nothing in this file needs exit handlers.
+#undef CHECK
+#define CHECK(cond)                                                             \
+  do {                                                                          \
+    if (!(cond)) {                                                              \
+      std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond); \
+      std::fflush(stdout);                                                      \
+      std::_Exit(1);                                                            \
+    }                                                                           \
+  } while (0)
+
 namespace {
 
 // ---- A probe type: one exchange per send, delivery order checked --------------------
@@ -862,7 +876,14 @@ void test_rate_mismatch() {
   Engine::debug_hold_wal(kXs, false);
   u64 x_peak = 0;
   for (int i = 0; i < 300; ++i) {
-    const ShardStats sx = eng.stats(kXs), sd = eng.stats(kD);
+    // d first, then x. The two snapshots are taken at different times, and
+    // here both counts only fall (d starts no new exchanges, x has received
+    // every send): x's backlog later is at most d's live count later, which
+    // is at most d's count now. Read the other way round, d can end
+    // exchanges between the reads that x's snapshot still counts (seen
+    // under TSan, tsan-run1).
+    const ShardStats sd = eng.stats(kD);
+    const ShardStats sx = eng.stats(kXs);
     x_peak = std::max(x_peak, sx.emits_in_flight);
     // x's backlog toward d: replies to d's live exchanges, nothing more.
     CHECK(sx.emits_in_flight <= sd.exchanges_live + sx.exchanges_live);

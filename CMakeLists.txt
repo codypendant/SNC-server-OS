@@ -64,7 +64,7 @@ foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runti
 endforeach()
 # A hung S3 test fails the suite instead of stalling it (a CHECK failure
 # exits with the engine running, which can hang under a sanitizer).
-set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens PROPERTIES TIMEOUT 2400)
+set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens test_intake PROPERTIES TIMEOUT 2400)
 
 add_executable(snc_bench bench/snc_bench.cpp)
 target_link_libraries(snc_bench PRIVATE snc_core)
