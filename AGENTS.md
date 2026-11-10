@@ -2117,3 +2117,16 @@ or source comments.
     (README lists every run).
 -   **Next action:** WAIT for the closure review. No D.2, S5, S6, R640,
     CP-1A, comparators or B2 snapshot work.
+
+### 2026-11-10 UTC --- Claude (Claude Code): PR #89 review filed; Agent-SNC doc filed
+
+-   **Review:** PR #89 APPROVED; follow-up intake D.1 COMPLETE; D.2
+    (cross-node exchange-end accounting, wire change) authorized as the
+    next separate reviewed slice, with its acceptance list
+    (`docs/handoff/PR89_D1_Closure_Review.md`, verbatim).
+-   **Filed:** cody's Agent-SNC v0.1 architecture synthesis, verbatim
+    (`docs/handoff/AGENT_SNC_ARCHITECTURE_V0_1.md`). Design input only:
+    it authorizes no Agent-SNC, Event Fabric or Rust work.
+-   **Next action:** D.2. Still forbidden until D.2 is approved: S6, the
+    R640 campaign, a CP-1A rerun, comparators, B2 begin-snapshot work,
+    and S5 unless separately justified by evidence.

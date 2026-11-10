@@ -82,8 +82,10 @@ Decided by cody on 2026-11-04.
      D.1 (intra-node) was authorized. D.1 is implemented (PR #87): its core
      is APPROVED and its completion was held on a closure PR
      (handoff/PR87_D1_Review.txt). **The closure PR (witness "primary up"
-     fix, D.1 GAUGES, P1 matrix) is returned for review** (section 3.9.7
-     there; bench/results/intake-d1-closure-devvm-20261110); D.2 (cross-node) follows as its
+     fix, D.1 GAUGES, P1 matrix) merged as PR #89 and was APPROVED: **D.1
+     is COMPLETE** (handoff/PR89_D1_Closure_Review.md; section 3.9.7
+     there; bench/results/intake-d1-closure-devvm-20261110). **D.2 is
+     authorized** as the next slice; D.2 (cross-node) follows as its
      own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
@@ -182,6 +184,14 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **Agent-SNC v0.1 architecture (design input, not authorized):**
+  cody's synthesis of Agent-SNC (agents as durable state; events move
+  execution, documents move knowledge; WorkOrders, channels, the Event
+  Fabric, no-lost-wakeup waits, activation leases; Rust direction; ACB
+  migration) is filed verbatim in
+  [handoff/AGENT_SNC_ARCHITECTURE_V0_1.md](handoff/AGENT_SNC_ARCHITECTURE_V0_1.md).
+  It says itself that it is "design input, not uncontrolled
+  implementation authorization"; it starts no Agent-SNC or Rust work.
 - **State-native computing lineage (research, not authorized):**
   [STATE_NATIVE_COMPUTING_LINEAGE.md](STATE_NATIVE_COMPUTING_LINEAGE.md)
   records prior art and frames the minimal durable state-machine contract
