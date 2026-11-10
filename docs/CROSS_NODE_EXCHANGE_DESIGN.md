@@ -1,6 +1,6 @@
-# Follow-up intake D.2: cross-node exchange accounting (design rev3, for review)
+# Follow-up intake D.2: cross-node exchange accounting (design rev4, for review)
 
-**Status: design rev3, for review. No D.2 code until it is approved.**
+**Status: design rev4, for review. No D.2 code until it is approved.**
 
 - Rev1 was PR #91. Its review ruled: DESIGN DIRECTION APPROVED, IMPLEMENTATION
   HOLD (`docs/handoff/PR91_D2_Design_Review.md`, verbatim).
@@ -12,6 +12,13 @@
   silent retirement, and the blocked-primary timing, with their tests.
   The rest of rev2 stands as reviewed. Section 14 maps each rev2 review
   item; section 13 still maps the rev1 items.
+- Rev3 was PR #93. Its review ruled: REV3 CORE PROTOCOL APPROVED,
+  IMPLEMENTATION HOLD ON TWO NARROW CORRECTNESS ITEMS
+  (`docs/handoff/PR93_D2_Design_Rev3_Review.md`, verbatim).
+- Rev4 changes only those two items: the SYNC's position in the byte
+  stream (an accounting barrier, 2.5), and the incarnation, now a
+  persistent monotonic generation (2.1). It adds X28, X29, ND36 and
+  ND37, and fixes the wording those affect. Section 15 maps the review.
 - D.2 builds on D.1 as approved and merged
   (`docs/FOLLOWUP_INTAKE_DESIGN.md`, 3.1-3.9), which stays unchanged.
 
@@ -31,8 +38,9 @@ pile up at a peer toward a slow node.
 1. **Origin counting.** A cross-node exchange stays live at its origin
    until it actually ends. That is approved from rev1.
 2. **Entries per peer member.** Accounting state is kept per remote
-   *instance*, an entry. An instance is identified by member index and a
-   random incarnation. Invariant M (2.1) gives at most one live instance
+   *instance*, an entry. An instance is identified by member index and an
+   incarnation, a persistent per-member generation that only increases
+   (2.1, rev4). Invariant M (2.1) gives at most one live instance
    per (group, shard, member). So entries per link are at most the
    group's member count, a structural constant.
 3. **Bound Out connections.** An Out connection carries no counted DATA
@@ -121,13 +129,58 @@ structural and independent of churn, timers and flap counts.
 
 ### 2.1 Instances and invariant M
 
-- **Instance.** A links instance is one `NodeLinks` object. When it is
-  constructed it draws `incarnation`: the high 41 bits are its start time
-  in milliseconds (`CLOCK_REALTIME`), and the low 23 bits are random,
-  from `getrandom`. So incarnations of one member are **ordered** by
-  start time (rev3; review of rev3 draft, finding 8). The wire is
-  unchanged.
-  Its Hello carries `(group, shard, member, incarnation)`.
+- **Instance.** A links instance is one `NodeLinks` object. Its Hello
+  carries `(group, shard, member, incarnation)`.
+- **Incarnation = a persistent generation (rev4; PR #93 review item 2).**
+  `incarnation` is a u64 that strictly increases across every links
+  instance the member ever creates. It never depends on a clock or on
+  randomness. The connection nonce stays random, for connection identity
+  only.
+
+  The engine keeps `links_incarnation_generation` in its data directory,
+  in the file `links_generation`: magic, version, u64 generation and a
+  CRC32C. Allocating one, while holding the data-dir lock below:
+
+  1. read the file and verify its CRC;
+  2. increment it, checked: overflow refuses to start;
+  3. write it to `links_generation.tmp`, `fsync` the file, `rename` it
+     over `links_generation`, and `fsync` the directory;
+  4. only then return the value. It is used on the wire only after
+     step 3 has completed.
+
+  So it allocates before the listener opens and before any Out
+  connection, at engine start, and again for every links instance
+  it creates later: after a withdraw, a promotion, or a blocked primary
+  rejoining (2.12 A). Allocations are
+  serialized by one engine-wide mutex. One counter serves every shard of
+  the engine, so each (group, shard, member) sees strictly increasing
+  values. It costs one `fsync` pair per links instance, never per frame.
+
+  **Crash consistency.**
+  - The `rename` is atomic, so after a crash the file holds either the old
+    value or the new one.
+  - The old value can come back only if the crash came before step 3's
+    directory `fsync` finished. In that case the new value was never put
+    on the wire, so reusing the old one's successor is safe.
+  - A file that is missing, truncated, or fails its CRC, in a data
+    directory that already has WAL or checkpoint state, refuses to start.
+    It is never treated as 0, and an older generation is never reused.
+    Only a fresh, empty data directory starts at 1.
+
+  **No data directory** (in-memory engines). Cross-node links refuse to
+  start unless the engine is given `--links-generation-file <path>`,
+  handled the same way and under its own `flock`. In-process tests use a
+  test-local monotonic allocator shared by every engine of the test.
+  `CLOCK_REALTIME` is never used.
+
+  **Restoring an older data directory** can roll the generation back.
+  Peers then refuse the member's Hellos (2.12 C), loudly and counted, and
+  never silently accept a lower generation. This is a recovery exclusion
+  with one explicit operator mechanism: start with
+  `--links-generation-min G`, which stores `max(stored, G)` before the
+  first allocation. G must exceed the highest generation the peers have
+  seen for that member. Peers show that value in GAUGES and in the
+  refusal log line.
 - **New rule: no links before the listener.** An instance opens no Out
   connection until its listener is bound. Today Out links connect even
   while the bind is retrying (`node_link.cpp:116-123`).
@@ -354,13 +407,33 @@ and END wait for BOUND. Otherwise each
 direction's binding would wait on the other's SYNC, and neither would
 ever bind (finding 1).
 
-**Position in the stream.** The SYNC goes ahead of p's frames that are
-still queued in user space, never ahead of bytes already handed to the
-socket. Its fields `(in_conn, in_seq, rx, held_for, e's incarnation)`
-are read at the moment it is encoded into the send buffer, and
-`end_owed_[l][e]` is cleared at that same moment. So every END and
-counted reply that k excludes is already ahead of it in the byte stream
-(finding 3).
+**Position in the stream: an accounting barrier (rev4; PR #93 review
+item 1).** Rev3 let the SYNC go ahead of frames still in user space.
+That was wrong. A frame takes its accounting step when `push` appends it
+to `Out::buf` (`node_link.cpp:136-140`), well before `flush` hands it to
+the kernel (`node_link.cpp:186-200`). So a counted reply sitting in
+`Out::buf` is already out of `held_for_`. A SYNC placed ahead of it
+would make s apply the reply after `count = k`: a double decrement.
+
+The rule has two layers:
+
+| Layer | What is in it | SYNC |
+|---|---|---|
+| Kernel socket buffer and `Out::buf` | Encoded frames, accounting already done | Never overtaken. The SYNC is **appended FIFO** after every byte already in `Out::buf`. |
+| `emit_node_[l]` and owed END counters at the shard | Work not yet pushed, accounting not yet done | May be preempted: the owed SYNC is pushed before more of this is pushed. |
+
+Its fields `(in_conn, in_seq, rx, held_for, e's incarnation)` are read
+at the moment it is appended, and `end_owed_[l][e]` is cleared at that
+same moment. Then:
+
+- every counted reply or END whose effect k already reflects was
+  appended earlier, so it is ahead of the SYNC in the byte stream;
+- anything appended after the SYNC takes its accounting step after k was
+  read, so k still includes it.
+
+There is no prepend or priority insertion into `Out::buf`. The same
+holds for every control frame, HEARTBEAT included (2.12 A). The SYNC
+waits, as a flag, for room in `Out::buf`.
 
 **FINAL is removed.** Rev2 had a FINAL SYNC for closed connections, and
 its arithmetic was wrong. It added the `pushed − R` frames that a closed
@@ -708,8 +781,10 @@ both from the documented fenced-primary limit (`CLUSTER.md`, Limits):
   is unblocked.
 - Its HEARTBEAT carries a blocked bit from the moment it blocks. A
   change of the bit sends a HEARTBEAT **at once** on every identified Out
-  connection, ahead of frames still queued in user space (like a SYNC,
-  2.5), not only after `T_hb` of idleness. So peers start
+  connection, not only after `T_hb` of idleness. It is appended FIFO to
+  `Out::buf`, ahead only of work not yet pushed (the barrier of 2.5).
+  `Out::buf` is capped (`kOutCap`), so it reaches the peer behind at most
+  that many bytes. So peers start
   `blocked_since_` one delivery delay after the block.
 - **No binding to a blocked instance.** s never makes a link BOUND to an
   entry whose `blocked_since_` is set. A reconnect that lands on the
@@ -759,13 +834,14 @@ it.
 **C. Enforcing M at the peer (review G8).**
 
 - **Only a newer incarnation is accepted.** p keeps, per member, the
-  highest incarnation it has seen. A Hello or HelloAck naming a lower one
-  is refused and counted in `xnode_m_conflicts`; it can only be a delayed
-  connection from a retired instance. One u64 per member replaces any
-  list of retired incarnations, and a delayed old Hello can never retire
-  the live entry. If the host's clock steps back across a restart, the
-  new instance is refused until it passes the old start time. That is
-  fail-closed, logged and counted.
+  highest incarnation it has seen (`xnode_highest_incarnation`, in
+  GAUGES). A Hello or HelloAck naming a lower one is refused and counted
+  in `xnode_m_conflicts`. It can only be a delayed connection from a
+  retired instance, or a restored data directory (2.1). One u64 per
+  member replaces any list of retired incarnations, and a delayed old
+  Hello can never retire the live entry. The generation is persistent and
+  strictly increasing (2.1), so a legitimate new instance is always
+  higher, whatever the clock does.
 - **When a newer incarnation is accepted.** p accepts a Hello or HelloAck
   naming member m with a higher incarnation only once the older
   incarnation's In connection from m has closed, or has been silent for
@@ -1142,8 +1218,8 @@ read from GAUGES.
 |---|---|---|
 | X1 stalled remote | B's flush stalls; A's clients run cross-node transfers flat out | A's `emit_node_` ≤ `live_A + live_B`; `live_A` < X + max(E, Rr); Out buffer ≤ `kOutCap`; B's held ≤ L; A's clients see `E_OVERLOADED`. Unstall: all settle, money conserved, counts 0 |
 | X2 rate mismatch | F11 across nodes | B's queue toward A ≤ `live_A + live_B` at every sample; settles |
-| X3 forward drop | The proxy cuts o → p repeatedly | Per cycle a HelloAck, then a binding SYNC; no counted DATA between them; at each binding `count_` equals p's `held_for_`, read from both GAUGES on the same quiesced cycle; no underflow; counts 0 at quiescence |
-| X4 return drop | The proxy cuts p → o repeatedly | The same, plus: each current SYNC sets `count_ = k + pushed − R`, checked against the proxy's own count of delivered counted frames, before and after the SYNC |
+| X3 forward drop | The proxy cuts o → p repeatedly | Per cycle a HelloAck, then a binding SYNC; no counted DATA between them; at each binding, a test hook records p's `held_for_` and `rx` at the barrier where the SYNC is appended, and o's `count_` and `cur_.pushed` where it is applied; they agree exactly (`count_ = k`, `pushed = 0`); no underflow; counts 0 at quiescence |
+| X4 return drop | The proxy cuts p → o repeatedly | The same, plus: each current SYNC sets `count_ = k + pushed − R`, with `held_for_`, `rx`, `count_` and `pushed` recorded at the barrier and at the apply, and checked against the proxy's own count of delivered counted frames, before and after the SYNC |
 | X5 blackhole and heal | The proxy stops forwarding both ways, then heals | Silence close (unpaused only); quarantine after `T_release`; debt fixed then repaid at binding; settles |
 | X6 crash of o | kill -9 A, restart | B retires the old entry and purges it; new binding k = 0; settles; money conserved |
 | X7 failover of B | Lab pair with witnesses; kill B's primary | Binds to p′ with k = 0; the old entry quarantines, then retires on restart; settles |
@@ -1167,6 +1243,8 @@ read from GAUGES.
 | X23 accounting mismatch (G7) | One engine with `SNC_XNODE_ACCOUNTING=off` | Links refused both ways, with message and gauge |
 | **X24 repeated forward flaps before reverse reconciliation** (rev2 review) | The proxy delays p → o control frames; o → p is flapped at least 5 times under load, so several connections close before any SYNC reaches o; then the delay is lifted | SYNCs naming earlier connections are ignored (`xnode_syncs_stale` ≥ the flap count); none raises `count_`; the first applied SYNC names the current connection and sets `count_ = held_for_` at p; no counted DATA before it; no underflow; counts 0 at quiescence |
 | **X25 delayed old frames after silent replacement** (rev2 review) | Old instance of member m: connection held open but silent past `T_dead` (proxy stall), with DATA, END and SYNC frames queued in the proxy; then a new instance of m connects; the proxy then releases the old frames | The old In socket is reset and removed from epoll before the retirement; the old Out connection (if bound) is reset; the old entry is purged exactly once (`xnode_retire_purged` once); no released old frame is read; the new entry starts at 0 and binds with an exact k; no underflow; no uncounted item |
+| **X28 SYNC barrier with queued accounted frames** (PR #93 review) | Make p's Out socket to o non-writable (the proxy stops reading), so frames pile up in `Out::buf`; get at least one counted reply and one END encoded there; then make o reconnect, so p owes a binding SYNC; then restore output | The queued reply and END are observed at o before the SYNC; at the SYNC, `count_` equals the accounted state recorded at p's barrier; no later frame underflows; `xnode_end_underflow` 0; counts 0 at quiescence |
+| **X29 monotonic incarnation without clocks** (PR #93 review) | Restarts of one member: two forced into the same wall-clock millisecond (a faked clock); the wall clock stepped back between restarts; stepped forward then corrected back; 20 rapid restarts; plus a crash injected at each step of the generation update, and a corrupt `links_generation` file | Every new incarnation is above the previous one; delayed old Hellos (the proxy replays them) are refused; the new member binds without waiting for wall time; no entry is retired by an older incarnation; a corrupt file in a non-empty data directory refuses to start; `--links-generation-min` recovers a restored directory |
 | X26 not-bound quarantine | Fail o's Out connection over to member 2 while member 1 stays connected and unblocked, with items lost on its last wire | Member 1's entry stops gating `T_release` after it was last bound; its ENDs still decrement it; no underflow |
 | X27 SYNC before HelloAck | The proxy delays the HelloAck on o's Out socket until after p's binding SYNC reaches o, on each reconnect | o binds on the HelloAck's arrival, with `count_ = k` from the earlier SYNC; no counted DATA before both; `xnode_bind_mismatch` 0 |
 
@@ -1210,6 +1288,8 @@ must fail.
 | ND31 reset `blocked_since_` when the old instance's links close | X19 (quarantine later than `T_hb + T_release`) |
 | ND34 send the blocked bit only in idle heartbeats | X19 (bit late under END traffic) |
 | ND35 allow BOUND to an entry with `blocked_since_` set | X19 (count gates again; repeated quarantines before `T_block`) |
+| **ND36 insert the SYNC ahead of frames already encoded in `Out::buf`** (PR #93 review) | X28, deterministically (double decrement: underflow) |
+| **ND37 incarnation from `CLOCK_REALTIME` milliseconds plus random low bits, as rev3 wrote it** (PR #93 review) | X29 (same-millisecond or clock-step restart refused as stale) |
 | ND32 no not-bound quarantine trigger | X26 (member 1's count gates forever) |
 | ND33 ignore a binding SYNC read before its HelloAck | X27 (the link never binds; quarantined at `T_release`) |
 
@@ -1288,6 +1368,13 @@ The plan is one PR, in this commit order, each one green:
 10. **Not-bound quarantine (2.8, trigger 3).** Without FINAL, an entry
     that stays connected but is no longer s's bound entry could keep lost
     items forever. Rev3 quarantines it after `T_release`. Approve?
+
+**Rev4 question.**
+
+11. **Operator recovery for a restored data directory (2.1).** Rev4
+    refuses a lower generation and offers `--links-generation-min G` as
+    the only override. Is that the right recovery mechanism, or should a
+    restored directory be excluded outright for v0.1?
 
 ## 11. Not in this slice
 
@@ -1370,11 +1457,20 @@ revision:
 |---|---|---|
 | 1 SYNC waiting for its own link to bind: each direction's binding waits on the other | High | SYNC flows on any identified connection, HEARTBEAT always; only counted DATA and END wait for BOUND (2.5, 6.4 vii) |
 | 2 A SYNC sent on a connection attached to another member is lost, with its flags cleared | Medium | Sent only on a connection identified with its target; flags wait (2.5) |
-| 3 "Ahead of other frames" could overtake buffered ENDs | Medium | Ahead only of the user-space queue; fields read at encode (2.5) |
+| 3 "Ahead of other frames" could overtake buffered ENDs | Medium | Ahead only of the user-space queue; fields read at encode (2.5). **Superseded in rev4:** that still overtook accounted frames in `Out::buf` (PR #93 review item 1); now an accounting barrier |
 | 4 Per-entry `pushed_` against `cur_[l].pushed`; overlapping state names | Medium | One `cur_[l]`; `bound_` derived; entry state ACTIVE/QUARANTINED/RETIRED (2.3, 2.6). ND14 |
 | 5 3.3 still described rev2 binding on a HelloAck alone | Medium | 3.3 rewritten: never BOUND in either variant. ND25 |
 | 6 Retirement left a SYNCED or IDENTIFIED `cur_` naming the old entry | Medium | Reset in any state; a HelloAck for a retired incarnation refused; In backlog discarded (2.7, 2.8, 2.12 C) |
 | 7 Blocked bit only in idle heartbeats; rebind cycle; `T_block` counted twice | Medium | Heartbeat at once on change; no binding to a blocked entry; blocked defined with `T_dead` (2.12 A). X19, X19b, ND34, ND35 |
-| 8 Incarnations unordered; a delayed old Hello could retire the live entry | Low | Incarnation ordered by start time; only a higher one accepted (2.1, 2.12 C) |
+| 8 Incarnations unordered; a delayed old Hello could retire the live entry | Low | Incarnation ordered by start time; only a higher one accepted (2.1, 2.12 C). **Superseded in rev4:** the clock is not monotonic (PR #93 review item 2); now a persistent generation |
 | 9 Labels, ordering and leftover rev2 wording | Low | Corrected |
+
+## 15. PR #93 review: required corrections and where they are
+
+| Review item | Rev4 |
+|---|---|
+| 1 BLOCKER: the binding SYNC could overtake accounted frames in `Out::buf` | 2.5: an accounting barrier. The SYNC is appended FIFO after every byte in `Out::buf`, and preempts only work not yet pushed; k, `rx` and `end_owed_` are read at the append. Same for HEARTBEAT (2.12 A). X28, ND36 |
+| 2 BLOCKER: `CLOCK_REALTIME` plus random is not ordered | 2.1: a persistent per-member generation in `links_generation`, incremented and made durable under the data-dir lock before the listener or any Out connection opens; crash consistency, fail-closed on a bad file, no data directory, restored data directory (`--links-generation-min`). 2.12 C: only a higher generation is accepted. X29, ND37 |
+| 6 Accounting evidence at the barrier | X3, X4: `count_`, `held_for_`, `pushed` and `rx` recorded where the SYNC is appended and where it is applied |
+| Q9, Q10 approved; rev1/rev2 answers unchanged | Not reopened |
 
