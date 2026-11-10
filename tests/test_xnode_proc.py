@@ -148,7 +148,17 @@ def counts_zero(c, res, debt_zero=True):
                                                       "xnode_retirements", "xnode_quarantines", "xnode_bindings",
                                                       "link_version_refusals", "intake_exchanges_live")}
         out[k] = d
-        ok = ok and all(d[n] == 0 for n in ZERO + NEVER) and d["xnode_entries"] <= d["xnode_entry_slots"]
+        zero = ZERO + NEVER
+        if not debt_zero:
+            # A dead instance's quarantined entry keeps its debt and the ENDs
+            # owed to it until its next incarnation retires it (2.7): ENDs go
+            # only to a bound entry (2.6). So ENDs may be owed only on a shard
+            # holding a quarantined entry.
+            zero = tuple(n for n in zero if n != "xnode_end_owed")
+            for s in range(int(g.get("shards", "0"))):
+                if int(g.get(f"s{s}.xnode_end_owed", "0")) and not int(g.get(f"s{s}.xnode_entries_quarantined", "0")):
+                    ok = False
+        ok = ok and all(d[n] == 0 for n in zero) and d["xnode_entries"] <= d["xnode_entry_slots"]
         ok = ok and (not debt_zero or d["xnode_debt"] == 0)
     res["xnode"] = out
     return ok
@@ -226,7 +236,14 @@ def x7(work, stop_not_kill=False):
         # Node 3's entry at node 1 keeps its quarantined debt (bounded: U)
         # until member 0 of group 1 has a next instance.
         ok = wait_counts_zero(c, res, debt_zero=False) and ok
-        res["pass"] = ok and s["rc"] == 0
+        # Owed ENDs left at quiescence are the dead instance's: every live
+        # entry is bound, and ENDs to a bound entry are flushed at once. So
+        # they must not move.
+        e0 = {k: res["xnode"][k]["xnode_end_owed"] for k in res["xnode"]}
+        time.sleep(3)
+        ok = counts_zero(c, res, debt_zero=False) and ok
+        res["end_owed_frozen"] = e0 == {k: res["xnode"][k]["xnode_end_owed"] for k in res["xnode"]}
+        res["pass"] = ok and res["end_owed_frozen"] and s["rc"] == 0
         return res
     finally:
         if load:

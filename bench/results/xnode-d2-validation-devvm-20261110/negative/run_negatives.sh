@@ -378,4 +378,13 @@ mutate ND37 "X29" $GEN \
     return true;
   }
   if (source_ == Source::TEST) {"
+# ND38 (implementation finding, X15) Out-side evidence from one stale
+# heartbeat: the T_dead clock runs without heartbeats that keep showing it.
+mutate ND38 "X32 X15" $NL \
+  "  if (o.hb_ns != 0 && now_ns - o.hb_ns > opt_.dead_ns) o.mismatch_since_ns = o.r_stuck_since_ns = 0;" \
+  "" \
+  "    if ((o.mismatch_since_ns != 0 && o.hb_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
+        (o.r_stuck_since_ns != 0 && o.hb_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {" \
+  "    if ((o.mismatch_since_ns != 0 && now_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
+        (o.r_stuck_since_ns != 0 && now_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {"
 echo "done $(date -u +%FT%TZ)" >> "$OUT/summary.txt"

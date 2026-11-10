@@ -703,6 +703,12 @@ with no adoption term.
   - the peer is not paused, but its R does not advance while frames are
     outstanding.
 
+  "Holds for `T_dead`" means heartbeats keep showing it: a heartbeat at
+  least `T_dead` after the first one that showed it. A gap of more than
+  `T_dead` between two heartbeats about this connection (the peer's Out
+  link was on another member, or busy) starts it over. A single stale
+  heartbeat is not evidence for `T_dead` (implementation finding, X15).
+
   With no reverse connection at all, quarantine (2.8) applies.
 
 **Timer constraints.** The engine refuses to start unless

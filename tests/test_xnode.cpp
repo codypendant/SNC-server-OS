@@ -1511,6 +1511,7 @@ void x15_alternation() {
   // restarts must never close it.
   const u64 m1_conn = out_conn(*net.nodes[1].eng, 1);
   const u64 m1_inc = entry(B, 0, 1).e.inc;
+  const NodeLinks::Counters m1c0 = entry(*net.nodes[1].eng, 1, 0).c, bc0 = entry(B, 0, 0).c;
   std::atomic<bool> stop{false};
   std::atomic<u64> samples{0}, max_entries{0};
   std::thread sampler([&] {
@@ -1540,6 +1541,19 @@ void x15_alternation() {
   sampler.join();
   const u64 rets = entry(B, 0, 0).c.retirements - ret0;
   CHECK(rets >= 10);
+  if (out_conn(*net.nodes[1].eng, 1) != m1_conn) {
+    // Which side closed it, and why (counter deltas over the run).
+    const NodeLinks::Counters m1c = entry(*net.nodes[1].eng, 1, 0).c, bc = entry(B, 0, 0).c;
+    std::fprintf(stderr,
+                 "X15: member 1: out_resets +%llu steers +%llu quarantine_out_resets +%llu fenced +%llu "
+                 "silence_closes +%llu; B: silence_closes +%llu fenced +%llu out_resets +%llu\n",
+                 (unsigned long long)(m1c.out_resets - m1c0.out_resets), (unsigned long long)(m1c.steers - m1c0.steers),
+                 (unsigned long long)(m1c.quarantine_out_resets - m1c0.quarantine_out_resets),
+                 (unsigned long long)(m1c.fenced - m1c0.fenced),
+                 (unsigned long long)(m1c.silence_closes - m1c0.silence_closes),
+                 (unsigned long long)(bc.silence_closes - bc0.silence_closes), (unsigned long long)(bc.fenced - bc0.fenced),
+                 (unsigned long long)(bc.out_resets - bc0.out_resets));
+  }
   CHECK_MSG(out_conn(*net.nodes[1].eng, 1) == m1_conn, "X15: member 1's connection to B was replaced");
   CHECK_EQ(entry(B, 0, 1).e.inc, m1_inc);
   CHECK_EQ(entry(B, 0, 1).ins, 1u);
@@ -2293,6 +2307,59 @@ void x31_retire_purge() {
               (unsigned long long)held, (unsigned long long)purged);
 }
 
+// X32 one stale heartbeat (implementation finding, from X15): the peer's
+// last heartbeat on this connection names no connection of ours, then
+// nothing more comes on it (its Out link went to another member, or here:
+// held). That is not T_dead of evidence (2.10), so our Out connection
+// stays. Before the fix, it was reset at T_dead.
+void x32_stale_heartbeat() {
+  Net net;
+  net.build({{0, 0}, {1, 0}});
+  net.start_all();
+  Engine& A = *net.nodes[0].eng;
+  Engine& B = *net.nodes[1].eng;
+  wait_until([&] { return bound_to(A, 1, 0) && bound_to(B, 0, 0); }, "bound");
+  sleep_ms(2 * net.hb_ms);
+  const EntryView v0 = entry(A, 1, 0);
+  NodeLinks::Frame hb{};
+  hb.pad[0] = NodeLinks::HEARTBEAT;
+  hb.source.hi = 0;  // B "does not see" A's Out connection
+  net.px(1, 0).inject(hb, /*then_hold=*/true);  // on B's Out connection to A, the last frame A reads
+  wait_until([&] { return net.px(1, 0).injected_and_held(); }, "the forged heartbeat delivered, then held", 10);
+  sleep_ms(3 * net.dead_ms);
+  const EntryView v1 = entry(A, 1, 0);
+  CHECK_MSG(v1.out.conn == v0.out.conn, "X32: A's Out connection was reset on one stale heartbeat");
+  CHECK_EQ(v1.c.out_resets, v0.c.out_resets);
+  net.px(1, 0).set(LinkProxy::PASS, LinkProxy::PASS);
+  wait_until([&] { return bound_to(A, 1, 0) && bound_to(B, 0, 0); }, "bound again");
+  // (b) The rule still fires when heartbeats keep showing it: B's real
+  // frames to A are dropped, and forged heartbeats naming no connection
+  // of A's arrive every T_hb/2. A resets its Out connection after T_dead
+  // of them, not before.
+  const EntryView w0 = entry(A, 1, 0);
+  net.px(1, 0).set(LinkProxy::DROP, LinkProxy::PASS);
+  const u64 t0 = sri_now_ns();
+  u64 reset_ms = 0;
+  while (sri_now_ns() - t0 < 4ull * net.dead_ms * 1000000ull) {
+    net.px(1, 0).inject(hb);
+    sleep_ms(net.hb_ms / 2);
+    if (entry(A, 1, 0).c.out_resets > w0.c.out_resets) {
+      reset_ms = (sri_now_ns() - t0) / 1000000;
+      break;
+    }
+  }
+  CHECK_MSG(reset_ms != 0, "X32b: A never reset its Out connection under persistent mismatched heartbeats");
+  CHECK_MSG(reset_ms >= net.dead_ms, "X32b: reset after %llu ms, before T_dead", (unsigned long long)reset_ms);
+  net.px(1, 0).set(LinkProxy::PASS, LinkProxy::PASS);
+  wait_until([&] { return bound_to(A, 1, 0) && bound_to(B, 0, 0); }, "bound after the reset");
+  check_zero_counters(net.nodes[0], "X32b");
+  settle_counts(net, "X32b");
+  std::printf("X32 one stale heartbeat: a heartbeat naming no connection, then nothing on that connection for %u ms "
+              "(3 T_dead); A's Out connection kept (out_resets +0). (b) the same heartbeat every T_hb/2: reset "
+              "after %llu ms (T_dead %u ms); rebound, counts 0\n",
+              3 * net.dead_ms, (unsigned long long)reset_ms, net.dead_ms);
+}
+
 // X17 churn: 20 cycles of slot moves, releases (a blackholed pair past
 // T_release, then healed), reconnects and restarts under load on three
 // nodes. At every sample: live_s < X + max(E, Rr) at every shard, and the
@@ -2533,7 +2600,7 @@ const Test kTests[] = {
     {"X1", x1_stalled},       {"X11", x11_backpressure}, {"X2", x2_rate_mismatch},
     {"X8", x8_slot_move},     {"X12", x12_purge_handoff},
     {"X19", x19_blocked},     {"X19b", x19b_undeliverable},
-    {"X30", x30_forged},     {"X31", x31_retire_purge},
+    {"X30", x30_forged},     {"X31", x31_retire_purge}, {"X32", x32_stale_heartbeat},
     {"X17", x17_churn},
 };
 

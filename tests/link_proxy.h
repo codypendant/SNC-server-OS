@@ -4,7 +4,7 @@
 // connection has a mode:
 //   PASS   relay;
 //   HOLD   read and keep what arrives, relay nothing (released by PASS);
-//   DROP   read and discard;
+//   DROP   read and discard (forward: injected frames still go through);
 //   STALL  read nothing (the sender's kernel buffer, then its user-space
 //          queue, fill up).
 // The forward direction (dialer -> target) is parsed as the v2 node-link
@@ -125,14 +125,24 @@ class LinkProxy {
   }
   // A forged frame (defense-in-depth tests, X30), put into the forward
   // stream of every open connection at the next frame boundary, as if its
-  // dialer had sent it there.
-  void inject(const NodeLinks::Frame& f) {
+  // dialer had sent it there. `then_hold`: it is the last frame delivered;
+  // the forward stream is held from there (X32).
+  void inject(const NodeLinks::Frame& f, bool then_hold = false) {
     std::lock_guard<std::mutex> g(mu_);
     for (auto& p : pairs_) {
       if (p->sfd < 0) continue;
       const u8* b = reinterpret_cast<const u8*>(&f);
       p->inject.insert(p->inject.end(), b, b + sizeof(f));
+      p->hold_after_inject = then_hold;
     }
+  }
+  // Forward bytes held by inject(then_hold) once it was delivered.
+  bool injected_and_held() const {
+    std::lock_guard<std::mutex> g(mu_);
+    for (const auto& p : pairs_) {
+      if (p->sfd >= 0 && (p->hold_after_inject || !p->inject.empty() || p->fwd != HOLD)) return false;
+    }
+    return true;
   }
   std::vector<Conn> conns() const {
     std::lock_guard<std::mutex> g(mu_);
@@ -179,6 +189,8 @@ class LinkProxy {
     u64 fwd_written = 0;  // bytes of the forward stream delivered (for parsing)
     u64 fwd_read = 0;     // bytes of the forward stream read from the dialer
     std::vector<u8> inject;  // forged frames waiting for a frame boundary
+    bool hold_after_inject = false;
+    u64 hold_at = 0;  // with hold_after_inject: hold once this much is delivered
     std::vector<u8> parse;
     Conn info;
     bool replayed = false;
@@ -298,15 +310,20 @@ class LinkProxy {
       if (bnd >= p.fwd_written) {
         buf.insert(buf.begin() + static_cast<std::ptrdiff_t>(bnd - p.fwd_written), p.inject.begin(), p.inject.end());
         p.fwd_read += p.inject.size();
+        p.hold_at = bnd + p.inject.size();
         p.inject.clear();
       }
     }
-    if (mode == PASS && !buf.empty()) {
+    // DROP keeps nothing it reads, so a forward buffer under DROP holds only
+    // injected frames: those are delivered (X32b: forged heartbeats alone).
+    if ((mode == PASS || (fwd && mode == DROP)) && !buf.empty()) {
       if (to < 0) {
         buf.clear();  // a replayed connection's answers
         return true;
       }
-      const ssize_t w = ::send(to, buf.data(), buf.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+      const bool limit = fwd && p.hold_after_inject && p.inject.empty();
+      const std::size_t len = limit ? static_cast<std::size_t>(p.hold_at - p.fwd_written) : buf.size();
+      const ssize_t w = ::send(to, buf.data(), len, MSG_NOSIGNAL | MSG_DONTWAIT);
       if (w < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
         if (fwd) p.info.undelivered += buf.size();
         return false;
@@ -318,6 +335,10 @@ class LinkProxy {
         }
         buf.erase(buf.begin(), buf.begin() + w);
       }
+    }
+    if (fwd && p.hold_after_inject && p.inject.empty() && p.fwd_written >= p.hold_at) {
+      p.fwd = HOLD;  // the forged frame was the last one delivered
+      p.hold_after_inject = false;
     }
     if (fwd && p.dialer_gone && mode == PASS && buf.empty()) return false;
     return true;

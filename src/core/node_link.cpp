@@ -121,6 +121,7 @@ struct NodeLinks::Out {
   u64 mismatch_since_ns = 0;  // heartbeats name another conn, or none
   u64 r_stuck_since_ns = 0;   // R not advancing, peer not paused, frames outstanding
   u64 last_r = 0;
+  u64 hb_ns = 0;  // last heartbeat that spoke about this connection
   u64 pushed = 0;  // counted frames pushed on this connection (D.2)
   u64 steer_since_ns = 0;  // 2.12 B
   // Binding (2.4): IDENTIFIED (HelloAck), SYNCED (the exact SYNC naming
@@ -268,7 +269,7 @@ void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   o.conn = 0;
   o.ack_have = 0;
   o.identified = false;
-  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = 0;
+  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = o.hb_ns = 0;
   // No record of this connection is kept (2.3): its count stays,
   // conservatively, until the next binding's SYNC.
   o.synced = o.is_bound = false;
@@ -328,6 +329,11 @@ void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
       o.ack_incarnation != in.from.incarnation) {
     return;
   }
+  // A condition "holds for T_dead" only while heartbeats keep showing it
+  // (2.10). After a gap longer than T_dead (the peer's Out link was on
+  // another member, or busy), nothing showed it in between: start over.
+  if (o.hb_ns != 0 && now_ns - o.hb_ns > opt_.dead_ns) o.mismatch_since_ns = o.r_stuck_since_ns = 0;
+  o.hb_ns = now_ns;
   if (f.source.hi != o.conn) {
     if (o.mismatch_since_ns == 0) o.mismatch_since_ns = now_ns;
     return;
@@ -365,9 +371,12 @@ void NodeLinks::liveness(u64 now_ns) {
     Out& o = *out_[l];
     if (o.state != Out::State::UP) continue;
     // Out side: the peer does not see this connection, or reads nothing of
-    // it while not paused, for T_dead. (No TCP_USER_TIMEOUT.)
-    if ((o.mismatch_since_ns != 0 && now_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
-        (o.r_stuck_since_ns != 0 && now_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {
+    // it while not paused, for T_dead. (No TCP_USER_TIMEOUT.) Shown by a
+    // heartbeat at least T_dead after the first one that showed it: a
+    // single stale heartbeat, its sender's Out link gone elsewhere since,
+    // is not T_dead of evidence.
+    if ((o.mismatch_since_ns != 0 && o.hb_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
+        (o.r_stuck_since_ns != 0 && o.hb_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {
       drop_out(l, now_ns, /*reset=*/true);
       ++out_resets_;
       continue;
