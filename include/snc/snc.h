@@ -573,6 +573,17 @@ class Engine {
     // SNC_XNODE_ACCOUNTING=off (or SNC_FOLLOWUP_INTAKE=off) restores D.1
     // counting on the v2 wire. It must match on every node of a cluster.
     bool xnode_accounting = true;
+    // The links incarnation generation (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md
+    // 2.1): kept in <data_dir>/links_generation. links_generation_file names
+    // it for an engine with no data directory; links_generation_min is the
+    // operator's explicit floor for a restored or pre-D.2 directory (stored
+    // durably before the first allocation; never lowers it).
+    // links_generation_test: in-process tests only, one counter shared by
+    // every engine of the process. With none of these, an engine with no
+    // data directory opens no node links.
+    std::string links_generation_file;
+    u64 links_generation_min = 0;
+    bool links_generation_test = false;
   };
 
   explicit Engine(const Config& cfg);
@@ -852,6 +863,7 @@ class Engine {
 
  private:
   Config cfg_;
+  void open_links_generation_(bool fresh);
   std::unique_ptr<NativeRuntime> rt_;
   std::vector<class Shard*> shards_;
   std::atomic<bool> running_{false};  // the runtime is started (internal; see life_)

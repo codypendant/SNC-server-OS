@@ -1,5 +1,7 @@
 #include "shard.h"
 
+#include "links_generation.h"
+
 #include "session.h"
 #include "slot_state.h"
 
@@ -1787,9 +1789,22 @@ void Shard::resume_all(u64 lsn) { owe_resume(lsn, -1); }
 
 void Shard::start_links() {
   if (cluster_ == nullptr || links_) return;
+  // A new links instance: a new incarnation, durable before any connection
+  // can carry it (2.1). None to be had: no links.
+  u64 inc = 0;
+  if (xnode_.gen == nullptr || !*xnode_.gen || !(*xnode_.gen)->next(inc)) {
+    if (!links_no_gen_said_) {
+      std::fprintf(stderr, "snc: shard %u: no links incarnation generation: node links stay closed\n", id_);
+      links_no_gen_said_ = true;
+    }
+    return;
+  }
   NodeLinks::Options o;
   o.member = member_;
+  o.incarnation = inc;
   o.accounting = xnode_.accounting;
+  o.dead_ns = xnode_.dead_ns;
+  o.highest = &peer_highest_;
   links_ = std::make_unique<NodeLinks>(*cluster_, group_, id_, o);
   emit_node_.resize(links_->size());
 }

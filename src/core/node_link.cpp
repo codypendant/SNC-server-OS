@@ -75,6 +75,13 @@ void watch(int epfd, int fd, u32 events, u64 t, int op = EPOLL_CTL_ADD) {
   ::epoll_ctl(epfd, op, fd, &ev);
 }
 
+// A reset, not a graceful close: unsent bytes are discarded and the peer
+// reads no more from this connection (2.8, 2.12 C).
+void linger_reset(int fd) {
+  linger l{1, 0};
+  ::setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
+}
+
 void nodelay(int fd) {
   int one = 1;
   ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
@@ -108,6 +115,7 @@ struct NodeLinks::In {
   bool hello = false;
   u16 group = 0, shard = 0;
   From from{};
+  u64 last_read_ns = 0;  // bytes last read (2.10, 2.12 C: silence)
   std::vector<u8> buf = std::vector<u8>(kInBuf);
   std::size_t have = 0;
   // Whole frames left in buf for want of budget (docs/FOLLOWUP_INTAKE_DESIGN.md
@@ -127,6 +135,8 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options&
     base_[g] = static_cast<u32>(out_.size());
     if (g == group) continue;  // its own group: replication, not links; link_of is never asked for it
     for (u16 s = 0; s < map.groups[g].n_shards; ++s) {
+      link_members_.push_back(static_cast<u16>(map.groups[g].members.size()));
+      mbase_.push_back(mbase_.empty() ? 0 : mbase_.back() + link_members_[link_members_.size() - 2]);
       auto o = std::make_unique<Out>();
       for (const ClusterMember& m : map.groups[g].members) {
         o->members.emplace_back(m.host, static_cast<u16>(m.link_port + s));
@@ -134,6 +144,9 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options&
       out_.push_back(std::move(o));
     }
   }
+  const u32 slots = mbase_.empty() ? 0 : mbase_.back() + link_members_.back();
+  if (opt_.highest == nullptr) opt_.highest = &own_highest_;
+  if (opt_.highest->size() < slots) opt_.highest->resize(slots, 0);
   listen_port_ = static_cast<u16>(map.groups[group].members[member].link_port + shard);
   try_listen(sri_now_ns());
 }
@@ -213,11 +226,12 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
 
 // Down, by failure or refusal: the next attempt tries the group's next
 // member (the primary may have moved within the group).
-void NodeLinks::drop_out(u32 i, u64 now_ns) {
+void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   Out& o = *out_[i];
   o.at = (o.at + 1) % o.members.size();
   if (o.fd >= 0) {
     ::epoll_ctl(epfd_, EPOLL_CTL_DEL, o.fd, nullptr);
+    if (reset) linger_reset(o.fd);
     ::close(o.fd);
   }
   o.fd = -1;
@@ -253,9 +267,67 @@ bool NodeLinks::read_ack(u32 i, u64 now_ns) {
     drop_out(i, now_ns);
     return false;
   }
+  if (a.member >= link_members_[i] || !admit_incarnation(i, a.member, a.incarnation, now_ns, -1)) {
+    drop_out(i, now_ns, /*reset=*/true);
+    return false;
+  }
   o.identified = true;
   o.ack_member = a.member;
   o.ack_incarnation = a.incarnation;
+  return true;
+}
+
+// 2.12 C. Lower than the member's highest: a retired instance's delayed
+// connection (or a restored data directory): refused. Higher: a new
+// instance of the member, accepted only once the older one's In
+// connection is closed or silent for T_dead; it is then fenced (its In
+// sockets reset and destroyed, with whatever they had buffered; an Out
+// connection it acknowledged reset) and only then retired, before the new
+// one is accepted.
+bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_in) {
+  u64& hi = highest(l, m);
+  if (inc == hi) return true;
+  if (inc < hi) {
+    ++m_conflicts_;
+    std::fprintf(stderr,
+                 "snc: node link: refused link %u member %u incarnation %llu: below the highest seen (%llu): a "
+                 "retired instance, or a restored data directory (raise it with --links-generation-min)\n",
+                 l, m, (unsigned long long)inc, (unsigned long long)hi);
+    return false;
+  }
+  if (hi != 0) {
+    for (u32 j = 0; j < in_.size(); ++j) {
+      if (static_cast<int>(j) == except_in || !in_[j] || !in_[j]->hello) continue;
+      const From& f = in_[j]->from;
+      if (f.link != l || f.member != m || f.incarnation >= inc) continue;
+      if (now_ns - in_[j]->last_read_ns < opt_.dead_ns) {
+        ++m_conflicts_;
+        std::fprintf(stderr,
+                     "snc: node link: refused link %u member %u incarnation %llu while incarnation %llu is live "
+                     "(two instances of one member?)\n",
+                     l, m, (unsigned long long)inc, (unsigned long long)f.incarnation);
+        return false;
+      }
+    }
+    for (u32 j = 0; j < in_.size(); ++j) {
+      if (static_cast<int>(j) == except_in || !in_[j] || !in_[j]->hello) continue;
+      const From& f = in_[j]->from;
+      if (f.link == l && f.member == m && f.incarnation < inc) {
+        close_in(j, /*reset=*/true);
+        ++fenced_;
+      }
+    }
+    Out& o = *out_[l];
+    if (o.identified && o.ack_member == m && o.ack_incarnation < inc) {
+      drop_out(l, now_ns, /*reset=*/true);
+      ++fenced_;
+    }
+    const u64 old = hi;
+    hi = inc;
+    if (opt_.on_retire) opt_.on_retire(opt_.ctx, l, m, old);
+    return true;
+  }
+  hi = inc;
   return true;
 }
 
@@ -288,6 +360,7 @@ void NodeLinks::accept_all() {
     if (i == in_.size()) in_.emplace_back();
     in_[i] = std::make_unique<In>();
     in_[i]->fd = fd;
+    in_[i]->last_read_ns = sri_now_ns();
     watch(epfd_, fd, paused_ ? EPOLLRDHUP : EPOLLIN | EPOLLRDHUP, tag(kTagIn, i));
   }
 }
@@ -303,8 +376,9 @@ void NodeLinks::pause_reads(bool on) {
   }
 }
 
-void NodeLinks::close_in(u32 i) {
+void NodeLinks::close_in(u32 i, bool reset) {
   if (!in_[i]->muted) ::epoll_ctl(epfd_, EPOLL_CTL_DEL, in_[i]->fd, nullptr);
+  if (reset) linger_reset(in_[i]->fd);
   ::close(in_[i]->fd);
   in_[i].reset();
 }
@@ -322,6 +396,7 @@ bool NodeLinks::accept_hello(u32 i, const HelloV2& h) {
   else if (h.version != kVersion) why = "another wire version";
   else if (h.crc != crc_) why = "another cluster";
   else if (h.group >= n_shards_.size() || h.group == group_ || h.shard >= n_shards_[h.group]) why = "no such peer";
+  else if (h.member >= link_members_[link_of(h.group, h.shard)]) why = "no such member";
   if (why != nullptr) {
     std::fprintf(stderr,
                  "snc: node link: refused group %u shard %u: %s (its cluster shape crc %08x, ours %08x)\n",
@@ -338,6 +413,8 @@ bool NodeLinks::accept_hello(u32 i, const HelloV2& h) {
     ++accounting_refusals_;
     return false;
   }
+  const u32 l = link_of(h.group, h.shard);
+  if (!admit_incarnation(l, h.member, h.incarnation, sri_now_ns(), static_cast<int>(i))) return false;
   HelloAck a{};
   a.magic = kAckMagic;
   a.conn = h.conn;
@@ -353,13 +430,14 @@ bool NodeLinks::accept_hello(u32 i, const HelloV2& h) {
   connected_ = true;
   in.group = h.group;
   in.shard = h.shard;
-  in.from = From{link_of(h.group, h.shard), h.member, h.incarnation, h.conn};
+  in.from = From{l, h.member, h.incarnation, h.conn};
   // Its earlier connection, if still open, goes with whatever it has not
-  // delivered: frames from one shard must not run out of the order it
+  // delivered: frames from one instance must not run out of the order it
   // sent them in (a credit overtaking its own forget would credit twice,
-  // docs/TRANSFERS.md), and the sender re-emits what was lost.
+  // docs/TRANSFERS.md), and the sender re-emits what was lost. Per member
+  // (2.7): another member's connection is another stream, kept.
   for (u32 j = 0; j < in_.size(); ++j) {
-    if (j != i && in_[j] && in_[j]->hello && in_[j]->group == h.group && in_[j]->shard == h.shard) close_in(j);
+    if (j != i && in_[j] && in_[j]->hello && in_[j]->from.link == l && in_[j]->from.member == h.member) close_in(j);
   }
   return true;
 }
@@ -388,6 +466,7 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
     if (n == 0) return false;
     if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
     in.have += static_cast<std::size_t>(n);
+    in.last_read_ns = sri_now_ns();
     std::size_t at = 0;
     if (!in.hello) {
       // A v1 Hello is 24 bytes: enough to tell it apart.
@@ -424,7 +503,9 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
   if (listen_ < 0 && now_ns >= listen_retry_ns_) try_listen(now_ns);
   for (u32 i = 0; i < out_.size(); ++i) {
     Out& o = *out_[i];
-    if (o.state == Out::State::DOWN && now_ns >= o.retry_ns) start_connect(i, now_ns);
+    // Invariant M (2.1): no Out connection before this instance holds its
+    // listener.
+    if (o.state == Out::State::DOWN && now_ns >= o.retry_ns && listen_ >= 0) start_connect(i, now_ns);
     if (o.state == Out::State::CONNECTING && now_ns - o.since_ns >= kConnectTimeoutNs) drop_out(i, now_ns);
   }
   epoll_event evs[64];

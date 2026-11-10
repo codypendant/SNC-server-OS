@@ -55,6 +55,14 @@ class NodeLinks {
     u16 member = 0;
     u64 incarnation = 0;     // this links instance (2.1)
     bool accounting = true;  // Hello flag bit 0; a mismatch is refused (2.12 D)
+    u64 dead_ns = 1'000'000'000;  // T_dead (2.10)
+    // Per (link, member): the highest incarnation seen (2.12 C). Owned by
+    // the shard so it outlives this instance; sized here.
+    std::vector<u64>* highest = nullptr;
+    // An older incarnation of (link, member) was fenced and is retired
+    // (2.7): its sockets are already reset. Called on the shard's thread.
+    void (*on_retire)(void* ctx, u32 link, u16 member, u64 incarnation) = nullptr;
+    void* ctx = nullptr;
   };
 
   // Opens the listener; call on the shard's thread.
@@ -87,6 +95,9 @@ class NodeLinks {
   u64 version_refusals() const { return version_refusals_; }
   u64 accounting_refusals() const { return accounting_refusals_; }
   u64 incarnation() const { return opt_.incarnation; }
+  u64 m_conflicts() const { return m_conflicts_; }
+  u64 fenced() const { return fenced_; }
+  u16 members(u32 link) const { return link_members_[link]; }
   // The placement epoch announced on connections made from now on.
   void set_epoch(u64 e) { epoch_ = e; }
 
@@ -94,18 +105,24 @@ class NodeLinks {
   struct Out;
   struct In;
   void start_connect(u32 i, u64 now_ns);
-  void drop_out(u32 i, u64 now_ns);
+  void drop_out(u32 i, u64 now_ns, bool reset = false);
   bool flush(u32 i, u64 now_ns);
   void accept_all();
   bool read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget);
   bool accept_hello(u32 i, const struct HelloV2& h);
   bool read_ack(u32 i, u64 now_ns);
-  void close_in(u32 i);
+  void close_in(u32 i, bool reset = false);
+  u64& highest(u32 link, u16 member) { return (*opt_.highest)[mbase_[link] + member]; }
+  // Invariant M at the peer (2.12 C): may member m's instance `inc` be
+  // accepted on `link`? Fences and retires an older incarnation first.
+  bool admit_incarnation(u32 link, u16 member, u64 inc, u64 now_ns, int except_in);
   void try_listen(u64 now_ns);
 
   u16 group_, shard_;
   Options opt_;
   std::vector<u16> n_shards_;  // per group
+  std::vector<u16> link_members_;  // per link: the remote group's member count
+  std::vector<u32> mbase_;         // per link: its first (link, member) index
   u32 crc_;
   u64 epoch_;
   int epfd_ = -1;
@@ -118,7 +135,8 @@ class NodeLinks {
   bool connected_ = false;
   bool paused_ = false;
   u64 connects_ = 0;
-  u64 version_refusals_ = 0, accounting_refusals_ = 0;
+  u64 version_refusals_ = 0, accounting_refusals_ = 0, m_conflicts_ = 0, fenced_ = 0;
+  std::vector<u64> own_highest_;  // when the shard keeps none
   u64 last_check_ns_ = 0;
 };
 

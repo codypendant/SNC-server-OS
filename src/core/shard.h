@@ -211,6 +211,10 @@ class Shard {
   // Cross-node exchange accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md, D.2).
   struct Xnode {
     bool accounting = true;  // SNC_XNODE_ACCOUNTING; off: D.1 counting on the v2 wire
+    // Where links incarnations come from (2.1); null or empty: no links.
+    std::unique_ptr<class LinksGeneration>* gen = nullptr;
+    // Timers (2.10), as hypotheses; the engine checks their ordering.
+    u64 hb_ns = 100'000'000, dead_ns = 1'000'000'000, release_ns = 3'000'000'000, block_ns = 2'000'000'000;
   };
   void set_xnode(const Xnode& x) { xnode_ = x; }
   u64 followup_wal_cap() const { return wal_cap_; }
@@ -819,6 +823,8 @@ class Shard {
   u16 group_ = 0, member_ = 0;
   std::unique_ptr<NodeLinks> links_;
   Xnode xnode_;
+  std::vector<u64> peer_highest_;  // per (link, member): highest incarnation seen (2.12 C), outlives links_
+  bool links_no_gen_said_ = false;
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
   // Stage chains (S1): per slot, the running chain's (token, move); and

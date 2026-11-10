@@ -29,6 +29,7 @@ set(SNC_CORE_SOURCES
   src/core/slot_state.cpp
   src/core/cluster.cpp
   src/core/placement.cpp
+  src/core/links_generation.cpp
   src/core/node_link.cpp
   src/core/wal_format.cpp
   src/net/conn_set.cpp
