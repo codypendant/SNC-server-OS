@@ -2641,3 +2641,30 @@ or source comments.
     - the Python gate: 7 tests pass.
 -   **Next action:** independent review. Then freeze HEAD and the plan
     hash, then an explicit CP-1A GO. No CP-1A before that.
+
+### 2026-11-11 21:00 UTC --- Claude (Claude Code): CP-1A freeze interlock (for review)
+
+-   **Commit/PR:** branch `cp1a-freeze-interlock` (`850ad0a` plus docs).
+    Changes `bench/pilot.py` and tests, and adds `bench/cp1a_frozen.json`;
+    no plan, guard, workload or C++ change; no pilot run.
+-   **What:** a real pilot refuses, before building or starting anything,
+    unless:
+    - `runner_commit` is set and an ancestor of HEAD, with only docs,
+      AGENTS.md, the freeze file and results changed since;
+    - the plan SHA is `568e9874…` and the manifest SHA `768056bb…`;
+    - a filed GO record exists.
+
+    `--quick` is unchecked and never evidence. Actual identities are
+    recorded.
+-   **Design note:** `runner_commit` is null, not PR #107's merge.
+    This PR changes `pilot.py`, so the runner must be this PR's merge,
+    recorded in a coordination-only commit (the S6 pattern).
+-   **Evidence:**
+    - interlock tests against a real temporary git repo;
+    - 10/10 mutations caught;
+    - gate 6/6;
+    - real-mode preflight refused before any process, for exactly the
+      unset runner and GO.
+-   **Next action:** independent review. Then runner_commit, the GO
+    record and go_record, verification, and the full CP-1A. No CP-1A
+    before that.

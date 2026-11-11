@@ -201,7 +201,19 @@ Decided by cody on 2026-11-04.
      - [bench/results/cp1a-config-closure-20261111/](../bench/results/cp1a-config-closure-20261111/README.md).
 
      Next: review, then freeze HEAD and plan hash, then an explicit CP-1A
-     GO.
+     GO. PR #107 APPROVED and merged (85cc9b0;
+     handoff/PR107_CP1A_Config_Closure_Final_Review.md); CP-1A still HOLD.
+     The **freeze interlock** is done and returned for review:
+     - `bench/cp1a_frozen.json`;
+     - `pilot.py` refuses a real pilot before anything runs, unless the
+       runner commit, post-freeze paths, plan and manifest SHA, and a filed
+       GO all hold;
+     - `runner_commit` and `go_record` are null for now;
+     - [bench/results/cp1a-freeze-interlock-20261111/](../bench/results/cp1a-freeze-interlock-20261111/README.md).
+
+     Next: review, then record this PR's merge as `runner_commit`, then
+     the CP-1A GO and `go_record`, then verification, then the full
+     CP-1A.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

@@ -1,0 +1,1 @@
+refusing a real pilot (CP-1A freeze): cp1a_frozen.json: runner_commit is not set (not frozen); cp1a_frozen.json: go_record is not set (no CP-1A GO)

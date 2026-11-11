@@ -277,7 +277,20 @@ pins each step, including the boundaries.
 
 ## 8. Run discipline
 
-A real pilot (`pilot.py` without `--quick`) refuses to start unless:
+A real pilot (`pilot.py` without `--quick`) first checks the **CP-1A
+freeze interlock** (`bench/cp1a_frozen.json`; PR #107 review). It refuses,
+before building or starting anything, unless all of these hold:
+- `runner_commit` is set and is an ancestor of HEAD;
+- after it, only `docs/`, `AGENTS.md`, `bench/cp1a_frozen.json` and
+  `bench/results/` changed;
+- the plan's and the manifest's SHA-256 equal `plan_sha256` and
+  `manifest_sha256`;
+- `go_record` names a GO record that exists.
+
+Until the GO, `go_record` is null, so a real pilot always refuses.
+`--quick` skips the freeze and is never evidence.
+
+Then a real pilot refuses to start unless:
 - the git tree is clean;
 - `--manifest` is given;
 - `bench/pilot_plan.json` is committed;
