@@ -1,0 +1,54 @@
+{
+ "void": [],
+ "p99_reference_ns": "638976",
+ "p_reps": [
+  {
+   "rep": 0,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": false,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": [
+    "4_p999"
+   ]
+  },
+  {
+   "rep": 1,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": false,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": [
+    "4_p999"
+   ]
+  },
+  {
+   "rep": 2,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": false,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": [
+    "4_p999"
+   ]
+  }
+ ],
+ "capacity_ok": true,
+ "capacity_why": [],
+ "verdict": "FAIL"
+}

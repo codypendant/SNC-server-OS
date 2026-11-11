@@ -165,9 +165,14 @@ Decided by cody on 2026-11-04.
      1.2/1.3. PR #102 (freeze closure) APPROVED and merged (1567507); the
      S6 freeze is VERIFIED and an explicit **S6 GO** is issued
      ([handoff/S6_R640_GO_20261111.md](handoff/S6_R640_GO_20261111.md)),
-     filed as `go_record`. **Next:** the S6 run itself, once, with the
-     frozen runner; then the S6 result-review PR. No parameter changes
-     before the results.
+     filed as `go_record`. **S6 RAN once** (2026-11-11 18:25-18:44 UTC,
+     HEAD e2aab62): verdict **FAIL**, no VOID and no rerun. All three P
+     reps fail rule 4 only (total p99.9 14.2-14.7 ms, against 10 ms); rules
+     1-3 and 5-7 pass, and the capacity guard holds (median C / median C0 =
+     0.991). Evidence:
+     [bench/results/s6-r640-20261111/](../bench/results/s6-r640-20261111/README.md).
+     **Next:** independent review of the S6 result. No tuning, no rerun, no
+     CP-1A before it.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
