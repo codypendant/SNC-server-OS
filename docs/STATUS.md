@@ -126,9 +126,12 @@ Decided by cody on 2026-11-04.
      memory channels per socket (R640_TOPOLOGY 2d). Manifest d is retired
      for future evidence; its CP-1A and diagnosis results stay historical.
      bench/pilot_plan.json pins manifest e (that pin is the only change;
-     PILOT_PLAN 2 says why). **Next:** return this manifest-baseline
-     closure for review. CP-1A and S6 need an explicit authorization
-     after that.
+     PILOT_PLAN 2 says why). PR #97 APPROVED 2026-11-11 (review at head
+     f9c2151, [handoff/PR97_Manifest_Closure_Final_Review.md](handoff/PR97_Manifest_Closure_Final_Review.md)):
+     the manifest-baseline gate is CLOSED. **Next (authorized):** R640 S2
+     pacing re-derivation (ckpt_walk_cost on the R640, filesystem identity
+     check) and the S6 preregistration, returned for review and GO. No S6
+     data, CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

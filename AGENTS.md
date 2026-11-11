@@ -2388,3 +2388,16 @@ or source comments.
 -   **Next action:** return the closure for review. Do NOT run CP-1A, S6,
     comparators, Agent-SNC, Rust or DPDK/VPP until they are explicitly
     authorized.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #97 approved, manifest-baseline gate closed
+
+-   **What:** cody's final review of PR #97 (head f9c2151) APPROVED it:
+    manifest e is the R640 hardware baseline and the closure is COMPLETE.
+    Filed verbatim as `docs/handoff/PR97_Manifest_Closure_Final_Review.md`.
+-   **Next authorized task (same file):** R640 S2 pacing re-derivation and
+    S6 preregistration. Freeze the post-merge main SHA, verify the host and
+    the /srv/snc-data filesystem identity, run `bench/ckpt_walk_cost` on the
+    R640, derive pacing values numerically, write the S6 preregistration
+    (reference = same-SHA no-checkpoint median), then stop for review/GO.
+-   **Still not authorized:** S6 data, CP-1A rerun, comparators, CRITERIA
+    freeze, S5/ioprio, B2, Agent-SNC, Rust, DPDK/VPP.
