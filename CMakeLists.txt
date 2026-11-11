@@ -121,6 +121,7 @@ if(PYTHON3)
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_index_wire COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_index_wire.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_pilot COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_pilot.py)
+  add_test(NAME test_s6 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s6.py)
   # net_bench --rate (open loop) and --mix (PR #61 review).
   add_test(NAME test_net_bench_rate COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_net_bench_rate.py
            ${CMAKE_BINARY_DIR})

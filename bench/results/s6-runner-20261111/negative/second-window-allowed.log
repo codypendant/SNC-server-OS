@@ -1,0 +1,16 @@
+R1 p99 3/2 boundary
+R2 lateness 0.1% boundary
+R3 p99.9 10 ms boundary
+R4 backlog 1024 boundary
+R5 capacity 95% boundary and rule 7 in C/C0
+R6 refusal rule
+R7 correctness/drained rule
+R8 checkpoint completion and degraded
+V1 unusable N reference -> VOID
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 278, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 153, in main
+    assert any("second checkpoint-outside-window" in w for w in void) and s6.verdict(reps, void)["verdict"] == "VOID"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
