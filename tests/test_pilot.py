@@ -282,6 +282,114 @@ def test_command_values_come_from_the_plan():
             raise AssertionError("incomplete or unknown checkpoint configuration accepted")
 
 
+# CP-1A freeze interlock (docs/handoff/PR107_CP1A_Config_Closure_Final_Review.md),
+# against a real temporary git repository.
+PLAN_SHA = "568e9874e61480647c600fe6c52f44965331081d1d82f7a5f01b2875a87968c7"
+MAN_SHA = "768056bbee1d7f178ed0be1c195b821f0638a1de28a4aca1ea0afdf5444c27b6"
+
+
+def _repo():
+    import subprocess
+    import tempfile
+    d = tempfile.mkdtemp(prefix="cp1a-freeze-")
+    g = lambda *a: subprocess.run(["git", "-C", d, "-c", "user.name=t", "-c", "user.email=t@t", *a],  # noqa: E731
+                                  check=True, capture_output=True, text=True).stdout.strip()
+    g("init", "-q", "-b", "main")
+    for f, t in (("bench/pilot.py", "x"), ("bench/pilot_plan.json", "{}"), ("docs/a.md", "a"),
+                 ("bench/profile_check.py", "p"), ("tests/test_pilot.py", "t")):
+        os.makedirs(os.path.join(d, os.path.dirname(f)), exist_ok=True)
+        open(os.path.join(d, f), "w").write(t)
+    g("add", "-A")
+    g("commit", "-q", "-m", "runner")
+    return d, g
+
+
+def _commit(d, g, path, text, msg):
+    os.makedirs(os.path.join(d, os.path.dirname(path)) or d, exist_ok=True)
+    open(os.path.join(d, path), "w").write(text)
+    g("add", "-A")
+    g("commit", "-q", "-m", msg)
+    return g("rev-parse", "HEAD")
+
+
+def test_freeze_interlock():
+    d, g = _repo()
+    try:
+        runner = g("rev-parse", "HEAD")
+        go = "docs/handoff/CP1A_GO.md"
+        ok = dict(runner_commit=runner, plan_sha256=PLAN_SHA, manifest_sha256=MAN_SHA, go_record=go)
+        exists = lambda p: os.path.exists(p)  # noqa: E731
+        P = lambda fr, plan=PLAN_SHA, man=MAN_SHA: pilot.freeze_problems(fr, plan, man, repo=d, exists=exists)  # noqa: E731
+        # GO not filed yet: refuse; then a docs-only GO filing is allowed.
+        assert any("does not exist" in x for x in P(ok)), P(ok)
+        _commit(d, g, go, "GO", "file GO")
+        _commit(d, g, "bench/cp1a_frozen.json", "{}", "set go_record")
+        _commit(d, g, "AGENTS.md", "x", "handoff")
+        _commit(d, g, "bench/results/cp1a/x.json", "{}", "results")
+        assert P(ok) == [], P(ok)                                          # complete, correct freeze passes
+        # Each requirement alone.
+        assert any("runner_commit is not set" in x for x in P(dict(ok, runner_commit=None)))
+        assert any("not a commit" in x for x in P(dict(ok, runner_commit="0" * 40)))
+        assert any("plan SHA-256" in x for x in P(ok, plan="0" * 64))
+        assert any("manifest SHA-256" in x for x in P(ok, man="1" * 64))
+        assert any("manifest SHA-256" in x for x in P(ok, man=None))
+        assert any("go_record is not set" in x for x in P(dict(ok, go_record=None)))
+        assert any("does not exist" in x for x in P(dict(ok, go_record="docs/handoff/NOPE.md")))
+        # A commit that exists but is not an ancestor of HEAD (a side branch).
+        g("checkout", "-q", "-b", "side", runner)
+        side = _commit(d, g, "docs/side.md", "s", "side")
+        g("checkout", "-q", "main")
+        assert any("not an ancestor" in x for x in P(dict(ok, runner_commit=side)))
+        # Unauthorized post-freeze changes refuse, each alone.
+        for path in ("bench/pilot.py", "bench/pilot_plan.json", "bench/profile_check.py", "tests/test_pilot.py",
+                     "src/core/shard.cpp", "bench/net_bench_workload.toml"):
+            g("checkout", "-q", "-b", f"t{abs(hash(path))}", "main")
+            _commit(d, g, path, "changed", "change " + path)
+            pr = P(ok)
+            assert any("changed after runner_commit" in x and path in x for x in pr), (path, pr)
+            g("checkout", "-q", "main")
+        # Allowed-path matching is exact, not a prefix trick.
+        assert pilot.post_freeze_allowed("docs/x.md") and pilot.post_freeze_allowed("AGENTS.md")
+        assert not pilot.post_freeze_allowed("docsx/a.md") and not pilot.post_freeze_allowed("AGENTS.md.bak")
+        assert not pilot.post_freeze_allowed("bench/results.py") and not pilot.post_freeze_allowed("bench/cp1a_frozen.jsonx")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_freeze_gate_quick_is_not_evidence():
+    fr = dict(runner_commit=None, plan_sha256=None, manifest_sha256=None, go_record=None)
+    assert pilot.freeze_gate(True, fr, "x", None) == (False, [])       # quick: usable, not checked
+    checked, probs = pilot.freeze_gate(False, fr, "x", None)
+    assert checked and len(probs) >= 3, probs                         # real: refused
+    # The committed freeze file, before the GO, refuses a real pilot by itself.
+    frozen = json.load(open(pilot.FROZEN_PATH))
+    assert frozen["go_record"] is None
+    assert frozen["plan_sha256"] == PLAN_SHA and frozen["manifest_sha256"] == MAN_SHA
+    checked, probs = pilot.freeze_gate(False, frozen, pilot.sha(os.path.join(HERE, "..", "bench", "pilot_plan.json")),
+                                       MAN_SHA)
+    assert checked and any("go_record is not set" in x for x in probs), probs
+    assert not any("plan SHA-256" in x for x in probs), probs          # the committed plan is the frozen one
+
+
+def test_identity_record_is_actual():
+    import tempfile
+    d = tempfile.mkdtemp(prefix="cp1a-id-")
+    try:
+        for b, t in (("snc_server", b"s"), ("net_bench", b"n")):
+            open(os.path.join(d, b), "wb").write(t)
+        plan = os.path.join(HERE, "..", "bench", "pilot_plan.json")
+        man = os.path.join(HERE, "..", "bench", "manifests", "r640-main-20261111.txt")
+        r = pilot.identity_record(d, plan, man)
+        import hashlib
+        assert r["snc_server_sha256"] == hashlib.sha256(b"s").hexdigest()
+        assert r["net_bench_sha256"] == hashlib.sha256(b"n").hexdigest()
+        assert r["plan_sha256"] == pilot.sha(plan) and r["manifest_sha256"] == MAN_SHA
+        assert len(r["git_head"]) == 40
+        assert pilot.identity_record(d, plan, "")["manifest_sha256"] is None
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 # Benchmark scratch isolation (PR62 review, step 1): a fake sysfs.
 MOUNTINFO = """\
 25 24 0:27 / /dev/shm rw,relatime - tmpfs tmpfs rw

@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 331, in test_freeze_interlock
+    assert any("runner_commit is not set" in x for x in P(dict(ok, runner_commit=None)))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

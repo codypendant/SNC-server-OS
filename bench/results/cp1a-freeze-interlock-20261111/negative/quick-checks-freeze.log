@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 361, in test_freeze_gate_quick_is_not_evidence
+    assert pilot.freeze_gate(True, fr, "x", None) == (False, [])       # quick: usable, not checked
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 363, in test_freeze_gate_quick_is_not_evidence
+    assert checked and len(probs) >= 3, probs                         # real: refused
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: []

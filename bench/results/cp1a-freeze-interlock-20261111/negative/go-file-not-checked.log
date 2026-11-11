@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 324, in test_freeze_interlock
+    assert any("does not exist" in x for x in P(ok)), P(ok)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: []

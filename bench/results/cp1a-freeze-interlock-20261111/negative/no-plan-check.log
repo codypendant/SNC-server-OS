@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 333, in test_freeze_interlock
+    assert any("plan SHA-256" in x for x in P(ok, plan="0" * 64))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

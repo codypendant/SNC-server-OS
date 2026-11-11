@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 336, in test_freeze_interlock
+    assert any("go_record is not set" in x for x in P(dict(ok, go_record=None)))
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 322, in <lambda>
+    P = lambda fr, plan=PLAN_SHA, man=MAN_SHA: pilot.freeze_problems(fr, plan, man, repo=d, exists=exists)  # noqa: E731
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/tests/../bench/pilot.py", line 304, in freeze_problems
+    elif not exists(os.path.join(repo, go)):
+                    ^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen posixpath>", line 90, in join
+  File "<frozen genericpath>", line 164, in _check_arg_types
+TypeError: join() argument must be str, bytes, or os.PathLike object, not 'NoneType'

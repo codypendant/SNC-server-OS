@@ -256,6 +256,73 @@ def server_args(plan, profile, build, shards, port, objects, srv_cpus, data):
     return srv
 
 
+# CP-1A freeze interlock (docs/handoff/PR107_CP1A_Config_Closure_Final_Review.md).
+# A real pilot runs only at the frozen runner commit (or a descendant that
+# changed nothing but coordination and evidence), with the frozen plan and
+# manifest, and after a filed GO.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FROZEN_PATH = os.path.join(REPO, "bench", "cp1a_frozen.json")
+POST_FREEZE_ALLOWED = ("docs/", "AGENTS.md", "bench/cp1a_frozen.json", "bench/results/")
+
+
+def post_freeze_allowed(path):
+    return any(path == a or (a.endswith("/") and path.startswith(a)) for a in POST_FREEZE_ALLOWED)
+
+
+def git_in(repo, *args):
+    return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
+
+
+def freeze_problems(frozen, plan_sha, manifest_sha, repo=REPO, exists=os.path.exists):
+    """Every reason a real pilot must not start under this freeze ([] = ok):
+    - runner_commit is unset, unknown or not an ancestor of HEAD;
+    - something other than docs, AGENTS.md, the freeze file or results
+      changed after runner_commit;
+    - the plan's or the manifest's SHA-256 is not the frozen one;
+    - no GO record is named, or the named file does not exist."""
+    p = []
+    rc = frozen.get("runner_commit")
+    if not rc:
+        p.append("cp1a_frozen.json: runner_commit is not set (not frozen)")
+    elif git_in(repo, "cat-file", "-e", f"{rc}^{{commit}}").returncode != 0:
+        p.append(f"runner_commit {rc} is not a commit in this repository")
+    elif git_in(repo, "merge-base", "--is-ancestor", rc, "HEAD").returncode != 0:
+        p.append(f"runner_commit {rc} is not an ancestor of HEAD")
+    else:
+        changed = git_in(repo, "diff", "--name-only", rc, "HEAD").stdout.split()
+        bad = [f for f in changed if not post_freeze_allowed(f)]
+        if bad:
+            p.append("changed after runner_commit outside docs/evidence (needs a new review and freeze): "
+                     + ", ".join(bad[:8]))
+    if plan_sha != frozen.get("plan_sha256"):
+        p.append(f"plan SHA-256 {plan_sha} is not the frozen {frozen.get('plan_sha256')}")
+    if manifest_sha != frozen.get("manifest_sha256"):
+        p.append(f"manifest SHA-256 {manifest_sha} is not the frozen {frozen.get('manifest_sha256')}")
+    go = frozen.get("go_record")
+    if not go:
+        p.append("cp1a_frozen.json: go_record is not set (no CP-1A GO)")
+    elif not exists(os.path.join(repo, go)):
+        p.append(f"GO record {go} does not exist")
+    return p
+
+
+def freeze_gate(quick, frozen, plan_sha, manifest_sha, repo=REPO, exists=os.path.exists):
+    """(checked, problems). --quick is a development check on any host: the
+    freeze is not checked, and its output is marked as never evidence."""
+    if quick:
+        return False, []
+    return True, freeze_problems(frozen, plan_sha, manifest_sha, repo, exists)
+
+
+def identity_record(build, plan_path, manifest_path):
+    """What a run records about itself, actual values, not frozen ones."""
+    return dict(git_head=git_in(REPO, "rev-parse", "HEAD").stdout.strip(), plan=plan_path,
+                plan_sha256=sha(plan_path), manifest=manifest_path,
+                manifest_sha256=sha(manifest_path) if manifest_path and os.path.exists(manifest_path) else None,
+                snc_server_sha256=sha(f"{build}/snc_server") if os.path.exists(f"{build}/snc_server") else None,
+                net_bench_sha256=sha(f"{build}/net_bench") if os.path.exists(f"{build}/net_bench") else None)
+
+
 def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
 
@@ -367,6 +434,13 @@ class Pilot:
 
     def environment(self):
         a = self.a
+        # The freeze interlock first: a real pilot outside its freeze, or
+        # without a filed GO, is refused before anything is built or started.
+        frozen = json.load(open(FROZEN_PATH))
+        checked, freeze = freeze_gate(a.quick, frozen, sha(a.plan),
+                                      sha(a.manifest) if a.manifest and os.path.exists(a.manifest) else None)
+        if checked and freeze:
+            raise SystemExit("refusing a real pilot (CP-1A freeze): " + "; ".join(freeze))
         # Build the two binaries from this tree first: with a clean tree the
         # binaries then match HEAD (ninja rebuilds anything stale).
         b = subprocess.run(["cmake", "--build", a.build, "--target", "snc_server", "net_bench"],
@@ -376,10 +450,8 @@ class Pilot:
         build_type = sh(f"grep '^CMAKE_BUILD_TYPE:' {a.build}/CMakeCache.txt").split("=")[-1]
         flags = sh(f"grep '^CMAKE_CXX_FLAGS:' {a.build}/CMakeCache.txt").split("=", 1)[-1]
         govs = sorted(set(sh("cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor").split()))
-        env = dict(git_head=sh("git rev-parse HEAD"), git_status=sh("git status --short"),
-                   plan=a.plan, plan_sha256=sha(a.plan), plan_values=self.plan,
-                   manifest=a.manifest, manifest_sha256=sha(a.manifest) if a.manifest else None,
-                   snc_server_sha256=sha(f"{a.build}/snc_server"), net_bench_sha256=sha(f"{a.build}/net_bench"),
+        env = dict(identity_record(a.build, a.plan, a.manifest), git_status=sh("git status --short"),
+                   plan_values=self.plan, frozen=frozen, freeze_checked=checked, freeze_problems=freeze,
                    governors=govs, numa_balancing=sh("cat /proc/sys/kernel/numa_balancing"),
                    build_type=build_type, cxx_flags=flags, kernel=sh("uname -r"), started_utc=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    allocation=a.allocation, allocation_values=self.alloc, quick=a.quick,
