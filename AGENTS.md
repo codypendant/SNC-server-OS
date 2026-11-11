@@ -2459,3 +2459,16 @@ or source comments.
     `bench/s6.py` with rule and VOID tests, the dev-machine check that the
     current `net_bench` drives the `389b623` server, and the final
     `S6_PREREG.md` freeze. **S6 NOT GO.**
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #99 approved, S6 pacing CLI complete
+
+-   **What:** the final review of PR #99 (head 8d40447) APPROVED it and
+    authorized the merge (fbf9ca9). S6 pacing CLI plumbing is COMPLETE.
+    The TSan waiver is accepted for this parser-only slice only. Filed
+    verbatim as `docs/handoff/PR99_S6_Pacing_CLI_Final_Review.md` and
+    posted on PR #99.
+-   **Next action (authorized):** the S6 runner and final preregistration
+    as one separate PR (`bench/s6.py`, its rule and VOID tests, the
+    dev-machine check that the current `net_bench` drives the `389b623`
+    server, the `docs/S6_PREREG.md` freeze), returned for review.
+    **S6 still NOT GO.**

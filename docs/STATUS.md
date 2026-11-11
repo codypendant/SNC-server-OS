@@ -142,10 +142,15 @@ Decided by cody on 2026-11-04.
      the characterization and the 20/65/155/5/batch-16 values are APPROVED,
      as are max age 60,000 ms, the pre-S1 comparator 389b623 (run with the
      current net_bench) and 100 ms controller sampling. **S6 NOT GO.** Its
-     section 7, the snc_server walk flags, is done and returned for review
-     ([bench/results/s6-pacing-cli-20261111/](../bench/results/s6-pacing-cli-20261111/README.md));
-     after it merges, section 8 (bench/s6.py and the final prereg freeze). No CP-1A, comparators or
-     CRITERIA freeze before that.
+     section 7, the snc_server walk flags, is done
+     ([bench/results/s6-pacing-cli-20261111/](../bench/results/s6-pacing-cli-20261111/README.md)).
+     PR #99 APPROVED and merged (fbf9ca9;
+     [handoff/PR99_S6_Pacing_CLI_Final_Review.md](handoff/PR99_S6_Pacing_CLI_Final_Review.md)):
+     S6 pacing CLI plumbing COMPLETE; the TSan waiver is accepted for this
+     parser-only slice. **Next (authorized):** the S6 runner and final
+     preregistration (bench/s6.py, docs/S6_PREREG.md freeze), returned for
+     review. **S6 still NOT GO.** No CP-1A, comparators or CRITERIA freeze
+     before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
