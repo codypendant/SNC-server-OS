@@ -112,7 +112,8 @@ Decided by cody on 2026-11-04.
      file is now locked (X33), a blocked-bit clear stays pending under a
      full queue (X34), the END layout is specified as implemented and
      checked byte for byte (X35), and ND10 and ND24 are closed by proofs
-     I1 and I2 (design 2.9.1). The fixes and the rerun gate are in
+     I1 and I2 (design 2.9.1; X12c catches ND24). The fixes and the
+     rerun gate at 2bccdbe (3 suites 47/47, negatives 42/42) are in
      bench/results/xnode-d2-review-fixes-devvm-20261110; returned for
      review again, not complete.
      D.2 (cross-node) is its own reviewed slice, required before S6

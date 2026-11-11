@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND10/tests/test_xnode.cpp:2161: CHECK failed: m.stale > m0.stale: X12a: no stale drop (hand-off 32, tag 0, reply 0, resume 0; A out_resets 0, B silence closes 0, A bindings 3; held 57 ms, T_dead 5000 ms)

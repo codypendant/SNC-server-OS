@@ -1,0 +1,2 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND11/tests/test_xnode.cpp:598: CHECK failed: since(t0) < timeout_s: X12 foreign: never settled (node 1 remote_live 0 held 92 end_owed 0 debt 0 live 0 in_flight 0)
+X12a hand-off: A's count 64 (credits held on the wire to B's shard 1) when the source slot moved into B; stale drops 64, hand-off drops 0, tag drops 0, unbound purges at B 0, ENDs sent 147; A's count back to 0; settled, money conserved (held 58 ms)

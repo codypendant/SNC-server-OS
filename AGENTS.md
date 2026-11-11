@@ -2301,3 +2301,45 @@ or source comments.
 -   **Next action:** WAIT for independent review of the D.2 PR. Do not
     merge it, and do not call D.2 complete until it is approved. S5, S6,
     R640, CP-1A, comparators and B2 stay forbidden.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #95 review 1 fixed, returned for review
+
+-   **What:** the four items of review 1
+    (`docs/handoff/PR95_D2_Implementation_Review.md`) are fixed on site,
+    without rewriting history. Final head 2bccdbe. Engine code is the same
+    from b77937e. Evidence:
+    `bench/results/xnode-d2-review-fixes-devvm-20261110/README.md`, with
+    every run in order.
+-   **Fixes:**
+    1.  The explicit generation file is flocked (X33, process x33).
+    2.  The blocked bit is retried on both edges (X34).
+    3.  END v2 layout: n in source.hi, target incarnation in target.lo
+        (X35; design 2.2 byte table).
+    4.  ND10/ND24 are closed by proofs I1/I2 (design 2.9.1). Their
+        branches are invariant checks, and the negatives are premise
+        mutations. X12c was added because ND24 went uncaught in attempt 1.
+    -   New negatives: ND39, ND40, ND41.
+-   **Results at 2bccdbe:**
+    -   Release, ASan+UBSan and TSan serial suites: 47 of 47 each.
+    -   Complete test_xnode: 33 of 33. Process x6, x7, x7b, x33 and x9 pass.
+    -   Negatives: 42 of 42.
+    -   F8 passes on and off in all three builds.
+    -   P2: on −1.0% vs off, inside the noise between rounds.
+-   **Test defects fixed along the way:**
+    -   q4 summed gauges published up to 84 ms apart.
+    -   X4 relied on chance.
+    -   test_intake F8/G1 did not allow legitimate S1 WAL-budget refusals.
+-   **Environment:** low disk (6.8 GB free) failed b3 on main too. cody
+    approved deleting about 17 GB of leaked test dirs, and gave a standing
+    OK to delete test scratch after every run.
+-   **Disclosures:** two failures have no root cause established: paxos c2b
+    in Release run 2, and one F8 links-up timeout in 1,000 runs. Both
+    passed on rerun, and both are recorded.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the rev4 protocol.
+    -   REFINE: the negatives must be checked against a test that leaves the
+        mutated state in place (as X12c does), not only by
+        whether they apply.
+-   **Next action:** WAIT for independent review of PR #95. Do not merge
+    it, and do not call D.2 complete. S5, S6, R640, CP-1A, comparators,
+    B2, Agent-SNC, Rust and DPDK/VPP stay forbidden.
