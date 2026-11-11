@@ -1,0 +1,14 @@
+33f7c6d Merge pull request #94 from codypendant/claude/project-thread-n8tebd
+== b3 on main 33f7c6d run 1 02:30:11 free 6.8G
+FAIL b3_stalled_catchup {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'build/net_bench'", "scenario": "b3_stalled_catchup", "seconds": 0.6}
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+== b3 on main 33f7c6d run 2 02:30:12 free 6.8G
+FAIL b3_stalled_catchup {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'build/net_bench'", "scenario": "b3_stalled_catchup", "seconds": 0.2}
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+(runs 1-2 above INVALID: that build had no net_bench; built it below)
+== b3 on main 33f7c6d run 3 02:30:40 free 6.8G
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 348, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 627, "disk_stopped_on_cancel": 36, "at_end": {"rss_kb": 197072, "repl_retained": 33533952, "wal_unacked": 208732, "d
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+== b3 on main 33f7c6d run 4 02:33:36 free 6.8G
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 290, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 553, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 294640, "repl_retained": 33542112, "wal_unacked": 243516, "d
+test_baseline_retry: FAILED ['b3_stalled_catchup']

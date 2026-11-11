@@ -1,0 +1,30 @@
+Internal ctest changing into directory: /home/claude/snc-server-os/build
+UpdateCTestConfiguration  from :/home/claude/snc-server-os/build/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/claude/snc-server-os/build/DartConfiguration.tcl
+Test project /home/claude/snc-server-os/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 26
+    Start 26: test_intake
+
+26: Test command: /home/claude/snc-server-os/build/test_intake
+26: Working Directory: /home/claude/snc-server-os/build
+26: Test timeout computed to be: 2400
+26: F10 contract: 8 violations stop the process with their message; a client calling a follow-up op gets E_BAD_ARGS
+26: /home/claude/snc-server-os/tests/test_intake.cpp:823: CHECK failed: as.refused_exchange >= refused
+26: F6 SIGKILL with d's intake closed and exchanges in flight, then recovery: transfers settled, money conserved (172000), no entries left (child: 466 transfers admitted, 217292 follow-ups gated on d, 12 staged; killing)
+26: F1/F5/F7/F2 stalled destination: 512 probes admitted, 31488 refused by X=64; WAL peak 262656 <= max(H=328192, R=66048); staging peak 64 <= (N-1)W + X + 1 = 177; node backlog peak 448 <= N(X+1) = 520; reads, batch and a forwarded mutation answered while staging; delivered once, in order
+26: F3 every shard stalled, W=1, X=4, H=B+R: 32 probes on every pair delivered once in order after release (1888 refused); no deadlock
+26: F4 drop paths: 480 probes to a deleted and to never-created objects ran their fail op once each, 480 more with no fail op were dropped there; exchanges, windows and staging back to zero
+1/1 Test #26: test_intake ......................***Failed    1.06 sec
+
+0% tests passed, 1 tests failed out of 1
+
+Total Test time (real) =   1.08 sec
+
+The following tests FAILED:
+	 26 - test_intake (Failed)

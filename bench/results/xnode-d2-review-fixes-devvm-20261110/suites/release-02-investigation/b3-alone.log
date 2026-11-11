@@ -1,0 +1,27 @@
+== b3 run 1 free 6.8G
+FAIL q5_catchup_race {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'b3_stalled_catchup/snc_server'", "scenario": "q5_catchup_race", "seconds": 0.0}
+FAIL q5_catchup_race_late {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'b3_stalled_catchup/snc_server'", "scenario": "q5_catchup_race_late", "seconds": 0.0}
+test_baseline_retry: FAILED ['b3_stalled_catchup', 'q1_kill', 'r11_guard', 'q1_stop', 'q1_partition', 'q1_flap', 'q1_stall', 'q1_blocked', 'q1_failed', 'q5_kill_kill', 'q5_kill_stop', 'q5_catchup_race', 'q5_catchup_race_late']
+== b3 run 2 free 6.8G
+FAIL q5_catchup_race {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'b3_stalled_catchup/snc_server'", "scenario": "q5_catchup_race", "seconds": 0.0}
+FAIL q5_catchup_race_late {"pass": false, "error": "FileNotFoundError: [Errno 2] No such file or directory: 'b3_stalled_catchup/snc_server'", "scenario": "q5_catchup_race_late", "seconds": 0.0}
+test_baseline_retry: FAILED ['b3_stalled_catchup', 'q1_kill', 'r11_guard', 'q1_stop', 'q1_partition', 'q1_flap', 'q1_stall', 'q1_blocked', 'q1_failed', 'q5_kill_kill', 'q5_kill_stop', 'q5_catchup_race', 'q5_catchup_race_late']
+NOTE: runs 'b3 run 1/2' above are INVALID (wrong argv: the build dir was not passed); kept as a record.
+== b3 (correct argv) run 1 02:21:05 free 6.8G
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 257, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 535, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 206512, "repl_retained": 33543696, "wal_unacked": 226596, "d
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+== b3 (correct argv) run 2 02:24:01 free 6.8G
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 289, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 614, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 202728, "repl_retained": 33548184, "wal_unacked": 239484, "d
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+== b3 (correct argv) run 3 02:26:57 free 6.8G
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 264, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 576, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 202664, "repl_retained": 33535488, "wal_unacked": 237752, "d
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+== b3 after freeing 17 GB, run 1 03:50:33 free 24G
+PASS b3_stalled_catchup {"caught_up": true, "peak_rss_mib": 325, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 804, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 273996, "repl_retained": 0, "wal_unacked": 0, "disk_readers":
+test_baseline_retry: OK
+== b3 after freeing 17 GB, run 2 03:51:55 free 24G
+PASS b3_stalled_catchup {"caught_up": true, "peak_rss_mib": 292, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 699, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 189516, "repl_retained": 0, "wal_unacked": 0, "disk_readers":
+test_baseline_retry: OK
+== b3 after freeing 17 GB, run 3 03:53:17 free 24G
+PASS b3_stalled_catchup {"caught_up": true, "peak_rss_mib": 290, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 738, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 197780, "repl_retained": 0, "wal_unacked": 0, "disk_readers":
+test_baseline_retry: OK

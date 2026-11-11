@@ -765,6 +765,13 @@ void test_node_links() {
     bool up = true;
     for (u16 s = 0; s < kSh; ++s) up = up && a.stats(s).node_connects >= kSh && b.stats(s).node_connects >= kSh;
     if (up) break;
+    // Once in 1000 full runs (2026-11-11, not reproduced since) the links
+    // were not up after 10 s: say which, so a recurrence can be traced
+    // (the node link logs a port it cannot listen on to stderr).
+    if (i >= 10000)
+      std::fprintf(stderr, "F8 links not up: ports %u/%u; node_connects A %llu %llu, B %llu %llu\n", base, base + 20,
+                   (unsigned long long)a.stats(0).node_connects, (unsigned long long)a.stats(1).node_connects,
+                   (unsigned long long)b.stats(0).node_connects, (unsigned long long)b.stats(1).node_connects);
     CHECK(i < 10000);
     ::usleep(1000);
   }
@@ -784,6 +791,7 @@ void test_node_links() {
   u64 connects0 = 0;
   for (u16 s = 0; s < kSh; ++s) connects0 += a.stats(s).node_connects + b.stats(s).node_connects;
   Engine::debug_hold_wal(1, true);
+  const ShardStats as0 = a.stats(0);  // only the probes below run on A's shard 0 from here
   u64 seq = warm.last_seq, ok = warm.ok, refused = 0, held_peak = 0, live_peak = 0;
   for (int round = 0; round < 60; ++round) {
     SendOut o = send_probes(a, 0, src, dst, 0, seq, 100);
@@ -818,10 +826,29 @@ void test_node_links() {
   // its link's send buffer).
   // (With SNC_XNODE_ACCOUNTING=off, the rollback, X10: D.1 as before.)
   const bool accounting = fresh_gauges(a, 0)[G_XNODE_ACCOUNTING] != 0;
+  // Every refusal the client saw is one of A's, by reason. X is the one
+  // this check needs. The old check (refused_exchange >= refused) failed
+  // once in 21 Release runs: some refusal was not X's. A's other
+  // admission limits are counted here, not assumed absent.
+  const u64 d_ex = as.refused_exchange - as0.refused_exchange;
+  const u64 d_all = as.overloaded - as0.overloaded;
+  if (d_all != refused || d_ex == 0)
+    std::fprintf(stderr, "F8: refused %llu, A overloaded delta %llu, exchange delta %llu, before %llu/%llu\n",
+                 (unsigned long long)refused, (unsigned long long)d_all, (unsigned long long)d_ex,
+                 (unsigned long long)as0.overloaded, (unsigned long long)as0.refused_exchange);
   if (accounting) {
     CHECK(refused > 0);
-    CHECK(as.refused_exchange >= refused);
+    CHECK(d_ex > 0);
   }
+  CHECK_EQ(d_all, refused);
+  CHECK(d_ex <= refused);
+  std::printf("F8 sender refusals: %llu seen by the client = A's overloaded delta; exchange (X) %llu, WAL buffer %llu, "
+              "waiter %llu, pending %llu, follow-up backlog %llu\n",
+              (unsigned long long)refused, (unsigned long long)d_ex,
+              (unsigned long long)(as.refused_wal_buffer - as0.refused_wal_buffer),
+              (unsigned long long)(as.refused_waiter - as0.refused_waiter),
+              (unsigned long long)(as.refused_pending - as0.refused_pending),
+              (unsigned long long)(as.refused_followup - as0.refused_followup));
   CHECK(live_peak <= ca.exchange_budget);  // live < X + max(E, Rr), E = 1 for a probe, no resume hook
   Engine::debug_hold_wal(1, false);
   for (int i = 0; i < 60000; ++i) {
@@ -1311,9 +1338,27 @@ void test_owner_gate() {
   for (int i = 0; i < 20; ++i) d_acc.push_back(make(eng, kD, account::kTypeId));
   const ObjectID s_acc = make(eng, 0, account::kTypeId);
   // d's backlog past the gate: transfers d -> shard 0, held.
+  // S1's WAL buffer budget may refuse one when d's WAL write is slow (seen
+  // 7 times in 900 runs, refused_wal_buffer 1, every other refusal 0):
+  // a legitimate refusal, nothing to do with the owner gate; that one is
+  // resent. Any other status fails.
   for (int i = 0; eng.stats(kD).emits_in_flight <= 1024; ++i) {
     CHECK(i < 5000);
+    const u64 walref = eng.stats(kD).refused_wal_buffer;
     OneResult r = transfer(eng, kD, d_acc[i % 20], s_acc, 1);
+    if (r.r.status == Status::E_OVERLOADED && eng.stats(kD).refused_wal_buffer == walref + 1) {
+      ::usleep(1000);
+      continue;
+    }
+    if (r.r.status != Status::OK && r.r.status != Status::E_APP) {
+      const ShardStats x = eng.stats(kD);
+      std::fprintf(stderr, "G1 transfer %d: %s; d refused: followup %llu ring %llu waiter %llu wal_buffer %llu pending %llu "
+                   "exchange %llu owner %llu; in flight %llu\n", i, status_name(r.r.status),
+                   (unsigned long long)x.refused_followup, (unsigned long long)x.refused_ring,
+                   (unsigned long long)x.refused_waiter, (unsigned long long)x.refused_wal_buffer,
+                   (unsigned long long)x.refused_pending, (unsigned long long)x.refused_exchange,
+                   (unsigned long long)x.refused_owner, (unsigned long long)x.emits_in_flight);
+    }
     CHECK(r.r.status == Status::OK || r.r.status == Status::E_APP);
   }
   const ShardStats d0 = eng.stats(kD);

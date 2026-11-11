@@ -1,0 +1,7 @@
+FAIL run 91
+/home/claude/snc-server-os/tests/test_intake.cpp:1333: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+F8 sender refusals: 4976 seen by the client = A's overloaded delta; exchange (X) 4976, WAL buffer 0, waiter 0, pending 0, follow-up backlog 0
+F8 node links, L=8: receiver gated, link reads paused 1 time(s), held peak 8 <= L, no reconnect; 1025 probes delivered once in order across nodes; the sender's gate refused 4976 across nodes (live peak 1024, X = 1024)
+done
+
+[exited with code 0]
