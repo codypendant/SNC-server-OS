@@ -13,6 +13,10 @@ outside its profile is refused rather than measured:
     standby reads (--standby-reads) in Profile B; and each profile's own
     shape (B: a sync standby and a witness gate on every primary, placement
     v2; A and C: no replication; C: no data directory; D: no witness HA);
+  - Profile A's approved checkpoint configuration (PROFILE_REQUIRED: the
+    R640 walk pacing, target and maximum age, dsync writeback, write
+    window 1, sync tokens 0, checkpoint every 60 s): each flag present at
+    exactly its value, or refused, with no deviation route;
   - refused unless declared: a fixed setting at another value than the
     baseline's (section 1: --group-commit-us 50, --pages 4k, --move-units
     on, --checkpoint-s 60, --replica-timeout-ms 2000), and any flag that is
@@ -41,6 +45,30 @@ FIXED = {
     "--move-units": ("on", "on"),
     "--checkpoint-s": ("60", "0"),       # (required value, the default when absent)
     "--replica-timeout-ms": ("2000", "2000"),
+}
+
+# Settings a profile requires at exactly these values, with no deviation
+# route: missing or different is refused. Profile A carries the approved
+# R640 checkpoint configuration (S6 FAIL at W=4 -> REFINE #1 PASS at W=1,
+# docs/handoff/PR106_S6_Refine1_Final_Review.md; pacing from PR #98's
+# review). Changing it needs a reviewed change to this table, not a run's
+# declared deviation. Not imposed on B or D without their own evidence; C
+# has no data directory.
+PROFILE_REQUIRED = {
+    "A": {
+        "--checkpoint-s": "60",
+        "--ckpt-pacing": "on",
+        "--ckpt-walk-batch": "16",
+        "--ckpt-walk-min-us": "20",
+        "--ckpt-walk-max-us": "65",
+        "--ckpt-walk-ceiling-us": "155",
+        "--ckpt-walk-step-us": "5",
+        "--ckpt-target-ms": "30000",
+        "--ckpt-max-age-ms": "60000",
+        "--ckpt-io": "dsync",
+        "--ckpt-window": "1",
+        "--ckpt-sync-tokens": "0",
+    },
 }
 
 # Placement, addressing and identity: they shape a run without changing
@@ -168,6 +196,8 @@ class Guard:
                     raise ProfileViolation(f"data directory {d}: --shards {f['--shards']} on restart, {shards} at "
                                            "its start: a shard-count change within a run is refused")
         for flag, (want, default) in FIXED.items():
+            if flag in PROFILE_REQUIRED.get(p, {}):
+                continue  # checked below, exactly and with no deviation route
             if flag == "--checkpoint-s" and p == "C":
                 continue  # no data directory: nothing to checkpoint
             if flag == "--replica-timeout-ms" and not primary and flag not in f:
@@ -175,8 +205,16 @@ class Guard:
             got = str(f.get(flag, default))
             if not same_value(got, want):
                 self._deviation(flag, got, f"{flag} {got} instead of {want}")
+        required = PROFILE_REQUIRED.get(p, {})
+        for flag, want in required.items():
+            if flag not in f:
+                raise ProfileViolation(f"Profile {p}: {flag} {want} is required (the approved checkpoint "
+                                       "configuration) and missing")
+            if not same_value(f[flag], want):
+                raise ProfileViolation(f"Profile {p}: {flag} {f[flag]} instead of the approved {want} (no "
+                                       "deviation route: a change needs a reviewed PROFILE_REQUIRED)")
         for flag, value in f.items():
-            if flag not in STRUCTURAL and flag not in FIXED:
+            if flag not in STRUCTURAL and flag not in FIXED and flag not in required:
                 self._deviation(flag, value if value is not True else "", f"{flag} is not part of Profile {p}")
         return f
 

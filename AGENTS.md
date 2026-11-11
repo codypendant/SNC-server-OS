@@ -2615,3 +2615,29 @@ or source comments.
     1.2; the begin snapshot.
 -   **Next action:** independent review. No CP-1A, default change or
     adaptive window.
+
+### 2026-11-11 20:40 UTC --- Claude (Claude Code): CP-1A configuration closure (for review)
+
+-   **Commit/PR:** branch `cp1a-config-closure`. Python, JSON and docs
+    only; no benchmark run, no product change.
+-   **Why:** PR #106's review found that `bench/pilot.py` passed only
+    `--checkpoint-s 60`, so CP-1A would have run the compiled defaults
+    (W=4: the S6 failure).
+-   **What:**
+    - `pilot_plan.json` gains `profiles.A.checkpoint` (checkpoint 60 s,
+      pacing on, 16/20/65/155/5, target 30 s, max age 60 s, dsync,
+      window 1, tokens 0). The top-level `checkpoint_s` is folded in. New
+      plan SHA-256 `568e9874…`; nothing pinned the old one.
+    - `pilot.py` `server_args`/`checkpoint_args` emit all twelve flags
+      from the plan, and refuse missing or unknown keys.
+    - `profile_check.py` `PROFILE_REQUIRED["A"]`: each flag exact, or
+      refused, with no deviation route. C unchanged; B and D untouched.
+-   **Evidence** (`bench/results/cp1a-config-closure-20261111/`):
+    - tests for the command, Profile C, plan provenance and 13
+      wrong-value cases plus 12 missing-flag cases;
+    - 9/9 mutations caught;
+    - the real `snc_server` started with the generated flags and printed
+      exactly the approved values;
+    - the Python gate: 7 tests pass.
+-   **Next action:** independent review. Then freeze HEAD and the plan
+    hash, then an explicit CP-1A GO. No CP-1A before that.

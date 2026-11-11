@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 359, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 239, in test_profile_a_command_carries_the_approved_checkpoint_configuration
+    assert f.get(flag) == value, (flag, f.get(flag))
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('--ckpt-window', None)

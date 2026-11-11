@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 359, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 278, in test_command_values_come_from_the_plan
+    a_command(plan)
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 231, in a_command
+    return pilot.server_args(plan, profile, "build", 8, 26040, 10000000, [2, 4, 6, 8, 10, 12, 14, 16], "/d/A-x")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/tests/../bench/pilot.py", line 255, in server_args
+    srv += ["--data-dir", data] + checkpoint_args(plan["profiles"]["A"]["checkpoint"])
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/tests/../bench/pilot.py", line 243, in checkpoint_args
+    out += ["--" + k.replace("_", "-"), str(cfg[k])]
+                                            ~~~^^^
+KeyError: 'ckpt_window'

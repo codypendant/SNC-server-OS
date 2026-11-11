@@ -50,8 +50,16 @@ def setf(argv, flag, value=None):
     return a if value is None else a + [flag, value]
 
 
-def a_node(d="/r/n1", extra=()):
-    return [SRV, "--shards", 4, "--data-dir", d, "--checkpoint-s", 60] + list(extra)
+# The approved R640 Profile-A checkpoint configuration (PR #106 review),
+# written out independently of bench/profile_check.py's table.
+A_CKPT = ["--checkpoint-s", 60, "--ckpt-pacing", "on", "--ckpt-walk-batch", 16, "--ckpt-walk-min-us", 20,
+          "--ckpt-walk-max-us", 65, "--ckpt-walk-ceiling-us", 155, "--ckpt-walk-step-us", 5,
+          "--ckpt-target-ms", 30000, "--ckpt-max-age-ms", 60000, "--ckpt-io", "dsync", "--ckpt-window", 1,
+          "--ckpt-sync-tokens", 0]
+
+
+def a_node(d="/r/n1", extra=(), ckpt=A_CKPT):
+    return [SRV, "--shards", 4, "--data-dir", d] + list(ckpt) + list(extra)
 
 
 CASES = []
@@ -366,6 +374,40 @@ def refused_state(why, f, *a):
         assert why in str(e), (why, str(e))
         return
     raise AssertionError(f"accepted, expected: {why}")
+
+
+@case
+def profile_a_checkpoint_configuration():
+    """PR #106 review: Profile A must carry the approved checkpoint
+    configuration exactly; each flag missing or changed is refused, with no
+    deviation route; Profile C is unaffected; B and D get no R640 values."""
+    Guard("A").server(a_node())
+    Guard("A").server(a_node(extra=[], ckpt=[str(x) for x in A_CKPT]))     # strings as the pilot passes them
+    for flag in A_CKPT[::2]:
+        refused(f"{flag} ", Guard("A").server, setf(a_node(), flag))   # missing
+    bad = [("--ckpt-window", 4), ("--ckpt-window", 2), ("--ckpt-walk-max-us", 100), ("--ckpt-walk-ceiling-us", 250),
+           ("--ckpt-walk-min-us", 10), ("--ckpt-walk-step-us", 10), ("--ckpt-walk-batch", 32),
+           ("--ckpt-target-ms", 60000), ("--ckpt-max-age-ms", 300000), ("--ckpt-pacing", "off"),
+           ("--ckpt-io", "legacy"), ("--ckpt-sync-tokens", 4), ("--checkpoint-s", 30)]
+    for flag, value in bad:
+        refused(f"{flag} {value} instead of the approved", Guard("A").server, setf(a_node(), flag, value))
+    # The old (dev-VM) walk defaults all at once, and S6's original W=4.
+    old = a_node()
+    for flag, value in (("--ckpt-walk-max-us", 100), ("--ckpt-walk-ceiling-us", 250), ("--ckpt-walk-step-us", 10)):
+        old = setf(old, flag, value)
+    refused("instead of the approved", Guard("A").server, old)
+    # A declared deviation does not open a route around the table.
+    refused("--ckpt-window 4 instead of the approved", Guard("A", ["--ckpt-window=4", "--ckpt-window"]).server,
+            setf(a_node(), "--ckpt-window", 4))
+    refused("--checkpoint-s 5 instead of the approved", Guard("A", ["--checkpoint-s=5"]).server,
+            setf(a_node(), "--checkpoint-s", 5))
+    # Profile C: no data directory and no checkpoint flags, as before; the flags stay foreign to it.
+    Guard("C").server([SRV, "--shards", 4, "--objects", 100])
+    refused("--ckpt-window is not part of Profile C", Guard("C").server, [SRV, "--shards", 4, "--ckpt-window", 1])
+    # B and D: unchanged, no R640 values imposed.
+    Guard("B").server(b_primary())
+    Guard("D").server([SRV, "--shards", 4, "--data-dir", "/r/n9", "--checkpoint-s", 60, "--replica-of", "h:1",
+                       "--async-replica"])
 
 
 def main():
