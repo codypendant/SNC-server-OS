@@ -1,0 +1,8 @@
+# mutations of refine1.py (no bytecode cache); rc=1: test_refine1.py caught it; after = last check group that passed
+window-2 rc=1 after=none
+no-window-flag rc=1 after=none
+h1-judged rc=1 after=A2
+ref-p99-wrong rc=1 after=A1
+c0-median-wrong rc=1 after=A1
+capacity-ignored rc=1 after=A2
+void-ignored rc=1 after=A2

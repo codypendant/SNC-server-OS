@@ -2596,3 +2596,22 @@ or source comments.
       too, so it is not a cause.
 -   **Next action:** independent review chooses REFINE #1 or another
     path. No W chosen; S6 not rerun.
+
+### 2026-11-11 20:00 UTC --- Claude (Claude Code): S6 REFINE round 1 (W=1): PASS, for review
+
+-   **Commit/PR:** branch `s6-refine1-r640-20261111`. Preregistration,
+    overlay and tests at `3acad8c`, before data. No product code.
+-   **Run:** P1/H1/C1 = S6 P/H/C plus `--ckpt-window 1`, 3 reps each, once
+    (19:40-19:51 UTC). S6 N and C0 reused read-only. Preflight and
+    postflight clean; no VOID or rerun.
+-   **Result:** **PASS**.
+    - All three P1 reps pass all seven original rules: p99.9 9,961,472 ns
+      (limit 10,000,000; a thin, bucket-edge margin), p99 at most 950,272
+      (limit 958,464), 0 refusals, lateness 0.025%, checkpoint about
+      1.55 s.
+    - Capacity: median C1 4,353,886, against at least 3,815,353.
+    - H1 is about equal to H (no pathology).
+-   **Still open:** the about-49 ms max; mutation p99.9 about 12 ms vs N's
+    1.2; the begin snapshot.
+-   **Next action:** independent review. No CP-1A, default change or
+    adaptive window.
