@@ -179,7 +179,16 @@ Decided by cody on 2026-11-04.
      W1 lowers chunk write latency (about 3x), the WAL EWMA peak (4.4 vs
      7 ms, 0 s above high) and mutation p99.9 (12.3 vs 17.5 ms). W2 halves
      write latency but its tail stays near W4. Neither reaches N. Returned
-     for review; no W chosen, no controller change, no S6 rerun.
+     for review; no W chosen, no controller change, no S6 rerun. The review (handoff/PR105_S6_Write_Window_Review.md)
+     confirmed the hypothesis and authorized **REFINE round 1 of 2**: S6
+     P/H/C with `--ckpt-window 1`, under unchanged criteria, reusing S6 N and
+     C0. It ran once
+     ([bench/results/s6-refine1-r640-20261111/](../bench/results/s6-refine1-r640-20261111/README.md)):
+     **REFINE #1 PASS**. All three P1 reps pass every rule (p99.9
+     9,961,472 ns against 10,000,000, a thin margin; p99 up to 950,272
+     against 958,464). Capacity is median C1 4,353,886 against 95% of
+     4,016,161. Returned for independent review. Original S6 remains FAIL;
+     no CP-1A.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

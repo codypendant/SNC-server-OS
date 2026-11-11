@@ -1,0 +1,51 @@
+{
+ "void": [],
+ "p99_reference_ns": "638976",
+ "p99_limit_ns": "958464",
+ "p1_reps": [
+  {
+   "rep": 0,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": true,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": []
+  },
+  {
+   "rep": 1,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": true,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": []
+  },
+  {
+   "rep": 2,
+   "rules": {
+    "1_no_refusal": true,
+    "2_lateness": true,
+    "3_p99": true,
+    "4_p999": true,
+    "5_backlog": true,
+    "6_checkpoint": true,
+    "7_correctness": true
+   },
+   "failed": []
+  }
+ ],
+ "capacity_ok": true,
+ "capacity_why": [],
+ "c1_median": "4353886",
+ "c0_median": "4016161",
+ "verdict": "PASS"
+}
