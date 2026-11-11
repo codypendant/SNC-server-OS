@@ -2576,3 +2576,23 @@ or source comments.
     - C0's final sync takes about 1.2 s; the current build's about 0.3 ms.
 -   **Next action:** independent S6 result review. No tuning, rerun or
     CP-1A before it.
+
+### 2026-11-11 19:15 UTC --- Claude (Claude Code): S6 write-window characterization (W1/W2), for review
+
+-   **Commit/PR:** branch `s6-wchar-r640-20261111`. Preregistration and
+    driver at `c13153f`, before data. Results only; no product code.
+-   **Run:** `wchar.py` (imports the frozen `bench/s6.py`), 6 reps.
+    Preflight and postflight identity clean; no VOID or rerun; 0
+    refusals or errors.
+-   **Result vs W4 (the S6 P reps):**
+    - W1: chunk write EWMA 3.2-7.8 ms (vs 9.7-35), WAL EWMA peak 4.4-4.6 ms
+      (vs 6.9-7.4), 0 s above WAL-high (vs 0.8-1.1), deposit/transfer
+      p99.9 12.1-12.6 ms (vs 17.3-17.8), total p99.9 9.70 ms in all reps.
+    - W2: write latency about halved, but WAL pressure and tail near W4.
+    - Checkpoint about 1.5 s everywhere.
+    - Neither reaches N (mutation p99.9 about 1.2 ms). Max about 49 ms is
+      unchanged and unexplained.
+    - `wal_flush_max_us` (about 47 ms) is a since-start mark present in N
+      too, so it is not a cause.
+-   **Next action:** independent review chooses REFINE #1 or another
+    path. No W chosen; S6 not rerun.

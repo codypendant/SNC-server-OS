@@ -171,8 +171,15 @@ Decided by cody on 2026-11-04.
      1-3 and 5-7 pass, and the capacity guard holds (median C / median C0 =
      0.991). Evidence:
      [bench/results/s6-r640-20261111/](../bench/results/s6-r640-20261111/README.md).
-     **Next:** independent review of the S6 result. No tuning, no rerun, no
-     CP-1A before it.
+     The result review (handoff/PR104_S6_Result_Review.md) accepted the
+     FAIL and authorized a write-window causal characterization only. It
+     ran once (W1/W2 = P with `--ckpt-window 1/2`, 3 reps each; W4 = the S6
+     P reps;
+     [bench/results/s6-wchar-r640-20261111/](../bench/results/s6-wchar-r640-20261111/README.md)).
+     W1 lowers chunk write latency (about 3x), the WAL EWMA peak (4.4 vs
+     7 ms, 0 s above high) and mutation p99.9 (12.3 vs 17.5 ms). W2 halves
+     write latency but its tail stays near W4. Neither reaches N. Returned
+     for review; no W chosen, no controller change, no S6 rerun.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
