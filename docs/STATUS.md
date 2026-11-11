@@ -121,11 +121,14 @@ Decided by cody on 2026-11-04.
      observations (no root cause, not D.2 findings): one paxos c2b
      deadline failure and one F8 links-up timeout; investigate on site
      if either recurs.
-     **Next (not yet authorized beyond this):** recapture the R640
-     manifest, because all six memory channels per socket are now
-     populated; manifest bench/manifests/r640-main-20261106d.txt is no
-     longer valid for new evidence. Review it before any new R640
-     evidence. S6 and any campaign need a fresh authorization.
+     **R640 manifest e reviewed and APPROVED (2026-11-11):**
+     bench/manifests/r640-main-20261111.txt, 12 × 32 GB with six of six
+     memory channels per socket (R640_TOPOLOGY 2d). Manifest d is retired
+     for future evidence; its CP-1A and diagnosis results stay historical.
+     bench/pilot_plan.json pins manifest e (that pin is the only change;
+     PILOT_PLAN 2 says why). **Next:** return this manifest-baseline
+     closure for review. CP-1A and S6 need an explicit authorization
+     after that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

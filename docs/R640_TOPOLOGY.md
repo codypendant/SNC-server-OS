@@ -15,13 +15,13 @@ CP-1A is not authorized.*
 Remembered specifications are not evidence. The manifest shows **320 GB
 of RAM, not the ~384 GB remembered**, and **no NVMe**.
 
-> **Superseded for new evidence, 2026-11-11 (section 2d, FOR REVIEW).**
-> cody added DIMMs, so all six memory channels per socket are now
-> populated: 12 × 32 GB, 384 GB. Manifest e
-> (`bench/manifests/r640-main-20261111.txt`) describes the host from now
-> on. Manifest d stays as the record of the machine that produced the
-> CP-1A and diagnosis results; those results are not reinterpreted.
-> Until manifest e is reviewed, no new R640 evidence is run.
+> **Manifest e supersedes manifest d for all future evidence (2026-11-11,
+> section 2d; capture APPROVED in review).** cody added DIMMs: 12 × 32 GB
+> DDR4-2400 2-rank, 384 GB nominal, 376 GiB usable. A1-A6 and B1-B6 are
+> populated, six of six channels per socket. The 5-of-6-channel limitation
+> below applies only to manifest d's configuration. Manifest d and the
+> CP-1A and diagnosis results stay as historical evidence for that old
+> configuration; they are not reinterpreted under manifest e.
 
 *Update after manifest b, 2026-11-06:* the data dir is now on a dedicated
 3.84 TB 12 Gb/s SAS SSD, and eno1 links at 10 Gb/s. Section 5's storage
@@ -56,7 +56,9 @@ decision is settled, and gap R-G4 is closed.
   C-states, C1E, uncore frequency, SNC (sub-NUMA clustering) and memory
   mode from iDRAC (System BIOS → System Profile Settings / Memory
   Settings, read only) before the pilot.
-- **INFERRED: memory bandwidth is below the platform's maximum.** 5 DIMMs
+- **INFERRED: memory bandwidth is below the platform's maximum.**
+  *(Manifest d's configuration only. Superseded by manifest e, section
+  2d: six of six channels.)* 5 DIMMs
   per socket on a 6-channel controller leaves at least one channel
   empty per socket, and the DIMMs run at 2400, not the 6150's 2666. This
   is the same for every system, but it caps memory-bound results.
@@ -185,7 +187,7 @@ cat /proc/sys/kernel/numa_balancing                                           # 
 
 `bench/pilot.py` refuses to start if either is wrong.
 
-## 2d. Manifest e: all six memory channels populated (OBSERVED, FOR REVIEW)
+## 2d. Manifest e: all six memory channels populated (OBSERVED; capture APPROVED)
 
 `bench/manifests/r640-main-20261111.txt` was captured at 13:55 UTC
 on 2026-11-11 by the R640 session, at d0d3bb7 (merged main, PR #95). It
@@ -195,7 +197,7 @@ settings, and the capture. SHA-256:
 
 | Area | Manifest d | Manifest e |
 |---|---|---|
-| DIMMs | 10 × 32 GB DDR4, 2-rank, 2400 MT/s: A1-A5, B1-B5 | **12 × 32 GB** DDR4, 2-rank, 2400 MT/s: **A1-A6, B1-B6**; A7-A12 and B7-B12 empty |
+| DIMMs | 10 × 32 GB DDR4, 2-rank, 2400 MT/s: A1-A5, B1-B5 (320 GB nominal) | **12 × 32 GB** DDR4, 2-rank, 2400 MT/s: **A1-A6, B1-B6** (384 GB nominal); A7-A12 and B7-B12 empty |
 | Channels per socket (INFERRED from Dell's R640 slot layout: A1-A6 and B1-B6 are the first slot of each of the six channels) | 5 of 6, one DIMM per channel | **6 of 6**, one DIMM per channel |
 | MemTotal | 329,771,792 kB (314 GiB) | 394,799,836 kB (376 GiB) |
 | NUMA node 0 / node 1 MemTotal | 164,684,076 / 165,087,716 kB | 196,637,644 / 198,162,192 kB |
@@ -233,16 +235,16 @@ What it means:
   2400 MT/s, not the 6150's 2666, so this is not the platform maximum.
   Results from manifest d and manifest e are different machine
   configurations: no comparison across them without saying so.
-- **Allocation (section 4) is unchanged:** server on node 0, client on
-  node 1, the data on the SAS SSD. Each node now has about 192 GB.
-- **Proposed (needs review):**
-  - Manifest e becomes the campaign manifest.
-  - `bench/pilot_plan.json`'s `approved_manifest_sha256` changes to e's
-    SHA-256 in the change that authorizes the next campaign. It still
-    names manifest d, so `bench/pilot.py` keeps refusing a run on an
-    unreviewed manifest.
-  - The CP-1A pilot is redone on manifest e only under that new
-    authorization. Its old results keep manifest d.
+- **Allocations are unchanged** (PILOT-L and PILOT-X,
+  `bench/pilot_plan.json`), and so is the data on the SAS SSD. Each
+  node now has about 192 GB.
+- **Manifest e is the campaign manifest.** `bench/pilot_plan.json`
+  pins its SHA-256 (the manifest-baseline closure, docs/PILOT_PLAN.md
+  section 2). Manifest d is retired for future evidence.
+  - `bench/pilot.py` compares only the file passed with `--manifest`,
+    not the live hardware. The manifest must therefore be recaptured
+    and reviewed after any hardware change, as this one was.
+- CP-1A and S6 evidence still need their own explicit authorization.
 
 ## 3. Locality (OBSERVED, with one inference)
 

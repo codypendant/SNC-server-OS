@@ -2365,3 +2365,26 @@ or source comments.
     3.  Return both for review.
     -   Not authorized: S6, CP-1A, comparators, baseline freeze,
         Agent-SNC, Rust and DPDK/VPP.
+
+### 2026-11-11 UTC --- Claude (Claude Code): R640 manifest e, manifest-baseline closure
+
+-   **What:**
+    -   PR #95 is merged and D.2 is COMPLETE.
+    -   The R640's RAM is now 12 × 32 GB DDR4-2400, in A1-A6 and B1-B6:
+        six of six channels per socket, 384 GB nominal, 376 GiB usable.
+    -   Manifest e (`bench/manifests/r640-main-20261111.txt`, sha256
+        `768056bb...c27b6`) was captured on the host at d0d3bb7. Its
+        review APPROVED the capture.
+-   **Changed (branch r640-manifest-20261111):**
+    -   `docs/R640_TOPOLOGY.md` 2d: manifest e supersedes d for all future
+        evidence.
+    -   `bench/pilot_plan.json`: only the manifest pin
+        (`approved_manifest_sha256`, `_approved_manifest`).
+    -   `docs/PILOT_PLAN.md` 2: the host is manifest e, and the section
+        says why changing the pin is permitted.
+    -   No method, workload, allocation, rate, threshold, seed or metric
+        changed.
+    -   Manifest d and the old CP-1A results stay as historical evidence.
+-   **Next action:** return the closure for review. Do NOT run CP-1A, S6,
+    comparators, Agent-SNC, Rust or DPDK/VPP until they are explicitly
+    authorized.
