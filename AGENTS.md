@@ -2401,3 +2401,32 @@ or source comments.
     (reference = same-SHA no-checkpoint median), then stop for review/GO.
 -   **Still not authorized:** S6 data, CP-1A rerun, comparators, CRITERIA
     freeze, S5/ioprio, B2, Agent-SNC, Rust, DPDK/VPP.
+
+### 2026-11-11 15:10 UTC --- Claude (Claude Code): R640 pacing re-derivation and S6 preregistration (for review)
+
+-   **Commit/PR:** branch `r640-s2-pacing-s6-prereg`. Evidence and docs only;
+    no product code changed.
+-   **Code identity:** merged post-PR97 main `0dbd4c7`, RelWithDebInfo
+    build-s6; `ckpt_walk_cost` SHA-256 `4707dac1…5d2d2`.
+-   **Host and filesystem:**
+    - Governor and NUMA balancing reapplied; RAM as manifest e.
+    - `/srv/snc-data` is the same ext4 filesystem manifest d measured:
+      UUID `3bf857c8…`, created 2026-11-06 06:00:03, before manifest d.
+    - No lazy init (all 28,616 groups `ITABLE_ZEROED`), no idle I/O.
+    - What removed the 2.2 GB is not determined.
+-   **Found:**
+    - `ckpt_walk_cost` alone cannot measure the walk: the S3 dsync window
+      stops steps, so `walk_us` is I/O wait. On one CPU, the step maxima
+      are preemption (about 1 ms in every mode).
+    - bpftrace uprobes on the unchanged binary give a legacy 256-ID step of
+      171.6 us p50 (about 670 ns per ID, mostly `encode_record`) and a
+      batch of 16 of 13.3 us p50 (16.4 p99).
+    - The R640 values are min 20, max 65 and ceiling 155 us, batch 16,
+      step 5 us. The dev-VM max and ceiling would let a step reach 0.68x
+      and 1.55x of the legacy step.
+    - **Blocker:** `snc_server` has no walk-budget flags. The proposed
+      fix is a flags-only change, separately reviewed (S6_PREREG section 2).
+-   **Next action:** review `docs/S6_PREREG.md` (section 9 lists the open
+    decisions: the flags change, the max age, the pre-S1 build, the runner),
+    then an explicit GO. Not done: S6 data, CP-1A, comparators, CRITERIA
+    freeze.

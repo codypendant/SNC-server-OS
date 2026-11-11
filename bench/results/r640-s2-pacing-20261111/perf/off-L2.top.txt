@@ -1,0 +1,8 @@
+# perf record -F 4999 -g, whole ckpt_walk_cost process (recover + 3 checkpoints, pacing off),
+# numactl --physcpubind=2,4 --membind=0, 625,000 IDs; perf report --no-children --sort symbol.
+# Transcribed from the report (the .data file, 50+ MB, was not kept).
+37.67%  snc::encode_record          (checkpoint walk: imaging each object into the chunk)
+12.38%  snc::check_record           (recovery at process start, not the walk)
+ 2.83%  std::_Hashtable<std::string,...>::_M_find_before_node  (index rebuild at recovery)
+ 1.93%  snc::Shard::begin_checkpoint (the one-step ID snapshot)
+ 1.90%  [kernel]
