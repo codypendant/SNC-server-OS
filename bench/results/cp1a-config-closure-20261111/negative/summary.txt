@@ -1,0 +1,10 @@
+# mutations of the closure (no bytecode cache); each must fail at least one suite (rc=1)
+pilot-drops-window test_pilot rc=1 test_profile_check rc=0
+pilot-old-checkpoint-only test_pilot rc=1 test_profile_check rc=0
+pilot-no-key-check test_pilot rc=1 test_profile_check rc=0
+pilot-ckpt-on-C test_pilot rc=1 test_profile_check rc=0
+guard-window-4 test_pilot rc=1 test_profile_check rc=1
+guard-missing-allowed test_pilot rc=0 test_profile_check rc=1
+guard-deviation-route test_pilot rc=0 test_profile_check rc=1
+guard-imposed-on-B test_pilot rc=0 test_profile_check rc=1
+guard-maxage-300000 test_pilot rc=1 test_profile_check rc=1

@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 421, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 415, in main
+    fn()
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 87, in valid_b
+    g.server(b_standby())
+  File "/home/solo/SNC-server-OS/bench/profile_check.py", line 212, in server
+    raise ProfileViolation(f"Profile {p}: {flag} {want} is required (the approved checkpoint "
+profile_check.ProfileViolation: Profile B: --ckpt-window 1 is required (the approved checkpoint configuration) and missing

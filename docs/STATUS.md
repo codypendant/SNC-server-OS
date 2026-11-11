@@ -188,7 +188,20 @@ Decided by cody on 2026-11-04.
      9,961,472 ns against 10,000,000, a thin margin; p99 up to 950,272
      against 958,464). Capacity is median C1 4,353,886 against 95% of
      4,016,161. Returned for independent review. Original S6 remains FAIL;
-     no CP-1A.
+     no CP-1A. PR #106 APPROVED (handoff/PR106_S6_Refine1_Final_Review.md):
+     REFINE #1 PASS accepted, original S6 still FAIL, no second rescue
+     used. W=1 is the approved R640 Profile-A checkpoint configuration.
+     CP-1A stays on HOLD until the pilot carries it. The **CP-1A
+     configuration closure** is done and returned for review:
+     - `pilot_plan.json` `profiles.A.checkpoint` (new plan SHA-256
+       568e9874…);
+     - `pilot.py` passes all twelve values;
+     - `profile_check.py` refuses any other Profile-A checkpoint
+       configuration;
+     - [bench/results/cp1a-config-closure-20261111/](../bench/results/cp1a-config-closure-20261111/README.md).
+
+     Next: review, then freeze HEAD and plan hash, then an explicit CP-1A
+     GO.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

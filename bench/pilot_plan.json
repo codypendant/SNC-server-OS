@@ -28,10 +28,14 @@
   },
   "shards": 8,
   "profiles": {
-    "A": {"window_s": 60, "calibration_s": 60, "duration_check_s": [30, 60, 120, 240]},
+    "A": {"window_s": 60, "calibration_s": 60, "duration_check_s": [30, 60, 120, 240],
+          "_checkpoint": "The approved R640 Profile-A checkpoint configuration: S6 FAIL at W=4, REFINE #1 PASS at W=1 (docs/handoff/PR106_S6_Refine1_Final_Review.md); pacing from docs/handoff/PR98_S2_Pacing_S6_Prereg_Final_Review.md. bench/pilot.py passes every key as a server flag (--checkpoint-s, --ckpt-pacing, ...); bench/profile_check.py refuses Profile A with any other value. Not applied to Profile B, C or D.",
+          "checkpoint": {"checkpoint_s": 60, "ckpt_pacing": "on", "ckpt_walk_batch": 16, "ckpt_walk_min_us": 20,
+                         "ckpt_walk_max_us": 65, "ckpt_walk_ceiling_us": 155, "ckpt_walk_step_us": 5,
+                         "ckpt_target_ms": 30000, "ckpt_max_age_ms": 60000, "ckpt_io": "dsync",
+                         "ckpt_window": 1, "ckpt_sync_tokens": 0}},
     "C": {"window_s": 30, "calibration_s": 30, "duration_check_s": [15, 30, 60, 120]}
   },
-  "checkpoint_s": 60,
   "calibration_depth": 512,
   "rate_depth": 1024,
   "warmup_s": 10,

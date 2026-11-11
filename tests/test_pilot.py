@@ -220,6 +220,68 @@ def test_plan_is_complete():
     assert all(c % 2 == 1 for c in x["client_cpus"]) and x["client_node"] == 1
 
 
+# CP-1A configuration closure (docs/handoff/PR106_S6_Refine1_Final_Review.md).
+A_FLAGS = {"--checkpoint-s": "60", "--ckpt-pacing": "on", "--ckpt-walk-batch": "16", "--ckpt-walk-min-us": "20",
+           "--ckpt-walk-max-us": "65", "--ckpt-walk-ceiling-us": "155", "--ckpt-walk-step-us": "5",
+           "--ckpt-target-ms": "30000", "--ckpt-max-age-ms": "60000", "--ckpt-io": "dsync", "--ckpt-window": "1",
+           "--ckpt-sync-tokens": "0"}
+
+
+def a_command(plan=PLAN, profile="A"):
+    return pilot.server_args(plan, profile, "build", 8, 26040, 10000000, [2, 4, 6, 8, 10, 12, 14, 16], "/d/A-x")
+
+
+def test_profile_a_command_carries_the_approved_checkpoint_configuration():
+    import profile_check
+    cmd = a_command()
+    f = profile_check.parse(cmd)
+    for flag, value in A_FLAGS.items():
+        assert f.get(flag) == value, (flag, f.get(flag))
+    assert f["--data-dir"] == "/d/A-x" and f["--shards"] == "8" and f["--objects"] == "10000000"
+    profile_check.Guard("A").server(cmd)                       # the generated command passes the guard
+    assert PLAN["profiles"]["A"]["checkpoint"]["ckpt_window"] == 1 and "checkpoint_s" not in PLAN
+
+
+def test_profile_c_command_is_unchanged():
+    import profile_check
+    cmd = a_command(profile="C")
+    assert cmd == ["build/snc_server", "--shards", "8", "--port", "26040", "--objects", "10000000",
+                   "--cpus", "2,4,6,8,10,12,14,16"], cmd
+    profile_check.Guard("C").server(cmd)
+    assert "checkpoint" not in PLAN["profiles"]["C"]
+
+
+def test_command_values_come_from_the_plan():
+    """A mutated plan changes the command, and the guard then refuses it; a
+    missing or unknown key is refused before any command exists."""
+    import copy
+    import profile_check
+    for key, value, flag in (("ckpt_window", 4, "--ckpt-window"), ("ckpt_walk_max_us", 100, "--ckpt-walk-max-us"),
+                             ("ckpt_walk_ceiling_us", 250, "--ckpt-walk-ceiling-us"),
+                             ("ckpt_max_age_ms", 300000, "--ckpt-max-age-ms"), ("ckpt_pacing", "off", "--ckpt-pacing"),
+                             ("ckpt_io", "legacy", "--ckpt-io"), ("ckpt_sync_tokens", 4, "--ckpt-sync-tokens"),
+                             ("checkpoint_s", 30, "--checkpoint-s")):
+        plan = copy.deepcopy(PLAN)
+        plan["profiles"]["A"]["checkpoint"][key] = value
+        cmd = a_command(plan)
+        assert profile_check.parse(cmd)[flag] == str(value), (key, cmd)
+        try:
+            profile_check.Guard("A").server(cmd)
+        except profile_check.ProfileViolation as e:
+            assert "instead of the approved" in str(e), e
+        else:
+            raise AssertionError(f"mutated plan {key}={value} accepted")
+    for mutate in (lambda c: c.pop("ckpt_window"), lambda c: c.update(ckpt_extra=1)):
+        plan = copy.deepcopy(PLAN)
+        mutate(plan["profiles"]["A"]["checkpoint"])
+        try:
+            a_command(plan)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("incomplete or unknown checkpoint configuration accepted")
+
+
 # Benchmark scratch isolation (PR62 review, step 1): a fake sysfs.
 MOUNTINFO = """\
 25 24 0:27 / /dev/shm rw,relatime - tmpfs tmpfs rw

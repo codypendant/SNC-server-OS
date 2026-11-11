@@ -225,6 +225,37 @@ def wait_port(port, timeout=60):
     raise RuntimeError(f"server did not open port {port}")
 
 
+# The checkpoint keys of a profile's "checkpoint" object, in the order they
+# become snc_server flags (key -> --key with "_" as "-"). Exactly these keys:
+# a missing or unknown key is refused rather than defaulted (PR #106 review).
+CHECKPOINT_KEYS = ("checkpoint_s", "ckpt_pacing", "ckpt_walk_batch", "ckpt_walk_min_us", "ckpt_walk_max_us",
+                   "ckpt_walk_ceiling_us", "ckpt_walk_step_us", "ckpt_target_ms", "ckpt_max_age_ms", "ckpt_io",
+                   "ckpt_window", "ckpt_sync_tokens")
+
+
+def checkpoint_args(cfg):
+    """snc_server flags for a profile's committed checkpoint configuration."""
+    if set(cfg) != set(CHECKPOINT_KEYS):
+        missing, extra = sorted(set(CHECKPOINT_KEYS) - set(cfg)), sorted(set(cfg) - set(CHECKPOINT_KEYS))
+        raise ValueError(f"checkpoint configuration: missing {missing}, unknown {extra}")
+    out = []
+    for k in CHECKPOINT_KEYS:
+        out += ["--" + k.replace("_", "-"), str(cfg[k])]
+    return out
+
+
+def server_args(plan, profile, build, shards, port, objects, srv_cpus, data):
+    """One pilot snc_server command line (without numactl). Profile A runs
+    durable, with every flag of plan["profiles"]["A"]["checkpoint"];
+    Profile C runs in memory with none."""
+    srv = [f"{build}/snc_server", "--shards", str(shards), "--port", str(port), "--objects", str(objects)]
+    if srv_cpus:
+        srv += ["--cpus", ",".join(map(str, srv_cpus))]
+    if profile == "A":
+        srv += ["--data-dir", data] + checkpoint_args(plan["profiles"]["A"]["checkpoint"])
+    return srv
+
+
 def sh(c):
     return subprocess.run(c, shell=True, capture_output=True, text=True).stdout.strip()
 
@@ -421,12 +452,7 @@ class Pilot:
         cli_cpus = self.alloc["client_cpus"][:self.threads()] if self.alloc else []
         if self.alloc and len(srv_cpus) < shards:
             raise Abort(f"{a.allocation} has {len(srv_cpus)} server CPUs, not {shards}")
-        srv = [f"{a.build}/snc_server", "--shards", str(shards), "--port", str(self.port),
-               "--objects", str(self.objects() * 2)]
-        if srv_cpus:
-            srv += ["--cpus", ",".join(map(str, srv_cpus))]
-        if profile == "A":
-            srv += ["--data-dir", data, "--checkpoint-s", str(plan["checkpoint_s"])]
+        srv = server_args(plan, profile, a.build, shards, self.port, self.objects() * 2, srv_cpus, data)
         shutil.rmtree(data, ignore_errors=True)
         profile_check.Guard(profile).server(srv, dir_exists=os.path.exists)
         client = self.bind(self.alloc["client_node"], cli_cpus) if self.alloc else []

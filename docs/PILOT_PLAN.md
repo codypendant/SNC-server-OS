@@ -12,6 +12,49 @@ The values are the ones in `bench/pilot_plan.json`, which
 `bench/pilot.py` reads and records by SHA-256. They must not change after
 the pilot starts. **The real pilot still needs an explicit GO.***
 
+**Profile-A checkpoint configuration (2026-11-11; CP-1A configuration
+closure, [handoff/PR106_S6_Refine1_Final_Review.md](handoff/PR106_S6_Refine1_Final_Review.md)).**
+
+How it was reached:
+- The S6 R640 checkpoint regression **FAILED** (rule 4 p99.9) with the
+  compiled write window W=4. That result stands as recorded.
+- The write-window characterization showed the fixed window drives the
+  failure.
+- **REFINE round 1** reran the affected cells at W=1 under unchanged
+  criteria and **PASSED**. No second rescue round has been used.
+
+W=1, with the R640 walk pacing, is therefore the approved Profile-A
+checkpoint configuration. `bench/pilot_plan.json` carries it as
+`profiles.A.checkpoint`; the old top-level `checkpoint_s` was folded into
+it:
+
+| | |
+|---|---|
+| `checkpoint_s` | 60 |
+| `ckpt_pacing` | on |
+| `ckpt_walk_batch` | 16 |
+| `ckpt_walk_min_us` / `max_us` / `ceiling_us` / `step_us` | 20 / 65 / 155 / 5 |
+| `ckpt_target_ms` / `ckpt_max_age_ms` | 30,000 / 60,000 |
+| `ckpt_io` | dsync |
+| `ckpt_window` | 1 |
+| `ckpt_sync_tokens` | 0 |
+
+How it is enforced:
+- `bench/pilot.py` passes every key as a server flag
+  (`server_args` / `checkpoint_args`). A missing or unknown key is refused.
+- `bench/profile_check.py` (`PROFILE_REQUIRED["A"]`) refuses a Profile-A
+  server with any of the twelve flags missing or at another value. There
+  is no deviation route.
+- Profile C is unchanged. B and D get no R640 values.
+
+The plan's SHA-256 is now
+`568e9874e61480647c600fe6c52f44965331081d1d82f7a5f01b2875a87968c7`. No
+file pinned the previous one (`b62e7555…`); `pilot.py` records the hash
+in every result. **CP-1A cannot run until this closure is reviewed, the
+exact pilot HEAD and plan hash are frozen, and an explicit CP-1A GO is
+given.** It then reruns in full from the beginning, with no reuse of
+manifest-d data.
+
 This replaces the R640 draft's plan, which is kept under
 `bench/results/INVALID-pilot-r640-20261106-stopped/` and is **invalid for
 criteria and campaign evidence** (PR #61 review). No number from that run
@@ -77,7 +120,8 @@ It sets no threshold and runs no competitor.
   25.65%, transfer 9.50%, index 5.00%; `net_bench` now prints the
   effective shares on every run.)*
 - Profile A (LOCAL_DURABLE: `/srv/snc-data`, ext4 defaults on the SAS SSD,
-  `--checkpoint-s 60`) and Profile C (memory). Every server command line
+  the approved checkpoint configuration above: `--checkpoint-s 60` plus
+  the eleven `--ckpt-*` flags) and Profile C (memory). Every server command line
   passes `bench/profile_check.py`. Profile B needs a second host.
 - Every run: a new server, a new data directory, the load, then one
   measured `net_bench` run. The load step is a closed-loop `--seconds 0`

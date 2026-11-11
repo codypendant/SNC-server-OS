@@ -1,0 +1,11 @@
+  valid_b: ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 421, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 415, in main
+    fn()
+  File "/home/solo/SNC-server-OS/tests/test_profile_check.py", line 96, in valid_a_c_d
+    Guard("A").server(a_node())
+  File "/home/solo/SNC-server-OS/bench/profile_check.py", line 214, in server
+    raise ProfileViolation(f"Profile {p}: {flag} {f[flag]} instead of the approved {want} (no "
+profile_check.ProfileViolation: Profile A: --ckpt-max-age-ms 60000 instead of the approved 300000 (no deviation route: a change needs a reviewed PROFILE_REQUIRED)
