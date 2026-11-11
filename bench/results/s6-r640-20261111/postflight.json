@@ -1,0 +1,54 @@
+{
+ "machine_checks": {
+  "manifest_sha256": true,
+  "kernel": true,
+  "cpus": true,
+  "model": true,
+  "node0": true,
+  "node1": true,
+  "memory": true,
+  "governors": true,
+  "numa_balancing": true,
+  "allocation": true,
+  "data_disk_model": true,
+  "data_disk_scheduler": true,
+  "data_disk_write_cache": true,
+  "data_disk_fua": true,
+  "data_fs_uuid": true,
+  "data_fs_ext4": true,
+  "data_mount_options": true
+ },
+ "machine_values": {
+  "kernel": "6.8.0-149-generic",
+  "model": "Intel(R) Xeon(R) Gold 6150 CPU @ 2.70GHz",
+  "mem_kb": 394799836,
+  "governors": [
+   "performance"
+  ],
+  "numa_balancing": "0",
+  "data_disk": "sdb",
+  "data_mount": [
+   "/dev/sdb1",
+   "/srv/snc-data",
+   "ext4",
+   "rw,relatime,stripe=2",
+   "0",
+   "0"
+  ],
+  "data_queue": {
+   "scheduler": "none [mq-deadline]",
+   "write_cache": "write back",
+   "fua": "1"
+  }
+ },
+ "build_checks": {
+  "snc_server": true,
+  "net_bench": true,
+  "pres1_server": true
+ },
+ "build_values": {
+  "snc_server": "69a51b695e2029942039d386abaa9755616f31327ff63e0420dd0c5c8ba25ee1",
+  "net_bench": "9fc5494404747f8242680552588bd6f986e3e00b265e45ee67262c513a93c581",
+  "pres1_server": "78f471efb7e7951bf8cf14637e03120d6460dc989317c5c32fb073af23806ff7"
+ }
+}

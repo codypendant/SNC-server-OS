@@ -2556,3 +2556,23 @@ or source comments.
     runner; then commit the results and open the S6 result-review PR, and
     stop. No parameter changes before the results. CP-1A, comparators,
     CRITERIA, S5, B2, Agent-SNC, Rust and DPDK/VPP stay unauthorized.
+
+### 2026-11-11 18:50 UTC --- Claude (Claude Code): S6 R640 regression run (once, as frozen): FAIL
+
+-   **Commit/PR:** branch `s6-result-r640-20261111`. Run at HEAD `e2aab62`
+    under `docs/handoff/S6_R640_GO_20261111.md`. Results only; nothing
+    tuned or edited.
+-   **Result** (`verdict.json`): **FAIL**. Preflight clean, postflight
+    identical, 15 reps, no VOID, no rerun. Every P rep fails rule 4 only:
+    total p99.9 14.2-14.7 ms (limit 10 ms; N below 1 ms); max about 49 ms
+    in each. Rules 1-3 and 5-7 pass: 0 refusals, lateness 0.025%, p99 at
+    most 1.36x the N median, emits_peak at most 329, checkpoint
+    1.49-1.56 s, correctness. Capacity guard holds (0.991).
+-   **Reported, not judged:**
+    - The about-49 ms P max is near the unbounded one-step begin snapshot.
+      This is a hypothesis, not tested.
+    - C refuses 38-40 M ops per closed-loop rep (`refused_followup`), while
+      C0 refuses at most about 1 k, at equal completed throughput.
+    - C0's final sync takes about 1.2 s; the current build's about 0.3 ms.
+-   **Next action:** independent S6 result review. No tuning, rerun or
+    CP-1A before it.

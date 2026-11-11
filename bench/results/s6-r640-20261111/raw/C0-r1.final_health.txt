@@ -1,0 +1,1 @@
+role=n term=0 uuid=b7d9c890efcf440ae241bfef49658f4b epoch=1 leases=0-0 shards=8 stall_ms=0 stall_shard=0 main_ms=14 adm_q=0 adm_q_hw=0 adm_busy=0 adm_half=1 adm_half_hw=1 adm_evicted=0 adm_timeouts=0 ckpt=idle ckpt_age_ms=0 ckpt_last_ms=2969 ckpt_done=2
