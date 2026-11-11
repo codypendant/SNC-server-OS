@@ -1,0 +1,8 @@
+    Start 47: test_pilot
+3/4 Test #47: test_pilot .......................   Passed    0.09 sec
+    Start 48: test_s6
+4/4 Test #48: test_s6 ..........................   Passed    0.10 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   0.56 sec

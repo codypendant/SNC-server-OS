@@ -1,0 +1,16 @@
+R1 p99 3/2 boundary
+R2 lateness 0.1% boundary
+R3 p99.9 10 ms boundary
+R4 backlog 1024 boundary
+R5 capacity 95% boundary and rule 7 in C/C0
+R6 refusal rule
+R7 correctness/drained rule
+R8 checkpoint completion and degraded
+V1 unusable N reference -> VOID
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 407, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 166, in main
+    assert not s6.began_in_window((4 * W, 6 * W), 5 * W, 65 * W) and not s6.began_in_window((64 * W, 66 * W), 5 * W, 65 * W)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

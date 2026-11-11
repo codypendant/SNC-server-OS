@@ -1,0 +1,23 @@
+R1 p99 3/2 boundary
+R2 lateness 0.1% boundary
+R3 p99.9 10 ms boundary
+R4 backlog 1024 boundary
+R5 capacity 95% boundary and rule 7 in C/C0
+R6 refusal rule
+R7 correctness/drained rule
+R8 checkpoint completion and degraded
+V1 unusable N reference -> VOID
+V2 checkpoint-outside-window rerun once, second -> VOID
+V3 machine/build drift -> VOID
+V4 one rerun at most
+V5 genuine FAIL not rerun (15 executions)
+M1 medians
+T1 time above threshold from timestamps
+O1 old-server gauges absent, never 0; failed samples are gaps
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 278, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 220, in main
+    assert len(set(nb.values())) == 1 and nb["C0"].endswith("build-s6/net_bench"), nb
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'N': '/home/solo/SNC-server-OS/build-s6/net_bench', 'P': '/home/solo/SNC-server-OS/build-s6/net_bench', 'H': '/home/solo/SNC-server-OS/build-s6/net_bench', 'C': '/home/solo/SNC-server-OS/build-s6/net_bench', 'C0': '/home/solo/SNC-server-OS/build-preS1/net_bench'}

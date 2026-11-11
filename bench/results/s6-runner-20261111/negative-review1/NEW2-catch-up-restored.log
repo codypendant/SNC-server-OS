@@ -1,0 +1,28 @@
+R1 p99 3/2 boundary
+R2 lateness 0.1% boundary
+R3 p99.9 10 ms boundary
+R4 backlog 1024 boundary
+R5 capacity 95% boundary and rule 7 in C/C0
+R6 refusal rule
+R7 correctness/drained rule
+R8 checkpoint completion and degraded
+V1 unusable N reference -> VOID
+V2 checkpoint-outside-window rerun once, second -> VOID
+V3 machine/build drift -> VOID
+V4 one rerun at most
+V5 genuine FAIL not rerun (15 executions)
+M1 medians
+T1 time above threshold from timestamps
+O1 old-server gauges absent, never 0; failed samples are gaps
+C1 commands
+P1 parse net_bench
+F1 refuses while not frozen / no GO
+B1 checkpoint begins from ckpt_seq
+K1 measured client exit status
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 407, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 315, in main
+    assert s6.next_deadline(0, 100, P) == (200, 1)           # deadline reached during the cycle: never 0 wait twice
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

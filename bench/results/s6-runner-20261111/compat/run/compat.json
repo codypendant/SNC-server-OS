@@ -1,0 +1,156 @@
+{
+ "build": {
+  "snc_server": "69a51b695e2029942039d386abaa9755616f31327ff63e0420dd0c5c8ba25ee1",
+  "net_bench": "9fc5494404747f8242680552588bd6f986e3e00b265e45ee67262c513a93c581",
+  "pres1_server": "78f471efb7e7951bf8cf14637e03120d6460dc989317c5c32fb073af23806ff7"
+ },
+ "cells": {
+  "C0": {
+   "void": null,
+   "why": null,
+   "server": "/home/solo/SNC-server-OS/build-preS1/snc_server",
+   "net_bench": "/home/solo/SNC-server-OS/build-s6/net_bench",
+   "client": {
+    "total": 886734,
+    "errors": 0,
+    "overloaded": 0,
+    "stale": 0,
+    "index_refused": 59,
+    "index_errors": 0,
+    "p99": 180355072,
+    "p999": 335544320,
+    "max": 481984466,
+    "scheduled_in_window": null,
+    "late_over_1ms": null,
+    "completed_in_window": null,
+    "end_backlog": null,
+    "drained": null
+   },
+   "correctness_ok": [
+    true,
+    []
+   ],
+   "checkpoints": [
+    [
+     2492576,
+     "11/5"
+    ],
+    [
+     5000000,
+     "451/100"
+    ]
+   ],
+   "final_emits_peak": [
+    832,
+    896,
+    853,
+    843,
+    826,
+    835,
+    850,
+    777
+   ],
+   "final_degraded": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "samples": 238,
+   "failed_samples": 0,
+   "max_interval_ms": 100.01329,
+   "catchup": null,
+   "walk_budget_ns_range": null,
+   "wal_above_high": null,
+   "wal_ewma_peak_us": 136192,
+   "backlog_above_25pct": {
+    "max_shard_ms": 4399.999711,
+    "sum_ms": 34399.954771,
+    "gap_ms_max": 0.0
+   }
+  },
+  "C": {
+   "void": null,
+   "why": null,
+   "server": "/home/solo/SNC-server-OS/build-s6/snc_server",
+   "net_bench": "/home/solo/SNC-server-OS/build-s6/net_bench",
+   "client": {
+    "total": 1133737,
+    "errors": 0,
+    "overloaded": 439,
+    "stale": 0,
+    "index_refused": 0,
+    "index_errors": 0,
+    "p99": 45088768,
+    "p999": 61865984,
+    "max": 89259604,
+    "scheduled_in_window": null,
+    "late_over_1ms": null,
+    "completed_in_window": null,
+    "end_backlog": null,
+    "drained": null
+   },
+   "correctness_ok": [
+    true,
+    []
+   ],
+   "checkpoints": [
+    [
+     2492556,
+     "181/100"
+    ],
+    [
+     5000000,
+     "399/100"
+    ]
+   ],
+   "final_emits_peak": [
+    980,
+    1249,
+    1070,
+    860,
+    910,
+    857,
+    838,
+    861
+   ],
+   "final_degraded": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "samples": 233,
+   "failed_samples": 0,
+   "max_interval_ms": 100.011734,
+   "catchup": {
+    "max_shard_ms": 0.0,
+    "sum_ms": 0.0,
+    "gap_ms_max": 0.0
+   },
+   "walk_budget_ns_range": [
+    20000,
+    65000
+   ],
+   "wal_above_high": {
+    "max_shard_ms": 6599.993988,
+    "sum_ms": 52099.990264,
+    "gap_ms_max": 0.0
+   },
+   "wal_ewma_peak_us": 23155,
+   "backlog_above_25pct": {
+    "max_shard_ms": 4800.004385,
+    "sum_ms": 37200.013163,
+    "gap_ms_max": 0.0
+   }
+  }
+ }
+}

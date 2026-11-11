@@ -1,0 +1,1 @@
+REFUSED before any run: bench/s6_frozen.json: runner_commit is not set (not frozen / no GO); bench/s6_frozen.json: go_record is not set (not frozen / no GO)
