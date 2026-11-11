@@ -2544,3 +2544,15 @@ or source comments.
     threshold, cell, sampling, allocation or workload change.
 -   **Next action:** final independent freeze verification, then an
     explicit S6 GO. **S6 NOT GO.**
+
+### 2026-11-11 UTC --- Claude (Claude Code): S6 GO filed
+
+-   **What:** PR #102 (freeze closure) APPROVED and merged (1567507). The
+    S6 freeze is VERIFIED and an explicit S6 GO is issued, filed verbatim
+    as `docs/handoff/S6_R640_GO_20261111.md`. `bench/s6_frozen.json`
+    `go_record` points to it. S6_PREREG 1.3 now describes the three-step
+    freeze. No runner, test, C++, binary, parameter or rule change.
+-   **Next action:** the S6 run itself on the R640, once, with the frozen
+    runner; then commit the results and open the S6 result-review PR, and
+    stop. No parameter changes before the results. CP-1A, comparators,
+    CRITERIA, S5, B2, Agent-SNC, Rust and DPDK/VPP stay unauthorized.
