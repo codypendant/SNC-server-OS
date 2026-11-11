@@ -1,8 +1,8 @@
 {
   "_status": "APPROVED in docs/handoff/PR61_Final_Review_Handoff.txt (with C1-C3). Do not change after the pilot starts. The real pilot still needs an explicit GO. bench/pilot.py records this file's SHA-256 in every result.",
   "primary_objective": "total p99 (all kinds); per-kind p99/p99.9 are secondary diagnostics",
-  "approved_manifest_sha256": "2784c2e4bf8b0f52b2584a0359509cbe629c65c6ed36c793b49c80a151d8b81b",
-  "_approved_manifest": "bench/manifests/r640-main-20261106d.txt, accepted in docs/handoff/PR61_Addendum_ManifestD.txt",
+  "approved_manifest_sha256": "768056bbee1d7f178ed0be1c195b821f0638a1de28a4aca1ea0afdf5444c27b6",
+  "_approved_manifest": "bench/manifests/r640-main-20261111.txt",
   "objects": 5000000,
   "mix": "read=70,deposit=15,transfer=10,index=5",
   "route": "owner",

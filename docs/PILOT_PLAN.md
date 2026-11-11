@@ -30,10 +30,24 @@ It sets no threshold and runs no competitor.
 
 ## 2. Host and allocation
 
-- Host: the R640 as in **manifest d**, accepted
-  (`bench/manifests/r640-main-20261106d.txt`, R640_TOPOLOGY 2c). Before
+- Host: the R640 as in **manifest e**
+  (`bench/manifests/r640-main-20261111.txt`, R640_TOPOLOGY 2d; capture
+  approved 2026-11-11): 12 × 32 GB, six of six memory channels per
+  socket. Manifest d (`r640-main-20261106d.txt`, five of six channels)
+  is retired for future evidence. Before
   each evidence session, reapply the governor and `numa_balancing`
-  (R640_TOPOLOGY 2c); neither survives a reboot. A real run refuses to start unless every CPU's governor is
+  (R640_TOPOLOGY 2c); neither survives a reboot.
+- **Why the plan's manifest pin changed after a pilot started**
+  (`_status`: "Do not change after the pilot starts"):
+  - It is a reviewed hardware-baseline replacement, forced by the RAM
+    configuration change.
+  - It changes no experimental method, threshold, workload, allocation,
+    rate, repetition, seed or metric. The pin
+    (`approved_manifest_sha256`, `_approved_manifest`) is the only change
+    to `bench/pilot_plan.json`.
+  - The earlier aborted pilot and its diagnosis stay historical evidence
+    for manifest d's configuration, and are not reinterpreted under
+    manifest e. A real run refuses to start unless every CPU's governor is
   `performance` and `kernel.numa_balancing` is 0 (`pilot.py` checks both).
 - **PILOT-L (the baseline allocation):** all on node 0, local to the data
   SSD's HBA and to eno1.
@@ -228,7 +242,7 @@ A real pilot (`pilot.py` without `--quick`) refuses to start unless:
 
 It also refuses unless:
 - the manifest's SHA-256 equals `approved_manifest_sha256` in the plan
-  (manifest d's, accepted in the PR #61 addendum);
+  (manifest e's since 2026-11-11; manifest d's before);
 - the build directory is a plain RelWithDebInfo build (no sanitizer
   flags).
 
@@ -273,7 +287,8 @@ only (their `STATUS.md` on `r640-diag-telemetry`). No CRITERIA threshold
 or competitor comparison may come from them. A clean CP-1A rerun from the
 beginning is needed later and is not yet authorized.
 
-The real pilot runs from the reviewed commit. Manifest d is accepted.
+The real pilot runs from the reviewed commit. Manifest e is the host
+manifest (section 2); manifest d is retired.
 The pilot still needs this plan and the dev-VM evidence
 (`bench/results/cp1a-devvm/`) to be accepted, and then cody's go.
 

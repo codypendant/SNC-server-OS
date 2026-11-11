@@ -2365,3 +2365,39 @@ or source comments.
     3.  Return both for review.
     -   Not authorized: S6, CP-1A, comparators, baseline freeze,
         Agent-SNC, Rust and DPDK/VPP.
+
+### 2026-11-11 UTC --- Claude (Claude Code): R640 manifest e, manifest-baseline closure
+
+-   **What:**
+    -   PR #95 is merged and D.2 is COMPLETE.
+    -   The R640's RAM is now 12 × 32 GB DDR4-2400, in A1-A6 and B1-B6:
+        six of six channels per socket, 384 GB nominal, 376 GiB usable.
+    -   Manifest e (`bench/manifests/r640-main-20261111.txt`, sha256
+        `768056bb...c27b6`) was captured on the host at d0d3bb7. Its
+        review APPROVED the capture.
+-   **Changed (branch r640-manifest-20261111):**
+    -   `docs/R640_TOPOLOGY.md` 2d: manifest e supersedes d for all future
+        evidence.
+    -   `bench/pilot_plan.json`: only the manifest pin
+        (`approved_manifest_sha256`, `_approved_manifest`).
+    -   `docs/PILOT_PLAN.md` 2: the host is manifest e, and the section
+        says why changing the pin is permitted.
+    -   No method, workload, allocation, rate, threshold, seed or metric
+        changed.
+    -   Manifest d and the old CP-1A results stay as historical evidence.
+-   **Next action:** return the closure for review. Do NOT run CP-1A, S6,
+    comparators, Agent-SNC, Rust or DPDK/VPP until they are explicitly
+    authorized.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #97 approved, manifest-baseline gate closed
+
+-   **What:** cody's final review of PR #97 (head f9c2151) APPROVED it:
+    manifest e is the R640 hardware baseline and the closure is COMPLETE.
+    Filed verbatim as `docs/handoff/PR97_Manifest_Closure_Final_Review.md`.
+-   **Next authorized task (same file):** R640 S2 pacing re-derivation and
+    S6 preregistration. Freeze the post-merge main SHA, verify the host and
+    the /srv/snc-data filesystem identity, run `bench/ckpt_walk_cost` on the
+    R640, derive pacing values numerically, write the S6 preregistration
+    (reference = same-SHA no-checkpoint median), then stop for review/GO.
+-   **Still not authorized:** S6 data, CP-1A rerun, comparators, CRITERIA
+    freeze, S5/ioprio, B2, Agent-SNC, Rust, DPDK/VPP.
