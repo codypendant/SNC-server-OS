@@ -59,3 +59,30 @@ were removed.
 | `build-s6/net_bench` | `9fc5494404747f8242680552588bd6f986e3e00b265e45ee67262c513a93c581` |
 | `build-s6/ckpt_walk_cost` | `4707dac135a6fc72c41a712075678aa24ccbf7ad74d546962623026584b5d2d2`, identical to PR #98's |
 | `build-preS1/snc_server` (389b623) | `78f471efb7e7951bf8cf14637e03120d6460dc989317c5c32fb073af23806ff7` |
+
+## Review 1 closure (PR #101, [handoff/PR101_S6_Runner_Review1.md](../../../docs/handoff/PR101_S6_Runner_Review1.md))
+
+Code at `3fa31ef`. Python only. Commands and server interaction are
+unchanged, so the compatibility check (run 5) was not rerun, as the review
+allows.
+
+| Item | Change in `bench/s6.py` | Tests |
+|---|---|---|
+| 1. Measured client exit | `correctness_ok` requires `client_rc == 0`, open and closed loop. A missing, non-zero or signal status fails. It is a result, never a rerun. | K1: 0 passes; 1, -9, 134 and a missing status fail; a P rep with rc 1 gives FAIL after exactly 15 executions; rc 1 in a C or in a C0 rep fails the capacity guard |
+| 2. No catch-up sampling | `next_deadline(prev, now, period)`: if the next deadline has passed, jump to the first future one on the 100 ms grid; skips counted (`skipped_deadlines`) | S1: normal progression; a 50 ms cycle does not skip; 250 ms and 1 s overruns skip to one future deadline; a fake-clock loop shows no back-to-back cycle after a 1 s overrun; the gap is still reported from timestamps |
+| 3. C/C0 checkpoint proven | `checkpoint_begins` (every begin, from `ckpt_seq`) and `checkpoint_window`. P/H use [t_run + 10 s, + 60 s]; C/C0 use the measured process's [start, end]. At least one begin must be bounded inside, or the rep is a window VOID (one rerun; a second is session VOID). | W1: C and C0 inside accepted; before the run, none seen or no samples refused; a later in-run checkpoint counts; an unbounded begin does not; C and C0 outside rerun once; a second is VOID; an unrerun window-VOID C rep is not used for capacity |
+| 4. Storage identity | `storage_checks` on the resolver's disk: active `[mq-deadline]`, `write back`, `queue/fua` = 1 (exposed by kernel 6.8), model, ext4, filesystem UUID, and `{rw, relatime, stripe=2}` contained in the mount options | D1 (faked sysfs/mounts): all good passes; wrong scheduler (two ways), write through, fua 0 or absent, wrong model, stripe=4, no stripe, noatime, ro, xfs, no mount, wrong UUID each fail; an extra option passes (containment); no resolved disk fails |
+
+**Validation at `3fa31ef`** (`review1/`):
+
+| # | What | Result |
+|---|---|---|
+| 1 | `test_s6`, `test_pilot`, `test_profile_check`, `test_ckpt_cli` (ctest) | 4/4 pass (`ctest-python.log`) |
+| 2 | Mutation suite: the 19 original mutations re-applied to the new code, plus 9 new ones (client rc ×2, catch-up, closed-loop window, scheduler, write cache, FUA, mount prefix, UUID), with no bytecode cache | **28/28 caught** (`negative-review1/summary.txt`). The original stale-bytecode batch and its disclosure above are kept. |
+| 3 | Dry run | preflight **ok**: every storage check true on `sdb` (`none [mq-deadline]`, `write back`, fua `1`, `rw,relatime,stripe=2`); 15 cells printed; nothing started (`dry-run.txt`) |
+| 4 | Real mode before the freeze | **REFUSED before any process**, for exactly `runner_commit` and `go_record` not set; no raw file, no server, no data directory (`real-run-refused.*`) |
+
+A first attempt at runs 3 and 4 was made with this `review1/` folder
+already created inside the repository. The runner then refused both on
+"the git tree is not clean", which is correct behaviour. They were rerun
+with their output kept outside the tree and copied in afterwards.

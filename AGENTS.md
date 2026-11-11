@@ -2507,3 +2507,27 @@ or source comments.
       C0's rule 7.
 -   **Next action:** independent review. Then the docs-only freeze (merge
     SHA, GO record), then the explicit S6 GO. **S6 NOT GO.**
+
+### 2026-11-11 18:40 UTC --- Claude (Claude Code): PR #101 review 1 closure items 1-4
+
+-   **Commit/PR:** PR #101 (`s6-runner`), code at `3fa31ef`. Python and
+    docs only.
+-   **What:**
+    1. Rule 7 requires the measured net_bench to exit 0 (a result, never a
+       rerun).
+    2. The sampler skips missed deadlines (`next_deadline`); no catch-up
+       bursts.
+    3. C and C0 must prove a checkpoint began inside the measured run;
+       otherwise a window VOID, under the existing rerun policy.
+    4. Storage identity on the resolved disk: mq-deadline, write back,
+       fua=1, ext4, the UUID and all of rw, relatime, stripe=2.
+
+    S6_PREREG.md is updated to match.
+-   **Evidence:**
+    - `bench/results/s6-runner-20261111/review1/` and `negative-review1/`;
+    - K1, S1, W1, D1 added;
+    - 28/28 mutations caught;
+    - dry run: preflight ok;
+    - real mode refused before any process.
+-   **Next action:** independent re-review. Not merged. No freeze or GO
+    record. **S6 NOT GO.**
