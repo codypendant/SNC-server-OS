@@ -2472,3 +2472,38 @@ or source comments.
     dev-machine check that the current `net_bench` drives the `389b623`
     server, the `docs/S6_PREREG.md` freeze), returned for review.
     **S6 still NOT GO.**
+
+### 2026-11-11 17:30 UTC --- Claude (Claude Code): S6 runner and final preregistration (for review, NOT GO)
+
+-   **Commit/PR:** branch `s6-runner`, on main `91278d7`. Python, JSON and
+    docs only; no C++ change.
+-   **What:**
+    - `bench/s6.py` runs the preregistered cells (N, P, H, C, C0 × 3,
+      rep-major), with diag3's discipline and pilot.py's isolation.
+    - It samples GAUGES and HEALTH every 100 ms (sampler on CPU 0, disk
+      observer on CPU 36).
+    - It judges by the exact rules: PASS/FAIL/VOID, one rerun only for
+      window or harness VOIDs.
+    - C0 runs the 389b623 server driven by the current net_bench.
+    - `bench/s6_frozen.json` holds the binary hashes. A real run refuses
+      until `runner_commit` (this PR's merge) and `go_record` are set in a
+      docs-only freeze commit, and refuses any code change after that
+      commit.
+    - `docs/S6_PREREG.md` is final.
+-   **Evidence/tests** (`bench/results/s6-runner-20261111/`):
+    - `tests/test_s6.py` pins every boundary, VOID and rerun rule;
+    - 19/19 mutations caught;
+    - dry run: preflight ok;
+    - real mode refused before any process;
+    - compatibility: the current net_bench drove the 389b623 server on the
+      Profile-A shape (errors 0, checkpoints done, exit 0, absent gauges
+      reported absent). It ran on the R640, shortened, on the boot disk:
+      not evidence.
+-   **Found:**
+    - Stale `__pycache__` bytecode can make mutation tests run the wrong
+      code. Run them with `PYTHONDONTWRITEBYTECODE=1`.
+    - The pre-S1 server refuses some INDEX ops under load (no S1
+      admission). That is a valid status, and it does not count against
+      C0's rule 7.
+-   **Next action:** independent review. Then the docs-only freeze (merge
+    SHA, GO record), then the explicit S6 GO. **S6 NOT GO.**

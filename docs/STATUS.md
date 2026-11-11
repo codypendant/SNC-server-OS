@@ -147,10 +147,14 @@ Decided by cody on 2026-11-04.
      PR #99 APPROVED and merged (fbf9ca9;
      [handoff/PR99_S6_Pacing_CLI_Final_Review.md](handoff/PR99_S6_Pacing_CLI_Final_Review.md)):
      S6 pacing CLI plumbing COMPLETE; the TSan waiver is accepted for this
-     parser-only slice. **Next (authorized):** the S6 runner and final
-     preregistration (bench/s6.py, docs/S6_PREREG.md freeze), returned for
-     review. **S6 still NOT GO.** No CP-1A, comparators or CRITERIA freeze
-     before that.
+     parser-only slice. The S6 runner `bench/s6.py` (tests/test_s6.py,
+     19/19 mutations caught) and the final [S6_PREREG.md](S6_PREREG.md) are
+     done and returned for independent review
+     ([bench/results/s6-runner-20261111/](../bench/results/s6-runner-20261111/README.md)).
+     The current net_bench drives the 389b623 server (a compatibility
+     check, not evidence). The runner refuses a real run until a docs-only
+     freeze names this PR's merge SHA and a filed GO. **S6 still NOT GO.**
+     No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

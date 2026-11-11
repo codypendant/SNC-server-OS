@@ -1,0 +1,34 @@
+numactl --physcpubind=2,4,6,8,10,12,14,16 --membind=0 /home/solo/SNC-server-OS/build-s6/snc_server --shards 8 --port 26080 --objects 10000000 --cpus 2,4,6,8,10,12,14,16 --data-dir /home/solo/SNC-server-OS/bench/results/s6-runner-20261111/compat/run/data/C-r0 --admin-port 26110 --checkpoint-s 8 --ckpt-pacing on --ckpt-walk-batch 16 --ckpt-walk-min-us 20 --ckpt-walk-max-us 65 --ckpt-walk-ceiling-us 155 --ckpt-walk-step-us 5 --ckpt-target-ms 30000 --ckpt-max-age-ms 60000
+numactl --physcpubind=18,20,22,24,26,28,30,32 --membind=0 /home/solo/SNC-server-OS/build-s6/net_bench --port 26080 --threads 8 --objects 5000000 --ids /dev/shm/snc-s6-compat/C-r0.ids --mix read=70,deposit=15,transfer=10,index=5 --route owner --cpus 18,20,22,24,26,28,30,32 --depth 512 --seconds 5
+--- load
+net_bench shards=8 threads=8 depth=64/thread route=owner misroute=0%
+load: 5000000 objects in 17.43s (286895 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=0.00
+  ops/s 228413  errors 0  overloaded 0  stale 0
+  latency ns  p50 176128  p95 1212416  p99 1245184  p99.9 1933312
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 10743  ok 23  empty 0  refused 0  errors 0
+  index latency ns  p50 286720  p95 303104  p99 303104  p99.9 303104
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 239157  (exec 489 + index 23 in 0.00s)  served_all 512
+  total latency ns  n 512  p50 180224  p95 1212416  p99 1245184  p99.9 1933312  max 1951339
+  read latency ns  n 382  p50 172032  p95 200704  p99 204800  p99.9 262144  max 264090
+  deposit latency ns  n 66  p50 1179648  p95 1245184  p99 1933312  p99.9 1933312  max 1947622
+  transfer latency ns  n 41  p50 851968  p95 1245184  p99 1933312  p99.9 1933312  max 1951339
+  index latency ns  n 23  p50 286720  p95 303104  p99 303104  p99.9 303104  max 307930
+--- run
+net_bench shards=8 threads=8 depth=512/thread route=owner misroute=0%
+load: 5000000 objects in 0.01s (454107035 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=5.01
+  ops/s 1076973  errors 0  overloaded 439  stale 0
+  latency ns  p50 204800  p95 28311552  p99 45088768  p99.9 60817408
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 56764  ok 284125  empty 315  refused 0  errors 0
+  index latency ns  p50 622592  p95 3014656  p99 48234496  p99.9 79691776
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 1133737  (exec 5390640 + index 284125 in 5.01s)  served_all 5674765
+  total latency ns  n 5675204  p50 217088  p95 28311552  p99 45088768  p99.9 61865984  max 89259604
+  read latency ns  n 3973093  p50 151552  p95 417792  p99 1409024  p99.9 11796480  max 77811199
+  deposit latency ns  n 850301  p50 6029312  p95 42991616  p99 52428800  p99.9 75497472  max 81979527
+  transfer latency ns  n 567685  p50 6029312  p95 42991616  p99 52428800  p99.9 75497472  max 81988144
+  index latency ns  n 284125  p50 622592  p95 3014656  p99 48234496  p99.9 79691776  max 89259604

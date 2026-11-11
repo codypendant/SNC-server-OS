@@ -1,0 +1,81 @@
+{
+ "git_head": "ba0089fa53c639b47079a3ce70ee247520c49e98",
+ "frozen": {
+  "_status": "NOT FROZEN, NO GO. bench/s6.py refuses a real run until runner_commit (the merge of the runner PR) and go_record (the filed GO handoff) are set, in a docs-only freeze commit after review. The values below are the preregistered identities (docs/S6_PREREG.md section 1).",
+  "runner_commit": null,
+  "go_record": null,
+  "manifest": "bench/manifests/r640-main-20261111.txt",
+  "manifest_sha256": "768056bbee1d7f178ed0be1c195b821f0638a1de28a4aca1ea0afdf5444c27b6",
+  "server_build": "build-s6",
+  "_server_build": "fresh RelWithDebInfo build (cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo) of main 91278d7 on the R640; this PR changes no C++",
+  "snc_server_sha256": "69a51b695e2029942039d386abaa9755616f31327ff63e0420dd0c5c8ba25ee1",
+  "net_bench_sha256": "9fc5494404747f8242680552588bd6f986e3e00b265e45ee67262c513a93c581",
+  "ckpt_walk_cost_sha256": "4707dac135a6fc72c41a712075678aa24ccbf7ad74d546962623026584b5d2d2",
+  "pres1_commit": "389b6234855082a4591c6677d0a303c3add3319d",
+  "pres1_server": "build-preS1/snc_server",
+  "_pres1_server": "RelWithDebInfo snc_server built from a worktree of 389b623 (merge of PR #71, the base of PR #72), copied here; only its snc_server is used: C0 is driven by the current net_bench",
+  "pres1_server_sha256": "78f471efb7e7951bf8cf14637e03120d6460dc989317c5c32fb073af23806ff7"
+ },
+ "scratch": "/dev/shm/snc-s6",
+ "data_root": "/srv/snc-data/s6",
+ "out": "/tmp/claude-1000/-home-solo/597e11a3-8d53-41b4-9813-7b96a23b14ad/scratchpad/s6-refuse",
+ "disks": {
+  "data": [
+   "sdb"
+  ],
+  "scratch": [
+   "sda"
+  ],
+  "out": [
+   "sda"
+  ]
+ },
+ "machine_checks": {
+  "manifest_sha256": true,
+  "kernel": true,
+  "cpus": true,
+  "model": true,
+  "node0": true,
+  "node1": true,
+  "memory": true,
+  "governors": true,
+  "numa_balancing": true,
+  "allocation": true,
+  "data_disk_model": true,
+  "data_fs_uuid": true,
+  "data_mount": true
+ },
+ "machine_values": {
+  "kernel": "6.8.0-149-generic",
+  "model": "Intel(R) Xeon(R) Gold 6150 CPU @ 2.70GHz",
+  "mem_kb": 394799836,
+  "governors": [
+   "performance"
+  ],
+  "data_disk": "sdb",
+  "data_mount": [
+   "/dev/sdb1",
+   "/srv/snc-data",
+   "ext4",
+   "rw,relatime,stripe=2",
+   "0",
+   "0"
+  ],
+  "numa_balancing": "0"
+ },
+ "build_checks": {
+  "snc_server": true,
+  "net_bench": true,
+  "pres1_server": true
+ },
+ "build_values": {
+  "snc_server": "69a51b695e2029942039d386abaa9755616f31327ff63e0420dd0c5c8ba25ee1",
+  "net_bench": "9fc5494404747f8242680552588bd6f986e3e00b265e45ee67262c513a93c581",
+  "pres1_server": "78f471efb7e7951bf8cf14637e03120d6460dc989317c5c32fb073af23806ff7"
+ },
+ "problems": [
+  "bench/s6_frozen.json: runner_commit is not set (not frozen / no GO)",
+  "bench/s6_frozen.json: go_record is not set (not frozen / no GO)"
+ ],
+ "utc": "2026-11-11T17:48:47Z"
+}
