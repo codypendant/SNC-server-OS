@@ -2254,3 +2254,114 @@ or source comments.
     -   RECONSIDER the clock-based incarnation, which is replaced.
 -   **Next action:** WAIT for the rev4 review. No D.2 code.
 
+### 2026-11-10 UTC --- Claude (Claude Code): PR #94 review filed; D.2 implementation authorized
+
+-   **Review:** PR #94 (design rev4) APPROVED; D.2 implementation
+    AUTHORIZED. Filed verbatim as
+    `docs/handoff/PR94_D2_Design_Rev4_Review.md`.
+    `--links-generation-min` is approved with fail-closed semantics.
+-   **Next action:** implement D.2 as one PR, in the design's section 9
+    commit order, each commit green. Run X1-X29 (with X19b), ND1-ND37,
+    and the Release, ASan+UBSan and TSan serial suites, keeping every
+    attempt. Then return it for independent review. S5, S6, R640, CP-1A,
+    comparators and B2 begin-snapshot stay forbidden.
+
+
+### 2026-11-10 UTC --- Claude (Claude Code): D.2 implemented, for independent review
+
+-   **What:** D.2 cross-node exchange accounting, implemented to design
+    rev4 in the section 9 commit order (steps 1-10). Later commits fix
+    what validation found. Evidence:
+    `bench/results/xnode-d2-validation-devvm-20261110/README.md`.
+-   **Results:**
+    -   Release, ASan+UBSan and TSan complete serial suites pass 47 of 47
+        at beda8a2. 66d5145 changes only X4, and test_xnode passes there
+        in all three builds.
+    -   X1-X32 with X19b, plus the process tests x6, x7, x7b and x9, pass.
+    -   Negatives: 36 of 39 caught at beda8a2. ND10 and ND24 hit
+        unreachable branches. ND7 was missed by chance; X4 now forces the
+        case, and ND7 is caught 3 of 3.
+    -   P2 shows no measurable cost.
+-   **Product defects found and fixed on site:**
+    -   A rejoining links instance never bound.
+    -   The blocked bit could arrive late under traffic.
+    -   A single stale heartbeat could reset a healthy Out connection
+        (X15, then X32; ND38).
+    -   The step 9 gauge publish was slower than its 50 us interval under
+        TSan, which blocked slot moves (bisected to a69da05).
+-   **Disclosures:**
+    -   The step 10 commits from 8ef83d3 to 6489cec are not green in every
+        build. The fixes are later commits; history was not rewritten,
+        because 8ef83d3 was already pushed.
+    -   A pre-D.2 data directory needs `--links-generation-min 1` once.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the rev4 protocol as approved.
+    -   REFINE the meaning of "holds for T_dead" in design 2.10: it must
+        be shown by fresh heartbeats.
+-   **Next action:** WAIT for independent review of the D.2 PR. Do not
+    merge it, and do not call D.2 complete until it is approved. S5, S6,
+    R640, CP-1A, comparators and B2 stay forbidden.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #95 review 1 fixed, returned for review
+
+-   **What:** the four items of review 1
+    (`docs/handoff/PR95_D2_Implementation_Review.md`) are fixed on site,
+    without rewriting history. Final head 2bccdbe. Engine code is the same
+    from b77937e. Evidence:
+    `bench/results/xnode-d2-review-fixes-devvm-20261110/README.md`, with
+    every run in order.
+-   **Fixes:**
+    1.  The explicit generation file is flocked (X33, process x33).
+    2.  The blocked bit is retried on both edges (X34).
+    3.  END v2 layout: n in source.hi, target incarnation in target.lo
+        (X35; design 2.2 byte table).
+    4.  ND10/ND24 are closed by proofs I1/I2 (design 2.9.1). Their
+        branches are invariant checks, and the negatives are premise
+        mutations. X12c was added because ND24 went uncaught in attempt 1.
+    -   New negatives: ND39, ND40, ND41.
+-   **Results at 2bccdbe:**
+    -   Release, ASan+UBSan and TSan serial suites: 47 of 47 each.
+    -   Complete test_xnode: 33 of 33. Process x6, x7, x7b, x33 and x9 pass.
+    -   Negatives: 42 of 42.
+    -   F8 passes on and off in all three builds.
+    -   P2: on −1.0% vs off, inside the noise between rounds.
+-   **Test defects fixed along the way:**
+    -   q4 summed gauges published up to 84 ms apart.
+    -   X4 relied on chance.
+    -   test_intake F8/G1 did not allow legitimate S1 WAL-budget refusals.
+-   **Environment:** low disk (6.8 GB free) failed b3 on main too. cody
+    approved deleting about 17 GB of leaked test dirs, and gave a standing
+    OK to delete test scratch after every run.
+-   **Disclosures:** two failures have no root cause established: paxos c2b
+    in Release run 2, and one F8 links-up timeout in 1,000 runs. Both
+    passed on rerun, and both are recorded.
+-   **KEEP / REFINE / RECONSIDER:**
+    -   KEEP the rev4 protocol.
+    -   REFINE: the negatives must be checked against a test that leaves the
+        mutated state in place (as X12c does), not only by
+        whether they apply.
+-   **Next action:** WAIT for independent review of PR #95. Do not merge
+    it, and do not call D.2 complete. S5, S6, R640, CP-1A, comparators,
+    B2, Agent-SNC, Rust and DPDK/VPP stay forbidden.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #95 APPROVED, D.2 COMPLETE, merged
+
+-   **What:** the final independent review
+    (`docs/handoff/PR95_D2_Implementation_Final_Review.md`) approved
+    PR #95. D.2 is COMPLETE. Validated at 2bccdbe; product code b77937e.
+    Evidence: `bench/results/xnode-d2-review-fixes-devvm-20261110/`.
+-   **Observations carried forward:** one paxos c2b deadline failure and
+    one F8 links-up timeout, neither with a root cause. If either
+    recurs, investigate it on site.
+-   **Hardware:** the R640 now has all six memory channels per socket
+    populated. Manifest `bench/manifests/r640-main-20261106d.txt` is no
+    longer valid for new evidence. The old CP-1A results stay valid for
+    the old configuration.
+-   **Next action:**
+    1.  Recapture the R640 manifest on merged main (governor
+        performance, numa_balancing 0, dmidecode showing 6 of 6 channels
+        per socket).
+    2.  Update `docs/R640_TOPOLOGY.md`.
+    3.  Return both for review.
+    -   Not authorized: S6, CP-1A, comparators, baseline freeze,
+        Agent-SNC, Rust and DPDK/VPP.

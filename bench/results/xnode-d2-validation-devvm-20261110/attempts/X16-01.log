@@ -1,0 +1,2 @@
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+/home/claude/snc-server-os/tests/test_xnode.cpp:624: CHECK failed: since(t0) < timeout_s: timed out: ENDs owed to member 0, ENDs sent to member 1

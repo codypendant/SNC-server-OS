@@ -1,0 +1,8 @@
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: start barrier done: serving as a primary
+snc: standby refused shard 0 (this primary's term is older: it was replaced)
+snc: shard 0: fenced (a newer primary exists), leaving the data plane
+X19b blocked primary, bit undeliverable: A not reading P; P left 301 ms after the block; A quarantined its entry 703 ms after the block (<= T_block + T_release = 900) by the In-down trigger; S promoted, A's Out connection bound to it (incarnation 1) exactly; settled, money conserved
+  (X19b: 5.2 s)
+test_xnode: ok

@@ -1,0 +1,3 @@
+X15 incarnation alternation: 10 restarts of member 0 with member 1 alive (its connection to B never replaced); entries <= 2 (members) at all 268 samples (max 2); 10 retirements, 0 items purged by them; counts 0, no underflow
+  (X15: 1.7 s)
+test_xnode: ok

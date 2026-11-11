@@ -119,8 +119,15 @@ travel over **node links** (`src/core/node_link.{h,cpp}`):
   and keeps one TCP connection to every shard of every other group. A
   standby does not listen and opens no links. A follow-up goes straight
   to the shard that owns its target. Frames are 64 bytes (source, target,
-  op, fail op, up to 16 bytes of args) after a 24-byte hello naming the
-  sender's group and shard, its map crc and placement epoch.
+  op, fail op, up to 16 bytes of args; a kind byte and a counted flag)
+  after a 48-byte Hello (wire v2: the sender's group, shard and member,
+  its map crc, placement epoch, links incarnation, connection nonce and
+  sequence, and whether cross-node accounting is on), answered by a
+  32-byte HelloAck naming the acceptor's member and incarnation. A v1
+  peer, or one with accounting set the other way, is refused with a
+  message and a gauge (`link_version_refusals`,
+  `link_accounting_refusals`): every node of a cluster runs the same wire
+  and the same `SNC_XNODE_ACCOUNTING`.
 - **An outbound link tries the group's members in turn** until one
   accepts: the primary, since standbys do not listen. After a failover it
   finds the promoted member by itself, without any change to the map.
@@ -128,7 +135,30 @@ travel over **node links** (`src/core/node_link.{h,cpp}`):
   durable**, which for a sync primary means on its standby too, even when
   this node is otherwise free to run it earlier, so no group acts on a
   debit that could still be lost, by a crash or by a failover.
-- **No acks, no log.** A follow-up whose link is down is dropped, and so is
+- **No per-frame acks, no log; counted exchanges (D.2,
+  docs/CROSS_NODE_EXCHANGE_DESIGN.md).** A follow-up of this shard's
+  exchange pushed to another node stays live here, counted in the
+  (link, member) entry it went to, until that node ends it (an END frame,
+  coalesced) or returns it as a counted reply; so the exchange budget X
+  bounds a shard's work across nodes as well as inside one. A connection
+  binds to an entry only on the peer's HelloAck plus its SYNC naming that
+  exact connection (the count is set to k + pushed - R there), and counted
+  frames flow only on a bound connection; an entry whose peer is gone, or
+  blocked, or no longer bound for `T_release` is quarantined (it stops
+  gating; its debt can only fall) and is retired when that member's next
+  instance appears. Heartbeats every `T_hb` on an idle connection; one
+  silent for `T_dead` while not paused is closed (a paused or backlogged
+  one never is). Timers: `--xnode-hb-ms`, `--xnode-dead-ms`,
+  `--xnode-release-ms`, `--xnode-block-ms`, defaults 100, 1000, 3000,
+  2000 ms (`T_hb`, `T_dead`, `T_release`, `T_block`).
+  `SNC_XNODE_ACCOUNTING=off` is the rollback to the D.1 behaviour.
+- **Links incarnations never repeat.** Every links instance takes the next
+  value of a durable counter (`<data-dir>/links_generation`), so a
+  restarted member is always newer and a delayed connection from a retired
+  instance is refused. A missing or corrupt file in a directory with state
+  refuses to start; `--links-generation-min G` (G above the
+  `xnode_highest_incarnation` its peers report) recovers it.
+- A follow-up whose link is down or unbound is dropped, and so is
   whatever a connection held when it dropped. Every time a connection comes
   up, in either direction, the shard runs its objects' resume hooks again:
   outbox entries re-send their credit, inbox entries ask their sender
@@ -269,17 +299,17 @@ down and recovered by the resume passes.
   time (docs/MIGRATION.md, "Limits").
 - **A fenced primary withdraws only once it hears so** (above): from the
   promoted member or a witness. One cut off from both, while the other
-  groups still reach it, blocks (acknowledges nothing, as before) but
-  keeps its links, and their follow-ups to its group wait until its
-  connections drop. Safe, a stall. If it matters, the next step is
-  withdrawing while blocked (sync, standby gone past a bound), which needs
-  no new protocol.
+  groups still reach it, blocks (acknowledges nothing, as before); with
+  D.2 it says so at once in its heartbeats (the peers stop binding to it
+  and quarantine it by `T_release`), leaves the links after `T_block`,
+  and rejoins as a new links instance once unblocked.
 - The cluster test promotes the standby itself; witnesses per group are
   the same `snc_witness` as for a pair, not yet exercised in a cluster
   test, and neither is `--rejoin` of the old primary as a standby.
 - A resume pass walks every object on the shard. Cheap at this scale; at
   millions of objects per shard it should walk only objects with entries.
 - A peer that vanishes without closing its connections (power loss, a
-  partition) is noticed only when TCP gives up; follow-ups sent to it
-  meanwhile are lost until the link comes back and resumes.
+  partition) is noticed after `T_dead` of silence (D.2 heartbeats);
+  follow-ups sent to it meanwhile are lost until the link comes back and
+  resumes, and its entry's count is quarantined debt until then.
 - Loopback only so far: numbers across real machines are milestone 4.

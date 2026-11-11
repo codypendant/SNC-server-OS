@@ -1,0 +1,21 @@
+FAIL run 140
+G1 transfer 574: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+FAIL run 141
+G1 transfer 583: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+FAIL run 245
+G1 transfer 990: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+FAIL run 290
+G1 transfer 369: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+FAIL run 312
+G1 transfer 481: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+FAIL run 348
+G1 transfer 723: E_OVERLOADED
+/home/claude/snc-server-os/tests/test_intake.cpp:1339: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+done
+
+[exited with code 0]

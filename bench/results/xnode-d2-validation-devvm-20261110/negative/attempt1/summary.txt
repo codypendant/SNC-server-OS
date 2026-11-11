@@ -1,0 +1,96 @@
+base 8ef83d356f03849623c46c5291f08f97bdd6a8de 2026-11-10T09:42:53Z
+ND1 X1 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND1/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X1: never settled (entries 1024)
+ND1 X2 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND1/tests/test_xnode.cpp:1786: CHECK failed: b.emits_in_flight <= a.exchanges_live + b.exchanges_live: X2: B's queue 94 above 64 + 0
+ND1 =>  X1 X2
+ND2 X12 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND2/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: A's count back to 0
+ND2 X8 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND2/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X8: never settled (node 0 remote_live 0 held 24 end_owed 0 debt 0 live 0 in_flight 0)
+ND2 X3 rc=0 (expected non-zero): 
+ND2 =>  X12 X8
+ND2b X8 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND2b/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X8: never settled (node 0 remote_live 0 held 5 end_owed 0 debt 0 live 0 in_flight 0)
+ND2b X3 rc=0 (expected non-zero): 
+ND2b X17 rc=0 (expected non-zero): 
+ND2b =>  X8
+ND3 X13 rc=0 (expected non-zero): 
+ND3 => NOT CAUGHT
+ND4 X3 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND4/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: bound
+ND4 =>  X3
+ND5 X1 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND5/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X1: never settled (node 0 remote_live 256 held 0 end_owed 0 debt 0 live 256 in_flight 
+ND5 =>  X1
+ND6 X3 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND6/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X3 cycle: node 0 end underflow 222
+ND6 =>  X3
+ND7 X4 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND7/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X4 cycle: node 0 end underflow 1
+ND7 =>  X4
+ND8 X5 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND8/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: quarantine
+ND8 =>  X5
+ND9 X5 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND9/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X5: node 1 end underflow 32
+ND9 X4 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND9/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X4 cycle: node 0 end underflow 32
+ND9 =>  X5 X4
+ND10 X17 rc=0 (expected non-zero): 
+ND10 X8 rc=0 (expected non-zero): 
+ND10 => NOT CAUGHT
+ND11 X12 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND11/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X12 foreign: never settled (node 1 remote_live 0 held 64 end_owed 0 debt 0 live 0 in_
+ND11 =>  X12
+ND12 X13 rc=0 (expected non-zero): 
+ND12 X16 rc=0 (expected non-zero): 
+ND12 X25 rc=0 (expected non-zero): 
+ND12 => NOT CAUGHT
+ND13 X11 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND13/tests/test_xnode.cpp:1738: CHECK failed: closes() == closes0 && resets() == resets0: X11: 0 silence closes, 1 Out resets while paused
+ND13 =>  X11
+ND14 X3 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND14/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X3: never settled (entries 1056)
+ND14 =>  X3
+ND15 X13 rc=0 (expected non-zero): 
+ND15 X20 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND15/tests/test_xnode.cpp:1618: CHECK failed: took * 1000 <= kDeadMs + 400: X20: steered 1433 ms after the old member's connection went
+ND15 X27 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND15/tests/test_xnode.cpp:1064: CHECK failed: !v.out.identified && !v.out.bound
+ND15 =>  X20 X27
+ND16 X14 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND16/tests/test_xnode.cpp:941: CHECK failed: a.e.state == NodeLinks::EntryState::QUARANTINED && !a.out.bound
+ND16 =>  X14
+ND17 X16 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND17/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: ENDs owed to member 0, ENDs sent to member 1
+ND17 =>  X16
+ND18 X15 rc=0 (expected non-zero): 
+ND18 X25 rc=0 (expected non-zero): 
+ND18 X16 rc=0 (expected non-zero): 
+ND18 => NOT CAUGHT
+ND19 X15 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND19/tests/test_xnode.cpp:627: CHECK failed: since(t0) < timeout_s: X15: counts never settled (node 2 shard 0 remote_live 120 held 64 end_owed 0 debt 0 l
+ND19 X16 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND19/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: ENDs owed to member 0, ENDs sent to member 1
+ND19 =>  X15 X16
+ND20 X15 rc=0 (expected non-zero): 
+ND20 X13 rc=0 (expected non-zero): 
+ND20 X20 rc=0 (expected non-zero): 
+ND20 => NOT CAUGHT
+ND21 X22 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND21/tests/test_xnode.cpp:835: CHECK failed: s.exchanges_live < net.exchange_budget
+ND21 =>  X22
+ND22 X22 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND22/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X22: never settled (entries 64)
+ND22 =>  X22
+ND23 X21 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND23/tests/test_xnode.cpp:1386: CHECK failed: (v.e.inc) == (inc1)
+ND23 =>  X21
+ND24 X12 rc=0 (expected non-zero): 
+ND24 => NOT CAUGHT
+ND25 X14 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND25/tests/test_xnode.cpp:941: CHECK failed: a.e.state == NodeLinks::EntryState::QUARANTINED && !a.out.bound
+ND25 =>  X14
+ND26 X5 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND26/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: rebound after heal
+ND26 =>  X5
+ND27 X24 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND27/tests/test_xnode.cpp:1026: CHECK failed: stale >= 5: X24: 4 stale SYNCs, fewer than the 5 connections closed before any SYNC arrived
+ND27 X3 rc=0 (expected non-zero): 
+ND27 =>  X24
+ND28 X24 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND28/tests/test_xnode.cpp:1026: CHECK failed: stale >= 5: X24: 0 stale SYNCs, fewer than the 5 connections closed before any SYNC arrived
+ND28 =>  X24
+ND29 X3 rc=0 (expected non-zero): 
+ND29 X24 rc=0 (expected non-zero): 
+ND29 => NOT CAUGHT
+ND30 X25 rc=0 (expected non-zero): 
+ND30 => NOT CAUGHT
+ND31 X19 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND31/tests/test_xnode.cpp:2023: CHECK failed: at_q.c.q_blocked >= 1
+ND31 =>  X19
+ND32 X26 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND32/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: the first member quarantined
+ND32 =>  X26
+ND33 X27 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND33/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: bound
+ND33 =>  X27
+ND34 X19 rc=0 (expected non-zero): 
+ND34 => NOT CAUGHT
+ND35 X19 rc=0 (expected non-zero): 
+ND35 => NOT CAUGHT
+ND36 X28 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND36/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X28: node 0 end underflow 142
+ND36 =>  X28
+ND37 X29 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND37/tests/test_xnode.cpp:639: CHECK failed: since(t0) < timeout_s: timed out: clock at T
+ND37 =>  X29
+done 2026-11-10T10:06:44Z

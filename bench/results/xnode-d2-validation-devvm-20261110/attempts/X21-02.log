@@ -1,0 +1,2 @@
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+/home/claude/snc-server-os/tests/test_xnode.cpp:1393: CHECK failed: (v.e.inc) == (inc1)

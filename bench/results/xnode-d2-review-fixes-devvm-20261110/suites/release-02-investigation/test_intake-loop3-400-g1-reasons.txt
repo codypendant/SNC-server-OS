@@ -1,0 +1,7 @@
+FAIL run 204
+G1 transfer 480: E_OVERLOADED; d refused: followup 0 ring 0 waiter 0 wal_buffer 1 pending 0 exchange 0 owner 0; in flight 480
+/home/claude/snc-server-os/tests/test_intake.cpp:1346: CHECK failed: r.r.status == Status::OK || r.r.status == Status::E_APP
+cleaned 1 leaked /tmp/snc-* dirs
+done
+
+[exited with code 0]

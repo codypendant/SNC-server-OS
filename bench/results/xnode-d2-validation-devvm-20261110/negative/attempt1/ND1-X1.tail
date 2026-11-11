@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND1/tests/test_xnode.cpp:589: CHECK failed: since(t0) < timeout_s: X1: never settled (entries 1024)

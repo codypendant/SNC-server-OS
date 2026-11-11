@@ -214,6 +214,17 @@ struct ShardStats {
   u64 node_emits_received = 0;   // ... received from another group's node
   u64 node_emits_dropped = 0;    // ... dropped, their link down (resume re-emits them)
   u64 node_emits_misrouted = 0;  // ... received for a slot not ours, from a node behind ours
+  // Cross-node accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.6, 2.7, 2.9).
+  u64 xnode_tag_drops = 0;       // tagged replies dropped at push: their counting entry is not bound there (END owed)
+  u64 xnode_handoff_drops = 0;   // invariant I2 check (2.9.1), must stay 0: a tagged item routed in-node, dropped (END owed)
+  u64 xnode_reply_drops = 0;     // counted replies dropped on arrival: no count for them
+  u64 xnode_retire_purged = 0;   // tagged items purged with no END: their counting instance is gone
+  u64 xnode_drops_to_resume = 0; // invariant I1 check (2.9.1), must stay 0: another shard's exchange at a link, dropped
+  u64 xnode_uncounted = 0;       // untagged, no origin, accounting on: must stay 0
+  u64 xnode_blocked = 0;         // 1 while this primary is blocked (2.12 A)
+  u64 xnode_blocked_leaves = 0;  // times it left the node links, blocked for T_block
+  u64 xnode_rejoins = 0;         // times it recreated them (a new incarnation) once unblocked
+  u64 xnode_unbound_purged = 0;  // queued for a link that was not bound (or down): dropped, resumed at binding
   // Slot moves (docs/MIGRATION.md).
   u64 emits_held = 0;            // follow-ups held: their slot sealed or staged here
   u64 emits_held_now = 0;        // ... held at this moment
@@ -568,6 +579,31 @@ class Engine {
     // holds this many follow-ups that came over them, until half drain;
     // 0 = never pause.
     u32 link_hold_max = 1024;
+    // Cross-node exchange accounting (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md):
+    // a cross-node exchange stays live at its origin until it ends.
+    // SNC_XNODE_ACCOUNTING=off (or SNC_FOLLOWUP_INTAKE=off) restores D.1
+    // counting on the v2 wire. It must match on every node of a cluster.
+    bool xnode_accounting = true;
+    // Node-link liveness timers (D.2, 2.10), hypotheses: heartbeat after
+    // T_hb idle; silence after T_dead; release (quarantine) after
+    // T_release; a blocked primary leaves the links after T_block. The
+    // engine refuses to start unless T_hb < T_dead < T_release,
+    // T_dead >= 3 T_hb and T_block >= T_dead.
+    u32 xnode_hb_ms = 100;
+    u32 xnode_dead_ms = 1000;
+    u32 xnode_release_ms = 3000;
+    u32 xnode_block_ms = 2000;
+    // The links incarnation generation (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md
+    // 2.1): kept in <data_dir>/links_generation. links_generation_file names
+    // it for an engine with no data directory; links_generation_min is the
+    // operator's explicit floor for a restored or pre-D.2 directory (stored
+    // durably before the first allocation; never lowers it).
+    // links_generation_test: in-process tests only, one counter shared by
+    // every engine of the process. With none of these, an engine with no
+    // data directory opens no node links.
+    std::string links_generation_file;
+    u64 links_generation_min = 0;
+    bool links_generation_test = false;
   };
 
   explicit Engine(const Config& cfg);
@@ -847,6 +883,7 @@ class Engine {
 
  private:
   Config cfg_;
+  void open_links_generation_(bool fresh);
   std::unique_ptr<NativeRuntime> rt_;
   std::vector<class Shard*> shards_;
   std::atomic<bool> running_{false};  // the runtime is started (internal; see life_)

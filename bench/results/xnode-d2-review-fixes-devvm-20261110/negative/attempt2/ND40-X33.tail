@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND40/tests/test_xnode.cpp:2513: CHECK failed: refused: X33: a second allocator opened /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/tmp-ND40/snc-xnode-rXR4pW/x33.links_generation while the first lives

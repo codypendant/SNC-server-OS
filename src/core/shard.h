@@ -208,6 +208,15 @@ class Shard {
     u32 link_hold_max = 1024;  // L; 0: never pause
   };
   void set_intake(const Intake& in, FollowupBoard* board);
+  // Cross-node exchange accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md, D.2).
+  struct Xnode {
+    bool accounting = true;  // SNC_XNODE_ACCOUNTING; off: D.1 counting on the v2 wire
+    // Where links incarnations come from (2.1); null or empty: no links.
+    std::unique_ptr<class LinksGeneration>* gen = nullptr;
+    // Timers (2.10), as hypotheses; the engine checks their ordering.
+    u64 hb_ns = 100'000'000, dead_ns = 1'000'000'000, release_ns = 3'000'000'000, block_ns = 2'000'000'000;
+  };
+  void set_xnode(const Xnode& x) { xnode_ = x; }
   u64 followup_wal_cap() const { return wal_cap_; }
   // Tests only: a resume trigger, as a link coming up (slot -1) or a slot
   // becoming served would make (docs/FOLLOWUP_INTAKE_DESIGN.md 3.9.2).
@@ -428,6 +437,13 @@ class Shard {
     u16 origin = kNoShard;
     u16 from = kNoShard;
     bool link_held = false;
+    // D.2 (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.3): another node's exchange,
+    // counted there by the instance this tag names (link, member, entry
+    // serial); memory only. Its replies inherit it.
+    bool tagged = false;
+    u16 peer_member = 0;
+    u32 peer_link = 0;
+    u32 peer_serial = 0;
   };
   static constexpr u64 kEmitBacklog = 1024;
   void route_emit(Emit e);
@@ -444,6 +460,21 @@ class Shard {
   bool followup_gate_open() const;
   bool window_open(u16 dst);
   void end_exchange(u16 origin);
+  // Any disposition of an item other than its counted push or reply: its
+  // exchange ends here (D.1), or, tagged, an END is owed to the instance
+  // that counts it (D.2, 2.6).
+  void end_item(const Emit& e);
+  // D.2 (2.7): drop every item tagged by (link, member, serial), or every
+  // tagged item (link < 0), with no END: its counting instance is gone.
+  void purge_tagged(long link, u16 member, u32 serial);
+  static void on_links_retire(void* ctx, u32 link, u16 member, u64 incarnation);
+  u64 xnode_live() const { return links_ ? links_->xnode_live() : 0; }
+
+ public:
+  // Tests (D.2): this shard's links instance (null: none). Shard thread.
+  const NodeLinks* links_for_test() const { return links_.get(); }
+
+ private:
   void release_link(Emit& e);
   bool exchange_full();
   u64 exchanges_live();
@@ -577,7 +608,8 @@ class Shard {
   // Runs every object's resume hook; what they emit waits for `lsn`.
   void resume_all(u64 lsn);
   bool poll_links();
-  static void on_link_frame(void* ctx, const NodeLinks::Frame& f);
+  void leave_links();
+  static void on_link_frame(void* ctx, const NodeLinks::From& from, const NodeLinks::Frame& f);
   void start_sender(const std::string& data_dir, u64 next_lsn);
 
   // Dispatch.
@@ -644,6 +676,25 @@ class Shard {
     std::size_t size() const { return buf_.size() - head_; }
     T& front() { return buf_[head_]; }
     void push_back(const T& v) { buf_.push_back(v); }
+    // Removes, in order, what `drop` returns true for (calling it once per item).
+    template <typename P>
+    std::size_t remove_if(P drop) {
+      std::size_t w = head_, n = 0;
+      for (std::size_t r = head_; r < buf_.size(); ++r) {
+        if (drop(buf_[r])) {
+          ++n;
+          continue;
+        }
+        if (w != r) buf_[w] = buf_[r];
+        ++w;
+      }
+      buf_.resize(w);
+      if (head_ == buf_.size()) {
+        buf_.clear();
+        head_ = 0;
+      }
+      return n;
+    }
     void pop_front() {
       if (++head_ == buf_.size()) {
         buf_.clear();
@@ -685,6 +736,10 @@ class Shard {
   u64 ended_own_ = 0;             // ... that ended here
   u64 ended_seen_ = 0;            // ... that ended on other shards, as last read
   u16 cur_origin_ = kNoShard;     // origin of the follow-up now running
+  // D.2: the peer tag of the follow-up now running; its reply inherits it.
+  bool cur_tagged_ = false;
+  u16 cur_peer_member_ = 0;
+  u32 cur_peer_link_ = 0, cur_peer_serial_ = 0;
   u64 link_held_ = 0;             // follow-ups from node links held here (L)
   bool links_paused_ = false;
   bool bad_followup_logged_ = false;  // a link frame to a non-followup op was dropped (logged once)
@@ -804,6 +859,7 @@ class Shard {
   void check_reserved(const OpDescriptor* op);
   ShardGauges* gauges_ = nullptr;
   u64 gauges_published_ns_ = 0;
+  u64 gauges_cost_ns_ = 0;  // the last publish's duration (spacing, publish_gauges)
   bool gauges_dirty_ = false;
   u64 waiters_peak_ = 0, waiter_bytes_ = 0, waiter_bytes_peak_ = 0, emits_peak_ = 0;
 
@@ -813,6 +869,19 @@ class Shard {
   std::vector<u32> moved_at_;
   u16 group_ = 0, member_ = 0;
   std::unique_ptr<NodeLinks> links_;
+  Xnode xnode_;
+  std::vector<u64> peer_highest_;  // per (link, member): highest incarnation seen (2.12 C), outlives links_
+  bool links_no_gen_said_ = false;
+  // D.2 (2.12 A): this primary is blocked (sync replication, the standby
+  // gone or not acknowledging for T_dead) since then (0: not); it left the
+  // node links after T_block and recreates them once unblocked.
+  u64 xnode_blocked_since_ = 0;
+  bool xnode_left_ = false;
+  NodeLinks::Counters xnode_prev_;  // counters of links instances gone (gauges are cumulative)
+  NodeLinks::Counters xnode_totals() const;
+  u64 wait_front_lsn_ = 0, wait_front_ns_ = 0;
+  bool xnode_blocked_now(u64 now);
+  bool poll_blocked();
   // Slot moves (docs/MIGRATION.md).
   std::atomic<u8>* phases_ = nullptr;
   // Stage chains (S1): per slot, the running chain's (token, move); and

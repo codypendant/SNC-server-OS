@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -19,6 +20,7 @@
 #include <stdexcept>
 #include <thread>
 
+#include "links_generation.h"
 #include "seed.h"
 #include "session.h"
 #include "shard.h"
@@ -55,6 +57,7 @@ struct EngineHooks {
   ShardGauges* gauges;  // one per shard (S0, observability)
   SyncTokens* sync_tokens;  // the node's final-sync tokens (S4)
   FollowupBoard* intake;    // follow-up intake counters (D.1)
+  std::unique_ptr<LinksGeneration>* links_gen;  // D.2: opened before any shard starts its links
 };
 
 void hook_init(void* user) {
@@ -103,6 +106,14 @@ void hook_init(void* user) {
     in.owner_gate = c.owner_followup_gate;
     in.link_hold_max = c.link_hold_max;
     s->set_intake(in, h->intake);
+    Shard::Xnode x;
+    x.accounting = c.xnode_accounting;
+    x.gen = h->links_gen;
+    x.hb_ns = u64{c.xnode_hb_ms} * 1'000'000;
+    x.dead_ns = u64{c.xnode_dead_ms} * 1'000'000;
+    x.release_ns = u64{c.xnode_release_ms} * 1'000'000;
+    x.block_ns = u64{c.xnode_block_ms} * 1'000'000;
+    s->set_xnode(x);
   }
   if (!h->cluster->groups.empty()) s->set_cluster(h->cluster, h->cfg->group_id, h->cfg->member);
   set_current_shard(s);
@@ -234,6 +245,13 @@ struct EngineState {
   explicit EngineState(u32 sync_tokens_k) : sync_tokens(sync_tokens_k) {}
   SyncTokens sync_tokens;
   std::unique_ptr<FollowupBoard> intake;  // D.1, one per Engine
+  // D.2 (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.1): the links incarnation
+  // generation, and the data directory's lock (invariant M).
+  std::unique_ptr<LinksGeneration> links_gen;
+  int dir_lock = -1;
+  ~EngineState() {
+    if (dir_lock >= 0) ::close(dir_lock);
+  }
 };
 
 // An Engine's state is owned by the Engine (Engine::state_), not by a file
@@ -490,11 +508,18 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
     const bool on = v == "on";
     cfg_.followup_wal_gate = cfg_.exchange_gate = cfg_.owner_followup_gate = on;
     if (!on) cfg_.followup_window = cfg_.link_hold_max = 0;
+    if (!on) cfg_.xnode_accounting = false;
     std::fprintf(stderr, "snc: SNC_FOLLOWUP_INTAKE=%s overrides the follow-up intake gates\n", v.c_str());
   }
   env_u32("SNC_FOLLOWUP_WINDOW", 1u << 20, cfg_.followup_window);
   env_u32("SNC_EXCHANGE_BUDGET", 1u << 24, cfg_.exchange_budget);
   env_u32("SNC_LINK_HOLD_MAX", 1u << 24, cfg_.link_hold_max);
+  if (const char* e = std::getenv("SNC_XNODE_ACCOUNTING"); e != nullptr && e[0] != '\0') {
+    const std::string v = e;
+    if (v != "off" && v != "on") throw std::invalid_argument("SNC_XNODE_ACCOUNTING must be on or off");
+    cfg_.xnode_accounting = v == "on";
+    std::fprintf(stderr, "snc: SNC_XNODE_ACCOUNTING=%s overrides cross-node accounting\n", v.c_str());
+  }
   register_session_type();
   register_slot_state_type();
   if (cfg_.exchange_gate && cfg_.exchange_budget == 0) {
@@ -544,6 +569,18 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   }
   shards_.assign(cfg.runtime.n_shards, nullptr);
   slots_ = SlotMap::make_default(cfg.runtime.n_shards);
+  {
+    // D.2 (2.10): the timers' ordering is enforced; their values are not.
+    const Config& c = cfg_;
+    if (!(c.xnode_hb_ms > 0 && c.xnode_hb_ms < c.xnode_dead_ms && c.xnode_dead_ms < c.xnode_release_ms &&
+          c.xnode_dead_ms >= 3 * c.xnode_hb_ms && c.xnode_block_ms >= c.xnode_dead_ms)) {
+      throw std::invalid_argument(
+          "node-link timers: need 0 < T_hb < T_dead < T_release, T_dead >= 3 T_hb and T_block >= T_dead "
+          "(xnode_hb_ms " + std::to_string(c.xnode_hb_ms) + ", xnode_dead_ms " + std::to_string(c.xnode_dead_ms) +
+          ", xnode_release_ms " + std::to_string(c.xnode_release_ms) + ", xnode_block_ms " +
+          std::to_string(c.xnode_block_ms) + ")");
+    }
+  }
   if (!cfg.cluster.empty()) {
     if (cfg.group_id >= cfg.cluster.size() || cfg.member >= cfg.cluster[cfg.group_id].members.size() ||
         cfg.cluster[cfg.group_id].n_shards != cfg.runtime.n_shards) {
@@ -569,7 +606,7 @@ Engine::Engine(const Config& cfg) : cfg_(cfg) {
   state_->gauges = std::make_unique<ShardGauges[]>(cfg.runtime.n_shards);
   state_->hooks = EngineHooks{&cfg_, &shards_, &state_->final_stats, &slots_, 1, &cluster_, &state_->serving, &state_->fenced,
                                &state_->replicating, state_->phases.data(), &state_->epoch_hint,
-                               state_->gauges.get(), &state_->sync_tokens, nullptr};
+                               state_->gauges.get(), &state_->sync_tokens, nullptr, &state_->links_gen};
   state_->intake = std::make_unique<FollowupBoard>(cfg.runtime.n_shards);
   state_->hooks.intake = state_->intake.get();
   ShardHooks h;
@@ -631,6 +668,8 @@ void Engine::start_() {
   if (cfg_.data_dir.empty()) {
     // In-memory mode: no WAL, every state is durable at once. Leases repeat
     // across processes, which is harmless because nothing persists.
+    // Node links need a links generation from somewhere (D.2, 2.1).
+    if (!cfg_.cluster.empty()) open_links_generation_(/*fresh=*/true);
     rt_->start();
     running_ = true;
     state_->serving = true;
@@ -754,9 +793,36 @@ void Engine::stop() {
     running_ = false;
   }
   spares_.reset();  // after the shards: their WAL streams hold a pointer to it
+  if (state_->dir_lock >= 0) {  // invariant M: released only once nothing runs
+    ::close(state_->dir_lock);
+    state_->dir_lock = -1;
+  }
   std::lock_guard<std::mutex> g(life_mu_);
   life_ = Lifecycle::STOPPED;
   life_cv_.notify_all();
+}
+
+// D.2 (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.1): where links incarnations
+// come from. Throws when the generation cannot be trusted (missing in a
+// directory with state, truncated, corrupt): the engine refuses to start.
+void Engine::open_links_generation_(bool fresh) {
+  if (state_->links_gen) return;
+  if (cfg_.links_generation_test) {
+    state_->links_gen = LinksGeneration::test_allocator();
+    return;
+  }
+  std::string path = cfg_.links_generation_file;
+  if (path.empty() && !cfg_.data_dir.empty()) path = cfg_.data_dir + "/links_generation";
+  if (path.empty()) {
+    std::fprintf(stderr, "snc: no links generation (no data directory, no --links-generation-file): "
+                         "node links stay closed\n");
+    return;
+  }
+  // An explicit file takes its own lock (2.1); the data directory's file is
+  // covered by the data-directory lock this engine already holds (invariant
+  // M, taken in recover() before this runs).
+  const bool explicit_file = !cfg_.links_generation_file.empty();
+  state_->links_gen = LinksGeneration::open_file(path, fresh, cfg_.links_generation_min, explicit_file);
 }
 
 // Shard s's replication settings, as standby or as primary.
@@ -806,6 +872,16 @@ void Engine::recover() {
   // this directory may hold a lossy prefix, until a promotion's start
   // barrier completes.
   make_dirs(dir);
+  // Invariant M (D.2, docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.1): one engine
+  // per data directory, held until stop.
+  if (state_->dir_lock < 0) {
+    const int lfd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (lfd < 0 || ::flock(lfd, LOCK_EX | LOCK_NB) != 0) {
+      if (lfd >= 0) ::close(lfd);
+      throw std::runtime_error("data directory " + dir + " is in use by another engine (its lock is held)");
+    }
+    state_->dir_lock = lfd;
+  }
   DirRole role = read_role(dir);
   using Adopt = Config::AdoptRole;
   // --adopt-role (docs/LEGACY_ROLE.md) is checked before anything is
@@ -831,6 +907,7 @@ void Engine::recover() {
 
   // 1. Superblock. A new standby may first fetch a seed from its primary.
   std::optional<Superblock> sb = read_superblock(dir);
+  bool seeded = false;
   if (!sb && !cfg_.seed_from.empty()) {
     bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
     if (has_data) {
@@ -840,6 +917,7 @@ void Engine::recover() {
     seed_fetch();
     sb = read_superblock(dir);
     if (!sb) storage_fatal("seed: superblock not readable after seeding");
+    seeded = true;
   }
   if (!sb) {
     bool has_data = !list_streams(dir).empty() || ::access((dir + "/ckpt").c_str(), F_OK) == 0;
@@ -960,6 +1038,11 @@ void Engine::recover() {
   ++sb_.generation;
   commit_superblock_();
   recovery_.superblock_s = since(t0);
+
+  // D.2 (2.1): the links generation, before any shard can open its links.
+  // Missing is fresh only for a directory this process just created or
+  // seeded; otherwise it fails closed (no lower incarnation is guessed).
+  if (!cfg_.cluster.empty()) open_links_generation_(recovery_.fresh || seeded);
 
   // 4. Start workers; they hold no WAL until replay finishes.
   rt_->start();

@@ -1,0 +1,23 @@
+Test project /home/claude/snc-server-os/build
+    Start 10: test_transfer
+1/9 Test #10: test_transfer ....................   Passed    3.42 sec
+    Start 12: test_cluster
+2/9 Test #12: test_cluster .....................   Passed    4.92 sec
+    Start 13: test_migrate
+3/9 Test #13: test_migrate .....................   Passed   34.75 sec
+    Start 15: test_proof
+4/9 Test #15: test_proof .......................   Passed    0.94 sec
+    Start 18: test_gauges
+5/9 Test #18: test_gauges ......................   Passed    0.95 sec
+    Start 26: test_intake
+6/9 Test #26: test_intake ......................   Passed    2.57 sec
+    Start 27: test_xnode
+7/9 Test #27: test_xnode .......................   Passed   60.19 sec
+    Start 32: test_gauges_admin
+8/9 Test #32: test_gauges_admin ................   Passed    3.99 sec
+    Start 39: test_xnode_proc
+9/9 Test #39: test_xnode_proc ..................   Passed   44.91 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Total Test time (real) = 156.66 sec

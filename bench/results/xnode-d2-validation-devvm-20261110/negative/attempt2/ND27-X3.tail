@@ -1,0 +1,3 @@
+X3 forward drop: 10 cuts of o->p, 10 bindings, 22 SYNCs applied (13 at binding with pushed=0, count=k), each equal to its barrier; settled, counts 0, no underflow
+  (X3: 2.2 s)
+test_xnode: ok

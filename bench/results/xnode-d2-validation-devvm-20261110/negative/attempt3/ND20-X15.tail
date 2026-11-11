@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND20/tests/test_xnode.cpp:1543: CHECK failed: out_conn(*net.nodes[1].eng, 1) == m1_conn: X15: member 1's connection to B was replaced

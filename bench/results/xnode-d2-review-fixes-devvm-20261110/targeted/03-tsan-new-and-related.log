@@ -1,0 +1,23 @@
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (blocked for T_release), debt 64
+snc: shard 0: unblocked, rejoining the node links as a new instance
+X19 blocked primary: blocked bit at A 0 ms after P blocked (T_hb 80, under END traffic); A's Out connection to P cut after the bit: reconnected, not bound to it; P left the links 298 ms after the block (T_block 300); A kept its blocked_since after; quarantined 603 ms after the block (<= T_hb + T_release = 680), by the blocked trigger; unblocked, P rejoined as incarnation 2 (was 1), bound exactly; settled, money conserved
+  (X19: 1.7 s)
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: start barrier done: serving as a primary
+snc: standby refused shard 0 (this primary's term is older: it was replaced)
+snc: shard 0: fenced (a newer primary exists), leaving the data plane
+X19b blocked primary, bit undeliverable: A not reading P; P left 298 ms after the block; A quarantined its entry 686 ms after the block (<= T_block + T_release = 900) by the In-down trigger; S promoted, A's Out connection bound to it (incarnation 1) exactly; settled, money conserved
+  (X19b: 5.3 s)
+X30 forged control frames: an END and a SYNC naming another incarnation of the receiver ignored; a SYNC naming the receiver's current Out connection exactly but sent by another member ignored as stale; no count changed, no underflow
+  (X30: 0.8 s)
+X32 one stale heartbeat: a heartbeat naming no connection, then nothing on that connection for 600 ms (3 T_dead); A's Out connection kept (out_resets +0). (b) the same heartbeat every T_hb/2: reset after 217 ms (T_dead 200 ms); rebound, counts 0
+  (X32: 1.2 s)
+X33 explicit generation file: a second allocator refused while the first lived ("links generation: /tmp/snc-xnode-Z7Mbs1/x33.links_generation"); another process found the lock held; the first allocated on to 3; after it, the second opened and allocated 4
+  (X33: 0.0 s)
+X34 blocked clear under a full Out queue: P blocked, A saw the bit; P's Out queue took no frame for 74 ms, P unblocked within it (A still held the bit); room back under traffic (1742 DATA frames from P in the next 100 ms): A cleared the bit 125.7 ms later (T_hb 1000: at the next liveness pass, T_hb/4; idle heartbeats not due); A's new Out connection bound to the same instance 107 ms after a cut (no quarantine, no retirement); settled, money conserved
+  (X34: 0.9 s)
+X35 END wire layout: the encoder matches the v2 table byte for byte (kind 1 at 41, n at 0..7, target incarnation at 24..31, the rest 0); a real END B wrote to A (n 34, after 1 cuts) matches it, target = A's incarnation; the receiver ignored an END in the rev4 mapping and one with n = 0, no count changed
+  (X35: 0.7 s)
+test_xnode: ok

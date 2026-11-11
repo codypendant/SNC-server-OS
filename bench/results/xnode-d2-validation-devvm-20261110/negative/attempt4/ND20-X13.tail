@@ -1,0 +1,3 @@
+X13 reverse-Hello mismatch: 3 alternations of P1's and P2's reverse connections with o's Out pinned to P1; P1's HelloAck and Hellos refused after P2 was accepted; over 90 samples P2's entry kept its incarnation and count 0 (nothing from P1 changed it); bound to P2 once unpinned with an exact SYNC; counts 0, no underflow
+  (X13: 3.0 s)
+test_xnode: ok

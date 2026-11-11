@@ -1,0 +1,270 @@
+head f7dde4e build=build-asan (ASan+UBSan, Debug) start 2026-11-10T16:56:36Z /tmp/snc-* 666 free 9.8G
+Test project /home/claude/snc-server-os/build-asan
+      Start  1: test_rate_schedule
+ 1/47 Test  #1: test_rate_schedule ...............   Passed    0.03 sec
+      Start  2: test_object_id
+ 2/47 Test  #2: test_object_id ...................   Passed    0.14 sec
+      Start  3: test_local_map
+ 3/47 Test  #3: test_local_map ...................   Passed   15.77 sec
+      Start  4: test_pages
+ 4/47 Test  #4: test_pages .......................   Passed    1.78 sec
+      Start  5: test_runtime
+ 5/47 Test  #5: test_runtime .....................   Passed    0.95 sec
+      Start  6: test_execute
+ 6/47 Test  #6: test_execute .....................   Passed    0.83 sec
+      Start  7: test_persistence
+ 7/47 Test  #7: test_persistence .................   Passed    2.84 sec
+      Start  8: test_crash
+ 8/47 Test  #8: test_crash .......................   Passed    2.38 sec
+      Start  9: test_net
+ 9/47 Test  #9: test_net .........................   Passed    0.76 sec
+      Start 10: test_transfer
+10/47 Test #10: test_transfer ....................   Passed    6.53 sec
+      Start 11: test_replication
+11/47 Test #11: test_replication .................   Passed   25.87 sec
+      Start 12: test_cluster
+12/47 Test #12: test_cluster .....................   Passed    8.31 sec
+      Start 13: test_migrate
+13/47 Test #13: test_migrate .....................   Passed   64.72 sec
+      Start 14: test_resend_refusals
+14/47 Test #14: test_resend_refusals .............   Passed    0.12 sec
+      Start 15: test_proof
+15/47 Test #15: test_proof .......................   Passed    1.19 sec
+      Start 16: test_placement
+16/47 Test #16: test_placement ...................   Passed    0.21 sec
+      Start 17: test_stage_chain
+17/47 Test #17: test_stage_chain .................   Passed   28.12 sec
+      Start 18: test_gauges
+18/47 Test #18: test_gauges ......................   Passed    4.52 sec
+      Start 19: test_s1_admission
+19/47 Test #19: test_s1_admission ................   Passed   14.69 sec
+      Start 20: test_s2_pacing
+20/47 Test #20: test_s2_pacing ...................   Passed   13.03 sec
+      Start 21: test_s3_writeback
+21/47 Test #21: test_s3_writeback ................   Passed  109.44 sec
+      Start 22: test_lifecycle
+22/47 Test #22: test_lifecycle ...................   Passed    9.42 sec
+      Start 23: test_s4_sync_tokens
+23/47 Test #23: test_s4_sync_tokens ..............   Passed   91.14 sec
+      Start 24: test_admin_loop
+24/47 Test #24: test_admin_loop ..................   Passed    1.33 sec
+      Start 25: test_wal_capacity
+25/47 Test #25: test_wal_capacity ................   Passed    0.17 sec
+      Start 26: test_intake
+26/47 Test #26: test_intake ......................   Passed    4.71 sec
+      Start 27: test_xnode
+27/47 Test #27: test_xnode .......................***Failed   55.68 sec
+X3 forward drop: 10 cuts of o->p, 10 bindings, 20 SYNCs applied (10 at binding with pushed=0, count=k), each equal to its barrier; settled, counts 0, no underflow
+  (X3: 2.1 s)
+X4 return drop: 10 cuts of p->o; 10 current SYNCs on a connection with counted frames pushed, each count = k + pushed - R and equal to its barrier, R within the proxy's delivered count; settled
+  (X4: 2.2 s)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+X5 blackhole and heal: silence closes 4, quarantined with debt 64 (non-increasing), bound again with an exact SYNC; settled, counts 0
+  (X5: 1.7 s)
+X10 rollback (accounting off): links up unbound, no SYNC/END/counted frame, xnode counts 0; settled, money 16000000 conserved
+  (X10: 0.7 s)
+X18 timer constraints: T_dead <= T_hb, T_release <= T_dead, T_dead < 3 T_hb and T_block < T_dead each refused at start with a message
+  (X18: 0.0 s)
+X22 unbound link: no HelloAck, 512 roots for B purged while unbound, no counted DATA, live below X; after acks resume the binding resumes all and everything settles
+  (X22: 1.2 s)
+snc: node link: refused group 1 shard 0 member 0: cross-node accounting off there, on here (SNC_XNODE_ACCOUNTING must match on every node)
+snc: node link: refused group 0 shard 0 member 0: cross-node accounting on there, off here (SNC_XNODE_ACCOUNTING must match on every node)
+X23 accounting mismatch: links refused both ways (link_accounting_refusals > 0 on each)
+  (X23: 0.1 s)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+X14a one-way partition (all of p->o, HelloAck included): quarantined once (1 quarantine(s)), physical at p <= 0 and debt <= 64 non-increasing over 125 samples in 5 x T_release, no re-binding, no counted DATA while unbound, 42031 intra-node transfers served meanwhile; healed exact and settled
+X14b one-way partition (only p's Out connection): quarantined once (1 quarantine(s)), physical at p <= 0 and debt <= 64 non-increasing over 128 samples in 5 x T_release, no re-binding, no counted DATA while unbound, 45525 intra-node transfers served meanwhile; healed exact and settled
+  (X14: 9.1 s)
+X24 forward flaps: 6 reconnects while p -> o was held; 975 follow-ups refused (purged) on the identified, unbound connections, none pushed; 5 SYNCs naming earlier connections ignored, none applied; the first applied names the current connection: count 729 -> 0 = k at p, pushed 0; settled, no underflow
+  (X24: 6.1 s)
+snc: node link: link 0 member 1 incarnation 1 quarantined (not bound for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+X26 not-bound quarantine: member 1 (connected, unblocked, no longer bound) quarantined 599 ms after its last binding (T_release 600 ms) by the not-bound trigger, debt 64 (items lost on its wire); debt 64 after; no underflow
+  (X26: 1.3 s)
+X27 SYNC before HelloAck: 5 reconnects each SYNCED first (count = k, pushed 0, not identified), BOUND at the HelloAck's arrival; bind_mismatch 0; settled
+  (X27: 1.1 s)
+X28 SYNC barrier: 10304 bytes queued in p's Out::buf (counted replies and ENDs among them); o reconnected; 982 frames (R and E) delivered before the SYNC; at the SYNC count 2829 -> 0 = k recorded at p's barrier (k 0, R 0); no underflow; settled
+  (X28: 1.1 s)
+snc: node link: refused link 0 member 0 incarnation 1: below the highest seen (2): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 2: below the highest seen (3): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 4: below the highest seen (5): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 5: below the highest seen (6): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 6: below the highest seen (7): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 7: below the highest seen (8): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 8: below the highest seen (9): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 9: below the highest seen (10): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 10: below the highest seen (11): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 11: below the highest seen (12): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 12: below the highest seen (13): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 13: below the highest seen (14): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 14: below the highest seen (15): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 15: below the highest seen (16): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 16: below the highest seen (17): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 17: below the highest seen (18): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 18: below the highest seen (19): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 19: below the highest seen (20): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 20: below the highest seen (21): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 21: below the highest seen (22): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 22: below the highest seen (23): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 23: below the highest seen (24): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 24 quarantined (its In side down for T_release), debt 128
+snc: node link: refused link 0 member 0 incarnation 24: below the highest seen (25): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 25: below the highest seen (26): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 26 quarantined (its In side down for T_release), debt 0
+snc: links generation: cannot store 27 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: node link: link 0 member 0 incarnation 27 quarantined (not bound for T_release), debt 128
+snc: links generation: cannot store 28 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: links generation: cannot store 29 in /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation (No such file or directory): no links instance
+snc: shard 0: no links incarnation generation: node links stay closed
+snc: node link: link 0 member 0 incarnation 28 quarantined (its In side down for T_release), debt 128
+snc: links generation: raising /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation from 0 to the operator floor 31 (--links-generation-min)
+snc: node link: link 0 member 0 incarnation 30 quarantined (its In side down for T_release), debt 0
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation is truncated or corrupt; refusing to start (never reused or reset: restart with --links-generation-min G after establishing a safe floor))
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation is truncated or corrupt; refusing to start (never reused or reset: restart with --links-generation-min G after establishing a safe floor))
+  (start refused as expected: links generation: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xnode-CFPmd3/net13/n0/links_generation is missing in a data directory that already holds state; refusing to guess a lower links incarnation (peers would refuse it). Restart with --links-generation-min G, G above the highest incarnation the peers report for this member (GAUGES xnode_highest_incarnation, or their refusal log))
+X29 generation: 25 restarts under a faked clock (same ms, stepped back, forward and back, 20 rapid), each incarnation above the last; 25 replayed old Hellos refused, none retired the new entry; bind within 204 ms of each restart; a crash at each of 3 update steps never reused a value; corrupt, truncated and missing files refused at start; --links-generation-min 31 recovered (incarnation 32); settled
+  (X29: 14.9 s)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 2 while incarnation 1 is live (two instances of one member?)
+X21 M conflict: the second instance's Hellos refused 11 times while the first was live (5 x T_dead), no retirement either way; accepted once the first stopped (one retirement); no underflow
+  (X21: 1.3 s)
+snc: node link: refused link 0 member 0 incarnation 4 while incarnation 3 is live (two instances of one member?)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 1 quarantined (not bound for T_release), debt 32
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+X13 reverse-Hello mismatch: 3 alternations of P1's and P2's reverse connections with o's Out pinned to P1; P1's HelloAck and Hellos refused after P2 was accepted; over 90 samples P2's entry kept its incarnation and count 0 (nothing from P1 changed it); bound to P2 once unpinned with an exact SYNC; counts 0, no underflow
+  (X13: 2.8 s)
+X15 incarnation alternation: 10 restarts of member 0 with member 1 alive (its connection to B never replaced); entries <= 2 (members) at all 312 samples (max 2); 10 retirements, 0 items purged by them; counts 0, no underflow
+  (X15: 2.2 s)
+X16 END debt at a switch: 32 ENDs owed to member 0 while bound to member 1 (whose ENDs were sent on its binding); member 0 restarted: the debt discarded at the retirement, no END toward it; its new instance bound with an exact SYNC and settled; no underflow
+  (X16: 0.9 s)
+X20 member steering: the Out connection moved from member 1 to the live member 0 208 ms after the old one's connection went (T_dead 200 ms); ENDs reached it; counts 0
+  (X20: 0.6 s)
+X25 delayed old frames: B's shard 1 paused (WAL held), 6464 bytes of the old instance's frames held past T_dead with B's side open; the new incarnation admitted by its HelloAck with the old In still open: the old In fenced (closed) and the old entry retired once; on release, B's reads resumed, B read none of the old frames (no DATA, END, SYNC or reply counted, none ignored or stale); the new entry bound with an exact SYNC; settled, money conserved, no underflow
+  (X25: 1.2 s)
+X1 stalled remote (600 ms, 47 samples): live_A peak 256 < X + max(E, Rr) = 1280; A's Out buffer peak 0 <= kOutCap; B held peak 8 <= L = 8, its link reads paused 1 time(s); A's queue peak 39 <= live_A + live_B; 168652 E_OVERLOADED; no silence close or Out reset while paused; settled, money conserved
+  (X1: 1.0 s)
+X11 stalled remote (1200 ms, 88 samples): live_A peak 256 < X + max(E, Rr) = 1280; A's Out buffer peak 0 <= kOutCap; B held peak 8 <= L = 8, its link reads paused 1 time(s); A's queue peak 104 <= live_A + live_B; 201394 E_OVERLOADED; no silence close or Out reset while paused; settled, money conserved
+  (X11: 1.6 s)
+X2 rate mismatch: B's queue toward A peaked at 0, within live_A + live_B at all 156 samples; settled, money conserved
+  (X2: 0.9 s)
+snc: shard 0: slot 24 sealed for move 81 (1 objects)
+snc: shard 0: slot 24 staged for move 81 (1 objects)
+snc: stage_chain slot=24 move=81 objs=1 status=OK units=4 (check 1 put 0 scan 2 drop 0 stage 1) unit_ms p50=1.000 p95=1.000 p99=1.000 max=1.000 (scan) put=1 dropped=0 bytes=760 window_hw=760 window_waits=0 scan_restarts=0 shard_ms=2.6 chain_ms=7.5 wait_ms=2.5 listed_entries=1 gone=0 report_units=3 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 81, epoch 2)
+X8 slot move: slot 24 moved 1 time(s) between A and C under load; misrouted 10 (each ended), drops to resume 0, hand-off drops 0, ENDs sent 398; settled, money conserved, counts 0
+  (X8: 1.0 s)
+snc: shard 0: slot 24 sealed for move 121 (1 objects)
+snc: shard 0: slot 24 staged for move 121 (1 objects)
+snc: stage_chain slot=24 move=121 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.417 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=952 window_hw=952 window_waits=0 scan_restarts=0 shard_ms=1.5 chain_ms=2.1 wait_ms=2.8 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 121, epoch 2)
+snc: placement epoch 2 adopted (was 1)
+/home/claude/snc-server-os/tests/test_xnode.cpp:2040: CHECK failed: m.stale > m0.stale
+
+      Start 28: test_witness
+28/47 Test #28: test_witness .....................   Passed   25.51 sec
+      Start 29: test_async_failover
+29/47 Test #29: test_async_failover ..............   Passed   13.89 sec
+      Start 30: test_control
+30/47 Test #30: test_control .....................   Passed    1.81 sec
+      Start 31: test_health
+31/47 Test #31: test_health ......................   Passed  159.25 sec
+      Start 32: test_gauges_admin
+32/47 Test #32: test_gauges_admin ................   Passed    4.29 sec
+      Start 33: test_fail_closed
+33/47 Test #33: test_fail_closed .................   Passed  256.61 sec
+      Start 34: test_s1
+34/47 Test #34: test_s1 ..........................   Passed   86.97 sec
+      Start 35: test_profile_check
+35/47 Test #35: test_profile_check ...............   Passed    0.12 sec
+      Start 36: test_baseline_retry
+36/47 Test #36: test_baseline_retry ..............   Passed  243.85 sec
+      Start 37: test_sync_readiness
+37/47 Test #37: test_sync_readiness ..............   Passed  281.06 sec
+      Start 38: test_baseline_move
+38/47 Test #38: test_baseline_move ...............   Passed  114.40 sec
+      Start 39: test_xnode_proc
+39/47 Test #39: test_xnode_proc ..................***Failed   96.25 sec
+{"load": {"rc": 0, "acked": "38093", "unknown": "1", "failovers": "4", "resends": "15", "error": "-"}, "node3_retirements": 4, "node3_retire_purged": 0, "pending_at_end": {"1": 0, "3": 0}, "check": ["OK: 64 accounts each served once; balances = acknowledged transfers + 1 of 1 in doubt"], "xnode": {"1": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 0, "xnode_bindings": 4, "link_version_refusals": 0, "intake_exchanges_live": 0}, "3": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 4, "xnode_quarantines": 0, "xnode_bindings": 8, "link_version_refusals": 0, "intake_exchanges_live": 0}}, "pass": true, "scenario": "x6", "s": 13.0}
+{"load": {"rc": 0, "acked": "61036", "unknown": "0", "failovers": "4", "resends": "16", "error": "-"}, "pending_at_end": {"1": 0, "4": 0}, "check": ["OK: 64 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"], "xnode": {"1": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 21, "xnode_entries": 8, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 4, "xnode_bindings": 8, "link_version_refusals": 0, "intake_exchanges_live": 0}, "4": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 0, "xnode_bindings": 4, "link_version_refusals": 0, "intake_exchanges_live": 0}}, "end_owed_frozen": true, "pass": true, "scenario": "x7", "s": 19.0}
+{"pass": false, "error": "AssertionError('timed out: the witnesses promoted node 4')", "scenario": "x7b", "s": 63.9}
+  (kept /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-xproc-kcdwnmsb)
+test_xnode_proc: FAILED x7b
+
+      Start 40: test_baseline_ha
+40/47 Test #40: test_baseline_ha .................   Passed  152.50 sec
+      Start 41: test_ready_order
+41/47 Test #41: test_ready_order .................   Passed  143.38 sec
+      Start 42: test_paxos_ballots
+42/47 Test #42: test_paxos_ballots ...............   Passed    2.33 sec
+      Start 43: test_witness_hardening
+43/47 Test #43: test_witness_hardening ...........   Passed    6.21 sec
+      Start 44: test_lab_witness_guard
+44/47 Test #44: test_lab_witness_guard ...........   Passed   14.88 sec
+      Start 45: test_index_wire
+45/47 Test #45: test_index_wire ..................   Passed    2.17 sec
+      Start 46: test_pilot
+46/47 Test #46: test_pilot .......................   Passed    0.07 sec
+      Start 47: test_net_bench_rate
+47/47 Test #47: test_net_bench_rate ..............   Passed   16.07 sec
+
+96% tests passed, 2 tests failed out of 47
+
+Total Test time (real) = 2086.35 sec
+
+The following tests FAILED:
+	 27 - test_xnode (Failed)
+	 39 - test_xnode_proc (Failed)
+Errors while running CTest
+end 2026-11-10T17:31:23Z /tmp/snc-* 666 free 8.7G suite-tmp 2

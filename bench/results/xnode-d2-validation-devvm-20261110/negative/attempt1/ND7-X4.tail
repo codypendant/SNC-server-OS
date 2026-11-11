@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND7/tests/test_xnode.cpp:537: CHECK failed: g[G_XNODE_END_UNDERFLOW] == 0: X4 cycle: node 0 end underflow 1

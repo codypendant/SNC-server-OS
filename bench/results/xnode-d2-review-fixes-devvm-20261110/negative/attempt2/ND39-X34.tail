@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND39/tests/test_xnode.cpp:2598: CHECK failed: clear_ms >= 0: X34: A still holds P's blocked bit 3000 ms after room came back (the clear was never appended)

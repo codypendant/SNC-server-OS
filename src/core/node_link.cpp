@@ -6,10 +6,14 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
+#include <sys/random.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -17,8 +21,33 @@
 
 namespace snc {
 
+void (*NodeLinks::debug_sync_probe)(const NodeLinks::SyncProbe& p) = nullptr;
+int NodeLinks::debug_out_sndbuf = 0;
+std::atomic<u64> NodeLinks::debug_blocked_incarnation{0};
+std::atomic<u64> NodeLinks::debug_full_incarnation{0};
+
+// Wire v2 Hello (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.2).
+struct HelloV2 {
+  u32 magic;  // "SNC2"
+  u16 group, shard;
+  u32 crc;      // cluster shape
+  u32 version;  // 2
+  u64 epoch;    // informational
+  u64 conn;     // this connection's random nonce
+  u64 incarnation;
+  u16 member;
+  u8 flags;  // bit 0: accounting on
+  u8 zero;
+  u32 conn_seq;  // 1, 2, 3, ... per (instance, link)
+};
+static_assert(sizeof(HelloV2) == 48);
+
 namespace {
-constexpr u32 kMagic = 0x4c434e53;  // "SNCL"
+constexpr u32 kMagicV1 = 0x4c434e53;  // "SNCL" (wire v1)
+constexpr u32 kMagic = 0x324e4353;    // "SNC2"
+constexpr u32 kAckMagic = 0x41434e53; // "SNCA"
+constexpr u32 kVersion = 2;
+constexpr u8 kFlagAccounting = 1;
 constexpr u64 kRetryNs = 100'000'000;
 constexpr u64 kConnectTimeoutNs = 1'000'000'000;
 constexpr std::size_t kOutCap = 1u << 20;
@@ -26,14 +55,24 @@ constexpr std::size_t kInBuf = 64u << 10;
 
 enum : u32 { kTagListen = 1, kTagIn = 2, kTagOut = 3 };
 
-struct Hello {
-  u32 magic;
-  u16 group, shard;
-  u32 crc;
-  u32 pad;
-  u64 epoch;  // the sender's placement epoch when it connected (informational)
+// Written once by the accepting side, back on the accepted socket (2.4).
+struct HelloAck {
+  u32 magic;  // "SNCA"
+  u32 zero;
+  u64 conn;         // the Hello's nonce, echoed
+  u64 incarnation;  // the acceptor's
+  u16 member;       // the acceptor's
+  u16 zero2[3];
 };
-static_assert(sizeof(Hello) == 24);
+static_assert(sizeof(HelloAck) == 32);
+
+u64 nonce() {
+  u64 v = 0;
+  while (v == 0) {
+    if (::getrandom(&v, sizeof(v), 0) != sizeof(v)) v = 0;
+  }
+  return v;
+}
 
 u64 tag(u32 kind, u32 i) { return (u64{kind} << 32) | i; }
 
@@ -42,6 +81,13 @@ void watch(int epfd, int fd, u32 events, u64 t, int op = EPOLL_CTL_ADD) {
   ev.events = events;
   ev.data.u64 = t;
   ::epoll_ctl(epfd, op, fd, &ev);
+}
+
+// A reset, not a graceful close: unsent bytes are discarded and the peer
+// reads no more from this connection (2.8, 2.12 C).
+void linger_reset(int fd) {
+  linger l{1, 0};
+  ::setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l));
 }
 
 void nodelay(int fd) {
@@ -60,12 +106,46 @@ struct NodeLinks::Out {
   u64 retry_ns = 0, since_ns = 0;
   std::vector<u8> buf;
   std::size_t off = 0;
+  // This connection (2.2): nonce, and its order among this instance's
+  // connections on this link.
+  u64 conn = 0;
+  u32 conn_seq = 0, next_seq = 1;
+  // The HelloAck read back (2.4): who accepted this connection.
+  u8 ack[sizeof(HelloAck)];
+  std::size_t ack_have = 0;
+  bool identified = false;
+  u16 ack_member = 0;
+  u64 ack_incarnation = 0;
+  // Liveness (2.10): when this connection last pushed a frame; what the
+  // peer's heartbeats say about it.
+  u64 last_push_ns = 0;
+  // The blocked bit as this connection last carried it: -1 none yet (a new
+  // connection; the peer's view of this instance may be an older
+  // connection's), else 0 or 1. Whenever it differs from blocked_, a
+  // HEARTBEAT is owed on this connection until one is appended (2.12 A,
+  // both edges: PR #95 review item 2).
+  std::int8_t blocked_sent = -1;
+  u64 mismatch_since_ns = 0;  // heartbeats name another conn, or none
+  u64 r_stuck_since_ns = 0;   // R not advancing, peer not paused, frames outstanding
+  u64 last_r = 0;
+  u64 hb_ns = 0;  // last heartbeat that spoke about this connection
+  u64 pushed = 0;  // counted frames pushed on this connection (D.2)
+  u64 steer_since_ns = 0;  // 2.12 B
+  // Binding (2.4): IDENTIFIED (HelloAck), SYNCED (the exact SYNC naming
+  // this conn and conn_seq), BOUND once both name the same instance.
+  bool synced = false;
+  u16 sync_member = 0;
+  u64 sync_incarnation = 0;
+  bool is_bound = false;
 };
 
 struct NodeLinks::In {
   int fd = -1;
   bool hello = false;
   u16 group = 0, shard = 0;
+  From from{};
+  u64 last_read_ns = 0;  // bytes last read (2.10, 2.12 C: silence)
+  u64 rx = 0;            // counted frames received on it (R)
   std::vector<u8> buf = std::vector<u8>(kInBuf);
   std::size_t have = 0;
   // Whole frames left in buf for want of budget (docs/FOLLOWUP_INTAKE_DESIGN.md
@@ -74,8 +154,10 @@ struct NodeLinks::In {
   bool muted = false;  // paused with a backlog and a hang-up pending: no events
 };
 
-NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
-    : group_(group), shard_(shard), crc_(map.shape_crc()), epoch_(map.epoch) {
+NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 shard, const Options& opt)
+    : group_(group), shard_(shard), opt_(opt), crc_(map.shape_crc()), epoch_(map.epoch) {
+  const u16 member = opt.member;
+  for (const ClusterGroup& g : map.groups) n_shards_.push_back(g.n_shards);
   epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
   sri_watch_fd(epfd_);
   base_.assign(map.groups.size(), 0);
@@ -83,6 +165,8 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
     base_[g] = static_cast<u32>(out_.size());
     if (g == group) continue;  // its own group: replication, not links; link_of is never asked for it
     for (u16 s = 0; s < map.groups[g].n_shards; ++s) {
+      link_members_.push_back(static_cast<u16>(map.groups[g].members.size()));
+      mbase_.push_back(mbase_.empty() ? 0 : mbase_.back() + link_members_[link_members_.size() - 2]);
       auto o = std::make_unique<Out>();
       for (const ClusterMember& m : map.groups[g].members) {
         o->members.emplace_back(m.host, static_cast<u16>(m.link_port + s));
@@ -90,6 +174,11 @@ NodeLinks::NodeLinks(const ClusterMap& map, u16 group, u16 member, u16 shard)
       out_.push_back(std::move(o));
     }
   }
+  const u32 slots = mbase_.empty() ? 0 : mbase_.back() + link_members_.back();
+  if (opt_.highest == nullptr) opt_.highest = &own_highest_;
+  if (opt_.highest->size() < slots) opt_.highest->resize(slots, 0);
+  peer_.assign(slots, Peer{});
+  entries_.assign(slots, Entry{});
   listen_port_ = static_cast<u16>(map.groups[group].members[member].link_port + shard);
   try_listen(sri_now_ns());
 }
@@ -130,6 +219,7 @@ bool NodeLinks::up(u32 i) const { return out_[i]->state == Out::State::UP; }
 
 bool NodeLinks::room(u32 i) const {
   const Out& o = *out_[i];
+  if (debug_full_incarnation.load(std::memory_order_relaxed) == opt_.incarnation) return false;
   return o.state == Out::State::UP && o.buf.size() - o.off < kOutCap;
 }
 
@@ -137,6 +227,7 @@ void NodeLinks::push(u32 i, const Frame& f) {
   Out& o = *out_[i];
   const u8* p = reinterpret_cast<const u8*>(&f);
   o.buf.insert(o.buf.end(), p, p + sizeof(f));
+  o.last_push_ns = now_ns_;
 }
 
 void NodeLinks::start_connect(u32 i, u64 now_ns) {
@@ -154,6 +245,7 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
   }
   o.fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   nodelay(o.fd);
+  if (debug_out_sndbuf > 0) ::setsockopt(o.fd, SOL_SOCKET, SO_SNDBUF, &debug_out_sndbuf, sizeof(debug_out_sndbuf));
   const int r = ::connect(o.fd, res->ai_addr, res->ai_addrlen);
   ::freeaddrinfo(res);
   if (r != 0 && errno != EINPROGRESS) {
@@ -169,11 +261,12 @@ void NodeLinks::start_connect(u32 i, u64 now_ns) {
 
 // Down, by failure or refusal: the next attempt tries the group's next
 // member (the primary may have moved within the group).
-void NodeLinks::drop_out(u32 i, u64 now_ns) {
+void NodeLinks::drop_out(u32 i, u64 now_ns, bool reset) {
   Out& o = *out_[i];
   o.at = (o.at + 1) % o.members.size();
   if (o.fd >= 0) {
     ::epoll_ctl(epfd_, EPOLL_CTL_DEL, o.fd, nullptr);
+    if (reset) linger_reset(o.fd);
     ::close(o.fd);
   }
   o.fd = -1;
@@ -181,6 +274,625 @@ void NodeLinks::drop_out(u32 i, u64 now_ns) {
   o.retry_ns = now_ns + kRetryNs;
   o.buf.clear();
   o.off = 0;
+  o.conn = 0;
+  o.ack_have = 0;
+  o.identified = false;
+  o.mismatch_since_ns = o.r_stuck_since_ns = o.last_r = o.pushed = o.steer_since_ns = o.hb_ns = 0;
+  // No record of this connection is kept (2.3): its count stays,
+  // conservatively, until the next binding's SYNC.
+  o.synced = o.is_bound = false;
+  o.blocked_sent = -1;
+}
+
+// ---- Liveness (2.10, 2.12 B) ----------------------------------------------------------
+
+// What the sender sees of its In connection from the receiver's instance:
+// conn (0: none), R on it, and whether its reads are paused or it is
+// blocked. Pushed FIFO like any frame (2.5: no frame is ever put ahead of
+// bytes already in the buffer).
+void NodeLinks::push_heartbeat(u32 l, u64 now_ns) {
+  (void)now_ns;
+  Out& o = *out_[l];
+  if (o.state != Out::State::UP || !room(l)) return;
+  Frame f{};
+  f.pad[0] = HEARTBEAT;
+  if (o.identified) {
+    for (const auto& in : in_) {
+      if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+          in->from.incarnation == o.ack_incarnation) {
+        f.source.hi = in->from.conn;
+        f.source.lo = in->rx;
+        break;
+      }
+    }
+  }
+  f.op = (paused_ ? 1u : 0u) | (blocked_ ? 2u : 0u);
+  push(l, f);
+  o.blocked_sent = blocked_ ? 1 : 0;
+  ++heartbeats_sent_;
+}
+
+void NodeLinks::set_blocked(bool on) {
+  if (blocked_ == on) return;
+  blocked_ = on;
+  // At once, not after T_hb of idleness (2.12 A); a connection that
+  // cannot take it now (not up, or full) gets it as soon as it can
+  // (the next liveness pass, every T_hb/4: blocked_ != blocked_sent), not
+  // only when it next falls idle. Both edges: a clear left unsent would
+  // keep the peer's blocked_since_, so no binding, then a quarantine at
+  // T_release.
+  for (u32 l = 0; l < out_.size(); ++l) push_heartbeat(l, now_ns_);
+}
+
+void NodeLinks::on_heartbeat(u32 i, const Frame& f, u64 now_ns) {
+  const In& in = *in_[i];
+  Peer& p = peer_[mbase_[in.from.link] + in.from.member];
+  const bool blocked = (f.op & 2u) != 0;
+  if (blocked && p.blocked_since_ns == 0) p.blocked_since_ns = now_ns;
+  if (!blocked && p.blocked_since_ns != 0) {
+    p.blocked_since_ns = 0;
+    try_bind(in.from.link);
+  }
+  p.paused = (f.op & 1u) != 0;
+  // About our Out connection on this link, if this instance acknowledged it.
+  Out& o = *out_[in.from.link];
+  if (o.state != Out::State::UP || !o.identified || o.ack_member != in.from.member ||
+      o.ack_incarnation != in.from.incarnation) {
+    return;
+  }
+  // A condition "holds for T_dead" only while heartbeats keep showing it
+  // (2.10). After a gap longer than T_dead (the peer's Out link was on
+  // another member, or busy), nothing showed it in between: start over.
+  if (o.hb_ns != 0 && now_ns - o.hb_ns > opt_.dead_ns) o.mismatch_since_ns = o.r_stuck_since_ns = 0;
+  o.hb_ns = now_ns;
+  if (f.source.hi != o.conn) {
+    if (o.mismatch_since_ns == 0) o.mismatch_since_ns = now_ns;
+    return;
+  }
+  o.mismatch_since_ns = 0;
+  const u64 r = f.source.lo;
+  if (r != o.last_r || p.paused || o.pushed <= r) {
+    o.last_r = r;
+    o.r_stuck_since_ns = 0;
+  } else if (o.r_stuck_since_ns == 0) {
+    o.r_stuck_since_ns = now_ns;
+  }
+}
+
+void NodeLinks::liveness(u64 now_ns) {
+  // Heartbeats on every connection idle for T_hb, and on every one that
+  // does not yet carry the current blocked bit (either edge, or none yet).
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state == Out::State::UP &&
+        (now_ns - o.last_push_ns >= opt_.hb_ns || o.blocked_sent != (blocked_ ? 1 : 0))) {
+      push_heartbeat(l, now_ns);
+    }
+  }
+  // In side: silent for T_dead, but only while reads are not paused and
+  // nothing is left unread (a paused or backlogged connection is
+  // backpressure, not death).
+  for (u32 j = 0; j < in_.size(); ++j) {
+    if (!in_[j] || paused_ || in_[j]->backlog || now_ns - in_[j]->last_read_ns < opt_.dead_ns) continue;
+    int unread = 0;
+    if (::ioctl(in_[j]->fd, FIONREAD, &unread) == 0 && unread > 0) continue;
+    close_in(j, /*reset=*/true);
+    ++silence_closes_;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state != Out::State::UP) continue;
+    // Out side: the peer does not see this connection, or reads nothing of
+    // it while not paused, for T_dead. (No TCP_USER_TIMEOUT.) Shown by a
+    // heartbeat at least T_dead after the first one that showed it: a
+    // single stale heartbeat, its sender's Out link gone elsewhere since,
+    // is not T_dead of evidence.
+    if ((o.mismatch_since_ns != 0 && o.hb_ns - o.mismatch_since_ns >= opt_.dead_ns) ||
+        (o.r_stuck_since_ns != 0 && o.hb_ns - o.r_stuck_since_ns >= opt_.dead_ns)) {
+      drop_out(l, now_ns, /*reset=*/true);
+      ++out_resets_;
+      continue;
+    }
+    // Member steering (2.12 B): a live In connection from another member
+    // of that shard, and none from the one this link is attached to.
+    const u16 at = static_cast<u16>(o.at);
+    int other = -1;
+    bool from_at = false;
+    for (const auto& in : in_) {
+      if (!in || !in->hello || in->from.link != l || now_ns - in->last_read_ns >= opt_.dead_ns) continue;
+      if (in->from.member == at) from_at = true;
+      else other = in->from.member;
+    }
+    if (other < 0 || from_at) {
+      o.steer_since_ns = 0;
+      continue;
+    }
+    if (o.steer_since_ns == 0) {
+      o.steer_since_ns = now_ns;
+    } else if (now_ns - o.steer_since_ns >= opt_.dead_ns) {
+      drop_out(l, now_ns, /*reset=*/true);
+      o.at = static_cast<std::size_t>(other);
+      o.retry_ns = now_ns;
+      ++steers_;
+    }
+  }
+  if (opt_.accounting) quarantine_check(now_ns);
+}
+
+// 2.8: an ACTIVE entry is quarantined when its In side has been down, it
+// has been blocked, or (holding a count) it has not been our bound entry,
+// for T_release.
+void NodeLinks::quarantine_check(u64 now_ns) {
+  for (const auto& in : in_) {
+    if (!in || !in->hello) continue;
+    Entry& e = ent(in->from.link, in->from.member);
+    if (e.inc == in->from.incarnation) e.in_alive_ns = now_ns;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (bound(l)) ent(l, out_[l]->ack_member).bound_ns = now_ns;
+  }
+  const u64 rel = opt_.release_ns;
+  for (u32 l = 0; l < out_.size(); ++l) {
+    for (u16 m = 0; m < link_members_[l]; ++m) {
+      Entry& e = ent(l, m);
+      if (e.inc == 0 || e.state != EntryState::ACTIVE) continue;
+      const u64 blocked = peer_[mbase_[l] + m].blocked_since_ns;
+      const char* why;
+      if (now_ns - e.in_alive_ns >= rel) {
+        ++ctr_.q_in_down;
+        why = "its In side down";
+      } else if (blocked != 0 && now_ns - blocked >= rel) {
+        ++ctr_.q_blocked;
+        why = "blocked";
+      } else if (e.count != 0 && now_ns - e.bound_ns >= rel) {
+        ++ctr_.q_not_bound;
+        why = "not bound";
+      } else {
+        continue;
+      }
+      quarantine(l, m, now_ns, why);
+    }
+  }
+}
+
+// The steps, in order (2.8): the Out connection naming the entry, in any
+// state, is reset first (its unsent queue discarded), then the count stops
+// gating.
+void NodeLinks::quarantine(u32 l, u16 m, u64 now_ns, const char* why) {
+  Entry& e = ent(l, m);
+  Out& o = *out_[l];
+  const bool names = (o.identified && o.ack_member == m && o.ack_incarnation == e.inc) ||
+                     (o.synced && o.sync_member == m && o.sync_incarnation == e.inc);
+  if (o.state != Out::State::DOWN && names) {
+    drop_out(l, now_ns, /*reset=*/true);
+    ++ctr_.quarantine_out_resets;
+  }
+  e.state = EntryState::QUARANTINED;
+  if (e.gates) {
+    e.gates = false;
+    xnode_live_ -= e.count;
+  }
+  ++ctr_.quarantines;
+  std::fprintf(stderr, "snc: node link: link %u member %u incarnation %llu quarantined (%s for T_release), debt %llu\n",
+               l, m, (unsigned long long)e.inc, why, (unsigned long long)e.count);
+}
+
+// The acceptor's HelloAck (2.4): read once, up to its 32 bytes. Anything
+// after it is a protocol error; a hang-up closes as before.
+bool NodeLinks::read_ack(u32 i, u64 now_ns) {
+  Out& o = *out_[i];
+  u8 b[sizeof(HelloAck) + 1];
+  const std::size_t want = o.identified ? 1 : sizeof(HelloAck) - o.ack_have;
+  const ssize_t r = ::recv(o.fd, b, want, MSG_DONTWAIT);
+  if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) return true;
+  if (r <= 0 || o.identified) {
+    if (r > 0) std::fprintf(stderr, "snc: node link: bytes after the HelloAck on link %u, closing\n", i);
+    drop_out(i, now_ns);
+    return false;
+  }
+  std::memcpy(o.ack + o.ack_have, b, static_cast<std::size_t>(r));
+  o.ack_have += static_cast<std::size_t>(r);
+  if (o.ack_have < sizeof(HelloAck)) return true;
+  HelloAck a;
+  std::memcpy(&a, o.ack, sizeof(a));
+  if (a.magic != kAckMagic || a.conn != o.conn) {
+    std::fprintf(stderr, "snc: node link: a bad HelloAck on link %u, closing\n", i);
+    drop_out(i, now_ns);
+    return false;
+  }
+  if (a.member >= link_members_[i] || !admit_incarnation(i, a.member, a.incarnation, now_ns, -1)) {
+    drop_out(i, now_ns, /*reset=*/true);
+    return false;
+  }
+  o.identified = true;
+  o.ack_member = a.member;
+  o.ack_incarnation = a.incarnation;
+  identified_out(i);
+  return true;
+}
+
+// 2.12 C. Lower than the member's highest: a retired instance's delayed
+// connection (or a restored data directory): refused. Higher: a new
+// instance of the member, accepted only once the older one's In
+// connection is closed or silent for T_dead; it is then fenced (its In
+// sockets reset and destroyed, with whatever they had buffered; an Out
+// connection it acknowledged reset) and only then retired, before the new
+// one is accepted.
+bool NodeLinks::admit_incarnation(u32 l, u16 m, u64 inc, u64 now_ns, int except_in) {
+  u64& hi = highest(l, m);
+  if (inc == hi) {
+    // The highest seen outlives a links instance (the shard keeps it), so
+    // a new instance of ours (a blocked primary rejoining, 2.12) meets a
+    // known incarnation with its entry still empty: take it.
+    Entry& e = ent(l, m);
+    if (e.inc == 0) {
+      e.inc = inc;
+      e.in_alive_ns = e.bound_ns = now_ns;
+    }
+    return true;
+  }
+  if (inc < hi) {
+    ++m_conflicts_;
+    std::fprintf(stderr,
+                 "snc: node link: refused link %u member %u incarnation %llu: below the highest seen (%llu): a "
+                 "retired instance, or a restored data directory (raise it with --links-generation-min)\n",
+                 l, m, (unsigned long long)inc, (unsigned long long)hi);
+    return false;
+  }
+  if (hi != 0) {
+    for (u32 j = 0; j < in_.size(); ++j) {
+      if (static_cast<int>(j) == except_in || !in_[j] || !in_[j]->hello) continue;
+      const From& f = in_[j]->from;
+      if (f.link != l || f.member != m || f.incarnation >= inc) continue;
+      if (now_ns - in_[j]->last_read_ns < opt_.dead_ns) {
+        ++m_conflicts_;
+        std::fprintf(stderr,
+                     "snc: node link: refused link %u member %u incarnation %llu while incarnation %llu is live "
+                     "(two instances of one member?)\n",
+                     l, m, (unsigned long long)inc, (unsigned long long)f.incarnation);
+        return false;
+      }
+    }
+    for (u32 j = 0; j < in_.size(); ++j) {
+      if (static_cast<int>(j) == except_in || !in_[j] || !in_[j]->hello) continue;
+      const From& f = in_[j]->from;
+      if (f.link == l && f.member == m && f.incarnation < inc) {
+        close_in(j, /*reset=*/true);
+        ++fenced_;
+      }
+    }
+    Out& o = *out_[l];
+    if (o.identified && o.ack_member == m && o.ack_incarnation < inc) {
+      drop_out(l, now_ns, /*reset=*/true);
+      ++fenced_;
+    }
+    const u64 old = hi;
+    hi = inc;
+    // Retire the old entry (2.7): its items are purged by the shard (no
+    // END: its instance is gone), its END debt is discarded, its count
+    // zeroed. The slot's serial bumps, so no older tag matches.
+    ++ctr_.retirements;
+    if (opt_.on_retire) opt_.on_retire(opt_.ctx, l, m, old);
+    Entry& e = ent(l, m);
+    set_count(e, 0);
+    const u32 serial = e.serial + 1;
+    e = Entry{};
+    e.serial = serial;
+    e.inc = inc;
+    e.in_alive_ns = e.bound_ns = now_ns;
+    peer_[mbase_[l] + m] = Peer{};  // its blocked_since_ goes with it (2.8)
+    return true;
+  }
+  hi = inc;
+  Entry& e = ent(l, m);
+  e.inc = inc;
+  e.in_alive_ns = e.bound_ns = now_ns;
+  return true;
+}
+
+NodeLinks::Counters NodeLinks::totals() const {
+  Counters c = ctr_;
+  c.heartbeats_sent = heartbeats_sent_;
+  c.silence_closes = silence_closes_;
+  c.out_resets = out_resets_;
+  c.steers = steers_;
+  c.version_refusals = version_refusals_;
+  c.accounting_refusals = accounting_refusals_;
+  c.m_conflicts = m_conflicts_;
+  c.fenced = fenced_;
+  return c;
+}
+
+NodeLinks::OutView NodeLinks::out_view(u32 l) const {
+  const Out& o = *out_[l];
+  OutView v;
+  v.up = o.state == Out::State::UP;
+  v.identified = o.identified;
+  v.synced = o.synced;
+  v.bound = bound(l);
+  v.member = o.ack_member;
+  v.incarnation = o.ack_incarnation;
+  v.conn = o.conn;
+  v.conn_seq = o.conn_seq;
+  v.pushed = o.pushed;
+  v.queued = o.buf.size() - o.off;
+  return v;
+}
+
+u32 NodeLinks::ins_from(u32 l, u16 m) const {
+  u32 n = 0;
+  for (const auto& in : in_) n += in && in->hello && in->from.link == l && in->from.member == m;
+  return n;
+}
+
+NodeLinks::State NodeLinks::state() const {
+  State st;
+  st.remote_live = xnode_live_;
+  st.entry_slots = entries_.size();
+  for (const Entry& e : entries_) {
+    if (e.inc == 0) continue;
+    ++st.entries;
+    if (!e.gates) st.debt += e.count;
+    if (e.state == EntryState::QUARANTINED) ++st.entries_quarantined;
+    st.held_for += e.held_for;
+    st.end_owed += e.end_owed;
+  }
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (ready(l)) ++st.links_bound;
+    else ++st.links_unbound;
+  }
+  for (u64 h : *opt_.highest) st.highest_incarnation = std::max(st.highest_incarnation, h);
+  return st;
+}
+
+// ---- Accounting (2.4-2.6) ---------------------------------------------------------------
+
+bool NodeLinks::bound(u32 l) const { return out_[l]->state == Out::State::UP && out_[l]->is_bound; }
+
+bool NodeLinks::ready(u32 l) const { return opt_.accounting ? bound(l) : up(l); }
+
+int NodeLinks::bound_member(u32 l) const { return bound(l) ? out_[l]->ack_member : -1; }
+
+void NodeLinks::set_count(Entry& e, u64 v) {
+  if (!e.gates && v > e.count) {
+    // Never: no counted DATA reaches a quarantined entry, and the only SYNC
+    // that applies (a binding one) cannot raise its count (2.8).
+    ++ctr_.debt_increases;
+    std::fprintf(stderr, "snc: node link: quarantined count raised from %llu to %llu\n", (unsigned long long)e.count,
+                 (unsigned long long)v);
+  }
+  if (e.gates) xnode_live_ = xnode_live_ - e.count + v;
+  e.count = v;
+}
+
+u64 NodeLinks::debt() const {
+  u64 d = 0;
+  for (const Entry& e : entries_) {
+    if (!e.gates) d += e.count;
+  }
+  return d;
+}
+
+void NodeLinks::push_counted(u32 l, Frame f) {
+  Out& o = *out_[l];
+  f.pad[1] = COUNTED_BY_SENDER;
+  Entry& e = ent(l, o.ack_member);
+  set_count(e, e.count + 1);
+  ++o.pushed;
+  push(l, f);
+}
+
+bool NodeLinks::dispose(u32 l, u16 m, u32 serial) {
+  Entry& e = ent(l, m);
+  if (e.serial != serial) {
+    ++ctr_.stale_tags;  // its instance retired (2.7): nothing is owed to it
+    return false;
+  }
+  if (e.held_for == 0) {
+    underflow("held_for", l, m, 0, 1);
+    ++ctr_.held_underflow;
+  } else {
+    --e.held_for;
+  }
+  ++e.end_owed;
+  ++ctr_.dispositions;
+  return true;
+}
+
+bool NodeLinks::push_reply(u32 l, u16 m, u32 serial, Frame f) {
+  if (!bound(l) || out_[l]->ack_member != m) return false;
+  Entry& e = ent(l, m);
+  if (e.serial != serial || e.inc != out_[l]->ack_incarnation) return false;
+  if (e.held_for == 0) {
+    underflow("held_for", l, m, 0, 1);
+    ++ctr_.held_underflow;
+  } else {
+    --e.held_for;
+  }
+  f.pad[1] = COUNTED_BY_RECEIVER;
+  ++ctr_.replies_pushed;
+  push(l, f);
+  return true;
+}
+
+bool NodeLinks::take_reply(const From& from) {
+  Entry& e = ent(from.link, from.member);
+  if (e.serial != from.serial || e.inc != from.incarnation) {
+    ++ctr_.stale_tags;
+    return false;
+  }
+  if (e.count == 0) {
+    underflow("count (counted reply)", from.link, from.member, 0, 1);
+    return false;
+  }
+  set_count(e, e.count - 1);
+  ++ctr_.replies_returned;
+  return true;
+}
+
+// xnode_end_underflow (2.6): must never happen. Counted, logged, and fatal
+// in a debug build.
+void NodeLinks::underflow(const char* what, u32 l, u16 m, u64 have, u64 n) {
+  if (std::strcmp(what, "held_for") != 0) ++ctr_.end_underflow;
+  std::fprintf(stderr, "snc: node link: link %u member %u: %s underflow (have %llu, ending %llu)\n", l, m, what,
+               (unsigned long long)have, (unsigned long long)n);
+#ifndef NDEBUG
+  std::abort();
+#endif
+}
+
+// Coalesced END debt (2.6), one END(n) per entry, only on an Out
+// connection bound to exactly that entry. Otherwise it waits as a number.
+void NodeLinks::push_ends() {
+  for (u32 l = 0; l < out_.size(); ++l) {
+    if (!bound(l) || !room(l)) continue;
+    Out& o = *out_[l];
+    Entry& e = ent(l, o.ack_member);
+    if (e.end_owed == 0 || e.inc != o.ack_incarnation) continue;
+    const Frame f = end_frame(e.end_owed, e.inc);
+    ++ctr_.ends_sent;
+    ctr_.end_items_sent += e.end_owed;
+    e.end_owed = 0;
+    push(l, f);
+  }
+}
+
+// END(n) from instance f, for us: n of our counted items there ended.
+void NodeLinks::on_end(u32 i, const Frame& fr) {
+  const From& f = in_[i]->from;
+  const u64 n = end_n(fr);
+  if (end_target(fr) != opt_.incarnation || n == 0) {  // another incarnation's, or malformed (n >= 1, 2.2)
+    ++ctr_.ignored_frames;
+    return;
+  }
+  Entry& e = ent(f.link, f.member);
+  if (e.serial != f.serial || e.inc != f.incarnation) {
+    ++ctr_.stale_tags;
+    return;
+  }
+  ++ctr_.ends_received;
+  ctr_.end_items_received += n;
+  if (n > e.count) {
+    underflow("count (END)", f.link, f.member, e.count, n);
+    set_count(e, 0);
+  } else {
+    set_count(e, e.count - n);
+  }
+}
+
+// The HelloAck named an instance (2.4 step 3). A SYNC already read for this
+// connection (step 4 first) must name the same one. The peer owes us a
+// SYNC on its own Out connection; here, ours to it becomes possible (2.5).
+void NodeLinks::identified_out(u32 l) {
+  Out& o = *out_[l];
+  ++ctr_.identified;
+  if (o.synced && (o.sync_member != o.ack_member || o.sync_incarnation != o.ack_incarnation)) {
+    ++ctr_.bind_mismatch;
+    std::fprintf(stderr, "snc: node link: link %u: HelloAck and binding SYNC name different instances, resetting\n", l);
+    drop_out(l, now_ns_, /*reset=*/true);
+    return;
+  }
+  for (const auto& in : in_) {
+    if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+        in->from.incarnation == o.ack_incarnation) {
+      ent(l, o.ack_member).sync_owed = true;
+      break;
+    }
+  }
+  try_bind(l);
+}
+
+void NodeLinks::try_bind(u32 l) {
+  Out& o = *out_[l];
+  if (!opt_.accounting || o.state != Out::State::UP || o.is_bound || !o.identified || !o.synced) return;
+  if (o.sync_member != o.ack_member || o.sync_incarnation != o.ack_incarnation) return;
+  if (peer_blocked_since(l, o.ack_member) != 0) return;  // never bound to a blocked instance (2.12 A)
+  o.is_bound = true;
+  Entry& e = ent(l, o.ack_member);
+  if (!e.gates) {
+    e.gates = true;
+    xnode_live_ += e.count;
+  }
+  e.state = EntryState::ACTIVE;
+  ++ctr_.bindings;
+  connected_ = true;  // resume_all, re-sending what was purged while unbound
+  if (opt_.on_bound) opt_.on_bound(opt_.ctx, l);
+}
+
+// Owed SYNCs, each on an Out connection identified with its target, FIFO
+// after every byte already in Out::buf (the accounting barrier, 2.5): k,
+// R and the ENDs it subsumes are read now, as it is appended.
+void NodeLinks::push_syncs() {
+  for (u32 l = 0; l < out_.size(); ++l) {
+    Out& o = *out_[l];
+    if (o.state != Out::State::UP || !o.identified) continue;
+    Entry& e = ent(l, o.ack_member);
+    if (!e.sync_owed || e.inc != o.ack_incarnation || !room(l)) continue;
+    const In* cur = nullptr;
+    for (const auto& in : in_) {
+      if (in && in->hello && in->from.link == l && in->from.member == o.ack_member &&
+          in->from.incarnation == e.inc) {
+        cur = in.get();
+        break;
+      }
+    }
+    if (cur == nullptr) continue;  // no connection of its to name
+    Frame f{};
+    f.pad[0] = SYNC;
+    f.source.hi = cur->from.conn;
+    f.op = cur->from.conn_seq;
+    f.source.lo = cur->rx;
+    f.target.hi = e.held_for;
+    f.target.lo = e.inc;
+    const u64 cleared = e.end_owed;
+    e.end_owed = 0;
+    e.sync_owed = false;
+    push(l, f);
+    ++ctr_.syncs_sent;
+    if (debug_sync_probe) {
+      debug_sync_probe(SyncProbe{true, cur->from.conn, cur->from.conn_seq, e.held_for, cur->rx, 0, 0, 0, cleared});
+    }
+  }
+}
+
+// A SYNC from instance f (2.5): applied only if it names our current Out
+// connection to that link, conn and conn_seq, and f is the instance it is
+// identified or synced with (or none yet). Every other SYNC is stale.
+void NodeLinks::on_sync(u32 i, const Frame& fr) {
+  const From& f = in_[i]->from;
+  if (fr.target.lo != opt_.incarnation) {
+    ++ctr_.ignored_frames;
+    return;
+  }
+  Out& o = *out_[f.link];
+  const bool names_cur = o.state == Out::State::UP && o.conn != 0 && fr.source.hi == o.conn && fr.op == o.conn_seq;
+  const bool same = o.identified ? (o.ack_member == f.member && o.ack_incarnation == f.incarnation)
+                    : o.synced    ? (o.sync_member == f.member && o.sync_incarnation == f.incarnation)
+                                  : true;
+  if (!names_cur || !same) {
+    ++ctr_.syncs_stale;
+    return;
+  }
+  u64 r = fr.source.lo;
+  if (r > o.pushed) {  // cannot have received more than we pushed on it
+    ++ctr_.sync_r_anomalies;
+    r = o.pushed;
+  }
+  Entry& e = ent(f.link, f.member);
+  const u64 before = e.count;
+  const u64 after = fr.target.hi + (o.pushed - r);
+  set_count(e, after);
+  ctr_.sync_correction += before > after ? before - after : after - before;
+  ++ctr_.syncs_exact;
+  if (debug_sync_probe) {
+    debug_sync_probe(SyncProbe{false, o.conn, o.conn_seq, fr.target.hi, r, o.pushed, before, after, 0});
+  }
+  if (!o.synced) {
+    o.synced = true;
+    o.sync_member = f.member;
+    o.sync_incarnation = f.incarnation;
+    try_bind(f.link);
+  }
 }
 
 bool NodeLinks::flush(u32 i, u64 now_ns) {
@@ -212,6 +924,7 @@ void NodeLinks::accept_all() {
     if (i == in_.size()) in_.emplace_back();
     in_[i] = std::make_unique<In>();
     in_[i]->fd = fd;
+    in_[i]->last_read_ns = sri_now_ns();
     watch(epfd_, fd, paused_ ? EPOLLRDHUP : EPOLLIN | EPOLLRDHUP, tag(kTagIn, i));
   }
 }
@@ -227,10 +940,71 @@ void NodeLinks::pause_reads(bool on) {
   }
 }
 
-void NodeLinks::close_in(u32 i) {
+void NodeLinks::close_in(u32 i, bool reset) {
   if (!in_[i]->muted) ::epoll_ctl(epfd_, EPOLL_CTL_DEL, in_[i]->fd, nullptr);
+  if (reset) linger_reset(in_[i]->fd);
   ::close(in_[i]->fd);
   in_[i].reset();
+}
+
+// A v2 Hello on In connection i: refused (false) or accepted, with the
+// HelloAck written back on the same socket (2.4).
+bool NodeLinks::accept_hello(u32 i, const HelloV2& h) {
+  In& in = *in_[i];
+  // Placement epochs may differ (a slot moved and one side has not
+  // refreshed yet): each frame carries its sender's, and the receiver
+  // deals with a difference (Shard::on_link_frame). The groups and their
+  // shard counts must match.
+  const char* why = nullptr;
+  if (h.magic != kMagic) why = "not a node link";
+  else if (h.version != kVersion) why = "another wire version";
+  else if (h.crc != crc_) why = "another cluster";
+  else if (h.group >= n_shards_.size() || h.group == group_ || h.shard >= n_shards_[h.group]) why = "no such peer";
+  else if (h.member >= link_members_[link_of(h.group, h.shard)]) why = "no such member";
+  if (why != nullptr) {
+    std::fprintf(stderr,
+                 "snc: node link: refused group %u shard %u: %s (its cluster shape crc %08x, ours %08x)\n",
+                 h.group, h.shard, why, h.crc, crc_);
+    if (h.magic == kMagic && h.version != kVersion) ++version_refusals_;
+    return false;
+  }
+  if (((h.flags & kFlagAccounting) != 0) != opt_.accounting) {
+    std::fprintf(stderr,
+                 "snc: node link: refused group %u shard %u member %u: cross-node accounting %s there, %s here "
+                 "(SNC_XNODE_ACCOUNTING must match on every node)\n",
+                 h.group, h.shard, h.member, (h.flags & kFlagAccounting) ? "on" : "off",
+                 opt_.accounting ? "on" : "off");
+    ++accounting_refusals_;
+    return false;
+  }
+  const u32 l = link_of(h.group, h.shard);
+  if (!admit_incarnation(l, h.member, h.incarnation, sri_now_ns(), static_cast<int>(i))) return false;
+  HelloAck a{};
+  a.magic = kAckMagic;
+  a.conn = h.conn;
+  a.incarnation = opt_.incarnation;
+  a.member = opt_.member;
+  // A fresh socket's send buffer is empty: 32 bytes go at once, or the
+  // connection is no good.
+  if (::send(in.fd, &a, sizeof(a), MSG_NOSIGNAL | MSG_DONTWAIT) != static_cast<ssize_t>(sizeof(a))) return false;
+  in.hello = true;
+  // A new connection: the sender's link was down, and what it sent here
+  // meanwhile is lost. Resume here too, so this shard's objects ask again
+  // for what they were owed (a settle, a forget).
+  connected_ = true;
+  in.group = h.group;
+  in.shard = h.shard;
+  in.from = From{l, h.member, h.incarnation, h.conn, h.conn_seq, ent(l, h.member).serial};
+  ent(l, h.member).sync_owed = true;  // a new Hello from it (2.5)
+  // Its earlier connection, if still open, goes with whatever it has not
+  // delivered: frames from one instance must not run out of the order it
+  // sent them in (a credit overtaking its own forget would credit twice,
+  // docs/TRANSFERS.md), and the sender re-emits what was lost. Per member
+  // (2.7): another member's connection is another stream, kept.
+  for (u32 j = 0; j < in_.size(); ++j) {
+    if (j != i && in_[j] && in_[j]->hello && in_[j]->from.link == l && in_[j]->from.member == h.member) close_in(j);
+  }
+  return true;
 }
 
 // False once the connection is done with (closed, or a peer with another map).
@@ -241,10 +1015,32 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
     // read only once none are left over.
     if (in.hello) {
       std::size_t at = 0;
-      for (; in.have - at >= sizeof(Frame) && budget != 0; at += sizeof(Frame), --budget) {
+      for (; in.have - at >= sizeof(Frame) && budget != 0; at += sizeof(Frame)) {
         Frame f;
         std::memcpy(&f, in.buf.data() + at, sizeof(f));
-        on_frame(ctx, f);
+        if (kind(f) == HEARTBEAT) {
+          on_heartbeat(i, f, now_ns_);
+          continue;
+        }
+        if (kind(f) == SYNC) {
+          if (opt_.accounting) on_sync(i, f);
+          continue;
+        }
+        if (kind(f) == END) {
+          if (opt_.accounting) on_end(i, f);
+          continue;
+        }
+        if (kind(f) != DATA) {
+          ++ctr_.ignored_frames;
+          continue;
+        }
+        if (opt_.accounting && (flags(f) & COUNTED_BY_SENDER)) {
+          ++in.rx;
+          ++ent(in.from.link, in.from.member).held_for;
+        }
+        --budget;
+        on_frame(ctx, in.from, f);
+        if (!in_[i]) return false;  // the frame's handling closed it
       }
       if (at) {
         std::memmove(in.buf.data(), in.buf.data() + at, in.have - at);
@@ -257,36 +1053,22 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
     if (n == 0) return false;
     if (n < 0) return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
     in.have += static_cast<std::size_t>(n);
+    in.last_read_ns = sri_now_ns();
     std::size_t at = 0;
     if (!in.hello) {
-      if (in.have < sizeof(Hello)) continue;
-      Hello h;
-      std::memcpy(&h, in.buf.data(), sizeof(h));
-      // Placement epochs may differ (a slot moved and one side has not
-      // refreshed yet): each frame carries its sender's, and the receiver
-      // deals with a difference (Shard::on_link_frame). The groups and
-      // their shard counts must match.
-      if (h.magic != kMagic || h.crc != crc_) {
-        std::fprintf(stderr,
-                     "snc: node link: refused group %u shard %u: %s (its cluster shape crc %08x, ours %08x)\n",
-                     h.group, h.shard, h.magic != kMagic ? "not a node link" : "another cluster", h.crc, crc_);
+      // A v1 Hello is 24 bytes: enough to tell it apart.
+      u32 magic = 0;
+      if (in.have >= sizeof(magic)) std::memcpy(&magic, in.buf.data(), sizeof(magic));
+      if (in.have >= sizeof(magic) && magic == kMagicV1) {
+        std::fprintf(stderr, "snc: node link: refused a peer: wire v1, this node speaks v2 (upgrade every node)\n");
+        ++version_refusals_;
         return false;
       }
-      in.hello = true;
-      // A new connection: the sender's link was down, and what it sent
-      // here meanwhile is lost. Resume here too, so this shard's objects
-      // ask again for what they were owed (a settle, a forget).
-      connected_ = true;
-      in.group = h.group;
-      in.shard = h.shard;
-      at = sizeof(Hello);
-      // Its earlier connection, if still open, goes with whatever it has not
-      // delivered: frames from one shard must not run out of the order it
-      // sent them in (a credit overtaking its own forget would credit twice,
-      // docs/TRANSFERS.md), and the sender re-emits what was lost.
-      for (u32 j = 0; j < in_.size(); ++j) {
-        if (j != i && in_[j] && in_[j]->hello && in_[j]->group == h.group && in_[j]->shard == h.shard) close_in(j);
-      }
+      if (in.have < sizeof(HelloV2)) continue;
+      HelloV2 h;
+      std::memcpy(&h, in.buf.data(), sizeof(h));
+      if (!accept_hello(i, h)) return false;
+      at = sizeof(HelloV2);
     }
     if (at) {
       std::memmove(in.buf.data(), in.buf.data() + at, in.have - at);
@@ -297,18 +1079,25 @@ bool NodeLinks::read_in(u32 i, OnFrame on_frame, void* ctx, u32& budget) {
 
 bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
   bool busy = false;
+  now_ns_ = now_ns;
+  if (now_ns - last_liveness_ns_ >= opt_.hb_ns / 4) {
+    last_liveness_ns_ = now_ns;
+    liveness(now_ns);
+  }
   // Frames left over from earlier polls go first, oldest connection data
   // before anything newly readable.
   for (u32 i = 0; i < in_.size() && budget != 0; ++i) {
     if (in_[i] && in_[i]->backlog) {
       busy = true;
-      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
+      if (!read_in(i, on_frame, ctx, budget) && in_[i]) close_in(i);
     }
   }
   if (listen_ < 0 && now_ns >= listen_retry_ns_) try_listen(now_ns);
   for (u32 i = 0; i < out_.size(); ++i) {
     Out& o = *out_[i];
-    if (o.state == Out::State::DOWN && now_ns >= o.retry_ns) start_connect(i, now_ns);
+    // Invariant M (2.1): no Out connection before this instance holds its
+    // listener.
+    if (o.state == Out::State::DOWN && now_ns >= o.retry_ns && listen_ >= 0) start_connect(i, now_ns);
     if (o.state == Out::State::CONNECTING && now_ns - o.since_ns >= kConnectTimeoutNs) drop_out(i, now_ns);
   }
   epoll_event evs[64];
@@ -334,7 +1123,7 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
         }
         continue;
       }
-      if (!read_in(i, on_frame, ctx, budget)) close_in(i);
+      if (!read_in(i, on_frame, ctx, budget) && in_[i]) close_in(i);
     } else if (kind == kTagOut && i < out_.size()) {
       Out& o = *out_[i];
       if (o.state == Out::State::CONNECTING) {
@@ -348,19 +1137,38 @@ bool NodeLinks::poll(u64 now_ns, OnFrame on_frame, void* ctx, u32 budget) {
         if (!(e & EPOLLOUT)) continue;
         o.state = Out::State::UP;
         watch(epfd_, o.fd, EPOLLIN | EPOLLRDHUP, tag(kTagOut, i), EPOLL_CTL_MOD);
-        Hello h{kMagic, group_, shard_, crc_, 0, epoch_};
+        o.conn = nonce();
+        o.conn_seq = o.next_seq++;
+        o.ack_have = 0;
+        o.identified = false;
+        HelloV2 h{};
+        h.magic = kMagic;
+        h.group = group_;
+        h.shard = shard_;
+        h.crc = crc_;
+        h.version = kVersion;
+        h.epoch = epoch_;
+        h.conn = o.conn;
+        h.incarnation = opt_.incarnation;
+        h.member = opt_.member;
+        h.flags = opt_.accounting ? kFlagAccounting : 0;
+        h.conn_seq = o.conn_seq;
         const u8* p = reinterpret_cast<const u8*>(&h);
         o.buf.assign(p, p + sizeof(h));
         o.off = 0;
-        connected_ = true;
+        // Resume runs at binding with accounting (2.4); without it, at connect.
+        if (!opt_.accounting) connected_ = true;
         ++connects_;
       } else if (o.state == Out::State::UP) {
-        // The peer never sends: readable means closed or reset.
-        u8 b;
-        const ssize_t r = ::recv(o.fd, &b, 1, MSG_DONTWAIT);
-        if (r == 0 || (r < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) drop_out(i, now_ns);
+        // The peer sends one HelloAck and nothing else: anything more,
+        // or a hang-up, closes the connection.
+        read_ack(i, now_ns);
       }
     }
+  }
+  if (opt_.accounting) {
+    push_ends();
+    push_syncs();
   }
   for (u32 i = 0; i < out_.size(); ++i) busy |= flush(i, now_ns);
   return busy;

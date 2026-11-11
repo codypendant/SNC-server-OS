@@ -1,0 +1,6 @@
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (blocked for T_release), debt 64
+snc: shard 0: unblocked, rejoining the node links as a new instance
+X19 blocked primary: blocked bit at A 0 ms after P blocked (T_hb 20, under END traffic); no binding to it; P left the links 300 ms after the block (T_block 300); A kept its blocked_since after; quarantined 603 ms after the block (<= T_hb + T_release = 620), by the blocked trigger; unblocked, P rejoined as incarnation 2 (was 1), bound exactly; settled, money conserved
+  (X19: 4.7 s)
+test_xnode: ok

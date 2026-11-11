@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork4/src-ND2/tests/test_xnode.cpp:590: CHECK failed: since(t0) < timeout_s: X8: never settled (node 0 remote_live 0 held 29 end_owed 0 debt 0 live 0 in_flight 0)

@@ -1,0 +1,50 @@
+# t_s ops_s p50_us p99_us p999_us max_us moved migrating overloaded unknown rejected
+0.5 2660 5376 14848 18432 18432 0 0 0 0 0
+1.0 3533 4096 8192 9728 13312 0 0 0 0 0
+1.5 3645 4096 6912 7424 7424 0 0 0 0 0
+2.0 3832 3968 7424 12800 12800 0 0 0 0 0
+2.5 4048 3840 5888 6912 7680 0 0 0 0 0
+3.0 4093 3712 5120 5632 6400 0 0 0 0 0
+3.5 0 0 0 0 0 0 0 0 0 0
+4.0 0 0 0 0 0 0 0 0 0 0
+4.5 0 0 0 0 0 0 0 0 0 0
+5.0 0 0 0 0 0 0 0 0 0 0
+5.5 0 0 0 0 0 0 0 0 0 0
+6.0 0 0 0 0 0 0 0 0 0 0
+6.5 0 0 0 0 0 0 0 0 0 0
+7.0 0 0 0 0 0 0 0 0 0 0
+7.5 0 0 0 0 0 0 0 0 0 0
+8.0 0 0 0 0 0 0 0 0 0 0
+8.5 0 0 0 0 0 0 0 0 0 0
+9.0 0 0 0 0 0 0 0 0 0 0
+9.5 0 0 0 0 0 0 0 0 0 0
+10.0 0 0 0 0 0 0 0 0 0 0
+10.5 0 0 0 0 0 0 0 0 0 0
+11.0 0 0 0 0 0 0 0 0 0 0
+11.5 0 0 0 0 0 0 0 0 0 0
+12.0 0 0 0 0 0 0 0 0 0 0
+12.5 0 0 0 0 0 0 0 0 0 0
+13.0 0 0 0 0 0 0 0 0 0 0
+13.5 0 0 0 0 0 0 0 0 0 0
+14.0 0 0 0 0 0 0 0 0 0 0
+14.5 0 0 0 0 0 0 0 0 0 0
+15.0 0 0 0 0 0 0 0 0 0 0
+seconds 36.903
+acked 10913
+ops_s 295.721
+p50_us 3968
+p99_us 8704
+p999_us 15360
+max_us 18432
+unknown 0
+rejected 0
+moved 0
+migrating 0
+overloaded 0
+refreshes 0
+failovers 4
+replayed 0
+resends 0
+max_resend_age_ms 0
+epoch 1
+error client failed: failover: no primary answered: topology: Resource temporarily unavailable; client failed: failover: no primary answered: topology: Resource temporarily unavailable; client failed: failover: no primary answered: topology: Resource temporarily unavailable; client failed: failover: no primary answered: topology: Resource temporarily unavailable

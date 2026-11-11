@@ -1,0 +1,299 @@
+head 6489cec build=build-tsan (TSan, Debug) start 2026-11-10T18:23:01Z /tmp/snc-* 666 free 9.7G
+Test project /home/claude/snc-server-os/build-tsan
+      Start  1: test_rate_schedule
+ 1/47 Test  #1: test_rate_schedule ...............   Passed    0.03 sec
+      Start  2: test_object_id
+ 2/47 Test  #2: test_object_id ...................   Passed    0.31 sec
+      Start  3: test_local_map
+ 3/47 Test  #3: test_local_map ...................   Passed   13.28 sec
+      Start  4: test_pages
+ 4/47 Test  #4: test_pages .......................   Passed    3.30 sec
+      Start  5: test_runtime
+ 5/47 Test  #5: test_runtime .....................   Passed    1.18 sec
+      Start  6: test_execute
+ 6/47 Test  #6: test_execute .....................   Passed    1.34 sec
+      Start  7: test_persistence
+ 7/47 Test  #7: test_persistence .................   Passed    3.89 sec
+      Start  8: test_crash
+ 8/47 Test  #8: test_crash .......................   Passed    5.19 sec
+      Start  9: test_net
+ 9/47 Test  #9: test_net .........................   Passed    0.19 sec
+      Start 10: test_transfer
+10/47 Test #10: test_transfer ....................   Passed   12.22 sec
+      Start 11: test_replication
+11/47 Test #11: test_replication .................   Passed   40.72 sec
+      Start 12: test_cluster
+12/47 Test #12: test_cluster .....................   Passed   11.27 sec
+      Start 13: test_migrate
+13/47 Test #13: test_migrate .....................   Passed   69.67 sec
+      Start 14: test_resend_refusals
+14/47 Test #14: test_resend_refusals .............   Passed    0.09 sec
+      Start 15: test_proof
+15/47 Test #15: test_proof .......................   Passed    1.75 sec
+      Start 16: test_placement
+16/47 Test #16: test_placement ...................   Passed    0.28 sec
+      Start 17: test_stage_chain
+17/47 Test #17: test_stage_chain .................   Passed   54.74 sec
+      Start 18: test_gauges
+18/47 Test #18: test_gauges ......................   Passed   17.91 sec
+      Start 19: test_s1_admission
+19/47 Test #19: test_s1_admission ................   Passed   27.40 sec
+      Start 20: test_s2_pacing
+20/47 Test #20: test_s2_pacing ...................   Passed   25.77 sec
+      Start 21: test_s3_writeback
+21/47 Test #21: test_s3_writeback ................   Passed  208.02 sec
+      Start 22: test_lifecycle
+22/47 Test #22: test_lifecycle ...................   Passed   13.11 sec
+      Start 23: test_s4_sync_tokens
+23/47 Test #23: test_s4_sync_tokens ..............   Passed  286.54 sec
+      Start 24: test_admin_loop
+24/47 Test #24: test_admin_loop ..................   Passed    1.95 sec
+      Start 25: test_wal_capacity
+25/47 Test #25: test_wal_capacity ................   Passed    0.42 sec
+      Start 26: test_intake
+26/47 Test #26: test_intake ......................   Passed   10.09 sec
+      Start 27: test_xnode
+27/47 Test #27: test_xnode .......................***Failed   40.03 sec
+X3 forward drop: 10 cuts of o->p, 10 bindings, 20 SYNCs applied (10 at binding with pushed=0, count=k), each equal to its barrier; settled, counts 0, no underflow
+  (X3: 2.4 s)
+X4 return drop: 10 cuts of p->o; 10 current SYNCs on a connection with counted frames pushed, each count = k + pushed - R and equal to its barrier, R within the proxy's delivered count; settled
+  (X4: 2.3 s)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+X5 blackhole and heal: silence closes 4, quarantined with debt 64 (non-increasing), bound again with an exact SYNC; settled, counts 0
+  (X5: 2.1 s)
+X10 rollback (accounting off): links up unbound, no SYNC/END/counted frame, xnode counts 0; settled, money 16000000 conserved
+  (X10: 0.8 s)
+X18 timer constraints: T_dead <= T_hb, T_release <= T_dead, T_dead < 3 T_hb and T_block < T_dead each refused at start with a message
+  (X18: 0.0 s)
+X22 unbound link: no HelloAck, 512 roots for B purged while unbound, no counted DATA, live below X; after acks resume the binding resumes all and everything settles
+  (X22: 1.2 s)
+snc: node link: refused group 1 shard 0 member 0: cross-node accounting off there, on here (SNC_XNODE_ACCOUNTING must match on every node)
+snc: node link: refused group 0 shard 0 member 0: cross-node accounting on there, off here (SNC_XNODE_ACCOUNTING must match on every node)
+X23 accounting mismatch: links refused both ways (link_accounting_refusals > 0 on each)
+  (X23: 0.1 s)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+X14a one-way partition (all of p->o, HelloAck included): quarantined once (1 quarantine(s)), physical at p <= 0 and debt <= 64 non-increasing over 91 samples in 5 x T_release, no re-binding, no counted DATA while unbound, 13084 intra-node transfers served meanwhile; healed exact and settled
+X14b one-way partition (only p's Out connection): quarantined once (1 quarantine(s)), physical at p <= 0 and debt <= 64 non-increasing over 85 samples in 5 x T_release, no re-binding, no counted DATA while unbound, 11487 intra-node transfers served meanwhile; healed exact and settled
+  (X14: 9.1 s)
+X24 forward flaps: 6 reconnects while p -> o was held; 670 follow-ups refused (purged) on the identified, unbound connections, none pushed; 5 SYNCs naming earlier connections ignored, none applied; the first applied names the current connection: count 420 -> 0 = k at p, pushed 0; settled, no underflow
+  (X24: 7.8 s)
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 0
+snc: node link: link 0 member 1 incarnation 1 quarantined (not bound for T_release), debt 64
+X26 not-bound quarantine: member 1 (connected, unblocked, no longer bound) quarantined 604 ms after its last binding (T_release 600 ms) by the not-bound trigger, debt 64 (items lost on its wire); debt 64 after; no underflow
+  (X26: 1.3 s)
+X27 SYNC before HelloAck: 5 reconnects each SYNCED first (count = k, pushed 0, not identified), BOUND at the HelloAck's arrival; bind_mismatch 0; settled
+  (X27: 1.3 s)
+X28 SYNC barrier: 26816 bytes queued in p's Out::buf (counted replies and ENDs among them); o reconnected; 1263 frames (R and E) delivered before the SYNC; at the SYNC count 2272 -> 0 = k recorded at p's barrier (k 0, R 0); no underflow; settled
+  (X28: 1.5 s)
+snc: node link: refused link 0 member 0 incarnation 1: below the highest seen (2): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 2: below the highest seen (3): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 3: below the highest seen (4): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 4: below the highest seen (5): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 5: below the highest seen (6): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 6: below the highest seen (7): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 7: below the highest seen (8): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 8: below the highest seen (9): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 9: below the highest seen (10): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 10: below the highest seen (11): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 11: below the highest seen (12): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 12: below the highest seen (13): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 13: below the highest seen (14): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 14: below the highest seen (15): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 15: below the highest seen (16): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: refused link 0 member 0 incarnation 16: below the highest seen (17): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 17 quarantined (its In side down for T_release), debt 0
+snc: node link: refused link 0 member 0 incarnation 17: below the highest seen (18): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 18 quarantined (its In side down for T_release), debt 67
+snc: node link: refused link 0 member 0 incarnation 18: below the highest seen (19): a retired instance, or a restored data directory (raise it with --links-generation-min)
+snc: node link: link 0 member 0 incarnation 19 quarantined (its In side down for T_release), debt 0
+snc: node link: refused link 0 member 0 incarnation 19: below the highest seen (20): a retired instance, or a restored data directory (raise it with --links-generation-min)
+/home/claude/snc-server-os/tests/test_xnode.cpp:1312: CHECK failed: bound_both()
+
+      Start 28: test_witness
+28/47 Test #28: test_witness .....................   Passed   25.43 sec
+      Start 29: test_async_failover
+29/47 Test #29: test_async_failover ..............   Passed   14.21 sec
+      Start 30: test_control
+30/47 Test #30: test_control .....................   Passed    1.80 sec
+      Start 31: test_health
+31/47 Test #31: test_health ......................   Passed  163.88 sec
+      Start 32: test_gauges_admin
+32/47 Test #32: test_gauges_admin ................***Failed    2.00 sec
+T8a HEALTH: old keys unchanged, new ['ckpt', 'ckpt_age_ms', 'ckpt_last_ms', 'ckpt_done', 'ckpt_state', 'ckpt_past_target', 'ckpt_catchup', 'ckpt_io', 'ckpt_sync_writes']: role=n term=0 uuid=3f833e9ca54f4669fa340d2ab188ed3e epoch=1 leases=0-0 shards=2 stall_ms=0 stall_shard=0 main_ms=89 adm_q=0 adm_q_hw=0 adm_busy=0 adm_half=0 adm_half_hw=0 adm_evicted=0 adm_timeouts=0 ckpt=idle ckpt_age_ms=0 ckpt_last_ms=662 ckpt_done=2 ckpt_state=ok ckpt_past_target=0 ckpt_catchup=0 ckpt_io=dsync ckpt_sync_writes=0 ckpt_sync_k=0 ckpt_sync_active=0 ckpt_sync_waiting=0 ckpt_slow_sync=none adm_out=0 adm_out_hw=0 adm_write_timeouts=0 adm_write_failed=0 adm_write_evicted=0
+Traceback (most recent call last):
+  File "/home/claude/snc-server-os/tests/test_gauges_admin.py", line 239, in <module>
+    main()
+    ~~~~^^
+  File "/home/claude/snc-server-os/tests/test_gauges_admin.py", line 178, in main
+    assert g[f"s{s}.consistent"] == "1", g
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'shards': '2', 'ckpt': 'idle', 'ckpt_seq': '2', 'ckpt_age_ms': '0', 'ckpt_last_ms': '662', 'ckpt_last_shards_ms': '658', 'ckpt_last_commit_ms': '2', 'ckpt_last_reclaim_ms': '2', 'ckpt_done': '2', 'sync_tokens_k': '0', 'sync_tokens_requests': '4', 'sync_tokens_grants': '4', 'sync_tokens_releases': '4', 'sync_tokens_active': '0', 'sync_tokens_waiting': '0', 'sync_tokens_active_peak': '1', 'sync_tokens_waiting_peak': '1', 'sync_tokens_wait_max_us': '0', 'syncs_inflight': '0', 'syncs_inflight_peak': '1', 's0.refused_followup': '0', 's0.refused_ring': '0', 's0.refused_waiter': '0', 's0.refused_wal_buffer': '0', 's0.gather_overloaded': '0', 's0.waiters_now': '0', 's0.waiters_peak': '0', 's0.waiter_bytes_now': '0', 's0.waiter_bytes_peak': '0', 's0.emits_now': '0', 's0.emits_peak': '0', 's0.wal_present': '0', 's0.wal_direct': '0', 's0.wal_active_bytes_now': '0', 's0.wal_active_bytes_peak': '0', 's0.wal_buffer_cap_bytes': '0', 's0.wal_next_lsn': '0', 's0.wal_durable_lsn': '0', 's0.wal_undurable': '0', 's0.wal_flushes': '0', 's0.wal_flush_ewma_us': '0', 's0.wal_flush_max_us': '0', 's0.wal_flush_since_ns': '0', 's0.ckpt_phase': '0', 's0.ckpt_seq': '0', 's0.ckpt_started_ns': '0', 's0.ckpt_phase_since_ns': '0', 's0.ckpt_objects': '0', 's0.ckpt_bytes_issued': '0', 's0.ckpt_bytes_written': '0', 's0.ckpt_writes_inflight': '0', 's0.ckpt_writes_inflight_peak': '0', 's0.ckpt_last_snapshot_us': '0', 's0.ckpt_last_walk_us': '0', 's0.ckpt_last_drain_us': '0', 's0.ckpt_last_durable_wait_us': '0', 's0.ckpt_last_sync_us': '0', 's0.ckpt_last_total_us': '0', 's0.ckpt_last_result': '0', 's0.ckpt_completed': '0', 's0.refused_pending': '0', 's0.pending_now': '0', 's0.pending_peak': '0', 's0.refused_replay': '0', 's0.ckpt_pacing': '0', 's0.ckpt_walk_budget_ns': '0', 's0.ckpt_mode': '0', 's0.ckpt_pressure': '0', 's0.ckpt_age_state': '0', 's0.ckpt_past_target': '0', 's0.ckpt_past_target_count': '0', 's0.ckpt_degraded_count': '0', 's0.ckpt_target_ms': '0', 's0.ckpt_max_age_ms': '0', 's0.ckpt_walk_total': '0', 's0.ckpt_walk_done': '0', 's0.ckpt_walk_steps': '0', 's0.ckpt_catchup_steps': '0', 's0.ckpt_step_max_ns': '0', 's0.ckpt_step_max_objects': '0', 's0.ckpt_wal_baseline_us': '0', 's0.ckpt_io_dsync': '0', 's0.ckpt_window': '0', 's0.ckpt_window_full': '0', 's0.ckpt_final_pending': '0', 's0.ckpt_window_full_steps': '0', 's0.ckpt_chunks': '0', 's0.ckpt_buf_bytes': '0', 's0.ckpt_buf_bytes_peak': '0', 's0.ckpt_write_lat_last_us': '0', 's0.ckpt_write_lat_ewma_us': '0', 's0.ckpt_write_lat_max_us': '0', 's0.ckpt_write_lat_lt1ms': '0', 's0.ckpt_write_lat_lt10ms': '0', 's0.ckpt_write_lat_lt100ms': '0', 's0.ckpt_write_lat_ge100ms': '0', 's0.ckpt_sync_writes': '0', 's0.ckpt_sync_writes_total': '0', 's0.ckpt_sync_tokens': '0', 's0.ckpt_sync_state': '0', 's0.ckpt_token_wait_since_ns': '0', 's0.ckpt_token_wait_last_us': '0', 's0.ckpt_token_wait_max_us': '0', 's0.ckpt_token_wait_ewma_us': '0', 's0.ckpt_token_acquired': '0', 's0.ckpt_token_ticket': '0', 's0.intake_wal_gate': '0', 's0.intake_wal_cap_bytes': '0', 's0.intake_need_bytes': '0', 's0.intake_window': '0', 's0.intake_exchange_gate': '0', 's0.intake_exchange_budget': '0', 's0.intake_owner_gate': '0', 's0.intake_link_hold_max': '0', 's0.intake_gate_open': '0', 's0.intake_gated': '0', 's0.intake_refused_exchange': '0', 's0.intake_refused_owner': '0', 's0.intake_exchanges_live': '0', 's0.intake_exchanges_live_peak': '0', 's0.intake_exchanges_started': '0', 's0.intake_exchanges_ended': '0', 's0.intake_staged_now': '0', 's0.intake_staged_peak': '0', 's0.intake_window_outstanding': '0', 's0.intake_window_waits': '0', 's0.intake_link_held_now': '0', 's0.intake_link_held_peak': '0', 's0.intake_link_paused': '0', 's0.intake_link_pauses': '0', 's0.intake_resume_active': '0', 's0.intake_resume_owed': '0', 's0.intake_resume_passes': '0', 's0.intake_resume_triggers': '0', 's0.intake_resume_coalesced': '0', 's0.intake_resume_restarts': '0', 's0.intake_resume_objects': '0', 's0.xnode_accounting': '0', 's0.xnode_hb_ms': '0', 's0.xnode_dead_ms': '0', 's0.xnode_release_ms': '0', 's0.xnode_block_ms': '0', 's0.xnode_incarnation': '0', 's0.xnode_highest_incarnation': '0', 's0.xnode_remote_live': '0', 's0.xnode_debt': '0', 's0.xnode_held_for_peers': '0', 's0.xnode_end_owed': '0', 's0.xnode_links_unbound': '0', 's0.xnode_links_bound': '0', 's0.xnode_entries': '0', 's0.xnode_entries_quarantined': '0', 's0.xnode_entry_slots': '0', 's0.xnode_blocked': '0', 's0.xnode_left': '0', 's0.xnode_bindings': '0', 's0.xnode_identified': '0', 's0.xnode_bind_mismatch': '0', 's0.xnode_syncs_sent': '0', 's0.xnode_syncs_exact': '0', 's0.xnode_syncs_stale': '0', 's0.xnode_sync_correction': '0', 's0.xnode_sync_r_anomalies': '0', 's0.xnode_ends_sent': '0', 's0.xnode_end_items_sent': '0', 's0.xnode_ends_received': '0', 's0.xnode_end_items_received': '0', 's0.xnode_replies_pushed': '0', 's0.xnode_replies_returned': '0', 's0.xnode_dispositions': '0', 's0.xnode_stale_tags': '0', 's0.xnode_end_underflow': '0', 's0.xnode_held_underflow': '0', 's0.xnode_debt_increases': '0', 's0.xnode_quarantines': '0', 's0.xnode_q_in_down': '0', 's0.xnode_q_blocked': '0', 's0.xnode_q_not_bound': '0', 's0.xnode_quarantine_out_resets': '0', 's0.xnode_retirements': '0', 's0.xnode_retire_purged': '0', 's0.xnode_drops_to_resume': '0', 's0.xnode_tag_drops': '0', 's0.xnode_handoff_drops': '0', 's0.xnode_reply_drops': '0', 's0.xnode_unbound_purged': '0', 's0.xnode_uncounted': '0', 's0.xnode_ignored_frames': '0', 's0.xnode_heartbeats_sent': '0', 's0.xnode_silence_closes': '0', 's0.xnode_out_resets': '0', 's0.xnode_steers': '0', 's0.xnode_fenced': '0', 's0.xnode_m_conflicts': '0', 's0.xnode_block_leaves': '0', 's0.xnode_rejoins': '0', 's0.link_version_refusals': '0', 's0.link_accounting_refusals': '0', 's0.published_ns': '0', 's0.ckpt_phase_name': 'idle', 's0.ckpt_age_ms': '0', 's0.ckpt_phase_age_ms': '0', 's0.wal_flush_age_ms': '0', 's0.committed_start_lsn': '17331', 's0.wal_replay_records': '0', 's0.consistent': '0', 's1.refused_followup': '0', 's1.refused_ring': '0', 's1.refused_waiter': '0', 's1.refused_wal_buffer': '0', 's1.gather_overloaded': '0', 's1.waiters_now': '0', 's1.waiters_peak': '80', 's1.waiter_bytes_now': '0', 's1.waiter_bytes_peak': '20480', 's1.emits_now': '0', 's1.emits_peak': '0', 's1.wal_present': '1', 's1.wal_direct': '1', 's1.wal_active_bytes_now': '0', 's1.wal_active_bytes_peak': '14848', 's1.wal_buffer_cap_bytes': '4194304', 's1.wal_next_lsn': '26388', 's1.wal_durable_lsn': '26387', 's1.wal_undurable': '0', 's1.wal_flushes': '1546', 's1.wal_flush_ewma_us': '1202', 's1.wal_flush_max_us': '9142', 's1.wal_flush_since_ns': '0', 's1.ckpt_phase': '0', 's1.ckpt_seq': '2', 's1.ckpt_started_ns': '0', 's1.ckpt_phase_since_ns': '0', 's1.ckpt_objects': '10000', 's1.ckpt_bytes_issued': '2564096', 's1.ckpt_bytes_written': '2564096', 's1.ckpt_writes_inflight': '0', 's1.ckpt_writes_inflight_peak': '1', 's1.ckpt_last_snapshot_us': '8183', 's1.ckpt_last_walk_us': '642280', 's1.ckpt_last_drain_us': '1318', 's1.ckpt_last_durable_wait_us': '1', 's1.ckpt_last_sync_us': '223', 's1.ckpt_last_total_us': '652008', 's1.ckpt_last_result': '1', 's1.ckpt_completed': '2', 's1.refused_pending': '0', 's1.pending_now': '0', 's1.pending_peak': '0', 's1.refused_replay': '0', 's1.ckpt_pacing': '1', 's1.ckpt_walk_budget_ns': '0', 's1.ckpt_mode': '0', 's1.ckpt_pressure': '0', 's1.ckpt_age_state': '0', 's1.ckpt_past_target': '0', 's1.ckpt_past_target_count': '0', 's1.ckpt_degraded_count': '0', 's1.ckpt_target_ms': '30000', 's1.ckpt_max_age_ms': '300000', 's1.ckpt_walk_total': '10000', 's1.ckpt_walk_done': '10000', 's1.ckpt_walk_steps': '625', 's1.ckpt_catchup_steps': '1', 's1.ckpt_step_max_ns': '1828269', 's1.ckpt_step_max_objects': '16', 's1.ckpt_wal_baseline_us': '1095', 's1.ckpt_io_dsync': '1', 's1.ckpt_window': '4', 's1.ckpt_window_full': '0', 's1.ckpt_final_pending': '0', 's1.ckpt_window_full_steps': '0', 's1.ckpt_chunks': '3', 's1.ckpt_buf_bytes': '0', 's1.ckpt_buf_bytes_peak': '2228224', 's1.ckpt_write_lat_last_us': '1585', 's1.ckpt_write_lat_ewma_us': '3011', 's1.ckpt_write_lat_max_us': '3521', 's1.ckpt_write_lat_lt1ms': '0', 's1.ckpt_write_lat_lt10ms': '3', 's1.ckpt_write_lat_lt100ms': '0', 's1.ckpt_write_lat_ge100ms': '0', 's1.ckpt_sync_writes': '0', 's1.ckpt_sync_writes_total': '0', 's1.ckpt_sync_tokens': '0', 's1.ckpt_sync_state': '0', 's1.ckpt_token_wait_since_ns': '0', 's1.ckpt_token_wait_last_us': '0', 's1.ckpt_token_wait_max_us': '0', 's1.ckpt_token_wait_ewma_us': '0', 's1.ckpt_token_acquired': '2', 's1.ckpt_token_ticket': '4', 's1.intake_wal_gate': '1', 's1.intake_wal_cap_bytes': '62914560', 's1.intake_need_bytes': '66048', 's1.intake_window': '16', 's1.intake_exchange_gate': '1', 's1.intake_exchange_budget': '256', 's1.intake_owner_gate': '1', 's1.intake_link_hold_max': '1024', 's1.intake_gate_open': '1', 's1.intake_gated': '0', 's1.intake_refused_exchange': '0', 's1.intake_refused_owner': '0', 's1.intake_exchanges_live': '0', 's1.intake_exchanges_live_peak': '0', 's1.intake_exchanges_started': '0', 's1.intake_exchanges_ended': '0', 's1.intake_staged_now': '0', 's1.intake_staged_peak': '0', 's1.intake_window_outstanding': '0', 's1.intake_window_waits': '0', 's1.intake_link_held_now': '0', 's1.intake_link_held_peak': '0', 's1.intake_link_paused': '0', 's1.intake_link_pauses': '0', 's1.intake_resume_active': '0', 's1.intake_resume_owed': '0', 's1.intake_resume_passes': '1', 's1.intake_resume_triggers': '1', 's1.intake_resume_coalesced': '0', 's1.intake_resume_restarts': '0', 's1.intake_resume_objects': '0', 's1.xnode_accounting': '1', 's1.xnode_hb_ms': '100', 's1.xnode_dead_ms': '1000', 's1.xnode_release_ms': '3000', 's1.xnode_block_ms': '2000', 's1.xnode_incarnation': '0', 's1.xnode_highest_incarnation': '0', 's1.xnode_remote_live': '0', 's1.xnode_debt': '0', 's1.xnode_held_for_peers': '0', 's1.xnode_end_owed': '0', 's1.xnode_links_unbound': '0', 's1.xnode_links_bound': '0', 's1.xnode_entries': '0', 's1.xnode_entries_quarantined': '0', 's1.xnode_entry_slots': '0', 's1.xnode_blocked': '0', 's1.xnode_left': '0', 's1.xnode_bindings': '0', 's1.xnode_identified': '0', 's1.xnode_bind_mismatch': '0', 's1.xnode_syncs_sent': '0', 's1.xnode_syncs_exact': '0', 's1.xnode_syncs_stale': '0', 's1.xnode_sync_correction': '0', 's1.xnode_sync_r_anomalies': '0', 's1.xnode_ends_sent': '0', 's1.xnode_end_items_sent': '0', 's1.xnode_ends_received': '0', 's1.xnode_end_items_received': '0', 's1.xnode_replies_pushed': '0', 's1.xnode_replies_returned': '0', 's1.xnode_dispositions': '0', 's1.xnode_stale_tags': '0', 's1.xnode_end_underflow': '0', 's1.xnode_held_underflow': '0', 's1.xnode_debt_increases': '0', 's1.xnode_quarantines': '0', 's1.xnode_q_in_down': '0', 's1.xnode_q_blocked': '0', 's1.xnode_q_not_bound': '0', 's1.xnode_quarantine_out_resets': '0', 's1.xnode_retirements': '0', 's1.xnode_retire_purged': '0', 's1.xnode_drops_to_resume': '0', 's1.xnode_tag_drops': '0', 's1.xnode_handoff_drops': '0', 's1.xnode_reply_drops': '0', 's1.xnode_unbound_purged': '0', 's1.xnode_uncounted': '0', 's1.xnode_ignored_frames': '0', 's1.xnode_heartbeats_sent': '0', 's1.xnode_silence_closes': '0', 's1.xnode_out_resets': '0', 's1.xnode_steers': '0', 's1.xnode_fenced': '0', 's1.xnode_m_conflicts': '0', 's1.xnode_block_leaves': '0', 's1.xnode_rejoins': '0', 's1.link_version_refusals': '0', 's1.link_accounting_refusals': '0', 's1.published_ns': '14588354957093', 's1.ckpt_phase_name': 'idle', 's1.ckpt_age_ms': '0', 's1.ckpt_phase_age_ms': '0', 's1.wal_flush_age_ms': '0', 's1.committed_start_lsn': '17236', 's1.wal_replay_records': '9152', 's1.consistent': '1'}
+
+      Start 33: test_fail_closed
+33/47 Test #33: test_fail_closed .................   Passed  282.35 sec
+      Start 34: test_s1
+34/47 Test #34: test_s1 ..........................***Failed  378.51 sec
+FAIL normal: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-vwmhuicj
+Exception in thread Thread-2 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+PASS off (1.4 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '500 deposits tried, 5 created', 'chain': {'status': 'OK', 'units': '1', 'put': '20'}, 'balances': '65 exact at node 3'}
+PASS crash:admit:0 (31.0 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8057 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '16449', 'put': '20'}], 'probe': '4146 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+PASS crash:check:0 (31.8 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8255 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '16449', 'put': '20'}], 'probe': '4249 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+PASS crash:put:1 (31.6 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8222 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 64, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '16449', 'put': '20'}], 'probe': '4226 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+PASS crash:put:12 (28.5 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '7945 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '1', 'put': '16'}], 'probe': '3824 samples, served 0', 'rollback_restart_units_off': True, 'balances': '65 exact at node 3'}
+PASS crash:scan:2 (31.2 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8016 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '16449', 'put': '0'}], 'probe': '4182 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+PASS crash:stage:0 (33.9 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8114 deposits tried, 5 created', 'after_restart': {'phase': 0, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [{'status': 'OK', 'units': '16449', 'put': '0'}], 'probe': '4544 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+PASS crash:reply:0 (34.4 s): {'slot': 1326, 'source': 1, 'dest': 3, 'writer': '8639 deposits tried, 5 created', 'after_restart': {'phase': 3, 'serving': 0, 'live_count': 65, 'durable': 1}, 'retry_chains': [], 'probe': '4589 samples, served 0', 'rollback_restart_units_off': False, 'balances': '65 exact at node 3'}
+FAIL dst_promote: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-l3q27ngq
+Exception in thread Thread-19 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+FAIL src_promote: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-2ggr9fbu
+Exception in thread Thread-21 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+FAIL driver_death: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-k7_5e6wk
+Exception in thread Thread-22 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+FAIL duplicate: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-g1j2r4mm
+Exception in thread Thread-23 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+FAIL fence: AssertionError: timed out: node 3's chain held
+  evidence: {'slot': 1326, 'source': 1, 'dest': 3}
+  work dir: /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/suite-tmp/snc-s1-mlncpdhu
+Exception in thread Thread-24 (writer):
+Traceback (most recent call last):
+  File "/usr/lib/python3.13/threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/usr/lib/python3.13/threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_s1.py", line 146, in writer
+    st = deposit(port, i, 100)
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 159, in deposit
+    st, _, _, _ = request(port, 1, OP_DEPOSIT, oid_bytes(oid), struct.pack("<qQ", cents, 1))
+                  ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/claude/snc-server-os/tests/test_fail_closed.py", line 146, in request
+    raise RuntimeError("connection closed")
+RuntimeError: connection closed
+PASS health (19.9 s): {'sanitizer_build': True, 'slot': 1326, 'source': 1, 'dest': 3, 'writer': '5118 deposits tried, 0 created', 'chain': {'status': 'OK', 'units': '645', 'put': '2000', 'p50': '1.176', 'p99': '1.971', 'max': '3.502', 'chain_ms': '1340.2'}, 'HEALTH': {'n': 1461, 'p50': 0.51, 'p95': 1.23, 'p99': 2.17, 'max': 4.98}, 'STATUS': {'n': 1461, 'p50': 4.27, 'p95': 7.16, 'p99': 9.51, 'max': 15.82}, 'balances': '2000 exact at node 3'}
+test_s1: FAILED ['normal', 'dst_promote', 'src_promote', 'driver_death', 'duplicate', 'fence']
+
+      Start 35: test_profile_check
+35/47 Test #35: test_profile_check ...............   Passed    0.12 sec
+      Start 36: test_baseline_retry
+36/47 Test #36: test_baseline_retry ..............   Passed  247.89 sec
+      Start 37: test_sync_readiness
+37/47 Test #37: test_sync_readiness ..............   Passed  276.58 sec
+      Start 38: test_baseline_move
+38/47 Test #38: test_baseline_move ...............   Passed  114.58 sec
+      Start 39: test_xnode_proc
+39/47 Test #39: test_xnode_proc ..................   Passed   51.34 sec
+      Start 40: test_baseline_ha
+40/47 Test #40: test_baseline_ha .................   Passed  193.14 sec
+      Start 41: test_ready_order
+41/47 Test #41: test_ready_order .................   Passed  142.61 sec
+      Start 42: test_paxos_ballots
+42/47 Test #42: test_paxos_ballots ...............   Passed    2.29 sec
+      Start 43: test_witness_hardening
+43/47 Test #43: test_witness_hardening ...........   Passed   30.28 sec
+      Start 44: test_lab_witness_guard
+44/47 Test #44: test_lab_witness_guard ...........   Passed   16.05 sec
+      Start 45: test_index_wire
+45/47 Test #45: test_index_wire ..................   Passed    2.41 sec
+      Start 46: test_pilot
+46/47 Test #46: test_pilot .......................   Passed    0.06 sec
+      Start 47: test_net_bench_rate
+47/47 Test #47: test_net_bench_rate ..............   Passed   16.35 sec
+
+94% tests passed, 3 tests failed out of 47
+
+Total Test time (real) = 2812.57 sec
+
+The following tests FAILED:
+	 27 - test_xnode (Failed)
+	 32 - test_gauges_admin (Failed)
+	 34 - test_s1 (Failed)
+Errors while running CTest
+end 2026-11-10T19:09:54Z /tmp/snc-* 666 free 3.6G suite-tmp 7

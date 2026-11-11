@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND28/tests/test_xnode.cpp:1036: CHECK failed: stale >= 5: X24: 0 stale SYNCs, fewer than the 5 connections closed before any SYNC arrived

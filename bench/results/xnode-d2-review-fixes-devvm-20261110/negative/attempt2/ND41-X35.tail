@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND41/tests/test_xnode.cpp:2647: CHECK failed: b[i] == want[i]: X35 (a) encoder: byte 0 is 0x01, the v2 END layout says 0x88

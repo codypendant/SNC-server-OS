@@ -1,0 +1,3 @@
+snc: shard 0: blocked for T_block (no standby acknowledging), leaving the node links
+snc: node link: link 0 member 0 incarnation 1 quarantined (its In side down for T_release), debt 64
+/home/claude/snc-server-os/tests/test_xnode.cpp:492: CHECK failed: lost_ == 0 || net_.restarts.load() != restarts0

@@ -1,0 +1,3 @@
+X4 return drop: 10 cuts of p->o; 10 current SYNCs on a connection with counted frames pushed, each count = k + pushed - R and equal to its barrier, R within the proxy's delivered count; settled
+  (X4: 2.1 s)
+test_xnode: ok

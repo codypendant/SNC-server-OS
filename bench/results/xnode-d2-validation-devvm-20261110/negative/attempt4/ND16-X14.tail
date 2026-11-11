@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork4/src-ND16/tests/test_xnode.cpp:952: CHECK failed: a.e.state == NodeLinks::EntryState::QUARANTINED && !a.out.bound

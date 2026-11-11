@@ -1,0 +1,53 @@
+Test project /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/percommit-wt/build
+      Start  7: test_persistence
+ 1/19 Test  #7: test_persistence .................   Passed    0.55 sec
+      Start  8: test_crash
+ 2/19 Test  #8: test_crash .......................   Passed    0.82 sec
+      Start 10: test_transfer
+ 3/19 Test #10: test_transfer ....................   Passed    3.58 sec
+      Start 11: test_replication
+ 4/19 Test #11: test_replication .................   Passed   17.16 sec
+      Start 12: test_cluster
+ 5/19 Test #12: test_cluster .....................   Passed    4.93 sec
+      Start 13: test_migrate
+ 6/19 Test #13: test_migrate .....................   Passed   35.56 sec
+      Start 14: test_resend_refusals
+ 7/19 Test #14: test_resend_refusals .............   Passed    0.03 sec
+      Start 15: test_proof
+ 8/19 Test #15: test_proof .......................   Passed    0.93 sec
+      Start 16: test_placement
+ 9/19 Test #16: test_placement ...................   Passed    0.02 sec
+      Start 17: test_stage_chain
+10/19 Test #17: test_stage_chain .................   Passed    7.11 sec
+      Start 18: test_gauges
+11/19 Test #18: test_gauges ......................   Passed    1.09 sec
+      Start 22: test_lifecycle
+12/19 Test #22: test_lifecycle ...................   Passed    8.05 sec
+      Start 26: test_intake
+13/19 Test #26: test_intake ......................   Passed    2.56 sec
+      Start 27: test_xnode
+14/19 Test #27: test_xnode .......................   Passed   63.66 sec
+      Start 29: test_async_failover
+15/19 Test #29: test_async_failover ..............   Passed   13.65 sec
+      Start 30: test_control
+16/19 Test #30: test_control .....................   Passed    1.56 sec
+      Start 31: test_health
+17/19 Test #31: test_health ......................   Passed  155.65 sec
+      Start 32: test_gauges_admin
+18/19 Test #32: test_gauges_admin ................   Passed    3.97 sec
+      Start 39: test_xnode_proc
+19/19 Test #39: test_xnode_proc ..................***Failed  104.88 sec
+{"load": {"rc": 0, "acked": "112067", "unknown": "0", "failovers": "4", "resends": "13", "error": "-"}, "node3_retirements": 4, "node3_retire_purged": 0, "pending_at_end": {"1": 0, "3": 0}, "check": ["OK: 64 accounts each served once; balances = acknowledged transfers + 0 of 0 in doubt"], "xnode": {"1": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 0, "xnode_bindings": 4, "link_version_refusals": 0, "intake_exchanges_live": 0}, "3": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 4, "xnode_quarantines": 0, "xnode_bindings": 8, "link_version_refusals": 0, "intake_exchanges_live": 0}}, "pass": true, "scenario": "x6", "s": 12.7}
+{"load": {"rc": 0, "acked": "166341", "unknown": "5", "failovers": "4", "resends": "15", "error": "-"}, "pending_at_end": {"1": 0, "4": 0}, "check": ["OK: 64 accounts each served once; balances = acknowledged transfers + 5 of 5 in doubt"], "xnode": {"1": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 2, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 12, "xnode_entries": 8, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 4, "xnode_bindings": 8, "link_version_refusals": 0, "intake_exchanges_live": 0}, "4": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 0, "xnode_bindings": 4, "link_version_refusals": 0, "intake_exchanges_live": 0}}, "pass": false, "scenario": "x7", "s": 76.0}
+  (kept /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/percommit-tmp/snc-xproc-y9cuytsc)
+{"entries_both": 8, "node3_role": "f", "load": {"rc": 0, "acked": "62108", "unknown": "7", "failovers": "4", "resends": "16", "error": "-"}, "pending_at_end": {"1": 0, "4": 0}, "check": ["OK: 64 accounts each served once; balances = acknowledged transfers + 7 of 7 in doubt"], "xnode": {"1": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 47, "xnode_entries": 8, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 4, "xnode_bindings": 8, "link_version_refusals": 0, "intake_exchanges_live": 0}, "4": {"xnode_remote_live": 0, "xnode_held_for_peers": 0, "xnode_end_owed": 0, "xnode_end_underflow": 0, "xnode_held_underflow": 0, "xnode_debt_increases": 0, "xnode_uncounted": 0, "xnode_debt": 0, "xnode_entries": 4, "xnode_entry_slots": 8, "xnode_retirements": 0, "xnode_quarantines": 0, "xnode_bindings": 4, "link_version_refusals": 0, "intake_exchanges_live": 0}}, "pass": true, "scenario": "x7b", "s": 15.6}
+test_xnode_proc: FAILED x7
+
+
+95% tests passed, 1 tests failed out of 19
+
+Total Test time (real) = 425.77 sec
+
+The following tests FAILED:
+	 39 - test_xnode_proc (Failed)
+Errors while running CTest

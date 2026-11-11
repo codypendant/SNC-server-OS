@@ -3,7 +3,8 @@
 // Each shard owns one block. Only its own thread writes it, copying
 // counters it already keeps into atomics (release/acquire, see
 // ShardGauges), at most every
-// kPublishNs and on checkpoint phase changes. Any thread may read it
+// kPublishNs (and never more often than 4x a publish's own duration) and
+// on checkpoint phase changes. Any thread may read it
 // without a shard task, a lock a shard holds or an allocation, so
 // HEALTH and the GAUGES verb never wait on a shard (docs/HEALTH_DECOUPLING.md
 // HL-1). A sequence number (odd while a publish is under way) lets a
@@ -16,6 +17,8 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
+#include <thread>
 
 #include "snc/types.h"
 
@@ -201,6 +204,74 @@ enum Gauge : u32 {
   G_INTAKE_RESUME_COALESCED,
   G_INTAKE_RESUME_RESTARTS,
   G_INTAKE_RESUME_OBJECTS,
+  // Cross-node exchange accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md 7):
+  // configuration; state now, summed over entries (xnode_entries is
+  // bounded by xnode_entry_slots, the members of every link); counters,
+  // cumulative across links instances. xnode_end_underflow,
+  // xnode_held_underflow, xnode_debt_increases, xnode_uncounted,
+  // xnode_drops_to_resume and xnode_handoff_drops must stay 0 (the last two
+  // count invariant checks I1 and I2, 2.9.1).
+  G_XNODE_ACCOUNTING,
+  G_XNODE_HB_MS,
+  G_XNODE_DEAD_MS,
+  G_XNODE_RELEASE_MS,
+  G_XNODE_BLOCK_MS,
+  G_XNODE_INCARNATION,
+  G_XNODE_HIGHEST_INCARNATION,
+  G_XNODE_REMOTE_LIVE,
+  G_XNODE_DEBT,
+  G_XNODE_HELD_FOR_PEERS,
+  G_XNODE_END_OWED,
+  G_XNODE_LINKS_UNBOUND,
+  G_XNODE_LINKS_BOUND,
+  G_XNODE_ENTRIES,
+  G_XNODE_ENTRIES_QUARANTINED,
+  G_XNODE_ENTRY_SLOTS,
+  G_XNODE_BLOCKED,
+  G_XNODE_LEFT,
+  G_XNODE_BINDINGS,
+  G_XNODE_IDENTIFIED,
+  G_XNODE_BIND_MISMATCH,
+  G_XNODE_SYNCS_SENT,
+  G_XNODE_SYNCS_EXACT,
+  G_XNODE_SYNCS_STALE,
+  G_XNODE_SYNC_CORRECTION,
+  G_XNODE_SYNC_R_ANOMALIES,
+  G_XNODE_ENDS_SENT,
+  G_XNODE_END_ITEMS_SENT,
+  G_XNODE_ENDS_RECEIVED,
+  G_XNODE_END_ITEMS_RECEIVED,
+  G_XNODE_REPLIES_PUSHED,
+  G_XNODE_REPLIES_RETURNED,
+  G_XNODE_DISPOSITIONS,
+  G_XNODE_STALE_TAGS,
+  G_XNODE_END_UNDERFLOW,
+  G_XNODE_HELD_UNDERFLOW,
+  G_XNODE_DEBT_INCREASES,
+  G_XNODE_QUARANTINES,
+  G_XNODE_Q_IN_DOWN,
+  G_XNODE_Q_BLOCKED,
+  G_XNODE_Q_NOT_BOUND,
+  G_XNODE_QUARANTINE_OUT_RESETS,
+  G_XNODE_RETIREMENTS,
+  G_XNODE_RETIRE_PURGED,
+  G_XNODE_DROPS_TO_RESUME,
+  G_XNODE_TAG_DROPS,
+  G_XNODE_HANDOFF_DROPS,
+  G_XNODE_REPLY_DROPS,
+  G_XNODE_UNBOUND_PURGED,
+  G_XNODE_UNCOUNTED,
+  G_XNODE_IGNORED_FRAMES,
+  G_XNODE_HEARTBEATS_SENT,
+  G_XNODE_SILENCE_CLOSES,
+  G_XNODE_OUT_RESETS,
+  G_XNODE_STEERS,
+  G_XNODE_FENCED,
+  G_XNODE_M_CONFLICTS,
+  G_XNODE_BLOCK_LEAVES,
+  G_XNODE_REJOINS,
+  G_LINK_VERSION_REFUSALS,
+  G_LINK_ACCOUNTING_REFUSALS,
   // When this block was last published (steady clock, ns).
   G_PUBLISHED_NS,
   kGaugeCount
@@ -236,6 +307,20 @@ inline constexpr std::array<const char*, kGaugeCount> kGaugeNames = {
     "intake_link_paused", "intake_link_pauses", "intake_resume_active", "intake_resume_owed",
     "intake_resume_passes", "intake_resume_triggers", "intake_resume_coalesced", "intake_resume_restarts",
     "intake_resume_objects",
+    "xnode_accounting", "xnode_hb_ms", "xnode_dead_ms", "xnode_release_ms", "xnode_block_ms",
+    "xnode_incarnation", "xnode_highest_incarnation", "xnode_remote_live", "xnode_debt",
+    "xnode_held_for_peers", "xnode_end_owed", "xnode_links_unbound", "xnode_links_bound", "xnode_entries",
+    "xnode_entries_quarantined", "xnode_entry_slots", "xnode_blocked", "xnode_left", "xnode_bindings",
+    "xnode_identified", "xnode_bind_mismatch", "xnode_syncs_sent", "xnode_syncs_exact", "xnode_syncs_stale",
+    "xnode_sync_correction", "xnode_sync_r_anomalies", "xnode_ends_sent", "xnode_end_items_sent",
+    "xnode_ends_received", "xnode_end_items_received", "xnode_replies_pushed", "xnode_replies_returned",
+    "xnode_dispositions", "xnode_stale_tags", "xnode_end_underflow", "xnode_held_underflow",
+    "xnode_debt_increases", "xnode_quarantines", "xnode_q_in_down", "xnode_q_blocked", "xnode_q_not_bound",
+    "xnode_quarantine_out_resets", "xnode_retirements", "xnode_retire_purged", "xnode_drops_to_resume",
+    "xnode_tag_drops", "xnode_handoff_drops", "xnode_reply_drops", "xnode_unbound_purged", "xnode_uncounted",
+    "xnode_ignored_frames", "xnode_heartbeats_sent", "xnode_silence_closes", "xnode_out_resets",
+    "xnode_steers", "xnode_fenced", "xnode_m_conflicts", "xnode_block_leaves", "xnode_rejoins",
+    "link_version_refusals", "link_accounting_refusals",
     "published_ns",
 };
 
@@ -318,12 +403,20 @@ struct alignas(64) ShardGauges {
   // Main thread only.
   void set_committed_start_lsn(u64 lsn) { committed_.store(lsn, std::memory_order_relaxed); }
 
-  // Any thread. Retries up to 64 times; if the writer was mid-publish every
-  // time, returns consistent = false with the fields of the last attempt
-  // that read an even seq (zeros if none did).
+  // Any thread but a shard's. Retries up to 64 times, yielding between
+  // tries, then up to 64 more 100 us apart (about 10 ms in all), so a slow
+  // publish or a slow reader (a sanitizer build) still gets a whole copy.
+  // If the writer was mid-publish every time, returns consistent = false
+  // with the fields of the last attempt that read an even seq (zeros if
+  // none did).
   GaugeSnapshot read() const {
     GaugeSnapshot out;
-    for (int attempt = 0; attempt < 64; ++attempt) {
+    for (int attempt = 0; attempt < 128; ++attempt) {
+      if (attempt >= 64) {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+      } else if (attempt != 0) {
+        std::this_thread::yield();
+      }
       const u64 s1 = seq_.load(std::memory_order_acquire);
       if (s1 & 1) continue;  // publish in progress
       for (u32 i = 0; i < kGaugeCount; ++i) out.v[i] = v_[i].load(std::memory_order_acquire);

@@ -311,6 +311,24 @@ int main(int argc, char** argv) {
     else if (k == "--cluster") cfg.cluster = parse_cluster(val());
     else if (k == "--group") cfg.group_id = static_cast<u16>(std::atoi(val()));
     else if (k == "--member") cfg.member = static_cast<u16>(std::atoi(val()));
+    else if (k == "--links-generation-file") cfg.links_generation_file = val();
+    else if (k == "--xnode-hb-ms") cfg.xnode_hb_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--xnode-dead-ms") cfg.xnode_dead_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--xnode-release-ms") cfg.xnode_release_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--xnode-block-ms") cfg.xnode_block_ms = static_cast<u32>(std::atoi(val()));
+    else if (k == "--links-generation-min") {
+      // D.2 (docs/CROSS_NODE_EXCHANGE_DESIGN.md 2.1): the operator's floor for
+      // a restored or pre-D.2 data directory. Never lowers the stored value.
+      const char* v = val();
+      char* end = nullptr;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      if (end == v || *end != '\0' || n == 0) {
+        std::fprintf(stderr, "--links-generation-min takes a number above 0\n");
+        return 2;
+      }
+      cfg.links_generation_min = n;
+      std::fprintf(stderr, "snc: --links-generation-min %llu: the links generation is raised to at least this\n", n);
+    }
     else if (k == "--control") {
       if (!control::parse_members(val(), control_members)) {
         std::fprintf(stderr, "--control takes HOST:PORT[,HOST:PORT...]\n");

@@ -1,0 +1,27 @@
+# Step 10 attempt notes (chronological)
+- x29-01: segfault: test harness race (Load thread read Node::eng while restart reset it). Fixed in the harness (life_mu shared_mutex, Load state in shared_ptr). x29-02 pass.
+- X21-01/X13-01: harness: two engines claiming one member listened on the same port (own port came from the cluster map's last match). Fixed (own member -> own port).
+- X21-02: harness: A's Out reached the second instance, so the first's Out was never acknowledged by A and reset itself (mismatch): design behaviour; test pins A's Out to the first instance (retarget).
+- X16-01/02: harness setup: END debt to member 0 needs B's Out moved off member 0 while member 0 still sends; reordered.
+- X25-01: proxy's undelivered counter is not evidence (writes into an RST socket succeed); replaced by B-side counters unchanged across the release.
+- X12: hand-off branch (route_emit tagged && owner != id_) unreachable with the account type: a tagged reply targets its item's source; a moved source makes the item stale first (emits_stale). Disclosed; ND24 expected not caught.
+- X19-02: DEFECT (product): a rejoining links instance (blocked primary, 2.12) met a peer incarnation equal to the shard-kept highest; admit_incarnation returned early and left the new entry's inc 0, so no SYNC was ever sent: never bound. Fixed in admit_incarnation.
+- X19 first run (100 ms bit delay, once in 5): DEFECT (product): set_blocked pushed the bit only on identified Outs with room; under steady traffic no idle heartbeat followed, so a connection that could not take it at that instant carried it late. Fixed: per-connection blocked_sent; liveness sends the bit as soon as the connection can take it. 6/6 runs after: 0-2 ms.
+- X1/X11: first version never paused B's link reads (held 0); B given a 32 KiB WAL buffer budget, X 256, L 8: pauses 1, held peak 8 = L.
+- git checkout CMakeLists.txt by mistake reverted uncommitted test registration; restored by hand (test_xnode, timeout, test_xnode_proc).
+- negatives attempt1 (HEAD 8ef83d3): 27/37 caught; NOT CAUGHT: ND3 ND10 ND12 ND18 ND20 ND24 ND29 ND30 ND34 ND35. Analysis per mutation:
+  - ND3/ND12: defense-in-depth checks behind the nonce (only the acceptor knows a conn) and the fencing; no honest peer produces those frames. Added X30 (proxy injects forged END/SYNC frames into live streams). Caught by X30.
+  - ND18: no test held tagged items at a retirement (X15 purged 0). Added X31 (B's shard 1 WAL held with replies for A; A restarts; purge must happen at once). Caught by X31.
+  - ND20: X15 never checked member 1's own connection. X15 now requires member 1's connection to B unchanged across member 0's restarts. Caught.
+  - ND29: X24's A stopped admitting (accounts full / gate) so no traffic hit the unbound window. X24 now X = 65536, 256 accounts, and requires refused (purged) follow-ups in the windows with pushed 0. Caught.
+  - ND30: masked: the In silence close (T_dead) closed the old In before any new instance, and the per-member In replacement on a Hello closed it too. The fence is only needed when reads are paused (no silence close) and the new incarnation is admitted by its HelloAck. X25 rebuilt that way (B shard 1 paused via WAL hold). Caught.
+  - ND34: X19 bound was T_hb + 30 with T_hb 20: an idle-heartbeat bit (21 ms) passed. X19 now T_hb 80, bit bound T_hb/2: ND34 98 ms. Caught.
+  - ND35: X19 never re-bound while blocked. X19 now cuts A's Out to P 50 ms after the bit (A reconnects while P still has links). Caught.
+  - X19 latent test bug found: bindings_at_bit started at 0, so a bit seen on the first sample counted the earlier binding as "bound while blocked" (1 false failure in ~30 runs). Fixed: initialised before the block.
+  - X19 first recut version cut at once after the bit: the not-bound trigger (bound_ns one quarantine tick, up to T_hb/4, older than blocked_since) fired before the blocked trigger. Cut moved to 50 ms after the bit.
+  - X25 rebuild: first version left the proxy default at HOLD (set() with all=true sets the default; set_open does not reset it), so the new instance's connections were held and silence-closed. Test bug; fixed with set(PASS, PASS).
+  - ND10, ND24: branches unreachable with the account type (stale() drops every emit older than a move of its source or target slot; a reply targets its source). Disclosed, expected not caught.
+- negiter (FROM_WORKTREE, the 9): ND3 X30, ND12 X30, ND18 X31, ND20 X15, ND29 X24, ND30 X25, ND34 X19, ND35 X19 caught; ND10 not (unreachable).
+- negatives attempt2 (cdfca8d): 33/37 caught + ND2b/ND22 now NOT CAUGHT (both caught in attempt1): timing-dependent detection.
+  - ND22 (no resume at binding): masked when B's Out to A happened to reset (heartbeat mismatch while A unbound) after A's binding, making A accept a new In and resume. X22 now T_dead 5000 (no B reset) and requires A's resume after its binding with no new In accepted. 3/3 caught.
+  - ND2b (no END on misroute): misroutes arise in X8 only by a race (4 of 10 runs). X8 now moves the slot back and forth (up to 20) until a misroute is seen and requires one. 3/3 caught.

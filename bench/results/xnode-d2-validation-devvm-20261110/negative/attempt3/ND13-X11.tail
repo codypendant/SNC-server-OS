@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND13/tests/test_xnode.cpp:1798: CHECK failed: closes() == closes0 && resets() == resets0: X11: 0 silence closes, 1 Out resets while paused

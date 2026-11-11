@@ -1,0 +1,126 @@
+head 2c0d1db build=build start 2026-11-11T01:46:17Z /tmp/snc-* 700 free 6.8G
+Internal ctest changing into directory: /home/claude/snc-server-os/build
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/47 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  2: test_object_id
+ 2/47 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/47 Test  #3: test_local_map ...................   Passed    1.31 sec
+      Start  4: test_pages
+ 4/47 Test  #4: test_pages .......................   Passed    0.67 sec
+      Start  5: test_runtime
+ 5/47 Test  #5: test_runtime .....................   Passed    0.18 sec
+      Start  6: test_execute
+ 6/47 Test  #6: test_execute .....................   Passed    0.13 sec
+      Start  7: test_persistence
+ 7/47 Test  #7: test_persistence .................   Passed    0.61 sec
+      Start  8: test_crash
+ 8/47 Test  #8: test_crash .......................   Passed    0.91 sec
+      Start  9: test_net
+ 9/47 Test  #9: test_net .........................   Passed    0.34 sec
+      Start 10: test_transfer
+10/47 Test #10: test_transfer ....................   Passed    3.52 sec
+      Start 11: test_replication
+11/47 Test #11: test_replication .................   Passed   16.29 sec
+      Start 12: test_cluster
+12/47 Test #12: test_cluster .....................   Passed    5.48 sec
+      Start 13: test_migrate
+13/47 Test #13: test_migrate .....................   Passed   35.41 sec
+      Start 14: test_resend_refusals
+14/47 Test #14: test_resend_refusals .............   Passed    0.20 sec
+      Start 15: test_proof
+15/47 Test #15: test_proof .......................   Passed    1.21 sec
+      Start 16: test_placement
+16/47 Test #16: test_placement ...................   Passed    0.32 sec
+      Start 17: test_stage_chain
+17/47 Test #17: test_stage_chain .................   Passed    8.27 sec
+      Start 18: test_gauges
+18/47 Test #18: test_gauges ......................   Passed    0.78 sec
+      Start 19: test_s1_admission
+19/47 Test #19: test_s1_admission ................   Passed    7.42 sec
+      Start 20: test_s2_pacing
+20/47 Test #20: test_s2_pacing ...................   Passed    4.33 sec
+      Start 21: test_s3_writeback
+21/47 Test #21: test_s3_writeback ................   Passed   22.64 sec
+      Start 22: test_lifecycle
+22/47 Test #22: test_lifecycle ...................   Passed    8.21 sec
+      Start 23: test_s4_sync_tokens
+23/47 Test #23: test_s4_sync_tokens ..............   Passed   45.69 sec
+      Start 24: test_admin_loop
+24/47 Test #24: test_admin_loop ..................   Passed    1.24 sec
+      Start 25: test_wal_capacity
+25/47 Test #25: test_wal_capacity ................   Passed    0.32 sec
+      Start 26: test_intake
+26/47 Test #26: test_intake ......................   Passed    2.55 sec
+      Start 27: test_xnode
+27/47 Test #27: test_xnode .......................   Passed   63.47 sec
+      Start 28: test_witness
+28/47 Test #28: test_witness .....................   Passed   25.18 sec
+      Start 29: test_async_failover
+29/47 Test #29: test_async_failover ..............   Passed   14.14 sec
+      Start 30: test_control
+30/47 Test #30: test_control .....................   Passed    1.69 sec
+      Start 31: test_health
+31/47 Test #31: test_health ......................   Passed  155.27 sec
+      Start 32: test_gauges_admin
+32/47 Test #32: test_gauges_admin ................   Passed    4.09 sec
+      Start 33: test_fail_closed
+33/47 Test #33: test_fail_closed .................   Passed  226.86 sec
+      Start 34: test_s1
+34/47 Test #34: test_s1 ..........................   Passed   62.68 sec
+      Start 35: test_profile_check
+35/47 Test #35: test_profile_check ...............   Passed    0.40 sec
+      Start 36: test_baseline_retry
+36/47 Test #36: test_baseline_retry ..............***Failed  343.71 sec
+PASS q1_kill {"promoted_s": 0.98, "bench": {"rc": 0, "exited_after_s": 15.08, "failovers": 2, "replayed": 108, "timeouts": 0, "resends": 64, "max_resend_age_ms": 998, "accounts": 2000, "deposits": 1634800, "mismatches": 0, "ops_s": 108980, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 108980  (exec 1634800 + index 0 in 15.00s)  served_all 1634800", "  total latency ns  n 1634800  p50 442368  p95 983040  p99 1605632  p99.9 3670016  max 1474714400", "  deposit latency ns  n 1634800  p50 442368  p95 983040  p99 1605632  p99.9 3670016  max 1474714400", "  failovers 2  replayed 108  timeouts 0  resends 64  max_resend_age_ms 998", "  retry claim: max_resend_age_ms 998, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 1634800 deposits, 0 mismatches"]}, "pass": true, "scenario": "q1_kill", "seconds": 16.0}
+PASS q1_stop {"promoted_s": 1.04, "bench": {"rc": 0, "exited_after_s": 20.05, "failovers": 2, "replayed": 124, "timeouts": 2, "resends": 64, "max_resend_age_ms": 10117, "accounts": 2000, "deposits": 1182327, "mismatches": 0, "ops_s": 59113, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 59113  (exec 1182327 + index 0 in 20.00s)  served_all 1182327", "  total latency ns  n 1182327  p50 442368  p95 983040  p99 1638400  p99.9 4849664  max 10117429557", "  deposit latency ns  n 1182327  p50 442368  p95 983040  p99 1638400  p99.9 4849664  max 10117429557", "  failovers 2  replayed 124  timeouts 2  resends 64  max_resend_age_ms 10117", "  retry claim: max_resend_age_ms 10117, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 1182327 deposits, 0 mismatches"]}, "old_primary_role": "f", "pass": true, "scenario": "q1_stop", "seconds": 20.9}
+PASS q1_stall {"primary_after": 0, "bench": {"rc": 0, "exited_after_s": 20.06, "failovers": 2, "replayed": 126, "timeouts": 2, "resends": 64, "max_resend_age_ms": 7003, "accounts": 2000, "deposits": 952099, "mismatches": 0, "ops_s": 47601, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 47601  (exec 952099 + index 0 in 20.00s)  served_all 952099", "  total latency ns  n 952099  p50 753664  p95 1605632  p99 2293760  p99.9 4980736  max 7003606891", "  deposit latency ns  n 952099  p50 753664  p95 1605632  p99 2293760  p99.9 4980736  max 7003606891", "  failovers 2  replayed 126  timeouts 2  resends 64  max_resend_age_ms 7003", "  retry claim: max_resend_age_ms 7003, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 952099 deposits, 0 mismatches"]}, "pass": true, "scenario": "q1_stall", "seconds": 21.0}
+PASS q5_kill_kill {"second_failure_waits_for_catch_up": true, "first_promoted_s": 0.94, "term_1": 1, "rejoin_delay_s": 0.0, "witness_state_at_rejoin": [4, 1, 1, true], "rejoined_standby_s": 0.02, "witness_state_at_second_failure": [6, 1, 1, false], "caught_up_s": 1.26, "ready_s": 1.26, "node1_unacked_at_second_failure": 122, "second_promoted_s": 0.93, "term_2": 2, "bench": {"rc": 0, "exited_after_s": 45.04, "failovers": 4, "replayed": 176, "timeouts": 0, "resends": 256, "max_resend_age_ms": 937, "accounts": 2000, "deposits": 9483861, "mismatches": 0, "ops_s": 210749, "errors": 0, "retry_claim_limit_ms": 360000, "retry_claim": "valid", "tail": ["  total ops/s 210749  (exec 9483861 + index 0 in 45.00s)  served_all 9483861", "  total latency ns  n 9483861  p50 466944  p95 1081344  p99 1671168  p99.9 3538944  max 1445523020", "  deposit latency ns  n 9483861  p50 466944  p95 1081344  p99 1671168  p99.9 3538944  max 1445523020", "  failovers 4  replayed 176  timeouts 0  resends 256  max_resend_age_ms 937", "  retry claim: max_resend_age_ms 937, limit 360000 (TTL 3600 s / 10): valid", "  verify: 2000 accounts, 9483861 deposits, 0 mismatches"]}, "pass": true, "scenario": "q5_kill_kill", "seconds": 47.8}
+PASS q5_catchup_race {"second_failure_waits_for_catch_up": false, "first_promoted_s": 0.99, "term_1": 1, "rejoin_delay_s": 0.0, "witness_state_at_rejoin": [4, 1, 1, true], "rejoined_standby_s": 0.02, "witness_state_at_second_failure": [4, 1, 1, true], "node1_unacked_at_second_failure": 831248, "second_promoted_s": null, "term_2": null, "bench": {"rc": 1, "exited_after_s": 45.07, "tail": ["thread 0: failover: no primary answered: a standby: Resource temporarily unavailable"]}, "no_promotion_while_catching_up": true, "pass": true, "scenario": "q5_catchup_race", "seconds": 45.5}
+FAIL b3_stalled_catchup {"caught_up": false, "peak_rss_mib": 349, "max_disk_readers": 2, "disk_queued_hwm_mib": 32.0, "disk_started": 652, "disk_stopped_on_cancel": 38, "at_end": {"rss_kb": 150648, "repl_retained": 33532920, "wal_unacked": 231094, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 652, "disk_stopped_on_cancel": 38}, "stopped_acking": 38, "witness_state_when_caught_up": [6, 1, 1, true], "ready": false, "ready_after_caught_up_s": 30.03, "second_promoted": false, "bench": {"rc": 1, "exited_after_s": 172.3, "tail": []}, "checks": {"cancel_path_exercised": true, "readers_bounded": true, "read_ahead_bounded": true, "rss_bounded": true, "caught_up_no_reader_left": false, "ready_before_failover": false, "exact_after_failover": false}, "series": [{"rss_kb": 58480, "repl_retained": 33538008, "wal_unacked": 4746968, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 0, "disk_started": 0, "disk_stopped_on_cancel": 0}, {"rss_kb": 163516, "repl_retained": 33542376, "wal_unacked": 4793222, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 4, "disk_stopped_on_cancel": 4}, {"rss_kb": 165056, "repl_retained": 33553488, "wal_unacked": 4510512, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 8, "disk_stopped_on_cancel": 8}, {"rss_kb": 79984, "repl_retained": 33546240, "wal_unacked": 3765962, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 12, "disk_stopped_on_cancel": 12}, {"rss_kb": 161288, "repl_retained": 33549768, "wal_unacked": 3547434, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 16, "disk_stopped_on_cancel": 16}, {"rss_kb": 163572, "repl_retained": 33549984, "wal_unacked": 3135322, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 20, "disk_stopped_on_cancel": 20}, {"rss_kb": 164832, "repl_retained": 33554136, "wal_unacked": 2711042, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 24, "disk_stopped_on_cancel": 24}, {"rss_kb": 163044, "repl_retained": 33547992, "wal_unacked": 2444760, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 28, "disk_stopped_on_cancel": 28}, {"rss_kb": 229492, "repl_retained": 33544056, "wal_unacked": 2200252, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 32, "disk_stopped_on_cancel": 32}, {"rss_kb": 234352, "repl_retained": 33545568, "wal_unacked": 2308634, "disk_readers": 0, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 36, "disk_stopped_on_cancel": 36}, {"rss_kb": 205676, "repl_retained": 33547752, "wal_unacked": 1725114, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 40, "disk_stopped_on_cancel": 38}, {"rss_kb": 205588, "repl_retained": 33541200, "wal_unacked": 456838, "disk_readers": 2, "disk_queued": 0, "disk_queued_hwm": 33558528, "disk_started": 44, "disk_stopped_on_cancel": 38}, 
+PASS r11_guard {"promoted": true, "bench": {"rc": 3, "exited_after_s": 15.06, "failovers": 2, "replayed": 75, "timeouts": 0, "resends": 64, "max_resend_age_ms": 1071, "accounts": 2000, "deposits": 1492577, "mismatches": 0, "ops_s": 99500, "errors": 0, "retry_claim_limit_ms": 100, "retry_claim": "INVALID", "tail": ["  total ops/s 99500  (exec 1492577 + index 0 in 15.00s)  served_all 1492577", "  total latency ns  n 1492577  p50 458752  p95 1032192  p99 1671168  p99.9 5111808  max 1532296627", "  deposit latency ns  n 1492577  p50 458752  p95 1032192  p99 1671168  p99.9 5111808  max 1532296627", "  failovers 2  replayed 75  timeouts 0  resends 64  max_resend_age_ms 1071", "  retry claim: max_resend_age_ms 1071, limit 100 (TTL 1 s / 10): INVALID", "  verify: 2000 accounts, 1492577 deposits, 0 mismatches"]}, "pass": true, "scenario": "r11_guard", "seconds": 15.9}
+test_baseline_retry: FAILED ['b3_stalled_catchup']
+
+      Start 37: test_sync_readiness
+37/47 Test #37: test_sync_readiness ..............   Passed  314.55 sec
+      Start 38: test_baseline_move
+38/47 Test #38: test_baseline_move ...............   Passed  112.88 sec
+      Start 39: test_xnode_proc
+39/47 Test #39: test_xnode_proc ..................   Passed   51.95 sec
+      Start 40: test_baseline_ha
+40/47 Test #40: test_baseline_ha .................   Passed  125.66 sec
+      Start 41: test_ready_order
+41/47 Test #41: test_ready_order .................   Passed  150.59 sec
+      Start 42: test_paxos_ballots
+42/47 Test #42: test_paxos_ballots ...............***Failed   23.98 sec
+PASS c3_ordinary_restart {"before": [114839257582720, 114839257582848, 114839257620416, 114839257655808, 114839257712384], "after_restart": 114839257735552, "above_all": true, "pass": true, "scenario": "c3_ordinary_restart", "seconds": 3.0}
+PASS c1_rollback_reuse {"B": 114839257873216, "B_counter": 1794363404269, "accepted_before_restart": {"0": {"chosen": "1 X", "open": "2", "promised": "0", "accepted": "0 0 -"}, "1": {"chosen": "0 -", "open": "1", "promised": "114839257873216", "accepted": "114839257873216 1 X"}, "2": {"chosen": "0 -", "open": "1", "promised": "114839257873216", "accepted": "114839257873216 1 X"}}, "offset_ms": -323, "first_after_restart": 114839257863808, "generated": 149, "reused_at_or_below_B": 148, "B_itself_generated": true, "pass": true, "scenario": "c1_rollback_reuse", "seconds": 2.4}
+PASS c2a_reuse_over_chosen {"B": 114839257920192, "promises": ["PROMISE 0 0 -", "PROMISE 0 0 -"], "accept_x": ["ACCEPTED", "ACCEPTED"], "reply": "OK v=2 ballots=114839257920192,114839257920256,114839257931648", "ballots": [114839257920192, 114839257920256, 114839257931648], "first_ballot_is_B": true, "chosen": [[2, "Y"], [2, "Y"], [2, "Y"]], "acceptors": {"0": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}, "1": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}, "2": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}}, "conflicts": {}, "pass": true, "scenario": "c2a_reuse_over_chosen", "seconds": 2.3}
+PASS c2l_reuse_after_learning {"B": 114839258083968, "reply": "OK v=2 ballots=114839258083968,114839258115136", "ballots": [114839258083968, 114839258115136], "first_ballot_is_B": true, "chosen": [[2, "Y"], [2, "Y"], [2, "Y"]], "acceptors": {"0": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}, "1": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}, "2": {"chosen": "2 Y", "open": "3", "promised": "0", "accepted": "0 0 -"}}, "conflicts": {}, "pass": true, "scenario": "c2l_reuse_after_learning", "seconds": 3.1}
+FAIL c2b_reuse_over_minority_accept {"B": 114839258260032, "promises": ["PROMISE 0 0 -", "PROMISE 0 0 -"], "accepted_by_0": "ACCEPTED", "reply": "NO no quorum ballots=114839258260032,114839258264192,114839258317888,114839258354496,114839258441920", "ballots": [114839258260032, 114839258264192, 114839258317888, 114839258354496, 114839258441920], "first_ballot_is_B": true, "chosen": [[0, "-"], [0, "-"], [0, "-"]], "acceptors": {"0": {"chosen": "0 -", "open": "1", "promised": "114839258441920", "accepted": "114839258441920 1 X"}, "1": {"chosen": "0 -", "open": "1", "promised": "114839258441920", "accepted": "114839258441920 1 X"}, "2": {"chosen": "0 -", "open": "1", "promised": "114839258441920", "accepted": "114839258441920 1 X"}}, "conflicts": {}, "pass": false, "scenario": "c2b_reuse_over_minority_accept", "seconds": 6.0}
+PASS c2x_accept_without_phase1 {"B": 114839258707008, "promises": ["PROMISE 0 0 -", "PROMISE 0 0 -"], "accept_x": ["ACCEPTED", "ACCEPTED"], "second_prepare_at_B": ["NACK 114839258707008", "PROMISE 0 0 -"], "accept_y": ["ACCEPTED", "ACCEPTED"], "acceptors": {"0": {"chosen": "0 -", "open": "1", "promised": "114839258707008", "accepted": "114839258707008 1 X"}, "1": {"chosen": "0 -", "open": "1", "promised": "114839258707008", "accepted": "114839258707008 1 Y"}, "2": {"chosen": "0 -", "open": "1", "promised": "114839258707008", "accepted": "114839258707008 1 Y"}}, "second_phase1_majority": false, "y_accepted_by_majority": true, "pass": true, "scenario": "c2x_accept_without_phase1", "seconds": 2.0}
+PASS c4a_restored_directory {"x": "OK v=1 ballots=114839258801728,114839258833472,114839258858944", "w1_accepted_x": {"chosen": "0 -", "open": "1", "promised": "114839258858944", "accepted": "114839258858944 1 X"}, "restored": "snapshot before X", "restart_without_new_state_exit": null, "y": "OK v=1 ballots=114839258882433", "chosen": [[1, "X"], [1, "Y"], [1, "Y"]], "conflicts": {"1": ["X", "Y"]}, "two_values_chosen": true, "pass": true, "scenario": "c4a_restored_directory", "seconds": 2.4}
+PASS c4b_wiped_state {"x": "OK v=1 ballots=114839258949440", "w1_accepted_x": {"chosen": "0 -", "open": "1", "promised": "114839258949440", "accepted": "114839258949440 1 X"}, "restored": "deleted", "restart_without_new_state_exit": 2, "y": "OK v=1 ballots=114839259015681", "chosen": [[1, "X"], [1, "Y"], [1, "Y"]], "conflicts": {"1": ["X", "Y"]}, "two_values_chosen": true, "pass": true, "scenario": "c4b_wiped_state", "seconds": 2.7}
+test_paxos_ballots: FAILED ['c2b_reuse_over_minority_accept']
+
+      Start 43: test_witness_hardening
+43/47 Test #43: test_witness_hardening ...........   Passed    8.51 sec
+      Start 44: test_lab_witness_guard
+44/47 Test #44: test_lab_witness_guard ...........   Passed   15.86 sec
+      Start 45: test_index_wire
+45/47 Test #45: test_index_wire ..................   Passed    1.75 sec
+      Start 46: test_pilot
+46/47 Test #46: test_pilot .......................   Passed    0.07 sec
+      Start 47: test_net_bench_rate
+47/47 Test #47: test_net_bench_rate ..............   Passed   15.76 sec
+
+96% tests passed, 2 tests failed out of 47
+
+Total Test time (real) = 1887.13 sec
+
+The following tests FAILED:
+	 36 - test_baseline_retry (Failed)
+	 42 - test_paxos_ballots (Failed)
+Errors while running CTest
+end 2026-11-11T02:17:45Z rc=8 /tmp/snc-* 700 free 6.8G

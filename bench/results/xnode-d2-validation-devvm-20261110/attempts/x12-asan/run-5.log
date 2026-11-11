@@ -1,0 +1,18 @@
+snc: shard 0: slot 24 sealed for move 121 (1 objects)
+snc: shard 0: slot 24 staged for move 121 (1 objects)
+snc: stage_chain slot=24 move=121 objs=1 status=OK units=3 (check 1 put 0 scan 1 drop 0 stage 1) unit_ms p50=0.490 p95=1.000 p99=1.000 max=1.000 (check) put=1 dropped=0 bytes=1272 window_hw=1272 window_waits=0 scan_restarts=0 shard_ms=1.6 chain_ms=2.6 wait_ms=3.2 listed_entries=1 gone=0 report_units=2 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 121, epoch 2)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 sealed for move 122 (1 objects)
+snc: shard 0: slot 24 staged for move 122 (1 objects)
+snc: stage_chain slot=24 move=122 objs=1 status=OK units=4 (check 1 put 0 scan 2 drop 0 stage 1) unit_ms p50=1.000 p95=1.148 p99=1.148 max=1.149 (scan) put=1 dropped=0 bytes=1144 window_hw=1144 window_waits=0 scan_restarts=0 shard_ms=2.8 chain_ms=4.1 wait_ms=3.1 listed_entries=1 gone=0 report_units=3 report_restarts=0 runs=1
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: placement epoch 2 adopted (was 1)
+snc: shard 0: slot 24 active here (move 122, epoch 2)
+X12a hand-off: A's count 64 (credits held on the wire to B's shard 1) when the source slot moved into B; stale drops 64, hand-off drops 0, tag drops 0, unbound purges at B 0, ENDs sent 90; A's count back to 0; settled, money conserved
+X12b foreign: A's count 64 (credits held on the wire to B's shard 1) when the source slot moved to C, B's link to C down; stale drops 64, hand-off drops 0, tag drops 0, unbound purges at B 92, ENDs sent 72; A's count back to 0; settled, money conserved
+  (X12: 1.0 s)
+test_xnode: ok

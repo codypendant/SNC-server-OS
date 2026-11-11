@@ -1,0 +1,7 @@
+Test project /home/claude/snc-server-os/build-tsan
+    Start 32: test_gauges_admin
+1/1 Test #32: test_gauges_admin ................   Passed    4.76 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   4.76 sec

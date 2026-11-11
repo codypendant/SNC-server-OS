@@ -1,0 +1,10 @@
+base f7dde4e39c6627d15bd52fa7c96a77525d1afd43 2026-11-10T17:42:23Z
+ND2 X12 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork5/src-ND2/tests/test_xnode.cpp:640: CHECK failed: since(t0) < timeout_s: timed out: A's count back to 0
+ND2 X8 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork5/src-ND2/tests/test_xnode.cpp:590: CHECK failed: since(t0) < timeout_s: X8: never settled (node 0 remote_live 0 held 27 end_owed 0 debt 0 live 0 in_flight 0)
+ND2 X3 rc=0 (expected non-zero): 
+ND2 =>  X12 X8
+ND11 X12 rc=1 (expected non-zero): /tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork5/src-ND11/tests/test_xnode.cpp:590: CHECK failed: since(t0) < timeout_s: X12 foreign: never settled (node 1 remote_live 0 held 96 end_owed 0 debt 0 live 0 in
+ND11 =>  X12
+ND24 X12 rc=0 (expected non-zero): 
+ND24 => NOT CAUGHT
+done 2026-11-10T17:45:43Z

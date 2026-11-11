@@ -1,0 +1,7 @@
+Test project /home/claude/snc-server-os/build-tsan
+    Start 27: test_xnode
+1/1 Test #27: test_xnode .......................   Passed  119.65 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) = 119.66 sec

@@ -1,0 +1,4 @@
+X12a hand-off: A's count 64 (credits held on the wire to B's shard 1) when the source slot moved into B; stale drops 64, hand-off drops 0, tag drops 0, unbound purges at B 0, ENDs sent 190; A's count back to 0; settled, money conserved (wire held 58 ms)
+X12b foreign: A's count 64 (credits held on the wire to B's shard 1) when the source slot moved to C, B's link to C down; stale drops 64, hand-off drops 0, tag drops 0, unbound purges at B 96, ENDs sent 167; A's count back to 0; settled, money conserved (wire held 61 ms)
+  (X12: 0.8 s)
+test_xnode: ok

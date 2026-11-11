@@ -1,0 +1,6 @@
+== c2b run 1 free 6.8G
+1/1 Test #42: test_paxos_ballots ...............   Passed    2.07 sec
+== c2b run 2 free 6.8G
+1/1 Test #42: test_paxos_ballots ...............   Passed    2.07 sec
+== c2b run 3 free 6.8G
+1/1 Test #42: test_paxos_ballots ...............   Passed    2.06 sec

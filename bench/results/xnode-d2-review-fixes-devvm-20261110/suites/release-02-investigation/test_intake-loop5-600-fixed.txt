@@ -1,0 +1,4 @@
+test_intake full: 0 failed of 600
+cleaned 0 leaked /tmp/snc-* dirs
+
+[exited with code 0]
