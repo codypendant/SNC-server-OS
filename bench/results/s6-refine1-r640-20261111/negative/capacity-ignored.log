@@ -1,0 +1,7 @@
+A1 commands = S6 + --ckpt-window 1; order; window proof
+A2 references: R 638,976 (limit 958,464), C0 median 4,016,161
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/s6-refine1-r640-20261111/test_refine1.py", line 84, in <module>
+    assert J(session(c_total=(3_815_352,) * 3))["verdict"] == "FAIL"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
