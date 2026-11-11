@@ -16,6 +16,8 @@
 //                   [--admission s1|legacy] [--waiter-budget-bytes N]
 //                   [--wal-buffer-budget-bytes N] [--pending-budget N]
 //                   [--ckpt-pacing on|off] [--ckpt-target-ms N] [--ckpt-max-age-ms N]
+//                   [--ckpt-walk-batch N] [--ckpt-walk-min-us N] [--ckpt-walk-max-us N]
+//                   [--ckpt-walk-ceiling-us N] [--ckpt-walk-step-us N]
 //                   [--ckpt-io legacy|dsync] [--ckpt-window N] [--ckpt-sync-tokens K]
 //                   [--rejoin STANDBY_PORT,PEER_HOST:ADMIN,PEER_HOST:SEED]
 //                   [--cluster GROUP,GROUP,... --group G [--member M]]
@@ -405,6 +407,29 @@ int main(int argc, char** argv) {
       if (k == "--ckpt-target-ms") cfg.ckpt_target_ms = n;
       else cfg.ckpt_max_age_ms = n;
     }
+    else if (k == "--ckpt-walk-batch" || k == "--ckpt-walk-min-us" || k == "--ckpt-walk-max-us" ||
+             k == "--ckpt-walk-ceiling-us" || k == "--ckpt-walk-step-us") {
+      // docs/S2_PACING.md section 5: the walk values, per machine (the R640's
+      // are derived in bench/results/r640-s2-pacing-20261111). Defaults are
+      // Engine::Config's. Digits only: strtoull would take "-5" and " 5".
+      // Times are 1 us to 60 s, the Engine's bound (ckpt::kMaxIntervalNs).
+      const char* v = val();
+      char* end = nullptr;
+      errno = 0;
+      const unsigned long long n = std::strtoull(v, &end, 10);
+      const bool batch = k == "--ckpt-walk-batch";
+      const unsigned long long hi = batch ? 0xffffffffull : 60'000'000ull;
+      if (v[0] < '0' || v[0] > '9' || end == v || *end != '\0' || errno == ERANGE || n == 0 || n > hi) {
+        if (batch) std::fprintf(stderr, "--ckpt-walk-batch takes 1 to %llu\n", hi);
+        else std::fprintf(stderr, "%s takes 1 to %llu microseconds\n", k.c_str(), hi);
+        return 2;
+      }
+      if (batch) cfg.ckpt_walk_batch = static_cast<u32>(n);
+      else if (k == "--ckpt-walk-min-us") cfg.ckpt_walk_min_ns = n * 1000;
+      else if (k == "--ckpt-walk-max-us") cfg.ckpt_walk_max_ns = n * 1000;
+      else if (k == "--ckpt-walk-ceiling-us") cfg.ckpt_walk_ceiling_ns = n * 1000;
+      else cfg.ckpt_walk_step_ns = n * 1000;
+    }
     else if (k == "--ckpt-io") {
       // docs/S3_WRITEBACK.md: dsync (default, windowed RWF_DSYNC chunks) or
       // legacy, the write path before S3.
@@ -745,6 +770,16 @@ int main(int argc, char** argv) {
                  (unsigned long long)cfg.ckpt_target_ms, (unsigned long long)cfg.ckpt_max_age_ms);
     return 2;
   }
+  // The walk values as they will be used (flags over defaults). Checked here
+  // so an inconsistent set exits 2 rather than throwing from Engine::Engine.
+  if (!(cfg.ckpt_walk_min_ns <= cfg.ckpt_walk_max_ns && cfg.ckpt_walk_max_ns <= cfg.ckpt_walk_ceiling_ns)) {
+    std::fprintf(stderr,
+                 "checkpoint walk: need min <= max <= ceiling (min %llu us, max %llu us, ceiling %llu us; "
+                 "--ckpt-walk-min-us, --ckpt-walk-max-us, --ckpt-walk-ceiling-us)\n",
+                 (unsigned long long)cfg.ckpt_walk_min_ns / 1000, (unsigned long long)cfg.ckpt_walk_max_ns / 1000,
+                 (unsigned long long)cfg.ckpt_walk_ceiling_ns / 1000);
+    return 2;
+  }
   Engine eng(cfg);
   try {
     eng.start();
@@ -768,6 +803,14 @@ int main(int argc, char** argv) {
               cfg.runtime.n_shards, ncfg.base_port, ncfg.base_port + cfg.runtime.n_shards - 1,
               cfg.data_dir.empty() ? "none (in memory)" : "DURABLE (WAL, RWF_DSYNC)",
               cfg.mint_local);
+  // The effective checkpoint pacing (docs/S2_PACING.md), so every log
+  // records the values a run used.
+  std::printf("ckpt_pacing: pacing=%s batch=%u min_us=%llu max_us=%llu ceiling_us=%llu step_us=%llu "
+              "update_us=%llu target_ms=%llu max_age_ms=%llu\n",
+              cfg.ckpt_pacing ? "on" : "off", cfg.ckpt_walk_batch, (unsigned long long)cfg.ckpt_walk_min_ns / 1000,
+              (unsigned long long)cfg.ckpt_walk_max_ns / 1000, (unsigned long long)cfg.ckpt_walk_ceiling_ns / 1000,
+              (unsigned long long)cfg.ckpt_walk_step_ns / 1000, (unsigned long long)cfg.ckpt_pace_update_ns / 1000,
+              (unsigned long long)cfg.ckpt_target_ms, (unsigned long long)cfg.ckpt_max_age_ms);
   if (!cfg.cluster.empty()) {
     const ClusterMap& m = eng.cluster();
     u32 lo = kSlots, hi = 0;

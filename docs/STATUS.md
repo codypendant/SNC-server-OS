@@ -137,7 +137,14 @@ Decided by cody on 2026-11-04.
      and ceiling (250) are not supported on the R640. snc_server has no
      flag for the walk values, so a flags-only change needs review before
      S6. The S6 preregistration, [S6_PREREG.md](S6_PREREG.md), is
-     **for review; no S6 data, not GO**. No CP-1A, comparators or
+     **for review; no S6 data, not GO**. PR #98 merged after its final review
+     ([handoff/PR98_S2_Pacing_S6_Prereg_Final_Review.md](handoff/PR98_S2_Pacing_S6_Prereg_Final_Review.md)):
+     the characterization and the 20/65/155/5/batch-16 values are APPROVED,
+     as are max age 60,000 ms, the pre-S1 comparator 389b623 (run with the
+     current net_bench) and 100 ms controller sampling. **S6 NOT GO.** Its
+     section 7, the snc_server walk flags, is done and returned for review
+     ([bench/results/s6-pacing-cli-20261111/](../bench/results/s6-pacing-cli-20261111/README.md));
+     after it merges, section 8 (bench/s6.py and the final prereg freeze). No CP-1A, comparators or
      CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

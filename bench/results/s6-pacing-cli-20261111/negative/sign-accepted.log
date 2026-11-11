@@ -1,0 +1,22 @@
+C1 defaults unchanged: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '100', 'ceiling_us': '250', 'step_us': '10', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '300000'}
+C2 S6 set: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '65', 'ceiling_us': '155', 'step_us': '5', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '60000'}
+C3 each flag alone: ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 138, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 114, in main
+    refused(flag, bad)
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 45, in refused
+    r = subprocess.run([SERVER, "--shards", "1", "--port", str(free_port()), *flags],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 550, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1209, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2116, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/usr/lib/python3.12/subprocess.py", line 1253, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['build-s6/snc_server', '--shards', '1', '--port', '57551', '--ckpt-walk-batch', ' 5']' timed out after 30 seconds

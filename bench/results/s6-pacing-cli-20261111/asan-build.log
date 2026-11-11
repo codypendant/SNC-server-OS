@@ -1,0 +1,111 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (0.5s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/solo/SNC-server-OS/build-asan
+[1/99] Building CXX object CMakeFiles/snc_core.dir/src/core/pages.cpp.o
+[2/99] Building CXX object CMakeFiles/snc_core.dir/src/core/wal_format.cpp.o
+[3/99] Building CXX object CMakeFiles/test_rate_schedule.dir/tests/test_rate_schedule.cpp.o
+[4/99] Building CXX object CMakeFiles/snc_core.dir/src/core/session.cpp.o
+[5/99] Building CXX object CMakeFiles/snc_core.dir/src/core/slot_state.cpp.o
+[6/99] Building CXX object CMakeFiles/snc_core.dir/src/core/allocator.cpp.o
+[7/99] Building CXX object CMakeFiles/test_pages.dir/tests/test_pages.cpp.o
+[8/99] Building CXX object CMakeFiles/snc_core.dir/src/core/object_id.cpp.o
+[9/99] Building CXX object CMakeFiles/snc_core.dir/src/core/registry.cpp.o
+[10/99] Building CXX object CMakeFiles/test_object_id.dir/tests/test_object_id.cpp.o
+[11/99] Building CXX object CMakeFiles/snc_core.dir/src/core/links_generation.cpp.o
+[12/99] Building CXX object CMakeFiles/snc_core.dir/src/core/cluster.cpp.o
+[13/99] Building CXX object CMakeFiles/snc_core.dir/src/net/conn_set.cpp.o
+[14/99] Building CXX object CMakeFiles/snc_core.dir/src/net/cluster_client.cpp.o
+[15/99] Building CXX object CMakeFiles/test_local_map.dir/tests/test_local_map.cpp.o
+[16/99] Building CXX object CMakeFiles/test_runtime.dir/tests/test_runtime.cpp.o
+[17/99] Building CXX object CMakeFiles/snc_core.dir/src/types/account.cpp.o
+[18/99] Building CXX object CMakeFiles/snc_core.dir/src/net/server.cpp.o
+[19/99] Building CXX object CMakeFiles/snc_core.dir/src/core/seed.cpp.o
+[20/99] Building CXX object CMakeFiles/snc_core.dir/src/core/placement.cpp.o
+[21/99] Building CXX object CMakeFiles/test_crash.dir/tests/test_crash.cpp.o
+[22/99] Building CXX object CMakeFiles/snc_core.dir/src/core/node_link.cpp.o
+[23/99] Building CXX object CMakeFiles/test_resend_refusals.dir/tests/test_resend_refusals.cpp.o
+[24/99] Building CXX object CMakeFiles/test_net.dir/tests/test_net.cpp.o
+[25/99] Building CXX object CMakeFiles/snc_core.dir/src/core/replication.cpp.o
+[26/99] Building CXX object CMakeFiles/test_execute.dir/tests/test_execute.cpp.o
+[27/99] Building CXX object CMakeFiles/test_proof.dir/tests/test_proof.cpp.o
+[28/99] Building CXX object CMakeFiles/snc_core.dir/src/core/storage.cpp.o
+[29/99] Building CXX object CMakeFiles/test_wal_capacity.dir/tests/test_wal_capacity.cpp.o
+[30/99] Building CXX object CMakeFiles/snc_core.dir/src/net/client.cpp.o
+[31/99] Building CXX object CMakeFiles/snc_core.dir/src/native/runtime.cpp.o
+[32/99] Building CXX object CMakeFiles/test_placement.dir/tests/test_placement.cpp.o
+[33/99] Building CXX object CMakeFiles/test_persistence.dir/tests/test_persistence.cpp.o
+[34/99] Building CXX object CMakeFiles/test_transfer.dir/tests/test_transfer.cpp.o
+[35/99] Building CXX object CMakeFiles/test_gauges.dir/tests/test_gauges.cpp.o
+[36/99] Building CXX object CMakeFiles/test_stage_chain.dir/tests/test_stage_chain.cpp.o
+[37/99] Building CXX object CMakeFiles/test_admin_loop.dir/tests/test_admin_loop.cpp.o
+[38/99] Building CXX object CMakeFiles/ckpt_writeback_char.dir/bench/ckpt_writeback_char.cpp.o
+[39/99] Linking CXX executable ckpt_writeback_char
+[40/99] Building CXX object CMakeFiles/ckpt_walk_cost.dir/bench/ckpt_walk_cost.cpp.o
+[41/99] Building CXX object CMakeFiles/test_s2_pacing.dir/tests/test_s2_pacing.cpp.o
+[42/99] Building CXX object CMakeFiles/test_s3_writeback.dir/tests/test_s3_writeback.cpp.o
+[43/99] Building CXX object CMakeFiles/stage_stall.dir/bench/stage_stall.cpp.o
+[44/99] Building CXX object CMakeFiles/snc_bench.dir/bench/snc_bench.cpp.o
+[45/99] Building CXX object CMakeFiles/baseline_server.dir/bench/baseline_server.cpp.o
+[46/99] Building CXX object CMakeFiles/test_s4_sync_tokens.dir/tests/test_s4_sync_tokens.cpp.o
+[47/99] Building CXX object CMakeFiles/test_lifecycle.dir/tests/test_lifecycle.cpp.o
+[48/99] Building CXX object CMakeFiles/test_replication.dir/tests/test_replication.cpp.o
+[49/99] Building CXX object CMakeFiles/baseline_bench.dir/bench/baseline_bench.cpp.o
+[50/99] Building CXX object CMakeFiles/test_s1_admission.dir/tests/test_s1_admission.cpp.o
+[51/99] Building CXX object CMakeFiles/test_intake.dir/tests/test_intake.cpp.o
+[52/99] Building CXX object CMakeFiles/net_bench.dir/bench/net_bench.cpp.o
+[53/99] Building CXX object CMakeFiles/snc_ctl.dir/tools/snc_ctl.cpp.o
+[54/99] Building CXX object CMakeFiles/snc_witness.dir/tools/snc_witness.cpp.o
+[55/99] Linking CXX executable snc_witness
+[56/99] Building CXX object CMakeFiles/snc_load.dir/bench/snc_load.cpp.o
+[57/99] Building CXX object CMakeFiles/snc_core.dir/src/core/engine.cpp.o
+[58/99] Building CXX object CMakeFiles/test_cluster.dir/tests/test_cluster.cpp.o
+[59/99] Building CXX object CMakeFiles/snc_core.dir/src/core/shard.cpp.o
+[60/99] Building CXX object CMakeFiles/test_migrate.dir/tests/test_migrate.cpp.o
+[61/99] Building CXX object CMakeFiles/snc_server.dir/tools/snc_server.cpp.o
+[62/99] Linking CXX static library libsnc_core.a
+[63/99] Linking CXX executable test_rate_schedule
+[64/99] Linking CXX executable test_object_id
+[65/99] Linking CXX executable test_pages
+[66/99] Linking CXX executable test_local_map
+[67/99] Linking CXX executable test_admin_loop
+[68/99] Linking CXX executable test_runtime
+[69/99] Linking CXX executable baseline_bench
+[70/99] Linking CXX executable baseline_server
+[71/99] Linking CXX executable test_placement
+[72/99] Linking CXX executable test_wal_capacity
+[73/99] Linking CXX executable net_bench
+[74/99] Linking CXX executable snc_load
+[75/99] Linking CXX executable snc_ctl
+[76/99] Linking CXX executable test_execute
+[77/99] Linking CXX executable test_resend_refusals
+[78/99] Linking CXX executable test_crash
+[79/99] Linking CXX executable test_proof
+[80/99] Linking CXX executable test_stage_chain
+[81/99] Linking CXX executable snc_bench
+[82/99] Linking CXX executable test_persistence
+[83/99] Linking CXX executable test_transfer
+[84/99] Linking CXX executable test_intake
+[85/99] Linking CXX executable test_gauges
+[86/99] Linking CXX executable test_s3_writeback
+[87/99] Linking CXX executable test_lifecycle
+[88/99] Linking CXX executable test_s4_sync_tokens
+[89/99] Linking CXX executable test_s2_pacing
+[90/99] Linking CXX executable test_replication
+[91/99] Linking CXX executable test_net
+[92/99] Linking CXX executable stage_stall
+[93/99] Linking CXX executable ckpt_walk_cost
+[94/99] Linking CXX executable test_s1_admission
+[95/99] Linking CXX executable snc_server
+[96/99] Linking CXX executable test_migrate
+[97/99] Linking CXX executable test_cluster
+[98/99] Building CXX object CMakeFiles/test_xnode.dir/tests/test_xnode.cpp.o
+[99/99] Linking CXX executable test_xnode

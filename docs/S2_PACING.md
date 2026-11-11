@@ -40,7 +40,7 @@ before. So is the loop order (section 2).
 | Config, with validation in `Engine::Engine` (`std::invalid_argument`) | `Engine::Config::ckpt_*` (`include/snc/snc.h`); `src/core/engine.cpp` |
 | 17 gauges (section 4) | `include/snc/gauges.h`; `Shard::publish_gauges` |
 | HEALTH: `ckpt_state`, `ckpt_past_target`, `ckpt_catchup` (worst shard) | `tools/snc_server.cpp` |
-| Server flags `--ckpt-pacing on\|off`, `--ckpt-target-ms N`, `--ckpt-max-age-ms N` | `tools/snc_server.cpp` |
+| Server flags `--ckpt-pacing on\|off`, `--ckpt-target-ms N`, `--ckpt-max-age-ms N`; the walk values `--ckpt-walk-batch N`, `--ckpt-walk-min-us N`, `--ckpt-walk-max-us N`, `--ckpt-walk-ceiling-us N`, `--ckpt-walk-step-us N` (added for the R640, PR #98 review section 7; defaults unchanged; the effective values are printed at startup as `ckpt_pacing: ...`) | `tools/snc_server.cpp`, `tests/test_ckpt_cli.py` |
 | Test hook `Engine::debug_ckpt_walk_limit(n)`: the walk visits no index ≥ n | `src/core/shard.cpp` |
 | Measurement tool for the defaults | `bench/ckpt_walk_cost.cpp` |
 
