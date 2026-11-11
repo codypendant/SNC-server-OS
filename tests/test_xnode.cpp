@@ -739,31 +739,95 @@ void x3_forward_drop() {
 // against the proxy's count of counted frames delivered on it.
 void x4_return_drop() {
   Net net;
+  // The forced cycle holds A's frames to B for about 150 ms: backpressure,
+  // not death (T_dead) and not a release (T_release).
+  net.dead_ms = 1000;
+  net.release_ms = 3000;
+  net.block_ms = 1000;
   net.build({{0, 0}, {1, 0}});
   net.start_all();
   Ledger L = make_ledger(net, 8);
   wait_until([&] { return bound_to(*net.nodes[0].eng, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0); }, "bound");
   clear_probes();
   u64 nonzero = 0;
-  // A SYNC that subsumed owed ENDs (ND7: they must not go again). At least
-  // 10 cuts, and more until one such SYNC was pushed (most runs: at once).
+  // A SYNC that subsumed owed ENDs (ND7: they must not go again).
   auto subsumed = [] {
     u64 n = 0;
     for (const auto& p : probes()) n += p.barrier && p.end_owed_cleared > 0;
     return n;
   };
   int cycles = 0;
+  const u64 inc_b = entry(*net.nodes[0].eng, 1, 0).e.inc;
+  u64 subsumed_before = 0;
+  int attempts = 0;
   {
     Load ab(net, L, 0, 1), ba(net, L, 1, 0);
-    for (; cycles < 10 || (subsumed() == 0 && cycles < 60); ++cycles) {
+    for (; cycles < 10; ++cycles) {
       sleep_ms(80);
       const u64 old = out_conn(*net.nodes[1].eng, 0);
       net.px(1, 0).cut();
       wait_rebound(*net.nodes[1].eng, 0, 0, old, "rebound");
       check_zero_counters(net.nodes[0], "X4 cycle");
     }
+    // Then one cut that leaves ENDs owed when the next binding's SYNC goes,
+    // every time (by chance the cuts above do it in some runs only: a TSan
+    // suite had none in 60). B's Out connection to A takes no frame for a
+    // while, so B's tagged replies to A wait in its link queue; the cut
+    // drops them (unbound purge, an END owed for each). A's frames to B are
+    // held meanwhile, so A's SYNC naming B's new connection comes after
+    // B's HelloAck: B is identified but not yet bound, so it cannot push
+    // the ENDs first (the other order, also correct, binds at once and
+    // pushes them as ENDs). B's SYNC must subsume them.
+    sleep_ms(80);
+    // Both edges bound first: a cut leaves both pending (2.12 A), and A's
+    // Out connection binds only by B's SYNC, which cannot leave B while
+    // B's links take no frame. And A must have items at B: under this load
+    // A's own admission refuses all of A's new transfers (E_OVERLOADED)
+    // for hundreds of ms at times, so B may get nothing to hold. Then the
+    // attempt is undone (well inside T_dead) and tried again.
+    subsumed_before = subsumed();
+    for (bool held = false; !held;) {
+      CHECK_MSG(++attempts <= 50, "X4: B never held A's items in %d attempts", attempts - 1);
+      wait_until([&] {
+        return bound_to(*net.nodes[0].eng, 1, 0) && bound_to(*net.nodes[1].eng, 0, 0) &&
+               entry(*net.nodes[0].eng, 1, 0).e.count > 0;
+      }, "both edges bound, A's items at B");
+      NodeLinks::debug_full_incarnation.store(inc_b);
+      const auto t0 = Clock::now();
+      while (since(t0) < 0.3) {
+        // B holds A's items (their replies cannot leave now) or owes ENDs
+        // for some (they cannot leave either).
+        const NodeLinks::Entry e = entry(*net.nodes[1].eng, 0, 0).e;
+        if (e.held_for + e.end_owed > 0) {
+          held = true;
+          break;
+        }
+        sleep_ms(1);
+      }
+      if (!held) {
+        NodeLinks::debug_full_incarnation.store(0);
+        sleep_ms(100);
+      }
+    }
+    sleep_ms(20);
+    const u64 old = out_conn(*net.nodes[1].eng, 0);
+    net.px(0, 1).set(LinkProxy::HOLD, LinkProxy::PASS);
+    net.px(1, 0).cut();
+    sleep_ms(20);
+    NodeLinks::debug_full_incarnation.store(0);
+    wait_until([&] {
+      const EntryView v = entry(*net.nodes[1].eng, 0, 0);
+      return v.out.identified && v.out.conn != old;
+    }, "B's new Out connection identified", 10);
+    sleep_ms(20);
+    net.px(0, 1).set(LinkProxy::PASS, LinkProxy::PASS);
+    wait_rebound(*net.nodes[1].eng, 0, 0, old, "rebound after the forced cut");
+    check_zero_counters(net.nodes[0], "X4 forced cycle");
+    ++cycles;
   }
-  CHECK_MSG(subsumed() > 0, "X4: no SYNC subsumed owed ENDs in %d cuts", cycles);
+  NodeLinks::debug_full_incarnation.store(0);
+  CHECK_MSG(subsumed() > subsumed_before, "X4: the forced cut's binding SYNC subsumed no owed ENDs (%llu before it, "
+            "%d cuts)", (unsigned long long)subsumed_before, cycles);
   settle(net, L, "X4");
   check_probes("X4");
   // A's SYNCs applied at A over A's Out connections: R never above what the
@@ -779,10 +843,12 @@ void x4_return_drop() {
     }
   }
   CHECK(nonzero >= 1);
-  std::printf("X4 return drop: %d cuts of p->o; %llu SYNCs subsumed owed ENDs; %llu current SYNCs on a connection "
+  std::printf("X4 return drop: %d cuts of p->o (the last forced, held at attempt %d); %llu SYNCs subsumed owed ENDs (%llu by the forced "
+              "cut); %llu current SYNCs on a connection "
               "with counted frames pushed, each count = k + pushed - R and equal to its barrier, R within the proxy's "
               "delivered count; settled\n",
-              cycles, (unsigned long long)subsumed(), (unsigned long long)nonzero);
+              cycles, attempts, (unsigned long long)subsumed(), (unsigned long long)(subsumed() - subsumed_before),
+              (unsigned long long)nonzero);
 }
 
 // X10 rollback: accounting off on both: the D.1 behaviour on the v2 wire.

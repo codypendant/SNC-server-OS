@@ -1,0 +1,15 @@
+27/47 Testing: test_xnode
+27/47 Test: test_xnode
+Command: "/home/claude/snc-server-os/build-tsan/test_xnode"
+Directory: /home/claude/snc-server-os/build-tsan
+"test_xnode" start time: Nov 11 00:57 UTC
+Output:
+----------------------------------------------------------
+X3 forward drop: 10 cuts of o->p, 10 bindings, 20 SYNCs applied (10 at binding with pushed=0, count=k), each equal to its barrier; settled, counts 0, no underflow
+  (X3: 2.4 s)
+/home/claude/snc-server-os/tests/test_xnode.cpp:766: CHECK failed: subsumed() > 0: X4: no SYNC subsumed owed ENDs in 60 cuts
+<end of output>
+Test time =  14.24 sec
+----------------------------------------------------------
+Test Failed.
+"test_xnode" end time: Nov 11 00:57 UTC
