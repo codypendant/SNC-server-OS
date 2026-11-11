@@ -217,7 +217,12 @@ Decided by cody on 2026-11-04.
      `4250b32aa5e1fdfa34f15b56f8e124b4d3cc73e8`; the plan SHA (568e9874...968c7) and manifest e SHA
      (768056bb...c27b6) are unchanged; `go_record` stays null. **Next:**
      final freeze verification, then the explicit CP-1A GO, then the full
-     CP-1A from the beginning.
+     CP-1A from the beginning. PR #109 APPROVED and merged (f3c581f): the
+     CP-1A freeze is VERIFIED. The CP-1A GO is filed
+     ([handoff/CP1A_R640_GO_20261111.md](handoff/CP1A_R640_GO_20261111.md))
+     and set as `go_record`; it takes effect only when this GO-record PR is
+     independently approved and merged. The run HEAD must be that merge,
+     with no commit in between.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

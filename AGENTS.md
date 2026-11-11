@@ -2680,3 +2680,15 @@ or source comments.
     workload, allocation or methodology change.
 -   **Next action:** independent freeze verification, then the explicit
     CP-1A GO. **CP-1A NOT GO.**
+
+### 2026-11-11 UTC --- Claude (Claude Code): CP-1A GO record (for review)
+
+-   **What:** PR #109 (freeze closure) APPROVED and merged (f3c581f); the
+    CP-1A freeze is VERIFIED. The CP-1A GO is filed verbatim as
+    `docs/handoff/CP1A_R640_GO_20261111.md`, and `bench/cp1a_frozen.json`
+    `go_record` points to it. `runner_commit`, the plan hash and the
+    manifest hash are byte-for-byte unchanged.
+-   **Next action:** independent review of this GO-record PR. After it
+    merges, run the full SNC-only CP-1A from the beginning at exactly that
+    merge commit (no commit in between), then the result-review PR, and
+    stop.

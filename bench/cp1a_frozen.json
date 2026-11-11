@@ -3,5 +3,5 @@
   "runner_commit": "4250b32aa5e1fdfa34f15b56f8e124b4d3cc73e8",
   "plan_sha256": "568e9874e61480647c600fe6c52f44965331081d1d82f7a5f01b2875a87968c7",
   "manifest_sha256": "768056bbee1d7f178ed0be1c195b821f0638a1de28a4aca1ea0afdf5444c27b6",
-  "go_record": null
+  "go_record": "docs/handoff/CP1A_R640_GO_20261111.md"
 }
