@@ -30,7 +30,17 @@ No process is started and nothing touches the machine.
       without pacing flags; N differs from P only by --checkpoint-s
   P1  parse_client on net_bench's real output (diag3 run, open loop)
   F1  a real run refuses while bench/s6_frozen.json is not frozen
-  B1  checkpoint_begin from ckpt_seq
+  B1  checkpoint_begins from ckpt_seq
+  K1  the measured net_bench exit status: 0 passes; 1, a signal, or none
+      fails rule 7; a P rep with one is a FAIL, never rerun; a C or C0 rep
+      with one fails the capacity guard (review 1, item 1)
+  S1  sampler deadlines: no catch-up burst after an overrun; missed
+      deadlines skipped; the timestamp gap still reported (item 2)
+  W1  C and C0 must prove a checkpoint began inside the measured run:
+      inside accepted, outside rerun once, a second is session VOID, no
+      observable begin is not accepted (item 3)
+  D1  storage identity: scheduler, write cache, FUA, filesystem UUID, ext4
+      and every manifest-e mount option, on the resolved disk (item 4)
 """
 import copy
 import os
@@ -47,7 +57,7 @@ OK_CLIENT = dict(total=436000, errors=0, overloaded=0, stale=0, index_refused=0,
 
 def rep(cell="P", r=0, **client):
     c = dict(OK_CLIENT, **client)
-    return dict(cell=cell, rep=r, void=None, client=c, server_alive_at_end=True, server_rc=0, log_markers=[],
+    return dict(cell=cell, rep=r, void=None, client=c, client_rc=0, server_alive_at_end=True, server_rc=0, log_markers=[],
                 final_emits_peak=[10] * 8, final_degraded=[0] * 8, checkpoints=[(625000, Fraction("2.50"))])
 
 
@@ -264,13 +274,132 @@ rate: offered 2183233 ops/s  warmup 10.00s  window 30.00s  drain limit 10.00s
 
     # B1
     g = lambda seq, ck="idle": dict(ckpt_seq=str(seq), ckpt=ck)   # noqa: E731
-    smp = [dict(t_ns=t, ok=True, gauges=g(s)) for t, s in ((0, 1), (100, 1), (200, 2), (300, 2))]
-    assert s6.checkpoint_begin(smp) == (100, 200)
+    smp = [dict(t_ns=t, ok=True, gauges=g(s)) for t, s in ((0, 1), (100, 1), (200, 2), (300, 2), (400, 3))]
+    assert s6.checkpoint_begins(smp) == [(100, 200), (300, 400)]
     smp[1] = dict(t_ns=100, ok=False, gauges=None)
-    assert s6.checkpoint_begin(smp) == (0, 200)
-    assert s6.checkpoint_begin([dict(t_ns=0, ok=True, gauges=g(1, "shards"))]) == (None, 0)
-    assert s6.checkpoint_begin([dict(t_ns=0, ok=True, gauges=g(1))]) is None
-    print("B1 checkpoint begin from ckpt_seq")
+    assert s6.checkpoint_begins(smp)[0] == (0, 200)
+    assert s6.checkpoint_begins([dict(t_ns=0, ok=True, gauges=g(1, "shards"))]) == [(None, 0)]
+    assert s6.checkpoint_begins([dict(t_ns=0, ok=True, gauges=g(1))]) == []
+    print("B1 checkpoint begins from ckpt_seq")
+
+    # K1 (item 1)
+    assert s6.correctness_ok(rep(), open_loop=True)[0]
+    for rc in (1, -9, 134, None):
+        x = rep(); x["client_rc"] = rc
+        assert not rules(x)["7_correctness"], rc
+        assert not s6.correctness_ok(closed("C", 0, 1000) | dict(client_rc=rc), open_loop=False)[0], rc
+    x = rep(); del x["client_rc"]; assert not rules(x)["7_correctness"]
+    assert s6.verdict(session(lambda x: x.update(client_rc=1)), [])["verdict"] == "FAIL"
+
+    def rc_fail(cell, r):
+        x = closed(cell, r, 1000) if cell in ("C", "C0") else rep(cell, r)
+        if cell == "P" and r == 1:
+            x["client_rc"] = 1
+        rc_fail.n += 1
+        return x
+    rc_fail.n = 0
+    reps, void = s6.run_session(rc_fail)
+    assert rc_fail.n == 15 and void == [] and s6.verdict(reps, void)["verdict"] == "FAIL"
+    for cell in ("C", "C0"):
+        cs = [closed("C", i, 2000) for i in range(3)]; c0 = [closed("C0", i, 1000) for i in range(3)]
+        (cs if cell == "C" else c0)[2]["client_rc"] = 1
+        ok, why = s6.capacity_guard(cs, c0)
+        assert not ok and any("rule 7" in w for w in why), (cell, why)
+    print("K1 measured client exit status")
+
+    # S1 (item 2)
+    P = 100
+    assert s6.next_deadline(0, 10, P) == (100, 0)            # normal progression
+    assert s6.next_deadline(100, 150, P) == (200, 0)         # a 50 ms cycle: no skip
+    assert s6.next_deadline(0, 99, P) == (100, 0)
+    assert s6.next_deadline(0, 100, P) == (200, 1)           # deadline reached during the cycle: never 0 wait twice
+    assert s6.next_deadline(0, 350, P) == (400, 3)           # a 250 ms overrun past 100: skip 100, 200, 300
+    assert s6.next_deadline(0, 1100, P) == (1200, 11)        # a 1 s overrun: one future deadline, not ten owed
+
+    def simulate(durations, period=P):
+        """The sampler's loop on a fake clock: cycle i takes durations[i].
+        Returns the start times and how many cycles began with no wait."""
+        t, nxt, starts, immediate = 0, 0, [], 0
+        for d in durations:
+            if nxt <= t and starts:
+                immediate += 1
+            t = max(t, nxt)
+            starts.append(t)
+            t += d
+            nxt, _ = s6.next_deadline(nxt, t, period)
+        return starts, immediate
+    starts, imm = simulate([5] * 10)
+    assert starts == list(range(0, 1000, 100)) and imm == 0
+    starts, imm = simulate([5, 1000, 5, 5, 5])
+    assert starts == [0, 100, 1200, 1300, 1400] and imm == 0, starts   # no burst after the 1 s overrun
+    starts, imm = simulate([5, 250, 5])
+    assert starts == [0, 100, 400] and imm == 0, starts
+    ms = 1_000_000
+    smp = [dict(t_ns=t * ms, ok=True, gauges=s6.parse_kv("s0.emits_now=600")) for t in (0, 100, 1200, 1300)]
+    cs = s6.controller_summary(smp, shards=1)
+    assert cs["max_interval_ms"] == 1100.0 and cs["backlog_above_50pct"]["gap_ms_max"] == 1100.0, cs
+    assert cs["backlog_above_50pct"]["max_shard_ms"] == 200.0, cs
+    print("S1 sampler deadlines: no catch-up burst")
+
+    # W1 (item 3)
+    sec = 10**9
+    def samples_with_begin(lo, hi):
+        return [dict(t_ns=lo, ok=True, gauges=g(1)), dict(t_ns=hi, ok=True, gauges=g(2, "shards"))]
+    T = dict(run_start=100 * sec, run_end=160 * sec)
+    for cell in ("C", "C0"):
+        win, b, inside = s6.checkpoint_window(cell, T, samples_with_begin(140 * sec, 140 * sec + 10**8))
+        assert win == [100 * sec, 160 * sec] and inside, (cell, win, b)
+        assert not s6.checkpoint_window(cell, T, samples_with_begin(90 * sec, 90 * sec + 10**8))[2]   # before the run
+        assert not s6.checkpoint_window(cell, T, [dict(t_ns=120 * sec, ok=True, gauges=g(1))])[2]       # none seen
+        assert not s6.checkpoint_window(cell, T, [])[2]                                                 # no samples
+    assert s6.checkpoint_window("N", T, [])[2]    # no checkpoint cell: nothing to prove
+    win, _, inside = s6.checkpoint_window("P", T, samples_with_begin(140 * sec, 141 * sec))
+    assert win == [110 * sec, 170 * sec] and inside
+    two = samples_with_begin(90 * sec, 91 * sec) + [dict(t_ns=140 * sec, ok=True, gauges=g(2)),
+                                                    dict(t_ns=145 * sec, ok=True, gauges=g(3, "shards"))]
+    assert s6.checkpoint_window("C", T, two)[2]   # a later checkpoint inside the run is enough
+    gap = samples_with_begin(90 * sec, 91 * sec) + [dict(t_ns=145 * sec, ok=True, gauges=g(3, "shards"))]
+    assert not s6.checkpoint_window("C", T, gap)[2]   # its lower bound (91 s) is before the run: not proven
+    for cell in ("C", "C0"):
+        ex, calls = fake({(cell, 0, 0): "window"})
+        reps, void = s6.run_session(ex)
+        assert void == [] and calls.count((cell, 0)) == 2 and s6.verdict(reps, void)["verdict"] == "PASS"
+        assert len([x for x in reps if x["cell"] == cell and not x["void"]]) == 3
+    ex, calls = fake({("C", 1, 0): "window", ("C0", 2, 0): "window"})
+    reps, void = s6.run_session(ex)
+    assert any("second checkpoint-outside-window" in w for w in void) and s6.verdict(reps, void)["verdict"] == "VOID"
+    reps = session(); reps[9]["void"] = "window"   # a C rep without a proven checkpoint, and no rerun yet
+    assert not s6.verdict(reps, [])["capacity_ok"]
+    print("W1 C/C0 checkpoint inside the measured run")
+
+    # D1 (item 4)
+    good = {"/sys/block/sdx/device/model": "ARFX3840S5xnFTRI\n", "/sys/block/sdx/queue/scheduler": "none [mq-deadline] \n",
+            "/sys/block/sdx/queue/write_cache": "write back\n", "/sys/block/sdx/queue/fua": "1\n"}
+    mounts = "/dev/sdx1 /srv/snc-data ext4 rw,relatime,stripe=2 0 0\n"
+    real = lambda p: {"/dev/sdx1": "/dev/sdx1"}.get(p, p)   # noqa: E731
+    def chk(files=None, m=mounts, disk="sdx", uuid_dev="/dev/sdx1"):
+        f = dict(good, **(files or {}))
+        return s6.storage_checks(disk, m, lambda p: f.get(p, ""), real, uuid_dev)[0]
+    assert all(chk().values()), chk()
+    bad = [({"/sys/block/sdx/queue/scheduler": "[none] mq-deadline\n"}, mounts, "data_disk_scheduler"),
+           ({"/sys/block/sdx/queue/scheduler": "none mq-deadline [kyber]\n"}, mounts, "data_disk_scheduler"),
+           ({"/sys/block/sdx/queue/write_cache": "write through\n"}, mounts, "data_disk_write_cache"),
+           ({"/sys/block/sdx/queue/fua": "0\n"}, mounts, "data_disk_fua"),
+           ({"/sys/block/sdx/queue/fua": ""}, mounts, "data_disk_fua"),
+           ({"/sys/block/sdx/device/model": "OTHER\n"}, mounts, "data_disk_model"),
+           ({}, mounts.replace("stripe=2", "stripe=4"), "data_mount_options"),
+           ({}, mounts.replace(",stripe=2", ""), "data_mount_options"),
+           ({}, mounts.replace("relatime", "noatime"), "data_mount_options"),
+           ({}, mounts.replace("rw,", "ro,"), "data_mount_options"),
+           ({}, mounts.replace("ext4", "xfs"), "data_fs_ext4"),
+           ({}, "", "data_mount_options")]
+    for files, m, key in bad:
+        c = chk(files, m)
+        assert not c[key], (key, files, m)
+    assert not chk(uuid_dev="/dev/sdy1")["data_fs_uuid"]
+    assert all(chk(m=mounts.replace("stripe=2", "stripe=2,errors=remount-ro")).values())   # containment
+    assert not any(v for k, v in chk(disk=None).items() if k.startswith("data_disk"))
+    print("D1 storage identity")
     print("ok")
 
 

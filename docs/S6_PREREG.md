@@ -102,9 +102,16 @@ has no pacing flags.
   - MemTotal within 0.1%;
   - governor `performance` on every CPU;
   - `kernel.numa_balancing = 0`;
-  - data disk model `ARFX3840S5xnFTRI`;
-  - `/srv/snc-data` the ext4 filesystem UUID
-    `3bf857c8-0cb4-4c57-b9a5-14328e70b061`, mounted `rw,relatime`;
+  - on the data disk as the isolation resolver finds it (never a fixed
+    device letter):
+    - model `ARFX3840S5xnFTRI`;
+    - active scheduler `[mq-deadline]`;
+    - `write_cache` = `write back`;
+    - `queue/fua` = `1` (exposed by this kernel; manifest e `fua=1`);
+  - `/srv/snc-data`: ext4, the filesystem UUID
+    `3bf857c8-0cb4-4c57-b9a5-14328e70b061`, with every manifest-e mount
+    option present: `rw`, `relatime`, `stripe=2` (set containment, not a
+    prefix);
   - the manifest's own SHA-256.
 
   Any check failing before the session refuses; failing after it, or
@@ -162,6 +169,12 @@ cell; the admin port is the cell's port + 30.
 **Sampling (PR #98 review section 6), 100 ms, every cell (C0 included):**
 - GAUGES and HEALTH, each on its own admin connection, on fixed 100 ms
   deadlines.
+- **No catch-up** (PR #101 review 1, item 2). After a cycle, the next
+  deadline is one period later. If that deadline has already passed, the
+  sampler moves to the first future deadline on the same grid
+  (`next_deadline`). A missed period is a gap, not work owed, so a slow
+  admin reply never produces back-to-back cycles. Skipped deadlines are
+  counted and reported (`skipped_deadlines`).
 - Every reply is kept verbatim with its monotonic time.
 - A cut or failed reply is recorded as a failed sample, never dropped.
 - Time above a threshold is computed from timestamps, sample-and-hold. An
@@ -171,14 +184,23 @@ cell; the admin port is the cell's port + 30.
   never 0. The pre-S1 server has no pacing, degraded, sync-token, intake
   or cross-node gauges.
 
-**Checkpoint inside the window (P, H).**
-- The measured window is taken as [t_run + 10 s, t_run + 70 s] on the
-  runner's monotonic clock. t_run is read just before net_bench's run is
-  spawned. net_bench's own window starts later by its startup, about
+**Checkpoint inside the measured window (P, H, C, C0;**
+**`checkpoint_window`).**
+- Every cell that is meant to measure a checkpoint must prove it did.
+- **P and H (open loop):** the window is [t_run + 10 s, t_run + 70 s] on
+  the runner's monotonic clock. t_run is read just before net_bench's run
+  is spawned. net_bench's own window starts later by its startup, about
   0.01-0.02 s to read the ids file.
-- The begin is bounded by the two samples between which the node's
-  `ckpt_seq` advanced (`Engine::checkpoint` stores it at begin).
-- Inside means both bounds are in the window.
+- **C and C0 (closed loop; PR #101 review 1, item 3):** the window is the
+  measured process's own [start, end]. This is conservative: it includes
+  net_bench's startup.
+- Each begin is bounded by the two good samples between which the node's
+  `ckpt_seq` advanced (`Engine::checkpoint` stores it at begin). A
+  checkpoint already running at the first sample has no lower bound.
+- The rep counts only if at least one begin has both bounds inside the
+  window. Otherwise it is a checkpoint-window VOID (section 7).
+- A C or C0 rep without a proven checkpoint is never used as checkpoint
+  capacity.
 
 ## 6. Rules (exact integer and `Fraction` arithmetic; `bench/s6.py`)
 
@@ -203,6 +225,9 @@ no-checkpoint median, used for all three P reps. Not a paired reference.
      X × 1000 < 60,000;
    - and final `ckpt_degraded_count` = 0 on all 8 shards. Absent fails.
 7. **Correctness:**
+   - the measured `net_bench` exited 0. Any other status, a signal, or no
+     recorded status fails. This is a result, never a rerun (PR #101
+     review 1, item 1);
    - `errors` = `stale` = index `errors` = 0;
    - `drained yes`;
    - the server alive at the end of the run, exiting 0 on SIGTERM;
@@ -237,7 +262,7 @@ no-checkpoint median, used for all three P reps. Not a paired reference.
 
 | Cause | Action |
 |---|---|
-| A P or H rep whose checkpoint did not begin inside the window | Rerun that rep once, at the end, in plan order. A **second** such rep in the session, or VOID again on the rerun, makes the session **VOID**. |
+| A P, H, C or C0 rep in which no checkpoint begin is proven inside its measured window (section 5) | Rerun that rep once, at the end, in plan order. A **second** such rep in the session, or VOID again on the rerun, makes the session **VOID**. |
 | Harness: server or admin port not up, or the load failed | Rerun once, at the end. VOID again: session **VOID**. |
 | N reference unusable: any N rep with a refusal or a rule-7 failure | Session **VOID**. P is not judged against it. |
 | Machine or build drift at postflight (section 4, section 1.1) | Session **VOID**. |
@@ -277,7 +302,13 @@ reps.
   - net_bench parsing;
   - the freeze refusal;
   - checkpoint-begin bounds.
-- 19 of 19 deliberate mutations of `bench/s6.py` are caught.
+- Review 1 additions:
+  - measured-client exit status (K1);
+  - sampler deadlines with no catch-up (S1);
+  - the C and C0 checkpoint window (W1);
+  - storage identity with faked sysfs and mounts (D1).
+- **28 of 28 deliberate mutations** of `bench/s6.py` are caught: the
+  original 19, rerun at the review-1 head, plus 9 for review 1's items.
 - **Dry run:** every command of the 15 cells printed; preflight ok
   (machine, build, isolation); nothing started.
 - **Real run before the freeze:** refused before any process started.

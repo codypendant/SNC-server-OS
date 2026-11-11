@@ -1,0 +1,29 @@
+# review-1 mutation suite: 19 original + 9 new (items 1-4) mutations of bench/s6.py at the review-1 head, no bytecode cache (PYTHONDONTWRITEBYTECODE=1, -B). rc=1: tests/test_s6.py caught it; 'after' = the last check group that passed.
+p99-strict rc=1 after=none | assert rules(rep(p99=1_500_000))["3_p99"]
+late-strict rc=1 after=R1 | assert rules(rep(scheduled_in_window=1_000_000, late_over_1ms=1000))["2_lateness"]
+p999-strict rc=1 after=R2 | assert rules(rep(p999=10_000_000))["4_p999"] and not rules(rep(p999=10_000_001))["4_p999"]
+backlog-inclusive rc=1 after=R3 | x["final_emits_peak"] = [1023] * 7 + [1024]; assert not rules(x)["5_backlog"]
+capacity-strict rc=1 after=none | assert s6.verdict(session(lambda x: x["client"].update(p99=1_500_000)), [])["verdict"] == "PASS"
+refusal-ignores-index rc=1 after=R5 | assert not rules(rep(overloaded=1))["1_no_refusal"] and not rules(rep(index_refused=1))["1_no_refusal"]
+no-drained-check rc=1 after=R6 | assert not rules(rep(**{k: v}))["7_correctness"], k
+n-void-dropped rc=1 after=R8 | assert v["verdict"] == "VOID" and any("N reference" in w for w in v["void"]), v
+second-window-allowed rc=1 after=V1 | assert any("second checkpoint-outside-window" in w for w in void) and s6.verdict(reps, void)["verdict"] == "VO
+rerun-void-again-accepted rc=1 after=V3 | assert calls.count(("C0", 0)) == 2 and any("VOID again" in w for w in void)
+fail-rerun rc=1 after=V4 | assert failing.n == 15 and void == [] and s6.verdict(reps, void)["verdict"] == "FAIL"
+drift-ignored rc=1 after=V2 | assert any("drift" in w for w in void) and s6.verdict(reps, void)["verdict"] == "VOID"
+count-based-time rc=1 after=M1 | assert (above, covered, gap) == (350 * ms, 350 * ms, 350 * ms), (above, covered, gap)
+absent-as-zero rc=1 after=T1 | assert s6.shard_values(s6.parse_kv(old), "ckpt_degraded_count") == [None] * 8
+median-as-mean rc=1 after=V5 | assert s6.median([7, 1, 1000]) == 7 and s6.median([1, 2]) == Fraction(3, 2)
+ckpt-60-inclusive rc=1 after=R7 | x["checkpoints"] = [(1, Fraction("60.00"))]; assert not rules(x)["6_checkpoint"]
+c0-own-netbench rc=1 after=O1 | assert len(set(nb.values())) == 1 and nb["C0"].endswith("build-s6/net_bench"), nb
+window-open-bound rc=1 after=V1 | assert not s6.began_in_window((4 * W, 6 * W), 5 * W, 65 * W) and not s6.began_in_window((64 * W, 66 * W), 5 * 
+degraded-ignored rc=1 after=R7 | x = rep(); x["final_degraded"] = [0] * 7 + [1]; assert not rules(x)["6_checkpoint"]
+NEW1-no-client-rc rc=1 after=B1 | assert not rules(x)["7_correctness"], rc
+NEW2-catch-up-restored rc=1 after=K1 | assert s6.next_deadline(0, 100, P) == (200, 1)           # deadline reached during the cycle: never 0 wait twi
+NEW3-no-closed-window rc=1 after=S1 | assert not s6.checkpoint_window(cell, T, samples_with_begin(90 * sec, 90 * sec + 10**8))[2]   # before the run
+NEW4-scheduler-unchecked rc=1 after=W1 | assert not c[key], (key, files, m)
+NEW5-write-cache-unchecked rc=1 after=W1 | assert not c[key], (key, files, m)
+NEW6-fua-unchecked rc=1 after=W1 | assert not c[key], (key, files, m)
+NEW7-mount-prefix-only rc=1 after=W1 | assert not c[key], (key, files, m)
+NEW8-uuid-unchecked rc=1 after=W1 | assert not chk(uuid_dev="/dev/sdy1")["data_fs_uuid"]
+NEW9-closed-run-rc-only-open rc=1 after=B1 | assert not s6.correctness_ok(closed("C", 0, 1000) | dict(client_rc=rc), open_loop=False)[0], rc

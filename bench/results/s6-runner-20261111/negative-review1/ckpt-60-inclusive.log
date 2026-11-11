@@ -1,0 +1,14 @@
+R1 p99 3/2 boundary
+R2 lateness 0.1% boundary
+R3 p99.9 10 ms boundary
+R4 backlog 1024 boundary
+R5 capacity 95% boundary and rule 7 in C/C0
+R6 refusal rule
+R7 correctness/drained rule
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 407, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_s6.py", line 129, in main
+    x["checkpoints"] = [(1, Fraction("60.00"))]; assert not rules(x)["6_checkpoint"]
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

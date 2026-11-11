@@ -52,7 +52,10 @@ OPEN_DEPTH, CLOSED_DEPTH = PLAN["rate_depth"], PLAN["calibration_depth"]   # 102
 DATA_ROOT = "/srv/snc-data/s6"
 DATA_DISK_MODEL = "ARFX3840S5xnFTRI"
 DATA_FS_UUID = "3bf857c8-0cb4-4c57-b9a5-14328e70b061"
-DATA_MOUNT_OPTS = "rw,relatime"   # plus stripe=2 in the superblock options (manifest e)
+DATA_MOUNT_OPTS = {"rw", "relatime", "stripe=2"}   # manifest e: rw,relatime,stripe=2 (all required)
+DATA_SCHEDULER = "[mq-deadline]"                   # the active scheduler, manifest e
+DATA_WRITE_CACHE = "write back"
+DATA_FUA = "1"                                     # /sys/block/<disk>/queue/fua, manifest e "fua=1"
 REPS = 3
 SAMPLE_S = Fraction(1, 10)        # 100 ms controller sampling
 CHECKPOINT_S = 60
@@ -135,10 +138,13 @@ def median(xs):
 
 
 def correctness_ok(rep, open_loop):
-    """Rule 7: no error of any kind; drained (open loop); server alive at the
-    end of the run and exited 0; no failure marker in its log."""
+    """Rule 7: no error of any kind; the measured net_bench exited 0 (a
+    missing exit status fails); drained (open loop); server alive at the end
+    of the run and exited 0; no failure marker in its log."""
     c = rep["client"]
     why = []
+    if rep.get("client_rc") != 0:
+        why.append(f"measured client exit {rep.get('client_rc')}")
     for k in ("errors", "stale", "index_errors"):
         if c.get(k) is None:
             why.append(f"{k} not reported")
@@ -343,26 +349,46 @@ def controller_summary(samples, shards=SHARDS):
     return out
 
 
-def checkpoint_begin(samples):
-    """(lo_ns, hi_ns) bounding the first checkpoint's begin, from the node's
-    ckpt_seq in GAUGES: it advanced between the last sample with the old seq
-    (lo) and the first with a higher one (hi). None if it never advanced."""
-    prev_t, prev_seq = None, None
+def checkpoint_begins(samples):
+    """[(lo_ns, hi_ns)] bounding each checkpoint begin seen, from the node's
+    ckpt_seq in GAUGES (Engine::checkpoint stores it at begin): it advanced
+    between the last good sample with the old seq (lo) and the first with a
+    higher one (hi). A checkpoint already running at the first good sample
+    has an unknown begin: (None, t), never inside a window."""
+    out, prev_t, prev_seq = [], None, None
     for s in samples:
         if not s["ok"] or s["gauges"] is None or "ckpt_seq" not in s["gauges"]:
             continue
         seq = int(s["gauges"]["ckpt_seq"])
-        if prev_seq is not None and seq > prev_seq:
-            return prev_t, s["t_ns"]
-        if s["gauges"].get("ckpt", "idle") != "idle" and prev_seq is None:
-            return None, s["t_ns"]   # already running at the first sample: begin unknown, not inside
+        if prev_seq is None and s["gauges"].get("ckpt", "idle") != "idle":
+            out.append((None, s["t_ns"]))
+        elif prev_seq is not None and seq > prev_seq:
+            out.append((prev_t, s["t_ns"]))
         prev_t, prev_seq = s["t_ns"], seq
-    return None
+    return out
 
 
 def began_in_window(bounds, win_lo, win_hi):
     """True only if the begin is bounded, and both bounds are inside the window."""
     return bounds is not None and bounds[0] is not None and win_lo <= bounds[0] and bounds[1] <= win_hi
+
+
+def checkpoint_window(cell, times, samples):
+    """For every cell with a checkpoint (P, H, C, C0): the measured window and
+    whether at least one checkpoint begin is bounded inside it. Open loop:
+    [t_run + warm-up, + window]. Closed loop: the measured process's own
+    [start, end] (conservative: it includes net_bench's startup). Returns
+    (window, begins, inside); window None for a cell without a checkpoint."""
+    _, rate, ckpt = CELLS[cell]
+    if not ckpt:
+        return None, [], True
+    if rate:
+        lo = times["run_start"] + WARMUP_S * 1_000_000_000
+        win = [lo, lo + WINDOW_S * 1_000_000_000]
+    else:
+        win = [times["run_start"], times["run_end"]]
+    begins = checkpoint_begins(samples)
+    return win, begins, any(began_in_window(b, *win) for b in begins)
 
 
 # --- commands ---
@@ -447,15 +473,33 @@ def machine_identity(frozen, data_disks):
         numa_balancing=rd("/proc/sys/kernel/numa_balancing").strip() == "0",
         allocation=not set(ALLOC["housekeeping_cpus"]) & set(SRV_CPUS + CLI_CPUS))
     disk = sorted(data_disks)[0] if data_disks and len(data_disks) == 1 else None
-    c["data_disk_model"] = disk is not None and rd(f"/sys/block/{disk}/device/model").strip() == DATA_DISK_MODEL
-    uuid_dev = os.path.realpath(f"/dev/disk/by-uuid/{DATA_FS_UUID}")
-    mount = next((l.split() for l in rd("/proc/self/mounts").splitlines()
-                  if l.split()[1:2] == [os.path.dirname(DATA_ROOT)]), None)
-    c["data_fs_uuid"] = mount is not None and os.path.realpath(mount[0]) == uuid_dev
-    c["data_mount"] = mount is not None and mount[2] == "ext4" and mount[3].startswith(DATA_MOUNT_OPTS)
-    values = dict(kernel=os.uname().release, model=model, mem_kb=mem, governors=govs, data_disk=disk,
-                  data_mount=mount, numa_balancing=rd("/proc/sys/kernel/numa_balancing").strip())
+    sc, sv = storage_checks(disk, rd("/proc/self/mounts"), rd, os.path.realpath,
+                            os.path.realpath(f"/dev/disk/by-uuid/{DATA_FS_UUID}"))
+    c.update(sc)
+    values = dict(kernel=os.uname().release, model=model, mem_kb=mem, governors=govs,
+                  numa_balancing=rd("/proc/sys/kernel/numa_balancing").strip(), **sv)
     return c, values
+
+
+def storage_checks(disk, mounts, read, realpath, uuid_dev):
+    """The data SSD and filesystem state of manifest e. `disk` is the disk the
+    isolation resolver found for the data root (never a hard-coded letter);
+    `read` and `realpath` are injected so tests can fake sysfs and /dev."""
+    q = f"/sys/block/{disk}/queue" if disk else None
+    mount = next((l.split() for l in mounts.splitlines() if l.split()[1:2] == [os.path.dirname(DATA_ROOT)]), None)
+    opts = set(mount[3].split(",")) if mount else set()
+    c = dict(
+        data_disk_model=disk is not None and read(f"/sys/block/{disk}/device/model").strip() == DATA_DISK_MODEL,
+        data_disk_scheduler=q is not None and DATA_SCHEDULER in read(f"{q}/scheduler").split(),
+        data_disk_write_cache=q is not None and read(f"{q}/write_cache").strip() == DATA_WRITE_CACHE,
+        data_disk_fua=q is not None and read(f"{q}/fua").strip() == DATA_FUA,
+        data_fs_uuid=mount is not None and realpath(mount[0]) == uuid_dev,
+        data_fs_ext4=mount is not None and mount[2] == "ext4",
+        data_mount_options=DATA_MOUNT_OPTS <= opts)
+    v = dict(data_disk=disk, data_mount=mount,
+             data_queue=None if q is None else {k: read(f"{q}/{k}").strip()
+                                               for k in ("scheduler", "write_cache", "fua")})
+    return c, v
 
 
 def build_identity(frozen):
@@ -539,6 +583,19 @@ def ask(port, req, timeout=1.0):
         return None
 
 
+def next_deadline(prev, now, period):
+    """The next sampling deadline after a cycle that ended at `now`: one
+    period after `prev`, or, if that has already passed, the first deadline
+    on the same grid that is still in the future. Missed periods are gaps,
+    not work owed: the sampler never runs back-to-back cycles to catch up.
+    Returns (deadline, deadlines skipped)."""
+    nxt = prev + period
+    if nxt <= now:
+        missed = (now - nxt) // period + 1
+        return nxt + missed * period, missed
+    return nxt, 0
+
+
 class Sampler(threading.Thread):
     """GAUGES and HEALTH every 100 ms on fixed deadlines, pinned to CPU 0.
     Raw replies kept verbatim with their monotonic times."""
@@ -546,6 +603,7 @@ class Sampler(threading.Thread):
         super().__init__(daemon=True)
         self.admin, self.path, self.stop = admin, path, threading.Event()
         self.samples = []   # parsed GAUGES samples, for the summary
+        self.skipped = 0    # deadlines skipped after an overrun (gaps)
 
     def run(self):
         os.sched_setaffinity(0, {SAMPLER_CPU})
@@ -560,7 +618,8 @@ class Sampler(threading.Thread):
                     f.write(json.dumps(dict(t_ns=t, req=req, ok=ok, reply=r)) + "\n")
                     if req == "GAUGES":
                         self.samples.append(dict(t_ns=t, ok=ok, gauges=parse_kv(r) if ok else None))
-                nxt += period
+                nxt, missed = next_deadline(nxt, time.monotonic_ns(), period)
+                self.skipped += missed
                 self.stop.wait(max(0, nxt - time.monotonic_ns()) / 1e9)
 
 
@@ -677,14 +736,14 @@ class Driver:
         r["final_emits_peak"] = shard_values(fg, "emits_peak")
         r["final_degraded"] = shard_values(fg, "ckpt_degraded_count")   # None per shard on the pre-S1 server
         r["controller"] = controller_summary(smp.samples) if smp else None
-        if CELLS[cell][2] and CELLS[cell][1]:   # P and H: the checkpoint must begin inside the window
-            win_lo = T["run_start"] + WARMUP_S * 1_000_000_000
-            r["window_ns"] = [win_lo, win_lo + WINDOW_S * 1_000_000_000]
-            r["checkpoint_begin_ns"] = checkpoint_begin(smp.samples)
-            if not began_in_window(r["checkpoint_begin_ns"], *r["window_ns"]):
-                r["void"] = "window"
-        if run is not None and run.returncode != 0 and not r["void"]:
-            r["client_failed"] = True   # a result (rule 7 via missing fields), not a rerun
+        if r["controller"] is not None:
+            r["controller"]["skipped_deadlines"] = smp.skipped
+        # P, H, C, C0: a checkpoint must be proven to begin inside the measured window.
+        r["window_ns"], r["checkpoint_begins_ns"], inside = checkpoint_window(cell, T, smp.samples if smp else [])
+        if not inside:
+            r["void"] = "window"
+        # A non-zero client_rc is a result (rule 7 fails), never a rerun: the
+        # measured process ran. Only failures before it ran are harness VOIDs.
         r["checkpoints"] = [(o, str(s)) for o, s in r["checkpoints"]]
         self.reps.append(r)
         json.dump(self.reps, open(os.path.join(self.out, "summary.json"), "w"), indent=1, default=str)
