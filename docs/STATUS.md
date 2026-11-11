@@ -162,8 +162,12 @@ Decided by cody on 2026-11-04.
      ([handoff/PR101_S6_Runner_Final_Review.md](handoff/PR101_S6_Runner_Final_Review.md)):
      the runner and preregistration are COMPLETE. The freeze closure records
      that merge SHA as `runner_commit` in bench/s6_frozen.json and S6_PREREG
-     1.2/1.3; `go_record` stays unset. **Next:** final freeze verification,
-     then an explicit S6 GO. **S6 still NOT GO.**
+     1.2/1.3. PR #102 (freeze closure) APPROVED and merged (1567507); the
+     S6 freeze is VERIFIED and an explicit **S6 GO** is issued
+     ([handoff/S6_R640_GO_20261111.md](handoff/S6_R640_GO_20261111.md)),
+     filed as `go_record`. **Next:** the S6 run itself, once, with the
+     frozen runner; then the S6 result-review PR. No parameter changes
+     before the results.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

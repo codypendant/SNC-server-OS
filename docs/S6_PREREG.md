@@ -51,17 +51,20 @@ freeze of 1.3. The runner then requires:
 
 ### 1.3 The freeze (after the review, before any cell)
 
-One docs-only commit sets two things:
-- in `bench/s6_frozen.json`: `runner_commit` (the merge SHA) and
-  `go_record` (the filed GO handoff);
-- in this section: the same merge SHA.
+The freeze happens in three steps, each docs/identity only:
+1. the freeze closure (PR #102) records `runner_commit` (the merge SHA) in
+   `bench/s6_frozen.json` and in 1.2;
+2. an independent freeze verification issues the GO;
+3. the GO-record closure files that GO and sets `go_record` in
+   `bench/s6_frozen.json` to it.
 
-Until both are set, `bench/s6.py` refuses before starting any process.
-This was checked: `bench/results/s6-runner-20261111/README.md`, run 4.
+Until both fields are set, `bench/s6.py` refuses before starting any
+process. This was checked: `bench/results/s6-runner-20261111/README.md`,
+run 4.
 
-Freeze state: `runner_commit` = `63440b12288f9aae36c5309fa21b759d0c9a36fd` is set (freeze closure, after the
-PR #101 final review). `go_record` is **not set**: no GO has been issued,
-so the runner still refuses a real run.
+Freeze state: `runner_commit` = `63440b12288f9aae36c5309fa21b759d0c9a36fd`
+(freeze closure PR #102, verified). `go_record` =
+`docs/handoff/S6_R640_GO_20261111.md` (S6 GO issued 2026-11-11).
 
 ## 2. Pacing (approved, PR #98 review section 4)
 

@@ -1,7 +1,7 @@
 {
   "_status": "runner_commit FROZEN (merge of PR #101); NO GO. bench/s6.py refuses a real run until go_record (the filed GO handoff) is also set, in a later docs-only commit after the GO. The values below are the preregistered identities (docs/S6_PREREG.md section 1).",
   "runner_commit": "63440b12288f9aae36c5309fa21b759d0c9a36fd",
-  "go_record": null,
+  "go_record": "docs/handoff/S6_R640_GO_20261111.md",
   "manifest": "bench/manifests/r640-main-20261111.txt",
   "manifest_sha256": "768056bbee1d7f178ed0be1c195b821f0638a1de28a4aca1ea0afdf5444c27b6",
   "server_build": "build-s6",
