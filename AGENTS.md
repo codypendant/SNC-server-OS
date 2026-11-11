@@ -2430,3 +2430,32 @@ or source comments.
     decisions: the flags change, the max age, the pre-S1 build, the runner),
     then an explicit GO. Not done: S6 data, CP-1A, comparators, CRITERIA
     freeze.
+
+### 2026-11-11 16:20 UTC --- Claude (Claude Code): S6 pacing CLI plumbing (PR #98 review section 7)
+
+-   **Commit/PR:** branch `s6-pacing-cli`, on merged main `7700123`.
+    Classified **REFINE** (tool flags only).
+-   **What changed:**
+    - `snc_server` gains `--ckpt-walk-batch`, `--ckpt-walk-min-us`,
+      `--ckpt-walk-max-us`, `--ckpt-walk-ceiling-us` and
+      `--ckpt-walk-step-us` over the existing `Engine::Config` fields.
+    - Strict parsing; times 1 us to 60 s; `min <= max <= ceiling` on the
+      effective values; every refusal exits 2.
+    - It prints `ckpt_pacing: ...` (the effective values) at startup.
+    - Defaults are unchanged, and nothing changed under `src/` or
+      `include/`. `ckpt_walk_cost` is byte-identical to the characterized
+      binary.
+-   **Found:** before this, an inconsistent pacing config could only reach
+    the Engine from code. With flags it would have reached
+    `Engine::Engine`'s `invalid_argument` uncaught (abort); the negative
+    checks show that path.
+-   **Evidence/tests:**
+    - `tests/test_ckpt_cli.py` C1-C5;
+    - 5/5 negative mutations caught;
+    - RelWithDebInfo 48/48;
+    - ASan+UBSan 48/48 with 0 reports;
+    - all in `bench/results/s6-pacing-cli-20261111/`.
+-   **Next action:** independent review and merge. Then PR #98 section 8:
+    `bench/s6.py` with rule and VOID tests, the dev-machine check that the
+    current `net_bench` drives the `389b623` server, and the final
+    `S6_PREREG.md` freeze. **S6 NOT GO.**

@@ -1,0 +1,8 @@
+C1 defaults unchanged: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '100', 'ceiling_us': '250', 'step_us': '10', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '300000'}
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 138, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 98, in main
+    assert got == want, got
+           ^^^^^^^^^^^
+AssertionError: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '100', 'ceiling_us': '155', 'step_us': '5', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '60000'}

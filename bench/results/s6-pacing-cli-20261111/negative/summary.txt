@@ -1,0 +1,5 @@
+no-order-check rc=1
+zero-accepted rc=1
+no-60s-bound rc=1
+max-not-applied rc=1
+sign-accepted rc=1

@@ -1,0 +1,16 @@
+C1 defaults unchanged: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '100', 'ceiling_us': '250', 'step_us': '10', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '300000'}
+C2 S6 set: {'pacing': 'on', 'batch': '16', 'min_us': '20', 'max_us': '65', 'ceiling_us': '155', 'step_us': '5', 'update_us': '1000', 'target_ms': '30000', 'max_age_ms': '60000'}
+C3 each flag alone: ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 138, in <module>
+    main()
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 119, in main
+    msg = refused("--ckpt-walk-min-us", "70", "--ckpt-walk-max-us", "65", "--ckpt-walk-ceiling-us", "155"); n += 1
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/tests/test_ckpt_cli.py", line 48, in refused
+    assert r.returncode == 2, f"{flags}: rc {r.returncode}, want 2\n{out}"
+           ^^^^^^^^^^^^^^^^^
+AssertionError: ('--ckpt-walk-min-us', '70', '--ckpt-walk-max-us', '65', '--ckpt-walk-ceiling-us', '155'): rc -6, want 2
+terminate called after throwing an instance of 'std::invalid_argument'
+  what():  checkpoint pacing: need 1 <= walk_min <= walk_max <= walk_ceiling <= 60 s, 1 <= step <= 60 s, update <= 60 s, batch >= 1, low < high for each pressure signal, 1 <= warn_pct <= 100, target <= max age
+
