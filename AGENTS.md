@@ -2531,3 +2531,16 @@ or source comments.
     - real mode refused before any process.
 -   **Next action:** independent re-review. Not merged. No freeze or GO
     record. **S6 NOT GO.**
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #101 approved and merged; S6 freeze closure
+
+-   **What:** the final review of PR #101 (head 68c3fe4) APPROVED the S6
+    runner and preregistration. Merged as
+    `63440b12288f9aae36c5309fa21b759d0c9a36fd`. Filed verbatim as
+    `docs/handoff/PR101_S6_Runner_Final_Review.md`.
+-   **Freeze closure (docs/identity only):** `bench/s6_frozen.json`
+    `runner_commit` = that merge SHA; `docs/S6_PREREG.md` 1.2/1.3 record
+    it. `go_record` stays null. No runner, test, C++, binary, pacing,
+    threshold, cell, sampling, allocation or workload change.
+-   **Next action:** final independent freeze verification, then an
+    explicit S6 GO. **S6 NOT GO.**
