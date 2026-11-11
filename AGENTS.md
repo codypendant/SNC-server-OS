@@ -2343,3 +2343,25 @@ or source comments.
 -   **Next action:** WAIT for independent review of PR #95. Do not merge
     it, and do not call D.2 complete. S5, S6, R640, CP-1A, comparators,
     B2, Agent-SNC, Rust and DPDK/VPP stay forbidden.
+
+### 2026-11-11 UTC --- Claude (Claude Code): PR #95 APPROVED, D.2 COMPLETE, merged
+
+-   **What:** the final independent review
+    (`docs/handoff/PR95_D2_Implementation_Final_Review.md`) approved
+    PR #95. D.2 is COMPLETE. Validated at 2bccdbe; product code b77937e.
+    Evidence: `bench/results/xnode-d2-review-fixes-devvm-20261110/`.
+-   **Observations carried forward:** one paxos c2b deadline failure and
+    one F8 links-up timeout, neither with a root cause. If either
+    recurs, investigate it on site.
+-   **Hardware:** the R640 now has all six memory channels per socket
+    populated. Manifest `bench/manifests/r640-main-20261106d.txt` is no
+    longer valid for new evidence. The old CP-1A results stay valid for
+    the old configuration.
+-   **Next action:**
+    1.  Recapture the R640 manifest on merged main (governor
+        performance, numa_balancing 0, dmidecode showing 6 of 6 channels
+        per socket).
+    2.  Update `docs/R640_TOPOLOGY.md`.
+    3.  Return both for review.
+    -   Not authorized: S6, CP-1A, comparators, baseline freeze,
+        Agent-SNC, Rust and DPDK/VPP.

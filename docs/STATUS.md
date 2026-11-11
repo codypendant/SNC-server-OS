@@ -101,7 +101,10 @@ Decided by cody on 2026-11-04.
      **D.2 implementation is AUTHORIZED**
      (handoff/PR94_D2_Design_Rev4_Review.md), in the section 9 commit
      order, as one PR returned for independent review. **D.2 is
-     implemented, FOR REVIEW, not complete**: wire v2, per-(link, member)
+     COMPLETE: PR #95 APPROVED and merged** (final review
+     handoff/PR95_D2_Implementation_Final_Review.md; validated at
+     2bccdbe, product code b77937e; evidence
+     bench/results/xnode-d2-review-fixes-devvm-20261110): wire v2, per-(link, member)
      entries, HelloAck plus exact SYNC binding, END frames, quarantine and
      retirement, durable links generation, blocked-primary leave and
      rejoin, heartbeats and silence detection, D.2 GAUGES; X1-X32 with
@@ -114,8 +117,15 @@ Decided by cody on 2026-11-04.
      checked byte for byte (X35), and ND10 and ND24 are closed by proofs
      I1 and I2 (design 2.9.1; X12c catches ND24). The fixes and the
      rerun gate at 2bccdbe (3 suites 47/47, negatives 42/42) are in
-     bench/results/xnode-d2-review-fixes-devvm-20261110; returned for
-     review again, not complete.
+     bench/results/xnode-d2-review-fixes-devvm-20261110. Carried as
+     observations (no root cause, not D.2 findings): one paxos c2b
+     deadline failure and one F8 links-up timeout; investigate on site
+     if either recurs.
+     **Next (not yet authorized beyond this):** recapture the R640
+     manifest, because all six memory channels per socket are now
+     populated; manifest bench/manifests/r640-main-20261106d.txt is no
+     longer valid for new evidence. Review it before any new R640
+     evidence. S6 and any campaign need a fresh authorization.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
