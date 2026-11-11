@@ -1,0 +1,8 @@
+date_utc: 2026-11-11T14:35:38Z
+git_head: 0dbd4c77b993572fb7b771fa44e7520c3197fe1b
+git_dirty_files: 0
+binary_sha256: 4707dac135a6fc72c41a712075678aa24ccbf7ad74d546962623026584b5d2d2
+build: CMAKE_BUILD_TYPE:STRING=RelWithDebInfo
+compiler: c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+data_root: /srv/snc-data/walkcost-20261111 (/dev/sdb1)
+done 2026-11-11T14:41:28Z

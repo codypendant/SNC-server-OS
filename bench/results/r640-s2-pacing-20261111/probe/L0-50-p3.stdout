@@ -1,0 +1,8 @@
+bench/results/r640-s2-pacing-20261111/probe/probe.resolved.bt:7:46-48: WARNING: arithmetic on integers of different signs: 'int64' and 'unsigned int64' can lead to undefined behavior
+  $d = nsecs - @v0[tid]; @n[tid]++; @vs[tid] += $d; printf("V %d\n", $d); delete(@v0[tid]); }
+                                             ~~
+mode=50 objects=625000 walk_us=905715 steps=10464 step_max_ns=969807 step_max_objects=64 walk_ns_per_object=1449.1 step_ns_per_object=15153.2
+mode=50 objects=625000 walk_us=855535 steps=10528 step_max_ns=885151 step_max_objects=64 walk_ns_per_object=1368.9 step_ns_per_object=13830.5
+mode=50 objects=625000 walk_us=855356 steps=10525 step_max_ns=877942 step_max_objects=64 walk_ns_per_object=1368.6 step_ns_per_object=13717.8
+
+

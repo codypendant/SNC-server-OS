@@ -1,0 +1,3 @@
+mode=off objects=625000 walk_us=479736 steps=2442 step_max_ns=418409 step_max_objects=256 walk_ns_per_object=767.6 step_ns_per_object=1634.4
+mode=off objects=625000 walk_us=431249 steps=2442 step_max_ns=225996 step_max_objects=256 walk_ns_per_object=690.0 step_ns_per_object=882.8
+mode=off objects=625000 walk_us=431357 steps=2442 step_max_ns=204365 step_max_objects=256 walk_ns_per_object=690.2 step_ns_per_object=798.3

@@ -128,10 +128,17 @@ Decided by cody on 2026-11-04.
      bench/pilot_plan.json pins manifest e (that pin is the only change;
      PILOT_PLAN 2 says why). PR #97 APPROVED 2026-11-11 (review at head
      f9c2151, [handoff/PR97_Manifest_Closure_Final_Review.md](handoff/PR97_Manifest_Closure_Final_Review.md)):
-     the manifest-baseline gate is CLOSED. **Next (authorized):** R640 S2
-     pacing re-derivation (ckpt_walk_cost on the R640, filesystem identity
-     check) and the S6 preregistration, returned for review and GO. No S6
-     data, CP-1A, comparators or CRITERIA freeze before that.
+     the manifest-baseline gate is CLOSED. R640 S2 pacing re-derivation
+     done at merged main 0dbd4c7
+     ([bench/results/r640-s2-pacing-20261111/](../bench/results/r640-s2-pacing-20261111/README.md)):
+     the legacy 256-ID step is 171.6 us p50 (about 670 ns per ID), the
+     batch of 16 is 13.3 us p50 (16.4 p99). The derived values are min 20,
+     max 65 and ceiling 155 us, batch 16, step 5 us. The dev-VM max (100)
+     and ceiling (250) are not supported on the R640. snc_server has no
+     flag for the walk values, so a flags-only change needs review before
+     S6. The S6 preregistration, [S6_PREREG.md](S6_PREREG.md), is
+     **for review; no S6 data, not GO**. No CP-1A, comparators or
+     CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

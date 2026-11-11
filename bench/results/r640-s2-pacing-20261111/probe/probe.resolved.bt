@@ -1,0 +1,11 @@
+// Times Shard::checkpoint_step and its visit lambda in the unchanged binary.
+// S <step_ns> <visit_calls> <visit_ns_sum> : a step that walked (visit ran)
+// V <visit_ns>                             : one visit(n) call (256 off, batch on)
+uprobe:/home/solo/SNC-server-OS/build-s6/ckpt_walk_cost:_ZN3snc5Shard15checkpoint_stepEv { @t0[tid] = nsecs; @n[tid] = 0; @vs[tid] = 0; }
+uprobe:/home/solo/SNC-server-OS/build-s6/ckpt_walk_cost:_ZZN3snc5Shard15checkpoint_stepEvENKUlmE_clEm { @v0[tid] = nsecs; }
+uretprobe:/home/solo/SNC-server-OS/build-s6/ckpt_walk_cost:_ZZN3snc5Shard15checkpoint_stepEvENKUlmE_clEm /@v0[tid]/ {
+  $d = nsecs - @v0[tid]; @n[tid]++; @vs[tid] += $d; printf("V %d\n", $d); delete(@v0[tid]); }
+uretprobe:/home/solo/SNC-server-OS/build-s6/ckpt_walk_cost:_ZN3snc5Shard15checkpoint_stepEv /@t0[tid]/ {
+  if (@n[tid] > 0) { printf("S %d %d %d\n", nsecs - @t0[tid], @n[tid], @vs[tid]); }
+  delete(@t0[tid]); }
+END { clear(@t0); clear(@n); clear(@vs); clear(@v0); }
