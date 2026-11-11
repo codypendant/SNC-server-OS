@@ -1,0 +1,1 @@
+/tmp/claude-0/-home-claude/507fa1ab-0d45-51b5-8435-5e5cb510f86d/scratchpad/negwork/src-ND38/tests/test_xnode.cpp:2432: CHECK failed: v1.out.conn == v0.out.conn: X32: A's Out connection was reset on one stale heartbeat

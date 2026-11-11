@@ -819,7 +819,11 @@ END owed, never hands it on untagged).
 half of P3 (a follow-up whose source moved is no longer stale), and ND24
 removes the staleness check when a follow-up runs. Each must be caught by
 X8, X12 or X17, through the invariant counters or another check
-(`bench/results/xnode-d2-review-fixes-devvm-20261110/README.md`).
+(`bench/results/xnode-d2-review-fixes-devvm-20261110/README.md`). ND24
+needs X12c: the routing test catches every stale item the other cases
+make, so X12c holds credits routed and not yet run at the target shard
+while their source slot moves. Mutated, they run and their tagged replies
+reach the I2 check (`xnode_handoff_drops` nonzero, no stale drop).
 
 ### 2.10 Liveness: heartbeats and silence (rev1 F3, approved)
 
@@ -1427,7 +1431,7 @@ must fail.
 | ND21 queue on an unbound link (no purge) | X22 (`live_s` reaches X) |
 | ND22 no `resume_all` at binding | X22 (purged work never settles) |
 | ND23 accept a new incarnation while the old one's In connection is live | X21 (mutual retirement; underflow) |
-| ND24 hand off a tagged reply in-node untagged | X12 (uncounted item: debug abort or count nonzero) |
+| ND24 (review rev: no staleness test when a follow-up runs, a premise of I2) | X12c (no stale drop; the I2 check counts hand-off drops) |
 | ND25 leave quarantine on a HelloAck alone (BOUND without the binding SYNC) | X14b (counted DATA after the ack; debt grows across releases) |
 | ND26 two split counters (`remote_` and `debt_`) with the rev2-draft SYNC rule | X5 (count stuck after a partial SYNC during quarantine) |
 | **ND27 the rev2 FINAL rule: keep the closed connection's record and apply a SYNC naming it as `count = k + (pushed − R)`** (rev2 review) | X24, X3 (the count keeps lost frames; nonzero at quiescence) |

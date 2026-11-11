@@ -2065,7 +2065,14 @@ void x8_slot_move() {
 // A, are an in-node hand-off; dest 2, to C, with B's link to C down: they
 // queue on a link that cannot carry them, and are purged. Either way they
 // end by ENDs on the tag and A's count returns to 0.
+// dest 3 (X12c): into B as for X12a, but the credits are not held on the
+// wire: they reach B, are routed to its shard 1 and wait there unrun (its
+// follow-ups paused) while the source slot moves; then they run. The run's
+// own staleness test (2.9.1, premise of I2) must drop each: routed before
+// the move, the routing test could not (ND24).
 void x12_variant(u16 dest) {
+  const bool queued = dest == 3;
+  if (queued) dest = 1;
   Net net;
   // The wire to B is held across a slot move (a durable seal and stage).
   // Held longer than T_dead, B closes its In as silent and the held
@@ -2107,12 +2114,20 @@ void x12_variant(u16 dest) {
   const MoveCounters m0 = move_counters(net);
   LinkProxy& wire = net.px(0, 1, 1);  // A's Out connection to B's shard 1
   u64 count_at_move = 0, t_hold = 0;
+  auto pause_b1 = [&](bool on) { on_shard(B, 1, [on] { current_shard()->pause_emits(on); }); };
   {
     Load ab(net, S, 0, 1, 16);
     sleep_ms(100);
-    wire.set(LinkProxy::HOLD, LinkProxy::PASS);
-    t_hold = sri_now_ns();
-    wait_until([&] { return wire.held_fwd() >= 1024; }, "credits held on the wire", 20);
+    if (queued) {
+      pause_b1(true);
+      t_hold = sri_now_ns();
+      // A has at most 64 in flight to B here (as X12a shows): wait for 32.
+      wait_until([&] { return B.stats(1).emits_in_flight >= 32; }, "credits queued unrun at B's shard 1", 20);
+    } else {
+      wire.set(LinkProxy::HOLD, LinkProxy::PASS);
+      t_hold = sri_now_ns();
+      wait_until([&] { return wire.held_fwd() >= 1024; }, "credits held on the wire", 20);
+    }
   }
   sleep_ms(50);
   count_at_move = entry(A, 1, 0, 1).e.count;
@@ -2121,7 +2136,16 @@ void x12_variant(u16 dest) {
     net.px(1, 2).refuse(true);
     net.px(1, 2).cut();
   }
-  move_slot(net, slot, 0, dest, 0x120 + dest);
+  move_slot(net, slot, 0, dest, 0x120 + dest + (queued ? 2 : 0));
+  if (queued) {
+    // The move is on B's shard 1 too before its queue runs.
+    wait_until([&] {
+      u64 ep = 0;
+      on_shard(B, 1, [&] { ep = current_shard()->slot_report(slot).map_epoch; });
+      return ep >= net.epoch;
+    }, "B's shard 1 on the new map", 5);
+    pause_b1(false);
+  }
   wire.set(LinkProxy::PASS, LinkProxy::PASS);
   const u64 hold_ms = (sri_now_ns() - t_hold) / 1000000;
   CHECK_MSG(hold_ms < net.dead_ms, "X12: the wire was held %llu ms, not below T_dead", (unsigned long long)hold_ms);
@@ -2137,18 +2161,19 @@ void x12_variant(u16 dest) {
   CHECK_MSG(m.stale > m0.stale,
             "X12%s: no stale drop (hand-off %llu, tag %llu, reply %llu, resume %llu; A out_resets %llu, B silence "
             "closes %llu, A bindings %llu; held %llu ms, T_dead %u ms)",
-            dest == 1 ? "a" : "b", (unsigned long long)(m.handoff_drops - m0.handoff_drops),
+            queued ? "c" : dest == 1 ? "a" : "b", (unsigned long long)(m.handoff_drops - m0.handoff_drops),
             (unsigned long long)(m.tag_drops - m0.tag_drops), (unsigned long long)(m.reply_drops - m0.reply_drops),
             (unsigned long long)(m.drops_to_resume - m0.drops_to_resume),
             (unsigned long long)entry(A, 1, 0, 1).c.out_resets, (unsigned long long)entry(B, 0, 0, 0, 1).c.silence_closes,
             (unsigned long long)entry(A, 1, 0, 1).c.bindings, (unsigned long long)hold_ms, net.dead_ms);
   ledger_move(L, slot, 0, dest);
-  settle(net, L, dest == 1 ? "X12 hand-off" : "X12 foreign");
-  std::printf("X12%s %s: A's count %llu (credits held on the wire to B's shard 1) when the source slot moved %s; "
+  settle(net, L, queued ? "X12 queued" : dest == 1 ? "X12 hand-off" : "X12 foreign");
+  std::printf("X12%s %s: A's count %llu (credits %s) when the source slot moved %s; "
               "stale drops %llu, hand-off drops %llu, tag drops %llu, unbound purges at B %llu, ENDs sent %llu; A's "
-              "count back to 0; settled, money conserved (wire held %llu ms)\n",
-              dest == 1 ? "a" : "b", dest == 1 ? "hand-off" : "foreign", (unsigned long long)count_at_move,
-              dest == 1 ? "into B" : "to C, B's link to C down", (unsigned long long)(m.stale - m0.stale),
+              "count back to 0; settled, money conserved (held %llu ms)\n",
+              queued ? "c" : dest == 1 ? "a" : "b", queued ? "queued" : dest == 1 ? "hand-off" : "foreign",
+              (unsigned long long)count_at_move, queued ? "queued unrun at B's shard 1" : "held on the wire to B's shard 1",
+              queued ? "into B, the credits routed at B's shard 1 and not yet run" : dest == 1 ? "into B" : "to C, B's link to C down", (unsigned long long)(m.stale - m0.stale),
               (unsigned long long)(m.handoff_drops - m0.handoff_drops),
               (unsigned long long)(m.tag_drops - m0.tag_drops), (unsigned long long)B.stats(1).xnode_unbound_purged,
               (unsigned long long)(m.ends_sent - m0.ends_sent), (unsigned long long)hold_ms);
@@ -2156,6 +2181,7 @@ void x12_variant(u16 dest) {
 void x12_purge_handoff() {
   x12_variant(1);
   x12_variant(2);
+  x12_variant(3);
 }
 
 // X19 blocked primary leaves links; X19b the same with the blocked bit

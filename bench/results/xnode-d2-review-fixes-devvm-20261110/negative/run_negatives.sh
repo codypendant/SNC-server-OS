@@ -266,8 +266,11 @@ mutate ND23 "X21" $NL \
         ++m_conflicts_;"
 # ND24 (after the PR #95 review: the in-node hand-off branch is now the
 # invariant I2 check, 2.9.1; the mutation breaks a premise of its proof):
-# no staleness test when a follow-up runs.
-mutate ND24 "X8 X12 X17" $SH \
+# no staleness test when a follow-up runs. (Attempt 1 at 1b086ce: not
+# caught by X8, X12, X17: the routing test caught every stale item they
+# made. X12c, added after it, queues credits routed and unrun across the
+# move.)
+mutate ND24 "X12 X8 X17" $SH \
   "  if (stale(e)) {
     ++stats_.emits_stale;
     release_link(e);" \
