@@ -211,9 +211,13 @@ Decided by cody on 2026-11-04.
      - `runner_commit` and `go_record` are null for now;
      - [bench/results/cp1a-freeze-interlock-20261111/](../bench/results/cp1a-freeze-interlock-20261111/README.md).
 
-     Next: review, then record this PR's merge as `runner_commit`, then
-     the CP-1A GO and `go_record`, then verification, then the full
-     CP-1A.
+     PR #108 APPROVED and merged (4250b32;
+     [handoff/PR108_CP1A_Freeze_Interlock_Final_Review.md](handoff/PR108_CP1A_Freeze_Interlock_Final_Review.md)):
+     the freeze interlock is COMPLETE. `runner_commit` is frozen to
+     `4250b32aa5e1fdfa34f15b56f8e124b4d3cc73e8`; the plan SHA (568e9874...968c7) and manifest e SHA
+     (768056bb...c27b6) are unchanged; `go_record` stays null. **Next:**
+     final freeze verification, then the explicit CP-1A GO, then the full
+     CP-1A from the beginning.
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
