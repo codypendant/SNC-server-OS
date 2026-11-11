@@ -157,7 +157,13 @@ Decided by cody on 2026-11-04.
      (handoff/PR101_S6_Runner_Review1.md) required four fixes: the client exit
      status, no-catch-up sampling, a proven checkpoint in C/C0, and storage
      identity. All four are made at 3fa31ef with 28/28 mutations caught,
-     and returned for re-review. **S6 still NOT GO.**
+     and returned for re-review. PR #101 APPROVED and merged as
+     63440b12288f9aae36c5309fa21b759d0c9a36fd
+     ([handoff/PR101_S6_Runner_Final_Review.md](handoff/PR101_S6_Runner_Final_Review.md)):
+     the runner and preregistration are COMPLETE. The freeze closure records
+     that merge SHA as `runner_commit` in bench/s6_frozen.json and S6_PREREG
+     1.2/1.3; `go_record` stays unset. **Next:** final freeze verification,
+     then an explicit S6 GO. **S6 still NOT GO.**
      No CP-1A, comparators or CRITERIA freeze before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

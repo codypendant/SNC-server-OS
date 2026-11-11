@@ -39,9 +39,11 @@ or voids it (section 7).
 
 ### 1.2 Merged S6 HEAD
 
-The merge of this runner PR is the S6 HEAD. It cannot be written inside
-the PR it merges, so it is recorded by the freeze of 1.3. The runner then
-requires:
+The merge of this runner PR is the S6 HEAD: **`63440b12288f9aae36c5309fa21b759d0c9a36fd`** (merge of PR #101,
+2026-11-11; approved in
+[handoff/PR101_S6_Runner_Final_Review.md](handoff/PR101_S6_Runner_Final_Review.md)).
+It could not be written inside the PR it merges, so it is recorded by the
+freeze of 1.3. The runner then requires:
 - HEAD has that merge as an ancestor;
 - HEAD differs from it only in `docs/`, `AGENTS.md`,
   `bench/s6_frozen.json` and `bench/results/`. No code may change after
@@ -56,6 +58,10 @@ One docs-only commit sets two things:
 
 Until both are set, `bench/s6.py` refuses before starting any process.
 This was checked: `bench/results/s6-runner-20261111/README.md`, run 4.
+
+Freeze state: `runner_commit` = `63440b12288f9aae36c5309fa21b759d0c9a36fd` is set (freeze closure, after the
+PR #101 final review). `go_record` is **not set**: no GO has been issued,
+so the runner still refuses a real run.
 
 ## 2. Pacing (approved, PR #98 review section 4)
 
