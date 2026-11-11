@@ -431,11 +431,22 @@ def gauge_sums(g):
 #               swings by ~100 inside the window as syncs batch, so that
 #               trend test failed healthy runs: 3 of 5 Release reruns,
 #               docs/S1_2_REPLAY.md section 9.)
+#               Only samples whose shards published within
+#               DRAIN_MAX_SKEW_MS of each other count for it: a sum of
+#               per-shard counts taken further apart is not one instant
+#               of the closed loop, and can pass the window while no
+#               instant does (D.2 review-fix TSan suite: one sample of
+#               280 with its two shards 84.5 ms apart, every coherent
+#               sample at most 256; bench/results/
+#               xnode-d2-review-fixes-devvm-20261110/README.md). Release
+#               skews are under 1 ms; TSan's were at most 14.1 ms in 4
+#               instrumented runs.
 # One sample is never a verdict (see h1_measurement).
 DRAIN_WINDOW_S = 5.0
 DRAIN_MIN_SAMPLES = 10            # sampler runs ~10/s in Release; >= 2/s under sanitizers
 DRAIN_MAX_EXCESS_FRAC = 0.2
 DRAIN_UNDURABLE_SLACK = 16
+DRAIN_MAX_SKEW_MS = 20.0
 
 
 def median(vals):
@@ -468,7 +479,10 @@ def drain_rule(samples, window):
            "undurable_median": median(und), "undurable_max": max(und),
            "undurable_first_half_mean": round(first, 1), "undurable_last_half_mean": round(last, 1)}
     out["drained"] = median(ex) == 0 and with_excess / n <= DRAIN_MAX_EXCESS_FRAC and progressed
-    out["bounded"] = max(und) <= window + DRAIN_UNDURABLE_SLACK
+    coherent = [r["undurable"] for r in samples if r.get("skew_ms") is None or r["skew_ms"] <= DRAIN_MAX_SKEW_MS]
+    out["bounded_samples"] = len(coherent)
+    out["bounded_excluded_skewed"] = n - len(coherent)
+    out["bounded"] = len(coherent) >= DRAIN_MIN_SAMPLES and max(coherent) <= window + DRAIN_UNDURABLE_SLACK
     return out
 
 
@@ -513,9 +527,15 @@ def scenario_h1_measurement(work):
     swinging = [sample(i, u, u) for i, u in enumerate([145] * 25 + [206] * 24 + [256])]
     # 6. One shard's own sync stalls: no excess there, the summed LSN still rises.
     one_stalled = [sample(i, 250, 250, lsn1=1000) for i in range(50)]
+    # 8. Pinned at the window, with one sum over shards published 84.5 ms
+    # apart at 280 (the D.2 review-fix TSan failure's shape): not an instant.
+    # The same 280 with its shards 0.3 ms apart is a real excess.
+    skewed = [sample(i, 256, 256) for i in range(49)] + [dict(sample(49, 280, 280), skew_ms=84.5)]
+    coherent_over = [sample(i, 256, 256) for i in range(49)] + [sample(49, 280, 280)]
     out["old_rule_on_drained"] = drained[-1]["waiters"] < window       # one end sample
     out["rule"] = {k: drain_rule(v, window) for k, v in
                    (("drained", drained), ("blocked", blocked), ("stalled", stalled), ("growing", growing), ("one_shard_stalled", one_stalled), ("swinging", swinging),
+                    ("skewed", skewed), ("coherent_over", coherent_over),
                     ("short", drained[:5]))}
     r = out["rule"]
     out["checks"] = {
@@ -528,6 +548,8 @@ def scenario_h1_measurement(work):
         "rule_fails_one_shard_stalled": r["one_shard_stalled"]["drained"] is False,
         "rule_passes_swinging_series": r["swinging"]["drained"] and r["swinging"]["bounded"],
         "rule_needs_enough_samples": r["short"]["drained"] is False,
+        "rule_ignores_skewed_sum": r["skewed"]["bounded"] and r["skewed"]["bounded_excluded_skewed"] == 1,
+        "rule_fails_coherent_excess": r["coherent_over"]["bounded"] is False,
     }
     out["pass"] = all(out["checks"].values())
     return out
