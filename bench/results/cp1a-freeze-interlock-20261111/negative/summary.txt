@@ -1,0 +1,11 @@
+# mutations of the freeze interlock in bench/pilot.py (no bytecode cache); rc=1: tests/test_pilot.py caught it
+no-runner-check rc=1
+no-ancestor-check rc=1
+pilot-py-allowed rc=1
+prefix-match rc=1
+no-plan-check rc=1
+no-manifest-check rc=1
+no-go-check rc=1
+go-file-not-checked rc=1
+quick-checks-freeze rc=1
+real-skips-freeze rc=1

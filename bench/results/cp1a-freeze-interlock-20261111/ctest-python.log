@@ -1,0 +1,17 @@
+Test project /home/solo/SNC-server-OS/build-s6
+    Start 33: test_ckpt_cli
+1/6 Test #33: test_ckpt_cli ....................   Passed    0.26 sec
+    Start 36: test_profile_check
+2/6 Test #36: test_profile_check ...............   Passed    0.11 sec
+    Start 45: test_lab_witness_guard
+3/6 Test #45: test_lab_witness_guard ...........   Passed   13.15 sec
+    Start 47: test_pilot
+4/6 Test #47: test_pilot .......................   Passed    0.32 sec
+    Start 48: test_s6
+5/6 Test #48: test_s6 ..........................   Passed    0.14 sec
+    Start 49: test_net_bench_rate
+6/6 Test #49: test_net_bench_rate ..............   Passed   15.65 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =  29.65 sec
