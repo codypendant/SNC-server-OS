@@ -2748,3 +2748,62 @@ or source comments.
       ratios.
 -   **Next action:** independent review. No performance runs, CRITERIA
     freeze, comparators or REFINE round 2.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A0 done; A2-a reproducibility preregistration (for review, not run)
+
+-   **What:** PR #113 APPROVED and merged (449e355): storage evidence
+    accepted, A2-a selected, B approved with corrections B1-B4.
+    -   A0, authorized: `fstrim.timer` disabled and inactive at 03:54 UTC.
+        No trim run; no other trim path
+        (`bench/results/a2a-storage-repro-r640/a0-fstrim-timer/`).
+    -   METHOD_PROPOSAL.md revision 2 records the rulings and B1-B4.
+    -   Preregistration, driver `a2a.py` (`bench/pilot.py` unchanged), test
+        and proposed `sudoers-snc-a2a`. The plan: K=5 sessions, each an
+        explicit `fstrim -v`, a 30 min settle, A1 snapshots, and S0 F1 C1 ...
+        F5 C5 S1 at the 654,569 historical anchor. N_raw = 3 x max(between,
+        max within) CV; STOP on a CV over 10%, a multimodal gap or an
+        asymmetric sentinel. 19/19 mutants caught (17 on the first pass).
+-   **Next action:** independent review of the preregistration before the
+    first trim. Then install the sudoers file and run it once. Nothing else
+    is authorized.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a preregistration revision 2 (PR #114 review 1 corrections; not run)
+
+-   **What:** review 1 returned CHANGES REQUIRED. Every item is applied in
+    `bench/results/a2a-storage-repro-r640/` (PREREG.md revision 2,
+    `a2a.py`, `test_a2a.py`, `negative/`):
+    -   Sentinel limit fixed at 11/10, symmetric and inclusive, independent
+        of N_raw (now a result only).
+    -   A per-session guard before every trim: boot id, HEAD, clean tree,
+        timer disabled/inactive, NUMA 0, governors, mount
+        `/dev/sdb1 ext4 rw,relatime,stripe=2`, disk `sdb`, and the 4
+        hashes. No rebuild.
+    -   Trim proof: rc 0, mount named, bytes > 0, discard delta > 0.
+    -   Settle judged: sdb +0 sectors written and +0 discarded, with `sync`
+        before and after the trim. The idle baseline over 63 min showed
+        +0/+0 (`pre-data/idle-baseline.txt`).
+    -   Capacity validity: rc 0, not failed, errors, stale and index_errors
+        all 0.
+    -   A1 validated field by field (smartctl by parsed fields, not its rc
+        bitmask).
+    -   Multimodality is a supplementary signal only.
+    -   INCOMPLETE (integrity) vs STOP (statistics) defined.
+    -   Live read-only guard check: only "git tree not clean" (uncommitted
+        edits). Mutants: 47/47 caught on the first pass.
+-   **Next action:** independent review of revision 2. After final
+    approval: install the sudoers file (record `visudo -c`) and run once.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a preregistration revision 3 (PR #114 review 2; not run)
+
+-   **What:** review 2 accepted revision 2 except one blocking point. Both
+    `sync -f /srv/snc-data` calls now fail closed through `sync_fs(rec,
+    stage)`, which records rc and output:
+    -   a failed pre-trim sync stops with INCOMPLETE before the A1 pre-trim
+        snapshot and the trim;
+    -   a failed post-trim sync stops before the settle.
+-   Adopted the optional item: the per-session guard requires
+    `fstrim.service` inactive.
+-   Tests cover both sync failures (nothing runs after them) and the new
+    guard drift. Mutants: 54/54 caught on the first pass (47 + 7).
+-   **Next action:** independent review of revision 3. After GO: install
+    the sudoers file (record `visudo -c`) and run once.

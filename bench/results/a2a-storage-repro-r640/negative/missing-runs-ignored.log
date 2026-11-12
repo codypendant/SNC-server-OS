@@ -1,0 +1,14 @@
+A1 ok
+A2 ok
+A3 ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 384, in <module>
+    assert V(runs()[:-1])["verdict"] == "INCOMPLETE"
+           ^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 336, in <lambda>
+    V = lambda rs, sess=SESS, ab=None: A.judge(rs, PLAN, sess, ab)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/a2a.py", line 420, in judge
+    ok, rs = pilot.sustained(by[k, x], plan)
+                             ~~^^^^^^
+KeyError: (5, 'S1')

@@ -249,9 +249,33 @@ Decided by cody on 2026-11-04.
      written since; no device errors or wear; a background medium scan is
      active (79.61%); no cause shown. The next `fstrim.timer` run is
      2026-11-16 00:56 UTC. A method revision is proposed (storage state,
-     between-session noise, a Latin-square duration design). **Next:**
-     independent review. No performance runs, comparators, CRITERIA freeze
-     or REFINE round 2 before that.
+     between-session noise, a Latin-square duration design). PR #113
+     APPROVED with one wording correction and merged (449e355;
+     [handoff/PR113_Storage_State_Final_Review.md](handoff/PR113_Storage_State_Final_Review.md)):
+     storage evidence accepted; **A2-a** (explicit trim + 30 min settle) is
+     selected as the campaign start state; CP-1A's A objective must be
+     revalidated under it; B is approved with corrections B1-B4. **A0 done**
+     2026-11-12 03:54 UTC (`fstrim.timer` disabled and inactive). **The A2-a
+     reproducibility validation is preregistered, NOT RUN**
+     ([bench/results/a2a-storage-repro-r640/](../bench/results/a2a-storage-repro-r640/PREREG.md)):
+     K=5 sessions, 12 runs each at the 654,569 historical anchor. PR #114
+     review 1 returned CHANGES REQUIRED
+     ([handoff/PR114_A2a_Prereg_Review1.md](handoff/PR114_A2a_Prereg_Review1.md)).
+     **Revision 2** makes these changes:
+     - a fixed 1.10 sentinel limit, independent of N_raw;
+     - a per-session fail-closed environment guard;
+     - a proven trim and a judged clean settle (0 sectors on `sdb`; the
+       idle baseline holds);
+     - stricter capacity validity and fail-closed A1 snapshots;
+     - INCOMPLETE vs STOP defined.
+
+     47/47 mutants caught. Review 2
+     ([handoff/PR114_A2a_Prereg_Review2.md](handoff/PR114_A2a_Prereg_Review2.md))
+     accepted all of that and required one change: both `sync -f` calls
+     must fail closed. **Revision 3** does that and adds `fstrim.service`
+     inactive to the guard; 54/54 mutants caught. **Next:** independent
+     review of revision 3 (expected: A2-a run GO) before the first trim. No performance runs, comparators, CRITERIA
+     freeze or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

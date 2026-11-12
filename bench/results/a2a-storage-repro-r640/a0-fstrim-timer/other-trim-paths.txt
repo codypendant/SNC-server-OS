@@ -1,0 +1,28 @@
+# other trim paths, 2026-11-12T03:54:20Z
+$ grep -rl fstrim /etc/cron* /etc/systemd /usr/lib/systemd/system /etc/anacrontab
+/usr/lib/systemd/system/fstrim.timer
+/usr/lib/systemd/system/fstrim.service
+$ systemctl list-timers --all --no-pager
+NEXT                            LEFT LAST                              PASSED UNIT                           ACTIVATES
+Thu 2026-11-12 04:00:00 UTC     5min Thu 2026-11-12 03:50:10 UTC  4min 9s ago sysstat-collect.timer          sysstat-collect.service
+Thu 2026-11-12 04:24:26 UTC    30min Thu 2026-11-12 03:20:32 UTC    33min ago fwupd-refresh.timer            fwupd-refresh.service
+Thu 2026-11-12 06:28:28 UTC 2h 34min Wed 2026-11-11 14:41:50 UTC      13h ago apt-daily-upgrade.timer        apt-daily-upgrade.service
+Thu 2026-11-12 08:26:23 UTC 4h 32min Wed 2026-11-11 23:33:50 UTC 4h 20min ago motd-news.timer                motd-news.service
+Thu 2026-11-12 13:55:45 UTC      10h Wed 2026-11-11 13:55:45 UTC      13h ago update-notifier-download.timer update-notifier-download.service
+Thu 2026-11-12 14:05:50 UTC      10h Wed 2026-11-11 14:05:50 UTC      13h ago systemd-tmpfiles-clean.timer   systemd-tmpfiles-clean.service
+Thu 2026-11-12 15:00:46 UTC      11h Wed 2026-11-11 23:31:16 UTC 4h 23min ago apt-daily.timer                apt-daily.service
+Thu 2026-11-12 22:45:42 UTC      18h Fri 2026-11-06 04:21:20 UTC            - update-notifier-motd.timer     update-notifier-motd.service
+Fri 2026-11-13 00:00:00 UTC      20h Thu 2026-11-12 00:00:16 UTC 3h 54min ago dpkg-db-backup.timer           dpkg-db-backup.service
+Fri 2026-11-13 00:00:00 UTC      20h Thu 2026-11-12 00:00:16 UTC 3h 54min ago logrotate.timer                logrotate.service
+Fri 2026-11-13 00:07:00 UTC      20h Thu 2026-11-12 00:07:16 UTC 3h 47min ago sysstat-summary.timer          sysstat-summary.service
+Fri 2026-11-13 10:32:48 UTC 1 day 6h Thu 2026-11-12 02:01:40 UTC 1h 52min ago man-db.timer                   man-db.service
+Sun 2026-11-15 03:10:10 UTC   2 days Wed 2026-11-11 13:50:45 UTC      14h ago e2scrub_all.timer              e2scrub_all.service
+-                                  - -                                      - apport-autoreport.timer        apport-autoreport.service
+-                                  - -                                      - snapd.snap-repair.timer        snapd.snap-repair.service
+-                                  - -                                      - ua-timer.timer                 ua-timer.service
+
+16 timers listed.
+$ findmnt -no OPTIONS /srv/snc-data
+rw,relatime,stripe=2
+$ grep snc-data /etc/fstab
+UUID=3bf857c8-0cb4-4c57-b9a5-14328e70b061 /srv/snc-data ext4 defaults 0 2
