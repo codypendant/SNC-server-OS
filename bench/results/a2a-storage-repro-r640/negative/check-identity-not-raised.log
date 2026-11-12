@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-brwoy2yj/bench/results/a2a-storage-repro-r640/test_a2a.py", line 387, in <module>
+    res_ = stops(dict(ident_bad=(n, ch)), runs_n, last, "device identity")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/a2a-mut-brwoy2yj/bench/results/a2a-storage-repro-r640/test_a2a.py", line 334, in stops
+    assert res["verdict"] == "INCOMPLETE", (scenario, res["verdict"], res["why"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ({'ident_bad': (1, {'disk': 'sdb', 'source': '/dev/sdb1', 'part': 'sdb1', 'byid_disk': '/dev/sdb', 'byid_part': '/dev/sdb1', 'byuuid': '/dev/sdb1'})}, 'STABLE', [])

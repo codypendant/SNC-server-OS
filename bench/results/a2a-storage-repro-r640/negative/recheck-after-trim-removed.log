@@ -1,0 +1,8 @@
+A-a2a-k5-F5: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-a2a-k5-C5: total 4028679 ops/s achieved None p99 11534 us drained None errors 0
+A-a2a-k5-S1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-a10v6vix/bench/results/a2a-storage-repro-r640/test_a2a.py", line 313, in <module>
+    assert got == one * 5, [x for x in got[:48]]
+           ^^^^^^^^^^^^^^
+AssertionError: [('observe',), ('sh', 'sync'), ('diskstats',), ('root', 'smartctl'), ('root', 'sg_logs'), ('root', 'tune2fs'), ('sh', 'journalctl'), ('diskstats',), ('root', 'fstrim'), ('diskstats',), ('sh', 'sync'), ('diskstats',), ('sleep', 1800), ('diskstats',), ('ident',), ('diskstats',), ('root', 'smartctl'), ('root', 'sg_logs'), ('root', 'tune2fs'), ('sh', 'journalctl'), ('sh', 'journalctl'), 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', 'RUN', ('ident',), ('diskstats',), ('root', 'smartctl'), ('root', 'sg_logs'), ('root', 'tune2fs'), ('sh', 'journalctl'), ('sh', 'journalctl'), ('observe',), ('sh', 'sync'), ('diskstats',), ('root', 'smartctl'), ('root', 'sg_logs'), ('root', 'tune2fs'), ('sh', 'journalctl'), ('diskstats',)]

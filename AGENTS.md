@@ -2807,3 +2807,30 @@ or source comments.
     guard drift. Mutants: 54/54 caught on the first pass (47 + 7).
 -   **Next action:** independent review of revision 3. After GO: install
     the sudoers file (record `visudo -c`) and run once.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a preregistration revision 4, persistent device identity (not run)
+
+-   **What:** the first morning preflight for the A2-a run refused after a
+    reboot moved the data SSD from `sdb` to `sda`. No trim, no data, A0
+    intact. Per `docs/handoff/A2a_Device_Identity_Correction_20261112.md`,
+    revision 4 removes every kernel-name dependency:
+    -   the data filesystem is resolved from `/srv/snc-data` and must have
+        UUID `3bf857c8-0cb4-4c57-b9a5-14328e70b061`;
+    -   its parent disk must be model `ARFX3840S5xnFTRI`, serial
+        `S48LNA0M700325`, WWN `0x5002538b097f68a0`, and the by-id (WWN disk
+        and partition) and by-uuid links must resolve to it;
+    -   root commands and `sudoers-snc-a2a` use
+        `/dev/disk/by-id/wwn-0x5002538b097f68a0[-part1]` (captured, not
+        guessed; the three read-only commands were run through them);
+    -   diskstats uses the SSD's kernel name resolved at run time;
+    -   the identity is re-verified at the guard and three times inside each
+        session; a changed mapping is INCOMPLETE.
+-   Tests: new A5 (faked host: SSD as `sda` and `sdb`, HDD on the other name,
+    wrong UUID / serial / model / WWN, wrong mounted filesystem, wrong by-id
+    targets, name change) plus session runs with a decoy diskstats line;
+    `a2a.py` and the sudoers file contain no `sdX` name. Mutants: 29/29
+    caught. The revision-3 mutation runner is not in the repo, so its 54
+    mutants were not re-run. `run()` / `extra_preflight` are not exercised
+    offline.
+-   **Next action:** independent review. Then sudoers install and the run.
+

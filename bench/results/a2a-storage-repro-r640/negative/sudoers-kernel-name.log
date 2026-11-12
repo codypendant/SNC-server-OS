@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-t2vgsjan/bench/results/a2a-storage-repro-r640/test_a2a.py", line 66, in <module>
+    assert [c.strip().split() for c in line.split("NOPASSWD:")[1].split(",")] == list(A.ROOT.values()), line
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: solo ALL=(root) NOPASSWD: /usr/sbin/fstrim -v /srv/snc-data, /usr/sbin/smartctl -x /dev/sdb, /usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0, /usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1

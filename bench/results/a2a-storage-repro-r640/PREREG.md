@@ -1,4 +1,4 @@
-# A2-a storage-state reproducibility validation: preregistration, revision 3 (for review, NOT RUN)
+# A2-a storage-state reproducibility validation: preregistration, revision 4 (for review, NOT RUN)
 
 Authorized to **prepare, not run**, by
 [docs/handoff/PR113_Storage_State_Final_Review.md](../../../docs/handoff/PR113_Storage_State_Final_Review.md).
@@ -13,6 +13,53 @@ revision 2.
 - **Not the campaign objective.** 654,569 ops/s is a historical anchor.
 - **SNC only.** No competitor, no CRITERIA, no REFINE #2, no threshold change after data, no product
   change. `bench/pilot.py`, `bench/pilot_plan.json` and the binaries are unchanged.
+
+## Revision 4 (device-identity correction; no data, no trim)
+
+On 2026-11-12 the server was rebooted and the data SSD enumerated as `/dev/sda` (it was `sdb` on 11-11; `sda` on
+11-06). The revision-3 driver, sudoers rule and guard named `sdb` / `/dev/sdb1` literally, so the morning
+preflight (correctly) refused: no trim, no data, A0 intact (`fstrim.timer` disabled/inactive, no trim since
+2026-11-11 15:09). The reviewer's correction is
+[docs/handoff/A2a_Device_Identity_Correction_20261112.md](../../../docs/handoff/A2a_Device_Identity_Correction_20261112.md):
+identity must be persistent, and the kernel name is evidence only. Everything else (K, order, anchor,
+settle, trim proof, syncs, verdict rules, 1.10 sentinel) is **unchanged from revision 3**.
+
+| Required correction | Implementation |
+|---|---|
+| Partition identity: resolve from `/srv/snc-data`, require filesystem UUID `3bf857c8-0cb4-4c57-b9a5-14328e70b061`; not `sdb1` | `gather_identity` (`findmnt -P -o SOURCE,TARGET,FSTYPE,OPTIONS,UUID`), `identity_problems` |
+| Physical SSD: resolve the mounted partition to its parent disk dynamically; require model `ARFX3840S5xnFTRI`, serial `S48LNA0M700325`, and pin WWN `0x5002538b097f68a0` | parent from `/sys/class/block/<part>`, `lsblk -dn -P -o NAME,MODEL,SERIAL,WWN`; `APPROVED` |
+| Capture the `/dev/disk/by-id` identity; do not guess it | captured on this boot in [pre-data/identity-20261112-boot2.txt](pre-data/identity-20261112-boot2.txt): `wwn-0x5002538b097f68a0` -> whole SSD, `...-part1` -> data partition (also `scsi-SSAMSUNG_ARFX3840S5xnFTRI_S48LNA0M700325[-part1]`); by-uuid `3bf857c8-...` -> the same partition |
+| Root commands use a verified by-id path; tune2fs the stable partition identity; fstrim stays mount-based | `ROOT`: `smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0`, `sg_logs -a` the same, `tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1`, `fstrim -v /srv/snc-data`; `sudoers-snc-a2a` equal (`visudo -c -f`: parsed OK). The three by-id commands were run read-only on this boot: smartctl rc 4 (bitmask, full data, as before), sg_logs rc 0, tune2fs rc 0 |
+| Diskstats: resolve the SSD's current kernel name dynamically; the name is never the identity check | `diskstats(dev)`; `dev` = `observe()["identity"]["disk"]` for the session; no `DEV` constant exists |
+| Guard, every session: (1) UUID, (2) model/serial/WWN, (3) the diskstats device is that same physical disk, (4) no mapping changed during the invocation, else INCOMPLETE | `guard_problems` calls `identity_problems(identity, want.identity)` (UUID, mount, model, serial, WWN, `/dev/disk/by-id` disk, by-id partition and by-uuid links must resolve to the mounted disk and partition, and the kernel's own `pilot.disks_of(/srv/snc-data)` must be that disk; `source`, `part`, `disk` must equal the invocation's start values). Additionally `check_identity` re-resolves and verifies **after the trim** (before the post-trim sync), **after the settle** (before the A1 start snapshot) and **before the A1 end snapshot**, so the counters read in each window are those of the verified, unchanged disk. Any failure: INCOMPLETE, no replacement |
+| Preflight | `extra_preflight` requires the CP-1A preflight's data disk to be the resolved approved disk; the start identity is recorded in `pilot.json` (`device_identity_at_start`, `approved_device`) and each session records the kernel names used |
+
+The name the SSD has on a given boot (`sda` today) is recorded as evidence only and may differ in a later boot
+without any code change, provided it is stable during one invocation.
+
+**Tests (A5, new; A2 and A3 extended):** the approved SSD presented as `sda` and as `sdb` (the HDD on the other
+name) passes; the HDD on the approved name; a wrong filesystem UUID; a correct mount on a wrong serial, model or
+WWN; a correct serial with a wrong mounted filesystem (with and without the approved UUID); by-id disk,
+by-id partition and by-uuid links resolving to the wrong disk; a mount-option drift; a name change against
+the start values; an unresolvable mount; a whole session run (A3 machinery) with the SSD as `sda` and as `sdb`
+where the **other** disk has a decoy diskstats line, STABLE and the settle read from the SSD's own line;
+a wrong or renamed identity at each of the three in-session re-checks (INCOMPLETE at once: before the
+post-trim sync / before the A1 start snapshot / before the A1 end snapshot, with no later step); and a source
+check that `a2a.py` and `sudoers-snc-a2a` contain **no `sdX` name at all** and that `ROOT` has no `/dev/sd`
+path. **Mutations:** [negative/summary-rev4.txt](negative/summary-rev4.txt), 29 mutants, **29 / 29 caught on the
+first pass**, baseline passes; reproduce with `negative/run_identity_mutants.py OUTDIR`. (The revision-3 suite
+of 54 mutants, [negative/summary.txt](negative/summary.txt), was produced by a runner that is not in the
+repository; its mutants were not re-run against revision 4.)
+
+**Not exercised offline:** `run()` and `extra_preflight` (they need the live CP-1A preflight, the build and
+`sudo -n -l`), as in revisions 1-3; their identity changes are small and are exercised live only in the
+read-only check below.
+
+**Live, read only, on the 2026-11-12 15:32 boot** ([pre-data/identity-20261112-boot2.txt](pre-data/identity-20261112-boot2.txt)):
+`gather_identity()` returned the approved UUID, model, serial and WWN, kernel names `sda` / `sda1`, all three
+by-id/by-uuid links agreeing; `identity_problems` = `[]`; `pilot.disks_of` = `[sda]`; `observe()`/`guard_problems`
+named only `git tree not clean` (uncommitted edits), `numa_balancing 1` and `governors ['schedutil']` (not set
+yet after the reboot; set in the morning sequence).
 
 ## Revision 3 (PR #114 review 2: one blocking correction)
 
@@ -33,8 +80,8 @@ Mutation suite: **54 / 54 caught on the first pass** (revision 2's 47 plus 7).
 |---|---|---|
 | 1 Sentinel | **Fixed `SENTINEL_LIMIT = 11/10`**: max(P_end/P_start, P_start/P_end) ≤ 1.10, exactly, equality passes. Independent of N_raw. | `judge`; A4; mutants `sentinel-*` |
 | 2 Per-session guard | Before every session's trim, a fail-closed identity/state guard. No rebuild. | `observe`, `guard_problems`; A2, A3; `guard-*` |
-| 3 Trim proof | rc 0, `/srv/snc-data` named in the output, reported bytes > 0, `sdb` discard sectors increased. | `trim_problems`; A3; `trim-*` |
-| 4 Settle | **Judged:** `sdb` sectors written +0 and discarded +0 over the 1,800 s, else INCOMPLETE. | `settle_problems`; A3; `settle-*`; `pre-data/idle-baseline.txt` |
+| 3 Trim proof | rc 0, `/srv/snc-data` named in the output, reported bytes > 0, the approved SSD's discard sectors increased. | `trim_problems`; A3; `trim-*` |
+| 4 Settle | **Judged:** the approved SSD's sectors written +0 and discarded +0 over the 1,800 s, else INCOMPLETE. | `settle_problems`; A3; `settle-*`; `pre-data/idle-baseline.txt` |
 | 5 Capacity validity | returncode 0, not failed, errors 0, stale 0, index_errors 0. EXEC overload is expected. | `capacity_problems`, `run_problems`; A3, A4 |
 | 6 A1 fail closed | Each snapshot is validated field by field. smartctl is judged on its parsed fields, not its bitmask rc. | `a1_problems`; A1, A3; `a1-*` |
 | 7 Multimodality | The gap rule stays, as a **supplementary** automatic STOP signal only (see Decision). | text |
@@ -49,7 +96,7 @@ On 2026-11-12 at 03:54 UTC, `fstrim.timer` was disabled and made inactive
 ([a0-fstrim-timer/other-trim-paths.txt](a0-fstrim-timer/other-trim-paths.txt)).
 
 Idle baseline ([pre-data/idle-baseline.txt](pre-data/idle-baseline.txt), read only):
-- Over about 63 min idle (03:20–04:24 UTC), `sdb` wrote **0 sectors** and discarded **0 sectors**. The only
+- Over about 63 min idle (03:20–04:24 UTC), the SSD (then `sdb`) wrote **0 sectors** and discarded **0 sectors**. The only
   I/O was one zero-sector cache flush.
 - No `ext4lazyinit` thread exists.
 
@@ -70,9 +117,12 @@ and no session is replaced.
    - `fstrim.timer` `disabled` and `inactive`, and `fstrim.service` `inactive` (revision 3);
    - `kernel.numa_balancing` = 0;
    - every CPU governor `performance`;
-   - `findmnt /srv/snc-data` = `/dev/sdb1 /srv/snc-data ext4 rw,relatime,stripe=2`, and the data root
-     resolves to that mount;
-   - the physical data disk is `[sdb]`;
+   - `/srv/snc-data` is `ext4 rw,relatime,stripe=2` with filesystem UUID `3bf857c8-0cb4-4c57-b9a5-14328e70b061`,
+     and the data root resolves to that mount (revision 4: no kernel name is compared);
+   - its parent physical disk has model `ARFX3840S5xnFTRI`, serial `S48LNA0M700325` and WWN
+     `0x5002538b097f68a0`; the by-id WWN disk and partition links and the by-uuid link resolve to that
+     disk and partition; `pilot.disks_of` of the data mount is that disk; the mapping equals the invocation's
+     start (revision 4);
    - SHA-256 of `bench/pilot_plan.json`, manifest e, `build-s6/snc_server` and `build-s6/net_bench` equal
      the CP-1A record.
 
@@ -81,15 +131,15 @@ and no session is replaced.
    INCOMPLETE before the A1 pre-trim snapshot and the trim (revision 3).
 2. **A1 pre-trim snapshot**, validated (item 6).
 3. **Explicit trim, proven (item 3):**
-   - read the `sdb` discard sectors;
+   - read the approved SSD's discard sectors (its kernel name resolved this session);
    - run `sudo -n /usr/sbin/fstrim -v /srv/snc-data`;
    - read the discard sectors again;
-   - require rc 0, `/srv/snc-data: … (N bytes) trimmed` with N > 0, and a discard-sector delta > 0.
+   - require rc 0, `/srv/snc-data: … (N bytes) trimmed` with N > 0, and a discard-sector delta > 0 on the approved SSD.
 
    The rc, stdout, parsed bytes and both counters are recorded. On failure the session does not settle.
    Then `sync -f /srv/snc-data` again. **rc 0 required**; otherwise INCOMPLETE before the settle
    (revision 3).
-4. **Settle, judged (item 4):** read the `sdb` counters, sleep 1,800 s, read them again. Written-sector
+4. **Settle, judged (item 4):** read the approved SSD's counters, sleep 1,800 s, read them again. Written-sector
    delta = 0 and discarded-sector delta = 0 are both required. Boot-disk activity is not judged; the host
    units started are recorded in A1.
 5. **A1 start snapshot**, validated.
@@ -123,14 +173,14 @@ guard. `test_a2a.py` A3 checks every server and client command against CP-1A `A-
 Recorded:
 - `/proc/diskstats`;
 - boot id and `/proc/uptime`;
-- `smartctl -x /dev/sdb`;
-- `sg_logs -a /dev/sdb`;
-- `tune2fs -l /dev/sdb1`;
+- `smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0`;
+- `sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0`;
+- `tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1`;
 - the last 20 `fstrim.service` journal lines;
 - the host units systemd started since the session began (start and end snapshots, report only).
 
 No counter is cleared. A snapshot is **usable** only if:
-- diskstats parse for `sdb`;
+- diskstats parse for the approved SSD's resolved kernel name;
 - the boot id is a UUID;
 - uptime parses;
 - the SMART fields health, temperature, background-scan status, endurance used, grown defects, non-medium
@@ -147,9 +197,9 @@ device on 2026-11-12. Its parsed fields are validated instead. An unusable snaps
 Root is used only through `sudo -n` for exactly the 4 commands of `a2a.py` `ROOT`, as granted by
 `sudoers-snc-a2a` (syntax-checked with `visudo -c -f`: parsed OK):
 - `fstrim -v /srv/snc-data`;
-- `smartctl -x /dev/sdb`;
-- `sg_logs -a /dev/sdb`;
-- `tune2fs -l /dev/sdb1`.
+- `smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0`;
+- `sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0`;
+- `tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1`.
 
 There is no generic shell and no wildcard. It is **not installed** until final approval. At install, the
 `visudo -c` result is recorded in the evidence. The driver refuses if `sudo -n -l` cannot run any of the 4.

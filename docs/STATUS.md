@@ -276,6 +276,15 @@ Decided by cody on 2026-11-04.
      inactive to the guard; 54/54 mutants caught. **Next:** independent
      review of revision 3 (expected: A2-a run GO) before the first trim. No performance runs, comparators, CRITERIA
      freeze or REFINE round 2 before that.
+     **A2-a run GO was filed (PR #114), but the first morning preflight
+     refused: after the 2026-11-12 reboot the data SSD enumerated as `sda`,
+     not `sdb`** ([handoff/A2a_Device_Identity_Correction_20261112.md](handoff/A2a_Device_Identity_Correction_20261112.md)).
+     No trim and no data; A0 intact. **Revision 4** (for review, NOT RUN)
+     replaces every kernel-name dependency with persistent identity:
+     filesystem UUID `3bf857c8-...`, SSD model/serial/WWN, by-id root
+     commands, a dynamically resolved diskstats name, and mapping re-checks
+     in each session; 29/29 new mutants caught. **Next:** independent review
+     of revision 4; sudoers install and the run only after that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

@@ -1,0 +1,8 @@
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-abc1moz7/bench/results/a2a-storage-repro-r640/test_a2a.py", line 567, in <module>
+    assert any("not resolved" in x for x in A.identity_problems(A.gather_identity()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

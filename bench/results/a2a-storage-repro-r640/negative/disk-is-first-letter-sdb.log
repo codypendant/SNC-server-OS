@@ -1,0 +1,8 @@
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+ABORTED: device identity: /dev/disk/by-id/wwn-0x5002538b097f68a0 -> /dev/sdb, not the mounted disk /dev/sda
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-h4hakyah/bench/results/a2a-storage-repro-r640/test_a2a.py", line 523, in <module>
+    assert sda["disk"] == "sda" and sda["part"] == "sda1" and sda["source"] == "/dev/sda1" and sda["serial"] == "S48LNA0M700325"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

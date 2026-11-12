@@ -5,18 +5,21 @@ docs/handoff/PR114_A2a_Prereg_Review1.md; PREREG.md here).
 
 K = 5 physical sessions. Each session, fail closed:
   0. per-session environment guard (boot id, HEAD, clean tree, fstrim.timer, NUMA,
-     governors, mount and data disk, plan/manifest/binary SHA-256); no rebuild;
+     governors, the data filesystem UUID and the physical SSD's model/serial/WWN, plan/
+     manifest/binary SHA-256); no rebuild;
   1. clear the data root and sync the filesystem (fail closed: rc 0 required);
   2. A1 pre-trim snapshot (validated);
   3. explicit trim `fstrim -v /srv/snc-data`, proven (rc 0, the mount named, bytes > 0,
-     sdb discard sectors increased), then sync (fail closed);
-  4. 30 min idle settle, judged: sdb sectors written + 0 and discarded + 0;
+     discard sectors of the approved SSD increased), then sync (fail closed);
+  4. 30 min idle settle, judged: approved SSD sectors written + 0 and discarded + 0;
   5. A1 start snapshot (validated);
   6. 12 Profile-A runs, fixed order S0 F1 C1 F2 C2 F3 C3 F4 C4 F5 C5 S1 (S/F: open loop
      at the historical anchor 654,569 ops/s; C: closed-loop capacity); a run with a
      nonzero client exit or an unparsable report stops at once;
   7. A1 end snapshot (validated).
 Any execution-integrity failure in 0-7 aborts: INCOMPLETE, no replacement session.
+Device identity is persistent (docs/handoff/A2a_Device_Identity_Correction_20261112.md): the
+kernel name (the sdX letter) is resolved at run time and is evidence only, never the check.
 Then the verdict: STABLE, STOP or INCOMPLETE.
 
 bench/pilot.py (frozen at runner commit 4250b32) is imported unchanged: its
@@ -27,7 +30,7 @@ sustained() rule. Root steps only via `sudo -n` with the exact commands in ROOT
   a2a.py run OUT --scratch DIR --manifest M [--build build-s6]
   a2a.py judge OUT
 """
-import argparse, glob, json, os, re, shutil, statistics, subprocess, sys, time
+import argparse, glob, json, os, re, shlex, shutil, statistics, subprocess, sys, time
 from fractions import Fraction
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,16 +49,24 @@ CAPACITY = [x for x in ORDER if x[0] == "C"]
 STOP_CV = 0.10                      # B3: a CV strictly above 10% stops
 SENTINEL_LIMIT = Fraction(11, 10)   # PR #114 review 1, item 1: fixed, independent of N_raw
 MULTIMODAL_GAP = 2                  # supplementary automatic signal (item 7)
-MOUNT, DATA_ROOT, DEV, PART = "/srv/snc-data", "/srv/snc-data/a2a", "sdb", "/dev/sdb1"
+MOUNT, DATA_ROOT = "/srv/snc-data", "/srv/snc-data/a2a"
 MOUNT_FSTYPE, MOUNT_OPTIONS = "ext4", "rw,relatime,stripe=2"   # the accepted configuration
+# Persistent identity of the approved data SSD and its filesystem (captured 2026-11-12 on this
+# host: lsblk, findmnt and /dev/disk/by-id). The kernel name is NOT part of it.
+APPROVED = dict(fs_uuid="3bf857c8-0cb4-4c57-b9a5-14328e70b061", model="ARFX3840S5xnFTRI",
+                serial="S48LNA0M700325", wwn="0x5002538b097f68a0")
+BYID_DISK = "/dev/disk/by-id/wwn-0x5002538b097f68a0"      # verified symlink to the whole SSD
+BYID_PART = BYID_DISK + "-part1"                          # verified symlink to its data partition
+BYID_UUID = "/dev/disk/by-uuid/" + APPROVED["fs_uuid"]
 ROOT = {
     "fstrim": ["/usr/sbin/fstrim", "-v", MOUNT],
-    "smartctl": ["/usr/sbin/smartctl", "-x", "/dev/sdb"],
-    "sg_logs": ["/usr/bin/sg_logs", "-a", "/dev/sdb"],
-    "tune2fs": ["/usr/sbin/tune2fs", "-l", PART],
+    "smartctl": ["/usr/sbin/smartctl", "-x", BYID_DISK],
+    "sg_logs": ["/usr/bin/sg_logs", "-a", BYID_DISK],
+    "tune2fs": ["/usr/sbin/tune2fs", "-l", BYID_PART],
 }
 sleep = time.sleep                  # injectable for the test
 now = time.time
+realpath = os.path.realpath         # injectable for the test
 
 
 def sh(cmd, root=False):
@@ -85,14 +96,75 @@ class Incomplete(pilot.Abort):
 
 # --- observations ---
 
-def diskstats(text=None):
-    """(sectors written, sectors discarded) of DEV from /proc/diskstats."""
+def gather_identity():
+    """Persistent identity facts of the data filesystem and its physical disk, read now. The kernel
+    names (part, disk) are resolved here, from the mount, and are evidence only."""
+    f = {}
+    rc, txt = sh(["findmnt", "-n", "-P", "-o", "SOURCE,TARGET,FSTYPE,OPTIONS,UUID", MOUNT])
+    m = dict(kv.split("=", 1) for kv in shlex.split(txt) if "=" in kv) if rc == 0 else {}
+    f["mount"] = [m.get("TARGET"), m.get("FSTYPE"), m.get("OPTIONS")]
+    f["fs_uuid"] = m.get("UUID")
+    f["source"] = realpath(m["SOURCE"]) if m.get("SOURCE") else None
+    f["part"] = os.path.basename(f["source"]) if f["source"] else None
+    f["disk"] = None
+    if f["part"]:
+        sysp = realpath(f"/sys/class/block/{f['part']}")
+        parent = os.path.basename(os.path.dirname(sysp))
+        f["disk"] = f["part"] if parent == "block" else parent      # a whole-disk filesystem has no parent
+    f["model"] = f["serial"] = f["wwn"] = None
+    if f["disk"]:
+        rc, txt = sh(["lsblk", "-dn", "-P", "-o", "NAME,MODEL,SERIAL,WWN", f"/dev/{f['disk']}"])
+        d = dict(kv.split("=", 1) for kv in shlex.split(txt) if "=" in kv) if rc == 0 else {}
+        f["model"], f["serial"], f["wwn"] = (d.get(k, "").strip() or None for k in ("MODEL", "SERIAL", "WWN"))
+    f["byid_disk"], f["byid_part"], f["byuuid"] = realpath(BYID_DISK), realpath(BYID_PART), realpath(BYID_UUID)
+    return f
+
+
+def identity_problems(f, want=None):
+    """Why the data filesystem / SSD is not the approved one, by persistent identity ([] = approved).
+    `want` = the identity facts at the start of the invocation: names may differ from a previous
+    boot but must not change during the invocation."""
+    p = []
+    if f.get("mount") != [MOUNT, MOUNT_FSTYPE, MOUNT_OPTIONS]:
+        p.append(f"mount {f.get('mount')} != {[MOUNT, MOUNT_FSTYPE, MOUNT_OPTIONS]}")
+    for k in ("fs_uuid", "model", "serial", "wwn"):
+        if f.get(k) != APPROVED[k]:
+            p.append(f"{k} {f.get(k)!r} != approved {APPROVED[k]!r}")
+    if not f.get("disk") or not f.get("source"):
+        p.append("mounted partition / physical disk not resolved")
+        return p
+    if f.get("byid_disk") != f"/dev/{f['disk']}":
+        p.append(f"{BYID_DISK} -> {f.get('byid_disk')}, not the mounted disk /dev/{f['disk']}")
+    if f.get("byid_part") != f["source"]:
+        p.append(f"{BYID_PART} -> {f.get('byid_part')}, not the mounted partition {f['source']}")
+    if f.get("byuuid") != f["source"]:
+        p.append(f"{BYID_UUID} -> {f.get('byuuid')}, not the mounted partition {f['source']}")
+    if want is not None:
+        for k in ("source", "part", "disk"):
+            if f.get(k) != want.get(k):
+                p.append(f"device mapping changed during the invocation: {k} {want.get(k)} -> {f.get(k)}")
+    return p
+
+
+def check_identity(want):
+    """Re-resolve and verify the approved SSD now; returns its current kernel name. Incomplete if not
+    the approved, unchanged device."""
+    f = gather_identity()
+    bad = identity_problems(f, want)
+    if bad:
+        raise Incomplete("device identity: " + "; ".join(bad))
+    return f["disk"]
+
+
+def diskstats(dev, text=None):
+    """(sectors written, sectors discarded) of kernel disk `dev` (resolved from the approved SSD's
+    persistent identity, never a literal name) from /proc/diskstats."""
     text = text if text is not None else readf("/proc/diskstats")
     for line in text.splitlines():
         f = line.split()
-        if len(f) > 17 and f[2] == DEV:
+        if len(f) > 17 and f[2] == dev:
             return int(f[9]), int(f[16])
-    raise Incomplete(f"{DEV} not in /proc/diskstats")
+    raise Incomplete(f"{dev} not in /proc/diskstats")
 
 
 def parse_smart(text):
@@ -139,7 +211,7 @@ def a1_problems(rec):
     return p
 
 
-def snapshot(out, tag, since=None):
+def snapshot(out, tag, dev, since=None):
     """A1 (read only): diskstats, boot id, uptime, SMART/SCSI health, temperature,
     background scan, endurance, defects/errors, sg_logs, fs lifetime writes, last trim;
     and the host units started since `since` (report only). Raises Incomplete if unusable."""
@@ -149,7 +221,7 @@ def snapshot(out, tag, since=None):
     try:
         ds = readf("/proc/diskstats")
         open(os.path.join(d, "diskstats.txt"), "w").write(ds)
-        rec["sectors_written"], rec["sectors_discarded"] = diskstats(ds)
+        rec["sectors_written"], rec["sectors_discarded"] = diskstats(dev, ds)
     except (OSError, pilot.Abort):
         pass
     for name, path in (("boot_id", "/proc/sys/kernel/random/boot_id"), ("uptime", "/proc/uptime")):
@@ -207,7 +279,7 @@ def observe(build):
         o["numa_balancing"] = None
     govs = [readf(f).strip() for f in sorted(glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor"))]
     o["governors"] = sorted(set(govs)) if govs else None
-    o["mount"] = sh(["findmnt", "-no", "SOURCE,TARGET,FSTYPE,OPTIONS", MOUNT])[1].split()
+    o["identity"] = gather_identity()
     o["data_root_mount"] = sh(["findmnt", "-no", "TARGET", "-T", os.path.dirname(DATA_ROOT)])[1].strip()
     o["data_disks"] = sorted(pilot.disks_of(MOUNT) or [])
     for k, path in (("plan_sha256", os.path.join(REPO, "bench", "pilot_plan.json")),
@@ -233,12 +305,12 @@ def guard_problems(o, want):
         p.append(f"numa_balancing {o.get('numa_balancing')}")
     if o.get("governors") != ["performance"]:
         p.append(f"governors {o.get('governors')}")
-    if o.get("mount") != [PART, MOUNT, MOUNT_FSTYPE, MOUNT_OPTIONS]:
-        p.append(f"mount {o.get('mount')} != {[PART, MOUNT, MOUNT_FSTYPE, MOUNT_OPTIONS]}")
+    ident = o.get("identity") or {}
+    p += identity_problems(ident, want.get("identity"))      # persistent identity, unchanged since the start
     if o.get("data_root_mount") != MOUNT:
         p.append(f"data root on {o.get('data_root_mount')!r}, not {MOUNT}")
-    if o.get("data_disks") != [DEV]:
-        p.append(f"data disks {o.get('data_disks')} != [{DEV!r}]")
+    if o.get("data_disks") != [ident.get("disk")]:           # the kernel's own view of the data disk
+        p.append(f"data disks {o.get('data_disks')} != [{ident.get('disk')!r}] (the approved SSD)")
     for k in ("plan_sha256", "manifest_sha256", "snc_server_sha256", "net_bench_sha256"):
         if o.get(k) != want[k]:
             p.append(f"{k} {o.get(k)} != frozen {want[k]}")
@@ -258,7 +330,7 @@ def trim_problems(t):
     elif t["bytes"] <= 0:
         p.append("fstrim reported 0 bytes")
     if t["discard_sectors_delta"] <= 0:
-        p.append(f"{DEV} discard sectors +{t['discard_sectors_delta']}")
+        p.append(f"approved SSD discard sectors +{t['discard_sectors_delta']}")
     return p
 
 
@@ -266,9 +338,9 @@ def settle_problems(s):
     """Item 4: was the settle clean on the data disk? ([] = clean)."""
     p = []
     if s["sectors_written"] != 0:
-        p.append(f"{DEV} wrote {s['sectors_written']} sectors during the settle")
+        p.append(f"approved SSD wrote {s['sectors_written']} sectors during the settle")
     if s["sectors_discarded"] != 0:
-        p.append(f"{DEV} discarded {s['sectors_discarded']} sectors during the settle")
+        p.append(f"approved SSD discarded {s['sectors_discarded']} sectors during the settle")
     return p
 
 
@@ -302,15 +374,15 @@ def sync_fs(rec, stage):
 
 # --- preflight additions ---
 
-def extra_preflight(p, ref):
+def extra_preflight(p, ref, dev):
     """Refusals on top of pilot's real-mode preflight (the CP-1A freeze gate etc.)."""
     bad = [f"{k} {p.env[k]} != CP-1A {ref[k]}" for k in
            ("snc_server_sha256", "net_bench_sha256", "plan_sha256", "manifest_sha256") if p.env[k] != ref[k]]
     for name, cmd in ROOT.items():
         if sh(["sudo", "-n", "-l"] + cmd)[0] != 0:
             bad.append(f"sudo -n cannot run {' '.join(cmd)} (install sudoers-snc-a2a)")
-    if p.env["disks"].get("data") != [DEV]:
-        bad.append(f"data root disks {p.env['disks'].get('data')} != [{DEV!r}]")
+    if p.env["disks"].get("data") != [dev]:
+        bad.append(f"data root disks {p.env['disks'].get('data')} != [{dev!r}] (the approved SSD)")
     return bad
 
 
@@ -332,12 +404,14 @@ def session(p, plan, k, want, rec):
     rec["guard"] = dict(utc=utc(), observed=o, problems=guard_problems(o, want))
     if rec["guard"]["problems"]:
         raise Incomplete(f"session {k} guard: {'; '.join(rec['guard']['problems'])}")
+    dev = o["identity"]["disk"]                 # the approved SSD's kernel name this session (evidence only)
+    rec["identity"] = dict(kernel_disk=dev, kernel_part=o["identity"]["part"])
     shutil.rmtree(DATA_ROOT, ignore_errors=True)
     sync_fs(rec, "pre_trim")                    # before the A1 pre-trim snapshot and the trim
-    rec["pre_trim"] = snapshot(out, f"k{k}-0-pre-trim")
-    w0, d0 = diskstats()
+    rec["pre_trim"] = snapshot(out, f"k{k}-0-pre-trim", dev)
+    w0, d0 = diskstats(dev)
     rc, txt = sh(ROOT["fstrim"], root=True)
-    w1, d1 = diskstats()
+    w1, d1 = diskstats(dev)
     m = TRIM_RX.search(txt)
     t = dict(utc=utc(), rc=rc, output=txt.strip(), bytes=int(m[1]) if m else None,
              discard_sectors_before=d0, discard_sectors_after=d1, discard_sectors_delta=d1 - d0,
@@ -347,16 +421,18 @@ def session(p, plan, k, want, rec):
     open(os.path.join(out, "state", f"k{k}-0-pre-trim", "fstrim-run.txt"), "w").write(json.dumps(t, indent=1))
     if t["problems"]:
         raise Incomplete(f"session {k} trim not proven: {'; '.join(t['problems'])}")
+    check_identity(want["identity"])            # the counters above were of the approved, unchanged SSD
     sync_fs(rec, "post_trim")                   # before the settle
-    w0, d0 = diskstats()
+    w0, d0 = diskstats(dev)
     sleep(SETTLE_S)
-    w1, d1 = diskstats()
+    w1, d1 = diskstats(dev)
+    check_identity(want["identity"])            # and the settle's counters
     s = dict(seconds=SETTLE_S, sectors_written=w1 - w0, sectors_discarded=d1 - d0)
     s["problems"] = settle_problems(s)
     rec["settle"] = s
     if s["problems"]:
         raise Incomplete(f"session {k} settle not clean: {'; '.join(s['problems'])}")
-    rec["start"] = snapshot(out, f"k{k}-1-start", since=t0)
+    rec["start"] = snapshot(out, f"k{k}-1-start", dev, since=t0)
     for x in ORDER:
         if x[0] in "SF":
             r = p.one(PROFILE, PHASE, label(k, x), rate=ANCHOR, depth=plan["rate_depth"],
@@ -368,7 +444,8 @@ def session(p, plan, k, want, rec):
         bad = run_problems(r)
         if bad:
             raise Incomplete(f"{label(k, x)}: {'; '.join(bad)}")
-    rec["end"] = snapshot(out, f"k{k}-2-end", since=t0)
+    check_identity(want["identity"])
+    rec["end"] = snapshot(out, f"k{k}-2-end", dev, since=t0)
     rec["complete"] = True
 
 
@@ -476,14 +553,15 @@ def run(a):
     a.quick, a.allocation, a.data_root, a.scratch_given = False, plan["baseline_allocation"], DATA_ROOT, True
     os.makedirs(os.path.join(a.out, "raw"), exist_ok=True)
     p = pilot.Pilot(a, plan)                  # CP-1A real-mode preflight, once (it rebuilds; no rebuild after)
-    bad = extra_preflight(p, ref)
     o = observe(a.build)
-    want = dict(ref, boot_id=o["boot_id"], head=o["head"])
+    bad = extra_preflight(p, ref, (o["identity"] or {}).get("disk"))
+    want = dict(ref, boot_id=o["boot_id"], head=o["head"], identity=o["identity"])
     bad += guard_problems(o, want)
     if bad:
         raise SystemExit("refusing: " + "; ".join(bad))
     p.env.update(validation="a2a-storage-repro", cp1a_identity=ref, guard_reference=want, K=K, order=ORDER,
-                 anchor_rate=ANCHOR, settle_s=SETTLE_S, sentinel_limit=str(SENTINEL_LIMIT), root_commands=ROOT)
+                 anchor_rate=ANCHOR, settle_s=SETTLE_S, sentinel_limit=str(SENTINEL_LIMIT), root_commands=ROOT,
+                 approved_device=APPROVED, device_identity_at_start=o["identity"])
     p.write()
     try:
         res = execute(p, plan, want)

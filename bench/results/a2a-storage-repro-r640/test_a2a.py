@@ -26,6 +26,15 @@
      ~0.27 still rejects 1.2); anchor unsustained, capacity stale / index_errors / errors ->
      STOP (EXEC overload not a failure); capacity rc nonzero, missing run, incomplete session,
      an abort -> INCOMPLETE; separated clusters -> STOP (supplementary multimodal signal)
+  A5 persistent device identity (revision 4, docs/handoff/A2a_Device_Identity_Correction_20261112.md):
+     gather_identity / identity_problems on a faked host: the approved SSD presented as sda and as
+     sdb (HDD on the other name) passes; the HDD on the approved name, a wrong filesystem UUID, a
+     correct mount on a wrong serial / model / WWN, a correct serial with a wrong mounted
+     filesystem, a by-id path (disk, partition, UUID) resolving to the wrong disk, a changed mount
+     option, and a device-name change against the invocation's start each fail; a whole session
+     run (A3 machinery) with the SSD as sda and as sdb reads the SSD's own diskstats line, not
+     the other disk's; a name change or wrong identity at each of the three in-session
+     re-checks stops INCOMPLETE at once; a2a.py and sudoers-snc-a2a contain no sdX name
 """
 import json, os, shutil, sys, tempfile, time, types
 from fractions import Fraction
@@ -72,25 +81,48 @@ assert A.a1_problems(dict(real, smart=dict(sm, bms_progress_pct=None))) == ["sma
 print("A1 ok")
 
 # --- A2 guard (pure) ---
+def IDENT(disk="sda", **ch):
+    """The identity facts gather_identity returns for the approved SSD at kernel name `disk`."""
+    f = dict(mount=["/srv/snc-data", "ext4", "rw,relatime,stripe=2"], fs_uuid=A.APPROVED["fs_uuid"],
+             source=f"/dev/{disk}1", part=f"{disk}1", disk=disk, model=A.APPROVED["model"],
+             serial=A.APPROVED["serial"], wwn=A.APPROVED["wwn"], byid_disk=f"/dev/{disk}",
+             byid_part=f"/dev/{disk}1", byuuid=f"/dev/{disk}1")
+    f.update(ch)
+    return f
+
+
 GOOD = dict(boot_id=BOOT, head="h" * 40, git_status="", timer_enabled="disabled", timer_active="inactive",
             fstrim_service_active="inactive",
-            numa_balancing="0", governors=["performance"], mount=["/dev/sdb1", "/srv/snc-data", "ext4", "rw,relatime,stripe=2"],
-            data_root_mount="/srv/snc-data", data_disks=["sdb"], **REF)
-WANT = dict(REF, boot_id=BOOT, head="h" * 40)
+            numa_balancing="0", governors=["performance"], identity=IDENT("sda"),
+            data_root_mount="/srv/snc-data", data_disks=["sda"], **REF)
+WANT = dict(REF, boot_id=BOOT, head="h" * 40, identity=IDENT("sda"))
 assert A.guard_problems(GOOD, WANT) == []
+# the same approved SSD under another kernel name is fine when the start also saw that name
+assert A.guard_problems(dict(GOOD, identity=IDENT("sdb"), data_disks=["sdb"]), dict(WANT, identity=IDENT("sdb"))) == []
 DRIFTS = dict(boot=dict(boot_id="00000000-0000-0000-0000-000000000000"), head=dict(head="g" * 40),
               dirty=dict(git_status="M x"), timer_enabled=dict(timer_enabled="enabled"),
               timer_active=dict(timer_active="active"), service=dict(fstrim_service_active="active"),
               numa=dict(numa_balancing="1"),
               governor=dict(governors=["performance", "powersave"]),
-              mount_source=dict(mount=["/dev/sdc1", "/srv/snc-data", "ext4", "rw,relatime,stripe=2"]),
-              mount_options=dict(mount=["/dev/sdb1", "/srv/snc-data", "ext4", "rw,relatime,discard,stripe=2"]),
-              mount_fstype=dict(mount=["/dev/sdb1", "/srv/snc-data", "xfs", "rw,relatime,stripe=2"]),
-              data_root=dict(data_root_mount="/"), disk=dict(data_disks=["sda"]),
+              mount_options=dict(identity=IDENT("sda", mount=["/srv/snc-data", "ext4", "rw,relatime,discard,stripe=2"])),
+              mount_fstype=dict(identity=IDENT("sda", mount=["/srv/snc-data", "xfs", "rw,relatime,stripe=2"])),
+              mount_target=dict(identity=IDENT("sda", mount=["/mnt/x", "ext4", "rw,relatime,stripe=2"])),
+              fs_uuid=dict(identity=IDENT("sda", fs_uuid="00000000-0000-0000-0000-000000000000")),
+              serial=dict(identity=IDENT("sda", serial="S48LNA0M700326")),
+              model=dict(identity=IDENT("sda", model="ST3000DM008-2DM1")),
+              wwn=dict(identity=IDENT("sda", wwn="0x5002538b097f68a1")),
+              byid_disk_wrong=dict(identity=IDENT("sda", byid_disk="/dev/sdb")),
+              byid_part_wrong=dict(identity=IDENT("sda", byid_part="/dev/sdb1")),
+              byuuid_wrong=dict(identity=IDENT("sda", byuuid="/dev/sdb1")),
+              data_root=dict(data_root_mount="/"), disk=dict(data_disks=["sdc"]),
+              disk_not_ssd=dict(data_disks=["sdb"]),
               plan=dict(plan_sha256="0" * 64), manifest=dict(manifest_sha256="0" * 64),
               snc=dict(snc_server_sha256="0" * 64), netb=dict(net_bench_sha256="0" * 64))
 for name, ch in DRIFTS.items():
     assert len(A.guard_problems(dict(GOOD, **ch), WANT)) == 1, (name, A.guard_problems(dict(GOOD, **ch), WANT))
+# the SSD renamed during the invocation (persistent identity unchanged, kernel name not): refused
+ren = A.guard_problems(dict(GOOD, identity=IDENT("sdb"), data_disks=["sdb"]), WANT)
+assert any("device mapping changed during the invocation: disk sda -> sdb" in x for x in ren), ren
 print("A2 ok")
 
 # --- A3 procedure ---
@@ -160,10 +192,14 @@ def session_no():
     return sum(1 for e in ev if e == ("observe",))
 
 
+def ssd():
+    return S.get("ssd", "sda")                  # the kernel name the approved SSD has in this scenario
+
+
 def fake_observe(build):
     ev.append(("observe",))
     k = session_no()
-    o = dict(GOOD)
+    o = dict(GOOD, identity=IDENT(ssd()), data_disks=[ssd()])
     if S.get("drift") and k == 2:
         o.update(DRIFTS[S["drift"]])
     return o
@@ -205,12 +241,29 @@ def fake_sh(cmd, root=False):
     return 0, ""
 
 
+IDENT_CALLS = []
+
+
+def fake_gather():
+    """gather_identity: the 1st/2nd/3rd in-session re-check of session 1 can be made to differ."""
+    ev.append(("ident",))
+    IDENT_CALLS.append(1)
+    n = len(IDENT_CALLS)
+    ch = S.get("ident_bad")
+    if ch and ch[0] == n:
+        return IDENT(**ch[1]) if "disk" in ch[1] else IDENT(ssd(), **ch[1])
+    return IDENT(ssd())
+
+
 def fake_readf(path):
     if path == "/proc/diskstats":
         ev.append(("diskstats",))
-        f = ["8", "16", "sdb"] + ["0"] * 17
+        other = "sdb" if ssd() == "sda" else "sda"
+        decoy = ["8", "0", other] + ["0"] * 17          # the other disk: constant counters
+        decoy[9], decoy[16] = "999", "999"
+        f = ["8", "16", ssd()] + ["0"] * 17
         f[9], f[16] = str(CTR["w"]), str(CTR["d"])
-        return " ".join(f) + "\n"
+        return " ".join(decoy) + "\n" + " ".join(f) + "\n"
     if path.endswith("boot_id"):
         return ("not-a-boot-id\n" if S.get("a1") == "boot_id" and session_no() == 1 else BOOT + "\n")
     if path == "/proc/uptime":
@@ -226,13 +279,16 @@ def fake_sleep(s):
         CTR["d"] += 8
 
 
-A.observe, A.sh, A.readf, A.sleep = fake_observe, fake_sh, fake_readf, fake_sleep
+REAL_GATHER = A.gather_identity
+A.observe, A.sh, A.readf, A.sleep, A.gather_identity = fake_observe, fake_sh, fake_readf, fake_sleep, fake_gather
 
 
 def drive(**scenario):
     ev.clear()
     S.clear()
     S.update(scenario)
+    IDENT_CALLS.clear()
+    want = dict(WANT, identity=IDENT(ssd()))
     tmp = tempfile.mkdtemp(prefix="a2a-test-")
     A.DATA_ROOT = os.path.join(tmp, "data")
     a = types.SimpleNamespace(out=os.path.join(tmp, "out"), data_root=A.DATA_ROOT, scratch=os.path.join(tmp, "s"),
@@ -242,7 +298,7 @@ def drive(**scenario):
     p.a, p.plan, p.alloc = a, PLAN, PLAN["allocations"][a.allocation]
     p.port, p.runs, p.results, p.env = 22000, [], {}, {}
     try:
-        res = A.execute(p, PLAN, WANT)
+        res = A.execute(p, PLAN, want)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return p, res
@@ -250,11 +306,11 @@ def drive(**scenario):
 
 p, res = drive()
 reads = [("diskstats",), ("root", "smartctl"), ("root", "sg_logs"), ("root", "tune2fs"), ("sh", "journalctl")]
-one = ([("observe",), ("sh", "sync")] + reads + [("diskstats",), ("root", "fstrim"), ("diskstats",), ("sh", "sync"),
-       ("diskstats",), ("sleep", 1800), ("diskstats",)] + reads + [("sh", "journalctl")] + ["RUN"] * 12
-       + reads + [("sh", "journalctl")])
+one = ([("observe",), ("sh", "sync")] + reads + [("diskstats",), ("root", "fstrim"), ("diskstats",), ("ident",),
+       ("sh", "sync"), ("diskstats",), ("sleep", 1800), ("diskstats",), ("ident",)] + reads + [("sh", "journalctl")]
+       + ["RUN"] * 12 + [("ident",)] + reads + [("sh", "journalctl")])
 got = [("RUN" if e[0] == "server" else e) for e in ev if e[0] != "client"]
-assert got == one * 5, [x for x in got[:45]]
+assert got == one * 5, [x for x in got[:48]]
 assert res["verdict"] == "STABLE", res["why"]
 assert [r["label"] for r in p.runs] == [A.label(k, x) for k in range(1, 6) for x in A.ORDER]
 srv = [e[1] for e in ev if e[0] == "server"]
@@ -289,15 +345,16 @@ assert res_["sessions"][0]["sync_pre_trim"]["rc"] == 1 and "Input/output error" 
 res_ = stops(dict(sync="post"), 0, ("sh", "sync"), "sync post_trim failed (rc 1)")
 assert ("root", "fstrim") in ev and not any(e[0] == "sleep" for e in ev)     # trimmed, but no settle
 assert res_["sessions"][0]["sync_post_trim"]["rc"] == 1 and res_["sessions"][0]["trim"]["problems"] == []
-for d in ("boot", "governor", "numa", "dirty", "head", "timer_enabled", "timer_active", "service", "mount_source",
-          "mount_options", "disk"):
+for d in ("boot", "governor", "numa", "dirty", "head", "timer_enabled", "timer_active", "service", "mount_options",
+          "mount_fstype", "fs_uuid", "serial", "model", "wwn", "byid_disk_wrong", "byid_part_wrong", "byuuid_wrong",
+          "disk", "disk_not_ssd"):
     stops(dict(drift=d), 12, ("observe",), "session 2 guard")
 stops(dict(trim="rc"), 0, ("diskstats",), "fstrim rc 1")
 stops(dict(trim="zero"), 0, ("diskstats",), "fstrim reported 0 bytes")
 stops(dict(trim="nodelta"), 0, ("diskstats",), "discard sectors +0")
 stops(dict(trim="unnamed"), 0, ("diskstats",), "does not report /srv/snc-data")
-stops(dict(settle="write"), 0, ("diskstats",), "wrote 8 sectors during the settle")
-stops(dict(settle="discard"), 0, ("diskstats",), "discarded 8 sectors during the settle")
+stops(dict(settle="write"), 0, ("ident",), "wrote 8 sectors during the settle")
+stops(dict(settle="discard"), 0, ("ident",), "discarded 8 sectors during the settle")
 for bad, why in (("temperature", "smart temperature_c"), ("sg_logs", "sg_logs"), ("tune2fs", "tune2fs lifetime"),
                  ("boot_id", "boot id")):
     stops(dict(a1=bad), 0, ("sh", "journalctl"), why)        # pre-trim snapshot: no trim after it
@@ -306,6 +363,31 @@ stops(dict(client_fail=3), 3, lambda e: e[0] in ("server", "client") or e == ("s
       "k1-C1: client exit 1")
 stops(dict(client_fail=2), 2, lambda e: True, "k1-F1: client exit 1")
 stops(dict(unparsable=5), 5, lambda e: True, "k1-C2: unparsable")
+# the approved SSD under either kernel name: STABLE, and its own diskstats line is the one read
+for name in ("sda", "sdb"):
+    p_, res_ = drive(ssd=name)
+    assert res_["verdict"] == "STABLE", (name, res_["why"])
+    assert all(s["identity"]["kernel_disk"] == name and s["trim"]["problems"] == [] and s["settle"]["sectors_written"] == 0
+               for s in res_["sessions"]), name
+def dsl(name, w, d):
+    f = ["8", "0", name] + ["0"] * 17
+    f[9], f[16] = str(w), str(d)
+    return " ".join(f) + "\n"
+
+
+assert A.diskstats("sdb", dsl("sda", 1, 2) + dsl("sdb", 7, 9)) == (7, 9)
+assert A.diskstats("sda", dsl("sda", 1, 2) + dsl("sdb", 7, 9)) == (1, 2)
+# identity wrong or changed at each in-session re-check (1 after the trim, 2 after the settle, 3 before A1 end)
+CHANGES = dict(renamed=dict(disk="sdb", source="/dev/sdb1", part="sdb1", byid_disk="/dev/sdb", byid_part="/dev/sdb1",
+                            byuuid="/dev/sdb1"),
+               wrong_serial=dict(serial="S48LNA0M700326"), wrong_uuid=dict(fs_uuid="0" * 8 + "-0000-0000-0000-" + "0" * 12),
+               byid_wrong=dict(byid_disk="/dev/sdb"))
+for nm, ch in CHANGES.items():
+    for n, last, runs_n, slept in ((1, ("ident",), 0, False), (2, ("ident",), 0, True), (3, ("ident",), 12, True)):
+        res_ = stops(dict(ident_bad=(n, ch)), runs_n, last, "device identity")
+        assert any(e == ("sleep", 1800) for e in ev) == slept, (nm, n)
+        assert ("sh", "sync") not in ev[-1:] and (n != 1 or ev.count(("sh", "sync")) == 1)   # n=1: no post-trim sync
+        assert (n == 3) == any("k1-S1" == r["label"] for r in p.runs) or n != 3
 print("A3 ok")
 
 # --- A4 verdict ---
@@ -393,4 +475,102 @@ assert vm["verdict"] == "STOP" and vm["multimodal_p99"]["flag"], vm
 even = {k: [m - 30000, m - 15000, m, m + 15000, m + 30000] for k, m in enumerate([900000, 937500, 975000, 1012500, 1050000], 1)}
 assert not V(runs(fixed=even, sent={k: (even[k][2], even[k][2]) for k in even}))["multimodal_p99"]["flag"]
 print("A4 ok")
+
+# --- A5 persistent identity on a faked host (gather_identity + identity_problems, nothing else stubbed) ---
+A.gather_identity = REAL_GATHER
+HDD = dict(model="ST3000DM008-2DM1", serial="Z504K3SF", wwn="")
+UU = A.APPROVED["fs_uuid"]
+
+
+def host(ssd_at="sda", other="sdb", mounted=None, uuid=UU, ssd_ch=None, byid="ssd", byuuid_to=None, opts="rw,relatime,stripe=2"):
+    """A faked host: the approved SSD at kernel name `ssd_at`, the HDD at `other`; `mounted` = the disk whose first
+    partition is mounted on /srv/snc-data; by-id/by-uuid links resolve to the approved SSD unless told otherwise."""
+    disks = {ssd_at: {**dict(model=A.APPROVED["model"], serial=A.APPROVED["serial"], wwn=A.APPROVED["wwn"]), **(ssd_ch or {})},
+             other: HDD}
+    mounted = mounted or ssd_at
+
+    def sh_(cmd, root=False):
+        if cmd[0] == "findmnt":
+            return 0, (f'SOURCE="/dev/{mounted}1" TARGET="/srv/snc-data" FSTYPE="ext4" OPTIONS="{opts}" '
+                       f'UUID="{uuid}"\n')
+        if cmd[0] == "lsblk":
+            n = cmd[-1].split("/")[-1]
+            d = disks[n]
+            return 0, f'NAME="{n}" MODEL="{d["model"]} " SERIAL="{d["serial"]}" WWN="{d["wwn"]}"\n'
+        raise AssertionError(cmd)
+
+    def real(path):
+        if path.startswith("/sys/class/block/"):
+            n = path.rsplit("/", 1)[1]
+            return f"/sys/devices/pci0000:17/host0/target0/block/{n[:-1]}/{n}"
+        tgt = ssd_at if byid == "ssd" else byid
+        if path == A.BYID_DISK:
+            return f"/dev/{tgt}"
+        if path == A.BYID_PART:
+            return f"/dev/{tgt}1"
+        if path == A.BYID_UUID:
+            return f"/dev/{byuuid_to or mounted}1"
+        return path
+    return sh_, real
+
+
+def facts(**kw):
+    A.sh, A.realpath = host(**kw)
+    return A.gather_identity()
+
+
+sda, sdb = facts(ssd_at="sda", other="sdb"), facts(ssd_at="sdb", other="sda")
+assert sda["disk"] == "sda" and sda["part"] == "sda1" and sda["source"] == "/dev/sda1" and sda["serial"] == "S48LNA0M700325"
+assert sda["model"] == "ARFX3840S5xnFTRI" and sda["wwn"] == "0x5002538b097f68a0" and sda["fs_uuid"] == UU
+assert A.identity_problems(sda) == [] and A.identity_problems(sdb) == [] and sdb["disk"] == "sdb"
+assert A.identity_problems(sda, sda) == [] and A.identity_problems(sdb, sdb) == []
+cases = {
+    "hdd occupies the approved name": facts(ssd_at="sdc", other="sdb", mounted="sdb", uuid="11111111-2222-3333-4444-555555555555"),
+    "wrong filesystem uuid": facts(uuid="11111111-2222-3333-4444-555555555555"),
+    "correct mount, wrong serial": facts(ssd_ch=dict(serial="S48LNA0M700326")),
+    "correct mount, wrong model": facts(ssd_ch=dict(model="ST3000DM008-2DM1")),
+    "correct mount, wrong wwn": facts(ssd_ch=dict(wwn="0x5002538b097f68a1")),
+    "correct serial, wrong mounted filesystem": facts(mounted="sdb", uuid="11111111-2222-3333-4444-555555555555"),
+    "correct serial, mounted fs of the other disk but approved uuid": facts(mounted="sdb"),
+    "by-id disk resolves to the other disk": facts(byid="sdb"),
+    "by-uuid resolves to the other partition": facts(byuuid_to="sdb"),
+    "mount option drift": facts(opts="rw,relatime,discard,stripe=2"),
+}
+for nm, f in cases.items():
+    assert A.identity_problems(f), nm
+assert len(A.identity_problems(cases["wrong filesystem uuid"])) == 1
+assert len(A.identity_problems(cases["correct mount, wrong serial"])) == 1
+assert len(A.identity_problems(cases["by-id disk resolves to the other disk"])) == 2   # disk and partition link
+assert any("fs_uuid" in x for x in A.identity_problems(cases["hdd occupies the approved name"]))
+# a device-name change during the invocation: persistent identity still approved, mapping changed
+ch = A.identity_problems(sdb, sda)
+assert len(ch) == 3 and all("changed during the invocation" in x for x in ch), ch
+# check_identity returns the current kernel name, and raises Incomplete on a wrong or changed device
+A.sh, A.realpath = host(ssd_at="sdb", other="sda")
+assert A.check_identity(sdb) == "sdb"
+for bad_want in (sda,):
+    try:
+        A.check_identity(bad_want)
+    except A.Incomplete as e:
+        assert "changed during the invocation" in str(e)
+    else:
+        raise AssertionError("name change not refused")
+A.sh, A.realpath = host(ssd_ch=dict(serial="S48LNA0M700326"))
+try:
+    A.check_identity(None)
+except A.Incomplete as e:
+    assert "serial" in str(e)
+else:
+    raise AssertionError("wrong serial accepted")
+# whole-disk filesystem (no partition) resolves to itself; an unreadable findmnt resolves to nothing
+A.sh, A.realpath = lambda cmd, root=False: (1, ""), os.path.realpath
+assert any("not resolved" in x for x in A.identity_problems(A.gather_identity()))
+# no remaining dependency on a kernel name: not in the driver, not in the sudoers rule, not in ROOT
+import re  # noqa: E402
+for path in (os.path.join(HERE, "a2a.py"), os.path.join(HERE, "sudoers-snc-a2a")):
+    assert not re.search(r"\bsd[a-z]\d*\b|/dev/sd", open(path).read()), path
+assert all("/dev/sd" not in " ".join(c) for c in A.ROOT.values())
+assert A.ROOT["smartctl"][-1] == A.ROOT["sg_logs"][-1] == "/dev/disk/by-id/wwn-0x5002538b097f68a0"
+assert A.ROOT["tune2fs"][-1] == "/dev/disk/by-id/wwn-0x5002538b097f68a0-part1"
+print("A5 ok")
 print("ok")

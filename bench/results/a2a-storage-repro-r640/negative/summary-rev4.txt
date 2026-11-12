@@ -1,0 +1,31 @@
+# revision 4 (device identity) mutations of a2a.py / sudoers-snc-a2a; rc!=0: test_a2a.py caught it; after = last check group that passed
+identity-uuid-ignored rc=1 after=A1
+identity-model-ignored rc=1 after=A1
+identity-serial-ignored rc=1 after=A1
+identity-wwn-ignored rc=1 after=A1
+identity-mount-ignored rc=1 after=A1
+identity-byid-disk-ignored rc=1 after=A1
+identity-byid-part-ignored rc=1 after=A1
+identity-byuuid-ignored rc=1 after=A1
+identity-rename-unchecked rc=1 after=A1
+identity-unresolved-ok rc=1 after=A4
+check-identity-not-raised rc=1 after=A2
+guard-identity-ignored rc=1 after=A1
+guard-identity-no-start-reference rc=1 after=A1
+guard-data-disk-ignored rc=1 after=A1
+recheck-after-trim-removed rc=1 after=A2
+recheck-after-settle-removed rc=1 after=A2
+recheck-before-end-removed rc=1 after=A2
+diskstats-fixed-name-sda rc=1 after=A2
+diskstats-fixed-name-sdb rc=1 after=A2
+diskstats-first-line rc=1 after=A2
+disk-is-partition-name rc=1 after=A4
+disk-is-first-letter-sdb rc=1 after=A4
+root-smartctl-kernel-name rc=1 after=none
+root-tune2fs-kernel-name rc=1 after=none
+byid-wwn-typo rc=1 after=none
+approved-serial-typo rc=1 after=A1
+sudoers-kernel-name rc=1 after=none
+sudoers-part-kernel-name rc=1 after=none
+sudoers-sgl-by-id-typo rc=1 after=none
+# 29 / 29 caught on the first pass (baseline passes)
