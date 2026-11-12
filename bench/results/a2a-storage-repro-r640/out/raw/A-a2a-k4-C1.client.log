@@ -1,0 +1,30 @@
+build-s6/snc_server --shards 8 --port 23560 --objects 10000000 --cpus 2,4,6,8,10,12,14,16 --data-dir /srv/snc-data/a2a/A-a2a-k4-C1 --checkpoint-s 60 --ckpt-pacing on --ckpt-walk-batch 16 --ckpt-walk-min-us 20 --ckpt-walk-max-us 65 --ckpt-walk-ceiling-us 155 --ckpt-walk-step-us 5 --ckpt-target-ms 30000 --ckpt-max-age-ms 60000 --ckpt-io dsync --ckpt-window 1 --ckpt-sync-tokens 0
+numactl --physcpubind=18,20,22,24,26,28,30,32 --membind=0 build-s6/net_bench --port 23560 --threads 8 --objects 5000000 --ids /dev/shm/snc-a2a/A-a2a-k4-C1.ids --mix read=70,deposit=15,transfer=10,index=5 --route owner --cpus 18,20,22,24,26,28,30,32 --depth 512 --seconds 60
+--- load
+net_bench shards=8 threads=8 depth=64/thread route=owner misroute=0%
+load: 5000000 objects in 5.84s (856783 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=0.00
+  ops/s 0  errors 0  overloaded 0  stale 0
+  latency ns  p50 0  p95 0  p99 0  p99.9 0
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 0  ok 0  empty 0  refused 0  errors 0
+  index latency ns  p50 0  p95 0  p99 0  p99.9 0
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 0  (exec 0 + index 0 in 0.00s)  served_all 0
+  total latency ns  n 0  p50 0  p95 0  p99 0  p99.9 0  max 0
+--- run
+net_bench shards=8 threads=8 depth=512/thread route=owner misroute=0%
+load: 5000000 objects in 0.01s (477993148 creates/s)
+run: mix=read=70,deposit=15,transfer=10,index=5 seconds=60.01
+  ops/s 3815262  errors 0  overloaded 40604092  stale 0
+  latency ns  p50 241664  p95 1015808  p99 1343488  p99.9 2424832
+  sent to non-owner 0.0%  forwarded by server 0.0%
+  index ops/s 236433  ok 14187234  empty 1611  refused 0  errors 0
+  index latency ns  p50 11010048  p95 12320768  p99 13893632  p99.9 16777216
+  mix of total ops (--mix): read 70.00%  deposit 15.00%  transfer 10.00%  index 5.00%
+  total ops/s 4051695  (exec 228935519 + index 14187234 in 60.01s)  served_all 243122753
+  total latency ns  n 283726845  p50 245760  p95 5242880  p99 11534336  p99.9 13107200  max 58177568
+  read latency ns  n 198614272  p50 229376  p95 417792  p99 524288  p99.9 1146880  max 28038884
+  deposit latency ns  n 42553707  p50 327680  p95 1310720  p99 1802240  p99.9 3932160  max 46717432
+  transfer latency ns  n 28371632  p50 286720  p95 1212416  p99 1638400  p99.9 3538944  max 46622415
+  index latency ns  n 14187234  p50 11010048  p95 12320768  p99 13893632  p99.9 16777216  max 58177568

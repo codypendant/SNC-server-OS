@@ -1,0 +1,11 @@
+{
+ "utc": "2026-11-12T16:51:19Z",
+ "rc": 0,
+ "output": "/srv/snc-data: 172.7 GiB (185471426560 bytes) trimmed",
+ "bytes": 185471426560,
+ "discard_sectors_before": 7381448312,
+ "discard_sectors_after": 7743697192,
+ "discard_sectors_delta": 362248880,
+ "sectors_written_delta": 0,
+ "problems": []
+}

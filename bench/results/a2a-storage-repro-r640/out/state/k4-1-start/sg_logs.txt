@@ -1,0 +1,235 @@
+    SAMSUNG   ARFX3840S5xnFTRI  3P00
+
+Supported log pages  [0x0]:
+    0x00        Supported log pages [sp]
+    0x02        Write error [we]
+    0x03        Read error [re]
+    0x05        Verify error [ve]
+    0x06        Non medium [nm]
+    0x0d        Temperature [temp]
+    0x0e        Start-stop cycle counter [sscc]
+    0x0f        Application client [ac]
+    0x10        Self test results [str]
+    0x11        Solid state media [ssm]
+    0x15        Background scan results [bsr]
+    0x18        Protocol specific port [psp]
+    0x1a        Power condition transitions [pct]
+    0x2f        Informational exceptions [ie]
+    0x31        
+    0x39        
+    0x3e        Factory (seagate) [f_se]
+
+Write error counter page  [0x2]
+  Errors corrected without substantial delay = 0
+  Errors corrected with possible delays = 0
+  Total rewrites or rereads = 0
+  Total errors corrected = 0
+  Total times correction algorithm processed = 0
+  Total bytes processed = 17915317033120 [17 TB]
+  Total uncorrected errors = 0
+
+Read error counter page  [0x3]
+  Errors corrected without substantial delay = 0
+  Errors corrected with possible delays = 0
+  Total rewrites or rereads = 0
+  Total errors corrected = 0
+  Total times correction algorithm processed = 0
+  Total bytes processed = 8527842741600 [8 TB]
+  Total uncorrected errors = 0
+
+Verify error counter page  [0x5]
+  Errors corrected without substantial delay = 0
+  Errors corrected with possible delays = 0
+  Total rewrites or rereads = 0
+  Total errors corrected = 0
+  Total times correction algorithm processed = 0
+  Total bytes processed = 0
+  Total uncorrected errors = 0
+
+Non-medium error page  [0x6]
+  Non-medium error count = 137
+
+Temperature page  [0xd]
+  Current temperature = 34 C
+  Reference temperature = 70 C
+
+Start-stop cycle counter page  [0xe]
+  Date of manufacture, year: 2019, week: 30
+  Accounting date, year:     , week:   
+  Specified cycle count over device lifetime = -1
+  Accumulated start-stop cycles = 21
+  Specified load-unload count over device lifetime = 0
+  Accumulated load-unload cycles = 0
+
+Application client page  [0xf]
+ 00     0f 00 40 00 00 00 03 fc  00 00 00 00 00 00 00 00
+ 10     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+ 20     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+ 30     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+ .....  [truncated after 64 of 16388 bytes (use '-H' to see the rest)]
+
+Self-test results page  [0x10]
+  Parameter code = 1, accumulated power-on hours = 8439
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 2, accumulated power-on hours = 8142
+    self-test code: background extended [2]
+    self-test result: completed without error [0]
+  Parameter code = 3, accumulated power-on hours = 6853
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 4, accumulated power-on hours = 6121
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 5, accumulated power-on hours = 5914
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 6, accumulated power-on hours = 4855
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 7, accumulated power-on hours = 4111
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 8, accumulated power-on hours = 3391
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 9, accumulated power-on hours = 2647
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 10, accumulated power-on hours = 1927
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 11, accumulated power-on hours = 1183
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+  Parameter code = 12, accumulated power-on hours = 512
+    self-test code: background short [1]
+    self-test result: completed without error [0]
+
+Solid state media page  [0x11]
+  Percentage used endurance indicator: 0 %
+
+Background scan results page  [0x15]
+  Status parameters:
+    Accumulated power on minutes: 516967 [h:m  8616:7]
+    Status: background medium scan is active
+    Number of background scans performed: 12
+    Background medium scan progress: 80.31 %
+    Number of background medium scans performed: 12
+
+Protocol Specific port page for SAS SSP  (sas-2) [0x18]
+relative target port id = 1
+  generation code = 2
+  number of phys = 1
+  phy identifier = 0
+    attached SAS device type: SAS or SATA device
+    attached reason: power on
+    reason: loss of dword synchronization
+    negotiated logical link rate: 12 Gbps
+    attached initiator port: ssp=1 stp=1 smp=1
+    attached target port: ssp=0 stp=0 smp=0
+    SAS address = 0x5002538b097f68a2
+    attached SAS address = 0x52cea7f0c862b200
+    attached phy identifier = 2
+    Invalid DWORD count = 0
+    Running disparity error count = 0
+    Loss of DWORD synchronization count = 0
+    Phy reset problem count = 0
+    Phy event descriptors:
+     Received ERROR  count: 0
+     Received address frame error count: 0
+     Received abandon-class OPEN_REJECT count: 0
+     Received retry-class OPEN_REJECT count: 3
+     Received SSP frame error count: 0
+relative target port id = 2
+  generation code = 2
+  number of phys = 1
+  phy identifier = 1
+    attached SAS device type: no device attached
+    attached reason: unknown
+    reason: unknown
+    negotiated logical link rate: phy enabled; unknown rate
+    attached initiator port: ssp=0 stp=0 smp=0
+    attached target port: ssp=0 stp=0 smp=0
+    SAS address = 0x5002538b097f68a3
+    attached SAS address = 0x0
+    attached phy identifier = 0
+    Invalid DWORD count = 0
+    Running disparity error count = 0
+    Loss of DWORD synchronization count = 0
+    Phy reset problem count = 0
+    Phy event descriptors:
+     Received ERROR  count: 0
+     Received address frame error count: 0
+     Received abandon-class OPEN_REJECT count: 0
+     Received retry-class OPEN_REJECT count: 0
+     Received SSP frame error count: 0
+
+Power condition transitions page  [0x1a]
+  Accumulated transitions to active = 21
+  Accumulated transitions to idle_a = 0
+  Accumulated transitions to idle_b = 0
+  Accumulated transitions to idle_c = 0
+  Accumulated transitions to standby_z = 0
+  Accumulated transitions to standby_y = 0
+
+Informational Exceptions page  [0x2f]
+  IE asc = 0x0, ascq = 0x0
+    Current temperature = 34 C
+    Threshold temperature = 0 C  [common extension]
+  parameter code = 0x1, contents in hex:
+ 00     00 01 03 08 00 00 00 00  00 00 00 0f
+  parameter code = 0x9, contents in hex:
+ 00     00 09 03 08 00 00 00 00  00 00 21 a8
+  parameter code = 0xc, contents in hex:
+ 00     00 0c 03 08 00 00 00 00  00 00 00 15
+  parameter code = 0xad, contents in hex:
+ 00     00 ad 03 08 00 00 00 00  00 00 00 20
+  parameter code = 0xb2, contents in hex:
+ 00     00 b2 03 08 00 00 00 00  00 00 00 7b
+  parameter code = 0xb4, contents in hex:
+ 00     00 b4 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xb5, contents in hex:
+ 00     00 b5 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xb6, contents in hex:
+ 00     00 b6 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xbb, contents in hex:
+ 00     00 bb 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xbe, contents in hex:
+ 00     00 be 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xc2, contents in hex:
+ 00     00 c2 03 08 00 00 00 00  00 00 00 34
+  parameter code = 0xc7, contents in hex:
+ 00     00 c7 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xc8, contents in hex:
+ 00     00 c8 03 08 0c ba 0d 23  00 00 00 1b
+  parameter code = 0xc9, contents in hex:
+ 00     00 c9 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xca, contents in hex:
+ 00     00 ca 03 08 00 00 00 00  00 00 00 00
+  parameter code = 0xe9, contents in hex:
+ 00     00 e9 03 08 00 00 00 08  05 87 ee 14
+  parameter code = 0xea, contents in hex:
+ 00     00 ea 03 08 00 00 00 03  d1 7f 86 ac
+  parameter code = 0xeb, contents in hex:
+ 00     00 eb 03 08 00 00 00 2d  d6 98 00 00
+
+Unable to decode page = 0x31, here is hex:
+ 00     b1 00 00 24 00 00 03 08  00 01 00 b0 fd c2 00 00
+ 10     00 01 03 08 00 05 d1 be  4c 00 00 00 00 02 03 08
+ 20     00 00 00 00 26 fc 00 00
+
+Unable to decode page = 0x39, here is hex:
+ 00     39 00 ff fb 00 00 03 0c  00 01 00 6a 00 00 03 e8
+ 10     03 e8 00 00 00 01 03 7c  01 d7 71 36 52 ce a7 f0
+ 20     c8 62 b2 00 00 00 00 00  00 00 20 06 12 01 dc 01
+ 30     22 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+ .....  [truncated after 64 of 65532 bytes (use '-H' to see the rest)]
+
+Seagate/Hitachi factory page [0x3e]
+  number of hours powered up = 35888054.95
+  Unknown Seagate/Hitachi parameter code = 0x1
+  Unknown Seagate/Hitachi parameter code = 0x2
+Only fetched 65532 bytes of response, truncate output
+
+# rc=0

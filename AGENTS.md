@@ -2834,3 +2834,20 @@ or source comments.
     offline.
 -   **Next action:** independent review. Then sudoers install and the run.
 
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a storage-state reproducibility result: STOP (for review)
+
+-   **What:** ran the PR #116 GO once (K=5, 60 runs, 16:05 to 19:57 UTC)
+    from `main` `d5c07ca` after restoring governors and `numa_balancing`
+    and installing the sudoers file. Complete and valid: all guards,
+    explicit trims, syncs and 30 min settles (0/0 sectors) passed, on the
+    SSD resolved by persistent identity (`sda` this boot).
+-   **Verdict STOP**, one reason: the supplementary multimodal throughput
+    signal (session-median gap 322,958 > 2 x 108,520; session 2 about 8%
+    above the other four). Between-session CV p99 1.4%, thr 3.75%; max
+    within p99 4.2%, thr 1.2%; sentinel ratios <= 1.053; N_raw 0.125;
+    historical-anchor median p99 983,040 ns.
+-   Out dir copied unchanged to `bench/results/a2a-storage-repro-r640/out/`
+    (`diff -r` identical); `judge` reproduces the verdict.
+-   **Next action:** independent review. Nothing else is authorized (no
+    bracket, Latin square, CRITERIA, competitors, REFINE #2).
+
