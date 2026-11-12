@@ -1,0 +1,817 @@
+start 2026-11-11T21:18:13Z head b2948a31dc35aeb1af61b66ae49a93d3d96462a8
+A-calibration-c: total 4363795 ops/s achieved None p99 9699 us drained None errors 0
+A-duration-60s: total 2181770 ops/s achieved 2181770 p99 2097 us drained True errors 0
+A-duration-120s: total 2181726 ops/s achieved 2181726 p99 2228 us drained True errors 0
+A-duration-240s: total 2181561 ops/s achieved 2181561 p99 2294 us drained True errors 0
+A-duration-30s: total 2181871 ops/s achieved 2181871 p99 1032 us drained True errors 0
+A-sweep-3927415-r1: total 3873203 ops/s achieved 3873203 p99 5767 us drained True errors 0
+A-sweep-3491036-r1: total 3461301 ops/s achieved 3461301 p99 2425 us drained True errors 0
+A-sweep-4363795-r1: total 4122113 ops/s achieved 4122113 p99 38797 us drained True errors 0
+A-sweep-3272846-r2: total 3262357 ops/s achieved 3262357 p99 2949 us drained True errors 0
+A-sweep-4800174-r2: total 4196950 ops/s achieved 4196950 p99 16253 us drained True errors 0
+A-sweep-2400087-r1: total 2399892 ops/s achieved 2399892 p99 2359 us drained True errors 0
+A-sweep-2181897-r2: total 2181775 ops/s achieved 2181775 p99 2064 us drained True errors 0
+A-sweep-3927415-r2: total 3872718 ops/s achieved 3872718 p99 7340 us drained True errors 0
+A-sweep-3491036-r2: total 3460188 ops/s achieved 3460188 p99 2490 us drained True errors 0
+A-sweep-1309138-r1: total 1309133 ops/s achieved 1309133 p99 1343 us drained True errors 0
+A-sweep-4581984-r0: total 4183966 ops/s achieved 4183966 p99 24117 us drained True errors 0
+A-sweep-1963707-r2: total 1963629 ops/s achieved 1963629 p99 1901 us drained True errors 0
+A-sweep-2618277-r1: total 2617991 ops/s achieved 2617991 p99 2753 us drained True errors 0
+A-sweep-3927415-r0: total 3870915 ops/s achieved 3870915 p99 5636 us drained True errors 0
+A-sweep-436379-r0: total 436378 ops/s achieved 436378 p99 868 us drained True errors 0
+A-sweep-3272846-r1: total 3262054 ops/s achieved 3262054 p99 3080 us drained True errors 0
+A-sweep-3491036-r0: total 3461881 ops/s achieved 3461881 p99 2425 us drained True errors 0
+A-sweep-2618277-r2: total 2617993 ops/s achieved 2617993 p99 2753 us drained True errors 0
+A-sweep-872759-r0: total 872756 ops/s achieved 872756 p99 1081 us drained True errors 0
+A-sweep-1527328-r0: total 1527310 ops/s achieved 1527310 p99 1540 us drained True errors 0
+A-sweep-1963707-r0: total 1963624 ops/s achieved 1963624 p99 1933 us drained True errors 0
+A-sweep-4363795-r0: total 4115133 ops/s achieved 4115133 p99 14680 us drained True errors 0
+A-sweep-436379-r2: total 436378 ops/s achieved 436378 p99 885 us drained True errors 0
+A-sweep-218189-r2: total 218189 ops/s achieved 218189 p99 770 us drained True errors 0
+A-sweep-1745518-r2: total 1745467 ops/s achieved 1745467 p99 1737 us drained True errors 0
+A-sweep-2181897-r0: total 2181772 ops/s achieved 2181772 p99 2163 us drained True errors 0
+A-sweep-3709225-r1: total 3663418 ops/s achieved 3663418 p99 2359 us drained True errors 0
+A-sweep-3709225-r2: total 3662814 ops/s achieved 3662814 p99 2556 us drained True errors 0
+A-sweep-1745518-r1: total 1745463 ops/s achieved 1745463 p99 1704 us drained True errors 0
+A-sweep-4800174-r1: total 4216530 ops/s achieved 4216530 p99 15466 us drained True errors 0
+A-sweep-2181897-r1: total 2181764 ops/s achieved 2181764 p99 2163 us drained True errors 0
+A-sweep-2836466-r2: total 2836057 ops/s achieved 2836057 p99 3080 us drained True errors 0
+A-sweep-1090948-r0: total 1090944 ops/s achieved 1090944 p99 1278 us drained True errors 0
+A-sweep-1090948-r2: total 1090944 ops/s achieved 1090944 p99 1245 us drained True errors 0
+A-sweep-2618277-r0: total 2617990 ops/s achieved 2617990 p99 2884 us drained True errors 0
+A-sweep-2400087-r0: total 2399903 ops/s achieved 2399903 p99 2294 us drained True errors 0
+A-sweep-3054656-r1: total 3051819 ops/s achieved 3051819 p99 2949 us drained True errors 0
+A-sweep-2836466-r0: total 2836077 ops/s achieved 2836077 p99 3015 us drained True errors 0
+A-sweep-436379-r1: total 436378 ops/s achieved 436378 p99 819 us drained True errors 0
+A-sweep-4145605-r1: total 3927859 ops/s achieved 3927859 p99 7078 us drained True errors 0
+A-sweep-2400087-r2: total 2399900 ops/s achieved 2399900 p99 2490 us drained True errors 0
+A-sweep-4581984-r2: total 3910524 ops/s achieved 3910524 p99 48234 us drained True errors 0
+A-sweep-4363795-r2: total 3894516 ops/s achieved 3894516 p99 15729 us drained True errors 0
+A-sweep-1745518-r0: total 1745473 ops/s achieved 1745473 p99 1737 us drained True errors 0
+A-sweep-3709225-r0: total 3648456 ops/s achieved 3648456 p99 5767 us drained True errors 0
+A-sweep-2836466-r1: total 2836019 ops/s achieved 2836019 p99 3015 us drained True errors 0
+A-sweep-1527328-r1: total 1527308 ops/s achieved 1527308 p99 1540 us drained True errors 0
+A-sweep-872759-r1: total 872756 ops/s achieved 872756 p99 1081 us drained True errors 0
+A-sweep-654569-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-sweep-4145605-r2: total 3951397 ops/s achieved 3951397 p99 6947 us drained True errors 0
+A-sweep-1090948-r1: total 1090944 ops/s achieved 1090944 p99 1180 us drained True errors 0
+A-sweep-654569-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-sweep-218189-r1: total 218188 ops/s achieved 218188 p99 786 us drained True errors 0
+A-sweep-3054656-r2: total 3051846 ops/s achieved 3051846 p99 2949 us drained True errors 0
+A-sweep-4581984-r1: total 3915266 ops/s achieved 3915266 p99 17302 us drained True errors 0
+A-sweep-3272846-r0: total 3260849 ops/s achieved 3260849 p99 3015 us drained True errors 0
+A-sweep-4800174-r0: total 3942912 ops/s achieved 3942912 p99 29884 us drained True errors 0
+A-sweep-1963707-r1: total 1963626 ops/s achieved 1963626 p99 1901 us drained True errors 0
+A-sweep-1527328-r2: total 1527309 ops/s achieved 1527309 p99 1507 us drained True errors 0
+A-sweep-4145605-r0: total 3923910 ops/s achieved 3923910 p99 6947 us drained True errors 0
+A-sweep-3054656-r0: total 3050705 ops/s achieved 3050705 p99 2949 us drained True errors 0
+A-sweep-218189-r0: total 218188 ops/s achieved 218188 p99 770 us drained True errors 0
+A-sweep-1309138-r0: total 1309133 ops/s achieved 1309133 p99 1409 us drained True errors 0
+A-sweep-1309138-r2: total 1309134 ops/s achieved 1309134 p99 1343 us drained True errors 0
+A-sweep-872759-r2: total 872756 ops/s achieved 872756 p99 1114 us drained True errors 0
+A-sweep-654569-r0: total 654567 ops/s achieved 654567 p99 950 us drained True errors 0
+A-fixed-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-fixed-r1: total 654567 ops/s achieved 654567 p99 901 us drained True errors 0
+A-fixed-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-fixed-r3: total 654567 ops/s achieved 654567 p99 950 us drained True errors 0
+A-fixed-r4: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-capacity-r0: total 4028679 ops/s achieved None p99 11534 us drained None errors 0
+A-capacity-r1: total 4033653 ops/s achieved None p99 11534 us drained None errors 0
+A-capacity-r2: total 4038215 ops/s achieved None p99 11534 us drained None errors 0
+A-capacity-r3: total 4031898 ops/s achieved None p99 11534 us drained None errors 0
+A-capacity-r4: total 4002903 ops/s achieved None p99 11796 us drained None errors 0
+A-shards-s2-r2: total 1784041 ops/s achieved None p99 62915 us drained None errors 0
+A-shards-s4-r0: total 3203823 ops/s achieved None p99 54526 us drained None errors 0
+A-shards-s8-r0: total 4044638 ops/s achieved None p99 11534 us drained None errors 0
+A-shards-s4-r1: total 2915570 ops/s achieved None p99 63963 us drained None errors 0
+A-shards-s4-r2: total 3213165 ops/s achieved None p99 54526 us drained None errors 0
+A-shards-s2-r1: total 1786312 ops/s achieved None p99 61866 us drained None errors 0
+A-shards-s8-r2: total 4059457 ops/s achieved None p99 11534 us drained None errors 0
+A-shards-s2-r0: total 1778750 ops/s achieved None p99 62915 us drained None errors 0
+A-shards-s1-r2: total 1401014 ops/s achieved None p99 6291 us drained None errors 0
+A-shards-s1-r1: total 1401122 ops/s achieved None p99 6423 us drained None errors 0
+A-shards-s1-r0: total 1396044 ops/s achieved None p99 6554 us drained None errors 0
+A-shards-s8-r1: total 4042359 ops/s achieved None p99 11534 us drained None errors 0
+C-calibration-c: total 6079563 ops/s achieved None p99 7864 us drained None errors 0
+C-duration-30s: total 3039765 ops/s achieved 3039765 p99 434 us drained True errors 0
+C-duration-60s: total 3039774 ops/s achieved 3039774 p99 434 us drained True errors 0
+C-duration-120s: total 3039777 ops/s achieved 3039777 p99 434 us drained True errors 0
+C-duration-15s: total 3039750 ops/s achieved 3039750 p99 434 us drained True errors 0
+C-sweep-5471606-r1: total 5471561 ops/s achieved 5471561 p99 803 us drained True errors 0
+C-sweep-4863650-r1: total 4863617 ops/s achieved 4863617 p99 672 us drained True errors 0
+C-sweep-6079563-r1: total 6049444 ops/s achieved 6049444 p99 3277 us drained True errors 0
+C-sweep-4559672-r2: total 4559641 ops/s achieved 4559641 p99 623 us drained True errors 0
+C-sweep-6687519-r2: total 5985827 ops/s achieved 5985827 p99 5505 us drained True errors 0
+C-sweep-3343759-r1: total 3343742 ops/s achieved 3343742 p99 467 us drained True errors 0
+C-sweep-3039781-r2: total 3039766 ops/s achieved 3039766 p99 434 us drained True errors 0
+C-sweep-5471606-r2: total 5471563 ops/s achieved 5471563 p99 803 us drained True errors 0
+C-sweep-4863650-r2: total 4863617 ops/s achieved 4863617 p99 672 us drained True errors 0
+C-sweep-1823868-r1: total 1823862 ops/s achieved 1823862 p99 303 us drained True errors 0
+C-sweep-6383541-r0: total 5998284 ops/s achieved 5998284 p99 4325 us drained True errors 0
+C-sweep-2735803-r2: total 2735791 ops/s achieved 2735791 p99 401 us drained True errors 0
+C-sweep-3647737-r1: total 3647717 ops/s achieved 3647717 p99 500 us drained True errors 0
+C-sweep-5471606-r0: total 5471563 ops/s achieved 5471563 p99 803 us drained True errors 0
+C-sweep-607956-r0: total 607956 ops/s achieved 607956 p99 61 us drained True errors 0
+C-sweep-4559672-r1: total 4559642 ops/s achieved 4559642 p99 606 us drained True errors 0
+C-sweep-4863650-r0: total 4863619 ops/s achieved 4863619 p99 655 us drained True errors 0
+C-sweep-3647737-r2: total 3647717 ops/s achieved 3647717 p99 500 us drained True errors 0
+C-sweep-1215912-r0: total 1215910 ops/s achieved 1215910 p99 180 us drained True errors 0
+C-sweep-2127847-r0: total 2127839 ops/s achieved 2127839 p99 344 us drained True errors 0
+C-sweep-2735803-r0: total 2735790 ops/s achieved 2735790 p99 401 us drained True errors 0
+C-sweep-6079563-r0: total 6048446 ops/s achieved 6048446 p99 3277 us drained True errors 0
+C-sweep-607956-r2: total 607956 ops/s achieved 607956 p99 61 us drained True errors 0
+C-sweep-303978-r2: total 303978 ops/s achieved 303978 p99 35 us drained True errors 0
+C-sweep-2431825-r2: total 2431814 ops/s achieved 2431814 p99 377 us drained True errors 0
+C-sweep-3039781-r0: total 3039766 ops/s achieved 3039766 p99 434 us drained True errors 0
+C-sweep-5167628-r1: total 5167591 ops/s achieved 5167591 p99 737 us drained True errors 0
+C-sweep-5167628-r2: total 5167589 ops/s achieved 5167589 p99 721 us drained True errors 0
+C-sweep-2431825-r1: total 2431813 ops/s achieved 2431813 p99 369 us drained True errors 0
+C-sweep-6687519-r1: total 5989897 ops/s achieved 5989897 p99 5505 us drained True errors 0
+C-sweep-3039781-r1: total 3039766 ops/s achieved 3039766 p99 434 us drained True errors 0
+C-sweep-3951715-r2: total 3951691 ops/s achieved 3951691 p99 524 us drained True errors 0
+C-sweep-1519890-r0: total 1519886 ops/s achieved 1519886 p99 250 us drained True errors 0
+C-sweep-1519890-r2: total 1519885 ops/s achieved 1519885 p99 250 us drained True errors 0
+C-sweep-3647737-r0: total 3647716 ops/s achieved 3647716 p99 492 us drained True errors 0
+C-sweep-3343759-r0: total 3343741 ops/s achieved 3343741 p99 467 us drained True errors 0
+C-sweep-4255694-r1: total 4255670 ops/s achieved 4255670 p99 573 us drained True errors 0
+C-sweep-3951715-r0: total 3951691 ops/s achieved 3951691 p99 524 us drained True errors 0
+C-sweep-607956-r1: total 607956 ops/s achieved 607956 p99 60 us drained True errors 0
+C-sweep-5775584-r1: total 5775536 ops/s achieved 5775536 p99 901 us drained True errors 0
+C-sweep-3343759-r2: total 3343741 ops/s achieved 3343741 p99 459 us drained True errors 0
+C-sweep-6383541-r2: total 6085097 ops/s achieved 6085097 p99 4129 us drained True errors 0
+C-sweep-6079563-r2: total 6056940 ops/s achieved 6056940 p99 3211 us drained True errors 0
+C-sweep-2431825-r0: total 2431814 ops/s achieved 2431814 p99 377 us drained True errors 0
+C-sweep-5167628-r0: total 5167591 ops/s achieved 5167591 p99 737 us drained True errors 0
+C-sweep-3951715-r1: total 3951690 ops/s achieved 3951690 p99 541 us drained True errors 0
+C-sweep-2127847-r1: total 2127838 ops/s achieved 2127838 p99 344 us drained True errors 0
+C-sweep-1215912-r1: total 1215910 ops/s achieved 1215910 p99 184 us drained True errors 0
+C-sweep-911934-r2: total 911933 ops/s achieved 911933 p99 106 us drained True errors 0
+C-sweep-5775584-r2: total 5775539 ops/s achieved 5775539 p99 918 us drained True errors 0
+C-sweep-1519890-r1: total 1519886 ops/s achieved 1519886 p99 250 us drained True errors 0
+C-sweep-911934-r1: total 911933 ops/s achieved 911933 p99 111 us drained True errors 0
+C-sweep-303978-r1: total 303978 ops/s achieved 303978 p99 35 us drained True errors 0
+C-sweep-4255694-r2: total 4255669 ops/s achieved 4255669 p99 557 us drained True errors 0
+C-sweep-6383541-r1: total 6131491 ops/s achieved 6131491 p99 3998 us drained True errors 0
+C-sweep-4559672-r0: total 4559641 ops/s achieved 4559641 p99 623 us drained True errors 0
+C-sweep-6687519-r0: total 5959485 ops/s achieved 5959485 p99 5636 us drained True errors 0
+C-sweep-2735803-r1: total 2735790 ops/s achieved 2735790 p99 410 us drained True errors 0
+C-sweep-2127847-r2: total 2127839 ops/s achieved 2127839 p99 344 us drained True errors 0
+C-sweep-5775584-r0: total 5775535 ops/s achieved 5775535 p99 918 us drained True errors 0
+C-sweep-4255694-r0: total 4255671 ops/s achieved 4255671 p99 557 us drained True errors 0
+C-sweep-303978-r0: total 303978 ops/s achieved 303978 p99 35 us drained True errors 0
+C-sweep-1823868-r0: total 1823862 ops/s achieved 1823862 p99 303 us drained True errors 0
+C-sweep-1823868-r2: total 1823863 ops/s achieved 1823863 p99 303 us drained True errors 0
+C-sweep-1215912-r2: total 1215910 ops/s achieved 1215910 p99 180 us drained True errors 0
+C-sweep-911934-r0: total 911933 ops/s achieved 911933 p99 106 us drained True errors 0
+C-fixed-r0: total 3951692 ops/s achieved 3951692 p99 524 us drained True errors 0
+C-fixed-r1: total 3951690 ops/s achieved 3951690 p99 524 us drained True errors 0
+C-fixed-r2: total 3951690 ops/s achieved 3951690 p99 524 us drained True errors 0
+C-fixed-r3: total 3951690 ops/s achieved 3951690 p99 524 us drained True errors 0
+C-fixed-r4: total 3951691 ops/s achieved 3951691 p99 524 us drained True errors 0
+C-capacity-r0: total 6000991 ops/s achieved None p99 7995 us drained None errors 0
+C-capacity-r1: total 6030447 ops/s achieved None p99 7995 us drained None errors 0
+C-capacity-r2: total 6068492 ops/s achieved None p99 7995 us drained None errors 0
+C-capacity-r3: total 6016264 ops/s achieved None p99 7995 us drained None errors 0
+C-capacity-r4: total 6040621 ops/s achieved None p99 7995 us drained None errors 0
+C-shards-s2-r2: total 3187544 ops/s achieved None p99 33030 us drained None errors 0
+C-shards-s4-r0: total 4129714 ops/s achieved None p99 12845 us drained None errors 0
+C-shards-s8-r0: total 5955140 ops/s achieved None p99 7995 us drained None errors 0
+C-shards-s4-r1: total 4117641 ops/s achieved None p99 12845 us drained None errors 0
+C-shards-s4-r2: total 4122496 ops/s achieved None p99 12845 us drained None errors 0
+C-shards-s2-r1: total 3123439 ops/s achieved None p99 34603 us drained None errors 0
+C-shards-s8-r2: total 6005373 ops/s achieved None p99 7995 us drained None errors 0
+C-shards-s2-r0: total 3182032 ops/s achieved None p99 33030 us drained None errors 0
+C-shards-s1-r2: total 2620890 ops/s achieved None p99 1540 us drained None errors 0
+C-shards-s1-r1: total 2617657 ops/s achieved None p99 1540 us drained None errors 0
+C-shards-s1-r0: total 2626185 ops/s achieved None p99 1540 us drained None errors 0
+C-shards-s8-r1: total 5977522 ops/s achieved None p99 7995 us drained None errors 0
+{
+ "A": {
+  "calibration": {
+   "p0": 4363795,
+   "grid": [
+    218189,
+    436379,
+    654569,
+    872759,
+    1090948,
+    1309138,
+    1527328,
+    1745518,
+    1963707,
+    2181897,
+    2400087,
+    2618277,
+    2836466,
+    3054656,
+    3272846,
+    3491036,
+    3709225,
+    3927415,
+    4145605,
+    4363795,
+    4581984,
+    4800174
+   ]
+  },
+  "duration": [
+   {
+    "window_s": 60,
+    "p99_ns": 2097152,
+    "achieved": 2181770,
+    "sustained": false
+   },
+   {
+    "window_s": 120,
+    "p99_ns": 2228224,
+    "achieved": 2181726,
+    "sustained": false
+   },
+   {
+    "window_s": 240,
+    "p99_ns": 2293760,
+    "achieved": 2181561,
+    "sustained": false
+   },
+   {
+    "window_s": 30,
+    "p99_ns": 1032192,
+    "achieved": 2181871,
+    "sustained": true
+   }
+  ],
+  "sweep": {
+   "points": [
+    {
+     "rate": 218189,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 770048,
+     "median_achieved": 218188
+    },
+    {
+     "rate": 436379,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 868352,
+     "median_achieved": 436378
+    },
+    {
+     "rate": 654569,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 933888,
+     "median_achieved": 654567
+    },
+    {
+     "rate": 872759,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1081344,
+     "median_achieved": 872756
+    },
+    {
+     "rate": 1090948,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1245184,
+     "median_achieved": 1090944
+    },
+    {
+     "rate": 1309138,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1343488,
+     "median_achieved": 1309133
+    },
+    {
+     "rate": 1527328,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1540096,
+     "median_achieved": 1527309
+    },
+    {
+     "rate": 1745518,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1736704,
+     "median_achieved": 1745467
+    },
+    {
+     "rate": 1963707,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 1900544,
+     "median_achieved": 1963626
+    },
+    {
+     "rate": 2181897,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2162688,
+     "median_achieved": 2181772
+    },
+    {
+     "rate": 2400087,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2359296,
+     "median_achieved": 2399900
+    },
+    {
+     "rate": 2618277,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2752512,
+     "median_achieved": 2617991
+    },
+    {
+     "rate": 2836466,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 3014656,
+     "median_achieved": 2836057
+    },
+    {
+     "rate": 3054656,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2949120,
+     "median_achieved": 3051819
+    },
+    {
+     "rate": 3272846,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 3014656,
+     "median_achieved": 3262054
+    },
+    {
+     "rate": 3491036,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2424832,
+     "median_achieved": 3461301
+    },
+    {
+     "rate": 3709225,
+     "sustained": false,
+     "reasons": [
+      "completed 218907340 < 220327965",
+      "completed 219768861 < 220327965",
+      "completed 219805070 < 220327965",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 2555904,
+     "median_achieved": 3662814
+    },
+    {
+     "rate": 3927415,
+     "sustained": false,
+     "reasons": [
+      "completed 232254898 < 233288451",
+      "completed 232363099 < 233288451",
+      "completed 232392181 < 233288451",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 5767168,
+     "median_achieved": 3872718
+    },
+    {
+     "rate": 4145605,
+     "sustained": false,
+     "reasons": [
+      "completed 235434630 < 246248937",
+      "completed 235671531 < 246248937",
+      "completed 237083836 < 246248937",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 6946816,
+     "median_achieved": 3927859
+    },
+    {
+     "rate": 4363795,
+     "sustained": false,
+     "reasons": [
+      "completed 233670952 < 259209423",
+      "completed 246907975 < 259209423",
+      "completed 247326785 < 259209423",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 15728640,
+     "median_achieved": 4115133
+    },
+    {
+     "rate": 4581984,
+     "sustained": false,
+     "reasons": [
+      "completed 234631455 < 272169850",
+      "completed 234915945 < 272169850",
+      "completed 251037933 < 272169850",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 24117248,
+     "median_achieved": 3915266
+    },
+    {
+     "rate": 4800174,
+     "sustained": false,
+     "reasons": [
+      "completed 236574701 < 285130336",
+      "completed 251816994 < 285130336",
+      "completed 252991781 < 285130336",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 16252928,
+     "median_achieved": 4196950
+    }
+   ],
+   "stable_peak": 1090948,
+   "objective_fraction": "7/10",
+   "objective_rate": 654569,
+   "objective_p99_ns": 933888,
+   "knee_rate": null,
+   "invalid": null
+  },
+  "fixed": {
+   "rate": 654569,
+   "reps": 5,
+   "sustained_reps": 5,
+   "cv_p99": 0.019286005545956553,
+   "median_p99_ns": 933888,
+   "median_rss_bytes_per_object": 515.4906112,
+   "median_pss_bytes_per_object": 515.4906112
+  },
+  "capacity": {
+   "reps": 5,
+   "cv_throughput": 0.0034620080231439992,
+   "median_total_ops_s": 4031898
+  },
+  "noise_input_3x_max_cv": 0.05785801663786966,
+  "shards": [
+   {
+    "shards": 1,
+    "median_total_ops_s": 1401014,
+    "ops_s_per_core": 1401014.0,
+    "errors": 0
+   },
+   {
+    "shards": 2,
+    "median_total_ops_s": 1784041,
+    "ops_s_per_core": 892020.5,
+    "errors": 0
+   },
+   {
+    "shards": 4,
+    "median_total_ops_s": 3203823,
+    "ops_s_per_core": 800955.75,
+    "errors": 0
+   },
+   {
+    "shards": 8,
+    "median_total_ops_s": 4044638,
+    "ops_s_per_core": 505579.75,
+    "errors": 0
+   }
+  ]
+ },
+ "C": {
+  "calibration": {
+   "p0": 6079563,
+   "grid": [
+    303978,
+    607956,
+    911934,
+    1215912,
+    1519890,
+    1823868,
+    2127847,
+    2431825,
+    2735803,
+    3039781,
+    3343759,
+    3647737,
+    3951715,
+    4255694,
+    4559672,
+    4863650,
+    5167628,
+    5471606,
+    5775584,
+    6079563,
+    6383541,
+    6687519
+   ]
+  },
+  "duration": [
+   {
+    "window_s": 30,
+    "p99_ns": 434176,
+    "achieved": 3039765,
+    "sustained": true
+   },
+   {
+    "window_s": 60,
+    "p99_ns": 434176,
+    "achieved": 3039774,
+    "sustained": true
+   },
+   {
+    "window_s": 120,
+    "p99_ns": 434176,
+    "achieved": 3039777,
+    "sustained": true
+   },
+   {
+    "window_s": 15,
+    "p99_ns": 434176,
+    "achieved": 3039750,
+    "sustained": true
+   }
+  ],
+  "sweep": {
+   "points": [
+    {
+     "rate": 303978,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 34816,
+     "median_achieved": 303978
+    },
+    {
+     "rate": 607956,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 61440,
+     "median_achieved": 607956
+    },
+    {
+     "rate": 911934,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 106496,
+     "median_achieved": 911933
+    },
+    {
+     "rate": 1215912,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 180224,
+     "median_achieved": 1215910
+    },
+    {
+     "rate": 1519890,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 249856,
+     "median_achieved": 1519886
+    },
+    {
+     "rate": 1823868,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 303104,
+     "median_achieved": 1823862
+    },
+    {
+     "rate": 2127847,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 344064,
+     "median_achieved": 2127839
+    },
+    {
+     "rate": 2431825,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 376832,
+     "median_achieved": 2431814
+    },
+    {
+     "rate": 2735803,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 401408,
+     "median_achieved": 2735790
+    },
+    {
+     "rate": 3039781,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 434176,
+     "median_achieved": 3039766
+    },
+    {
+     "rate": 3343759,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 466944,
+     "median_achieved": 3343741
+    },
+    {
+     "rate": 3647737,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 499712,
+     "median_achieved": 3647717
+    },
+    {
+     "rate": 3951715,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 524288,
+     "median_achieved": 3951691
+    },
+    {
+     "rate": 4255694,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 557056,
+     "median_achieved": 4255670
+    },
+    {
+     "rate": 4559672,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 622592,
+     "median_achieved": 4559641
+    },
+    {
+     "rate": 4863650,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 671744,
+     "median_achieved": 4863617
+    },
+    {
+     "rate": 5167628,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 737280,
+     "median_achieved": 5167591
+    },
+    {
+     "rate": 5471606,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 802816,
+     "median_achieved": 5471563
+    },
+    {
+     "rate": 5775584,
+     "sustained": true,
+     "reasons": [],
+     "client_limited_suspect": false,
+     "median_p99_ns": 917504,
+     "median_achieved": 5775536
+    },
+    {
+     "rate": 6079563,
+     "sustained": false,
+     "reasons": [
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 3276800,
+     "median_achieved": 6049444
+    },
+    {
+     "rate": 6383541,
+     "sustained": false,
+     "reasons": [
+      "completed 179948510 < 189591168",
+      "completed 182552908 < 189591168",
+      "completed 183944725 < 189591168",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 4128768,
+     "median_achieved": 6085097
+    },
+    {
+     "rate": 6687519,
+     "sustained": false,
+     "reasons": [
+      "completed 178784550 < 198619314",
+      "completed 179574808 < 198619314",
+      "completed 179696919 < 198619314",
+      "refused (overloaded)"
+     ],
+     "client_limited_suspect": false,
+     "median_p99_ns": 5505024,
+     "median_achieved": 5985827
+    }
+   ],
+   "stable_peak": 5775584,
+   "objective_fraction": "7/10",
+   "objective_rate": 3951715,
+   "objective_p99_ns": 524288,
+   "knee_rate": 911934,
+   "invalid": null
+  },
+  "fixed": {
+   "rate": 3951715,
+   "reps": 5,
+   "sustained_reps": 5,
+   "cv_p99": 0.0,
+   "median_p99_ns": 524288,
+   "median_rss_bytes_per_object": 515.3144832,
+   "median_pss_bytes_per_object": 515.3144832
+  },
+  "capacity": {
+   "reps": 5,
+   "cv_throughput": 0.004239709372759979,
+   "median_total_ops_s": 6030447
+  },
+  "noise_input_3x_max_cv": 0.012719128118279936,
+  "shards": [
+   {
+    "shards": 1,
+    "median_total_ops_s": 2620890,
+    "ops_s_per_core": 2620890.0,
+    "errors": 0
+   },
+   {
+    "shards": 2,
+    "median_total_ops_s": 3182032,
+    "ops_s_per_core": 1591016.0,
+    "errors": 0
+   },
+   {
+    "shards": 4,
+    "median_total_ops_s": 4122496,
+    "ops_s_per_core": 1030624.0,
+    "errors": 0
+   },
+   {
+    "shards": 8,
+    "median_total_ops_s": 5977522,
+    "ops_s_per_core": 747190.25,
+    "errors": 0
+   }
+  ]
+ }
+}

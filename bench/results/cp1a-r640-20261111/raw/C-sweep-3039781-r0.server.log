@@ -1,0 +1,11 @@
+snc_server shards=8 ports 26960-26967 durability=none (in memory) mint_local=1
+ckpt_pacing: pacing=on batch=16 min_us=20 max_us=100 ceiling_us=250 step_us=10 update_us=1000 target_ms=30000 max_age_ms=300000
+shard 0: requests 15825117 forwarded 0.0% ops_local 15064250 ops_remote 0 served 0
+shard 1: requests 15822854 forwarded 0.0% ops_local 15062358 ops_remote 0 served 0
+shard 2: requests 15821066 forwarded 0.0% ops_local 15060892 ops_remote 0 served 0
+shard 3: requests 15818623 forwarded 0.0% ops_local 15058593 ops_remote 0 served 0
+shard 4: requests 15829841 forwarded 0.0% ops_local 15069565 ops_remote 0 served 0
+shard 5: requests 15819968 forwarded 0.0% ops_local 15059264 ops_remote 0 served 0
+shard 6: requests 15830086 forwarded 0.0% ops_local 15070364 ops_remote 0 served 0
+shard 7: requests 15824213 forwarded 0.0% ops_local 15062906 ops_remote 0 served 0
+total: requests 126591768 forwarded 0.0% frames/recv 4.0 frames/send 4.0 ring msgs/request 1.26
