@@ -1,0 +1,10 @@
+# sudoers install 2026-11-12T16:04:28Z
+install rc=0
+/etc/sudoers: parsed OK
+/etc/sudoers.d/README: parsed OK
+/etc/sudoers.d/snc-a2a: parsed OK
+visudo rc=0
+ok /usr/sbin/fstrim -v /srv/snc-data
+ok /usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+ok /usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+ok /usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1

@@ -1,0 +1,32 @@
+{
+ "tag": "k5-2-end",
+ "utc": "2026-11-12T19:57:01Z",
+ "sectors_written": 2585182616,
+ "sectors_discarded": 8847790688,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "15894.79 1073289.61",
+ "uptime_s": 15894.79,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 37,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 80.46,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 18450.147,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "8 TB",
+ "units_started": [
+  "fwupd-refresh.service",
+  "sysstat-collect.service"
+ ],
+ "problems": []
+}

@@ -1,0 +1,32 @@
+{
+ "tag": "k1-1-start",
+ "utc": "2026-11-12T16:34:55Z",
+ "sectors_written": 168,
+ "sectors_discarded": 7381448312,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "3768.41 270909.91",
+ "uptime_s": 3768.41,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 34,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 79.96,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 17105.852,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "7080 GB",
+ "units_started": [
+  "fwupd-refresh.service",
+  "sysstat-collect.service"
+ ],
+ "problems": []
+}

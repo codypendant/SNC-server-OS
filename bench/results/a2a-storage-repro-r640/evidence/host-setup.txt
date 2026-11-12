@@ -1,0 +1,9 @@
+# host-setup 2026-11-12T16:04:11Z head d5c07ca328c8e349d8ab1eeb29e8b38301941bea
+$ echo performance | sudo tee .../scaling_governor
+rc=0
+$ sudo sysctl -w kernel.numa_balancing=0
+kernel.numa_balancing = 0
+$ governors
+     72 performance
+$ numa_balancing
+0

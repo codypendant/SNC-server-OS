@@ -1,0 +1,14 @@
+recovery: checkpoint before serving in 0.01s
+snc_server shards=8 ports 23800-23807 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+ckpt_pacing: pacing=on batch=16 min_us=20 max_us=65 ceiling_us=155 step_us=5 update_us=1000 target_ms=30000 max_age_ms=60000
+space uuid 7f8ed0493702728effcc83903e079468
+checkpoint: 5000000 objects in 5.07s, 226 WAL segments deleted
+shard 0: requests 35991618 forwarded 0.0% ops_local 29129080 ops_remote 0 served 0
+shard 1: requests 36008136 forwarded 0.0% ops_local 28706614 ops_remote 0 served 0
+shard 2: requests 35994055 forwarded 0.0% ops_local 34094010 ops_remote 0 served 0
+shard 3: requests 35997357 forwarded 0.0% ops_local 28687203 ops_remote 0 served 0
+shard 4: requests 36004330 forwarded 0.0% ops_local 28811582 ops_remote 0 served 0
+shard 5: requests 35989615 forwarded 0.0% ops_local 29418655 ops_remote 0 served 0
+shard 6: requests 36004911 forwarded 0.0% ops_local 28708410 ops_remote 0 served 0
+shard 7: requests 36008832 forwarded 0.0% ops_local 28700981 ops_remote 0 served 0
+total: requests 287998854 forwarded 0.0% frames/recv 13.7 frames/send 15.3 ring msgs/request 1.12
