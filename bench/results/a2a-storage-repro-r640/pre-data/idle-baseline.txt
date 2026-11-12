@@ -1,0 +1,16 @@
+# Idle data-disk baseline for the settle rule (PR #114 review 1, item 4). Read only; no trim, no run.
+# 2026-11-12 03:20:32 UTC (r640-storage-state capture, sysfs-sdb.txt /sys/block/sdb/stat):
+#   write ios 394666657, sectors written 7473308656, discard sectors 7381442456
+# 2026-11-12 03:54:12 UTC (a0-fstrim-timer/a0.txt): sectors written 7473308656, discard sectors 7381442456
+# 2026-11-12T04:23:57Z now:
+$ cat /sys/block/sdb/stat
+    2930    21917   370978     1985 394666658 92909604 7473308656 26936007        0  7761509 28968507    28611       26 7381442456    12713 70734601  2017799
+sectors written 7473308656  discard sectors 7381442456  write ios 394666658  flush ios 70734601
+$ cat /proc/fs/ext4/sdb1/options (commit, init_itable, discard)
+nodiscard
+commit=5
+init_itable=10
+$ ps -eo comm (ext4lazyinit / jbd2 for sdb1)
+jbd2/sdb1-8
+# result: over about 63 min idle, sdb sectors written +0, discard sectors +0; write ios +1 with 0 sectors, which is the one cache flush (flush ios 70734600 -> 70734601; no data written).
+# no ext4lazyinit thread: inode-table init is finished, so it cannot write during a settle.

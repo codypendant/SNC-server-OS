@@ -1,0 +1,9 @@
+A1 ok
+A2 ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 277, in <module>
+    stops(dict(trim="rc"), 0, ("diskstats",), "fstrim rc 1")
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 268, in stops
+    assert why in res["aborted"], (scenario, res["aborted"])
+           ^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ({'trim': 'rc'}, 'session 1 trim not proven: fstrim output does not report /srv/snc-data; sdb discard sectors +0')

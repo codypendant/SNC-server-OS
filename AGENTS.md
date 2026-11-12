@@ -2766,3 +2766,29 @@ or source comments.
 -   **Next action:** independent review of the preregistration before the
     first trim. Then install the sudoers file and run it once. Nothing else
     is authorized.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a preregistration revision 2 (PR #114 review 1 corrections; not run)
+
+-   **What:** review 1 returned CHANGES REQUIRED. Every item is applied in
+    `bench/results/a2a-storage-repro-r640/` (PREREG.md revision 2,
+    `a2a.py`, `test_a2a.py`, `negative/`):
+    -   Sentinel limit fixed at 11/10, symmetric and inclusive, independent
+        of N_raw (now a result only).
+    -   A per-session guard before every trim: boot id, HEAD, clean tree,
+        timer disabled/inactive, NUMA 0, governors, mount
+        `/dev/sdb1 ext4 rw,relatime,stripe=2`, disk `sdb`, and the 4
+        hashes. No rebuild.
+    -   Trim proof: rc 0, mount named, bytes > 0, discard delta > 0.
+    -   Settle judged: sdb +0 sectors written and +0 discarded, with `sync`
+        before and after the trim. The idle baseline over 63 min showed
+        +0/+0 (`pre-data/idle-baseline.txt`).
+    -   Capacity validity: rc 0, not failed, errors, stale and index_errors
+        all 0.
+    -   A1 validated field by field (smartctl by parsed fields, not its rc
+        bitmask).
+    -   Multimodality is a supplementary signal only.
+    -   INCOMPLETE (integrity) vs STOP (statistics) defined.
+    -   Live read-only guard check: only "git tree not clean" (uncommitted
+        edits). Mutants: 47/47 caught on the first pass.
+-   **Next action:** independent review of revision 2. After final
+    approval: install the sudoers file (record `visudo -c`) and run once.

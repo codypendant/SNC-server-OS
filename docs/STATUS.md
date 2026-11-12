@@ -258,8 +258,18 @@ Decided by cody on 2026-11-04.
      2026-11-12 03:54 UTC (`fstrim.timer` disabled and inactive). **The A2-a
      reproducibility validation is preregistered, NOT RUN**
      ([bench/results/a2a-storage-repro-r640/](../bench/results/a2a-storage-repro-r640/PREREG.md)):
-     K=5 sessions, 12 runs each at the 654,569 historical anchor; 19/19
-     mutants caught. **Next:** independent review of the preregistration
+     K=5 sessions, 12 runs each at the 654,569 historical anchor. PR #114
+     review 1 returned CHANGES REQUIRED
+     ([handoff/PR114_A2a_Prereg_Review1.md](handoff/PR114_A2a_Prereg_Review1.md)).
+     **Revision 2** makes these changes:
+     - a fixed 1.10 sentinel limit, independent of N_raw;
+     - a per-session fail-closed environment guard;
+     - a proven trim and a judged clean settle (0 sectors on `sdb`; the
+       idle baseline holds);
+     - stricter capacity validity and fail-closed A1 snapshots;
+     - INCOMPLETE vs STOP defined.
+
+     47/47 mutants caught. **Next:** independent review of revision 2
      before the first trim. No performance runs, comparators, CRITERIA
      freeze or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6

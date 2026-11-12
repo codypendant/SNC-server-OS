@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 61, in <module>
+    assert A.a1_problems(real) == [], A.a1_problems(real)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ['smartctl rc']

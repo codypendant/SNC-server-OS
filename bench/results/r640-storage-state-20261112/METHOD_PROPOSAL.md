@@ -112,6 +112,13 @@ N is never widened to absorb an uncontrolled state.
 
 A large improvement is also nonstationarity.
 
+**For the A2-a method-validation experiment itself** (PR #114 review 1, item 1), the sentinel limit is a
+**fixed 1.10**, not 1 + N: max(P_end/P_start, P_start/P_end) ≤ 1.10. That experiment's own N_raw must not
+widen the threshold that judges its stationarity. N_raw remains a result that may later inform CRITERIA.
+Review 1 also requires a per-session environment guard, a proven trim, a judged clean settle (0 sectors
+written or discarded on `sdb`), stricter capacity validity and fail-closed A1 snapshots. See
+`bench/results/a2a-storage-repro-r640/PREREG.md` (revision 2).
+
 **After A2-a stability is shown (later steps, each preregistered and reviewed):**
 - **Stable-peak revalidation under A2-a.** A balanced, interleaved bracket of 872,759 × 3, 1,090,948 × 3
   and 1,309,138 × 3.
@@ -156,7 +163,7 @@ after the state step (PR #112 review, Finding 1).
 1. ~~A0: hold the timer.~~ **Done** 2026-11-12 03:54 UTC.
 2. ~~Rule on A2, B and C.~~ **Ruled** (PR #113 review): A2-a selected; B approved with B1–B4; C in principle.
 3. **Now:** preregister the A2-a reproducibility validation (K = 5) and return it for review **before the
-   first trim**.
+   first trim**. Revision 1 drew CHANGES REQUIRED (PR #114 review 1); revision 2 applies them.
 4. Run it once approved. STABLE or STOP.
 5. Preregister and run the stable-peak bracket under A2-a.
 6. Fix the final objective p99 and N_raw from the A2-a sessions.
