@@ -222,8 +222,15 @@ Decided by cody on 2026-11-04.
      ([handoff/CP1A_R640_GO_20261111.md](handoff/CP1A_R640_GO_20261111.md))
      and set as `go_record`; it takes effect only when this GO-record PR is
      independently approved and merged. The run HEAD must be that merge,
-     with no commit in between.
-     No CP-1A, comparators or CRITERIA freeze before that.
+     with no commit in between. PR #110 merged (b2948a3): **CP-1A GO.**
+     **CP-1A RAN** at b2948a3 (2026-11-11 21:18 to 2026-11-12 00:28 UTC),
+     complete, no abort
+     ([bench/results/cp1a-r640-20261111/](../bench/results/cp1a-r640-20261111/README.md)):
+     A stable peak 1,090,948 (objective 654,569 at p99 933,888 ns; capacity
+     4,031,898), C stable peak 5,775,584 (objective 3,951,715 at p99
+     524,288 ns; capacity 6,030,447). A's duration check drifts (60 s and
+     longer unsustained by refusals). **Next:** independent review of the
+     result. No comparators, CRITERIA freeze or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

@@ -2692,3 +2692,18 @@ or source comments.
     merges, run the full SNC-only CP-1A from the beginning at exactly that
     merge commit (no commit in between), then the result-review PR, and
     stop.
+
+### 2026-11-12 UTC --- Claude (Claude Code): CP-1A R640 result (for review)
+
+-   **What:** PR #110 merged (b2948a3): CP-1A GO. The full SNC-only CP-1A
+    ran once at exactly b2948a3, 2026-11-11 21:18:13 to 2026-11-12
+    00:27:53 UTC, exit 0, no abort; preflight and freeze gate clean,
+    frozen binaries. Evidence unchanged in
+    `bench/results/cp1a-r640-20261111/`. A: S 1,090,948, objective
+    654,569 (p99 933,888 ns), no knee, capacity 4,031,898. C: S 5,775,584,
+    objective 3,951,715 (p99 524,288 ns), knee 911,934, capacity
+    6,030,447. Flagged: A's S is set by 33 refusals in one rep at
+    1,309,138; A's duration check drifts (PILOT_PLAN §6: back to review);
+    `test_pilot` red on main since #110.
+-   **Next action:** independent review of the CP-1A result. Nothing else
+    is authorized (no comparators, CRITERIA freeze, REFINE round 2).
