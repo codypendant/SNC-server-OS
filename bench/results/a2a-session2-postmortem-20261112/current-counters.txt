@@ -1,0 +1,36 @@
+# CURRENT (captured 2026-11-12T22:14:49Z, boot 0c863bc1-66b2-4775-a032-ea25dfb97bb3); NOT historical.
+# throttle/EDAC/MCE counters are cumulative since boot 2026-11-12 15:32:16Z, so a zero bounds the whole experiment window.
+## thermal_throttle (core/package count, since boot), nonzero only, else summary
+files 432 {'core_throttle_count': 0, 'core_throttle_max_time_ms': 0, 'core_throttle_total_time_ms': 0, 'package_throttle_max_time_ms': 0, 'package_throttle_total_time_ms': 0, 'package_throttle_count': 0}
+## cpufreq governors
+     72 performance
+## intel_pstate no_turbo / status
+0
+passive
+## cpuinfo max/min kHz cpu2
+3700000
+1200000
+## EDAC ce/ue
+/sys/devices/system/edac/mc/mc0 ce=0 ue=0
+/sys/devices/system/edac/mc/mc1 ce=0 ue=0
+/sys/devices/system/edac/mc/mc2 ce=0 ue=0
+/sys/devices/system/edac/mc/mc3 ce=0 ue=0
+## kernel log since boot: mce/thermal/throttle/edac/reset/timeout/error
+Nov 12 15:32:16 solo4 kernel: ACPI: MCEJ 0x000000006FFFB000 000130 (v01 DELL   PE_SC3   00000002 DELL 00000001)
+Nov 12 15:32:16 solo4 kernel: ACPI: Reserving MCEJ table memory at [mem 0x6fffb000-0x6fffb12f]
+Nov 12 15:32:16 solo4 kernel: CPU0: Thermal monitoring enabled (TM1)
+Nov 12 15:32:16 solo4 kernel: thermal_sys: Registered thermal governor 'fair_share'
+Nov 12 15:32:16 solo4 kernel: thermal_sys: Registered thermal governor 'bang_bang'
+Nov 12 15:32:16 solo4 kernel: thermal_sys: Registered thermal governor 'step_wise'
+Nov 12 15:32:16 solo4 kernel: thermal_sys: Registered thermal governor 'user_space'
+Nov 12 15:32:16 solo4 kernel: thermal_sys: Registered thermal governor 'power_allocator'
+Nov 12 15:32:16 solo4 kernel: EDAC MC: Ver: 3.0.0
+Nov 12 15:32:16 solo4 kernel: mpt3sas_cm0: CurrentHostPageSize is 0: Setting default host page size to 4k
+Nov 12 15:32:16 solo4 kernel: mpt3sas_cm0: CurrentHostPageSize is 0: Setting default host page size to 4k
+Nov 12 15:32:16 solo4 kernel: mpt3sas_cm0: sending message unit reset !!
+Nov 12 15:32:16 solo4 kernel: mpt3sas_cm0: message unit reset: SUCCESS
+Nov 12 15:32:17 solo4 kernel: EDAC MC0: Giving out device to module skx_edac controller Skylake Socket#0 IMC#0: DEV 0000:3a:0a.0 (INTERRUPT)
+Nov 12 15:32:17 solo4 kernel: EDAC MC1: Giving out device to module skx_edac controller Skylake Socket#0 IMC#1: DEV 0000:3a:0c.0 (INTERRUPT)
+Nov 12 15:32:17 solo4 kernel: EDAC MC2: Giving out device to module skx_edac controller Skylake Socket#1 IMC#0: DEV 0000:ae:0a.0 (INTERRUPT)
+Nov 12 15:32:17 solo4 kernel: EDAC MC3: Giving out device to module skx_edac controller Skylake Socket#1 IMC#1: DEV 0000:ae:0c.0 (INTERRUPT)
+## (end of grep)

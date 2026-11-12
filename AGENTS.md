@@ -2851,3 +2851,25 @@ or source comments.
 -   **Next action:** independent review. Nothing else is authorized (no
     bracket, Latin square, CRITERIA, competitors, REFINE #2).
 
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a session-2 read-only postmortem (for review)
+
+-   **What:** PR #117 merged (STOP accepted); did the authorized read-only
+    postmortem from existing telemetry only (no run, no rerun).
+    `bench/results/a2a-session2-postmortem-20261112/` (REPORT.md,
+    tables.txt, postmortem.json, events.txt, current-counters.txt, raw/sa12
+    unchanged + sha256, raw/journal-window.txt).
+-   **Outcome B:** no unique host-state difference observable. Zero thermal /
+    throttle / MCE / EDAC / storage-error events (cumulative since boot);
+    no service, cron or process unique to session 2; SSD temperature,
+    trim, settle, disk util / queue / await, pinned-CPU load all alike.
+-   **Fingerprint:** server frames/recv 15.6 to 15.8 and frames/send 17.5
+    to 17.9 in all 5 session-2 capacity runs vs 13.2 to 13.9 / 14.6 to 15.6
+    in the other 20 (no overlap); batching identical at the anchor. Host
+    side shows the same direction (fewer, larger loopback packets, a little
+    less %sys / %soft); a consequence, not a cause.
+-   **Limits:** sysstat interval 10 min, `-S DISK` only, so no CPU
+    frequency, interrupts or per-run resolution; no `ipmitool` (BMC log not
+    read). Throttle / EDAC counters are current, cumulative since boot, and
+    labelled so.
+-   **Next action:** review; REPORT.md ends with an unimplemented
+    prospective-instrumentation proposal. Nothing else is authorized.

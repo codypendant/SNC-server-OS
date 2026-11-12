@@ -292,8 +292,13 @@ Decided by cody on 2026-11-04.
      signal (session-2 median 4.357 M vs 3.997 to 4.034 M for the other
      four: gap 322,958 > 2 x 108,520). All CVs under 10% (between: p99 1.4%,
      thr 3.75%; within: p99 4.2%, thr 1.2%), sentinels at most 1.053,
-     N_raw 0.125, anchor median p99 983,040 ns. Awaiting review; nothing
-     further is authorized.
+     N_raw 0.125, anchor median p99 983,040 ns. **PR #117 merged; STOP
+     accepted.** Read-only session-2 postmortem (for review):
+     [REPORT.md](../bench/results/a2a-session2-postmortem-20261112/REPORT.md).
+     No host-state cause found in the existing telemetry (sysstat is 10 min,
+     no frequency data); the only discriminator is server batching: all 5
+     session-2 capacity runs have frames/recv 15.6 to 15.8 vs 13.2 to 13.9
+     in the other 20. Nothing further is authorized.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
