@@ -1,0 +1,22 @@
+$ sg_logs /dev/sdb
+# captured 2026-11-12T03:32:15Z as root
+    SAMSUNG   ARFX3840S5xnFTRI  3P00
+Supported log pages  [0x0]:
+    0x00        Supported log pages [sp]
+    0x02        Write error [we]
+    0x03        Read error [re]
+    0x05        Verify error [ve]
+    0x06        Non medium [nm]
+    0x0d        Temperature [temp]
+    0x0e        Start-stop cycle counter [sscc]
+    0x0f        Application client [ac]
+    0x10        Self test results [str]
+    0x11        Solid state media [ssm]
+    0x15        Background scan results [bsr]
+    0x18        Protocol specific port [psp]
+    0x1a        Power condition transitions [pct]
+    0x2f        Informational exceptions [ie]
+    0x31        
+    0x39        
+    0x3e        Factory (seagate) [f_se]
+# rc=0

@@ -1,0 +1,4 @@
+$ cat /proc/cmdline
+# captured 2026-11-12T03:20:32Z
+BOOT_IMAGE=/boot/vmlinuz-6.8.0-149-generic root=UUID=a2fca8db-eea7-4fd8-96db-e19056de59d9 ro
+# rc=0

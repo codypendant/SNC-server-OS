@@ -1,0 +1,77 @@
+# /sys/block/sdb/queue and device attributes, captured 2026-11-12T03:20:32Z
+/sys/block/sdb/queue/add_random: 0 
+/sys/block/sdb/queue/chunk_sectors: 0 
+/sys/block/sdb/queue/dax: 0 
+/sys/block/sdb/queue/discard_granularity: 8192 
+/sys/block/sdb/queue/discard_max_bytes: 4294966784 
+/sys/block/sdb/queue/discard_max_hw_bytes: 4294966784 
+/sys/block/sdb/queue/discard_zeroes_data: 0 
+/sys/block/sdb/queue/dma_alignment: 3 
+/sys/block/sdb/queue/fua: 1 
+/sys/block/sdb/queue/hw_sector_size: 512 
+/sys/block/sdb/queue/io_poll: 0 
+/sys/block/sdb/queue/io_poll_delay: -1 
+/sys/block/sdb/queue/iostats: 1 
+/sys/block/sdb/queue/io_timeout: 30000 
+/sys/block/sdb/queue/logical_block_size: 512 
+/sys/block/sdb/queue/max_discard_segments: 1 
+/sys/block/sdb/queue/max_hw_sectors_kb: 16383 
+/sys/block/sdb/queue/max_integrity_segments: 0 
+/sys/block/sdb/queue/max_sectors_kb: 128 
+/sys/block/sdb/queue/max_segments: 128 
+/sys/block/sdb/queue/max_segment_size: 4294967295 
+/sys/block/sdb/queue/minimum_io_size: 8192 
+/sys/block/sdb/queue/nomerges: 0 
+/sys/block/sdb/queue/nr_requests: 256 
+/sys/block/sdb/queue/nr_zones: 0 
+/sys/block/sdb/queue/optimal_io_size: 0 
+/sys/block/sdb/queue/physical_block_size: 4096 
+/sys/block/sdb/queue/read_ahead_kb: 128 
+/sys/block/sdb/queue/rotational: 0 
+/sys/block/sdb/queue/rq_affinity: 1 
+/sys/block/sdb/queue/scheduler: none [mq-deadline]  
+/sys/block/sdb/queue/stable_writes: 0 
+/sys/block/sdb/queue/virt_boundary_mask: 0 
+/sys/block/sdb/queue/wbt_lat_usec: 2000 
+/sys/block/sdb/queue/write_cache: write back 
+/sys/block/sdb/queue/write_same_max_bytes: 0 
+/sys/block/sdb/queue/write_zeroes_max_bytes: 33550336 
+/sys/block/sdb/queue/zone_append_max_bytes: 0 
+/sys/block/sdb/queue/zoned: none 
+/sys/block/sdb/queue/zone_write_granularity: 0 
+/sys/block/sdb/device/model: ARFX3840S5xnFTRI 
+/sys/block/sdb/device/vendor: SAMSUNG  
+/sys/block/sdb/device/rev: 3P00 
+/sys/block/sdb/device/state: running 
+/sys/block/sdb/device/queue_depth: 254 
+/sys/block/sdb/device/queue_type: simple 
+/sys/block/sdb/device/timeout: 30 
+/sys/block/sdb/stat:     2892    21917   369370     1981 394666657 92909604 7473308656 26936007        0  7761505 28968502    28611       26 7381442456    12713 70734600  2017799 
+/sys/block/sdb/inflight:        0        0 
+allow_restart
+app_tag_own
+cache_type
+device
+FUA
+manage_runtime_start_stop
+manage_shutdown
+manage_start_stop
+manage_system_start_stop
+max_medium_access_timeouts
+max_retries
+max_write_same_blocks
+power
+protection_mode
+protection_type
+provisioning_mode
+subsystem
+thin_provisioning
+uevent
+zeroing_mode
+zoned_cap
+/sys/block/sdb/device/scsi_disk/6:0:0:0/cache_type: write back
+/sys/block/sdb/device/scsi_disk/6:0:0:0/FUA: 1
+/sys/block/sdb/device/scsi_disk/6:0:0:0/provisioning_mode: unmap
+/sys/block/sdb/device/scsi_disk/6:0:0:0/max_write_same_blocks: 65528
+/sys/block/sdb/device/scsi_disk/6:0:0:0/thin_provisioning: 1
+/sys/block/sdb/device/scsi_disk/6:0:0:0/protection_type: 0

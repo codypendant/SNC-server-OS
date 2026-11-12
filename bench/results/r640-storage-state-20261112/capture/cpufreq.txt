@@ -1,0 +1,7 @@
+# governors and frequencies 2026-11-12T03:20:32Z
+     72 performance
+     47 3700000
+      4 1200000
+      1 3403491
+      1 3402098
+      1 3400524

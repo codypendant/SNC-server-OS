@@ -1,0 +1,8 @@
+$ lsscsi -g
+# captured 2026-11-12T03:20:32Z
+[6:0:0:0]    disk    SAMSUNG  ARFX3840S5xnFTRI 3P00  /dev/sdb   /dev/sg3 
+[6:0:1:0]    disk    ATA      ST3000DM008-2DM1 CC26  /dev/sdc   /dev/sg4 
+[14:0:0:0]   cd/dvd  HL-DT-ST DVD-ROM DU90N    D3C1  /dev/sr0   /dev/sg0 
+[15:0:0:0]   disk    ATA      DELLBOSS VD      00-0  /dev/sda   /dev/sg1 
+[17:0:0:0]   process Marvell  Console          1.01  -          /dev/sg2 
+# rc=0

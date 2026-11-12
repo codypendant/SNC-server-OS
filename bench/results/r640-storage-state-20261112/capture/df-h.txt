@@ -1,0 +1,5 @@
+$ df -h /srv/snc-data
+# captured 2026-11-12T03:20:32Z
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb1       3.5T   44K  3.3T   1% /srv/snc-data
+# rc=0

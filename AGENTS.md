@@ -2724,3 +2724,27 @@ or source comments.
     of the bound, about one histogram bucket.
 -   **Next action:** independent review. Nothing else is authorized (no
     CRITERIA freeze, comparators, REFINE round 2).
+
+### 2026-11-12 UTC --- Claude (Claude Code): R640 storage/session-state investigation (for review)
+
+-   **What:** PR #112 APPROVED as evidence (e221225): the mechanical PASS
+    stands; CRITERIA HOLD. Read-only capture of the data SSD, filesystem,
+    trim history and host state in
+    `bench/results/r640-storage-state-20261112/` (REPORT.md). Key facts:
+    - `fstrim.timer` trimmed 3.78 TB of `/srv/snc-data` at 2026-11-11 15:09
+      UTC, about 6 h before CP-1A; no trim since (no `discard` mount option);
+      about 3.8 TB has been written since the boot that preceded it.
+    - CP-1A's objective reps ran 22:31-23:00 at 0.90-0.95 ms; the
+      validation, 01:59-02:23, shows a step to 1.47 ms after about 70-107 GB.
+    - SMART: OK, 0% wear, 0 errors, max 41 °C since power-on; a background
+      medium scan is active (79.61%, not snapshotted before).
+    - DMAR faults at 15:09 are the boot disk's Marvell controller, not the
+      data SSD.
+    - No causal claim. METHOD_PROPOSAL.md proposes: A0, holding
+      `fstrim.timer` (next run 2026-11-16 00:56 UTC); A1, per-session state
+      snapshots; A2, a defined start state (recommended: trim + 30 min
+      settle); B, a K=5-session between-session noise procedure with
+      sentinels; C, a Latin-square blocked duration design judged by paired
+      ratios.
+-   **Next action:** independent review. No performance runs, CRITERIA
+    freeze, comparators or REFINE round 2.

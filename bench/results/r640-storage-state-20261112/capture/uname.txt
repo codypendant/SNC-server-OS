@@ -1,0 +1,4 @@
+$ uname -a
+# captured 2026-11-12T03:20:32Z
+Linux solo4 6.8.0-149-generic #149-Ubuntu SMP PREEMPT_DYNAMIC Fri Oct 23 13:21:10 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+# rc=0

@@ -1,0 +1,48 @@
+# thermal zones and hwmon 2026-11-12T03:20:32Z
+/sys/class/thermal/thermal_zone0 pch_lewisburg 48000
+/sys/class/thermal/thermal_zone1 x86_pkg_temp 50000
+/sys/class/thermal/thermal_zone2 x86_pkg_temp 53000
+/sys/class/hwmon/hwmon0 pch_lewisburg
+  /sys/class/hwmon/hwmon0/temp1_input 48000 
+/sys/class/hwmon/hwmon1 coretemp
+  /sys/class/hwmon/hwmon1/temp10_input 47000 Core 8
+  /sys/class/hwmon/hwmon1/temp11_input 49000 Core 9
+  /sys/class/hwmon/hwmon1/temp12_input 47000 Core 10
+  /sys/class/hwmon/hwmon1/temp13_input 47000 Core 11
+  /sys/class/hwmon/hwmon1/temp18_input 49000 Core 16
+  /sys/class/hwmon/hwmon1/temp19_input 47000 Core 17
+  /sys/class/hwmon/hwmon1/temp1_input 50000 Package id 0
+  /sys/class/hwmon/hwmon1/temp20_input 49000 Core 18
+  /sys/class/hwmon/hwmon1/temp21_input 48000 Core 19
+  /sys/class/hwmon/hwmon1/temp22_input 47000 Core 20
+  /sys/class/hwmon/hwmon1/temp26_input 49000 Core 24
+  /sys/class/hwmon/hwmon1/temp27_input 50000 Core 25
+  /sys/class/hwmon/hwmon1/temp28_input 47000 Core 26
+  /sys/class/hwmon/hwmon1/temp29_input 48000 Core 27
+  /sys/class/hwmon/hwmon1/temp2_input 50000 Core 0
+  /sys/class/hwmon/hwmon1/temp3_input 50000 Core 1
+  /sys/class/hwmon/hwmon1/temp4_input 48000 Core 2
+  /sys/class/hwmon/hwmon1/temp5_input 49000 Core 3
+  /sys/class/hwmon/hwmon1/temp6_input 47000 Core 4
+/sys/class/hwmon/hwmon2 coretemp
+  /sys/class/hwmon/hwmon2/temp10_input 47000 Core 8
+  /sys/class/hwmon/hwmon2/temp11_input 49000 Core 9
+  /sys/class/hwmon/hwmon2/temp12_input 49000 Core 10
+  /sys/class/hwmon/hwmon2/temp13_input 48000 Core 11
+  /sys/class/hwmon/hwmon2/temp18_input 50000 Core 16
+  /sys/class/hwmon/hwmon2/temp19_input 48000 Core 17
+  /sys/class/hwmon/hwmon2/temp1_input 53000 Package id 1
+  /sys/class/hwmon/hwmon2/temp20_input 50000 Core 18
+  /sys/class/hwmon/hwmon2/temp21_input 49000 Core 19
+  /sys/class/hwmon/hwmon2/temp22_input 48000 Core 20
+  /sys/class/hwmon/hwmon2/temp26_input 50000 Core 24
+  /sys/class/hwmon/hwmon2/temp27_input 49000 Core 25
+  /sys/class/hwmon/hwmon2/temp28_input 47000 Core 26
+  /sys/class/hwmon/hwmon2/temp29_input 50000 Core 27
+  /sys/class/hwmon/hwmon2/temp2_input 51000 Core 0
+  /sys/class/hwmon/hwmon2/temp3_input 50000 Core 1
+  /sys/class/hwmon/hwmon2/temp4_input 48000 Core 2
+  /sys/class/hwmon/hwmon2/temp5_input 50000 Core 3
+  /sys/class/hwmon/hwmon2/temp6_input 48000 Core 4
+cat: /sys/class/hwmon/hwmon3/name: No such file or directory
+/sys/class/hwmon/hwmon3 

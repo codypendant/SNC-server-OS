@@ -1,0 +1,26 @@
+$ sdparm --page=ca /dev/sdb
+# captured 2026-11-12T03:32:15Z as root
+    /dev/sdb: SAMSUNG   ARFX3840S5xnFTRI  3P00
+Caching (SBC) mode page:
+  IC            0  [cha: y, def:  0, sav:  0]
+  ABPF          0  [cha: y, def:  0, sav:  0]
+  CAP           0  [cha: y, def:  0, sav:  0]
+  DISC          0  [cha: y, def:  0, sav:  0]
+  SIZE          0  [cha: y, def:  0, sav:  0]
+  WCE           1  [cha: y, def:  1, sav:  1]
+  MF            0  [cha: y, def:  0, sav:  0]
+  RCD           0  [cha: y, def:  0, sav:  0]
+  DRRP          0  [cha: y, def:  0, sav:  0]
+  WRP           0  [cha: y, def:  0, sav:  0]
+  DPTL          -1  [cha: y, def: -1, sav: -1]
+  MIPF          0  [cha: y, def:  0, sav:  0]
+  MAPF          -1  [cha: y, def: -1, sav: -1]
+  MAPFC         -1  [cha: y, def: -1, sav: -1]
+  FSW           0  [cha: y, def:  0, sav:  0]
+  LBCSS         0  [cha: y, def:  0, sav:  0]
+  DRA           0  [cha: y, def:  0, sav:  0]
+  SYNC_PROG     0  [cha: n, def:  0, sav:  0]
+  NV_DIS        0  [cha: y, def:  0, sav:  0]
+  NCS           -1  [cha: y, def: -1, sav: -1]
+  CSS           255  [cha: y, def:255, sav:255]
+# rc=0

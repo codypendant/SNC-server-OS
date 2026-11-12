@@ -1,0 +1,18 @@
+$ systemctl status fstrim.service --no-pager
+# captured 2026-11-12T03:20:32Z
+○ fstrim.service - Discard unused blocks on filesystems from /etc/fstab
+     Loaded: loaded (/usr/lib/systemd/system/fstrim.service; static)
+     Active: inactive (dead) since Wed 2026-11-11 15:09:17 UTC; 12h ago
+TriggeredBy: ● fstrim.timer
+       Docs: man:fstrim(8)
+    Process: 11213 ExecStart=/sbin/fstrim --listed-in /etc/fstab:/proc/self/mountinfo --verbose --quiet-unsupported (code=exited, status=0/SUCCESS)
+   Main PID: 11213 (code=exited, status=0/SUCCESS)
+        CPU: 438ms
+
+Nov 11 15:08:23 solo4 systemd[1]: Starting fstrim.service - Discard unused blocks on filesystems from /etc/fstab...
+Nov 11 15:09:17 solo4 fstrim[11213]: /srv/snc-data: 3.4 TiB (3779298537472 bytes) trimmed on /dev/sdb1
+Nov 11 15:09:17 solo4 fstrim[11213]: /boot/efi: 1 GiB (1118543872 bytes) trimmed on /dev/disk/by-uuid/A7EE-8B39
+Nov 11 15:09:17 solo4 fstrim[11213]: /: 424.5 GiB (455788503040 bytes) trimmed on /dev/disk/by-uuid/a2fca8db-eea7-4fd8-96db-e19056de59d9
+Nov 11 15:09:17 solo4 systemd[1]: fstrim.service: Deactivated successfully.
+Nov 11 15:09:17 solo4 systemd[1]: Finished fstrim.service - Discard unused blocks on filesystems from /etc/fstab.
+# rc=3
