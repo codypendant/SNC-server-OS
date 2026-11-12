@@ -1,0 +1,8 @@
+A1 ok
+A2 ok
+ABORTED: session 1 trim not proven: approved SSD discard sectors +0
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-1r1s0it0/bench/results/a2a-storage-repro-r640/test_a2a.py", line 313, in <module>
+    assert got == one * 5, [x for x in got[:48]]
+           ^^^^^^^^^^^^^^
+AssertionError: [('observe',), ('sh', 'sync'), ('diskstats',), ('root', 'smartctl'), ('root', 'sg_logs'), ('root', 'tune2fs'), ('sh', 'journalctl'), ('diskstats',), ('root', 'fstrim'), ('diskstats',)]

@@ -1,0 +1,55 @@
+# Device identity captured read-only on the 2026-11-12 15:32 boot (before any trim or data)
+# lsblk -o NAME,MODEL,SERIAL,WWN,SIZE,MOUNTPOINTS
+NAME   MODEL                  SERIAL           WWN                  SIZE MOUNTPOINTS
+sda    ARFX3840S5xnFTRI       S48LNA0M700325   0x5002538b097f68a0   3.5T 
+└─sda1                                         0x5002538b097f68a0   3.5T /srv/snc-data
+sdb    ST3000DM008-2DM1       Z504K3SF         0x5000c500a27b20a9   2.7T 
+└─sdb1                                         0x5000c500a27b20a9   2.7T 
+sdc    DELLBOSS VD            3f945dc7fb420010                    447.1G 
+├─sdc1                                                                1G /boot/efi
+└─sdc2                                                              446G /
+sr0    HL-DT-ST DVD-ROM DU90N M2AJ5G80523      0x5001480000000000  1024M 
+
+# ls -l /dev/disk/by-id | grep (SSD)
+lrwxrwxrwx 1 root root  9 Nov 12 15:32 scsi-35002538b097f68a0 -> ../../sda
+lrwxrwxrwx 1 root root 10 Nov 12 15:32 scsi-35002538b097f68a0-part1 -> ../../sda1
+lrwxrwxrwx 1 root root  9 Nov 12 15:32 scsi-SSAMSUNG_ARFX3840S5xnFTRI_S48LNA0M700325 -> ../../sda
+lrwxrwxrwx 1 root root 10 Nov 12 15:32 scsi-SSAMSUNG_ARFX3840S5xnFTRI_S48LNA0M700325-part1 -> ../../sda1
+lrwxrwxrwx 1 root root  9 Nov 12 15:32 wwn-0x5002538b097f68a0 -> ../../sda
+lrwxrwxrwx 1 root root 10 Nov 12 15:32 wwn-0x5002538b097f68a0-part1 -> ../../sda1
+
+# ls -l /dev/disk/by-uuid | grep 3bf857c8
+lrwxrwxrwx 1 root root 10 Nov 12 15:32 3bf857c8-0cb4-4c57-b9a5-14328e70b061 -> ../../sda1
+
+# findmnt -n -P -o SOURCE,TARGET,FSTYPE,OPTIONS,UUID /srv/snc-data
+SOURCE="/dev/sda1" TARGET="/srv/snc-data" FSTYPE="ext4" OPTIONS="rw,relatime,stripe=2" UUID="3bf857c8-0cb4-4c57-b9a5-14328e70b061"
+
+# kernel parent of the mounted partition
+/sys/devices/pci0000:17/0000:17:00.0/0000:18:00.0/host0/port-0:0/end_device-0:0/target0:0:0/0:0:0:0/block/sda/sda1
+
+# read-only commands through the verified by-id paths (run with a cached sudo password, sudoers not yet installed):
+smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0   rc=4 (bitmask, full data; same as 2026-11-12 sdb)
+sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0     rc=0, Background scan results page present
+tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1  rc=0, Lifetime writes:          7080 GB
+
+# live gather_identity() / identity_problems()
+{
+ "mount": [
+  "/srv/snc-data",
+  "ext4",
+  "rw,relatime,stripe=2"
+ ],
+ "fs_uuid": "3bf857c8-0cb4-4c57-b9a5-14328e70b061",
+ "source": "/dev/sda1",
+ "part": "sda1",
+ "disk": "sda",
+ "model": "ARFX3840S5xnFTRI",
+ "serial": "S48LNA0M700325",
+ "wwn": "0x5002538b097f68a0",
+ "byid_disk": "/dev/sda",
+ "byid_part": "/dev/sda1",
+ "byuuid": "/dev/sda1"
+}
+identity_problems: [] | check_identity -> sda
+data_disks (pilot.disks_of): ['sda']
+guard problems (live, expected: tree/numa/governors not set yet): ['git tree not clean', 'numa_balancing 1', "governors ['schedutil']"]

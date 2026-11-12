@@ -1,5 +1,8 @@
 # Proposed /etc/sudoers.d/snc-a2a for the A2-a validation (PREREG.md). NOT INSTALLED until the
 # preregistration is approved. Exactly the four root commands of a2a.py ROOT, with their exact
-# arguments: one explicit trim of /srv/snc-data, and three read-only state reads (A1).
+# arguments: one explicit trim of /srv/snc-data, and three read-only state reads (A1). The reads
+# name the approved SSD by its persistent /dev/disk/by-id WWN path (verified on the 2026-11-12 boot:
+# wwn-0x5002538b097f68a0 -> the Samsung ARFX3840S5xnFTRI S48LNA0M700325), never a kernel sdX name.
+# Revision 4 (docs/handoff/A2a_Device_Identity_Correction_20261112.md).
 # Install: sudo install -m 0440 sudoers-snc-a2a /etc/sudoers.d/snc-a2a && sudo visudo -c
-solo ALL=(root) NOPASSWD: /usr/sbin/fstrim -v /srv/snc-data, /usr/sbin/smartctl -x /dev/sdb, /usr/bin/sg_logs -a /dev/sdb, /usr/sbin/tune2fs -l /dev/sdb1
+solo ALL=(root) NOPASSWD: /usr/sbin/fstrim -v /srv/snc-data, /usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0, /usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0, /usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1

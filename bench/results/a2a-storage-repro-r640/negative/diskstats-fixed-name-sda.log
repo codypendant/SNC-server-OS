@@ -1,0 +1,8 @@
+ABORTED: k1-F1: client exit 1
+ABORTED: k1-C2: unparsable net_bench output (exit 0)
+ABORTED: session 1 trim not proven: approved SSD discard sectors +0
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-o1ha2jxj/bench/results/a2a-storage-repro-r640/test_a2a.py", line 369, in <module>
+    assert res_["verdict"] == "STABLE", (name, res_["why"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('sdb', ['aborted: session 1 trim not proven: approved SSD discard sectors +0', '0 of 5 sessions complete', 'session 1 trim: approved SSD discard sectors +0', 'missing runs: k1-S0, k1-F1, k1-C1, k1-F2, k1-C2, k1-F3 ...', 'stop; no replacement session'])

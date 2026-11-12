@@ -1,0 +1,8 @@
+           ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/a2a-mut-l8w9dmet/bench/results/a2a-storage-repro-r640/a2a.py", line 116, in gather_identity
+    rc, txt = sh(["lsblk", "-dn", "-P", "-o", "NAME,MODEL,SERIAL,WWN", f"/dev/{f['disk']}"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/a2a-mut-l8w9dmet/bench/results/a2a-storage-repro-r640/test_a2a.py", line 498, in sh_
+    d = disks[n]
+        ~~~~~^^^
+KeyError: 'sda1'

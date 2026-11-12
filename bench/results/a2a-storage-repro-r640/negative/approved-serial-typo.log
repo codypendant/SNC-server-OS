@@ -1,0 +1,6 @@
+A1 ok
+Traceback (most recent call last):
+  File "/tmp/a2a-mut-5yuf7ss5/bench/results/a2a-storage-repro-r640/test_a2a.py", line 122, in <module>
+    assert len(A.guard_problems(dict(GOOD, **ch), WANT)) == 1, (name, A.guard_problems(dict(GOOD, **ch), WANT))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('serial', [])
