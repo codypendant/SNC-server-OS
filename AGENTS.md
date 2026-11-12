@@ -2707,3 +2707,20 @@ or source comments.
     `test_pilot` red on main since #110.
 -   **Next action:** independent review of the CP-1A result. Nothing else
     is authorized (no comparators, CRITERIA freeze, REFINE round 2).
+
+### 2026-11-12 UTC --- Claude (Claude Code): CP-1A Profile-A duration validation (for review)
+
+-   **What:** PR #111 APPROVED and merged (8a6684e): CP-1A evidence valid
+    and complete; CRITERIA HOLD for one Profile-A duration validation.
+    Preregistered and pushed before data (a5d082b;
+    `bench/results/cp1a-a-duration-r640-20261112/PREREG.md`): 9 runs at
+    654,569 ops/s, 60/120/240 s x 3, via `bench/pilot.py` unchanged.
+    The driver test caught 12/12 mutants. Ran 01:59 to 02:23 UTC, no abort:
+    **PASS**. That is 9/9 sustained, 0 refusals; median p99 60 s 1,474,560,
+    120 s 1,146,880, 240 s 1,507,328 ns, all within bound 1,559,875 ns
+    (D = 0.0578580166). Flagged: this session's p99 is about 1.58 ×
+    CP-1A's 933,888 ns at the same rate and on the same run path (a
+    between-session shift the test does not measure); 240 s is at 96.6%
+    of the bound, about one histogram bucket.
+-   **Next action:** independent review. Nothing else is authorized (no
+    CRITERIA freeze, comparators, REFINE round 2).

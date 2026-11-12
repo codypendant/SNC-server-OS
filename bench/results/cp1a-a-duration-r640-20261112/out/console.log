@@ -1,0 +1,11 @@
+start 2026-11-12T01:59:54Z head a5d082b771b151da0a5ab6aac74e29844dfee314
+A-aduration-120s-r1: total 654568 ops/s achieved 654568 p99 1180 us drained True errors 0
+A-aduration-120s-r0: total 654568 ops/s achieved 654568 p99 1147 us drained True errors 0
+A-aduration-120s-r2: total 654568 ops/s achieved 654568 p99 1049 us drained True errors 0
+A-aduration-60s-r2: total 654567 ops/s achieved 654567 p99 1147 us drained True errors 0
+A-aduration-240s-r2: total 654568 ops/s achieved 654568 p99 1475 us drained True errors 0
+A-aduration-240s-r0: total 654569 ops/s achieved 654569 p99 1507 us drained True errors 0
+A-aduration-240s-r1: total 654569 ops/s achieved 654569 p99 1540 us drained True errors 0
+A-aduration-60s-r1: total 654567 ops/s achieved 654567 p99 1475 us drained True errors 0
+A-aduration-60s-r0: total 654568 ops/s achieved 654568 p99 1475 us drained True errors 0
+VERDICT PASS: all 9 sustained, both bounds hold
