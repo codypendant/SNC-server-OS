@@ -1,0 +1,21 @@
+# mutations of a2a.py (no bytecode cache); rc!=0: test_a2a.py caught it; after = last check group that passed
+k-4 rc=1 after=none
+anchor-wrong rc=1 after=none
+settle-short rc=1 after=none
+no-trim rc=1 after=A1
+settle-skipped rc=1 after=A1
+order-blocked rc=1 after=none
+no-end-snapshot rc=1 after=A1
+fixed-memory-false rc=1 after=A1
+capacity-depth rc=1 after=A1
+within-median rc=1 after=A2
+stop-cv-15 rc=1 after=none
+sentinel-one-sided rc=1 after=A2
+sentinel-strict rc=1 after=A2
+multimodal-off rc=1 after=A2
+unsustained-ignored rc=1 after=A2
+capacity-errors-ignored rc=1 after=A2
+incomplete-ignored rc=1 after=A1
+timer-check-ignored rc=1 after=A1
+failed-trim-continues rc=1 after=A1
+# 19 / 19 caught (first pass 17 / 19: fixed-memory-false and within-median survived; the test then gained the memory-path and max-within checks)

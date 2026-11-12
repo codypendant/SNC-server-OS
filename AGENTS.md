@@ -2748,3 +2748,21 @@ or source comments.
       ratios.
 -   **Next action:** independent review. No performance runs, CRITERIA
     freeze, comparators or REFINE round 2.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A0 done; A2-a reproducibility preregistration (for review, not run)
+
+-   **What:** PR #113 APPROVED and merged (449e355): storage evidence
+    accepted, A2-a selected, B approved with corrections B1-B4.
+    -   A0, authorized: `fstrim.timer` disabled and inactive at 03:54 UTC.
+        No trim run; no other trim path
+        (`bench/results/a2a-storage-repro-r640/a0-fstrim-timer/`).
+    -   METHOD_PROPOSAL.md revision 2 records the rulings and B1-B4.
+    -   Preregistration, driver `a2a.py` (`bench/pilot.py` unchanged), test
+        and proposed `sudoers-snc-a2a`. The plan: K=5 sessions, each an
+        explicit `fstrim -v`, a 30 min settle, A1 snapshots, and S0 F1 C1 ...
+        F5 C5 S1 at the 654,569 historical anchor. N_raw = 3 x max(between,
+        max within) CV; STOP on a CV over 10%, a multimodal gap or an
+        asymmetric sentinel. 19/19 mutants caught (17 on the first pass).
+-   **Next action:** independent review of the preregistration before the
+    first trim. Then install the sudoers file and run it once. Nothing else
+    is authorized.
