@@ -1,0 +1,348 @@
+2026-11-12T16:00:31+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:00:31+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:00:31+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:02:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 190 Airflow_Temperature_Cel changed from 73 to 70
+2026-11-12T16:02:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 194 Temperature_Celsius changed from 27 to 30
+2026-11-12T16:04:11+00:00 solo4 sudo[4041]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/bash -c 'echo performance | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null'
+2026-11-12T16:04:11+00:00 solo4 sudo[4041]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:11+00:00 solo4 sudo[4041]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:11+00:00 solo4 sudo[4053]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/sysctl -w kernel.numa_balancing=0
+2026-11-12T16:04:11+00:00 solo4 sudo[4053]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:11+00:00 solo4 sudo[4053]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:28+00:00 solo4 sudo[4087]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/install -m 0440 bench/results/a2a-storage-repro-r640/sudoers-snc-a2a /etc/sudoers.d/snc-a2a
+2026-11-12T16:04:28+00:00 solo4 sudo[4087]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:28+00:00 solo4 sudo[4087]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:28+00:00 solo4 sudo[4090]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/visudo -c
+2026-11-12T16:04:28+00:00 solo4 sudo[4090]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:28+00:00 solo4 sudo[4090]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:48+00:00 solo4 sudo[4188]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:04:48+00:00 solo4 sudo[4188]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:49+00:00 solo4 sudo[4188]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:49+00:00 solo4 sudo[4190]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:04:49+00:00 solo4 sudo[4190]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:49+00:00 solo4 sudo[4190]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:49+00:00 solo4 sudo[4192]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T16:04:49+00:00 solo4 sudo[4192]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:49+00:00 solo4 sudo[4192]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:04:49+00:00 solo4 sudo[4203]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/fstrim -v /srv/snc-data
+2026-11-12T16:04:49+00:00 solo4 sudo[4203]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:04:55+00:00 solo4 sudo[4203]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:05:01+00:00 solo4 CRON[4221]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:05:01+00:00 solo4 CRON[4222]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:05:01+00:00 solo4 CRON[4221]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:10:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:10:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:10:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:15:01+00:00 solo4 CRON[4438]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:15:01+00:00 solo4 CRON[4439]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:15:01+00:00 solo4 CRON[4438]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:17:01+00:00 solo4 CRON[4485]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:17:01+00:00 solo4 CRON[4486]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+2026-11-12T16:17:01+00:00 solo4 CRON[4485]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:20:00+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:20:00+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:20:00+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:25:01+00:00 solo4 CRON[4650]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:25:01+00:00 solo4 CRON[4651]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:25:01+00:00 solo4 CRON[4650]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: Starting fwupd-refresh.service - Refresh fwupd metadata and update motd...
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: fwupd-refresh.service: Deactivated successfully.
+2026-11-12T16:30:48+00:00 solo4 systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.
+2026-11-12T16:32:18+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 190 Airflow_Temperature_Cel changed from 70 to 71
+2026-11-12T16:32:18+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 194 Temperature_Celsius changed from 30 to 29
+2026-11-12T16:34:55+00:00 solo4 sudo[4859]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:34:55+00:00 solo4 sudo[4859]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:34:55+00:00 solo4 sudo[4859]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:34:55+00:00 solo4 sudo[4861]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:34:55+00:00 solo4 sudo[4861]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:34:55+00:00 solo4 sudo[4861]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:34:55+00:00 solo4 sudo[4863]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T16:34:55+00:00 solo4 sudo[4863]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:34:55+00:00 solo4 sudo[4863]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:35:01+00:00 solo4 CRON[4935]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:35:01+00:00 solo4 CRON[4936]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:35:01+00:00 solo4 CRON[4935]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:40:24+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:40:24+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:40:24+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:45:01+00:00 solo4 CRON[5450]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:45:01+00:00 solo4 CRON[5451]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:45:01+00:00 solo4 CRON[5450]: pam_unix(cron:session): session closed for user root
+2026-11-12T16:50:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T16:50:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T16:50:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T16:51:17+00:00 solo4 sudo[5751]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:51:17+00:00 solo4 sudo[5751]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5751]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5753]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:51:18+00:00 solo4 sudo[5753]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5753]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5755]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T16:51:18+00:00 solo4 sudo[5755]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5755]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5787]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:51:18+00:00 solo4 sudo[5787]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5787]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5789]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T16:51:18+00:00 solo4 sudo[5789]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5789]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5791]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T16:51:18+00:00 solo4 sudo[5791]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:18+00:00 solo4 sudo[5791]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:51:18+00:00 solo4 sudo[5801]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/fstrim -v /srv/snc-data
+2026-11-12T16:51:18+00:00 solo4 sudo[5801]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T16:51:19+00:00 solo4 sudo[5801]: pam_unix(sudo:session): session closed for user root
+2026-11-12T16:55:01+00:00 solo4 CRON[5879]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T16:55:01+00:00 solo4 CRON[5880]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T16:55:01+00:00 solo4 CRON[5879]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:00:26+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:00:26+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:00:26+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:01:44+00:00 solo4 systemd[1]: Starting fwupd-refresh.service - Refresh fwupd metadata and update motd...
+2026-11-12T17:01:44+00:00 solo4 systemd[1]: fwupd-refresh.service: Deactivated successfully.
+2026-11-12T17:01:44+00:00 solo4 systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.
+2026-11-12T17:02:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 190 Airflow_Temperature_Cel changed from 71 to 70
+2026-11-12T17:02:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 194 Temperature_Celsius changed from 29 to 30
+2026-11-12T17:05:01+00:00 solo4 CRON[6082]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:05:01+00:00 solo4 CRON[6083]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:05:01+00:00 solo4 CRON[6082]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:10:02+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:10:02+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:10:02+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:15:01+00:00 solo4 CRON[6277]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:15:01+00:00 solo4 CRON[6278]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:15:01+00:00 solo4 CRON[6277]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:17:01+00:00 solo4 CRON[6319]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:17:01+00:00 solo4 CRON[6320]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+2026-11-12T17:17:01+00:00 solo4 CRON[6319]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:20:26+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:20:26+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:20:26+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:21:19+00:00 solo4 sudo[6409]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:21:19+00:00 solo4 sudo[6409]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:21:19+00:00 solo4 sudo[6409]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:21:19+00:00 solo4 sudo[6411]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:21:19+00:00 solo4 sudo[6411]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:21:19+00:00 solo4 sudo[6411]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:21:19+00:00 solo4 sudo[6413]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T17:21:19+00:00 solo4 sudo[6413]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:21:19+00:00 solo4 sudo[6413]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:25:01+00:00 solo4 CRON[6662]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:25:01+00:00 solo4 CRON[6663]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:25:01+00:00 solo4 CRON[6662]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:30:26+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:30:26+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:30:26+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:30:43+00:00 solo4 kernel: perf: interrupt took too long (2506 > 2500), lowering kernel.perf_event_max_sample_rate to 79000
+2026-11-12T17:35:01+00:00 solo4 CRON[7152]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:35:01+00:00 solo4 CRON[7153]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:35:01+00:00 solo4 CRON[7152]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7291]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:37:43+00:00 solo4 sudo[7291]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7291]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7293]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:37:43+00:00 solo4 sudo[7293]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7293]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7295]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T17:37:43+00:00 solo4 sudo[7295]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7295]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7328]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:37:43+00:00 solo4 sudo[7328]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7328]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7330]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T17:37:43+00:00 solo4 sudo[7330]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7330]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7332]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T17:37:43+00:00 solo4 sudo[7332]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:43+00:00 solo4 sudo[7332]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:37:43+00:00 solo4 sudo[7342]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/fstrim -v /srv/snc-data
+2026-11-12T17:37:43+00:00 solo4 sudo[7342]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T17:37:44+00:00 solo4 sudo[7342]: pam_unix(sudo:session): session closed for user root
+2026-11-12T17:40:23+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:40:23+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:40:23+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:45:01+00:00 solo4 CRON[7488]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:45:01+00:00 solo4 CRON[7489]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:45:01+00:00 solo4 CRON[7488]: pam_unix(cron:session): session closed for user root
+2026-11-12T17:50:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T17:50:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T17:50:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T17:55:01+00:00 solo4 CRON[7677]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T17:55:01+00:00 solo4 CRON[7678]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T17:55:01+00:00 solo4 CRON[7677]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:00:26+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:00:26+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:00:26+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:05:01+00:00 solo4 CRON[7868]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:05:01+00:00 solo4 CRON[7869]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:05:01+00:00 solo4 CRON[7868]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:07:44+00:00 solo4 sudo[7927]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:07:44+00:00 solo4 sudo[7927]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:07:44+00:00 solo4 sudo[7927]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:07:44+00:00 solo4 sudo[7929]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:07:44+00:00 solo4 sudo[7929]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:07:44+00:00 solo4 sudo[7929]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:07:44+00:00 solo4 sudo[7931]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T18:07:44+00:00 solo4 sudo[7931]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:07:44+00:00 solo4 sudo[7931]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:10:26+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:10:26+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:10:26+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:15:01+00:00 solo4 CRON[8375]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:15:01+00:00 solo4 CRON[8376]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:15:01+00:00 solo4 CRON[8375]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:17:01+00:00 solo4 CRON[8456]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:17:01+00:00 solo4 CRON[8457]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+2026-11-12T18:17:01+00:00 solo4 CRON[8456]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:20:24+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:20:24+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:20:24+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:24:09+00:00 solo4 sudo[8817]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:24:09+00:00 solo4 sudo[8817]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8817]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8819]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:24:09+00:00 solo4 sudo[8819]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8819]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8821]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T18:24:09+00:00 solo4 sudo[8821]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8821]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8853]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:24:09+00:00 solo4 sudo[8853]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8853]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8855]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:24:09+00:00 solo4 sudo[8855]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8855]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8857]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T18:24:09+00:00 solo4 sudo[8857]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:09+00:00 solo4 sudo[8857]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:24:09+00:00 solo4 sudo[8867]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/fstrim -v /srv/snc-data
+2026-11-12T18:24:09+00:00 solo4 sudo[8867]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:24:10+00:00 solo4 sudo[8867]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:25:01+00:00 solo4 CRON[8896]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:25:01+00:00 solo4 CRON[8897]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:25:01+00:00 solo4 CRON[8896]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:30:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:30:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:30:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:35:01+00:00 solo4 CRON[9089]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:35:01+00:00 solo4 CRON[9090]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:35:01+00:00 solo4 CRON[9089]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:40:27+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:40:27+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:40:27+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:40:48+00:00 solo4 systemd[1]: Starting fwupd-refresh.service - Refresh fwupd metadata and update motd...
+2026-11-12T18:40:48+00:00 solo4 systemd[1]: fwupd-refresh.service: Deactivated successfully.
+2026-11-12T18:40:48+00:00 solo4 systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.
+2026-11-12T18:45:01+00:00 solo4 CRON[9288]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:45:01+00:00 solo4 CRON[9289]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:45:01+00:00 solo4 CRON[9288]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:50:27+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T18:50:27+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T18:50:27+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T18:54:10+00:00 solo4 sudo[9464]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:54:10+00:00 solo4 sudo[9464]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:54:10+00:00 solo4 sudo[9464]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:54:10+00:00 solo4 sudo[9466]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T18:54:10+00:00 solo4 sudo[9466]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:54:10+00:00 solo4 sudo[9466]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:54:10+00:00 solo4 sudo[9468]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T18:54:10+00:00 solo4 sudo[9468]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T18:54:10+00:00 solo4 sudo[9468]: pam_unix(sudo:session): session closed for user root
+2026-11-12T18:55:01+00:00 solo4 CRON[9564]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T18:55:01+00:00 solo4 CRON[9565]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T18:55:01+00:00 solo4 CRON[9564]: pam_unix(cron:session): session closed for user root
+2026-11-12T18:56:34+00:00 solo4 kernel: perf: interrupt took too long (3133 > 3132), lowering kernel.perf_event_max_sample_rate to 63000
+2026-11-12T19:00:07+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:00:07+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:00:07+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:02:18+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 190 Airflow_Temperature_Cel changed from 70 to 72
+2026-11-12T19:02:18+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 194 Temperature_Celsius changed from 30 to 28
+2026-11-12T19:05:01+00:00 solo4 CRON[10074]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:05:01+00:00 solo4 CRON[10075]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:05:01+00:00 solo4 CRON[10074]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:10:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:10:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:10:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:10:35+00:00 solo4 sudo[10358]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:10:35+00:00 solo4 sudo[10358]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10358]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10360]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:10:35+00:00 solo4 sudo[10360]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10360]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10362]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T19:10:35+00:00 solo4 sudo[10362]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10362]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10394]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:10:35+00:00 solo4 sudo[10394]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10394]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10396]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:10:35+00:00 solo4 sudo[10396]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10396]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10398]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T19:10:35+00:00 solo4 sudo[10398]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:35+00:00 solo4 sudo[10398]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:10:35+00:00 solo4 sudo[10408]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/fstrim -v /srv/snc-data
+2026-11-12T19:10:35+00:00 solo4 sudo[10408]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:10:36+00:00 solo4 sudo[10408]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:15:01+00:00 solo4 CRON[10501]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:15:01+00:00 solo4 CRON[10502]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:15:01+00:00 solo4 CRON[10501]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:17:01+00:00 solo4 CRON[10544]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:17:01+00:00 solo4 CRON[10545]: (root) CMD (cd / && run-parts --report /etc/cron.hourly)
+2026-11-12T19:17:01+00:00 solo4 CRON[10544]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:20:27+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:20:27+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:20:27+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:25:01+00:00 solo4 CRON[10697]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:25:01+00:00 solo4 CRON[10698]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:25:01+00:00 solo4 CRON[10697]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:30:27+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:30:27+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:30:27+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:32:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 190 Airflow_Temperature_Cel changed from 72 to 71
+2026-11-12T19:32:19+00:00 solo4 smartd[1684]: Device: /dev/sdb [SAT], SMART Usage Attribute: 194 Temperature_Celsius changed from 28 to 29
+2026-11-12T19:35:01+00:00 solo4 CRON[10887]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:35:01+00:00 solo4 CRON[10888]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:35:01+00:00 solo4 CRON[10887]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:40:15+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:40:15+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:40:15+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:40:36+00:00 solo4 sudo[10997]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:40:36+00:00 solo4 sudo[10997]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:40:36+00:00 solo4 sudo[10997]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:40:36+00:00 solo4 sudo[10999]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:40:36+00:00 solo4 sudo[10999]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:40:36+00:00 solo4 sudo[10999]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:40:36+00:00 solo4 sudo[11001]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T19:40:36+00:00 solo4 sudo[11001]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:40:36+00:00 solo4 sudo[11001]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:45:01+00:00 solo4 CRON[11292]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:45:01+00:00 solo4 CRON[11293]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:45:01+00:00 solo4 CRON[11292]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:50:04+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T19:50:04+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T19:50:04+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T19:54:27+00:00 solo4 systemd[1]: Starting fwupd-refresh.service - Refresh fwupd metadata and update motd...
+2026-11-12T19:54:27+00:00 solo4 systemd[1]: fwupd-refresh.service: Deactivated successfully.
+2026-11-12T19:54:27+00:00 solo4 systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.
+2026-11-12T19:55:01+00:00 solo4 CRON[11810]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+2026-11-12T19:55:01+00:00 solo4 CRON[11811]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+2026-11-12T19:55:01+00:00 solo4 CRON[11810]: pam_unix(cron:session): session closed for user root
+2026-11-12T19:57:01+00:00 solo4 sudo[11902]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/smartctl -x /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:57:01+00:00 solo4 sudo[11902]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:57:01+00:00 solo4 sudo[11902]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:57:01+00:00 solo4 sudo[11904]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/bin/sg_logs -a /dev/disk/by-id/wwn-0x5002538b097f68a0
+2026-11-12T19:57:01+00:00 solo4 sudo[11904]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:57:01+00:00 solo4 sudo[11904]: pam_unix(sudo:session): session closed for user root
+2026-11-12T19:57:01+00:00 solo4 sudo[11906]:     solo : PWD=/home/solo/SNC-server-OS ; USER=root ; COMMAND=/usr/sbin/tune2fs -l /dev/disk/by-id/wwn-0x5002538b097f68a0-part1
+2026-11-12T19:57:01+00:00 solo4 sudo[11906]: pam_unix(sudo:session): session opened for user root(uid=0) by solo(uid=1000)
+2026-11-12T19:57:01+00:00 solo4 sudo[11906]: pam_unix(sudo:session): session closed for user root
+2026-11-12T20:00:27+00:00 solo4 systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+2026-11-12T20:00:27+00:00 solo4 systemd[1]: sysstat-collect.service: Deactivated successfully.
+2026-11-12T20:00:27+00:00 solo4 systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+2026-11-12T20:02:48+00:00 solo4 systemd[1]: Starting fwupd-refresh.service - Refresh fwupd metadata and update motd...
+2026-11-12T20:02:48+00:00 solo4 systemd[1]: fwupd-refresh.service: Deactivated successfully.
+2026-11-12T20:02:48+00:00 solo4 systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.

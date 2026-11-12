@@ -1,0 +1,89 @@
+## Sampling coverage (10-minute sysstat samples; mean over interval)
+k | load window | samples overlapping (end time: overlap s / interval s)
+1 | 16:34:55-16:51:17 (982s) | 16:40:24: 329/577; 16:50:04: 580/580; 17:00:26: 73/622
+2 | 17:21:19-17:37:43 (984s) | 17:30:26: 547/600; 17:40:23: 437/597
+3 | 18:07:44-18:24:09 (985s) | 18:10:26: 162/600; 18:20:24: 598/598; 18:30:04: 225/580
+4 | 18:54:10-19:10:35 (985s) | 19:00:07: 357/581; 19:10:04: 597/597; 19:20:27: 31/623
+5 | 19:40:36-19:57:01 (985s) | 19:50:04: 568/589; 20:00:27: 417/623
+idle-baseline samples (no load, no trim inside): 11
+
+## Consolidated per-session table (benchmark + host telemetry)
+k | anchor p99 median ns | cap thr median | cap CPU us/op | cap wr B/op | cap p99 ns | anchor CPU us/op | session wr B/op (all 12 runs) | trim bytes | ckpt cap s (min-max) | ckpt anchor s | SSD C pre/start/end | scan % pre/start/end | units started
+1 | 966,656 | 4,021,146 | 1.833 | 69.2 | 11,796,480 | 10.168 | 177.63 | 3,779,301,535,744 | 4.81-5.01 | 1.70-1.77 | 34/34/37 | 79.89/79.96/80.00 | fwupd-refresh.service, sysstat-collect.service
+2 | 983,040 | 4,356,828 | 1.700 | 71.1 | 9,699,328 | 10.207 | 172.54 | 185,471,426,560 | 4.79-5.01 | 1.71-1.75 | 37/35/38 | 80.00/80.08/80.12 | fwupd-refresh.service, sysstat-collect.service
+3 | 999,424 | 4,010,715 | 1.836 | 68.9 | 11,796,480 | 10.206 | 177.38 | 195,851,280,384 | 4.82-5.19 | 1.71-1.76 | 38/35/38 | 80.12/80.19/80.24 | sysstat-collect.service
+4 | 966,656 | 4,033,870 | 1.826 | 69.7 | 11,534,336 | 10.167 | 178.05 | 184,920,182,784 | 4.99-5.07 | 1.71-1.77 | 38/34/37 | 80.24/80.31/80.35 | fwupd-refresh.service, sysstat-collect.service
+5 | 983,040 | 3,996,693 | 1.842 | 69.7 | 11,796,480 | 10.215 | 178.05 | 184,524,406,784 | 4.86-5.00 | 1.69-1.73 | 37/34/37 | 80.35/80.42/80.46 | sysstat-collect.service
+
+## Batching (server log 'total:' line), median over runs
+k | cap frames/recv | cap frames/send | cap ring msgs/req | anchor frames/recv | anchor frames/send | anchor ring msgs/req | discard sectors in load window (A1 diskstats)
+1 | 13.70 | 15.30 | 1.120 | 1.20 | 1.40 | 1.180 | 0
+2 | 15.80 | 17.70 | 1.120 | 1.20 | 1.40 | 1.180 | 0
+3 | 13.60 | 15.20 | 1.120 | 1.20 | 1.40 | 1.180 | 0
+4 | 13.70 | 15.30 | 1.120 | 1.20 | 1.40 | 1.180 | 0
+5 | 13.40 | 15.00 | 1.120 | 1.20 | 1.40 | 1.180 | 0
+
+## Host telemetry, load-window mean estimate (overlap-weighted, idle subtracted); LOO = (k - median(others)) / range(others)
+metric | k1 | k2 | k3 | k4 | k5 | LOO k2 | max |LOO| other sessions
+cpu.all.usr | 7.367 | 7.487 | 7.354 | 7.362 | 7.361 | +3.41 | 0.09
+cpu.all.sys | 7.931 | 7.812 | 7.928 | 7.922 | 7.939 | -2.96 | 0.12
+cpu.all.iowait | 1.448 | 1.454 | 1.435 | 1.448 | 1.432 | +0.81 | 0.81
+cpu.all.steal | 0 | 0 | 0 | 0 | 0 | +0.00 | 0.00
+cpu.all.irq | 0 | 0 | 0 | 0 | 0 | +0.00 | 0.00
+cpu.all.soft | 3.035 | 2.963 | 3.027 | 3.018 | 3.03 | -3.97 | 0.18
+pcsw.cswch_s | 2.699e+05 | 2.675e+05 | 2.699e+05 | 2.702e+05 | 2.692e+05 | -1.79 | 0.26
+pcsw.proc_s | 0.9722 | 0.9567 | 0.9633 | 0.9676 | 1.208 | -0.05 | 15.62
+disk.sda.tps | 3.693e+04 | 3.651e+04 | 3.696e+04 | 3.7e+04 | 3.689e+04 | -2.33 | 0.19
+disk.sda.wkB | 2.611e+05 | 2.706e+05 | 2.596e+05 | 2.621e+05 | 2.601e+05 | +4.09 | 0.18
+disk.sda.areq-sz | 47.42 | 16.39 | 23.97 | 95.56 | 8.674 | -0.22 | 1.95
+disk.sda.aqu-sz | 2.33 | 2.342 | 2.327 | 2.326 | 2.326 | +1.34 | 0.23
+disk.sda.await | 0.1024 | 0.07299 | 0.1083 | 0.1034 | 0.07383 | -0.87 | 0.82
+disk.sda.util-percent | 64.98 | 64.85 | 64.94 | 64.84 | 64.79 | -0.12 | 0.41
+net.lo.pck_s | 1.321e+06 | 1.3e+06 | 1.319e+06 | 1.318e+06 | 1.32e+06 | -3.04 | 0.13
+net.lo.kB_s | 2.849e+05 | 2.953e+05 | 2.844e+05 | 2.851e+05 | 2.838e+05 | +7.44 | 0.11
+paging.fault_s | 1.212e+04 | 1.209e+04 | 1.202e+04 | 1.202e+04 | 1.217e+04 | +0.17 | 1.20
+paging.pgfree_s | 4.194e+04 | 4.346e+04 | 4.177e+04 | 4.188e+04 | 4.186e+04 | +7.62 | 0.09
+paging.pgscank_s | 0 | 0 | 0 | 0 | 0 | +0.00 | 0.00
+paging.pgscand_s | 0 | 0 | 0 | 0 | 0 | +0.00 | 0.00
+
+## Per-CPU busy % (usr+sys+irq+soft) estimate: group means
+group | k1 | k2 | k3 | k4 | k5
+server cpus 2..16 even | 82.564 | 82.577 | 82.490 | 82.543 | 82.655
+client cpus 18..32 even | 79.910 | 79.360 | 79.639 | 79.671 | 79.725
+all other cpus | 0.488 | 0.466 | 0.480 | 0.478 | 0.485
+
+## LOO outliers: every metric (72 per-CPU + ~40 aggregate) where |LOO| > 1, count per session
+k | n metrics with |LOO|>1 (of 100) | largest |LOO| metrics
+1 | 15 | cpu.41.busy +12.17, cpu.68.busy +7.90, cpu.5.busy +7.86, cpu.7.busy +6.02
+2 | 25 | paging.pgfree_s +7.62, net.lo.kB_s +7.44, disk.sda.wkB +4.09, paging.pgpgout_s +4.09
+3 | 9 | cpu.61.busy +7.89, cpu.51.busy +7.05, cpu.19.busy +4.83, cpu.55.busy +2.17
+4 | 10 | cpu.59.busy +9.08, cpu.23.busy +2.90, cpu.13.busy +2.49, cpu.49.busy +2.38
+5 | 10 | pcsw.proc_s +15.62, cpu.50.busy +2.17, cpu.54.busy +2.15, cpu.42.busy -1.64
+
+## LOO on benchmark-side quantities
+metric | k1 | k2 | k3 | k4 | k5
+cap_frames_recv | +0.02 | +7.17 | -0.04 | +0.02 | -0.14
+cap_frames_send | +0.02 | +8.17 | -0.04 | +0.02 | -0.12
+cap_ring_per_req | +0.00 | +0.00 | +0.00 | +0.00 | +0.00
+anchor_frames_recv | +0.00 | +0.00 | +0.00 | +0.00 | +0.00
+anchor_frames_send | +0.00 | +0.00 | +0.00 | +0.00 | +0.00
+anchor_ring_per_req | +0.00 | +0.00 | +0.00 | +0.00 | +0.00
+capacity_thr_median | -0.00 | +9.17 | -0.05 | +0.05 | -0.09
+capacity_cpu_us_per_op | +0.01 | -8.49 | +0.05 | -0.06 | +0.09
+capacity_write_B_per_op | -0.24 | +1.94 | -0.44 | +0.11 | +0.14
+capacity_p99_ns | +0.06 | -8.00 | +0.06 | -0.12 | +0.06
+anchor_p99_median_ns | -0.50 | +0.25 | +1.50 | -0.50 | +0.25
+anchor_cpu_us_per_op | -0.75 | +0.39 | +0.36 | -0.77 | +0.55
+session_written_B_per_op | -0.02 | -5.96 | -0.08 | +0.10 | +0.10
+trim_bytes | +317.31 | -0.00 | +0.00 | -0.00 | -0.00
+
+## Instantaneous samples inside each load window (not averaged)
+k | at | mem.memfree | mem.cached | mem.buffers | mem.dirty | mem.slab | mem.anonpg | queue.runq-sz | queue.ldavg-1 | queue.blocked | psi.cpu_some_avg60 | psi.io_some_avg60 | psi.io_full_avg60 | psi.mem_some_avg60
+1 | 16:40:24 | 386715360 | 2345192 | 1223676 | 88 | 603912 | 3069604 | 16 | 19.41 | 0 | 3.13 | 5.56 | 4.92 | 0.0
+1 | 16:50:04 | 387823932 | 1095324 | 1224088 | 924 | 569124 | 2820032 | 0 | 15.66 | 0 | 2.67 | 3.88 | 3.17 | 0.0
+2 | 17:30:26 | 387897840 | 1095936 | 1224968 | 112 | 571704 | 3093120 | 11 | 18.27 | 1 | 3.07 | 4.8 | 4.1 | 0.0
+3 | 18:10:26 | 386670788 | 2346376 | 1225848 | 448 | 611300 | 3146384 | 17 | 17.49 | 1 | 2.63 | 6.18 | 5.5 | 0.0
+3 | 18:20:24 | 387691660 | 1096424 | 1226288 | 24 | 578008 | 3070688 | 17 | 16.6 | 0 | 2.72 | 3.87 | 3.26 | 0.0
+4 | 19:00:07 | 387796468 | 1096688 | 1227116 | 76 | 580580 | 3094984 | 16 | 18.85 | 4 | 3.26 | 5.82 | 5.24 | 0.0
+4 | 19:10:04 | 386607368 | 2346644 | 1227596 | 416 | 613292 | 3161360 | 15 | 18.92 | 1 | 3.11 | 5.3 | 4.5 | 0.0
+5 | 19:50:04 | 386949896 | 1886496 | 1228440 | 196 | 602944 | 3193264 | 8 | 20.22 | 0 | 3.19 | 4.66 | 3.75 | 0.0
