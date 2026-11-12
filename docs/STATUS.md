@@ -298,7 +298,11 @@ Decided by cody on 2026-11-04.
      No host-state cause found in the existing telemetry (sysstat is 10 min,
      no frequency data); the only discriminator is server batching: all 5
      session-2 capacity runs have frames/recv 15.6 to 15.8 vs 13.2 to 13.9
-     in the other 20. Nothing further is authorized.
+     in the other 20. **PR #118 merged.** Next, preregistered but not run:
+     [capacity-state characterization](../bench/results/a2a-capacity-state-prereg-20261112/PREREG.md)
+     (K=5, 5 runs per session, perf / sar / numa_maps instrumentation;
+     needs reviewer action on proposed sudoers entries). Nothing else is
+     authorized.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
