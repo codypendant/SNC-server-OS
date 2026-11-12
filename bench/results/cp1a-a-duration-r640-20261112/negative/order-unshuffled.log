@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 42, in <module>
+    assert ORDER == [(120, 1), (120, 0), (120, 2), (60, 2), (240, 2), (240, 0), (240, 1), (60, 1), (60, 0)], ORDER  # preregistered (PREREG.md)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [(60, 0), (60, 1), (60, 2), (120, 0), (120, 1), (120, 2), (240, 0), (240, 1), (240, 2)]
