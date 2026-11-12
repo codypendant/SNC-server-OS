@@ -1,4 +1,4 @@
-# A2-a capacity-state characterization: PREREGISTRATION (revision 1; NOT RUN; for review)
+# A2-a capacity-state characterization: PREREGISTRATION (revision 2; NOT RUN; for review)
 
 Authority: `docs/handoff/PR118_A2a_Session2_Postmortem_Final_Review.md`, NEXT AUTHORIZED TASK. This document is written
 before any data. **Nothing in it has been run**; the only measurements taken are the 1 to 3 s idle-host availability
@@ -7,7 +7,22 @@ probes in `precheck/availability.txt` (no benchmark, no SNC process, no configur
 It does **not** replace, re-judge or soften the A2-a **STOP** (PR #117). It is a causal characterization, not a PASS/FAIL
 benchmark. No SNC product, checkpoint, socket-option, poll-cadence, `ConnSet`, buffer or threshold change. No competitor.
 
-## 0. What needs a decision from the reviewer before anything runs
+## 0. Reviewer decisions (revision 1 items, resolved 2026-11-12) and the revision-2 correction
+
+1. Exact-command `sudoers` for `perf`: **APPROVED** (not installed until the run step). 2. `perf` `msr/aperf,mperf,tsc` and
+`power/energy-*` instead of `turbostat`: **APPROVED**. 3. Observer effect: **ACCEPTED** as a limitation; the instrumentation is
+identical in every run and the result reports it as a potential observer effect. 4. **K = 5 is kept**; K is not raised to
+improve the chance of catching the fast state; if only one state appears the experiment stops as preregistered. 5. `epoll_wait`
+is **not** traced: **APPROVED**.
+
+**Revision 2 correction (reviewer): capacity and anchor runs have different timelines.** Checked against the code and the A2-a
+logs: `S0`/`S1` are open-loop runs with `--warmup 10 --seconds 60 --drain-s 10` (`pilot_plan.json` `warmup_s` 10, `drain_s` 10;
+`net_bench` runs the first 10 s of due ops but does not measure them), so their measured window is **t0 + 10 s to t0 + 70 s**;
+`C1..C3` are closed-loop `--seconds 60` with no warm-up, measured window **t0 to t0 + 60 s**. Section 3 now defines a measured-window
+start `t_m` per run kind and aligns everything to it; the instrumentation duration is a uniform 80 s so the anchors' drain tail
+is covered by the same commands. The causal analysis uses the capacity runs only; anchors are same-instrument context.
+
+The original revision-1 items follow for the record (the decisions above supersede them):
 
 1. **Root access for `perf`.** `kernel.perf_event_paranoid` is 4, so `perf` needs root. Rather than change the sysctl
    (host reconfiguration), I propose the same mechanism A2-a used: exact-command `sudoers` entries
@@ -44,7 +59,7 @@ snapshot, explicit `fstrim`, proven and synced, 30 min idle settle judged 0 / 0 
 in fixed order, Profile A, same shapes as A2-a:
 
 `S0` (open loop at 654,569 ops/s) , `C1`, `C2`, `C3` (closed-loop capacity), `S1` (open loop at 654,569 ops/s), then the A1
-end snapshot. 25 runs in total. Expected duration about 3 to 3.5 h. Any execution-integrity failure aborts the whole run
+end snapshot. 25 runs in total. Expected duration about 3.5 h (each run waits for its 80 s samplers). Any execution-integrity failure aborts the whole run
 INCOMPLETE: no replacement session, no rerun.
 
 The driver (`capstate.py`, **not written yet**) will import `a2a.py` / `pilot.py` unchanged and wrap `Pilot.one` the way
@@ -52,11 +67,19 @@ A2-a does; it, its offline tests and a mutation check come in a separate slice a
 
 ## 3. Instrumentation (observational, identical in every one of the 25 runs, never touching any setting)
 
-**Run window.** The measured phase is the client `net_bench` started with `--seconds 60` (the load phase uses
-`--seconds 0`). The driver polls `/proc` every 50 ms for that process and takes its appearance as t0. All run-level
-instrumentation is started at t0 and aligned to it; the **measurement window is the 60 one-second intervals 1..60 after
-t0** (the client reports `run_s` about 60.0; the offset is under 0.2 s and is recorded). Instrumentation runs 65 s so the
-tail is preserved; the next run does not start until every sampler has exited.
+**Run window (revision 2).** The measured client is the `net_bench` started with `--seconds 60` (the load phase uses
+`--seconds 0`). The driver polls `/proc` every 50 ms for that process; its appearance is **t0**, and every run-level sampler is
+started at t0. The measured-window start **t_m** differs by run kind:
+
+| run | client shape | t_m | measured window | analysed intervals (1 s, after t0) |
+|---|---|---|---|---|
+| `C1..C3` capacity | `--depth D --seconds 60`, no warm-up | t0 | t0 .. t0+60 | **1..60** |
+| `S0`, `S1` anchor | `--rate 654569 --warmup 10 --seconds 60 --drain-s 10` | t0 + 10 s (`plan.warmup_s`) | t0+10 .. t0+70 | **11..70** (1..10 = warm-up, recorded, not analysed; 71..80 = drain, recorded) |
+
+The measure client's own load step is about 0.01 s (the ids file already exists), so t0 is within 0.2 s of the true start; the
+measured offset (client exit time minus t0 minus warm-up minus window) is recorded per run. Every sampler runs **80 s** in every
+run (identical commands; covers the anchors' 10 s warm-up + 60 s window + up to 10 s drain), the next run does not start until
+every sampler has exited, and the raw 1 s series are kept whole so nothing is cut at capture time.
 
 **Sampler placement.** Samplers and `sudo`/`perf`/`sar` run under `taskset` on CPUs **34 and 70** only (one physical core,
 node 0, neither a benchmark CPU nor an SMT sibling of one: the siblings of 2..16 are 38..52 and of 18..32 are 54..68). The
@@ -64,17 +87,17 @@ placement is recorded in the evidence. Nothing runs on CPUs 2 to 32 (even) or th
 
 | id | what | mechanism |
 |---|---|---|
-| A1 | server-set hardware and software counters, 1 s | `perf stat -a -C 2,4,6,8,10,12,14,16 -e cycles,ref-cycles,instructions,task-clock,context-switches,cpu-migrations,msr/aperf/,msr/mperf/,msr/tsc/,syscalls:sys_enter_recvfrom,syscalls:sys_enter_sendto -I 1000 -x, -- sleep 65` |
+| A1 | server-set hardware and software counters, 1 s | `perf stat -a -C 2,4,6,8,10,12,14,16 -e cycles,ref-cycles,instructions,task-clock,context-switches,cpu-migrations,msr/aperf/,msr/mperf/,msr/tsc/,syscalls:sys_enter_recvfrom,syscalls:sys_enter_sendto -I 1000 -x, -- sleep 80` |
 | A2 | client-set, same events | same with `-C 18,20,22,24,26,28,30,32` |
-| A3 | package and DRAM energy, 1 s | `perf stat -a -e power/energy-pkg/,power/energy-ram/ -I 1000 -x, -- sleep 65` |
+| A3 | package and DRAM energy, 1 s | `perf stat -a -e power/energy-pkg/,power/energy-ram/ -I 1000 -x, -- sleep 80` |
 | B | recv/send syscalls | the two tracepoints in A1/A2 (counting only; no `strace`, no `perf trace`, no `bpftrace`); bytes are not captured (no supported low-overhead method) |
-| C | 1 s host sampling | `sar -o <file> -u -P 2,4,...,32 -q -w -B -d -n DEV,SOFT 1 65` (per-pinned-CPU utilization, run queue, context switches, softirq, `lo` packets/s and kB/s, the approved SSD by its kernel name resolved at run time, evidence only), plus `/proc/pressure/{cpu,io,memory}` and `/proc/softirqs` at t0 and t0+60 s |
-| D | memory / NUMA | at **t0 + 30 s** (preregistered), for the server pid and the client pid: `/proc/<pid>/numa_maps`, `/proc/<pid>/status`, `/proc/<pid>/smaps_rollup`; plus `/sys/kernel/mm/transparent_hugepage/{enabled,defrag}` and `AnonHugePages` / `Mems_allowed`; `filefrag` extent counts of the live WAL segment files |
-| E | socket / kernel | before each session: `ethtool -k lo`, `/sys/class/net/lo/queues/*/rps_cpus`, the TCP and `net.core` sysctls named in `precheck/availability.txt`, `nstat -az` snapshot; at t0 and t0+60 s: `nstat -az` (delta); at t0+30 s: `ss -tin` for the server ports |
+| C | 1 s host sampling | `sar -o <file> -u -P 2,4,...,32 -q -w -B -d -n DEV,SOFT 1 80` (per-pinned-CPU utilization, run queue, context switches, softirq, `lo` packets/s and kB/s, the approved SSD by its kernel name resolved at run time, evidence only), plus `/proc/pressure/{cpu,io,memory}` and `/proc/softirqs` at t_m and t_m+60 s |
+| D | memory / NUMA | at **t_m + 30 s** (preregistered; t0+30 s for capacity runs, t0+40 s for anchors), for the server pid and the client pid: `/proc/<pid>/numa_maps`, `/proc/<pid>/status`, `/proc/<pid>/smaps_rollup`; plus `/sys/kernel/mm/transparent_hugepage/{enabled,defrag}` and `AnonHugePages` / `Mems_allowed`; `filefrag` extent counts of the live WAL segment files |
+| E | socket / kernel | before each session: `ethtool -k lo`, `/sys/class/net/lo/queues/*/rps_cpus`, the TCP and `net.core` sysctls named in `precheck/availability.txt`, `nstat -az` snapshot; at t_m and t_m+60 s: `nstat -az` (delta); at t_m+30 s: `ss -tin` for the server ports |
 | F | existing | server-log `frames/recv`, `frames/send`, ring msgs/request, `recv`/`send` totals (**mandatory**); `pilot.py` per-run `cpu_us_per_op`, `write_bytes_per_op`, latencies; A1 diskstats and SMART per session |
 
-Per-run derived quantities use **ops = exec_ops + index_ok** (the pilot's total-ops numerator), over the 60-interval window.
-Validity check on the instrument itself: the server-set `sys_enter_recvfrom` count over the window must equal
+Per-run derived quantities use **ops = exec_ops + index_ok** (the pilot's total-ops numerator), over the 60-interval measured window.
+Validity check on the instrument itself: the server-set `sys_enter_recvfrom` count over the capacity window (intervals 1..60) must equal
 `requests / (frames/recv)` from the server log within 3%; a larger gap is reported as an instrument defect (the run is
 kept, its tracepoint columns are flagged).
 
@@ -87,7 +110,7 @@ only; it changes no verdict. A session's class is descriptive (how many of its 3
 
 ## 5. Hypotheses and primary metrics (frozen; nothing else is eligible to be called causal)
 
-At most two primary metrics per hypothesis, each defined over the 60-interval window of the **capacity** runs:
+At most two primary metrics per hypothesis, each defined over the 60-interval measured window (above) of the **capacity** runs:
 
 | H | hypothesis | primary metrics |
 |---|---|---|
@@ -127,7 +150,7 @@ Available: `perf` 6.8.12 (root only; counting for hardware, `msr/*`, `power/*`, 
 verified on the exact CPU sets, 100% enabled time, no multiplexing); `sar`/`sadf` 12.6.1 with 1 s `-o` capture and
 `-n DEV,SOFT`; `nstat`; `ss`; `ethtool`; `numactl`; `/proc/<pid>/{numa_maps,status,smaps_rollup}` readable for own processes; THP
 `madvise`. Intel uncore frequency `current_freq_khz` is root-only (min = max = 2.4 GHz is readable: pinned). Not usable:
-`turbostat` (above); `perf stat --timeout` cannot combine with `-I`, hence the fixed `sleep 65` workload. Needs reviewer
+`turbostat` (above); `perf stat --timeout` cannot combine with `-I`, hence the fixed `sleep 80` workload. Needs reviewer
 action: the `sudoers` entries above. Needs no installation: everything else.
 Server and client call `recv` / `send` / `epoll_wait` directly (`src/net/conn_set.cpp`, `src/net/client.cpp`), so
 `sys_enter_recvfrom` / `sys_enter_sendto` are the right tracepoints; TCP_NODELAY is already set on both ends.
