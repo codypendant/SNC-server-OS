@@ -1,0 +1,11 @@
+$ systemctl status fstrim.timer --no-pager
+# captured 2026-11-12T03:20:32Z
+● fstrim.timer - Discard unused filesystem blocks once a week
+     Loaded: loaded (/usr/lib/systemd/system/fstrim.timer; enabled; preset: enabled)
+     Active: active (waiting) since Wed 2026-11-11 13:50:41 UTC; 13h ago
+    Trigger: Mon 2026-11-16 00:56:44 UTC; 3 days left
+   Triggers: ● fstrim.service
+       Docs: man:fstrim
+
+Nov 11 13:50:41 solo4 systemd[1]: Started fstrim.timer - Discard unused filesystem blocks once a week.
+# rc=0

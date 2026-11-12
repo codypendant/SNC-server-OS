@@ -1,0 +1,26 @@
+$ smartctl -x /dev/sda
+# captured 2026-11-12T03:32:15Z as root
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.8.0-149-generic] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     DELLBOSS VD
+Serial Number:    3f945dc7fb420010
+Firmware Version: MV.R00-0
+User Capacity:    480,036,847,616 bytes [480 GB]
+Sector Sizes:     512 bytes logical, 4096 bytes physical
+TRIM Command:     Available
+Device is:        Not in smartctl database 7.3/5528
+ATA Version is:   ATA8-ACS, ATA/ATAPI-7 T13/1532D revision 4a
+Local Time is:    Thu Nov 12 03:32:15 2026 UTC
+SMART support is: Unavailable - device lacks SMART capability.
+AAM feature is:   Unavailable
+APM feature is:   Unavailable
+Rd look-ahead is: Enabled
+Write cache is:   Enabled
+DSN feature is:   Unavailable
+ATA Security is:  Unavailable
+Wt Cache Reorder: Unavailable
+
+A mandatory SMART command failed: exiting. To continue, add one or more '-T permissive' options.
+# rc=4

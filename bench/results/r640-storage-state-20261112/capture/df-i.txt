@@ -1,0 +1,5 @@
+$ df -i /srv/snc-data
+# captured 2026-11-12T03:20:32Z
+Filesystem        Inodes IUsed     IFree IUse% Mounted on
+/dev/sdb1      234422272    15 234422257    1% /srv/snc-data
+# rc=0

@@ -238,8 +238,20 @@ Decided by cody on 2026-11-04.
      **PASS**. That is 9/9 sustained, 0 refusals, at 654,569 ops/s; median p99
      60 s 1,474,560, 120 s 1,146,880, 240 s 1,507,328 ns; bound 1,559,875 ns.
      Flagged: this session's p99 is about 1.58 × CP-1A's at the same rate.
-     **Next:** independent review of the validation. No comparators,
-     CRITERIA freeze or REFINE round 2 before that.
+     PR #112 APPROVED as evidence (e221225;
+     [handoff/PR112_CP1A_Duration_Final_Review.md](handoff/PR112_CP1A_Duration_Final_Review.md)):
+     mechanical PASS stands, but **CRITERIA HOLD** for between-session
+     nonstationarity and a time/order confound. **Storage-state
+     investigation done, read only**
+     ([bench/results/r640-storage-state-20261112/](../bench/results/r640-storage-state-20261112/REPORT.md)):
+     the data SSD was fully trimmed at 2026-11-11 15:09 UTC, about 6 h before
+     CP-1A; no trim since (no `discard` mount option); about 3.8 TB has been
+     written since; no device errors or wear; a background medium scan is
+     active (79.61%); no cause shown. The next `fstrim.timer` run is
+     2026-11-16 00:56 UTC. A method revision is proposed (storage state,
+     between-session noise, a Latin-square duration design). **Next:**
+     independent review. No performance runs, comparators, CRITERIA freeze
+     or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

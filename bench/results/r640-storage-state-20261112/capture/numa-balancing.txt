@@ -1,0 +1,4 @@
+$ cat /proc/sys/kernel/numa_balancing
+# captured 2026-11-12T03:20:32Z
+0
+# rc=0

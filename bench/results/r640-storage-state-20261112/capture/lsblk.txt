@@ -1,0 +1,12 @@
+$ lsblk -o NAME,MODEL,SERIAL,SIZE,ROTA,DISC-GRAN,DISC-MAX,DISC-ZERO,SCHED,MOUNTPOINTS
+# captured 2026-11-12T03:20:32Z
+NAME   MODEL                  SERIAL             SIZE ROTA DISC-GRAN DISC-MAX DISC-ZERO SCHED       MOUNTPOINTS
+sda    DELLBOSS VD            3f945dc7fb420010 447.1G    1        4K       2G         0 mq-deadline 
+├─sda1                                             1G    1        4K       2G         0 mq-deadline /boot/efi
+└─sda2                                           446G    1        4K       2G         0 mq-deadline /
+sdb    ARFX3840S5xnFTRI       S48LNA0M700325     3.5T    0        8K       4G         0 mq-deadline 
+└─sdb1                                           3.5T    0        8K       4G         0 mq-deadline /srv/snc-data
+sdc    ST3000DM008-2DM1       Z504K3SF           2.7T    1        4K       0B         0 mq-deadline 
+└─sdc1                                           2.7T    1        4K       0B         0 mq-deadline 
+sr0    HL-DT-ST DVD-ROM DU90N M2AJ5G80523       1024M    1      512B       0B         0 mq-deadline 
+# rc=0

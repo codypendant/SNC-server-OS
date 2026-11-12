@@ -1,0 +1,179 @@
+$ sg_vpd -a /dev/sdb
+# captured 2026-11-12T03:32:15Z as root
+Supported VPD pages VPD page:
+  Supported VPD pages [sv]
+  Unit serial number [sn]
+  Device identification [di]
+  Extended inquiry data [ei]
+  Mode page policy [mpp]
+  SCSI ports [sp]
+  Power condition [pc]
+  Power consumption [psm]
+  Protocol-specific logical unit information [pslu]
+  Protocol-specific port information [pspo]
+  Block limits (SBC) [bl]
+  Block device characteristics (SBC) [bdc]
+  Logical block provisioning (SBC) [lbpv]
+  Block limits extension (SBC) [ble]
+  0xd2
+  0xe0
+
+Unit serial number VPD page:
+  Unit serial number: S48LNA0M700325      
+
+Device Identification VPD page:
+  Addressed logical unit:
+    designator type: NAA,  code set: Binary
+      0x5002538b097f68a0
+  Target port:
+    designator type: NAA,  code set: Binary
+     transport: Serial Attached SCSI Protocol (SPL-4)
+      0x5002538b097f68a2
+    designator type: Relative target port,  code set: Binary
+     transport: Serial Attached SCSI Protocol (SPL-4)
+      Relative target port: 0x1
+  Target device that contains addressed lu:
+    designator type: NAA,  code set: Binary
+     transport: Serial Attached SCSI Protocol (SPL-4)
+      0x5002538b097f68a1
+    designator type: SCSI name string,  code set: UTF-8
+      SCSI name string:
+      naa.5002538B097F68A1
+
+extended INQUIRY data VPD page:
+  ACTIVATE_MICROCODE=1 SPT=1 GRD_CHK=1 APP_CHK=0 REF_CHK=1
+  UASK_SUP=0 GROUP_SUP=0 PRIOR_SUP=0 HEADSUP=1 ORDSUP=1 SIMPSUP=1
+  WU_SUP=1 [CRD_SUP=1] NV_SUP=1 V_SUP=1
+  NO_PI_CHK=0 P_I_I_SUP=0 LUICLR=1
+  LU_COLL_TYPE=0 R_SUP=0 RTD_SUP=0 HSSRELEF=0 [CBCS=0]
+  Multi I_T nexus microcode download=1
+  Extended self-test completion minutes=60
+  POA_SUP=1 HRA_SUP=1 VSA_SUP=1 DMS_VALID=0
+  Maximum supported sense data length=56
+  IBS=0 IAS=0 SAC=0 NRD1=0 NRD0=0
+  Maximum inquiry change logs=0
+  Maximum mode page change logs=0
+  DM_MD_4=0 DM_MD_5=0 DM_MD_6=0 DM_MD_7=0
+  DM_MD_D=0 DM_MD_E=0 DM_MD_F=0
+
+Mode page policy VPD page:
+  Policy page code: 0x3f,  subpage code: 0xff
+  therefore the policy applies to all modes pages and subpages
+    MLUS=1,  Policy: shared
+
+SCSI Ports VPD page:
+  Relative port=1
+    Target port descriptor(s):
+      designator type: NAA,  code set: Binary
+       transport: Serial Attached SCSI Protocol (SPL-4)
+        0x5002538b097f68a2
+  Relative port=2
+    Target port descriptor(s):
+      designator type: NAA,  code set: Binary
+       transport: Serial Attached SCSI Protocol (SPL-4)
+        0x5002538b097f68a3
+
+Power condition VPD page:
+  Standby_y=0 Standby_z=0 Idle_c=0 Idle_b=0 Idle_a=0
+  Stopped condition recovery time (ms) 0
+  Standby_z condition recovery time (ms) 0
+  Standby_y condition recovery time (ms) 0
+  Idle_a condition recovery time (ms) 0
+  Idle_b condition recovery time (ms) 0
+  Idle_c condition recovery time (ms) 0
+
+Power consumption VPD page:
+  Power consumption identifier: 0x1    Maximum power consumption: 9.000 Watts
+  Power consumption identifier: 0x2    Maximum power consumption: 9.000 Watts
+  Power consumption identifier: 0x3    Maximum power consumption: 9.000 Watts
+  Power consumption identifier: 0x4    Maximum power consumption: 10.500 Watts
+  Power consumption identifier: 0x5    Maximum power consumption: 11.000 Watts
+  Power consumption identifier: 0x6    Maximum power consumption: 12.000 Watts
+
+Protocol-specific logical unit information:
+  Relative port=1
+    Protocol identifier: SAS
+    TLR control supported: 0
+  Relative port=2
+    Protocol identifier: SAS
+    TLR control supported: 0
+
+Protocol-specific port information:
+  Relative port=1
+    power disable supported (pwr_d_s)=1
+      phy id=0, SSP persistent capable=0
+  Relative port=2
+    power disable supported (pwr_d_s)=1
+      phy id=1, SSP persistent capable=0
+
+Block limits VPD page (SBC):
+  Write same non-zero (WSNZ): 0
+  Maximum compare and write length: 0 blocks [Command not implemented]
+  Optimal transfer length granularity: 16 blocks
+  Maximum transfer length: 0 blocks [not reported]
+  Optimal transfer length: 0 blocks [not reported]
+  Maximum prefetch transfer length: 0 blocks [ignored]
+  Maximum unmap LBA count: -1 [unbounded]
+  Maximum unmap block descriptor count: -1 [unbounded]
+  Optimal unmap granularity: 16 blocks
+  Unmap granularity alignment valid: true
+  Unmap granularity alignment: 0
+  Maximum write same length: 0 blocks [not reported]
+  Maximum atomic transfer length: 0 blocks [not reported]
+  Atomic alignment: 0 [unaligned atomic writes permitted]
+  Atomic transfer length granularity: 0 [no granularity requirement
+  Maximum atomic transfer length with atomic boundary: 0 blocks [not reported]
+  Maximum atomic boundary size: 0 blocks [can only write atomic 1 block]
+
+Block device characteristics VPD page (SBC):
+  Non-rotating medium (e.g. solid state)
+  Product type: Not specified
+  WABEREQ=0
+  WACEREQ=0
+  Nominal form factor: 2.5 inch
+  ZONED=0
+  RBWZ=0
+  BOCS=0
+  FUAB=1
+  VBULS=1
+  DEPOPULATION_TIME=0 (seconds)
+
+Logical block provisioning VPD page (SBC):
+  Unmap command supported (LBPU): 1
+  Write same (16) with unmap bit supported (LBPWS): 1
+  Write same (10) with unmap bit supported (LBPWS10): 1
+  Logical block provisioning read zeros (LBPRZ): 1
+  Anchored LBAs supported (ANC_SUP): 1
+  Threshold exponent: 0 [threshold sets not supported]
+  Descriptor present (DP): 0
+  Minimum percentage: 0 [not reported]
+  Provisioning type: 1 (resource provisioned)
+  Threshold percentage: 0 [percentages not supported]
+
+Block limits extension VPD page (SBC):
+  Maximum number of streams: 9
+  Optimal stream write size: 512 blocks
+  Stream granularity size: 12288
+
+Page 0xd2 (WDC/Hitachi) VPD Page:
+ 00     00 d2 00 80 0f 54 52 45  58 31 2e 31 20 20 20 20    .....TREX1.1    
+ 10     20 20 20 00 0f 53 53 49  20 44 52 41 4d 20 76 31       ..SSI DRAM v1
+ 20     2e 30 20 00 0f 54 52 45  58 31 2e 31 20 20 20 20    .0 ..TREX1.1    
+ 30     20 20 20 00 0f 53 53 49  20 4e 41 4e 44 20 76 31       ..SSI NAND v1
+ 40     2e 30 20 00 0f 20 20 20  20 20 20 20 20 20 20 20    .0 ..           
+ 50     20 20 20 00 0f 20 20 20  20 20 20 20 20 20 20 20       ..           
+ 60     20 20 20 00 0f 20 20 20  20 20 20 20 20 20 20 20       ..           
+ 70     20 20 20 00 0f 20 20 20  20 20 20 20 20 20 20 20       ..           
+ 80     20 20 20 00                                            .
+
+Only hex output supported
+VPD page code=0xe0:
+ 00     00 e0 00 75 02 00 64 01  07 01 00 00 0f 00 00 02    ...u..d.........
+ 10     00 04 fb 01 00 00 00 00  00 00 00 00 00 00 00 00    ................
+ 20     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00    ................
+ 30     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00    ................
+ 40     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00    ................
+ 50     00 00 00 00 00 1b 05 4c  41 07 4c 41 08 4c 41 0c    .......LA.LA.LA.
+ 60     4c 41 0e 4c 41 0f 4c 41  13 4c 41 17 4c 41 18 4c    LA.LA.LA.LA.LA.L
+ 70     41 06 01 00 02 00 03 00  00                         A........
+# rc=0

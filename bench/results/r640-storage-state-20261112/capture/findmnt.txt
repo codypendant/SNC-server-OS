@@ -1,0 +1,4 @@
+$ findmnt -no SOURCE,TARGET,FSTYPE,OPTIONS /srv/snc-data
+# captured 2026-11-12T03:20:32Z
+/dev/sdb1 /srv/snc-data ext4   rw,relatime,stripe=2
+# rc=0
