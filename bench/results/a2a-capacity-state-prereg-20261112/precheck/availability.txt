@@ -1,0 +1,158 @@
+# A2-a capacity-state characterization: READ-ONLY tool-availability precheck, 2026-11-12T22:33:54Z, boot 0c863bc1-66b2-4775-a032-ea25dfb97bb3
+# idle host; each probe is 1 to 3 s; no benchmark, no config change
+
+## perf_event_paranoid=4 (as user solo, perf needs root or CAP_PERFMON)
+## perf stat as user solo (expected to be refused):
+Error:
+Access to performance monitoring and observability operations is limited.
+Consider adjusting /proc/sys/kernel/perf_event_paranoid setting to open
+access to performance monitoring and observability operations for processes
+
+## perf stat via sudo, pinned-set counting, hardware + software events (1 s, idle)
+3800866,,cycles,8011929412,100.00,0.000,GHz
+5384880,,ref-cycles,8011908346,100.00,672.112,K/sec
+1292647,,instructions,8011894577,100.00,0.34,insn per cycle
+8011.88,msec,task-clock,8011880031,100.00,8.000,CPUs utilized
+50,,context-switches,8011865256,100.00,6.241,/sec
+8,,cpu-migrations,8011850699,100.00,0.999,/sec
+
+## perf stat tracepoints (client set, 1 s, idle)
+0,,syscalls:sys_enter_recvfrom,8012403371,100.00,,
+0,,syscalls:sys_enter_sendto,8012401788,100.00,,
+0,,syscalls:sys_enter_epoll_wait,8012405055,100.00,,
+0,,syscalls:sys_enter_recvmsg,8012407907,100.00,,
+0,,syscalls:sys_enter_sendmsg,8012410214,100.00,,
+
+## turbostat (1 s, idle; version, columns)
+turbostat version 2023.11.07 - Len Brown <lenb@kernel.org>
+turbostat: Insanely slow TSC rate, TSC stops in idle?
+You can disable all c-states by booting with "idle=poll"
+or just the deep ones with "processor.max_cstate=1"
+
+## sar 1 s sampling, binary file in scratchpad, then sadf
+# hostname;interval;timestamp;CPU;%user;%nice;%system;%iowait;%steal;%idle
+solo4;1;2026-11-12 22:33:57 UTC;2;0.00;0.00;0.00;0.00;0.00;100.00
+solo4;1;2026-11-12 22:33:57 UTC;18;0.00;0.00;0.00;0.00;0.00;100.00
+solo4;1;2026-11-12 22:33:58 UTC;2;0.00;0.00;0.00;0.00;0.00;100.00
+2
+(sar rc=0; sadc at /usr/lib/sysstat/sadc)
+
+## /proc + THP for a throwaway process
+numa_maps: readable (2086 bytes)
+status: readable (1545 bytes)
+smaps_rollup: readable (698 bytes)
+[1]+  Terminated              sleep 5
+THP enabled: always [madvise] never  defrag: always defer defer+madvise [madvise] never
+
+## socket / kernel state (read-only)
+Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess         
+0      4096      127.0.0.54:53         0.0.0.0:*   
+scatter-gather: on
+	tx-scatter-gather: on [fixed]
+tcp-segmentation-offload: on
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off [fixed]
+lo rps: 00,00000000,00000000 flow_cnt=0  xps: cat: /sys/class/net/lo/queues/tx-0/xps_cpus: No such file or directory
+net.ipv4.tcp_rmem = 4096	131072	6291456
+net.ipv4.tcp_wmem = 4096	16384	4194304
+net.core.rmem_max = 212992
+net.core.wmem_max = 212992
+net.core.netdev_budget = 300
+net.core.netdev_budget_usecs = 2000
+net.core.busy_poll = 0
+net.core.busy_read = 0
+net.core.rps_sock_flow_entries = 0
+net.ipv4.tcp_autocorking = 1
+net.core.somaxconn = 4096
+
+## CPU topology
+# The following is the parsable format, which can be fed to other
+# programs. Each different item in every column has an unique ID
+# starting usually from zero.
+# CPU,Core,Socket,Node
+2,2,0,0
+4,4,0,0
+18,18,0,0
+20,20,0,0
+cpu2 siblings: 2,38
+cpu18 siblings: 18,54
+cpu34 siblings: 34,70
+
+## perf msr/power PMUs (effective-frequency and package energy via perf, 1 s, idle)
+826385,,msr/aperf/,2002743729,100.00,,
+1560774,,msr/mperf/,2002734922,100.00,,
+5394686008,,msr/tsc/,2002728697,100.00,,
+81.59,Joules,power/energy-pkg/,2002209123,100.00,,
+21.92,Joules,power/energy-ram/,2002207034,100.00,,
+uncore freq sysfs: package_00_die_00 package_01_die_00 
+
+## turbostat under a 2 s synthetic busy loop pinned to cpu 2 and 18 (probe only; not SNC code)
+turbostat: Insanely slow TSC rate, TSC stops in idle?
+You can disable all c-states by booting with "idle=poll"
+or just the deep ones with "processor.max_cstate=1"
+[1]-  Exit 124                taskset -c 2 timeout 3 sh -c 'while :; do :; done'
+[2]+  Exit 124                taskset -c 18 timeout 3 sh -c 'while :; do :; done'
+
+## perf stat msr under same busy loop (cpu 2): effective MHz = aperf/mperf*TSC
+3398341636,,msr/aperf/,1001860025,100.00,,
+2698678596,,msr/mperf/,1001858698,100.00,,
+2698676212,,msr/tsc/,1001858238,100.00,,
+3398317151,,cycles,1001857751,100.00,,
+2698663068,,ref-cycles,1001855969,100.00,,
+[1]+  Exit 124                taskset -c 2 timeout 3 sh -c 'while :; do :; done'
+
+## the exact intended form: perf stat -a -C <set> -e <events> -I 1000 -x, --timeout 2500 (no workload; 2.5 s here, idle host)
+timeout option is not supported with interval-print.
+
+ Usage: perf stat [<options>] [<command>]
+
+        --timeout <n>     stop workload and print counts after a timeout period in ms (>= 10ms)
+
+ Usage: perf stat [<options>] [<command>]
+
+    -I, --interval-print <n>
+                          print counts at regular interval in ms (overhead is possible for values <= 100ms)
+
+real	0m0.030s
+user	0m0.015s
+sys	0m0.015s
+
+## power events with interval, all CPUs
+timeout option is not supported with interval-print.
+
+ Usage: perf stat [<options>] [<command>]
+
+        --timeout <n>     stop workload and print counts after a timeout period in ms (>= 10ms)
+
+ Usage: perf stat [<options>] [<command>]
+
+
+## nstat autocorking counter exists
+#kernel
+TcpExtTCPAutoCorking            13                 0.0
+## ss -tin, 1 listening socket row format ok:
+Recv-Q Send-Q Local Address:Port   Peer Address:Port Process                                                            
+0      0      192.168.1.230:34618 160.79.104.10:443  
+
+## CORRECTION: --timeout cannot combine with -I. Intended form is: perf stat -a -C <set> -e <events> -I 1000 -x, -- sleep <N> (N=3 here, idle)
+1.001098097,4796965,,cycles,8018632528,100.00,0.001,GHz
+1.001098097,6893532,,ref-cycles,8018619784,100.00,859.693,K/sec
+1.001098097,1436905,,instructions,8018610371,100.00,0.30,insn per cycle
+1.001098097,8018.60,msec,task-clock,8018601215,100.00,8.019,CPUs utilized
+1.001098097,42,,context-switches,8018593474,100.00,5.238,/sec
+1.001098097,8,,cpu-migrations,8018585564,100.00,0.998,/sec
+1.001098097,2364595,,msr/aperf/,8018573779,100.00,294.889,K/sec
+1.001098097,3675960,,msr/mperf/,8018565450,100.00,458.429,K/sec
+1.001098097,21599343218,,msr/tsc/,8018556216,100.00,2.694,G/sec
+1.001098097,0,,syscalls:sys_enter_recvfrom,8018545269,100.00,0.000,/sec
+1.001098097,0,,syscalls:sys_enter_sendto,8018531941,100.00,0.000,/sec
+2.002762622,3552875,,cycles,8011678492,100.00,0.000,GHz
+2.002762622,5539968,,ref-cycles,8011664824,100.00,691.489,K/sec
+2.002762622,1227706,,instructions,8011656700,100.00,0.35,insn per cycle
+## power, same form
+1.001041981,81.94,Joules,power/energy-pkg/,2003600266,100.00,,
+1.001041981,22.05,Joules,power/energy-ram/,2003606857,100.00,,
+2.000338165,81.59,Joules,power/energy-pkg/,1998424210,100.00,,
+2.000338165,22.00,Joules,power/energy-ram/,1998419382,100.00,,
+visudo -cf (syntax check only, not installed): rc=0

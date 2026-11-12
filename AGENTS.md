@@ -2873,3 +2873,24 @@ or source comments.
     labelled so.
 -   **Next action:** review; REPORT.md ends with an unimplemented
     prospective-instrumentation proposal. Nothing else is authorized.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a capacity-state characterization preregistration (for review, NOT RUN)
+
+-   **What:** PR #118 merged. Per its NEXT AUTHORIZED TASK, wrote
+    `bench/results/a2a-capacity-state-prereg-20261112/PREREG.md` and a
+    read-only tool precheck (`precheck/availability.txt`). No benchmark, no
+    SNC process, no install, no config change; only 1 to 3 s idle-host probes.
+-   **Design:** K=5 sessions, A2-a start procedure, then S0 C1 C2 C3 S1 (25
+    runs); frozen classifier frames/recv >= 15.0; six hypotheses with at most
+    two primary metrics each plus two negative controls; descriptive
+    separation rule; samplers on CPUs 34/70 only.
+-   **Reviewer decisions needed:** (1) `perf` needs root (paranoid 4): proposed
+    exact-command sudoers `sudoers-snc-capstate.proposed`, syntax-checked, not
+    installed; (2) `turbostat` is unusable here ("Insanely slow TSC rate"),
+    replaced by perf `msr/aperf,mperf,tsc` and `power/energy-*`; (3) observer
+    effect cannot be tested without running; (4) about 33% chance of no
+    large-batch session in K=5 if the A2-a rate (1 of 5) holds; (5) epoll_wait
+    deliberately not traced (hot loop).
+-   **Not written yet:** the driver `capstate.py`, its offline tests and
+    mutation check (after the design is reviewed).
+-   **Next action:** independent review of the preregistration. Nothing is run.

@@ -1,0 +1,7 @@
+# PROPOSED, NOT INSTALLED. For review with PREREG.md. Same mechanism as sudoers-snc-a2a: exact commands only.
+# Install (after review) with: install -m 0440 <this file> /etc/sudoers.d/snc-capstate ; visudo -c
+# The three perf commands below are counting-only (no recording, no tracing to disk); output goes to stderr/stdout of
+# the unprivileged parent, which writes the evidence files.
+solo ALL=(root) NOPASSWD: /usr/bin/perf stat -a -C 2\,4\,6\,8\,10\,12\,14\,16 -e cycles\,ref-cycles\,instructions\,task-clock\,context-switches\,cpu-migrations\,msr/aperf/\,msr/mperf/\,msr/tsc/\,syscalls\:sys_enter_recvfrom\,syscalls\:sys_enter_sendto -I 1000 -x\, -- sleep 65
+solo ALL=(root) NOPASSWD: /usr/bin/perf stat -a -C 18\,20\,22\,24\,26\,28\,30\,32 -e cycles\,ref-cycles\,instructions\,task-clock\,context-switches\,cpu-migrations\,msr/aperf/\,msr/mperf/\,msr/tsc/\,syscalls\:sys_enter_recvfrom\,syscalls\:sys_enter_sendto -I 1000 -x\, -- sleep 65
+solo ALL=(root) NOPASSWD: /usr/bin/perf stat -a -e power/energy-pkg/\,power/energy-ram/ -I 1000 -x\, -- sleep 65
