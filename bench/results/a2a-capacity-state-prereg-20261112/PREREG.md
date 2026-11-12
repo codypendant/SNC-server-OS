@@ -154,3 +154,25 @@ verified on the exact CPU sets, 100% enabled time, no multiplexing); `sar`/`sadf
 action: the `sudoers` entries above. Needs no installation: everything else.
 Server and client call `recv` / `send` / `epoll_wait` directly (`src/net/conn_set.cpp`, `src/net/client.cpp`), so
 `sys_enter_recvfrom` / `sys_enter_sendto` are the right tracepoints; TCP_NODELAY is already set on both ends.
+
+## 9. Driver (revision 2: written, tested offline, NOT run)
+
+`capstate.py` (run / analyze), `test_capstate.py` (starts no process; `python3 -I -B test_capstate.py` prints `ALL OK`),
+`mutate_capstate.py` (21 of 21 mutants caught), `fixtures/` (real-format captures taken on this host for the parsers).
+
+- It imports `a2a.py` / `pilot.py` unchanged and reuses `a2a.session()` for the storage reset; only the run order
+  (`S0 C1 C2 C3 S1`) and the phase name (`capstate`) differ. The instrumentation is injected by wrapping `pilot.subprocess.run`:
+  only the measured `net_bench` (`--seconds` > 0) is intercepted, the load step and everything else pass through.
+- **Implementation note on t0:** because the driver launches the measured client itself (through that wrapper), t0 is the
+  launch time of the client process, not a 50 ms `/proc` poll; the timeline in section 3 is unchanged (same under-0.2 s offset,
+  recorded as `offset_s`). t_m, the snapshot times (t_m, t_m+30, t_m+60) and the analysed intervals are as in section 3.
+- A sampler that exits non-zero is an execution-integrity failure (INCOMPLETE, no replacement). A missing snapshot is recorded
+  (`UNREADABLE` / `NO PID` text in its file), not fatal. The instrument validity check (recvfrom vs the server log, 3%) is
+  computed per run by `analyze` and flagged, not fatal.
+- Preflight refuses unless: the sudoers file equals the driver's perf commands, `sudo -n -l` accepts each, the CP-1A hashes and
+  the A2-a checks hold, the tools exist, and the sampler CPUs are free. The sudoers file is **not installed** until the run step.
+- `analyze` implements section 5 (the twelve primary metrics and two negative controls), the section 4 classifier and the section 6
+  rule; it writes `characterization.json` and prints no verdict. It was written and tested before any data, so it cannot be tuned
+  to them.
+- **Not exercised offline** (as with a2a.py): real `perf`/`sar`/`sudo`/`taskset`, `pilot.Pilot` preflight, the real server and
+  client. The first real exercise is the run itself; any failure there is an integrity failure, not a reason to adapt the plan.

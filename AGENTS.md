@@ -2894,3 +2894,20 @@ or source comments.
 -   **Not written yet:** the driver `capstate.py`, its offline tests and
     mutation check (after the design is reviewed).
 -   **Next action:** independent review of the preregistration. Nothing is run.
+
+### 2026-11-12 UTC --- Claude (Claude Code): capacity-state prereg revision 2 + driver (for review, NOT RUN)
+
+-   **What:** reviewer decisions recorded (sudoers for perf, MSR/perf instead of
+    turbostat, observer effect accepted, K=5 kept, no epoll_wait trace). Correction
+    applied: anchors have `--warmup 10 --drain-s 10`, so the anchor window is
+    t0+10..t0+70 and capacity is t0..t0+60; samplers run a uniform 80 s; t_m-aligned
+    snapshots (PREREG sections 0, 3).
+-   **Driver written, offline-tested, NOT run:** `capstate.py`, `test_capstate.py`
+    (ALL OK, starts no process), `mutate_capstate.py` (21/21 caught), real-format
+    `fixtures/`. Instrumentation is injected by wrapping `pilot.subprocess.run`
+    (pilot.py unchanged). `analyze` implements the frozen metrics, classifier and
+    separation rule with no verdict.
+-   **Not exercised offline:** real perf / sar / sudo / taskset, `pilot.Pilot`
+    preflight, the real server and client. The sudoers file is still not installed.
+-   **Next action:** review of revision 2 and the driver. Nothing is run; nothing else
+    is authorized.
