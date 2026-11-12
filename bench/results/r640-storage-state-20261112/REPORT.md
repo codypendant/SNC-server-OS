@@ -25,7 +25,7 @@ The root part ran through `capture-root.sh`, which is kept here.
 
 ## Findings
 
-### 1. The SSD was trimmed about 3 and 6 hours before the sessions, and not since
+### 1. The SSD was trimmed once at 15:09 UTC before both sessions, and not again
 
 - `fstrim.service` ran 2026-11-11 15:08:23–15:09:17 UTC, the weekly `fstrim.timer` catching up 78 min after
   the 13:50 boot. It reported `/srv/snc-data: 3.4 TiB (3779298537472 bytes) trimmed on /dev/sdb1`.
