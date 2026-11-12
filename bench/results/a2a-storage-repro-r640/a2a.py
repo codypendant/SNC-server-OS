@@ -6,10 +6,10 @@ docs/handoff/PR114_A2a_Prereg_Review1.md; PREREG.md here).
 K = 5 physical sessions. Each session, fail closed:
   0. per-session environment guard (boot id, HEAD, clean tree, fstrim.timer, NUMA,
      governors, mount and data disk, plan/manifest/binary SHA-256); no rebuild;
-  1. clear the data root and sync the filesystem;
+  1. clear the data root and sync the filesystem (fail closed: rc 0 required);
   2. A1 pre-trim snapshot (validated);
   3. explicit trim `fstrim -v /srv/snc-data`, proven (rc 0, the mount named, bytes > 0,
-     sdb discard sectors increased), then sync;
+     sdb discard sectors increased), then sync (fail closed);
   4. 30 min idle settle, judged: sdb sectors written + 0 and discarded + 0;
   5. A1 start snapshot (validated);
   6. 12 Profile-A runs, fixed order S0 F1 C1 F2 C2 F3 C3 F4 C4 F5 C5 S1 (S/F: open loop
@@ -200,6 +200,7 @@ def observe(build):
     o["git_status"] = pilot.git_in(REPO, "status", "--porcelain").stdout.strip()
     o["timer_enabled"] = sh(["systemctl", "is-enabled", "fstrim.timer"])[1].strip()
     o["timer_active"] = sh(["systemctl", "is-active", "fstrim.timer"])[1].strip()
+    o["fstrim_service_active"] = sh(["systemctl", "is-active", "fstrim.service"])[1].strip()
     try:
         o["numa_balancing"] = readf("/proc/sys/kernel/numa_balancing").strip()
     except OSError:
@@ -226,6 +227,8 @@ def guard_problems(o, want):
         p.append("git tree not clean")
     if o.get("timer_enabled") != "disabled" or o.get("timer_active") != "inactive":
         p.append(f"fstrim.timer {o.get('timer_enabled')}/{o.get('timer_active')}, not disabled/inactive")
+    if o.get("fstrim_service_active") != "inactive":
+        p.append(f"fstrim.service {o.get('fstrim_service_active')}, not inactive")
     if o.get("numa_balancing") != "0":
         p.append(f"numa_balancing {o.get('numa_balancing')}")
     if o.get("governors") != ["performance"]:
@@ -288,6 +291,15 @@ def capacity_problems(r):
     return p
 
 
+def sync_fs(rec, stage):
+    """PR #114 review 2: `sync -f /srv/snc-data`, fail closed. Records rc and output in the
+    session record; a nonzero rc is an integrity failure (INCOMPLETE) before the next step."""
+    rc, txt = sh(["sync", "-f", MOUNT])
+    rec[f"sync_{stage}"] = dict(utc=utc(), rc=rc, output=txt.strip())
+    if rc != 0:
+        raise Incomplete(f"session {rec['k']} sync {stage} failed (rc {rc}): {txt.strip()}")
+
+
 # --- preflight additions ---
 
 def extra_preflight(p, ref):
@@ -321,7 +333,7 @@ def session(p, plan, k, want, rec):
     if rec["guard"]["problems"]:
         raise Incomplete(f"session {k} guard: {'; '.join(rec['guard']['problems'])}")
     shutil.rmtree(DATA_ROOT, ignore_errors=True)
-    sh(["sync", "-f", MOUNT])
+    sync_fs(rec, "pre_trim")                    # before the A1 pre-trim snapshot and the trim
     rec["pre_trim"] = snapshot(out, f"k{k}-0-pre-trim")
     w0, d0 = diskstats()
     rc, txt = sh(ROOT["fstrim"], root=True)
@@ -335,7 +347,7 @@ def session(p, plan, k, want, rec):
     open(os.path.join(out, "state", f"k{k}-0-pre-trim", "fstrim-run.txt"), "w").write(json.dumps(t, indent=1))
     if t["problems"]:
         raise Incomplete(f"session {k} trim not proven: {'; '.join(t['problems'])}")
-    sh(["sync", "-f", MOUNT])
+    sync_fs(rec, "post_trim")                   # before the settle
     w0, d0 = diskstats()
     sleep(SETTLE_S)
     w1, d1 = diskstats()

@@ -46,4 +46,11 @@ a1-temperature-not-required rc=1 after=A2
 a1-sg-logs-rc-ignored rc=1 after=none
 a1-smartctl-rc-required rc=1 after=none
 a1-boot-id-ignored rc=1 after=none
-# 47 / 47 caught on the first pass (revision 2 suite; the revision-1 suite was 19 / 19 after one round of test additions)
+sync-pre-trim-rc-ignored rc=1 after=A2
+sync-post-trim-rc-ignored rc=1 after=A2
+sync-fs-not-raised rc=1 after=A2
+sync-pre-trim-removed rc=1 after=A2
+sync-post-trim-removed rc=1 after=A2
+sync-pre-trim-after-a1 rc=1 after=A2
+guard-fstrim-service-ignored rc=1 after=A1
+# 54 / 54 caught on the first pass (revision 3 suite: revision 2's 47 plus 7 for PR #114 review 2; revision 1's suite was 19 / 19 after one round of test additions)

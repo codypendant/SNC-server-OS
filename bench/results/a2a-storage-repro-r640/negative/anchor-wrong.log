@@ -1,8 +1,8 @@
 Traceback (most recent call last):
-  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 45, in <module>
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 48, in <module>
     REF = A.cp1a_record()
           ^^^^^^^^^^^^^^^
-  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/a2a.py", line 308, in cp1a_record
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/a2a.py", line 320, in cp1a_record
     assert a["sweep"]["objective_rate"] == ANCHOR == a["fixed"]["rate"], "anchor is not the CP-1A objective rate"
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: anchor is not the CP-1A objective rate

@@ -1,4 +1,4 @@
-# A2-a storage-state reproducibility validation: preregistration, revision 2 (for review, NOT RUN)
+# A2-a storage-state reproducibility validation: preregistration, revision 3 (for review, NOT RUN)
 
 Authorized to **prepare, not run**, by
 [docs/handoff/PR113_Storage_State_Final_Review.md](../../../docs/handoff/PR113_Storage_State_Final_Review.md).
@@ -13,6 +13,19 @@ revision 2.
 - **Not the campaign objective.** 654,569 ops/s is a historical anchor.
 - **SNC only.** No competitor, no CRITERIA, no REFINE #2, no threshold change after data, no product
   change. `bench/pilot.py`, `bench/pilot_plan.json` and the binaries are unchanged.
+
+## Revision 3 (PR #114 review 2: one blocking correction)
+
+[docs/handoff/PR114_A2a_Prereg_Review2.md](../../../docs/handoff/PR114_A2a_Prereg_Review2.md) accepted
+everything in revision 2 except one point, which revision 3 fixes. It also adopts the review's optional
+recommendation.
+
+| Change | Code / test |
+|---|---|
+| **Both `sync -f /srv/snc-data` calls fail closed** through `sync_fs(rec, stage)`. It records rc, output and time in the session record (`sync_pre_trim`, `sync_post_trim`), and a nonzero rc raises `Incomplete`. A **pre-trim** sync failure stops before the A1 pre-trim snapshot and before fstrim. A **post-trim** sync failure stops before the 30 min settle. | `sync_fs`; A3 cases `sync="pre"` and `sync="post"`; mutants `sync-*` (6) |
+| **Optional, adopted:** the per-session guard also requires `systemctl is-active fstrim.service` = `inactive`. This closes the route of a manually started fstrim already running when a session begins. It does not replace the trim proof. | `observe`, `guard_problems`; A2 drift `service`; A3; mutant `guard-fstrim-service-ignored` |
+
+Mutation suite: **54 / 54 caught on the first pass** (revision 2's 47 plus 7).
 
 ## What changed in revision 2 (review 1 item → where)
 
@@ -54,7 +67,7 @@ and no session is replaced.
 0. **Guard (item 2).** Read directly, with no rebuild. Every check must hold:
    - same boot id and git HEAD as the start;
    - `git status --porcelain` empty;
-   - `fstrim.timer` `disabled` and `inactive`;
+   - `fstrim.timer` `disabled` and `inactive`, and `fstrim.service` `inactive` (revision 3);
    - `kernel.numa_balancing` = 0;
    - every CPU governor `performance`;
    - `findmnt /srv/snc-data` = `/dev/sdb1 /srv/snc-data ext4 rw,relatime,stripe=2`, and the data root
@@ -64,7 +77,8 @@ and no session is replaced.
      the CP-1A record.
 
    The result is recorded per session.
-1. **Clear:** remove `/srv/snc-data/a2a`, then `sync -f /srv/snc-data`.
+1. **Clear:** remove `/srv/snc-data/a2a`, then `sync -f /srv/snc-data`. **rc 0 required**; otherwise
+   INCOMPLETE before the A1 pre-trim snapshot and the trim (revision 3).
 2. **A1 pre-trim snapshot**, validated (item 6).
 3. **Explicit trim, proven (item 3):**
    - read the `sdb` discard sectors;
@@ -73,7 +87,8 @@ and no session is replaced.
    - require rc 0, `/srv/snc-data: … (N bytes) trimmed` with N > 0, and a discard-sector delta > 0.
 
    The rc, stdout, parsed bytes and both counters are recorded. On failure the session does not settle.
-   Then `sync -f /srv/snc-data` again.
+   Then `sync -f /srv/snc-data` again. **rc 0 required**; otherwise INCOMPLETE before the settle
+   (revision 3).
 4. **Settle, judged (item 4):** read the `sdb` counters, sleep 1,800 s, read them again. Written-sector
    delta = 0 and discarded-sector delta = 0 are both required. Boot-disk activity is not judged; the host
    units started are recorded in A1.
@@ -154,6 +169,7 @@ Across sessions:
 **INCOMPLETE** means an execution-integrity failure. It stops immediately, with no replacement session.
 Causes:
 - a guard drift;
+- a failed `sync -f` (pre- or post-trim);
 - a trim not proven;
 - a settle not clean;
 - an unusable A1 snapshot;
@@ -207,7 +223,8 @@ not change after data.
      An **unsustained anchor rep is STOP**, as before.
 2. **`sync -f /srv/snc-data`** runs before the pre-trim snapshot and again after the trim. It flushes any
    dirty ext4 metadata from clearing the data root, or from the trim itself, so a journal commit cannot
-   fall inside the judged settle. It is not root and does not discard.
+   fall inside the judged settle. It is not root and does not discard. Since revision 3, both calls
+   fail closed (review 2).
 3. **The guard's reference** is the boot id and HEAD observed right after the initial preflight, plus the
    frozen CP-1A hashes. Session 1 is guarded too.
 4. **Host timers stay enabled.** `man-db`, `apt-daily` and others touch the boot disk. They are recorded,
@@ -223,7 +240,7 @@ not change after data.
 - `test_a2a.py` passes. It starts no process and trims nothing.
   - **A1:** constants, `SENTINEL_LIMIT` = 11/10, sudoers = `ROOT`, and the parsers and `a1_problems` on the
     real 2026-11-12 captures.
-  - **A2:** each of 16 guard drifts is detected.
+  - **A2:** each of 17 guard drifts is detected (16, plus `fstrim.service` active in revision 3).
   - **A3:** the exact per-session procedure sequence and commands. Each integrity failure the review lists
     stops at once with INCOMPLETE and nothing after it.
   - **A4:** every verdict boundary, including 1.10 passing, above it failing, both directions, and

@@ -2792,3 +2792,18 @@ or source comments.
         edits). Mutants: 47/47 caught on the first pass.
 -   **Next action:** independent review of revision 2. After final
     approval: install the sudoers file (record `visudo -c`) and run once.
+
+### 2026-11-12 UTC --- Claude (Claude Code): A2-a preregistration revision 3 (PR #114 review 2; not run)
+
+-   **What:** review 2 accepted revision 2 except one blocking point. Both
+    `sync -f /srv/snc-data` calls now fail closed through `sync_fs(rec,
+    stage)`, which records rc and output:
+    -   a failed pre-trim sync stops with INCOMPLETE before the A1 pre-trim
+        snapshot and the trim;
+    -   a failed post-trim sync stops before the settle.
+-   Adopted the optional item: the per-session guard requires
+    `fstrim.service` inactive.
+-   Tests cover both sync failures (nothing runs after them) and the new
+    guard drift. Mutants: 54/54 caught on the first pass (47 + 7).
+-   **Next action:** independent review of revision 3. After GO: install
+    the sudoers file (record `visudo -c`) and run once.

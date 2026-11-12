@@ -269,8 +269,12 @@ Decided by cody on 2026-11-04.
      - stricter capacity validity and fail-closed A1 snapshots;
      - INCOMPLETE vs STOP defined.
 
-     47/47 mutants caught. **Next:** independent review of revision 2
-     before the first trim. No performance runs, comparators, CRITERIA
+     47/47 mutants caught. Review 2
+     ([handoff/PR114_A2a_Prereg_Review2.md](handoff/PR114_A2a_Prereg_Review2.md))
+     accepted all of that and required one change: both `sync -f` calls
+     must fail closed. **Revision 3** does that and adds `fstrim.service`
+     inactive to the guard; 54/54 mutants caught. **Next:** independent
+     review of revision 3 (expected: A2-a run GO) before the first trim. No performance runs, comparators, CRITERIA
      freeze or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

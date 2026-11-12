@@ -1,0 +1,10 @@
+A1 ok
+A2 ok
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 270, in <module>
+    assert all(s["sync_pre_trim"]["rc"] == 0 and s["sync_post_trim"]["rc"] == 0 for s in ss)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/bench/results/a2a-storage-repro-r640/test_a2a.py", line 270, in <genexpr>
+    assert all(s["sync_pre_trim"]["rc"] == 0 and s["sync_post_trim"]["rc"] == 0 for s in ss)
+                                                 ~^^^^^^^^^^^^^^^^^^
+KeyError: 'sync_post_trim'

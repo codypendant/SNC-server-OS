@@ -6,7 +6,8 @@
      the parsers on the real 2026-11-12 captures (SMART, sg_logs, tune2fs, the 11-11 fstrim
      line); a1_problems accepts the real capture and names each missing field
   A2 guard_problems (pure): the live-state reference passes; each drift is named: boot id,
-     HEAD, dirty tree, timer enabled, timer active, NUMA, governor, mount source / options /
+     HEAD, dirty tree, timer enabled, timer active, fstrim.service active, NUMA, governor,
+     mount source / options /
      fstype, data-root mount, data disk, plan / manifest / snc_server / net_bench SHA
   A3 the session procedure (observe, root calls, diskstats, sleep and processes stubbed):
      exact sequence per session (guard, clear + sync, A1 pre-trim, discard counter, fstrim,
@@ -14,7 +15,9 @@
      end); commands = CP-1A A-fixed-r0 / A-capacity-r0; fixed and sentinel reps with memory,
      capacity without; 60 runs in order; each integrity failure stops at once with INCOMPLETE
      and nothing after it: guard drift (boot id, governor, NUMA, dirty tree, HEAD, timer,
-     mount, data disk) at session 2; fstrim rc, 0 bytes, discard delta 0, mount not named;
+     mount, data disk, fstrim.service active) at session 2; a failed pre-trim sync (no A1, no
+     trim after it) and a failed post-trim sync (no settle after it), each with its rc and
+     output recorded (PR #114 review 2); fstrim rc, 0 bytes, discard delta 0, mount not named;
      settle write, settle discard; A1 unusable (temperature, sg_logs rc, tune2fs, boot id);
      client exit nonzero on a capacity and on an anchor rep; unparsable report
   A4 verdict: realistic data -> STABLE; N_raw = 3 x max(between, max within); max not median;
@@ -70,13 +73,15 @@ print("A1 ok")
 
 # --- A2 guard (pure) ---
 GOOD = dict(boot_id=BOOT, head="h" * 40, git_status="", timer_enabled="disabled", timer_active="inactive",
+            fstrim_service_active="inactive",
             numa_balancing="0", governors=["performance"], mount=["/dev/sdb1", "/srv/snc-data", "ext4", "rw,relatime,stripe=2"],
             data_root_mount="/srv/snc-data", data_disks=["sdb"], **REF)
 WANT = dict(REF, boot_id=BOOT, head="h" * 40)
 assert A.guard_problems(GOOD, WANT) == []
 DRIFTS = dict(boot=dict(boot_id="00000000-0000-0000-0000-000000000000"), head=dict(head="g" * 40),
               dirty=dict(git_status="M x"), timer_enabled=dict(timer_enabled="enabled"),
-              timer_active=dict(timer_active="active"), numa=dict(numa_balancing="1"),
+              timer_active=dict(timer_active="active"), service=dict(fstrim_service_active="active"),
+              numa=dict(numa_balancing="1"),
               governor=dict(governors=["performance", "powersave"]),
               mount_source=dict(mount=["/dev/sdc1", "/srv/snc-data", "ext4", "rw,relatime,stripe=2"]),
               mount_options=dict(mount=["/dev/sdb1", "/srv/snc-data", "ext4", "rw,relatime,discard,stripe=2"]),
@@ -192,6 +197,11 @@ def fake_sh(cmd, root=False):
             return (1, "sg_logs: error\n") if bad == "sg_logs" else (0, SGLOGS)
         return (0, TUNE2FS.replace("Lifetime writes", "Lifetime wr")) if bad == "tune2fs" else (0, TUNE2FS)
     ev.append(("sh", cmd[0]))
+    if cmd[0] == "sync":
+        assert cmd == ["sync", "-f", "/srv/snc-data"], cmd
+        n = sum(1 for e in ev if e == ("sh", "sync"))         # 1 = pre-trim, 2 = post-trim (session 1)
+        if (S.get("sync") == "pre" and n == 1) or (S.get("sync") == "post" and n == 2):
+            return 1, "sync: error syncing '/srv/snc-data': Input/output error\n"
     return 0, ""
 
 
@@ -257,6 +267,7 @@ for i, (s_, c_) in enumerate(zip(srv, cli)):
     assert mask(s_) == mask(rs) and mask(c_) == mask(rc_), (slot, s_, c_)
 assert all(("rss_bytes_per_object" in r) == (r["slot"][0] in "SF") for r in p.runs)
 ss = res["sessions"]
+assert all(s["sync_pre_trim"]["rc"] == 0 and s["sync_post_trim"]["rc"] == 0 for s in ss)
 assert len(ss) == 5 and all(s["complete"] and s["trim"]["bytes"] == 3779298537472 and s["trim"]["problems"] == []
                             and s["settle"]["sectors_written"] == 0 and s["start"]["smart"]["bms_progress_pct"] == 79.61
                             for s in ss)
@@ -271,7 +282,14 @@ def stops(scenario, runs_before, last_event, why):
     return res
 
 
-for d in ("boot", "governor", "numa", "dirty", "head", "timer_enabled", "timer_active", "mount_source",
+# PR #114 review 2: both syncs fail closed
+res_ = stops(dict(sync="pre"), 0, ("sh", "sync"), "sync pre_trim failed (rc 1)")
+assert ("root", "smartctl") not in ev and ("root", "fstrim") not in ev       # no A1 pre-trim, no trim
+assert res_["sessions"][0]["sync_pre_trim"]["rc"] == 1 and "Input/output error" in res_["sessions"][0]["sync_pre_trim"]["output"]
+res_ = stops(dict(sync="post"), 0, ("sh", "sync"), "sync post_trim failed (rc 1)")
+assert ("root", "fstrim") in ev and not any(e[0] == "sleep" for e in ev)     # trimmed, but no settle
+assert res_["sessions"][0]["sync_post_trim"]["rc"] == 1 and res_["sessions"][0]["trim"]["problems"] == []
+for d in ("boot", "governor", "numa", "dirty", "head", "timer_enabled", "timer_active", "service", "mount_source",
           "mount_options", "disk"):
     stops(dict(drift=d), 12, ("observe",), "session 2 guard")
 stops(dict(trim="rc"), 0, ("diskstats",), "fstrim rc 1")
