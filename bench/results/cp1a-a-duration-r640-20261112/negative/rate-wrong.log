@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 33, in <module>
+    ref = A.cp1a_record()
+          ^^^^^^^^^^^^^^^
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/aduration.py", line 56, in cp1a_record
+    assert a["sweep"]["objective_rate"] == RATE == a["fixed"]["rate"], "objective rate is not the CP-1A one"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: objective rate is not the CP-1A one

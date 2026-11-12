@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 39, in <module>
+    assert A.WINDOWS == (60, 120, 240) and A.REPS == 3
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

@@ -1,0 +1,16 @@
+A1 ok: order ['120s-r1', '120s-r0', '120s-r2', '60s-r2', '240s-r2', '240s-r0', '240s-r1', '60s-r1', '60s-r0']
+A-aduration-120s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-120s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-120s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A2 ok: FAIL on the stub
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 160, in <module>
+    assert V(runs(bad))["verdict"] == "FAIL"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

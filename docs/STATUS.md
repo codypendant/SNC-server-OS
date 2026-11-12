@@ -229,8 +229,17 @@ Decided by cody on 2026-11-04.
      A stable peak 1,090,948 (objective 654,569 at p99 933,888 ns; capacity
      4,031,898), C stable peak 5,775,584 (objective 3,951,715 at p99
      524,288 ns; capacity 6,030,447). A's duration check drifts (60 s and
-     longer unsustained by refusals). **Next:** independent review of the
-     result. No comparators, CRITERIA freeze or REFINE round 2 before that.
+     longer unsustained by refusals). PR #111 APPROVED and merged
+     (8a6684e; [handoff/PR111_CP1A_Result_Final_Review.md](handoff/PR111_CP1A_Result_Final_Review.md)):
+     CP-1A evidence VALID and COMPLETE; CRITERIA HOLD for one Profile-A
+     duration validation (not REFINE round 2). **Duration validation RAN**
+     (preregistered at a5d082b; 2026-11-12 01:59 to 02:23 UTC;
+     [bench/results/cp1a-a-duration-r640-20261112/](../bench/results/cp1a-a-duration-r640-20261112/README.md)):
+     **PASS**. That is 9/9 sustained, 0 refusals, at 654,569 ops/s; median p99
+     60 s 1,474,560, 120 s 1,146,880, 240 s 1,507,328 ns; bound 1,559,875 ns.
+     Flagged: this session's p99 is about 1.58 × CP-1A's at the same rate.
+     **Next:** independent review of the validation. No comparators,
+     CRITERIA freeze or REFINE round 2 before that.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

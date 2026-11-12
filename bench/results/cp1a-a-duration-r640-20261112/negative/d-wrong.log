@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 36, in <module>
+    assert A.D == 3 * Fraction(0.019286005545956553) and float(A.D) == 0.05785801663786966, float(A.D)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0.07714402218382621

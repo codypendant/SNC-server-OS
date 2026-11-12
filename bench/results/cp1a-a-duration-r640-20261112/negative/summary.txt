@@ -1,0 +1,14 @@
+# mutations of aduration.py (no bytecode cache); rc!=0: test_aduration.py caught it; after = last check group that passed
+rate-wrong rc=1 after=none
+d-wrong rc=1 after=none
+windows-wrong rc=1 after=none
+reps-2 rc=1 after=none
+bound-strict rc=1 after=A2
+bound-ignored rc=1 after=A2
+median-is-mean rc=1 after=A2
+median-is-max rc=1 after=A2
+unsustained-ignored rc=1 after=A2
+incomplete-ignored rc=1 after=A2
+warmup-0 rc=1 after=A1
+order-unshuffled rc=1 after=none
+# 12 / 12 caught

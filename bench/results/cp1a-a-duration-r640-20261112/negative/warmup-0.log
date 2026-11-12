@@ -1,0 +1,15 @@
+A1 ok: order ['120s-r1', '120s-r0', '120s-r2', '60s-r2', '240s-r2', '240s-r0', '240s-r1', '60s-r1', '60s-r0']
+A-aduration-120s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-120s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-120s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r2: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-240s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r1: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+A-aduration-60s-r0: total 654567 ops/s achieved 654567 p99 934 us drained True errors 0
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/bench/results/cp1a-a-duration-r640-20261112/test_aduration.py", line 126, in <module>
+    assert c == C0 and sec == str(w), (c, C0, sec, w)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (['numactl', '--physcpubind=18,20,22,24,26,28,30,32', '--membind=0', 'build-s6/net_bench', '--port', '--PORT', '--threads', '8', '--objects', '5000000', '--ids', '--IDS', '--mix', 'read=70,deposit=15,transfer=10,index=5', '--route', 'owner', '--cpus', '18,20,22,24,26,28,30,32', '--rate', '654569', '--depth', '1024', '--warmup', '0', '--drain-s', '10'], ['numactl', '--physcpubind=18,20,22,24,26,28,30,32', '--membind=0', 'build-s6/net_bench', '--port', '--PORT', '--threads', '8', '--objects', '5000000', '--ids', '--IDS', '--mix', 'read=70,deposit=15,transfer=10,index=5', '--route', 'owner', '--cpus', '18,20,22,24,26,28,30,32', '--rate', '654569', '--depth', '1024', '--warmup', '10', '--drain-s', '10'], '120', 120)
