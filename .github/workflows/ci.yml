@@ -1,79 +1,49 @@
-# Minimal CI (M1-0, docs/CI.md). GitHub-hosted Ubuntu 24.04 runners.
-# fast: every pull request and push to main; `ctest -LE slow` (all C++ unit
-#       tests and the quick Python tests).
-# full: pushes to main, nightly and on demand; the whole ctest suite.
-# R640-only work (benchmarks, pilots, storage experiments) never runs here.
-# Tests run serially (-j1), the project's convention for headline evidence:
-# many tests start process clusters on randomly chosen free port blocks and
-# some assert timing (open-loop rate), so parallel runs on a 4-vCPU runner
-# make them interfere with each other (docs/CI.md, "Why serial").
+# DIAGNOSTIC BRANCH ONLY (never merge): reruns the two tests that failed in
+# the first hosted full-suite run on main (run 43375591294) and prints every
+# node's log on a failure.
 name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "17 7 * * *"
-  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
-  fast:
-    name: build + fast tests
+  q10:
+    name: diag q10 (x4)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # test_pilot checks the CP-1A freeze against git history
-      - name: Install dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
-      - name: Configure (clean RelWithDebInfo build)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      - name: Build
-        run: cmake --build build -j "$(nproc)"
-      - name: Fast tests (ctest -LE slow)
-        run: ctest --test-dir build -LE slow -j1 --output-on-failure --timeout 900 --output-junit junit-fast.xml
-      - name: Upload test logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ctest-fast
-          path: |
-            build/junit-fast.xml
-            build/Testing/Temporary/LastTest*.log
-          if-no-files-found: warn
-
-  full:
-    name: build + full suite
-    if: github.event_name != 'pull_request'
+      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)"
+      - name: q10 sealed+committed x4
+        run: |
+          set +e -o pipefail
+          fail=0
+          for i in 1 2 3 4; do
+            echo "=== round $i"
+            python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | cut -c1-3000 || fail=1
+          done
+          for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
+          exit $fail
+  xnode:
+    name: diag test_xnode (x8)
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install dependencies
-        run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
-      - name: Configure (clean RelWithDebInfo build)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      - name: Build
-        run: cmake --build build -j "$(nproc)"
-      - name: Full suite
-        run: ctest --test-dir build -j1 --output-on-failure --timeout 2400 --output-junit junit-full.xml
-      - name: Upload test logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ctest-full
-          path: |
-            build/junit-full.xml
-            build/Testing/Temporary/LastTest*.log
-          if-no-files-found: warn
+      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)" --target test_xnode
+      - name: test_xnode x8
+        run: |
+          set +e -o pipefail
+          fail=0
+          for i in $(seq 1 8); do
+            echo "=== round $i"
+            timeout 900 build/test_xnode > x$i.log 2>&1; rc=$?
+            echo "rc=$rc"; grep -E "CHECK|\(X[0-9]+.*s\)" x$i.log | tail -40
+            [ $rc -eq 0 ] || { fail=1; echo "---- full log round $i"; tail -200 x$i.log; }
+          done
+          exit $fail
