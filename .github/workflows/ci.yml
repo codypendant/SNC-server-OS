@@ -1,0 +1,75 @@
+# Minimal CI (M1-0, docs/CI.md). GitHub-hosted Ubuntu 24.04 runners.
+# fast: every pull request and push to main; `ctest -LE slow` (all C++ unit
+#       tests and the quick Python tests).
+# full: pushes to main, nightly and on demand; the whole ctest suite.
+# R640-only work (benchmarks, pilots, storage experiments) never runs here.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fast:
+    name: build + fast tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # test_pilot checks the CP-1A freeze against git history
+      - name: Install dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - name: Configure (clean RelWithDebInfo build)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Build
+        run: cmake --build build -j "$(nproc)"
+      - name: Fast tests (ctest -LE slow)
+        run: ctest --test-dir build -LE slow -j "$(nproc)" --output-on-failure --timeout 900 --output-junit junit-fast.xml
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-fast
+          path: |
+            build/junit-fast.xml
+            build/Testing/Temporary/LastTest*.log
+          if-no-files-found: warn
+
+  full:
+    name: build + full suite
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - name: Configure (clean RelWithDebInfo build)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Build
+        run: cmake --build build -j "$(nproc)"
+      - name: Full suite
+        run: ctest --test-dir build -j "$(nproc)" --output-on-failure --timeout 2400 --output-junit junit-full.xml
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-full
+          path: |
+            build/junit-full.xml
+            build/Testing/Temporary/LastTest*.log
+          if-no-files-found: warn

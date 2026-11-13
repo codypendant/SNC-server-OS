@@ -361,14 +361,22 @@ def test_freeze_gate_quick_is_not_evidence():
     assert pilot.freeze_gate(True, fr, "x", None) == (False, [])       # quick: usable, not checked
     checked, probs = pilot.freeze_gate(False, fr, "x", None)
     assert checked and len(probs) >= 3, probs                         # real: refused
-    # The committed freeze file, before the GO, refuses a real pilot by itself.
+    # The committed freeze file is the CP-1A GO state (PR #110): the GO record
+    # is named and filed, and the committed plan and manifest are the frozen
+    # ones. The gate still checks it. Whether HEAD may run a real pilot also
+    # depends on what changed after runner_commit, which this test does not
+    # pin (it moves with every commit to main).
     frozen = json.load(open(pilot.FROZEN_PATH))
-    assert frozen["go_record"] is None
+    assert frozen["go_record"] == "docs/handoff/CP1A_R640_GO_20261111.md", frozen["go_record"]
+    assert os.path.isfile(os.path.join(HERE, "..", frozen["go_record"])), frozen["go_record"]
+    assert frozen["runner_commit"] == "4250b32aa5e1fdfa34f15b56f8e124b4d3cc73e8", frozen["runner_commit"]
     assert frozen["plan_sha256"] == PLAN_SHA and frozen["manifest_sha256"] == MAN_SHA
     checked, probs = pilot.freeze_gate(False, frozen, pilot.sha(os.path.join(HERE, "..", "bench", "pilot_plan.json")),
                                        MAN_SHA)
-    assert checked and any("go_record is not set" in x for x in probs), probs
-    assert not any("plan SHA-256" in x for x in probs), probs          # the committed plan is the frozen one
+    assert checked, probs
+    assert not any("go_record" in x or "does not exist" in x for x in probs), probs   # the GO is filed
+    assert not any("SHA-256" in x for x in probs), probs              # the committed plan and manifest are frozen
+    assert not any("not set" in x or "not a commit" in x or "not an ancestor" in x for x in probs), probs
 
 
 def test_identity_record_is_actual():
