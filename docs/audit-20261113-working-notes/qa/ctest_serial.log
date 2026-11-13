@@ -1,0 +1,115 @@
+Test project /tmp/claude-1000/-home-solo/8f9ad687-3acb-4b0a-945c-92bc6af22f95/scratchpad/qa/qabuild
+      Start  1: test_rate_schedule
+ 1/49 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  2: test_object_id
+ 2/49 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  3: test_local_map
+ 3/49 Test  #3: test_local_map ...................   Passed    1.16 sec
+      Start  4: test_pages
+ 4/49 Test  #4: test_pages .......................   Passed    0.85 sec
+      Start  5: test_runtime
+ 5/49 Test  #5: test_runtime .....................   Passed    0.22 sec
+      Start  6: test_execute
+ 6/49 Test  #6: test_execute .....................   Passed    0.06 sec
+      Start  7: test_persistence
+ 7/49 Test  #7: test_persistence .................   Passed    0.39 sec
+      Start  8: test_crash
+ 8/49 Test  #8: test_crash .......................   Passed    0.83 sec
+      Start  9: test_net
+ 9/49 Test  #9: test_net .........................   Passed    0.03 sec
+      Start 10: test_transfer
+10/49 Test #10: test_transfer ....................   Passed    3.14 sec
+      Start 11: test_replication
+11/49 Test #11: test_replication .................   Passed   15.80 sec
+      Start 12: test_cluster
+12/49 Test #12: test_cluster .....................   Passed    4.58 sec
+      Start 13: test_migrate
+13/49 Test #13: test_migrate .....................   Passed   29.61 sec
+      Start 14: test_resend_refusals
+14/49 Test #14: test_resend_refusals .............   Passed    0.03 sec
+      Start 15: test_proof
+15/49 Test #15: test_proof .......................   Passed    0.94 sec
+      Start 16: test_placement
+16/49 Test #16: test_placement ...................   Passed    0.04 sec
+      Start 17: test_stage_chain
+17/49 Test #17: test_stage_chain .................   Passed    6.90 sec
+      Start 18: test_gauges
+18/49 Test #18: test_gauges ......................   Passed    1.05 sec
+      Start 19: test_s1_admission
+19/49 Test #19: test_s1_admission ................   Passed    9.63 sec
+      Start 20: test_s2_pacing
+20/49 Test #20: test_s2_pacing ...................   Passed    4.30 sec
+      Start 21: test_s3_writeback
+21/49 Test #21: test_s3_writeback ................   Passed   21.48 sec
+      Start 22: test_lifecycle
+22/49 Test #22: test_lifecycle ...................   Passed   12.53 sec
+      Start 23: test_s4_sync_tokens
+23/49 Test #23: test_s4_sync_tokens ..............   Passed   11.34 sec
+      Start 24: test_admin_loop
+24/49 Test #24: test_admin_loop ..................   Passed    1.12 sec
+      Start 25: test_wal_capacity
+25/49 Test #25: test_wal_capacity ................   Passed    7.10 sec
+      Start 26: test_intake
+26/49 Test #26: test_intake ......................   Passed   11.46 sec
+      Start 27: test_xnode
+27/49 Test #27: test_xnode .......................   Passed   65.97 sec
+      Start 28: test_witness
+28/49 Test #28: test_witness .....................   Passed   23.81 sec
+      Start 29: test_async_failover
+29/49 Test #29: test_async_failover ..............   Passed   13.67 sec
+      Start 30: test_control
+30/49 Test #30: test_control .....................   Passed    1.49 sec
+      Start 31: test_health
+31/49 Test #31: test_health ......................   Passed  155.65 sec
+      Start 32: test_gauges_admin
+32/49 Test #32: test_gauges_admin ................   Passed    3.97 sec
+      Start 33: test_ckpt_cli
+33/49 Test #33: test_ckpt_cli ....................   Passed    0.26 sec
+      Start 34: test_fail_closed
+34/49 Test #34: test_fail_closed .................   Passed  226.61 sec
+      Start 35: test_s1
+35/49 Test #35: test_s1 ..........................   Passed   60.17 sec
+      Start 36: test_profile_check
+36/49 Test #36: test_profile_check ...............   Passed    0.12 sec
+      Start 37: test_baseline_retry
+37/49 Test #37: test_baseline_retry ..............   Passed  239.61 sec
+      Start 38: test_sync_readiness
+38/49 Test #38: test_sync_readiness ..............   Passed  285.73 sec
+      Start 39: test_baseline_move
+39/49 Test #39: test_baseline_move ...............   Passed  112.10 sec
+      Start 40: test_xnode_proc
+40/49 Test #40: test_xnode_proc ..................   Passed   50.44 sec
+      Start 41: test_baseline_ha
+41/49 Test #41: test_baseline_ha .................   Passed  136.23 sec
+      Start 42: test_ready_order
+42/49 Test #42: test_ready_order .................   Passed  141.70 sec
+      Start 43: test_paxos_ballots
+43/49 Test #43: test_paxos_ballots ...............   Passed    1.99 sec
+      Start 44: test_witness_hardening
+44/49 Test #44: test_witness_hardening ...........   Passed    5.59 sec
+      Start 45: test_lab_witness_guard
+45/49 Test #45: test_lab_witness_guard ...........   Passed   13.07 sec
+      Start 46: test_index_wire
+46/49 Test #46: test_index_wire ..................   Passed    1.78 sec
+      Start 47: test_pilot
+47/49 Test #47: test_pilot .......................***Failed    0.41 sec
+Traceback (most recent call last):
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 467, in <module>
+    v()
+  File "/home/solo/SNC-server-OS/tests/test_pilot.py", line 366, in test_freeze_gate_quick_is_not_evidence
+    assert frozen["go_record"] is None
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+      Start 48: test_s6
+48/49 Test #48: test_s6 ..........................   Passed    0.14 sec
+      Start 49: test_net_bench_rate
+49/49 Test #49: test_net_bench_rate ..............   Passed   15.66 sec
+
+98% tests passed, 1 tests failed out of 49
+
+Total Test time (real) = 1700.83 sec
+
+The following tests FAILED:
+	 47 - test_pilot (Failed)
+Errors while running CTest
