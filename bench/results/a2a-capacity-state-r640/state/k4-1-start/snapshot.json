@@ -1,0 +1,32 @@
+{
+ "tag": "k4-1-start",
+ "utc": "2026-11-13T01:22:31Z",
+ "sectors_written": 3283468840,
+ "sectors_discarded": 9737410760,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "35425.31 2462134.93",
+ "uptime_s": 35425.31,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 35,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 81.27,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 18813.256,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "8 TB",
+ "units_started": [
+  "fwupd-refresh.service",
+  "sysstat-collect.service"
+ ],
+ "problems": []
+}

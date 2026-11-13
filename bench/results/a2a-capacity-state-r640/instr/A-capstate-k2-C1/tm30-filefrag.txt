@@ -1,0 +1,474 @@
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000034bf5.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000034bf5.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000067f69.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000067f69.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000009cf28.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000009cf28.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000000d6128.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000000d6128.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000010e373.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000010e373.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000145f94.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000145f94.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000017dfda.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000017dfda.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000001b27f3.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000001b27f3.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000001e5190.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000001e5190.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000217a89.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000217a89.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000024a781.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000024a781.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000027dd23.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000027dd23.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000002b1244.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000002b1244.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000002e3da4.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000002e3da4.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000317537.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/0000000000317537.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000034a507.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000034a507.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000037d389.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/000000000037d389.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000003b0adf.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s000/00000000003b0adf.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000034cc2.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000034cc2.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000068221.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000068221.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000009d317.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000009d317.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000000d3c10.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000000d3c10.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001072bf.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001072bf.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000013bf44.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000013bf44.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000017386a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000017386a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001ab49c.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001ab49c.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001e30af.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000001e30af.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000021affb.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000021affb.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000252f55.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000252f55.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000028b2c1.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000028b2c1.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000002c3747.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000002c3747.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000002fb6a3.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000002fb6a3.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003343d0.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003343d0.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000036c350.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000036c350.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003a467b.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003a467b.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003dcf42.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000003dcf42.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000414c62.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000414c62.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000044d270.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/000000000044d270.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000484fe8.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/0000000000484fe8.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000004bc90d.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000004bc90d.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000004f4892.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s001/00000000004f4892.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000000001.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000034bbc.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000034bbc.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000000681fa.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000000681fa.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000009d346.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000009d346.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000000d6738.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000000d6738.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000010ec15.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000010ec15.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000146c29.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000146c29.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000017ed54.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000017ed54.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000001b3784.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000001b3784.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000001e615d.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000001e615d.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000218f6b.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000218f6b.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000024bc8b.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000024bc8b.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000027f453.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000027f453.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000002b2487.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000002b2487.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000002e53c0.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000002e53c0.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000318cd6.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/0000000000318cd6.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000034b971.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000034b971.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000037f257.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/000000000037f257.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000003b25ca.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s002/00000000003b25ca.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000034dc2.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000034dc2.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000068574.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000068574.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000009d8f9.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000009d8f9.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000000d40d7.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000000d40d7.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001072e8.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001072e8.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000013b9f6.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000013b9f6.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000016f8e5.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000016f8e5.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001a203e.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001a203e.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001d4a57.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000001d4a57.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000207ae3.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000207ae3.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000023a879.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000023a879.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000026e18c.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000026e18c.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000002a0b91.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000002a0b91.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000002d3d76.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000002d3d76.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000003070da.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/00000000003070da.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000339e7a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/0000000000339e7a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000036d359.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s003/000000000036d359.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000034f62.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000034f62.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000000685d5.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000000685d5.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000009d75b.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000009d75b.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000000d5ac0.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000000d5ac0.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000109426.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000109426.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000013d119.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000013d119.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000171bae.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000171bae.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000001a4a2d.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000001a4a2d.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000001d74d8.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000001d74d8.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000209d26.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000209d26.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000023d97c.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000023d97c.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000270bc9.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/0000000000270bc9.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000002a3425.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000002a3425.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000002d698a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/00000000002d698a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000030963f.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000030963f.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000033c637.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000033c637.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000036f8d7.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s004/000000000036f8d7.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000000350c4.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000000350c4.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000068915.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000068915.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000009d7c6.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000009d7c6.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000000d66d2.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000000d66d2.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000010ca7f.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000010ca7f.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000013f3da.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000013f3da.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000177b85.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000177b85.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000001afd1b.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000001afd1b.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000001e72fe.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000001e72fe.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000021f116.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000021f116.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000256f64.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000256f64.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000028eb4a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000028eb4a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000002c6e20.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000002c6e20.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000002feb33.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000002feb33.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003368c3.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003368c3.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000036e36a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000036e36a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003a63ae.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003a63ae.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003dea83.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000003dea83.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000416515.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/0000000000416515.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000044e1f8.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/000000000044e1f8.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004861b6.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004861b6.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004bdfd8.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004bdfd8.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004f5fbb.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s005/00000000004f5fbb.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000000001.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000034ed1.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000034ed1.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000006868f.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000006868f.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000009d84f.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000009d84f.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000000d49a6.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000000d49a6.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000107b49.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000107b49.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000013bc68.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000013bc68.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000016fd3c.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000016fd3c.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000001a258a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000001a258a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000001d5294.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000001d5294.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000207f81.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000207f81.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000023afd9.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000023afd9.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000026e60a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000026e60a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000002a166c.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000002a166c.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000002d506a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/00000000002d506a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000307c66.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/0000000000307c66.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000033b0a5.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000033b0a5.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000036e33e.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s006/000000000036e33e.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000000001.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000000001.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000034e1a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000034e1a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000068790.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000068790.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000009db5e.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000009db5e.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000000d44a7.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000000d44a7.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001071f9.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001071f9.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000013b765.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000013b765.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000016f944.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000016f944.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001a242a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001a242a.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001d4cbe.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000001d4cbe.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000207823.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000207823.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000023a644.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000023a644.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000026dc76.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000026dc76.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000002a01e0.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000002a01e0.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000002d3598.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/00000000002d3598.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000305d2a.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000305d2a.wal: 2 extents found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000338c92.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/0000000000338c92.wal: 1 extent found
+$ filefrag /srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000036bdb2.wal
+[rc 0]
+/srv/snc-data/a2a/A-capstate-k2-C1/wal/s007/000000000036bdb2.wal: 1 extent found

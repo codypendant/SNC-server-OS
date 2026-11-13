@@ -1,0 +1,6 @@
+2026-11-11T15:08:23.768689+00:00 solo4 systemd[1]: Starting fstrim.service - Discard unused blocks on filesystems from /etc/fstab...
+2026-11-11T15:09:17.833687+00:00 solo4 fstrim[11213]: /srv/snc-data: 3.4 TiB (3779298537472 bytes) trimmed on /dev/sdb1
+2026-11-11T15:09:17.833687+00:00 solo4 fstrim[11213]: /boot/efi: 1 GiB (1118543872 bytes) trimmed on /dev/disk/by-uuid/A7EE-8B39
+2026-11-11T15:09:17.833687+00:00 solo4 fstrim[11213]: /: 424.5 GiB (455788503040 bytes) trimmed on /dev/disk/by-uuid/a2fca8db-eea7-4fd8-96db-e19056de59d9
+2026-11-11T15:09:17.835168+00:00 solo4 systemd[1]: fstrim.service: Deactivated successfully.
+2026-11-11T15:09:17.835376+00:00 solo4 systemd[1]: Finished fstrim.service - Discard unused blocks on filesystems from /etc/fstab.

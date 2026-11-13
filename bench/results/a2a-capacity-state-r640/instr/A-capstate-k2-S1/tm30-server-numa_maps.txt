@@ -1,0 +1,105 @@
+47a1c000000 bind:0 anon=589105 dirty=589105 active=25 N0=589105 kernelpagesize_kB=4
+5a932ced7000 bind:0 file=/home/solo/SNC-server-OS/build-s6/snc_server mapped=8 active=0 N0=8 kernelpagesize_kB=4
+5a932cedf000 bind:0 file=/home/solo/SNC-server-OS/build-s6/snc_server mapped=140 active=0 N0=140 kernelpagesize_kB=4
+5a932cf6b000 bind:0 file=/home/solo/SNC-server-OS/build-s6/snc_server mapped=21 active=0 N0=21 kernelpagesize_kB=4
+5a932cf88000 bind:0 file=/home/solo/SNC-server-OS/build-s6/snc_server anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+5a932cf8a000 bind:0 file=/home/solo/SNC-server-OS/build-s6/snc_server anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9bcddee000 bind:0
+7c9bcddef000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9bce5ef000 bind:0
+7c9bce5f0000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9bcedf0000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bd0df1000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bd2df2000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bd4df3000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bd6df4000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bd8df5000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bdadf6000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bdcdf7000 bind:0 anon=8192 dirty=8192 active=0 N0=8192 kernelpagesize_kB=4
+7c9bdedf8000 bind:0
+7c9bdedf9000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9bdf5f9000 bind:0
+7c9bdf5fa000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9bdfdfa000 bind:0
+7c9bdfdfb000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be05fb000 bind:0
+7c9be05fc000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be0dfc000 bind:0
+7c9be0dfd000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be15fd000 bind:0
+7c9be15fe000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be1dfe000 bind:0
+7c9be1dff000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be25ff000 bind:0
+7c9be2600000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be2e00000 bind:0 file=/usr/lib/x86_64-linux-gnu/libc.so.6 mapped=40 mapmax=41 N1=40 kernelpagesize_kB=4
+7c9be2e28000 bind:0 file=/usr/lib/x86_64-linux-gnu/libc.so.6 mapped=312 mapmax=43 N1=312 kernelpagesize_kB=4
+7c9be2fb1000 bind:0 file=/usr/lib/x86_64-linux-gnu/libc.so.6 mapped=47 mapmax=43 N1=47 kernelpagesize_kB=4
+7c9be3000000 bind:0 file=/usr/lib/x86_64-linux-gnu/libc.so.6 anon=4 dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be3004000 bind:0 file=/usr/lib/x86_64-linux-gnu/libc.so.6 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be3006000 bind:0 anon=5 dirty=5 active=0 N0=5 kernelpagesize_kB=4
+7c9be3200000 bind:0 file=/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33 mapped=157 mapmax=8 active=0 N1=157 kernelpagesize_kB=4
+7c9be329d000 bind:0 file=/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33 mapped=170 mapmax=8 active=0 N1=170 kernelpagesize_kB=4
+7c9be33e5000 bind:0 file=/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33 mapped=15 mapmax=8 active=0 N1=15 kernelpagesize_kB=4
+7c9be346c000 bind:0 file=/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33 anon=11 dirty=11 active=0 N0=11 kernelpagesize_kB=4
+7c9be3477000 bind:0 file=/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33 anon=3 dirty=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be347a000 bind:0 anon=3 dirty=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be3486000 bind:0 anon=4 dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be348a000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be348e000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be3491000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be3495000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be3498000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be349a000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be349e000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34a1000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34a5000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34a9000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34ac000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34af000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34b3000 bind:0 anon=4 dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34b7000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34bb000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be34bd000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34c0000 bind:0 file=anon_inode:[io_uring] dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34c4000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34c7000 bind:0 file=anon_inode:[io_uring] dirty=2 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be34ca000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be34cc000 bind:0 anon=4 dirty=4 active=0 N0=4 kernelpagesize_kB=4
+7c9be34d0000 bind:0 file=/usr/lib/x86_64-linux-gnu/libm.so.6 mapped=16 mapmax=30 N1=16 kernelpagesize_kB=4
+7c9be34e0000 bind:0 file=/usr/lib/x86_64-linux-gnu/libm.so.6 mapped=64 mapmax=30 N1=64 kernelpagesize_kB=4
+7c9be355f000 bind:0 file=/usr/lib/x86_64-linux-gnu/libm.so.6
+7c9be35b7000 bind:0 file=/usr/lib/x86_64-linux-gnu/libm.so.6 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35b8000 bind:0 file=/usr/lib/x86_64-linux-gnu/libm.so.6 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35b9000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be35bb000 bind:0 file=/usr/lib/x86_64-linux-gnu/libgcc_s.so.1 mapped=4 mapmax=9 N0=4 kernelpagesize_kB=4
+7c9be35bf000 bind:0 file=/usr/lib/x86_64-linux-gnu/libgcc_s.so.1 mapped=16 mapmax=9 N0=16 kernelpagesize_kB=4
+7c9be35e3000 bind:0 file=/usr/lib/x86_64-linux-gnu/libgcc_s.so.1 mapped=4 mapmax=9 N0=4 kernelpagesize_kB=4
+7c9be35e7000 bind:0 file=/usr/lib/x86_64-linux-gnu/libgcc_s.so.1 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35e8000 bind:0 file=/usr/lib/x86_64-linux-gnu/libgcc_s.so.1 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35e9000 bind:0 file=/usr/lib/x86_64-linux-gnu/liburing.so.2.5 mapped=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be35eb000 bind:0 file=/usr/lib/x86_64-linux-gnu/liburing.so.2.5 mapped=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be35ee000 bind:0 file=/usr/lib/x86_64-linux-gnu/liburing.so.2.5
+7c9be35ef000 bind:0 file=/usr/lib/x86_64-linux-gnu/liburing.so.2.5 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35f0000 bind:0 file=/usr/lib/x86_64-linux-gnu/liburing.so.2.5 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be35f1000 bind:0 file=/usr/lib/x86_64-linux-gnu/libxxhash.so.0.8.2 mapped=2 mapmax=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be35f3000 bind:0 file=/usr/lib/x86_64-linux-gnu/libxxhash.so.0.8.2 mapped=13 mapmax=2 active=0 N0=13 kernelpagesize_kB=4
+7c9be3600000 bind:0 file=/usr/lib/x86_64-linux-gnu/libxxhash.so.0.8.2
+7c9be3602000 bind:0 file=/usr/lib/x86_64-linux-gnu/libxxhash.so.0.8.2 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be3603000 bind:0 file=/usr/lib/x86_64-linux-gnu/libxxhash.so.0.8.2 anon=1 dirty=1 active=0 N0=1 kernelpagesize_kB=4
+7c9be3604000 bind:0 file=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.1 mapped=5 mapmax=2 active=0 N0=5 kernelpagesize_kB=4
+7c9be3609000 bind:0 file=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.1 mapped=14 mapmax=2 active=0 N0=14 kernelpagesize_kB=4
+7c9be3617000 bind:0 file=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.1 mapped=5 mapmax=2 active=0 N0=5 kernelpagesize_kB=4
+7c9be361c000 bind:0 file=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.1 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be361e000 bind:0 file=/usr/lib/x86_64-linux-gnu/libmimalloc.so.2.1 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be3620000 bind:0 anon=3 dirty=3 active=0 N0=3 kernelpagesize_kB=4
+7c9be3650000 bind:0 anon=7 dirty=7 active=0 N0=7 kernelpagesize_kB=4
+7c9be3657000 bind:0 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be3659000 bind:0 file=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 mapped=1 mapmax=41 N1=1 kernelpagesize_kB=4
+7c9be365a000 bind:0 file=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 mapped=43 mapmax=43 N1=43 kernelpagesize_kB=4
+7c9be3685000 bind:0 file=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 mapped=10 mapmax=41 N1=10 kernelpagesize_kB=4
+7c9be368f000 bind:0 file=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7c9be3691000 bind:0 file=/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 anon=2 dirty=2 active=0 N0=2 kernelpagesize_kB=4
+7ffc40bd9000 bind:0 stack anon=77 dirty=77 active=0 N0=77 kernelpagesize_kB=4
+7ffc40c8d000 bind:0
+7ffc40c91000 bind:0

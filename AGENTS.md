@@ -2911,3 +2911,23 @@ or source comments.
     preflight, the real server and client. The sudoers file is still not installed.
 -   **Next action:** review of revision 2 and the driver. Nothing is run; nothing else
     is authorized.
+
+### 2026-11-13 UTC --- Claude (Claude Code): A2-a capacity-state characterization RESULT (for review)
+
+-   **What:** ran the preregistered characterization (PR #119 merged, `main` `c86e43c`), 2026-11-12 22:59 to
+    2026-11-13 about 02:10 UTC. 25 of 25 runs, `complete: true`, every returncode 0. Evidence in
+    `bench/results/a2a-capacity-state-r640/` (RESULT.md, pilot.json, raw/, state/, instr/, characterization.json,
+    SHA256SUMS). Out dir kept outside the tree and copied unchanged, except that the 25 `sar.sa` binaries (350 MB)
+    are not committed (hashes in SHA256SUMS; originals in `/home/solo/capstate-r640` on the R640).
+-   **Outcome: one state only.** All 15 capacity runs are large-batch (frames/recv 15.4 to 15.9; frames/send 17.3 to
+    18.0), none normal-batch, in all 5 sessions. Capacity 4.26 to 4.34 M ops/s. Separation analysis not evaluable;
+    per PREREG section 6 nothing is rerun. Effective MHz 3391.8, package power 180 to 184 W, instructions/op 4,448
+    to 4,523, no THP, 0.14% pages on node 1: all constant across runs, so none discriminates.
+-   **Instrument flag:** the server `sys_enter_recvfrom` count is 0.81 to 0.82 of the count implied by the server log
+    in all 15 runs (limit 3%): flagged as an instrument defect per PREREG, runs kept. Cause not investigated.
+-   **Limits:** the instrumentation (accepted observer effect) is the one known difference from A2-a, so this run
+    cannot say whether it selects the state. No causal claim.
+-   **Correction to an interim statement:** while the run was in progress I described the state as "slow" from
+    throughput alone; the batching analysis shows the opposite (all large-batch).
+-   **Next action:** independent review. Nothing else is authorized (no rerun, bracket, Latin square, CRITERIA,
+    competitors, REFINE #2).
