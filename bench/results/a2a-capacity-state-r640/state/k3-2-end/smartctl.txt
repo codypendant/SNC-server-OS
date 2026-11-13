@@ -1,0 +1,125 @@
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.8.0-149-generic] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Vendor:               SAMSUNG
+Product:              ARFX3840S5xnFTRI
+Revision:             3P00
+Compliance:           SPC-5
+User Capacity:        3,840,755,982,336 bytes [3.84 TB]
+Logical block size:   512 bytes
+Physical block size:  4096 bytes
+LU is resource provisioned, LBPRZ=1
+Rotation Rate:        Solid State Device
+Form Factor:          2.5 inches
+Logical Unit id:      0x5002538b097f68a0
+Serial number:        S48LNA0M700325
+Device type:          disk
+Transport protocol:   SAS (SPL-4)
+Local Time is:        Fri Nov 13 00:52:31 2026 UTC
+SMART support is:     Available - device has SMART capability.
+SMART support is:     Enabled
+Temperature Warning:  Enabled
+Read Cache is:        Enabled
+Writeback Cache is:   Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART Health Status: OK
+
+Percentage used endurance indicator: 0%
+Current temperature = 36
+Lifetime maximum temperature = 52
+Lifetime minimum temperature = 0
+Maximum temperature since power on = 38
+Minimum temperature since power on = 28
+Manufactured in week 30 of year 2019
+Accumulated start-stop cycles:  21
+Specified load-unload count over device lifetime:  0
+Accumulated load-unload cycles:  0
+Elements in grown defect list: 0
+
+Error counter log:
+           Errors Corrected by           Total   Correction     Gigabytes    Total
+               ECC          rereads/    errors   algorithm      processed    uncorrected
+           fast | delayed   rewrites  corrected  invocations   [10^9 bytes]  errors
+read:          0        0         0         0          0       8527.843           0
+write:         0        0         0         0          0      18813.256           0
+
+Non-medium error count:      137
+
+  Pending defect count:0 Pending Defects
+SMART Self-test log
+Num  Test              Status                 segment  LifeTime  LBA_first_err [SK ASC ASQ]
+     Description                              number   (hours)
+# 1  Background short  Completed                   -    8439                 - [-   -    -]
+# 2  Background long   Completed                   -    8142                 - [-   -    -]
+# 3  Background short  Completed                   -    6853                 - [-   -    -]
+# 4  Background short  Completed                   -    6121                 - [-   -    -]
+# 5  Background short  Completed                   -    5914                 - [-   -    -]
+# 6  Background short  Completed                   -    4855                 - [-   -    -]
+# 7  Background short  Completed                   -    4111                 - [-   -    -]
+# 8  Background short  Completed                   -    3391                 - [-   -    -]
+# 9  Background short  Completed                   -    2647                 - [-   -    -]
+#10  Background short  Completed                   -    1927                 - [-   -    -]
+#11  Background short  Completed                   -    1183                 - [-   -    -]
+#12  Background short  Completed                   -     512                 - [-   -    -]
+
+Long (extended) Self-test duration: 3600 seconds [60.0 minutes]
+
+Background scan results log
+  Status: scan is active
+    Accumulated power on time, hours:minutes 8622:06 [517326 minutes]
+    Number of background scans performed: 12,  scan progress: 81.20%
+    Number of background medium scans performed: 12
+Device does not support General statistics and performance logging
+
+Protocol Specific port log page for SAS SSP
+relative target port id = 1
+  generation code = 2
+  number of phys = 1
+  phy identifier = 0
+    attached device type: SAS or SATA device
+    attached reason: power on
+    reason: loss of dword synchronization
+    negotiated logical link rate: phy enabled; 12 Gbps
+    attached initiator port: ssp=1 stp=1 smp=1
+    attached target port: ssp=0 stp=0 smp=0
+    SAS address = 0x5002538b097f68a2
+    attached SAS address = 0x52cea7f0c862b200
+    attached phy identifier = 2
+    Invalid DWORD count = 0
+    Running disparity error count = 0
+    Loss of DWORD synchronization count = 0
+    Phy reset problem count = 0
+    Phy event descriptors:
+     Received ERROR count: 0
+     Received address frame error count: 0
+     Received abandon-class OPEN_REJECT count: 0
+     Received retry-class OPEN_REJECT count: 3
+     Received SSP frame error count: 0
+relative target port id = 2
+  generation code = 2
+  number of phys = 1
+  phy identifier = 1
+    attached device type: no device attached
+    attached reason: unknown
+    reason: unknown
+    negotiated logical link rate: phy enabled; unknown
+    attached initiator port: ssp=0 stp=0 smp=0
+    attached target port: ssp=0 stp=0 smp=0
+    SAS address = 0x5002538b097f68a3
+    attached SAS address = 0x0
+    attached phy identifier = 0
+    Invalid DWORD count = 0
+    Running disparity error count = 0
+    Loss of DWORD synchronization count = 0
+    Phy reset problem count = 0
+    Phy event descriptors:
+     Received ERROR count: 0
+     Received address frame error count: 0
+     Received abandon-class OPEN_REJECT count: 0
+     Received retry-class OPEN_REJECT count: 0
+     Received SSP frame error count: 0
+
+
+# rc=4

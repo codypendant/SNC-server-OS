@@ -1,0 +1,32 @@
+{
+ "tag": "k4-2-end",
+ "utc": "2026-11-13T01:30:16Z",
+ "sectors_written": 3516759080,
+ "sectors_discarded": 9737410760,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "35890.08 2489894.73",
+ "uptime_s": 35890.08,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 37,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 81.29,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 18934.567,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "8 TB",
+ "units_started": [
+  "fwupd-refresh.service",
+  "sysstat-collect.service"
+ ],
+ "problems": []
+}

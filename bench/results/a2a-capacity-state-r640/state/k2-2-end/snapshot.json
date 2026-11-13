@@ -1,0 +1,34 @@
+{
+ "tag": "k2-2-end",
+ "utc": "2026-11-13T00:14:45Z",
+ "sectors_written": 3052077600,
+ "sectors_discarded": 9384829632,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "31359.10 2175101.76",
+ "uptime_s": 31359.1,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 36,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 81.1,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 18692.933,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "8 TB",
+ "units_started": [
+  "dpkg-db-backup.service",
+  "logrotate.service",
+  "sysstat-collect.service",
+  "sysstat-summary.service"
+ ],
+ "problems": []
+}

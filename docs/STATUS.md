@@ -303,6 +303,13 @@ Decided by cody on 2026-11-04.
      (K=5, 5 runs per session, perf / sar / numa_maps instrumentation;
      needs reviewer action on proposed sudoers entries). Nothing else is
      authorized.
+     **Capacity-state characterization RESULT (ran 11-12 22:59 to 11-13 ~02:10 UTC): one state only**
+     ([RESULT.md](../bench/results/a2a-capacity-state-r640/RESULT.md)). 25 of 25 runs complete;
+     all 15 capacity runs are large-batch (frames/recv 15.4 to 15.9), none normal, in all 5 sessions;
+     separation not evaluable; per the prereg nothing is rerun. Instrument flag: server recvfrom
+     tracepoint is 0.81 to 0.82 of the server-log-implied count in every run (limit 3%). The
+     instrumentation is a possible observer effect (accepted in the prereg); no cause claimed.
+     sar.sa binaries (350 MB) not committed; hashes in SHA256SUMS. Nothing else authorized.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

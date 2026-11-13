@@ -1,0 +1,28 @@
+{
+ "tag": "k1-0-pre-trim",
+ "utc": "2026-11-12T22:59:15Z",
+ "sectors_written": 2585184000,
+ "sectors_discarded": 8847790688,
+ "boot_id": "0c863bc1-66b2-4775-a032-ea25dfb97bb3",
+ "uptime": "26828.91 1860366.73",
+ "uptime_s": 26828.91,
+ "smartctl_rc": 4,
+ "smart": {
+  "health": "OK",
+  "temperature_c": 34,
+  "bms_status": "scan is active",
+  "bms_progress_pct": 80.92,
+  "bms_scans": 12,
+  "endurance_used_pct": 0,
+  "grown_defects": 0,
+  "non_medium_errors": 137,
+  "write_gb_processed": 18450.148,
+  "uncorrected_write": 0,
+  "uncorrected_read": 0
+ },
+ "sg_logs_rc": 0,
+ "sg_logs_has_bsr": true,
+ "tune2fs_rc": 0,
+ "fs_lifetime_writes": "8 TB",
+ "problems": []
+}
