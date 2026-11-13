@@ -28,14 +28,17 @@ parallel runs made correct tests fail by interfering with each other (PR #122 ev
 
 - `test_net_bench_rate` (`scenario_stall_open`) failed on the first hosted `-j4` run with
   `end_backlog 1`: under CPU contention the open-loop client had not issued the last scheduled op
-  when the window closed (issue lateness p99 302 ms). It passed alone and in the next hosted run.
+  when the window closed (issue lateness p99 302 ms). It passed in the next hosted run (at `-j1`)
+  and in serial local runs.
 - `test_baseline_retry` `q5_catchup_race` failed in a local `-j4` full run with
   `standby cannot listen on 0.0.0.0:25577: Address already in use`. The process-cluster tests
-  choose a random free block of ports (`tests/test_health.py` `free_block`) once at start; while a
-  node restarts, its port is briefly free and another test running in parallel can take it.
+  choose a random free block of ports (`tests/test_health.py` `free_block`) once at start and
+  close the probe sockets, so a port another test in parallel picks can collide with one a
+  restarting node needs. The log shows the bind failure only; which process held the port was not
+  captured, so this cause is plausible, not proven.
 
-Neither is a product defect, and no test is changed to hide either. Serial runs remove the
-interference; the cost is wall time (measured in PR #122). Making the harness safe to run in
+No test is changed to hide either. Serial runs remove the interference; the cost is wall time
+(fast tier: 285 s locally, 358 s on the hosted runner, job 7 min 15 s). Making the harness safe to run in
 parallel (port leasing, CPU budgets) is possible later work, not part of M1-0.
 
 ## The two tiers
@@ -74,8 +77,10 @@ These stay on the R640 or a dedicated host, run by hand under their own preregis
 
 ## Runner requirements
 
-Hosted runners are enough for both tiers today (verified in PR #122): Linux with io_uring
-available to unprivileged processes, `RWF_DSYNC`, loopback TCP on the fixed test port ranges, a
+The fast tier is verified on a hosted runner (PR #122: 40/40 at `-j1`). The full tier has not
+yet run on a hosted runner (it runs only after merge); its stand-in is a serial full run on a
+4-vCPU Ubuntu 24.04 container (PR #122). The tests need Linux with io_uring available to
+unprivileged processes, `RWF_DSYNC`, loopback TCP on the fixed test port ranges, a
 writable `/tmp` and `/dev/shm`, 4 vCPUs and Python 3. If a hosted runner stops meeting this (for
 example io_uring blocked by the runner's seccomp policy), move the affected job to a self-hosted
 Linux runner with the same packages; do not mark the tests skipped.
@@ -86,3 +91,14 @@ Linux runner with the same packages; do not mark the tests skipped.
   automated, and no TSAN run is on record.
 - A required-status branch protection rule on `main` (a repository setting, owned by the
   repository owner).
+
+## Consequence for the frozen campaigns
+
+`bench/pilot.py` refuses a real CP-1A pilot when anything outside `docs/`, `AGENTS.md`,
+`bench/cp1a_frozen.json` and `bench/results/` changed after its `runner_commit` (4250b32). This PR
+changes `.github/workflows/ci.yml`, `CMakeLists.txt` and `tests/test_pilot.py`, so after it merges a
+real CP-1A pilot from `main` refuses until a new review and freeze (checked: the disallowed list is
+empty at 86a5668 and lists exactly those three files at this branch). `bench/cp1a_frozen.json` is
+not changed. `bench/s6.py` already refuses on `main` (code changed after its runner commit 63440b1
+in PRs #107 to #110), so S6 is unaffected. Both campaigns are complete; any new run needs its own
+freeze.
