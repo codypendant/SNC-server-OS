@@ -1,0 +1,107 @@
+Internal ctest changing into directory: /home/claude/snc-server-os/build
+Test project /home/claude/snc-server-os/build
+      Start  1: test_rate_schedule
+ 1/49 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  2: test_object_id
+ 2/49 Test  #2: test_object_id ...................   Passed    0.00 sec
+      Start  3: test_local_map
+ 3/49 Test  #3: test_local_map ...................   Passed    1.16 sec
+      Start  4: test_pages
+ 4/49 Test  #4: test_pages .......................   Passed    0.74 sec
+      Start  5: test_runtime
+ 5/49 Test  #5: test_runtime .....................   Passed    0.16 sec
+      Start  6: test_execute
+ 6/49 Test  #6: test_execute .....................   Passed    0.05 sec
+      Start  7: test_persistence
+ 7/49 Test  #7: test_persistence .................   Passed    0.41 sec
+      Start  8: test_crash
+ 8/49 Test  #8: test_crash .......................   Passed    0.66 sec
+      Start  9: test_net
+ 9/49 Test  #9: test_net .........................   Passed    0.04 sec
+      Start 10: test_transfer
+10/49 Test #10: test_transfer ....................   Passed    3.13 sec
+      Start 11: test_replication
+11/49 Test #11: test_replication .................   Passed   15.17 sec
+      Start 12: test_cluster
+12/49 Test #12: test_cluster .....................   Passed    4.89 sec
+      Start 13: test_migrate
+13/49 Test #13: test_migrate .....................   Passed   32.39 sec
+      Start 14: test_resend_refusals
+14/49 Test #14: test_resend_refusals .............   Passed    0.02 sec
+      Start 15: test_proof
+15/49 Test #15: test_proof .......................   Passed    0.91 sec
+      Start 16: test_placement
+16/49 Test #16: test_placement ...................   Passed    0.01 sec
+      Start 17: test_stage_chain
+17/49 Test #17: test_stage_chain .................   Passed    6.64 sec
+      Start 18: test_gauges
+18/49 Test #18: test_gauges ......................   Passed    0.51 sec
+      Start 19: test_s1_admission
+19/49 Test #19: test_s1_admission ................   Passed    6.59 sec
+      Start 20: test_s2_pacing
+20/49 Test #20: test_s2_pacing ...................   Passed    2.99 sec
+      Start 21: test_s3_writeback
+21/49 Test #21: test_s3_writeback ................   Passed   15.38 sec
+      Start 22: test_lifecycle
+22/49 Test #22: test_lifecycle ...................   Passed    7.80 sec
+      Start 23: test_s4_sync_tokens
+23/49 Test #23: test_s4_sync_tokens ..............   Passed   38.68 sec
+      Start 24: test_admin_loop
+24/49 Test #24: test_admin_loop ..................   Passed    1.21 sec
+      Start 25: test_wal_capacity
+25/49 Test #25: test_wal_capacity ................   Passed    0.07 sec
+      Start 26: test_intake
+26/49 Test #26: test_intake ......................   Passed    2.20 sec
+      Start 27: test_xnode
+27/49 Test #27: test_xnode .......................   Passed   66.46 sec
+      Start 28: test_witness
+28/49 Test #28: test_witness .....................   Passed   23.81 sec
+      Start 29: test_async_failover
+29/49 Test #29: test_async_failover ..............   Passed   13.61 sec
+      Start 30: test_control
+30/49 Test #30: test_control .....................   Passed    1.48 sec
+      Start 31: test_health
+31/49 Test #31: test_health ......................   Passed  154.56 sec
+      Start 32: test_gauges_admin
+32/49 Test #32: test_gauges_admin ................   Passed    3.93 sec
+      Start 33: test_ckpt_cli
+33/49 Test #33: test_ckpt_cli ....................   Passed    0.29 sec
+      Start 34: test_fail_closed
+34/49 Test #34: test_fail_closed .................   Passed  223.98 sec
+      Start 35: test_s1
+35/49 Test #35: test_s1 ..........................   Passed   60.30 sec
+      Start 36: test_profile_check
+36/49 Test #36: test_profile_check ...............   Passed    0.09 sec
+      Start 37: test_baseline_retry
+37/49 Test #37: test_baseline_retry ..............   Passed  249.15 sec
+      Start 38: test_sync_readiness
+38/49 Test #38: test_sync_readiness ..............   Passed  321.03 sec
+      Start 39: test_baseline_move
+39/49 Test #39: test_baseline_move ...............   Passed  112.73 sec
+      Start 40: test_xnode_proc
+40/49 Test #40: test_xnode_proc ..................   Passed   51.46 sec
+      Start 41: test_baseline_ha
+41/49 Test #41: test_baseline_ha .................   Passed  122.61 sec
+      Start 42: test_ready_order
+42/49 Test #42: test_ready_order .................   Passed  148.22 sec
+      Start 43: test_paxos_ballots
+43/49 Test #43: test_paxos_ballots ...............   Passed    2.00 sec
+      Start 44: test_witness_hardening
+44/49 Test #44: test_witness_hardening ...........   Passed    5.75 sec
+      Start 45: test_lab_witness_guard
+45/49 Test #45: test_lab_witness_guard ...........   Passed   14.26 sec
+      Start 46: test_index_wire
+46/49 Test #46: test_index_wire ..................   Passed    1.72 sec
+      Start 47: test_pilot
+47/49 Test #47: test_pilot .......................   Passed    1.08 sec
+      Start 48: test_s6
+48/49 Test #48: test_s6 ..........................   Passed    0.09 sec
+      Start 49: test_net_bench_rate
+49/49 Test #49: test_net_bench_rate ..............   Passed   15.65 sec
+
+100% tests passed, 0 tests failed out of 49
+
+Label Time Summary:
+slow    = 1459.04 sec*proc (9 tests)
+
+Total Test time (real) = 1736.07 sec

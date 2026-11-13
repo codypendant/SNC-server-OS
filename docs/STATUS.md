@@ -324,6 +324,13 @@ Decided by cody on 2026-11-04.
      deterministically stale; `test_intake` is load-slow, not shown flaky. Roadmap: minimal CI first (M1-0), confirmed
      defects before new functionality; M1 defects and durability, M2 retry/migration/delivery semantics and application
      surface, M3 security and operability. No PostgreSQL dependency exists or is proposed. Nothing is implemented.
+     **PR #121 merged (86a5668). PR #122 (for review): M1-0 minimal CI** ([CI.md](CI.md); evidence
+     [ci-m1-0-evidence/](ci-m1-0-evidence/README.md)). GitHub Actions on hosted ubuntu-24.04: fast tier
+     (`ctest -LE slow -j1`, 40 tests) on every PR and push to main; full suite (49) on main, nightly, on demand.
+     Serial because parallel runs interfered (rate timing; port collision). `test_pilot` stale assertion corrected
+     to the committed GO state (frozen artifacts unchanged). Fast tier green on GitHub (40/40, about 7 min job);
+     full suite 49/49 serially on a 4-vCPU container (28.9 min); the gate went red on a deliberate regression.
+     Consequence: after merge a real CP-1A pilot from main refuses until a new freeze. No production change.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
