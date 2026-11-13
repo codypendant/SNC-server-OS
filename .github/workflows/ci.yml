@@ -3,6 +3,10 @@
 #       tests and the quick Python tests).
 # full: pushes to main, nightly and on demand; the whole ctest suite.
 # R640-only work (benchmarks, pilots, storage experiments) never runs here.
+# Tests run serially (-j1), the project's convention for headline evidence:
+# many tests start process clusters on randomly chosen free port blocks and
+# some assert timing (open-loop rate), so parallel runs on a 4-vCPU runner
+# make them interfere with each other (docs/CI.md, "Why serial").
 name: ci
 
 on:
@@ -36,7 +40,7 @@ jobs:
       - name: Build
         run: cmake --build build -j "$(nproc)"
       - name: Fast tests (ctest -LE slow)
-        run: ctest --test-dir build -LE slow -j "$(nproc)" --output-on-failure --timeout 900 --output-junit junit-fast.xml
+        run: ctest --test-dir build -LE slow -j1 --output-on-failure --timeout 900 --output-junit junit-fast.xml
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,7 +67,7 @@ jobs:
       - name: Build
         run: cmake --build build -j "$(nproc)"
       - name: Full suite
-        run: ctest --test-dir build -j "$(nproc)" --output-on-failure --timeout 2400 --output-junit junit-full.xml
+        run: ctest --test-dir build -j1 --output-on-failure --timeout 2400 --output-junit junit-full.xml
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

@@ -10,8 +10,8 @@ The workflow is `.github/workflows/ci.yml`, on GitHub-hosted `ubuntu-24.04` runn
 
 | Job | Triggers | Runs | Time limit |
 |---|---|---|---|
-| `fast` (build + fast tests) | every pull request (any base), every push to `main`, nightly, on demand | clean RelWithDebInfo build of every target, then `ctest -LE slow` | 30 min |
-| `full` (build + full suite) | pushes to `main`, nightly (07:17 UTC), on demand (`workflow_dispatch`) | clean build, then the whole `ctest` suite | 90 min |
+| `fast` (build + fast tests) | every pull request (any base), every push to `main`, nightly, on demand | clean RelWithDebInfo build of every target, then `ctest -LE slow -j1` | 30 min |
+| `full` (build + full suite) | pushes to `main`, nightly (07:17 UTC), on demand (`workflow_dispatch`) | clean build, then the whole suite, `ctest -j1` | 90 min |
 
 Both jobs install only the three documented dependencies (`libmimalloc-dev libxxhash-dev
 liburing-dev`), check out full git history (`tests/test_pilot.py` verifies the CP-1A freeze
@@ -20,6 +20,23 @@ JUnit file and `LastTest.log` as an artifact (`ctest-fast`, `ctest-full`) even w
 
 A red job is the signal. No job is allowed to fail ("continue-on-error" is not used), no test is
 skipped or retried, and no test is excluded from the full suite.
+
+## Why serial
+
+Both tiers run `ctest -j1`, the project's convention for headline evidence. On a 4-vCPU runner
+parallel runs made correct tests fail by interfering with each other (PR #122 evidence):
+
+- `test_net_bench_rate` (`scenario_stall_open`) failed on the first hosted `-j4` run with
+  `end_backlog 1`: under CPU contention the open-loop client had not issued the last scheduled op
+  when the window closed (issue lateness p99 302 ms). It passed alone and in the next hosted run.
+- `test_baseline_retry` `q5_catchup_race` failed in a local `-j4` full run with
+  `standby cannot listen on 0.0.0.0:25577: Address already in use`. The process-cluster tests
+  choose a random free block of ports (`tests/test_health.py` `free_block`) once at start; while a
+  node restarts, its port is briefly free and another test running in parallel can take it.
+
+Neither is a product defect, and no test is changed to hide either. Serial runs remove the
+interference; the cost is wall time (measured in PR #122). Making the harness safe to run in
+parallel (port leasing, CPU budgets) is possible later work, not part of M1-0.
 
 ## The two tiers
 
@@ -41,8 +58,8 @@ Run locally:
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j
-ctest --test-dir build -LE slow -j4 --output-on-failure   # what every PR runs
-ctest --test-dir build -j4 --output-on-failure            # the full suite
+ctest --test-dir build -LE slow -j1 --output-on-failure   # what every PR runs
+ctest --test-dir build -j1 --output-on-failure            # the full suite
 ```
 
 ## What CI does not run (by design)
