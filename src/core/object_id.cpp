@@ -17,7 +17,7 @@ u64 snc_hash64(const ObjectID& id) {
 
 std::string ObjectID::to_string() const {
   static constexpr char kHex[] = "0123456789abcdef";
-  std::string out(33, '-');
+  std::string out(33, ':');
   for (int i = 0; i < 16; ++i) {
     out[i] = kHex[(hi >> (60 - 4 * i)) & 0xf];
     out[17 + i] = kHex[(lo >> (60 - 4 * i)) & 0xf];
