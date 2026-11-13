@@ -2973,3 +2973,20 @@ or source comments.
 -   **Roadmap:** minimal CI first (M1-0), confirmed defects before new functionality; M1 defects and durability, M2
     retry/migration/delivery semantics and application surface, M3 security and operability. No PostgreSQL dependency.
 -   **Next action:** reviewer decision on merge. Not started: any implementation, PR #122.
+
+### 2026-11-13 UTC --- Claude (Claude Code): PR #122 M1-0 minimal CI (for review)
+
+-   **What:** per `docs/handoff/PR121_Audit_Final_Approval_PR122_M1-0.md`. `.github/workflows/ci.yml` (hosted
+    ubuntu-24.04): `fast` = clean RelWithDebInfo build + `ctest -LE slow -j1` on every PR and push to main; `full` =
+    whole suite `-j1` on main, nightly 07:17 UTC and on demand; JUnit and `LastTest.log` uploaded even on failure.
+    `CMakeLists.txt`: label `slow` on the 9 tests of about a minute or more (no test removed or skipped).
+    `tests/test_pilot.py`: the stale `go_record is None` assertion now asserts the committed GO state; the 4 test
+    functions it masked run again. `docs/CI.md`. No production code, frozen artifact or result changed.
+-   **Evidence:** `docs/ci-m1-0-evidence/` (7 runs, failing ones included). Hosted `-j nproc` failed once
+    (`test_net_bench_rate` timing under contention) and local `-j4` once (`q5_catchup_race` port collision), hence
+    serial. Hosted `-j1` fast tier 40/40 twice; local serial full suite 49/49 (1,736 s); deliberate regression
+    branch red in 6 tests. Independent QA: no defects; its doc overstatement fixed.
+-   **Freeze consequence (for decision):** after merge, `bench/pilot.py` refuses a real CP-1A pilot from main (three
+    non-docs files changed after runner_commit 4250b32) until a new review and freeze. S6 already refused on main.
+-   **Next action:** reviewer decision on PR #122. Not started: D1 to D4, sanitizer jobs, branch protection.
+
