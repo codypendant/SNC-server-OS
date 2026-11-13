@@ -1,0 +1,12 @@
+  sample: op0 status=1 ver=0 | op1 status=0 ver=2
+  pattern(first 120): OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+batch_remote=1 mode=deposit;delete iters=200: in-order=0 overtaken=200
+  sample: op0 status=0 ver=3 | op1 status=0 ver=2
+  pattern(first 120): OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+batch_remote=1 mode=deposit;withdraw(expected_version=1) iters=200: in-order=0 overtaken=200
+  sample: op0 status=0 ver=2 | op1 status=6 ver=2
+  pattern(first 120): ........................................................................................................................
+batch_remote=0 mode=deposit;delete iters=200: in-order=200 overtaken=0
+  sample: op0 status=0 ver=2 | op1 status=5 ver=2
+  pattern(first 120): ........................................................................................................................
+batch_remote=0 mode=deposit;withdraw(expected_version=1) iters=200: in-order=200 overtaken=0

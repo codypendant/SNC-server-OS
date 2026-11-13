@@ -316,8 +316,14 @@ Decided by cody on 2026-11-04.
      silently dropped; one batched/unbatched cross-shard reorder path exists; no event abstraction (follow-ups only,
      no timer); no auth, no CI; SNC has no PostgreSQL persistence (baseline only). The PR #120 recvfrom ratio is
      largely a whole-process-versus-window denominator error in the check, not evidence of an observer effect.
-     Recommended milestones: M1 durability fault-model closure, M2 delivery/ordering/application surface,
-     M3 operability and regression baseline. Nothing is implemented; authorization requests are listed in section 10.
+     **Revision 2 after independent QA (merge held by the reviewer):** four defects confirmed by running them: D1
+     cross-shard overtaking (200/200 in process; shipped clients route to the owner), D2 silent loss of acknowledged
+     writes on last-segment WAL corruption (49 of 100 survive, exit 0, `torn_tails` never surfaced), D3 `client_id` reuse
+     returns a false `OK, replayed`, D4 no authentication and admin/witness/seed/node-link ports on all interfaces. The
+     migration double-apply claim is narrowed to a plausible risk (the shipped client is protected). `test_pilot` is
+     deterministically stale; `test_intake` is load-slow, not shown flaky. Roadmap: minimal CI first (M1-0), confirmed
+     defects before new functionality; M1 defects and durability, M2 retry/migration/delivery semantics and application
+     surface, M3 security and operability. No PostgreSQL dependency exists or is proposed. Nothing is implemented.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

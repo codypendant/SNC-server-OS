@@ -2955,3 +2955,21 @@ or source comments.
 -   **Next action:** independent review. Recommended milestones M1, M2, M3 and the test-only slice M1-a are in the report;
     nothing is implemented. Authorization requests: M1-a; the freeze handling for `tests/test_pilot.py`; the T-1 driver
     fix; the event and ordering-contract decisions; `CRITERIA.md` (reviewer-owned).
+
+### 2026-11-13 UTC --- Claude (Claude Code): PR #121 revision 2 after independent QA (for review; merge held)
+
+-   **What:** per `docs/handoff/PR121_Audit_Review_QA_Required.md`, a fresh QA agent re-derived the audit's findings from code
+    and by running programs, without seeing the audit's reasoning (it disclosed that a document-wide search showed it about
+    25 lines of the audit; its Q2, Q3, Q4, Q8 may carry some anchoring). Evidence: `docs/audit-20261113-working-notes/qa/`.
+    I re-ran or re-read the significant findings myself. Documentation only; no production code, test or bench change.
+-   **Confirmed defects (reproduced by me):** D1 cross-shard overtaking, 200 of 200 in process, 0 of 200 with
+    `batch_remote=false` (`shard.cpp:1470-1531`); D2 one flipped byte in the last WAL segment leaves 49 of 100 acknowledged
+    records, exit 0, `torn_tails=1` never surfaced by `snc_server` (`storage.cpp:396-420`); D3 reused `client_id` gets
+    `OK, replayed` for a request never run; D4 admin port (`tools/ha.h:38` via `snc_server.cpp:1040`) answers an
+    unauthenticated `HEALTH` on the LAN address while the data port is loopback-only (state-changing verbs not exercised).
+-   **Corrections:** my listener citation was wrong (`engine.cpp:1234` is the seed listener); the migration double-apply is
+    narrowed to a plausible risk (`shard.cpp:564` replay check precedes `:568` serving check; q2 passes); `test_intake`
+    "flaky" withdrawn (one unreproduced failure; load-slow); `test_pilot` is deterministic and stale.
+-   **Roadmap:** minimal CI first (M1-0), confirmed defects before new functionality; M1 defects and durability, M2
+    retry/migration/delivery semantics and application surface, M3 security and operability. No PostgreSQL dependency.
+-   **Next action:** reviewer decision on merge. Not started: any implementation, PR #122.

@@ -14,17 +14,86 @@ Fixes that are outside this documentation scope are *documented and listed for a
 - I (Claude, the author of this report) **re-verified directly** the items marked **[V]** below, by reading the cited code or
   running a command. Items without **[V]** are **reviewer-reported from reading the cited lines; not independently re-checked by
   me.** Treat them as leads with evidence, not as established facts.
-- I ran a clean build of `main` in a scratch directory (not `build-s6`, which holds the frozen binaries) and the full `ctest`:
-  **47 of 49 passed.** `test_pilot` fails (known cause, see section 8). `test_intake` failed once under `ctest -j4` and
-  **passed 3 of 3 when run alone**; its cause is undiagnosed (the first failure's log was overwritten). Log:
+- I ran a clean build of `main` in a scratch directory (not `build-s6`, which holds the frozen binaries) and the full `ctest`
+  (`-j4`): 47 of 49 passed. `test_pilot` failed (deterministic, known cause, section 8). `test_intake` failed **once** in that
+  run and has **not failed since**: it passed 3 of 3 alone, and passed in all 8 executions of the independent QA run (below).
+  Its one failure is therefore **unreproduced and undiagnosed**, not shown to be flaky. Log:
   `docs/audit-20261113-working-notes/ctest-clean-build-main-23f4a0c.log`. Passing tests are evidence for the specific scenario
   tested, not for any wider guarantee.
-- The project's three-way verification (author, reviewer, QA) is **not** satisfied by this audit. The reviewers and I are
-  the same model family, and my checks were spot checks. QA verification of the **[V]** items and of the milestone
-  recommendations is still needed.
+- **Revision 2 (after independent QA, 2026-11-13).** The reviewer held the merge pending independent QA. A fresh agent that
+  had not seen this report's reasoning re-derived the findings from code and by running things; I then re-ran or re-read the
+  significant ones myself. Evidence: `docs/audit-20261113-working-notes/qa/` (report, demo programs, logs). Section 0 lists
+  what QA confirmed, narrowed and corrected. **One caveat on QA independence:** the agent disclosed that a document-wide
+  search it ran during Q2 printed about 25 lines of this report before it stopped, so its Q2, Q3, Q4 and Q8 may carry some
+  anchoring. For that reason the defects below rest on programs that I re-ran myself, not on QA's say-so alone.
+- Three-way verification: author (this report), reviewers (notes A to E), and QA (`qa/QA_REPORT.md`) now all exist. I have
+  personally re-verified the items marked **[V]**, including every QA-confirmed defect. The QA agent and I are the same model
+  family; the reviewer (cody) decides whether that satisfies the QA requirement.
 
 Classification vocabulary (from the assignment): **Verified**, **Partially verified**, **Implemented, unverified**,
 **Planned**, **Unknown**. Where none fits, the row says so rather than stretching a label.
+
+---
+
+## 0. Revision 2: independent QA results and corrections
+
+QA answered eight questions without seeing this report. Status uses the review's vocabulary: **confirmed defect**
+(demonstrated or traced unambiguously), **plausible risk**, **unverified hypothesis**, **refuted**, **unknown**.
+**[V]** = I re-ran or re-read it myself after QA reported it.
+
+### 0.1 Confirmed defects
+
+| ID | Defect | Evidence | Reach |
+|---|---|---|---|
+| **D1** | **Cross-shard overtaking.** A non-batchable request (create, delete, version-conditioned, args over 16 bytes) from shard A to shard B overtakes an earlier batchable EXEC from A to B that is still held in A's out-batch. | **[V]** `qa/src/order_demo.cpp`: in-process 200 of 200 overtaken with `batch_remote=true`, 0 of 200 with `batch_remote=false` (re-run by me, same result). QA also saw 100 of 100 over TCP through a non-owner shard port (`qa/src/net_order.cpp`, not re-run by me). Code: `shard.cpp:1470-1531`. | **Narrower than first written.** Sequenced requests are exempt (refused `E_NOT_OWNER`, never forwarded; `shard.cpp:230-236`). The shipped `ClusterClient` and the bench clients route to the owner shard, so they do not hit it. Exposed: in-process applications (the data-plane API) and unsequenced pipelined clients that connect to a non-owner shard port. It contradicts the stated hint that routing is "never a correctness requirement" (`include/snc/wire.h:5`). No ordering contract exists in any document. |
+| **D2** | **Silent loss of acknowledged writes on mid-record corruption of the last WAL segment**, with no operator-visible signal. | **[V]** I wrote 100 acknowledged durable creates, flipped one byte in record 50 of the only segment, restarted: 49 survive, 51 acknowledged records missing, exit 0, no message, `torn_tails=1`. QA saw the same (49 of 100; 519 of 600 over three segments). Code: `storage.cpp:396-420` (`++out.torn_tails; break;`). `snc_server` never prints or exports `torn_tails` (QA grep; I confirmed it appears only in `engine.cpp` and tests). Corruption in an *earlier* segment aborts ("WAL gap", exit 134). | Any media fault (bit rot, bad sector) that damages a record in the newest segment. The loss becomes permanent because recovery then starts a new segment. |
+| **D3** | **Client-identity reuse returns a false success.** A new `Client` that reuses a `client_id` restarts sequences at 1 against live sessions and receives `OK, replayed` for requests it never ran. | **[V]** `qa/src/sess_reuse.cpp` against a scratch `snc_server`: incarnation 1 applied three deposits (balance 300); incarnation 2 sent four +1000 deposits; the first three got `E_REPLAYED_OLD`, the fourth `OK, replayed=1, version=4`, and the balance stayed 300 (expected 4,300 if all had applied). `docs/CORE_CONTRACTS.md` D-5 calls reuse "out of contract". | Reachable through the public `Client::enable_session` API after any client restart that reuses an id. Severity depends on whether callers can be forced to use unique ids (server-issued ids would remove it). |
+| **D4** | **No authentication, authorization or TLS on any listener; several listen on all interfaces.** | **[V]** Admin port: `ha::listen_on` (`tools/ha.h:31-41`) takes no host and binds `INADDR_ANY`; it is used at `tools/snc_server.cpp:1040`, so the data-port `--host` flag does not constrain it. I started a scratch server with the data port on `127.0.0.1` and the admin port on `0.0.0.0`, and an unauthenticated `HEALTH` request to the host's LAN address was answered. Witness port: `tools/snc_witness.cpp:677` (same helper). Seed listener: `engine.cpp:1234`. Node-link listener: `node_link.cpp:203`. Replication listener default host `0.0.0.0` (`replication.h:226`). | I did **not** run a state-changing verb. That `PROMOTE`, `MOVE`, and the witness `DEGRADE`/`NOTREADY`/`READY` and `PLACEMENT CAS` verbs are open to any peer is established by reading the handlers, not by exercising them. |
+
+### 0.2 Plausible risks and narrowed claims
+
+- **Duplicate application across a slot move (was R4): narrowed from "breaks" to "plausible risk".** My first draft said a
+  resend that lands on the new owner would double-apply. QA found, and I **[V]** confirmed in the source, that `run_exec` checks
+  the session replay at `shard.cpp:562-565` **before** the slot-serving check at `:568`, so a resend that reaches the *source*
+  group is answered from its session (`E_MOVED` is only produced for a request the session shows as not applied). The shipped
+  `ClusterClient` keeps one `Client` per group, each with its own unanswered queue, and never carries an unanswered request to
+  another group; `test_baseline_move.py` q2 (resend while the slot moves, answers dropped) passes. **What remains:** (a) a driver
+  that re-issues an in-doubt request to the destination on its own would apply it twice; (b) session expiry (default TTL 3600 s,
+  evaluated only inside a checkpoint, `engine.cpp:1423-1428`) between the first attempt and the resend; (c) q2 runs at depth 1
+  ("nothing in doubt"), so a depth-greater-than-1 case yields `E_REPLAYED_OLD` (outcome unknown) by design. None was demonstrated;
+  QA could not run a two-group scenario and neither could I. Sessions do not move with slots (`moves_with_slot` is
+  `type_id >= 256`, `shard.cpp:3578`), which is documented.
+- **Power-loss, WAL EIO and WAL ENOSPC behavior: unknown.** No test covers them and neither QA nor I could exercise them here.
+- **Corruption outcomes now characterized by QA (not covered by repository tests):** a flipped byte in an earlier WAL segment,
+  a corrupted checkpoint part, or a corrupted manifest aborts fail-closed; a corrupted newest superblock falls back to the older
+  generation; both superblocks corrupted refuses to start. These are observed behaviors, so they are good news, but no committed
+  test pins them.
+- **Fault-model wording:** durability evidence is process kill plus return-value injection into *checkpoint* writes only; the
+  WAL path has no injection at all.
+
+### 0.3 Corrections made to this report
+1. **Listener citation (was wrong).** I cited `engine.cpp:1234` and `node_link.cpp:203` as the admin listener. Those are the
+   seed and node-link listeners; the admin listener is `tools/ha.h:38` via `snc_server.cpp:1040`. The conclusion stands. Fixed
+   in sections 1, 3.15 and 6.
+2. **`test_intake`: "flaky under load" withdrawn.** QA saw no failure in 8 executions (5 isolated at 11.4 s, one serial `ctest`,
+   one `-j4` at 17.3 s, two under artificial load at 17.6 s and 43.8 s). What is established is that it is **load-slow**. My
+   single failure at 12.98 s under `-j4` is unreproduced. Fixed in sections 1 and 8 (T-3) and 9.
+3. **Test totals.** My `-j4` run was 47 of 49. QA's serial run was 48 of 49 (1,701 s, 28.4 min) and its `-j4` run 48 of 49
+   (459 s, 7.7 min); the only failure in both is `test_pilot`. 49 tests are registered; the one unregistered file in `tests/` is a
+   helper (`witness_state.py`).
+4. **`test_pilot` is deterministic:** failed 5 of 5 in isolation plus both full runs. Stale assertion, not a product defect
+   (`bench/cp1a_frozen.json` has `go_record` set; the test asserts `None`; the other 23 test functions in the file pass).
+5. **R4 narrowed** (above) and **R2 raised** from "hazard" to "confirmed defect" (D1) with its narrower reach stated.
+6. **Items the first draft missed:** D3, the unauthenticated seed/witness/node-link ports (D4), session TTL expiry as a second
+   duplicate route, `torn_tails` being invisible to operators (part of D2), and `E_REPLAYED_OLD` as the documented in-doubt
+   outcome.
+7. **Roadmap re-ordered** (section 9): minimal CI is now the first slice, and confirmed correctness defects precede new
+   functionality, as the review requires.
+
+### 0.4 Native architecture
+SNC's persistence is its own: WAL (CRC32C, `RWF_DSYNC`), fuzzy checkpoints, manifest, A/B superblock, and recovery. QA and I
+both confirm **no code path depends on PostgreSQL**; it appears only as a benchmark baseline in `bench/conventional/`. Nothing
+here recommends introducing PostgreSQL. Every milestone strengthens the native components.
 
 ---
 
@@ -49,19 +118,21 @@ any schema evolution; any security boundary; any comparative result against a ma
 
 **The five findings that matter most**
 
-1. **Durability evidence is crash-of-process evidence only.** Power loss is explicitly untested, WAL EIO/ENOSPC has no injection
-   test, and a corrupted record in the *last* WAL segment is dropped together with every later acknowledged record and counted
-   only as `torn_tails` **[V]** (`src/core/storage.cpp:396-420`). Section 6, R1.
-2. **Request ordering is unspecified and one reorder path exists in code.** A batchable cross-shard EXEC is held until the
-   end-of-iteration flush while a non-batchable request (version-conditioned, large args, create, delete) to the same shard
-   goes straight to the ring and can overtake it **[V]** (`src/core/shard.cpp:1470-1531`). No test and no document covers it.
-   Section 6, R2.
+1. **Confirmed defect D2: silent loss of acknowledged writes on last-segment WAL corruption.** One flipped byte mid-record in the
+   newest WAL segment drops that record and every later acknowledged record; recovery exits 0 and `snc_server` never reports
+   `torn_tails` **[V]** (reproduced: 49 of 100 survive; `src/core/storage.cpp:396-420`). Power loss, WAL EIO and ENOSPC are
+   untested. Section 0.1, R1.
+2. **Confirmed defect D1: cross-shard overtaking.** A non-batchable request to a shard overtakes an earlier batchable EXEC from
+   the same origin **[V]** (200 of 200 in process; 0 of 200 with batching off; `src/core/shard.cpp:1470-1531`). Reach is narrower
+   than first written: sequenced requests are exempt and the shipped clients route to the owner. No ordering contract exists.
+   Section 0.1, R2. Also confirmed: **D3**, a reused `client_id` gets a false `OK, replayed` (section 0.1).
 3. **There is no event system.** The only asynchronous mechanism is the follow-up/outbox. It is at-least-once re-emission from
    durable state with hand-written idempotence per type, has no timer (re-emission only on restart, link-up, map change,
    unseal), and has a silent drop path. Section 3.13.
-4. **No security boundary and no regression gate.** No authentication or TLS on any port; the admin port (`PROMOTE`, `MOVE`)
-   binds `INADDR_ANY` **[V]** (`src/core/engine.cpp:1234`, `src/core/node_link.cpp:203`). There is no CI **[V]**, one test
-   is red by a stale assertion, and one is flaky under load.
+4. **No security boundary and no regression gate (D4).** No authentication or TLS on any port. The admin port (`tools/ha.h:38`,
+   used at `tools/snc_server.cpp:1040`), the witness, seed and node-link ports bind all interfaces **[V]**, and the admin port
+   answered an unauthenticated request on the LAN address while the data port was loopback-only. There is no CI **[V]**, and one
+   test (`test_pilot`) is deterministically red by a stale assertion.
 5. **The performance campaign has not produced a go/no-go signal, and none of its open questions blocks engineering.** The
    comparative phase is gated on a `CRITERIA.md` that does not exist **[V]**. The PR #120 recvfrom "instrument defect" is
    substantially a denominator-definition error in the preregistered check, not evidence of an observer effect (section 7.3).
@@ -71,9 +142,10 @@ any schema evolution; any security boundary; any comparative result against a ma
 baseline* in `bench/conventional/`, `docs/CONVENTIONAL.md` and result CSVs. SNC persistence is its own WAL + checkpoint +
 A/B-superblock on local files.
 
-**Recommendation.** Do not run another performance experiment. Three milestones, in this order: **M1** durability fault-model
-closure; **M2** delivery, ordering and application-surface closure; **M3** operability and regression baseline (CI, security
-posture, startup self-reporting). A test-only first slice for M1 is in section 10.
+**Recommendation.** Do not run another performance experiment. A small **minimal-CI slice (M0)** first, then three milestones:
+**M1** confirmed correctness defects and the durability fault model (D1, D2, D3 and corruption/EIO/power-loss tests); **M2**
+retry, migration and delivery semantics plus the application surface; **M3** security and operability. Nothing new is built on
+top of D1 to D3 until they are resolved or explicitly evaluated. The first slice is in section 10.
 
 ---
 
@@ -138,7 +210,7 @@ Fields per row: **R** intended responsibility, **I** implementation, **T** tests
 - **I** `src/native/runtime.cpp:119-170,440-500`; `shard.cpp:170-244` (entry), `1456-1640` (batching); `engine.cpp:145` (flush per loop iteration).
 - **T** `test_runtime.cpp` (per-pair FIFO, no loss with forced overflow), `test_execute.cpp` (75% remote), `test_intake.cpp`, `test_lifecycle.cpp`. `test_gauges.cpp:215` is the only test touching `batch_remote=false`.
 - **D** Ring-level FIFO and no loss; owner-thread execution by construction.
-- **U** Op-level ordering (see R2). Scaling beyond a few shards: quoted results are 4-vCPU VM, plus R640 loopback. The slot map is static (`slot_map.h:12`; remap only at recovery when shard count changes, `engine.cpp:1020-1023`).
+- **U** Op-level ordering: **confirmed defect D1** (section 0.1). Scaling beyond a few shards: quoted results are 4-vCPU VM, plus R640 loopback. The slot map is static (`slot_map.h:12`; remap only at recovery when shard count changes, `engine.cpp:1020-1023`).
 - **L** A single-threaded shard loop means any long operation stalls its shard (the checkpoint begin snapshot is about 27 ms on shard 0, section 7). The cluster map is never freed: every adopted placement is pushed into `maps_` (`engine.cpp:1604-1606`). Must-deliver messages use an unbounded overflow queue (`runtime.cpp:128`).
 - **N** Document an ordering contract; test the batched/unbatched interleaving; free superseded cluster maps.
 
@@ -148,7 +220,7 @@ Fields per row: **R** intended responsibility, **I** implementation, **T** tests
 - **T** `test_crash.cpp` (SIGKILL, 4 rounds, every acked write present), `test_persistence.cpp` (torn tail, lost spare rename), `test_wal_capacity.cpp` (runs with `sync=false, direct=false`, so it says nothing about disk durability).
 - **D** No loss of acknowledged durable writes across process SIGKILL on one machine and filesystem; simulated torn tail and lost rename handled.
 - **U** Power loss and fsync ordering (`docs/STATUS.md:510-511`: "power loss is not tested"; `docs/FAILURE_MODEL.md` H3, S5 UNPROVEN); real partial-sector writes; WAL EIO/ENOSPC (only handler is `storage_fatal` abort, `storage.cpp:816-819`, no injection test).
-- **L** **[V]** A bad or out-of-sequence record ends the segment and increments `torn_tails` (`storage.cpp:396-420`). For the last segment this silently discards that record and every later acknowledged record; `FAILURE_MODEL` lists this as S6, a known gap. `wal_sync=false` (`storage.h:141`) still reports acks as durable. No WAL disk-space accounting.
+- **L** **Confirmed defect D2 (reproduced).** A bad or out-of-sequence record ends the segment and increments `torn_tails` (`storage.cpp:396-420`). For the last segment this silently discards that record and every later acknowledged record; `FAILURE_MODEL` lists this as S6, a known gap. `wal_sync=false` (`storage.h:141`) still reports acks as durable. No WAL disk-space accounting.
 - **N** M1 (section 9).
 
 ### 3.6 Checkpoint, recovery, superblock: **Partially verified** (strongest evidence in the repository)
@@ -195,8 +267,8 @@ it is a baseline only. If a PostgreSQL-backed persistence option was intended, i
 - **T** `test_migrate.cpp`: 67 scenarios (8 failure kinds x 7 stop points + 11), real node processes plus three witnesses, SIGKILL of source/destination primary/standby/witness, a double-ownership probe, conservation check. Also `test_stage_chain.cpp` (in-process), `test_fail_closed.py`, `test_baseline_move.py`.
 - **D** The probe never saw two serving owners; acknowledged transfers exact; unproven slots fail closed.
 - **U** The probe is sampled, so no overlap is an observation, not a proof. Repair of a failed-closed slot is not built. Witness-majority loss mid-move (FAILURE_MODEL C6).
-- **L** Sessions are per-shard objects and do not move with slots; the cluster client uses a separate client and sequence per group (`cluster_client.cpp:80-90`). A resend of an applied-but-unanswered request that lands on the new owner after a map refresh would be a new request, hence a double apply. `docs/CORE_CONTRACTS.md:313-322` labels this "INFERRED, UNPROVEN"; `test_baseline_move` q2 proves only the resend-reaches-source branch.
-- **N** Write and run the cross-group resend test, or carry the session record on move (M2).
+- **L** Sessions are per-shard objects and do not move with slots (`moves_with_slot` is `type_id >= 256`, `shard.cpp:3578`), and the cluster client uses a separate client and sequence per group (`cluster_client.cpp:80-90`). **Revision 2:** a resend that reaches the source group is answered from its session before `E_MOVED` (`shard.cpp:564` before `:568` **[V]**), and the shipped client keeps unanswered requests in the source group's `Client`; `test_baseline_move` q2 passes at depth 1. A double apply therefore needs a driver that re-issues an in-doubt request to the destination itself, or session expiry between attempt and resend: **plausible risks, not demonstrated** (section 0.2). `docs/CORE_CONTRACTS.md:313-322` still labels the area "INFERRED, UNPROVEN".
+- **N** Write the narrowed cross-group tests (destination re-issue, TTL expiry, depth greater than 1) and decide the driver contract (M2a); session-on-move only if a test shows a defect.
 
 ### 3.13 Event delivery, acknowledgement, ordering: **Implemented, unverified** (as a general guarantee)
 - **There is no first-class event concept.** Only the follow-up exists: `OpCtx::emit`, `NodeLinks::Frame` (`node_link.h`), and per-object outbox/inbox state in the `Account` type (`src/types/account.cpp:140-345`). No publish/subscribe, event log, event IDs or per-subscriber ordering.
@@ -216,7 +288,7 @@ it is a baseline only. If a PostgreSQL-backed persistence option was intended, i
 - **I** `src/net/`, `tools/admin_loop.h`, `tools/snc_server.cpp:1050-1200`.
 - **T** `test_net.cpp`, `test_admin_loop.cpp`, `test_gauges_admin.py`, many process-level tests.
 - **D** Owner forwarding, session replay, HEALTH/GAUGES answering while a shard is stalled.
-- **L** **No authentication, TLS or ACL anywhere. [V]** The admin and node-link listeners bind `INADDR_ANY` (`engine.cpp:1234`, `node_link.cpp:203`), and `PROMOTE`/`MOVE` are unauthenticated plain text (`snc_server.cpp:1197-1200`). IPv4 only. Listener and `epoll_ctl` failures abort the process; no cap on accepted connections (`conn_set.cpp:23-25,75-90`).
+- **L** **No authentication, TLS or ACL anywhere. [V]** The admin listener binds `INADDR_ANY` through `ha::listen_on` (`tools/ha.h:38`, called at `snc_server.cpp:1040`; `--host` does not apply to it), as do the witness (`snc_witness.cpp:677`), seed (`engine.cpp:1234`) and node-link (`node_link.cpp:203`) listeners. `PROMOTE`/`MOVE` are unauthenticated plain text (`snc_server.cpp:1197-1200`; by reading, not exercised). IPv4 only. Listener and `epoll_ctl` failures abort the process; no cap on accepted connections (`conn_set.cpp:23-25,75-90`).
 - **N** Bind to a configured address; document the trust boundary; connection cap; malformed-frame fuzz test.
 
 ### 3.16 Application integration: **Implemented, unverified** (as a developer surface)
@@ -261,7 +333,7 @@ Each is bounded by the model stated. None extends beyond it.
 - Durability under power loss, fsync reordering, real torn sectors, WAL EIO/ENOSPC, bit rot (last segment), superblock/manifest damage.
 - Any request ordering guarantee between a client and a shard, or across shards (R2).
 - Delivery completeness of follow-ups without a restart or link event (no timer).
-- Exactly-once across a slot move, across groups, or beyond the session horizon.
+- Exactly-once beyond the session horizon, and across a slot move for a driver that re-issues an in-doubt request to the destination (the shipped client's resend path is protected; section 0.2). Separately, **D3** shows a false success on `client_id` reuse.
 - HA behavior under packet loss, jitter, flapping, clock steps, partition with a serving old primary, async promotion.
 - Any multi-host result on current `main`.
 - NUMA-local placement, as a code guarantee; huge-page use, as asserted behavior.
@@ -276,15 +348,15 @@ Each is bounded by the model stated. None extends beyond it.
 
 | ID | Risk | Evidence | Couples |
 |---|---|---|---|
-| **R1** | Durability evidence is process-kill only; last-segment corruption is silent loss; no WAL I/O-error handling beyond abort | `storage.cpp:396-420` **[V]**, `816-819`; `FAILURE_MODEL` S3/S5/S6, H1-H3 | Replication (a lost primary tail vs standby), recovery barrier, every "acknowledged" claim |
-| **R2** | Ordering unspecified; batched and unbatched cross-shard requests from one origin can reorder | `shard.cpp:1470-1531` **[V]**, `engine.cpp:145` | Client retry/session logic, version-conditioned ops, any application that issues dependent ops without awaiting completion |
+| **R1** | **Confirmed (D2):** last-segment corruption is silent loss, invisible to operators. Evidence is process kill plus checkpoint-write return injection only; no WAL I/O-error handling beyond abort | `storage.cpp:396-420` **[V]**, `816-819`; reproduced; `FAILURE_MODEL` S3/S5/S6, H1-H3 | Replication (a lost primary tail vs standby), recovery barrier, every "acknowledged" claim |
+| **R2** | **Confirmed (D1):** a non-batchable request overtakes an earlier batched one; no ordering contract | `shard.cpp:1470-1531`, `engine.cpp:145`; reproduced 200/200 **[V]** | In-process applications and unsequenced pipelined clients on a non-owner port (sequenced requests are exempt; shipped clients route to the owner); version-conditioned ops |
 | **R3** | Follow-ups have no timer, no first-class event, a silent drop path; idempotence is a per-type contract | `shard.cpp:3525-3546`, `1858,2085-2092,3768-3775,3812`; `account.cpp:257-285` | Any new type, cross-group transfers, migration resume |
-| **R4** | Exactly-once breaks at a slot move or across groups because sessions are per-shard objects | `cluster_client.cpp:80-90`; `CORE_CONTRACTS:313-322` | Migration, ClusterClient, the "no double apply" claim |
+| **R4** | **Plausible risk (narrowed):** a resend is answered from the source session before `E_MOVED` (`shard.cpp:564` before `:568` **[V]**), so the shipped client is protected; a driver re-issuing an in-doubt request to the destination, or session TTL expiry, could double-apply. **Confirmed separately (D3):** `client_id` reuse yields a false `OK` | `cluster_client.cpp:80-90`; `CORE_CONTRACTS:313-322`; `qa/QA_REPORT.md` Q3 | Migration, ClusterClient, client restart, the "no double apply" claim |
 | **R5** | HA safety envelope is narrow: contact-driven fencing, no-witness degrade is timeout-only, async can be promoted stale, no checker, manual rejoin | `replication.cpp:667-669`, `shard.cpp:2252-2271`, witness has no async check **[V]** | Durability (acked writes), operations |
-| **R6** | No trust boundary: no auth/TLS; admin `PROMOTE`/`MOVE` on `INADDR_ANY` | `engine.cpp:1234`, `node_link.cpp:203` **[V]**, `snc_server.cpp:1197` | Any non-lab deployment; HA (anyone can promote) |
+| **R6** | **Confirmed (D4):** no auth/TLS; admin, witness, seed and node-link ports on all interfaces; `PROMOTE`/`MOVE` open (by reading) | `tools/ha.h:38` + `snc_server.cpp:1040`, `snc_witness.cpp:677`, `engine.cpp:1234`, `node_link.cpp:203` **[V]**; `snc_server.cpp:1197` | Any non-lab deployment; HA (anyone can promote) |
 | **R7** | Availability depends on abort-on-contract-violation, including on recovery of a bad image and on listener/epoll failures | `shard.cpp:57-60,1798-1802`; `conn_set.cpp:23-25,86` | Crash-loop risk after a corrupt-but-CRC-valid image |
 | **R8** | Environment effects are silent: pin failure, hugepage downgrade, NUMA absent from code; the campaign relied on an external wrapper | `runtime.cpp:464`, `pages.cpp:47-61`; no `mbind` **[V]** | Every performance number's reproducibility |
-| **R9** | No regression gate: no CI, one stale red test, one load-sensitive test, drifted docs | section 8 | Everything above (nothing keeps fixes fixed) |
+| **R9** | No regression gate: no CI (no hooks, cron or timers either), one deterministic stale red test, one load-slow test, drifted docs | section 8 | Everything above (nothing keeps fixes fixed) |
 | **R10** | Application surface is one compiled-in type with no schema evolution | `snc_server.cpp:545`, `engine.cpp:1011-1015` | Adoption; every claim about "persistent application objects" |
 | **R11** | Scaling assumptions rest on small, unlike systems: 4-vCPU VM and one R640 on loopback; static slot map; per-shard single thread; cluster-map growth; whole-segment recovery read | various | Performance claims, long-running operation |
 
@@ -351,7 +423,7 @@ Why the duration session read 1.47 ms; whether closed-loop capacity enters any `
 |---|---|---|---|
 | **T-1** | **Instrumentation: capstate validity check uses whole-process-life denominators against a window numerator.** Fix: windowed server counters or subtract the load phase. | `capstate.py:454-458`; section 7.3 | Yes (touches `bench/results/`, which the freeze gate allows; but a driver change after a closed experiment needs a decision). Not applied. |
 | **T-2** | `test_pilot` red since PR #110: asserts `go_record is None`, but `bench/cp1a_frozen.json:6` now sets it. **[V]** | `tests/test_pilot.py:366`; fix collides with the freeze gate (`bench/pilot.py:265`, `test_pilot.py:344`) | Yes: a freeze decision, not just an edit |
-| **T-3** | `test_intake` failed once under `ctest -j4`, passed 3 of 3 alone; cause undiagnosed | clean-build log | Diagnosis only |
+| **T-3** | `test_intake` failed once (12.98 s) in my `ctest -j4` run; not reproduced in 8 QA executions or my 3 isolated runs; load-slow (11.4 s alone, 17.6 s under 4 busy loops, 43.8 s under 72). Cause of the single failure undiagnosed; not shown flaky | clean-build log; `qa/` logs | Diagnosis only |
 | **T-4** | Two carried unexplained flakes (Paxos `c2b` deadline, F8 links-up timeout) | `docs/STATUS.md` about 118-121 | Diagnosis only |
 | **T-5** | No CI, no TSAN run on record | no `.github`/`scripts` **[V]** | Yes (new files) |
 | **T-6** | `heap_limit_bytes` is dead code in all shipped paths | `native_runtime.h:23`, `runtime.cpp:472` | Wire or delete |
@@ -364,57 +436,169 @@ Why the duration session read 1.47 ms; whether closed-loop capacity enters any `
 
 ---
 
-## 9. Three prioritized engineering milestones
+## 9. Three prioritized engineering milestones (revision 2)
 
-Prioritization rule from the assignment: correctness, integration and completeness over optimization, unless a performance blocker
-is established. **No performance blocker is established** (section 7).
+Rules applied: correctness and durability first; **minimal CI first of all** (the review rejected leaving it to the last
+milestone); **no new functionality is built on top of D1 to D4 until they are resolved or their downstream effect is explicitly
+evaluated**; every milestone strengthens the native object store, WAL, checkpoint and recovery, and none adds PostgreSQL. No
+performance blocker is established (section 7), so no milestone is a performance milestone.
 
-### M1. Durability fault-model closure
-- **Objective and justification.** Everything downstream (replication, migration, "acknowledged") rests on durability claims whose only evidence is process kill. R1 is the highest-severity gap and includes one silent-data-loss path.
-- **Prerequisites.** None. Test-only first step needs no production change.
-- **Scope.** WAL write/fsync EIO and ENOSPC injection; last-segment mid-record corruption (first *characterize*, then decide fail-stop versus truncate with a durable signal); superblock, manifest and part damage (torn, zeroed, bit-flipped) with A/B fallback; a power-loss run on a device-mapper log-writes or flakey target, or a VM power-cut harness; WAL disk-space accounting and refusal; documentation of `durable` under `wal_sync=false`.
-- **Exclusions.** No performance tuning; no new checkpoint design; no replication changes.
-- **Expected work.** Test harness around existing debug hooks plus one injection point for the WAL path; later, a small `storage.cpp` change if the reviewer chooses fail-stop on mid-log corruption.
-- **Verification.** Each injected fault produces a defined outcome (recover, refuse, or abort with a named reason) asserted by a test; the power-loss run replays N cycles.
-- **Acceptance criteria.** (1) No test path in which an acknowledged durable write disappears silently; (2) every storage failure has a test asserting its outcome; (3) at least 200 power-cut cycles with zero lost acknowledged writes and zero unrecoverable states, or each loss is explained by a documented, tested exclusion; (4) `FAILURE_MODEL.md` S3, S5, S6, H1-H3 updated from UNPROVEN to a tested status or an explicit "not covered".
-- **Risks.** Power-loss tooling on the R640 is heavy; a VM may not reproduce real device behavior; fail-stop on mid-log corruption can turn a silent loss into an availability event (a deliberate trade-off to decide).
+### Dependency summary
 
-### M2. Delivery, ordering and application-surface closure
-- **Objective and justification.** The platform's value proposition is application objects with correct semantics. Today the semantics are unspecified (ordering), implicit (idempotence per type) or unproven (cross-group resend), and only one type exists.
-- **Prerequisites.** M1 may proceed in parallel; the ordering test needs no prerequisite. Schema work should follow the ordering contract.
-- **Scope.** (a) A written op-ordering contract and a test of batched versus unbatched interleaving (R2); (b) the cross-group resend test, or carry the session record on slot move (R4); (c) a decision on the "event" abstraction, and for follow-ups either a timer-driven resume or a proof that every drop is paired with a trigger (R3); (d) a second user type through the public descriptor API, a registry freeze flag, and a schema-version policy; (e) a decision on how applications are loaded (linked in versus loaded).
-- **Exclusions.** No new transport; no multi-object transactions or snapshot reads; no Rust, DPDK or VPP; no performance work.
-- **Expected work.** Mostly tests and documentation first; production changes (flush the pending batch before a direct send to the same destination, or define the weaker contract; a resume timer) only after authorization.
-- **Verification.** Property or randomized interleaving test for ordering; process-level cross-group resend scenario in `test_baseline_move` style; a second type exercised by the existing crash, replication and migration suites.
-- **Acceptance criteria.** (1) The ordering contract is stated and a test fails if it is violated; (2) a resend after a slot move to the new owner applies exactly once, in a test; (3) every follow-up drop path is either removed or covered by a test showing eventual settlement without a restart; (4) a second, differently shaped type passes the crash, failover and migration suites unchanged.
-- **Risks.** Closing the batching reorder may cost cross-shard throughput (CROSSCORE showed 0.67x to 1.20x sensitivity to depth), which would have to be measured under the existing preregistration discipline, not assumed; the session-on-move design touches the migration protocol.
+```
+M1-0 minimal CI  ──►  everything else (nothing keeps a fix fixed without it)
+        │
+        ├─► M1-a  characterization tests (D2, corruption matrix)        no production change
+        ├─► M1-b  D1 ordering: contract + fix                           needs: ordering-contract decision
+        ├─► M1-c  D2 policy + torn_tails visibility                     needs: policy decision (after M1-a)
+        ├─► M1-d  D3 client-identity guard                              needs: wire/session design decision
+        ├─► M1-e  WAL EIO/ENOSPC injection, disk-space refusal
+        └─► M1-f  power-loss run                                        needs: harness (VM or dm-log-writes)
+M1 defects closed or evaluated  ──►  M2 (retry/migration/delivery semantics, second type, schema)
+M3 (security, operability) can start after M1-0; its admin-bind slice should not wait for M2 (D4 is exposed today).
+```
 
-### M3. Operability and regression baseline
-- **Objective and justification.** There is no regression protection (R9) and no trust boundary (R6), and the server stays silent about environment degradation (R8). A deployable system needs these before further features.
-- **Prerequisites.** A decision on the freeze interlock for T-2. Otherwise independent.
-- **Scope.** CI that builds and runs `ctest` plus an ASan/UBSan run and a TSAN run; resolve `test_pilot` (T-2) and diagnose `test_intake` (T-3); startup self-checks that log or refuse on pin failure, page-mode downgrade, missing NUMA binding, governor and THP; bind admin and node-link listeners to a configured address; an authentication decision for `PROMOTE`/`MOVE`; connection cap; a config file and systemd unit; pin/NUMA/page-mode in HEALTH.
-- **Exclusions.** No full TLS rollout unless the reviewer decides it is in scope; no metrics backend beyond a minimal export.
-- **Expected work.** New CI configuration, small server changes for self-reporting and binding, documentation.
-- **Verification.** CI green on `main` and on a deliberately broken branch (the gate must fail); tests asserting startup warnings or refusals.
-- **Acceptance criteria.** (1) `ctest` passes in CI on three consecutive runs, with ASan/UBSan and TSAN clean or each report triaged; (2) no listener binds `INADDR_ANY` without an explicit flag; (3) `PROMOTE`/`MOVE` refuse an unauthenticated peer, or the trust boundary is documented as a lab-only configuration with a startup banner; (4) a server started with a failed pin or downgraded page mode says so in its log and in HEALTH.
-- **Risks.** TSAN may surface real races in the shard/ring design; authentication touches the HA path and must not weaken fencing.
+### M1. Confirmed correctness defects, durability fault model, and minimal CI
+
+**Objective and justification.** D1 to D3 are state-consistency defects that exist today; the durability claims behind every
+"acknowledged" statement rest on process-kill evidence only. This milestone makes the evidence match the claims and protects it
+with a regression gate.
+
+**Prerequisites.** None for M1-0 and M1-a. M1-b needs the ordering-contract decision; M1-c needs the D2 policy decision; M1-d
+needs a client-identity design decision; M1-f needs a power-loss harness.
+
+**Slices, in order.**
+
+- **M1-0. Minimal CI (first).** Clean Release build; a fast deterministic `ctest` subset on every change (the C++ unit tests and
+  the quick Python tests); the full suite (28.4 min serial, 7.7 min at `-j4`, from QA's per-test timings) nightly or per merge
+  to `main`; an ASan/UBSan job (a stale 48/48 `build-asan` log dated 11-11 exists, nothing automated); a TSAN job (none has ever
+  run); `test_pilot` resolved so the gate can be green. **Open decision:** hosted versus self-hosted runner. Many tests start
+  real processes, use io_uring and `RWF_DSYNC`, and bind fixed port ranges, so a hosted runner may not suffice; the R640 host or a
+  dedicated Linux VM is the likely home.
+- **M1-a. Characterization tests, test-only.** Tests asserting the *current* behavior of: last-segment mid-record corruption (D2),
+  earlier-segment corruption (abort), superblock A/B damage, manifest and part corruption, a batched-versus-unbatched
+  interleaving (D1, asserting the current overtaking so the later fix flips it), and `client_id` reuse (D3). QA already observed all
+  of these once; the tests pin them.
+- **M1-b. D1: ordering.** First write the op-ordering contract (what a single origin may rely on). Then either flush the pending
+  batch to a destination before any direct send to that destination, or document the weaker contract and refuse the unsafe
+  combination. **Downstream effect to evaluate before merging:** batching exists for cross-shard throughput (`docs/CROSSCORE.md`
+  measured 0.67x to 1.20x depending on depth), so the cost of the fix must be measured under the existing preregistration
+  discipline, not assumed.
+- **M1-c. D2: last-segment policy and visibility.** Decide between fail-stop and truncate. A middle option exists and avoids the
+  availability cost for the ordinary crash tail: before truncating at a bad record, scan the rest of the segment for any later
+  *valid* record with a higher LSN; if one exists the damage is mid-log corruption, not a torn tail, and recovery refuses with a
+  named error. In every case, surface `torn_tails` in the startup log, `HEALTH` and `GAUGES`, and exit status policy.
+- **M1-d. D3: client identity.** Options: server-issued client ids or an incarnation counter in the session key, so a restarted
+  client cannot collide with a live session. **Downstream effects:** wire format, session records, replication of sessions, and
+  migration (sessions do not move with slots). Needs a design note before code.
+- **M1-e. WAL fault injection.** EIO and ENOSPC on WAL write and fsync (today only `storage_fatal` abort, untested); WAL disk-space
+  accounting and a refusal path.
+- **M1-f. Power loss.** A power-cut or log-writes harness (VM or device-mapper `log-writes`/`flakey`); repeated cycles.
+
+**Scope exclusions.** No performance tuning, no new checkpoint design, no replication changes, no feature work.
+
+**Verification strategy.** Each slice has a test that fails before and passes after; CI runs them; fault outcomes are asserted
+(recover, refuse, or abort with a named reason), never merely "does not crash".
+
+**Measurable acceptance criteria.**
+1. CI green on `main` for three consecutive runs and **red on a deliberately broken branch** (the gate must be shown to fail);
+   fast subset under 10 minutes; `test_pilot` green by a decision, not a skip.
+2. D2: no acknowledged durable write disappears silently in any test; `torn_tails` is visible in the log and `HEALTH`/`GAUGES`.
+3. D1: the contract is written and a test fails if it is violated; the measured cost of the fix is recorded against a preregistered
+   threshold.
+4. D3: a test in which a restarted client cannot receive a false `OK, replayed`.
+5. Every storage failure listed in M1-a and M1-e has a test asserting its outcome; at least 200 power-cut cycles with zero lost
+   acknowledged writes and zero unrecoverable states, or each loss explained by a tested exclusion.
+6. `docs/FAILURE_MODEL.md` S3, S5, S6, H1 to H3 updated from UNPROVEN to a tested status or an explicit "not covered".
+
+**Principal risks.** Fail-stop on mid-log corruption turns silent loss into an availability event (hence the discriminating rule);
+the ordering fix may cost cross-shard throughput; the client-identity change touches the wire and session formats; power-loss
+tooling on the R640 is heavy and a VM may not reproduce device behavior; TSAN may surface real races.
+
+### M2. Retry, migration and delivery semantics, and the application surface
+
+**Objective and justification.** Once the state-consistency defects are closed, finish the semantics a state-native platform
+promises: what a client can rely on across failover and slot moves, what a follow-up guarantees, and whether anything other
+than `Account` can be built on it.
+
+**Prerequisites.** M1-0 and M1-b to M1-d resolved or explicitly evaluated. **Do not start M2's new functionality on top of an
+unresolved D1 to D3.**
+
+**Scope.**
+- (a) The cross-group resend test the audit first proposed, now narrowed: exercise the driver-re-issue-to-destination and the
+  TTL-expiry routes (section 0.2), and depth greater than 1 (`E_REPLAYED_OLD`). Outcome is either a test showing safety, a defect, or
+  a documented contract that forbids the unsafe driver behavior. Session-on-move only if the tests show a defect.
+- (b) A decision on the "event" abstraction. If follow-ups remain the only mechanism, say so and drop the word; add a timer-driven
+  resume or prove every silent drop (`emit_result`, `shard.cpp:3525-3546`) is paired with a trigger.
+- (c) A second, differently shaped user type through the public descriptor API; a registry freeze after start; a schema-version
+  policy (today a version or name change refuses to start); a decision on how applications are loaded.
+- (d) HA safety gaps from R5: refuse automatic promotion of async pairs; test a partitioned old primary serving reads; forbid or flag
+  no-witness degrade in sync mode.
+
+**Exclusions.** No new transport; no multi-object transactions or snapshot reads; no Rust, DPDK or VPP; no performance work.
+
+**Verification.** Process-level scenarios in the `test_baseline_move` style; the second type must pass the existing crash,
+failover and migration suites unchanged.
+
+**Acceptance criteria.** (1) Every route in 0.2 is either tested safe, fixed, or excluded by a written and tested contract.
+(2) Every follow-up drop path is removed or covered by a test showing eventual settlement without a restart. (3) A second type
+passes the crash, failover and migration suites unchanged. (4) Async pairs are never promoted automatically, or the refusal is
+loud and tested.
+
+**Principal risks.** Session-on-move touches the migration protocol; a resume timer changes follow-up timing; the second type may
+expose descriptor-API gaps.
+
+### M3. Security and operability
+
+**Objective and justification.** There is no trust boundary (D4) and the server stays silent about environment degradation (R8). A
+deployable system needs both. The admin-bind slice should not wait for M2: the admin port is reachable on the LAN today.
+
+**Prerequisites.** M1-0 (so changes are gated). Authentication touches the HA path and must not weaken fencing.
+
+**Scope.** Bind admin, witness, seed and node-link listeners to a configured address (default loopback) with an explicit
+flag for wider exposure; an authentication decision for `PROMOTE`, `MOVE` and the witness verbs; a connection cap; startup
+self-checks that log or refuse on pin failure, hugepage downgrade, missing NUMA binding, governor and THP; pin, NUMA and page mode in
+`HEALTH`; a config file and a systemd unit; wire or delete `heap_limit_bytes`.
+
+**Exclusions.** No full TLS rollout unless the reviewer puts it in scope; no metrics backend beyond a minimal export.
+
+**Verification.** Tests that the unauthenticated connection is refused or the lab-only posture prints a startup banner; tests of
+each startup warning or refusal.
+
+**Acceptance criteria.** (1) No listener binds all interfaces without an explicit flag. (2) `PROMOTE`/`MOVE`/witness state-changing
+verbs refuse an unauthenticated peer, or the configuration is documented lab-only with a banner. (3) A server started with a
+failed pin or downgraded page mode says so in its log and in `HEALTH`.
+
+**Principal risks.** Authentication in the HA path; operators lose convenience of the open admin port.
 
 ### Recommended execution order
-**M1 and the test-only half of M2 first and in parallel; M3's CI slice early** (it is cheap and protects the rest), with the T-2 freeze decision requested now. If the reviewer wants one sequence: **M1, then M3, then M2**, because M3's CI makes M2's production changes safe to land, and M2's ordering decision can be made by the reviewer meanwhile.
+
+**M1-0 first, then M1-a and M1-e in parallel (both are test-only or additive), then M1-b, M1-c and M1-d as their decisions land,
+with M1-f when a harness exists. M3's admin-bind slice may run right after M1-0, in parallel with the rest of M1. M2 starts after
+D1 to D3 are resolved or evaluated.** Rationale: the CI gate protects every later change; the confirmed defects are the
+state-consistency violations the review asked to prioritize; M2's semantics work would otherwise rest on a layer with known
+violations.
 
 ---
 
 ## 10. Recommended immediate next work slice
 
-**M1-a: WAL and checkpoint fault-injection characterization, test-only.**
-- Add tests (no change to `src/`) that (1) inject EIO and ENOSPC into the WAL write path via the existing debug-hook style and assert the outcome, (2) flip a byte mid-record in the *last* WAL segment and assert the *current* behavior (silent drop of later acknowledged records), in the manner of `test_async_failover` characterizing a known-bad behavior, and (3) zero or tear the superblock, manifest and one checkpoint part and assert the fallback or abort.
-- **Why this one.** It is the highest-severity gap (R1), needs no production change, converts "unknown" into named, tested outcomes, and gives the reviewer the data to decide fail-stop versus truncate.
-- **Acceptance.** All new tests pass on `main` by asserting the current behavior; the three outcomes are recorded in `docs/FAILURE_MODEL.md`; no source file outside `tests/` and `docs/` changes.
-- **Needs authorization** because it adds tests (not allowed under this audit's scope).
+**M1-0 minimal CI, then M1-a characterization tests.** Both are additive (new CI configuration, new tests); neither changes
+production code.
+
+- **M1-0** needs one decision first: how to handle `tests/test_pilot.py` under the freeze gate (`bench/pilot.py:265`,
+  `tests/test_pilot.py:344`): re-choose `runner_commit`, or carve the test out of the post-freeze list. It also needs the
+  hosted-versus-self-hosted runner decision.
+- **M1-a** pins the current behavior of D1, D2, D3 and the corruption matrix so the later fixes visibly flip a test.
+
+**Acceptance for the slice:** CI green three times and red on a broken branch; the M1-a tests pass on `main` asserting current
+behavior; no file outside `tests/`, CI configuration and `docs/` changes.
 
 **Requests for authorization or decision (none acted on here):**
-1. Authorize M1-a.
-2. Decide the freeze handling for `tests/test_pilot.py` (T-2) so the red test can be repaired.
-3. Authorize the T-1 driver fix or accept a documentation-only note.
-4. Confirm the "event" abstraction question (M2c) and the op-ordering contract direction (M2a).
-5. Commit `CRITERIA.md` before any comparative work (reviewer-owned).
+1. Authorize M1-0 and M1-a.
+2. Decide the freeze handling for `tests/test_pilot.py` (T-2) and the CI runner location.
+3. Decide the ordering-contract direction (D1) and the D2 policy (fail-stop, truncate, or the discriminating rule).
+4. Decide the client-identity approach (D3).
+5. Authorize the T-1 capstate driver fix, or accept a documentation-only note.
+6. Confirm the "event" question (M2b).
+7. Commit `CRITERIA.md` before any comparative work (reviewer-owned).
