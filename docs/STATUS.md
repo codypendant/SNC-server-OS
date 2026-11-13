@@ -310,6 +310,14 @@ Decided by cody on 2026-11-04.
      tracepoint is 0.81 to 0.82 of the server-log-implied count in every run (limit 3%). The
      instrumentation is a possible observer effect (accepted in the prereg); no cause claimed.
      sar.sa binaries (350 MB) not committed; hashes in SHA256SUMS. Nothing else authorized.
+     **PR #120 merged. PR #121 (for review): repository-wide architecture and evidence audit**
+     ([ARCHITECTURE_EVIDENCE_AUDIT_20261113.md](ARCHITECTURE_EVIDENCE_AUDIT_20261113.md); documentation only).
+     Findings: durability evidence is process-kill only and a mid-log corruption in the last WAL segment is
+     silently dropped; one batched/unbatched cross-shard reorder path exists; no event abstraction (follow-ups only,
+     no timer); no auth, no CI; SNC has no PostgreSQL persistence (baseline only). The PR #120 recvfrom ratio is
+     largely a whole-process-versus-window denominator error in the check, not evidence of an observer effect.
+     Recommended milestones: M1 durability fault-model closure, M2 delivery/ordering/application surface,
+     M3 operability and regression baseline. Nothing is implemented; authorization requests are listed in section 10.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

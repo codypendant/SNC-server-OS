@@ -1,0 +1,110 @@
+Test project /tmp/claude-1000/-home-solo/8f9ad687-3acb-4b0a-945c-92bc6af22f95/scratchpad/auditbuild
+      Start  1: test_rate_schedule
+      Start  2: test_object_id
+      Start  3: test_local_map
+      Start  4: test_pages
+ 1/49 Test  #2: test_object_id ...................   Passed    0.01 sec
+      Start  5: test_runtime
+ 2/49 Test  #1: test_rate_schedule ...............   Passed    0.01 sec
+      Start  6: test_execute
+ 3/49 Test  #6: test_execute .....................   Passed    0.21 sec
+      Start  7: test_persistence
+ 4/49 Test  #5: test_runtime .....................   Passed    0.33 sec
+      Start  8: test_crash
+ 5/49 Test  #7: test_persistence .................   Passed    0.61 sec
+      Start  9: test_net
+ 6/49 Test  #4: test_pages .......................   Passed    0.86 sec
+      Start 10: test_transfer
+ 7/49 Test  #9: test_net .........................   Passed    0.04 sec
+      Start 11: test_replication
+ 8/49 Test  #3: test_local_map ...................   Passed    1.43 sec
+      Start 12: test_cluster
+ 9/49 Test  #8: test_crash .......................   Passed    1.72 sec
+      Start 13: test_migrate
+10/49 Test #10: test_transfer ....................   Passed    6.33 sec
+      Start 14: test_resend_refusals
+11/49 Test #14: test_resend_refusals .............   Passed    0.10 sec
+      Start 15: test_proof
+12/49 Test #12: test_cluster .....................   Passed    6.51 sec
+      Start 16: test_placement
+13/49 Test #16: test_placement ...................   Passed    0.04 sec
+      Start 17: test_stage_chain
+14/49 Test #15: test_proof .......................   Passed    0.96 sec
+      Start 18: test_gauges
+15/49 Test #18: test_gauges ......................   Passed    3.77 sec
+      Start 19: test_s1_admission
+16/49 Test #17: test_stage_chain .................   Passed    7.33 sec
+      Start 20: test_s2_pacing
+17/49 Test #20: test_s2_pacing ...................   Passed    6.34 sec
+      Start 21: test_s3_writeback
+18/49 Test #11: test_replication .................   Passed   25.80 sec
+      Start 22: test_lifecycle
+19/49 Test #19: test_s1_admission ................   Passed   17.79 sec
+      Start 23: test_s4_sync_tokens
+20/49 Test #13: test_migrate .....................   Passed   32.41 sec
+      Start 24: test_admin_loop
+21/49 Test #24: test_admin_loop ..................   Passed    1.11 sec
+      Start 25: test_wal_capacity
+22/49 Test #22: test_lifecycle ...................   Passed   13.67 sec
+      Start 26: test_intake
+23/49 Test #23: test_s4_sync_tokens ..............   Passed   13.70 sec
+      Start 27: test_xnode
+24/49 Test #25: test_wal_capacity ................   Passed   11.33 sec
+      Start 28: test_witness
+25/49 Test #21: test_s3_writeback ................   Passed   26.95 sec
+      Start 29: test_async_failover
+26/49 Test #26: test_intake ......................***Failed   12.98 sec
+      Start 30: test_control
+27/49 Test #30: test_control .....................   Passed    1.54 sec
+      Start 31: test_health
+28/49 Test #29: test_async_failover ..............   Passed   13.80 sec
+      Start 32: test_gauges_admin
+29/49 Test #32: test_gauges_admin ................   Passed    4.39 sec
+      Start 33: test_ckpt_cli
+30/49 Test #33: test_ckpt_cli ....................   Passed    0.38 sec
+      Start 34: test_fail_closed
+31/49 Test #28: test_witness .....................   Passed   23.85 sec
+      Start 35: test_s1
+32/49 Test #27: test_xnode .......................   Passed   65.30 sec
+      Start 36: test_profile_check
+33/49 Test #36: test_profile_check ...............   Passed    0.14 sec
+      Start 37: test_baseline_retry
+34/49 Test #35: test_s1 ..........................   Passed   67.56 sec
+      Start 38: test_sync_readiness
+35/49 Test #31: test_health ......................   Passed  156.82 sec
+      Start 39: test_baseline_move
+36/49 Test #34: test_fail_closed .................   Passed  231.25 sec
+      Start 40: test_xnode_proc
+37/49 Test #39: test_baseline_move ...............   Passed  112.24 sec
+      Start 41: test_baseline_ha
+38/49 Test #37: test_baseline_retry ..............   Passed  239.64 sec
+      Start 42: test_ready_order
+39/49 Test #40: test_xnode_proc ..................   Passed   50.78 sec
+      Start 43: test_paxos_ballots
+40/49 Test #43: test_paxos_ballots ...............   Passed    2.05 sec
+      Start 44: test_witness_hardening
+41/49 Test #44: test_witness_hardening ...........   Passed    5.68 sec
+      Start 45: test_lab_witness_guard
+42/49 Test #45: test_lab_witness_guard ...........   Passed   13.32 sec
+      Start 46: test_index_wire
+43/49 Test #46: test_index_wire ..................   Passed    1.82 sec
+      Start 47: test_pilot
+44/49 Test #47: test_pilot .......................***Failed    0.47 sec
+      Start 48: test_s6
+45/49 Test #48: test_s6 ..........................   Passed    0.17 sec
+      Start 49: test_net_bench_rate
+46/49 Test #49: test_net_bench_rate ..............   Passed   15.66 sec
+47/49 Test #38: test_sync_readiness ..............   Passed  280.52 sec
+48/49 Test #41: test_baseline_ha .................   Passed  164.02 sec
+49/49 Test #42: test_ready_order .................   Passed  139.93 sec
+
+96% tests passed, 2 tests failed out of 49
+
+Total Test time (real) = 488.55 sec
+
+The following tests FAILED:
+	 26 - test_intake (Failed)
+	 47 - test_pilot (Failed)
+Errors while running CTest
+Output from these tests are in: /tmp/claude-1000/-home-solo/8f9ad687-3acb-4b0a-945c-92bc6af22f95/scratchpad/auditbuild/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.

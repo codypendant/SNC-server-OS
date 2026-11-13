@@ -2931,3 +2931,27 @@ or source comments.
     throughput alone; the batching analysis shows the opposite (all large-batch).
 -   **Next action:** independent review. Nothing else is authorized (no rerun, bracket, Latin square, CRITERIA,
     competitors, REFINE #2).
+
+### 2026-11-13 UTC --- Claude (Claude Code): PR #121 architecture and evidence audit (for review)
+
+-   **What:** PR #120 merged; per `docs/handoff/PR120_Capacity_State_Result_Review_and_PR121_Audit_Assignment.md`,
+    produced `docs/ARCHITECTURE_EVIDENCE_AUDIT_20261113.md` and `docs/audit-20261113-working-notes/` (five reviewer
+    notes A to E plus the clean-build `ctest` log). Documentation only: no production code, test or bench file
+    changed; no experiment run.
+-   **Verification status:** reviewer-produced notes are labelled agent-produced. Items marked **[V]** in the report
+    were re-checked by me by reading code or running a command; the rest are reviewer-reported with file:line. This does
+    not satisfy the three-way process: QA verification of the **[V]** items and of the milestones is still needed.
+-   **Tests:** clean build of `main` `23f4a0c` in a scratch dir (frozen `build-s6` untouched); `ctest` 47 of 49. `test_pilot`
+    red by a stale assertion (known; the fix collides with the freeze gate). `test_intake` failed once under `ctest -j4`
+    and passed 3 of 3 alone; cause undiagnosed.
+-   **Findings:** no PostgreSQL persistence exists (baseline only); durability evidence is SIGKILL-only and a mid-log
+    corruption in the last WAL segment is silently dropped (`storage.cpp:396-420`); batched and unbatched cross-shard
+    requests can reorder (`shard.cpp:1470-1531`); no event concept and no follow-up resume timer; no NUMA binding in code
+    (recorded only); no auth and the admin port binds `INADDR_ANY`; no CI; no `CRITERIA.md`.
+-   **Correction to PR #120 reading:** the recvfrom ratio 0.81 to 0.82 is consistent with a window numerator over
+    whole-process-life denominators (load phase included): 3.5 to 3.7 M non-window recvs against 3.57 M expected from the
+    5 M load creates at about 1.4 frames/recv (the 1.4 is borrowed from anchor-run batching, not measured). It is not
+    evidence of an observer effect; that question stays unresolved. Recorded as instrumentation issue T-1.
+-   **Next action:** independent review. Recommended milestones M1, M2, M3 and the test-only slice M1-a are in the report;
+    nothing is implemented. Authorization requests: M1-a; the freeze handling for `tests/test_pilot.py`; the T-1 driver
+    fix; the event and ordering-contract decisions; `CRITERIA.md` (reviewer-owned).
