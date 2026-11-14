@@ -30,6 +30,10 @@ struct RuntimeConfig {
   // kernel's io_uring workers (which complete RWF_DSYNC writes) can run on
   // it. 0 = never yield. See docs/ROUTING.md, "Durable p99: the cause".
   u32 io_yield_us = 50;
+  // Once the oldest in-flight I/O has been in flight this long, each yield
+  // is a brief sleep instead of sched_yield, so the core's kernel threads
+  // that complete the I/O get to run (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md).
+  u32 io_block_after_us = 1000;
   // Cores for the kernel's io_uring workers; empty = kernel default.
   std::vector<int> io_worker_cpus;
 };
