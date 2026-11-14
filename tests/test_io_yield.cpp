@@ -1,8 +1,9 @@
 // F1 regression (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): while file I/O is in
-// flight, a shard loop that always has work must still give its core up by
-// blocking, so the kernel threads that complete that I/O on the core can run.
-// sched_yield does not do that: the thread stays runnable, and on the hosted
-// 7.0 kernels the core's ksoftirqd and dio kworker were starved for minutes.
+// flight and none of it has completed for io_block_after_us, a shard loop
+// that always has work must give its core up by blocking, so the kernel
+// threads that complete that I/O on the core can run. sched_yield does not
+// do that: the thread stays runnable, and on the hosted 7.0 kernels the
+// core's ksoftirqd and dio kworker were starved for minutes.
 //
 // The check does not depend on the scheduler's choices. A blocking pause is
 // a voluntary context switch (voluntary_ctxt_switches in /proc); sched_yield
@@ -75,7 +76,8 @@ int main() {
 
   RuntimeConfig cfg;
   cfg.n_shards = 1;
-  cfg.io_yield_us = 50;  // the default; a regression must not depend on a tuned value
+  cfg.io_yield_us = 50;          // the defaults; a regression must not
+  cfg.io_block_after_us = 1000;  // depend on a tuned value
   ShardHooks hooks;
   hooks.poll = poll;
   NativeRuntime rt(cfg, hooks);
