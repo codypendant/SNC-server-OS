@@ -215,6 +215,24 @@ def q10(step):
             dst = 3 if src == 1 else 1
             res.update(slot=slot, source=src, dest=dst)
             load = Load(c, ids, 40, threads=2, depth=8)
+            # DIAG (never merge): every 0.5 s, each node's HEALTH and shard-0 GAUGES (both non-blocking).
+            import threading
+            diag_stop = threading.Event()
+            def diag_sampler():
+                t0 = time.time()
+                with open(f"{c.work}/zsampler.log", "w") as f:
+                    while not diag_stop.is_set():
+                        for k in sorted(c.admin):
+                            if k == 0:
+                                continue
+                            h = c.ask(k, "HEALTH", 1)
+                            g = c.ask(k, "GAUGES 0", 1)
+                            f.write(f"{time.time() - t0:.1f} n{k} H {h}\n{time.time() - t0:.1f} n{k} G {g}\n")
+                        f.flush()
+                        diag_stop.wait(0.5)
+            diag_th = threading.Thread(target=diag_sampler, daemon=True)
+            diag_th.start()
+            res["diag_stop"] = diag_stop
             time.sleep(2)
             out, err = c.ctl("move", "--stop-after", step, slot, c.group_of(dst), timeout=300)
             assert out == f"STOPPED {step}", out + err
@@ -265,6 +283,9 @@ def q10(step):
             res["pass"] = ok
             return res
         finally:
+            if res.get("diag_stop"):
+                res.pop("diag_stop").set()
+                time.sleep(0.6)
             if load:
                 load.stop()
             keep(c, f"q10_{step}", res)
@@ -280,7 +301,7 @@ def keep(c, name, res):
     with open(f"{JSON_DIR}/{name}_logs.txt", "w") as f:
         for fn in sorted(os.listdir(c.work)):
             if fn.endswith(".log"):
-                f.write(f"==== {fn} ====\n" + open(f"{c.work}/{fn}", errors="replace").read()[-30000:] + "\n")
+                f.write(f"==== {fn} ====\n" + open(f"{c.work}/{fn}", errors="replace").read()[-30000:] if not fn.startswith("zsampler") else open(f"{c.work}/{fn}", errors="replace").read() + "\n")
 
 
 SCEN = {"q2_lost_move": q2_lost_move}

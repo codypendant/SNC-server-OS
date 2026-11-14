@@ -37,7 +37,7 @@ jobs:
           echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
           exit $fail
   xnode:
-    name: diag test_xnode X3 X4 (x8)
+    name: diag test_xnode full (x8)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -52,7 +52,7 @@ jobs:
           fail=0
           for i in $(seq 1 8); do
             echo "=== round $i"
-            timeout 900 build/test_xnode X3 X4 > x$i.log 2>&1; rc=$?
+            timeout 900 build/test_xnode > x$i.log 2>&1; rc=$?
             echo "rc=$rc"; grep -E "CHECK|\(X[0-9]+.*s\)" x$i.log | tail -40
             [ $rc -eq 0 ] || { fail=1; echo "---- full log round $i"; grep -v "^  (" x$i.log | tail -60; }
           done
