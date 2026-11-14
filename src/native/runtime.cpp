@@ -199,7 +199,10 @@ bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
       auto* op = new Worker::IoOp{done, ctx, iovec{const_cast<void*>(buf), len}};
       io_uring_prep_writev2(sqe, fd, &op->iov, 1, off, flags);
       io_uring_sqe_set_data(sqe, op);
-      io_uring_submit(&w.ring);
+      {  // DIAG (never merge): a submit that does not take the SQE leaves the op unsubmitted.
+        int sr = io_uring_submit(&w.ring);
+        if (sr < 1) std::fprintf(stderr, "DIAG shard %u io_uring_submit=%d sq_ready=%u\n", unsigned{w.id}, sr, io_uring_sq_ready(&w.ring));
+      }
       ++w.io_inflight;
       return true;
     }
@@ -233,7 +236,10 @@ void sri_fdatasync(int fd, IoDone done, void* ctx) {
       auto* op = new Worker::IoOp{done, ctx, iovec{}};
       io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
       io_uring_sqe_set_data(sqe, op);
-      io_uring_submit(&w.ring);
+      {  // DIAG (never merge): a submit that does not take the SQE leaves the op unsubmitted.
+        int sr = io_uring_submit(&w.ring);
+        if (sr < 1) std::fprintf(stderr, "DIAG shard %u io_uring_submit=%d sq_ready=%u\n", unsigned{w.id}, sr, io_uring_sq_ready(&w.ring));
+      }
       ++w.io_inflight;
       return;
     }

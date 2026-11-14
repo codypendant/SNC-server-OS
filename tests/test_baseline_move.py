@@ -241,11 +241,12 @@ def q10(step):
                                       "for b in /sys/block/*; do echo $b $(cat $b/inflight); done; grep -E 'Dirty|Writeback:' /proc/meminfo; "
                                       "for p in %s; do for t in /proc/$p/task/*; do echo \"-- $p $(basename $t) "
                                       "$(cat $t/comm) $(awk '{print $3}' $t/stat) wchan=$(cat $t/wchan)\"; cat $t/stack; done; done; "
+                                      "for p in %s; do for fd in /proc/$p/fd/*; do case $(readlink $fd) in *io_uring*) echo \"-- ring $p $(basename $fd)\"; cat /proc/$p/fdinfo/$(basename $fd);; esac; done; done; "
                                       "echo '-- D-state tasks system-wide'; ps -eLo pid,tid,stat,comm,wchan:32 | awk '$3 ~ /D/'; "
                                       "for t in $(ps -eLo tid,stat,comm | awk '$2 ~ /D/ || $3 ~ /jbd2|kworker.*ext4|iou-wrk/ {print $1}'); do "
                                       "echo \"-- task $t $(cat /proc/$t/comm 2>/dev/null)\"; cat /proc/$t/stack 2>/dev/null; done; "
                                       "echo w > /proc/sysrq-trigger; sleep 0.2; dmesg | tail -n 400"
-                                      % (fa[1], k, pids, " ".join(str(v) for v in pids.values())))
+                                      % (fa[1], k, pids, " ".join(str(v) for v in pids.values()), " ".join(str(v) for v in pids.values())))
                                 try:
                                     r = subprocess.run(["sudo", "-n", "sh", "-c", sh], capture_output=True, text=True, timeout=30)
                                     open(f"{c.work}/zkstack_n{k}_{rep}.log", "w").write(r.stdout + r.stderr)
