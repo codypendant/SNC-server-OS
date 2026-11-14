@@ -52,6 +52,8 @@ jobs:
           gcc -O2 -o uring_probe diag/uring_probe.c -luring
           ./uring_probe /tmp/probe3s.bin spin 0 > probe3.log 2>&1 &
           ./uring_probe /tmp/probe3w.bin wait >> probe3.log 2>&1 &
+          ./uring_probe /tmp/probe3g.bin spinget 0 >> probe3.log 2>&1 &
+          ./uring_probe /tmp/probe3f.bin spinfree >> probe3.log 2>&1 &
           sudo sysctl -q kernel.sysrq=1 kernel.hung_task_timeout_secs=10 kernel.hung_task_warnings=100 || true
           for i in 1 2 3 4 5 6; do
             echo "=== round $i"

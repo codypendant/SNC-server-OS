@@ -1,7 +1,8 @@
 // DIAG (never merge): the WAL's write pattern outside SNC. One io_uring
 // O_DIRECT|RWF_DSYNC 4 KiB write into fresh fallocated space every 20 ms;
 // mode "spin" reaps like the shard loop (peek + sched_yield, pinned to a
-// CPU), mode "wait" blocks in io_uring_wait_cqe. Logs any write > 200 ms,
+// CPU; "spinget" also enters the kernel with GETEVENTS at each yield;
+// "spinfree" is not pinned), mode "wait" blocks in io_uring_wait_cqe. Logs any write > 200 ms,
 // and every 60 s a count line.
 #define _GNU_SOURCE
 #include <fcntl.h>
@@ -15,8 +16,8 @@
 #include <unistd.h>
 static double now(void) { struct timespec t; clock_gettime(CLOCK_REALTIME, &t); return t.tv_sec + t.tv_nsec / 1e9; }
 int main(int argc, char** argv) {
-  const char* path = argv[1]; int spin = strcmp(argv[2], "spin") == 0; int cpu = argc > 3 ? atoi(argv[3]) : 0;
-  if (spin) { cpu_set_t s; CPU_ZERO(&s); CPU_SET(cpu, &s); sched_setaffinity(0, sizeof(s), &s); }
+  const char* path = argv[1]; const char* m = argv[2]; int spin = strncmp(m, "spin", 4) == 0; int pin = strcmp(m, "spinfree") != 0; int get = strcmp(m, "spinget") == 0; int cpu = argc > 3 ? atoi(argv[3]) : 0;
+  if (spin && pin) { cpu_set_t s; CPU_ZERO(&s); CPU_SET(cpu, &s); sched_setaffinity(0, sizeof(s), &s); }
   int fd = open(path, O_RDWR | O_CREAT | O_DIRECT, 0644);
   if (fd < 0) { perror("open"); return 1; }
   struct io_uring ring; if (io_uring_queue_init(256, &ring, 0)) { perror("uring"); return 1; }
@@ -33,7 +34,7 @@ int main(int argc, char** argv) {
     for (;;) {
       if (spin) {
         if (io_uring_peek_cqe(&ring, &cqe) == 0) break;
-        if (now() - ly > 50e-6) { sched_yield(); ly = now(); }
+        if (now() - ly > 50e-6) { if (get) io_uring_get_events(&ring); sched_yield(); ly = now(); }
       } else if (io_uring_wait_cqe(&ring, &cqe) == 0) break;
     }
     double d = now() - t0; int res = cqe->res; io_uring_cqe_seen(&ring, cqe); off += 4096; ++n;
