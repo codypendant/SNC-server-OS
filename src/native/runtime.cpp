@@ -79,15 +79,18 @@ struct Worker {
     IoDone done;
     void* ctx;
     iovec iov;
+    // In-flight ops in submission order, so the oldest is at the head (F1).
+    u64 submit_ns = 0;
+    IoOp* prev = nullptr;
+    IoOp* next = nullptr;
   };
+  IoOp* io_oldest = nullptr;
+  IoOp* io_newest = nullptr;
   std::vector<IoReq> io_deferred;
 
   // Idle wait: the eventfd plus any fds registered with sri_watch_fd.
   std::vector<pollfd> idle_fds;
   u64 last_yield_ns = 0;
-  // Last I/O progress: a completion reaped, or I/O starting from none in
-  // flight. Its age says whether in-flight I/O is completing (F1).
-  u64 io_progress_ns = 0;
 
   std::thread thread;
 };
@@ -189,6 +192,22 @@ bool sri_send(u16 dst, const Msg& msg, bool must_deliver) {
   return true;
 }
 
+namespace {
+void track_inflight(Worker& w, Worker::IoOp* op) {
+  op->submit_ns = now_ns();
+  op->prev = w.io_newest;
+  if (w.io_newest != nullptr) w.io_newest->next = op; else w.io_oldest = op;
+  w.io_newest = op;
+  ++w.io_inflight;
+}
+
+void untrack_inflight(Worker& w, Worker::IoOp* op) {
+  if (op->prev != nullptr) op->prev->next = op->next; else w.io_oldest = op->next;
+  if (op->next != nullptr) op->next->prev = op->prev; else w.io_newest = op->prev;
+  --w.io_inflight;
+}
+}  // namespace
+
 bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone done, void* ctx) {
   Worker& w = *tl_worker;
   int flags = dsync ? RWF_DSYNC : 0;
@@ -204,7 +223,7 @@ bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
       io_uring_prep_writev2(sqe, fd, &op->iov, 1, off, flags);
       io_uring_sqe_set_data(sqe, op);
       io_uring_submit(&w.ring);
-      if (w.io_inflight++ == 0) w.io_progress_ns = now_ns();
+      track_inflight(w, op);
       return true;
     }
   }
@@ -238,7 +257,7 @@ void sri_fdatasync(int fd, IoDone done, void* ctx) {
       io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
       io_uring_sqe_set_data(sqe, op);
       io_uring_submit(&w.ring);
-      if (w.io_inflight++ == 0) w.io_progress_ns = now_ns();
+      track_inflight(w, op);
       return;
     }
   }
@@ -264,8 +283,7 @@ bool reap_io(Worker& w) {
       auto* op = static_cast<Worker::IoOp*>(io_uring_cqe_get_data(cqe));
       int res = cqe->res;
       io_uring_cqe_seen(&w.ring, cqe);
-      --w.io_inflight;
-      w.io_progress_ns = now_ns();
+      untrack_inflight(w, op);
       op->done(op->ctx, res);
       delete op;
       did = true;
@@ -404,15 +422,16 @@ void NativeRuntime::Impl::loop(Worker& w) {
     if (cfg.io_yield_us && w.io_inflight > 0) {
       u64 now = now_ns();
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
-        // While in-flight I/O completes, sched_yield. Once none has
-        // completed for io_block_after_us, block briefly instead
+        // While in-flight I/O completes promptly, sched_yield. Once the
+        // oldest op has been in flight for io_block_after_us, block briefly
+        // instead
         // (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): the completion can need this
         // core's kernel threads (ksoftirqd, the per-CPU dio kworker), and on
         // hosted 7.0 kernels a pinned thread calling sched_yield in a loop
         // left them runnable but unscheduled for up to minutes. Sleeping
         // takes the thread off the run queue, so they run. The request is
         // 1 us; the kernel's timer slack (50 us by default) sets the pause.
-        if (now - w.io_progress_ns >= u64{cfg.io_block_after_us} * 1000) {
+        if (now - w.io_oldest->submit_ns >= u64{cfg.io_block_after_us} * 1000) {
           timespec ts{0, 1000};
           clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
         } else {

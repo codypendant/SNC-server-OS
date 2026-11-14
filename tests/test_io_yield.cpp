@@ -11,7 +11,9 @@
 // loop kept busy, the shard thread's voluntary switches must keep rising.
 //
 // A write to a full pipe stays in flight until the pipe is drained, so the
-// in-flight state is held for as long as the test needs, with no disk.
+// in-flight state is held for as long as the test needs, with no disk. The
+// pause must key on that held write's age: other I/O completing on the same
+// shard (writes to /dev/null, below) must not keep it yielding.
 #include <fcntl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -37,7 +39,26 @@ std::atomic<int> g_result{0};
 std::atomic<int> g_async{-1};    // 1 = io_uring took it, 0 = synchronous fallback
 char g_buf[4096];
 
-bool poll(void*) { return g_busy.load(std::memory_order_relaxed); }  // a shard that always has work
+std::atomic<bool> g_side_io{false};  // keep quick writes completing on the shard
+std::atomic<long> g_side_done{0};
+bool g_side_pending = false;  // shard thread only
+int g_null_fd = -1;
+char g_side_buf[512];
+
+void side_done(void*, int) {
+  g_side_pending = false;
+  g_side_done.fetch_add(1);
+}
+
+// A shard that always has work; optionally also other I/O that completes at once.
+bool poll(void*) {
+  if (g_side_io.load(std::memory_order_relaxed) && !g_side_pending) {
+    g_side_pending = true;
+    // Returns false on the synchronous fallback; side_done still runs.
+    (void)sri_write(g_null_fd, 0, g_side_buf, sizeof(g_side_buf), false, &side_done, nullptr);
+  }
+  return g_busy.load(std::memory_order_relaxed);
+}
 
 void write_done(void*, int result) {
   g_result.store(result);
@@ -53,6 +74,18 @@ long voluntary_switches(int tid) {
   return -1;
 }
 
+// The side writes stop once the flag is off and the last one has completed.
+bool wait_for_side_idle() {
+  long last = -1;
+  for (int i = 0; i < 1000; ++i) {
+    long now = g_side_done.load();
+    if (now == last) return true;
+    last = now;
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  return false;
+}
+
 bool wait_for(const std::atomic<int>& v, int want, int ms) {
   for (int i = 0; i < ms && v.load() != want; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(1));
   return v.load() == want;
@@ -62,6 +95,8 @@ bool wait_for(const std::atomic<int>& v, int want, int ms) {
 int main() {
   int p[2];
   CHECK(::pipe2(p, O_CLOEXEC) == 0);
+  g_null_fd = ::open("/dev/null", O_WRONLY | O_CLOEXEC);
+  CHECK(g_null_fd >= 0);
   // Fill the pipe, so the next write cannot complete until it is drained.
   int fl = ::fcntl(p[1], F_GETFL);
   CHECK(::fcntl(p[1], F_SETFL, fl | O_NONBLOCK) == 0);
@@ -110,6 +145,23 @@ int main() {
   CHECK(v1 - v0 >= 100);
   CHECK(g_done.load() == 0);
 
+  // Same, while other I/O on the shard keeps completing: the held write is
+  // still the oldest in flight, so the pause must go on.
+  g_side_io = true;
+  std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  const long s0 = g_side_done.load();
+  const long v4 = voluntary_switches(tid);
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  const long v5 = voluntary_switches(tid);
+  const long s1 = g_side_done.load();
+  g_side_io = false;
+  std::printf("test_io_yield: %ld voluntary switches in 300 ms with a write in flight and %ld other writes completing\n",
+              v5 - v4, s1 - s0);
+  CHECK(s1 - s0 >= 100);
+  CHECK(v5 - v4 >= 100);
+  CHECK(g_done.load() == 0);
+  CHECK(wait_for_side_idle());
+
   // Failure condition cleared: drain the pipe; the held write completes and
   // its completion is delivered (nothing lost by pausing).
   char sink[4096];
@@ -135,6 +187,7 @@ int main() {
   rt.stop();
   ::close(p[0]);
   ::close(p[1]);
+  ::close(g_null_fd);
   std::printf("test_io_yield: OK\n");
   return 0;
 }
