@@ -11,30 +11,40 @@ permissions:
 
 jobs:
   q10:
-    name: diag q10 (x4)
+    name: diag q10 (x6)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - name: host info
+        run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)"
       - name: q10 sealed+committed x4
         run: |
           set +e -o pipefail
           fail=0
-          for i in 1 2 3 4; do
+          # Probes: a 4 KiB O_DSYNC write in the work tree every 0.5 s, logged
+          # with its latency; and wall-clock gaps over 2 s between probes.
+          ( last=$(date +%s.%N); while :; do t0=$(date +%s.%N); dd if=/dev/zero of=probe.bin bs=4k count=1 oflag=dsync conv=notrunc status=none; t1=$(date +%s.%N)
+              awk -v a="$t0" -v b="$t1" -v l="$last" 'BEGIN{ if (b-a>0.2) printf "PROBE %.1f dsync_write %.3f s\n", a, b-a; if (a-l>2.5) printf "PROBE %.1f clock_gap %.1f s\n", a, a-l }'
+              last=$t1; sleep 0.5; done ) > probe.log 2>&1 &
+          for i in 1 2 3 4 5 6; do
             echo "=== round $i"
             python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | cut -c1-3000 || fail=1
           done
           for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
+          echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
           exit $fail
   xnode:
-    name: diag test_xnode (x8)
+    name: diag test_xnode X3 X4 (x8)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - name: host info
+        run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)" --target test_xnode
       - name: test_xnode x8
         run: |
@@ -42,8 +52,8 @@ jobs:
           fail=0
           for i in $(seq 1 8); do
             echo "=== round $i"
-            timeout 900 build/test_xnode > x$i.log 2>&1; rc=$?
+            timeout 900 build/test_xnode X3 X4 > x$i.log 2>&1; rc=$?
             echo "rc=$rc"; grep -E "CHECK|\(X[0-9]+.*s\)" x$i.log | tail -40
-            [ $rc -eq 0 ] || { fail=1; echo "---- full log round $i"; tail -200 x$i.log; }
+            [ $rc -eq 0 ] || { fail=1; echo "---- full log round $i"; grep -v "^  (" x$i.log | tail -60; }
           done
           exit $fail

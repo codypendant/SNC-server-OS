@@ -496,6 +496,31 @@ class Load {
       sleep_ms(1);
     }
     lost_ = outstanding.load();
+    if (lost_ != 0 && !may_lose_ && net_.restarts.load() == restarts0) {  // DIAG (never merge)
+      std::printf("DIAG Load %u->%u: outstanding %llu ok %llu overloaded %llu other %llu after 20 s\n", from_, to_,
+                  (unsigned long long)lost_, (unsigned long long)st_->ok.load(),
+                  (unsigned long long)st_->overloaded.load(), (unsigned long long)st_->other.load());
+      auto dump = [&](const char* when) {
+        for (Node& nn : net_.nodes) {
+          for (u16 sh = 0; sh < nn.eng->shard_count(); ++sh) {
+            const GaugeSnapshot g = gauges(*nn.eng, sh);
+            std::printf("DIAG %s node %u shard %u:", when, nn.index, sh);
+            for (size_t gi = 0; gi < kGaugeNames.size(); ++gi)
+              if (g[static_cast<Gauge>(gi)] != 0 && std::strstr(kGaugeNames[gi], "xnode") != nullptr)
+                std::printf(" %s=%llu", kGaugeNames[gi], (unsigned long long)g[static_cast<Gauge>(gi)]);
+            std::printf("\n");
+          }
+        }
+        std::fflush(stdout);
+      };
+      dump("at20s");
+      int waited = 0;
+      while (outstanding.load() != 0 && waited < 60000) { sleep_ms(10); waited += 10; }
+      std::printf("DIAG after %d more ms: outstanding %llu ok %llu other %llu\n", waited,
+                  (unsigned long long)outstanding.load(), (unsigned long long)st_->ok.load(),
+                  (unsigned long long)st_->other.load());
+      dump("end");
+    }
     CHECK(lost_ == 0 || may_lose_ || net_.restarts.load() != restarts0);
   }
   Net& net_;
