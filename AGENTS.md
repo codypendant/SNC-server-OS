@@ -3006,3 +3006,22 @@ or source comments.
 -   **Assumption changed:** the checkpoint was not the cause, but it does hold the server's main loop for its whole
     duration, so DEGRADE waits for a running checkpoint. Reported, not fixed.
 -   **Next action:** reviewer decision. Not started: F2, F3, F4, the checkpoint/main-loop decoupling, an R640 re-measure.
+
+### 2026-11-14 UTC --- Claude (Claude Code): checkpoint failover blocking (for review)
+
+-   **What:** per cody's go after the PR #126 review. `snc_server` ran each periodic `Engine::checkpoint()` on the
+    main loop that also asks the witnesses for DEGRADE, so a standby lost mid-checkpoint was granted away only when
+    the checkpoint ended. Classification: **REFINE** (where `snc_server` runs the checkpoint).
+-   **What changed:** `tools/snc_server.cpp`: the checkpoint runs on its own thread; one at a time, scheduled from
+    the end of the last; joined before the engine stops. Test hook `DEBUG CKPT-HOLD commit|sync 1|0`. New
+    `tests/test_ckpt_failover.py` (fast tier). Docs: `docs/CHECKPOINT_FAILOVER.md`, `docs/ENGINE_LIFECYCLE.md`
+    section 10, `docs/STATUS.md`. No engine, replication, witness, fencing or checkpoint code changed.
+-   **Evidence:** with a held checkpoint, no grant in 20 s before; grant in 0.55 s after, writes acknowledged and
+    READY proven while still held. Local suite 51/51. Two independent QA reviews: no defect; their fixes applied.
+    Hosted full suite 50/51: `test_migrate` failed, as on main's nightly. A hosted A/B of `test_migrate`
+    (240 runs, F1 pause off/on) shows it flaky in both arms; not caused by this change; reported, not fixed.
+-   **Assumption changed:** checkpoints and the witness exchange now run concurrently; `control_mu_` alone orders
+    checkpoint and promotion. A promotion still waits for the standby's own running checkpoint (by design, S3.3).
+-   **Next action:** reviewer decision. Not started: F2, F3, F4, `test_migrate` hosted flake, checkpoint
+    abandonment for faster promotion.
+

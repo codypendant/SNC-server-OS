@@ -82,7 +82,45 @@ Results, local 4-CPU VM (**Observed**):
 | Before (main + the test hook only) | FAIL: no grant in 20 s | FAIL: no grant in 20 s | pass |
 | After | pass, grant in 0.55 s, 3 batches acknowledged while held | pass, grant in 0.55 s, 4 batches | pass, promoted 0.05 s after release |
 
-**[repetitions, full suite, hosted CI: pending]**
+Repetitions on the final code: 3 more local runs of all three scenarios passed (grant 0.55 to 0.60 s,
+READY while held every time), and an independent reviewer ran each scenario 5 times on its own build: all
+passed. The same reviewer rebuilt the old synchronous loop with the test hook: k1 and k2 failed with no grant
+in 20 s, and k3 passed.
+
+Full local suite, `ctest -j1`, on the final code: 51 of 51 passed (1,776 s). Hosted full suite
+(workflow_dispatch on the branch, 5d0039d): 50 of 51 passed, `test_ckpt_failover` included. `test_migrate`
+failed (`copied/src-restart`: requests unanswered 60 s after the end). It runs no periodic checkpoint, and it
+also failed on main's own nightly run (37cdf51, `committed/driver/abort`, same symptom). **Observed.**
+
+To see whether F1 (PR #126) caused it, `test_migrate` alone ran 24 times on each of 10 hosted runners,
+alternating F1's pause off (A, the old `sched_yield` loop) and on (B, as merged). **Observed:**
+
+| | A, pause off | B, pause on |
+|---|---|---|
+| Round 1 on a fresh runner (A only) | 2 of 10 fail | |
+| Before the runner's first failure | 8 of 23 fail | 2 of 15 fail |
+| After a passing round | 21 of 51 fail | 27 of 68 fail |
+| After a failing round | 29 of 59 fail | 38 of 52 fail |
+| All | 52 of 120 fail | 65 of 120 fail |
+
+**Inferred:** `test_migrate` is flaky on hosted runners without F1's pause too, and a failure makes the next
+run on the same runner likelier to fail. In comparable conditions the two arms fail alike; the difference in
+the totals comes from runs after a failure. So F1 is not shown to cause it, nor fully cleared. Its failure
+modes vary (unanswered requests, STUCK deadlines, epoch asserts, no quorum at placement init). This is a
+separate defect, not fixed here: it needs its own root cause.
+
+Independent QA (two reviewers, one on thread safety and one on the test) found no defect. What they raised
+and what was done:
+
+| Finding | Action |
+|---|---|
+| `ckpt_running` and `ckpts` were updated when the loop joined the thread, up to a witness round late | The thread updates them when the checkpoint returns |
+| The next checkpoint was scheduled from the join, not the checkpoint's end | Scheduled from the end the thread records |
+| `stats()` described wrongly in section 3 | Corrected |
+| A standby shows role `m` earlier while its promotion waits | Documented (section 5) |
+| k3 did not check that the witnesses had chosen node 1 | It now asserts that before checking the role |
+| READY during a held checkpoint, and shutdown during one, were untested | k1/k2 now prove READY while the checkpoint is held; shutdown is documented (it waits, as before) |
+| `--checkpoint-s` with no data dir makes the loop spin | Pre-existing, unchanged, out of scope |
 
 ## 5. What remains
 

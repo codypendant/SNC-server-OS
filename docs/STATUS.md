@@ -342,7 +342,7 @@ Decided by cody on 2026-11-04.
      that asks the witnesses for DEGRADE, so a standby lost mid-checkpoint was granted away only when the checkpoint
      ended. The checkpoint now runs on its own thread (REFINE); with a held checkpoint the grant came in 0.55 s, where
      before none came in 20 s. A promotion still waits for the standby's own running checkpoint (S3.3, by design).
-     F2 to F4 not started.
+     `test_migrate` is flaky on hosted runners, with and without F1's pause (reported, not fixed). F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
