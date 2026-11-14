@@ -25,6 +25,8 @@ jobs:
         run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)"
       - name: q10 sealed+committed x4
+        env:
+          SNC_TRACE: "1"
         run: |
           set +e -o pipefail
           fail=0
