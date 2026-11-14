@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <deque>
 #include <latch>
 #include <mutex>
@@ -399,7 +400,15 @@ void NativeRuntime::Impl::loop(Worker& w) {
     if (cfg.io_yield_us && w.io_inflight > 0) {
       u64 now = now_ns();
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
-        sched_yield();
+        // Block, not sched_yield (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): the
+        // completion of this core's own I/O can need the core's kernel
+        // threads (ksoftirqd, the per-CPU dio kworker), and on hosted 7.0
+        // kernels a pinned thread calling sched_yield in a loop left them
+        // runnable but unscheduled for up to minutes. Sleeping takes the
+        // thread off the run queue, so they run. The request is 1 us; the
+        // kernel's timer slack (50 us by default) decides the actual pause.
+        timespec ts{0, 1000};
+        clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
         w.last_yield_ns = now;
       }
     }
