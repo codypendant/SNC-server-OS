@@ -52,9 +52,9 @@ jobs:
           gcc -O2 -o uring_probe diag/uring_probe.c -luring
           ./uring_probe /tmp/probe3w.bin wait > probe3.log 2>&1 &
           sudo sysctl -q kernel.sysrq=1 kernel.hung_task_timeout_secs=10 kernel.hung_task_warnings=100 || true
-          # A/B: odd rounds as built (A), even rounds with SNC_DIAG_CKPT_IDLE=1 (B).
+          # A/B: odd rounds as built (A), even rounds with SNC_DIAG_IO_SLEEP=1 (B).
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            if [ $((i % 2)) -eq 0 ]; then export SNC_DIAG_CKPT_IDLE=1; arm=B; else unset SNC_DIAG_CKPT_IDLE; arm=A; fi
+            if [ $((i % 2)) -eq 0 ]; then export SNC_DIAG_IO_SLEEP=1; arm=B; else unset SNC_DIAG_IO_SLEEP; arm=A; fi
             echo "=== round $i arm $arm"
             python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | sed "s/^/[$arm] /" | cut -c1-3000 || fail=1
           done

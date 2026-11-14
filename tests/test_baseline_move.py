@@ -244,7 +244,7 @@ def q10(step):
                                       "for p in %s; do for fd in /proc/$p/fd/*; do case $(readlink $fd) in *io_uring*) echo \"-- ring $p $(basename $fd)\"; cat /proc/$p/fdinfo/$(basename $fd);; esac; done; done; "
                                       "echo '-- D and R tasks system-wide'; ps -eLo pid,tid,psr,stat,comm,wchan:32 | awk '$4 ~ /[DR]/'; "
                                       "echo '-- cpu0 runqueue'; mount -t debugfs none /sys/kernel/debug 2>/dev/null; sed -n '/^cpu#0/,/^cpu#1/p' /sys/kernel/debug/sched/debug | head -n 120; "
-                                      "for t in $(ps -eLo tid,stat,comm | awk '$2 ~ /D/ || $3 ~ /jbd2|kworker.*ext4|iou-wrk/ {print $1}'); do "
+                                      "for t in $(ps -eLo tid,stat,comm | awk '$2 ~ /[DR]/ || $3 ~ /jbd2|kworker\\/0|ksoftirqd\\/0|iou-wrk/ {print $1}'); do "
                                       "echo \"-- task $t $(cat /proc/$t/comm 2>/dev/null)\"; cat /proc/$t/stack 2>/dev/null; done; "
                                       "echo w > /proc/sysrq-trigger; sleep 0.2; dmesg | tail -n 400"
                                       % (fa[1], k, pids, " ".join(str(v) for v in pids.values()), " ".join(str(v) for v in pids.values())))

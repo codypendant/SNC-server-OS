@@ -405,7 +405,15 @@ void NativeRuntime::Impl::loop(Worker& w) {
     if (cfg.io_yield_us && w.io_inflight > 0) {
       u64 now = now_ns();
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
-        sched_yield();
+        // DIAG (never merge): SNC_DIAG_IO_SLEEP=1 blocks briefly instead of
+        // sched_yield, so the core's kernel threads (ksoftirqd, kworkers) run.
+        static const bool diag_sleep = std::getenv("SNC_DIAG_IO_SLEEP") != nullptr;
+        if (diag_sleep) {
+          timespec ts{0, 1000};
+          clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
+        } else {
+          sched_yield();
+        }
         w.last_yield_ns = now;
       }
     }
