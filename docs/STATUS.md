@@ -337,7 +337,11 @@ Decided by cody on 2026-11-04.
      with I/O in flight starved the CPU's I/O completion kernel threads on hosted 7.0 kernels, so a primary's and
      its standby's WAL writes stalled together. Fix: once the oldest in-flight op is 1 ms old, the pause sleeps
      (REFINE of `io_yield_us`). Hosted q10 20/100 failed before, 0/200 after; local throughput unchanged.
-     Remaining, not fixed: the checkpoint holds the server's main loop for its whole duration, delaying DEGRADE.
+     **F1 merged (PR #126, 37cdf51).** Checkpoint failover blocking (for review,
+     [CHECKPOINT_FAILOVER.md](CHECKPOINT_FAILOVER.md)): `snc_server` ran each periodic checkpoint on the main loop
+     that asks the witnesses for DEGRADE, so a standby lost mid-checkpoint was granted away only when the checkpoint
+     ended. The checkpoint now runs on its own thread (REFINE); with a held checkpoint the grant came in 0.55 s, where
+     before none came in 20 s. A promotion still waits for the standby's own running checkpoint (S3.3, by design).
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

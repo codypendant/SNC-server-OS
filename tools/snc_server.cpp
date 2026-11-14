@@ -1322,10 +1322,9 @@ int main(int argc, char** argv) {
     std::thread ckpt_thread;
     std::atomic<bool> ckpt_finished{false};
     CheckpointReport ckpt_report;
+    clock::time_point ckpt_end;  // written by the checkpoint thread, read after join
     auto ckpt_join = [&] {
       ckpt_thread.join();
-      ckpt_running.store(0);
-      ckpt_done.fetch_add(1);
       std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
                   (unsigned long long)ckpt_report.objects, ckpt_report.seconds,
                   (unsigned long long)ckpt_report.segments_deleted);
@@ -1477,7 +1476,7 @@ int main(int argc, char** argv) {
       // still exclude each other (control_mu_).
       if (ckpt_thread.joinable() && ckpt_finished.load()) {
         ckpt_join();
-        next_ckpt = clock::now() + std::chrono::duration_cast<clock::duration>(
+        next_ckpt = ckpt_end + std::chrono::duration_cast<clock::duration>(
                                        std::chrono::duration<double>(checkpoint_s));
       }
       if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty() && !ckpt_thread.joinable()) {
@@ -1485,6 +1484,11 @@ int main(int argc, char** argv) {
         ckpt_finished.store(false);
         ckpt_thread = std::thread([&] {
           ckpt_report = eng.checkpoint();
+          ckpt_end = clock::now();
+          // RESOURCES sees the checkpoint end when it ends, not when this
+          // loop next looks.
+          ckpt_running.store(0);
+          ckpt_done.fetch_add(1);
           ckpt_finished.store(true);
         });
       }

@@ -11,8 +11,9 @@ CKPT-HOLD, so nothing depends on how long a checkpoint happens to take.
              free and only the checkpoint's caller waits. Its standby is
              then lost (SIGSTOP). The primary must be granted by the
              witnesses to run alone, and acknowledge writes, while the
-             checkpoint is still held. Released: the checkpoint commits;
-             the standby comes back; READY again; nothing acknowledged is
+             checkpoint is still held. The standby then comes back and is
+             proven in sync (READY), still during the held checkpoint.
+             Released: the checkpoint commits; nothing acknowledged is
              missing.
   k2_sync    The same with the checkpoint held inside the shards (the final
              fdatasync completions of its parts held), so the shards are in
@@ -119,11 +120,15 @@ def standby_lost_during_checkpoint(name, what):
         st = pr.state()
         res["state_while_held"] = st
         assert st and st[2] == 0 and st[3], f"the witnesses should hold node 0 degraded: {st}"
-        # 4. Released: the checkpoint commits; the standby comes back.
-        hold(pr.adm[0], what, False)
-        assert wait_until(lambda: count(n0, "checkpoint: ") > ckpts_held, 30), n0.text()
+        # 4. The standby comes back and is proven in sync, the checkpoint
+        #    still held.
         n1.signal(signal.SIGCONT)
         assert pr.wait_ready(60, term=0), f"never READY again: {pr.state()}\n" + n0.text()
+        res["ready_while_held"] = count(n0, "checkpoint: ") == ckpts_held
+        assert res["ready_while_held"], "the checkpoint ended before READY"
+        # 5. Released: the checkpoint commits.
+        hold(pr.adm[0], what, False)
+        assert wait_until(lambda: count(n0, "checkpoint: ") > ckpts_held, 30), n0.text()
         pr.load.stop()
         missing, total = pr.load.missing_on(pr.cli[0])
         res["missing"], res["total"] = missing, total
@@ -160,7 +165,10 @@ def k3_promote():
         pr.load.stop()
         n0.signal(signal.SIGKILL)
         # The witnesses choose node 1; its promotion waits for the held checkpoint.
-        time.sleep(th.FAILOVER_MS / 1000 + 3)
+        st = wait_until(lambda: (lambda x: x if x and x[2] == 1 else None)(pr.state()), 30)
+        assert st, f"the witnesses never chose node 1: {pr.state()}"
+        res["state_while_held"] = st
+        time.sleep(2)  # the promotion asked for and waiting
         r, _ = th.ask(pr.adm[1], "HEALTH", 1.0)
         res["role_while_held"] = th.fields(r).get("role")
         assert res["role_while_held"] == "s", f"promoted during its own checkpoint: {r}"
