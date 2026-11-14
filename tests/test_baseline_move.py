@@ -309,7 +309,7 @@ def q10(step):
 
 def keep(c, name, res):
     """On a failure, every node's log and the client's, as evidence."""
-    if res.get("pass") or not JSON_DIR:
+    if not JSON_DIR or (res.get("pass") and not any(f.startswith("zgdb") for f in os.listdir(c.work))):
         return
     os.makedirs(JSON_DIR, exist_ok=True)
     with open(f"{JSON_DIR}/{name}_logs.txt", "w") as f:
