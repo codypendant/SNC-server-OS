@@ -331,6 +331,14 @@ Decided by cody on 2026-11-04.
      to the committed GO state (frozen artifacts unchanged). Fast tier green on GitHub (40/40, about 7 min job);
      full suite 49/49 serially on a 4-vCPU container (28.9 min); the gate went red on a deliberate regression.
      Consequence: after merge a real CP-1A pilot from main refuses until a new freeze. No production change.
+     **PR #122 merged; its first hosted full run failed 47/49; diagnosis PR #125 merged. F1 (for review):**
+     the q10 primary liveness failure is a starved CPU, not a protocol defect
+     ([F1_Q10_LIVENESS_ROOT_CAUSE.md](F1_Q10_LIVENESS_ROOT_CAUSE.md)). Pinned shard loops calling `sched_yield`
+     with I/O in flight starved the CPU's I/O completion kernel threads on hosted 7.0 kernels, so a primary's and
+     its standby's WAL writes stalled together. Fix: once the oldest in-flight op is 1 ms old, the pause sleeps
+     (REFINE of `io_yield_us`). Hosted q10 20/100 failed before, 0/200 after; local throughput unchanged.
+     Remaining, not fixed: the checkpoint holds the server's main loop for its whole duration, delaying DEGRADE.
+     F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

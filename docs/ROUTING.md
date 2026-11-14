@@ -218,6 +218,15 @@ baseline's. Over sockets (2 shards with free client cores) the change makes
 no measurable difference, as expected: those shards were not starving the
 I/O workers.
 
+**Amended 2026-11-14 (F1).** `sched_yield()` alone is not enough on every
+kernel. On hosted 7.0 kernels it left the CPU's `ksoftirqd` and ext4 DIO
+kworker runnable but unscheduled for up to minutes, so a WAL write never
+completed. Once the oldest in-flight op has been in flight for
+`io_block_after_us` (default 1000 µs), the pause is now a 1 µs sleep, which
+takes the shard off the run queue. Below that age it is still
+`sched_yield()`, so the numbers above are unchanged locally. See
+`docs/F1_Q10_LIVENESS_ROOT_CAUSE.md`.
+
 ## In-process rerun on this VM
 
 The step 12 numbers in BENCHMARKS.md came from a different VM (2.80GHz).

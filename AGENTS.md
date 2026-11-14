@@ -2990,3 +2990,19 @@ or source comments.
     non-docs files changed after runner_commit 4250b32) until a new review and freeze. S6 already refused on main.
 -   **Next action:** reviewer decision on PR #122. Not started: D1 to D4, sanitizer jobs, branch protection.
 
+### 2026-11-14 UTC --- Claude (Claude Code): F1 q10 primary liveness, root cause and fix (for review)
+
+-   **What:** per `docs/handoff/PR125_Diagnosis_Approval_F1_Assignment.md`. Root cause: pinned shard loops calling
+    `sched_yield()` while file I/O is in flight starve the submitting CPU's `ksoftirqd` and ext4 DIO kworker on the
+    hosted 7.0 kernels, so `RWF_DSYNC` WAL write completions do not arrive; q10's primary and standby share CPU 0 and
+    stall together. Classification: **REFINE** of `RuntimeConfig::io_yield_us` (`docs/ROUTING.md`).
+-   **What changed:** `src/native/runtime.cpp`, `include/snc/native_runtime.h` (new `io_block_after_us`, default
+    1000): once the oldest in-flight op is that old, the periodic pause is a 1 µs sleep instead of `sched_yield`.
+    New `tests/test_io_yield.cpp`. Docs: `docs/F1_Q10_LIVENESS_ROOT_CAUSE.md`, `docs/ROUTING.md`, `docs/STATUS.md`.
+    No change to replication, witnesses, fencing, acks, checkpoint, any timeout or any existing test.
+-   **Evidence:** hosted A/B (round 12) 20/100 failed with `sched_yield`, 0/100 with sleep; final code 0/200 on 10
+    runners (round 16); local suite 50/50; durable throughput equal to main. Three independent QA reviews; their
+    findings were re-checked and applied (doc section 6).
+-   **Assumption changed:** the checkpoint was not the cause, but it does hold the server's main loop for its whole
+    duration, so DEGRADE waits for a running checkpoint. Reported, not fixed.
+-   **Next action:** reviewer decision. Not started: F2, F3, F4, the checkpoint/main-loop decoupling, an R640 re-measure.
