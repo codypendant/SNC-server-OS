@@ -931,7 +931,11 @@ bool Shard::poll() {
   if (fence_listener_) busy |= fence_listener_->poll(0, 0, 0, sri_now_ns());
   if (ckpt_.active) {
     checkpoint_step();
-    busy = true;
+    // DIAG (never merge): SNC_DIAG_CKPT_IDLE=1 stops a checkpoint that only
+    // waits for I/O (drain, durable wait, sync) from keeping the loop busy.
+    static const bool diag_idle = std::getenv("SNC_DIAG_CKPT_IDLE") != nullptr;
+    const CkptPhase ph = ckpt_obs_.phase;
+    if (!diag_idle || !ckpt_.active || ph == CkptPhase::SNAPSHOT || ph == CkptPhase::WALK) busy = true;
   }
   publish_intake();
   if (gauges_) publish_gauges(sri_now_ns());
