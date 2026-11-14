@@ -220,6 +220,7 @@ def q10(step):
             diag_stop = threading.Event()
             def diag_sampler():
                 t0 = time.time()
+                dumped = set()
                 with open(f"{c.work}/zsampler.log", "w") as f:
                     while not diag_stop.is_set():
                         for k in sorted(c.admin):
@@ -227,6 +228,19 @@ def q10(step):
                                 continue
                             h = c.ask(k, "HEALTH", 1)
                             g = c.ask(k, "GAUGES 0", 1)
+                            mm = re.search(r" main_ms=(\d+)", h or "")
+                            if mm and int(mm[1]) > 3000 and k not in dumped and k in c.server and c.server[k].poll() is None:
+                                dumped.add(k)
+                                pid = c.server[k].pid
+                                for rep in range(2):  # two dumps 2 s apart: is it stuck in the same place?
+                                    try:
+                                        r = subprocess.run(["sudo", "-n", "gdb", "-p", str(pid), "-batch", "-ex",
+                                                            "thread apply all bt"], capture_output=True, text=True,
+                                                           timeout=60)
+                                        open(f"{c.work}/zgdb_n{k}_{rep}.log", "w").write(r.stdout + r.stderr)
+                                    except Exception as e:  # noqa: BLE001
+                                        open(f"{c.work}/zgdb_n{k}_{rep}.log", "w").write(repr(e))
+                                    time.sleep(2)
                             f.write(f"{time.time() - t0:.1f} n{k} H {h}\n{time.time() - t0:.1f} n{k} G {g}\n")
                         f.flush()
                         diag_stop.wait(0.5)
@@ -301,7 +315,7 @@ def keep(c, name, res):
     with open(f"{JSON_DIR}/{name}_logs.txt", "w") as f:
         for fn in sorted(os.listdir(c.work)):
             if fn.endswith(".log"):
-                f.write(f"==== {fn} ====\n" + open(f"{c.work}/{fn}", errors="replace").read()[-30000:] if not fn.startswith("zsampler") else open(f"{c.work}/{fn}", errors="replace").read() + "\n")
+                f.write(f"==== {fn} ====\n" + open(f"{c.work}/{fn}", errors="replace").read()[-30000:] if not fn.startswith("z") else open(f"{c.work}/{fn}", errors="replace").read() + "\n")
 
 
 SCEN = {"q2_lost_move": q2_lost_move}

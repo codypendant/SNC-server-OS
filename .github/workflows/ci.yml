@@ -11,12 +11,16 @@ permissions:
 
 jobs:
   q10:
-    name: diag q10 (x6)
+    name: diag q10 (x6) copy ${{ matrix.copy }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [1, 2, 3, 4]
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
+      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev gdb
       - name: host info
         run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)"
@@ -35,25 +39,4 @@ jobs:
           done
           for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
           echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
-          exit $fail
-  xnode:
-    name: diag test_xnode full (x8)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
-      - name: host info
-        run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)" --target test_xnode
-      - name: test_xnode x8
-        run: |
-          set +e -o pipefail
-          fail=0
-          for i in $(seq 1 8); do
-            echo "=== round $i"
-            timeout 900 build/test_xnode > x$i.log 2>&1; rc=$?
-            echo "rc=$rc"; grep -E "CHECK|\(X[0-9]+.*s\)" x$i.log | tail -40
-            [ $rc -eq 0 ] || { fail=1; echo "---- full log round $i"; grep -v "^  (" x$i.log | tail -60; }
-          done
           exit $fail
