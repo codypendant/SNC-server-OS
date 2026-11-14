@@ -75,7 +75,8 @@
 // diagnostics; it is the witness's liveness signal and proves nothing
 // about replication or promotion eligibility. STATUS asks every shard for
 // its replication state and may be slow. --debug-admin also accepts DEBUG
-// STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0, DEBUG DROP-ANSWERS 1|0 and DEBUG MOVE-STOP <phase> <unit>
+// STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0, DEBUG DROP-ANSWERS 1|0, DEBUG CKPT-HOLD commit|sync 1|0
+// and DEBUG MOVE-STOP <phase> <unit>
 // hold:MS|crash, and --debug-barrier hold:MS|crash
 // (the end of the start barrier, docs/MIGRATION_FAIL_CLOSED.md; tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
@@ -855,7 +856,8 @@ int main(int argc, char** argv) {
   std::atomic<u64> lease_lo{eng.lease_block().first}, lease_hi{eng.lease_block().second};
   // The main loop's last iteration (admin::mono_ns), for HEALTH's main_ms.
   std::atomic<u64> main_tick{admin::mono_ns()};
-  // Periodic checkpoints (--checkpoint-s) on the main loop: one running now,
+  // Periodic checkpoints (--checkpoint-s), each on its own thread started by
+  // the main loop (docs/CHECKPOINT_FAILOVER.md): one running now,
   // and how many completed (RESOURCES; docs/BASELINE_READINESS.md B1).
   std::atomic<u32> ckpt_running{0};
   std::atomic<u64> ckpt_done{0};
@@ -1103,6 +1105,24 @@ int main(int argc, char** argv) {
         reply = "OK dropped=" + std::to_string(net::NetServer::debug_dropped());
         return true;
       }
+      // DEBUG CKPT-HOLD commit|sync 1|0 (tests; docs/CHECKPOINT_FAILOVER.md):
+      // checkpoints stop before their commit (every part written and
+      // synced) or with their parts' final fdatasync completions held,
+      // until released. The reply says whether a checkpoint waits at the
+      // commit hold now.
+      if (debug_admin && line.rfind("DEBUG CKPT-HOLD ", 0) == 0) {
+        const bool on = line.back() == '1';
+        if (line == "DEBUG CKPT-HOLD commit 1" || line == "DEBUG CKPT-HOLD commit 0") {
+          Engine::debug_ckpt_hold_commit(on);
+        } else if (line == "DEBUG CKPT-HOLD sync 1" || line == "DEBUG CKPT-HOLD sync 0") {
+          Engine::debug_ckpt_hold_sync(on);
+        } else if (line != "DEBUG CKPT-HOLD ?") {
+          reply = "NO DEBUG CKPT-HOLD commit|sync 1|0, or ?";
+          return true;
+        }
+        reply = std::string("OK at_commit=") + (Engine::debug_ckpt_commit_reached() ? "1" : "0");
+        return true;
+      }
       // DEBUG MOVE-STOP <phase> <unit> hold:MS|crash (tests;
       // docs/MIGRATION_STAGING.md 18): the next final stage chain here
       // holds, or the process exits, just before that unit of that phase
@@ -1299,13 +1319,30 @@ int main(int argc, char** argv) {
     auto next_report = t0 + std::chrono::milliseconds(report_ms);
     auto next_ckpt = t0 + std::chrono::duration_cast<clock::duration>(
                               std::chrono::duration<double>(checkpoint_s));
+    std::thread ckpt_thread;
+    std::atomic<bool> ckpt_finished{false};
+    CheckpointReport ckpt_report;
+    auto ckpt_join = [&] {
+      ckpt_thread.join();
+      ckpt_running.store(0);
+      ckpt_done.fetch_add(1);
+      std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
+                  (unsigned long long)ckpt_report.objects, ckpt_report.seconds,
+                  (unsigned long long)ckpt_report.segments_deleted);
+    };
     while (true) {
       main_tick.store(admin::mono_ns());
       auto now = clock::now();
       // At least every 100 ms, so HEALTH's main_ms means something.
       auto wake = now + std::chrono::milliseconds(100);
       if (report_ms > 0) wake = std::min(wake, next_report);
-      if (checkpoint_s > 0) wake = std::min(wake, next_ckpt);
+      // While a checkpoint runs, look for its end often (its report and
+      // the next one's schedule); otherwise wake for the next one.
+      if (ckpt_thread.joinable()) {
+        wake = std::min(wake, now + std::chrono::milliseconds(20));
+      } else if (checkpoint_s > 0) {
+        wake = std::min(wake, next_ckpt);
+      }
       if (!witnesses.empty()) wake = std::min(wake, now + std::chrono::milliseconds(50));
       auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::max(wake - now, clock::duration::zero())).count();
       timespec ts{static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
@@ -1432,16 +1469,24 @@ int main(int argc, char** argv) {
           }
         }
       }
-      if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty()) {
-        ckpt_running.store(1);
-        CheckpointReport r = eng.checkpoint();
-        ckpt_running.store(0);
-        ckpt_done.fetch_add(1);
-        std::printf("checkpoint: %llu objects in %.2fs, %llu WAL segments deleted\n",
-                    (unsigned long long)r.objects, r.seconds,
-                    (unsigned long long)r.segments_deleted);
+      // A periodic checkpoint runs on its own thread, so this loop keeps
+      // talking to the witnesses while it runs (docs/CHECKPOINT_FAILOVER.md):
+      // a standby lost mid-checkpoint is granted away at once, not when the
+      // checkpoint ends. One at a time; the next is scheduled from the end
+      // of the last, as before. Engine::checkpoint and Engine::promote
+      // still exclude each other (control_mu_).
+      if (ckpt_thread.joinable() && ckpt_finished.load()) {
+        ckpt_join();
         next_ckpt = clock::now() + std::chrono::duration_cast<clock::duration>(
                                        std::chrono::duration<double>(checkpoint_s));
+      }
+      if (checkpoint_s > 0 && now >= next_ckpt && !cfg.data_dir.empty() && !ckpt_thread.joinable()) {
+        ckpt_running.store(1);
+        ckpt_finished.store(false);
+        ckpt_thread = std::thread([&] {
+          ckpt_report = eng.checkpoint();
+          ckpt_finished.store(true);
+        });
       }
       if (report_ms > 0 && now >= next_report) {
         next_report += std::chrono::milliseconds(report_ms);
@@ -1465,6 +1510,11 @@ int main(int argc, char** argv) {
                       t, live, lost, (unsigned long long)lag, bytes / 1048576.0, disk / 1048576.0);
         }
       }
+      std::fflush(stdout);
+    }
+    // A checkpoint still running ends first, as when the loop ran it.
+    if (ckpt_thread.joinable()) {
+      ckpt_join();
       std::fflush(stdout);
     }
   }
