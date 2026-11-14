@@ -220,7 +220,8 @@ def q10(step):
             diag_stop = threading.Event()
             def diag_sampler():
                 t0 = time.time()
-                dumped = set()
+                dumped = []
+                last_dump = {}
                 with open(f"{c.work}/zsampler.log", "w") as f:
                     while not diag_stop.is_set():
                         for k in sorted(c.admin):
@@ -228,19 +229,28 @@ def q10(step):
                                 continue
                             h = c.ask(k, "HEALTH", 1)
                             g = c.ask(k, "GAUGES 0", 1)
-                            mm = re.search(r" main_ms=(\d+)", h or "")
-                            if mm and int(mm[1]) > 3000 and k not in dumped and k in c.server and c.server[k].poll() is None:
-                                dumped.add(k)
-                                pid = c.server[k].pid
-                                for rep in range(2):  # two dumps 2 s apart: is it stuck in the same place?
-                                    try:
-                                        r = subprocess.run(["sudo", "-n", "gdb", "-p", str(pid), "-batch", "-ex",
-                                                            "thread apply all bt"], capture_output=True, text=True,
-                                                           timeout=60)
-                                        open(f"{c.work}/zgdb_n{k}_{rep}.log", "w").write(r.stdout + r.stderr)
-                                    except Exception as e:  # noqa: BLE001
-                                        open(f"{c.work}/zgdb_n{k}_{rep}.log", "w").write(repr(e))
-                                    time.sleep(2)
+                            fa = re.search(r" s0\.wal_flush_age_ms=(\d+)", g or "")
+                            # DIAG: a WAL write in flight > 1.5 s: kernel-side evidence, no ptrace (sysrq-w
+                            # puts every blocked task's kernel stack in dmesg). At most 4 captures per node.
+                            if fa and int(fa[1]) > 1500 and dumped.count(k) < 4 and time.time() - last_dump.get(k, 0) > 3:
+                                dumped.append(k)
+                                last_dump[k] = time.time()
+                                rep = dumped.count(k)
+                                pids = {kk: c.server[kk].pid for kk in c.server if c.server[kk].poll() is None}
+                                sh = ("echo === flush_age_ms=%s node=%s pids=%s; date +%%s.%%N; cat /proc/pressure/io; "
+                                      "for b in /sys/block/*; do echo $b $(cat $b/inflight); done; grep -E 'Dirty|Writeback:' /proc/meminfo; "
+                                      "for p in %s; do for t in /proc/$p/task/*; do echo \"-- $p $(basename $t) "
+                                      "$(cat $t/comm) $(awk '{print $3}' $t/stat) wchan=$(cat $t/wchan)\"; cat $t/stack; done; done; "
+                                      "echo '-- D-state tasks system-wide'; ps -eLo pid,tid,stat,comm,wchan:32 | awk '$3 ~ /D/'; "
+                                      "for t in $(ps -eLo tid,stat,comm | awk '$2 ~ /D/ || $3 ~ /jbd2|kworker.*ext4|iou-wrk/ {print $1}'); do "
+                                      "echo \"-- task $t $(cat /proc/$t/comm 2>/dev/null)\"; cat /proc/$t/stack 2>/dev/null; done; "
+                                      "echo w > /proc/sysrq-trigger; sleep 0.2; dmesg | tail -n 400"
+                                      % (fa[1], k, pids, " ".join(str(v) for v in pids.values())))
+                                try:
+                                    r = subprocess.run(["sudo", "-n", "sh", "-c", sh], capture_output=True, text=True, timeout=30)
+                                    open(f"{c.work}/zkstack_n{k}_{rep}.log", "w").write(r.stdout + r.stderr)
+                                except Exception as e:  # noqa: BLE001
+                                    open(f"{c.work}/zkstack_n{k}_{rep}.log", "w").write(repr(e))
                             f.write(f"{time.time() - t0:.1f} n{k} H {h}\n{time.time() - t0:.1f} n{k} G {g}\n")
                         f.flush()
                         diag_stop.wait(0.5)
@@ -309,7 +319,7 @@ def q10(step):
 
 def keep(c, name, res):
     """On a failure, every node's log and the client's, as evidence."""
-    if not JSON_DIR or (res.get("pass") and not any(f.startswith("zgdb") for f in os.listdir(c.work))):
+    if not JSON_DIR or (res.get("pass") and not any(f.startswith("zkstack") for f in os.listdir(c.work))):
         return
     os.makedirs(JSON_DIR, exist_ok=True)
     with open(f"{JSON_DIR}/{name}_logs.txt", "w") as f:

@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev gdb
+      - run: sudo apt-get update -q && sudo apt-get install -y -q libmimalloc-dev libxxhash-dev liburing-dev
       - name: host info
         run: uname -a; nproc; lscpu | grep -E "Model name|Thread|Socket|NUMA"; df -h . /tmp; mount | grep -E " / | /tmp "
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build -j "$(nproc)"
@@ -35,10 +35,26 @@ jobs:
           ( last=$(date +%s.%N); while :; do t0=$(date +%s.%N); dd if=/dev/zero of=probe.bin bs=4k count=1 oflag=dsync conv=notrunc status=none; t1=$(date +%s.%N)
               awk -v a="$t0" -v b="$t1" -v l="$last" 'BEGIN{ if (b-a>0.2) printf "PROBE %.1f dsync_write %.3f s\n", a, b-a; if (a-l>2.5) printf "PROBE %.1f clock_gap %.1f s\n", a, a-l }'
               last=$t1; sleep 0.5; done ) > probe.log 2>&1 &
+          # Probe 2: the WAL's own pattern outside SNC: O_DIRECT|O_DSYNC 4 KiB
+          # writes into fresh fallocated (unwritten) space under /tmp.
+          python3 -c '
+          import os, mmap, time
+          fd = os.open("/tmp/probe2.bin", os.O_RDWR | os.O_CREAT | os.O_DIRECT | os.O_DSYNC, 0o644)
+          buf = mmap.mmap(-1, 4096); off = 0; seg = 64 << 20
+          while True:
+              if off % seg == 0:
+                  os.ftruncate(fd, 0); os.posix_fallocate(fd, 0, seg); os.fsync(fd); off = 0
+              t0 = time.time(); os.pwritev(fd, [buf], off); d = time.time() - t0; off += 4096
+              if d > 0.2: print("PROBE2 %.1f direct_dsync_unwritten %.3f s" % (t0, d), flush=True)
+              time.sleep(0.5)
+          ' > probe2.log 2>&1 &
+          sudo sysctl -q kernel.sysrq=1 kernel.hung_task_timeout_secs=10 kernel.hung_task_warnings=100 || true
           for i in 1 2 3 4 5 6; do
             echo "=== round $i"
             python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | cut -c1-3000 || fail=1
           done
           for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
           echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
+          echo "########## probe2.log ($(wc -l < probe2.log) slow events)"; cat probe2.log
+          echo "########## dmesg (hung tasks, I/O errors, nvme)"; sudo dmesg -T | grep -iE -A30 "blocked for more than|nvme|I/O error|timeout|reset|EXT4|jbd2" | head -n 600
           exit $fail
