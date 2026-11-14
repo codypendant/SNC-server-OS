@@ -26,9 +26,11 @@ struct RuntimeConfig {
   // allocations beyond it use normal pages.
   PageMode pages = PageMode::SMALL;
   u64 heap_reserve_bytes = 0;
-  // While file I/O is in flight, yield the core at most this often so the
-  // kernel's io_uring workers (which complete RWF_DSYNC writes) can run on
-  // it. 0 = never yield. See docs/ROUTING.md, "Durable p99: the cause".
+  // While file I/O is in flight, give the core up (a brief sleep) at most
+  // this often so the kernel threads that complete that I/O (io_uring
+  // workers, ksoftirqd, dio kworkers) can run on it. 0 = never. See
+  // docs/ROUTING.md, "Durable p99: the cause", and
+  // docs/F1_Q10_LIVENESS_ROOT_CAUSE.md (why a sleep, not sched_yield).
   u32 io_yield_us = 50;
   // Cores for the kernel's io_uring workers; empty = kernel default.
   std::vector<int> io_worker_cpus;

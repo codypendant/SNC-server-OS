@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <deque>
 #include <latch>
 #include <mutex>
@@ -199,10 +200,7 @@ bool sri_write(int fd, u64 off, const void* buf, u32 len, bool dsync, IoDone don
       auto* op = new Worker::IoOp{done, ctx, iovec{const_cast<void*>(buf), len}};
       io_uring_prep_writev2(sqe, fd, &op->iov, 1, off, flags);
       io_uring_sqe_set_data(sqe, op);
-      {  // DIAG (never merge): a submit that does not take the SQE leaves the op unsubmitted.
-        int sr = io_uring_submit(&w.ring);
-        if (sr < 1) std::fprintf(stderr, "DIAG shard %u io_uring_submit=%d sq_ready=%u\n", unsigned{w.id}, sr, io_uring_sq_ready(&w.ring));
-      }
+      io_uring_submit(&w.ring);
       ++w.io_inflight;
       return true;
     }
@@ -236,10 +234,7 @@ void sri_fdatasync(int fd, IoDone done, void* ctx) {
       auto* op = new Worker::IoOp{done, ctx, iovec{}};
       io_uring_prep_fsync(sqe, fd, IORING_FSYNC_DATASYNC);
       io_uring_sqe_set_data(sqe, op);
-      {  // DIAG (never merge): a submit that does not take the SQE leaves the op unsubmitted.
-        int sr = io_uring_submit(&w.ring);
-        if (sr < 1) std::fprintf(stderr, "DIAG shard %u io_uring_submit=%d sq_ready=%u\n", unsigned{w.id}, sr, io_uring_sq_ready(&w.ring));
-      }
+      io_uring_submit(&w.ring);
       ++w.io_inflight;
       return;
     }
@@ -405,15 +400,15 @@ void NativeRuntime::Impl::loop(Worker& w) {
     if (cfg.io_yield_us && w.io_inflight > 0) {
       u64 now = now_ns();
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
-        // DIAG (never merge): SNC_DIAG_IO_SLEEP=1 blocks briefly instead of
-        // sched_yield, so the core's kernel threads (ksoftirqd, kworkers) run.
-        static const bool diag_sleep = std::getenv("SNC_DIAG_IO_SLEEP") != nullptr;
-        if (diag_sleep) {
-          timespec ts{0, 1000};
-          clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
-        } else {
-          sched_yield();
-        }
+        // Block, not sched_yield (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): the
+        // completion of this core's own I/O can need the core's kernel
+        // threads (ksoftirqd, the per-CPU dio kworker), and on hosted 7.0
+        // kernels a pinned thread calling sched_yield in a loop left them
+        // runnable but unscheduled for up to minutes. Sleeping takes the
+        // thread off the run queue, so they run. The request is 1 us; the
+        // kernel's timer slack (50 us by default) decides the actual pause.
+        timespec ts{0, 1000};
+        clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
         w.last_yield_ns = now;
       }
     }

@@ -52,11 +52,11 @@ jobs:
           gcc -O2 -o uring_probe diag/uring_probe.c -luring
           ./uring_probe /tmp/probe3w.bin wait > probe3.log 2>&1 &
           sudo sysctl -q kernel.sysrq=1 kernel.hung_task_timeout_secs=10 kernel.hung_task_warnings=100 || true
-          # A/B: odd rounds as built (A), even rounds with SNC_DIAG_IO_SLEEP=1 (B).
+          # F1 verification: the fix as it will merge (no diag toggles in src/).
+          ./build/test_io_yield || fail=1
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            if [ $((i % 2)) -eq 0 ]; then export SNC_DIAG_IO_SLEEP=1; arm=B; else unset SNC_DIAG_IO_SLEEP; arm=A; fi
-            echo "=== round $i arm $arm"
-            python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | sed "s/^/[$arm] /" | cut -c1-3000 || fail=1
+            echo "=== round $i"
+            python3 tests/test_baseline_move.py build q10_sealed q10_committed --json diag/r$i 2>&1 | cut -c1-3000 || fail=1
           done
           for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
           echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
