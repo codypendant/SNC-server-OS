@@ -424,16 +424,18 @@ void NativeRuntime::Impl::loop(Worker& w) {
       if (now - w.last_yield_ns >= u64{cfg.io_yield_us} * 1000) {
         // While in-flight I/O completes promptly, sched_yield. Once the
         // oldest op has been in flight for io_block_after_us, block briefly
-        // instead
-        // (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): the completion can need this
-        // core's kernel threads (ksoftirqd, the per-CPU dio kworker), and on
-        // hosted 7.0 kernels a pinned thread calling sched_yield in a loop
-        // left them runnable but unscheduled for up to minutes. Sleeping
-        // takes the thread off the run queue, so they run. The request is
-        // 1 us; the kernel's timer slack (50 us by default) sets the pause.
+        // instead (docs/F1_Q10_LIVENESS_ROOT_CAUSE.md): the completion can
+        // need this core's kernel threads (ksoftirqd, the per-CPU dio
+        // kworker), and on hosted 7.0 kernels a pinned thread calling
+        // sched_yield in a loop left them runnable but unscheduled for up to
+        // minutes. Sleeping takes the thread off the run queue, so they run.
+        // The request is 1 us; the kernel's timer slack (50 us by default)
+        // sets the pause. The period restarts after the pause, so the loop
+        // still runs for io_yield_us between pauses however long they take.
         if (now - w.io_oldest->submit_ns >= u64{cfg.io_block_after_us} * 1000) {
           timespec ts{0, 1000};
           clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
+          now = now_ns();
         } else {
           sched_yield();
         }
