@@ -48,6 +48,10 @@ jobs:
               if d > 0.2: print("PROBE2 %.1f direct_dsync_unwritten %.3f s" % (t0, d), flush=True)
               time.sleep(0.5)
           ' > probe2.log 2>&1 &
+          # Probe 3: the same pattern through io_uring (diag/uring_probe.c).
+          gcc -O2 -o uring_probe diag/uring_probe.c -luring
+          ./uring_probe /tmp/probe3s.bin spin 0 > probe3.log 2>&1 &
+          ./uring_probe /tmp/probe3w.bin wait >> probe3.log 2>&1 &
           sudo sysctl -q kernel.sysrq=1 kernel.hung_task_timeout_secs=10 kernel.hung_task_warnings=100 || true
           for i in 1 2 3 4 5 6; do
             echo "=== round $i"
@@ -56,5 +60,6 @@ jobs:
           for f in diag/*/*_logs.txt; do [ -e "$f" ] || continue; echo "########## $f"; cat "$f"; done
           echo "########## probe.log ($(wc -l < probe.log) slow events)"; cat probe.log
           echo "########## probe2.log ($(wc -l < probe2.log) slow events)"; cat probe2.log
+          echo "########## probe3.log"; cat probe3.log
           echo "########## dmesg (hung tasks, I/O errors, nvme)"; sudo dmesg -T | grep -iE -A30 "blocked for more than|nvme|I/O error|timeout|reset|EXT4|jbd2" | head -n 600
           exit $fail
