@@ -1,0 +1,4 @@
+test_migrate: 67 scenarios in 47.1 s (2 lanes): ok
+  15086 conn=oneshot ok=0
+ 106152 conn=oneshot ok=1
+probe rounds: 10327

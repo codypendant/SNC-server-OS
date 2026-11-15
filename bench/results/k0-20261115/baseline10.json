@@ -1,0 +1,578 @@
+{
+ "failover_ms": 1000,
+ "poll_ms": 100,
+ "trials": 10,
+ "cpus": 4,
+ "sanitized": false,
+ "results": {
+  "kept": {
+   "replies": [
+    "1 role=p term=0 uuid=e0eec98ca584892f070e4142f2645342 epoch=",
+    "2 role=p term=0 uuid=e0eec98ca584892f070e4142f2645342 shards",
+    "3 INFO 0 0 0 0 0 0 1 1 0 1 0 0 flags=0 proof=ok arrived=0:0",
+    "4 role=p term=0 uuid=e0eec98ca584892f070e4142f2645342 epoch="
+   ]
+  },
+  "kill": {
+   "trials": [
+    {
+     "detect_ms": 1076.8,
+     "promote_ms": 1120.5
+    },
+    {
+     "detect_ms": 1059.4,
+     "promote_ms": 1119.9
+    },
+    {
+     "detect_ms": 1055.4,
+     "promote_ms": 1100.8
+    },
+    {
+     "detect_ms": 1077.6,
+     "promote_ms": 1145.0
+    },
+    {
+     "detect_ms": 1059.7,
+     "promote_ms": 1100.0
+    },
+    {
+     "detect_ms": 1079.6,
+     "promote_ms": 1124.8
+    },
+    {
+     "detect_ms": 1078.1,
+     "promote_ms": 1119.4
+    },
+    {
+     "detect_ms": 1073.9,
+     "promote_ms": 1120.0
+    },
+    {
+     "detect_ms": 1055.8,
+     "promote_ms": 1087.4
+    },
+    {
+     "detect_ms": 1079.2,
+     "promote_ms": 1121.7
+    }
+   ],
+   "notes": []
+  },
+  "stop": {
+   "trials": [
+    {
+     "detect_ms": 1252.3,
+     "promote_ms": 1289.4
+    },
+    {
+     "detect_ms": 1244.9,
+     "promote_ms": 1270.0
+    },
+    {
+     "detect_ms": 1269.4,
+     "promote_ms": 1307.0
+    },
+    {
+     "detect_ms": 1252.4,
+     "promote_ms": 1293.9
+    },
+    {
+     "detect_ms": 1248.6,
+     "promote_ms": 1286.6
+    },
+    {
+     "detect_ms": 1272.9,
+     "promote_ms": 1327.0
+    },
+    {
+     "detect_ms": 1254.5,
+     "promote_ms": 1286.9
+    },
+    {
+     "detect_ms": 1268.9,
+     "promote_ms": 1305.6
+    },
+    {
+     "detect_ms": 1271.2,
+     "promote_ms": 1309.0
+    },
+    {
+     "detect_ms": 1270.2,
+     "promote_ms": 1310.9
+    }
+   ],
+   "notes": [
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0",
+    "old primary after SIGCONT: role=p term=0"
+   ]
+  },
+  "partition": {
+   "trials": [
+    {
+     "detect_ms": 1255.1,
+     "promote_ms": 1290.1
+    },
+    {
+     "detect_ms": 1259.5,
+     "promote_ms": 1294.1
+    },
+    {
+     "detect_ms": 1251.7,
+     "promote_ms": 1291.3
+    },
+    {
+     "detect_ms": 1252.4,
+     "promote_ms": 1294.3
+    },
+    {
+     "detect_ms": 1277.5,
+     "promote_ms": 1306.1
+    },
+    {
+     "detect_ms": 1255.9,
+     "promote_ms": 1314.9
+    },
+    {
+     "detect_ms": 1268.1,
+     "promote_ms": 1307.5
+    },
+    {
+     "detect_ms": 1269.8,
+     "promote_ms": 1308.3
+    },
+    {
+     "detect_ms": 1251.1,
+     "promote_ms": 1288.1
+    },
+    {
+     "detect_ms": 1255.4,
+     "promote_ms": 1287.5
+    }
+   ],
+   "notes": []
+  },
+  "hold": {
+   "trials": [
+    {
+     "detect_ms": 1252.2,
+     "promote_ms": 1289.0
+    },
+    {
+     "detect_ms": 1273.3,
+     "promote_ms": 1308.7
+    },
+    {
+     "detect_ms": 1252.2,
+     "promote_ms": 1311.8
+    },
+    {
+     "detect_ms": 1256.5,
+     "promote_ms": 1309.9
+    },
+    {
+     "detect_ms": 1272.7,
+     "promote_ms": 1307.1
+    },
+    {
+     "detect_ms": 1239.0,
+     "promote_ms": 1267.9
+    },
+    {
+     "detect_ms": 1269.0,
+     "promote_ms": 1312.8
+    },
+    {
+     "detect_ms": 1245.2,
+     "promote_ms": 1268.2
+    },
+    {
+     "detect_ms": 1268.1,
+     "promote_ms": 1328.8
+    },
+    {
+     "detect_ms": 1268.0,
+     "promote_ms": 1309.3
+    }
+   ],
+   "notes": []
+  },
+  "hold_short": {
+   "hold_ms": 400,
+   "promoted": false,
+   "suspect_lines": 0
+  },
+  "emfile": {
+   "trials": [
+    {
+     "detect_ms": 1053.5,
+     "promote_ms": 1081.3
+    },
+    {
+     "detect_ms": 1035.0,
+     "promote_ms": 1080.8
+    },
+    {
+     "detect_ms": 1053.1,
+     "promote_ms": 1099.0
+    },
+    {
+     "detect_ms": 1036.4,
+     "promote_ms": 1075.0
+    },
+    {
+     "detect_ms": 1047.1,
+     "promote_ms": 1097.0
+    },
+    {
+     "detect_ms": 1054.4,
+     "promote_ms": 1098.9
+    },
+    {
+     "detect_ms": 1036.4,
+     "promote_ms": 1076.6
+    },
+    {
+     "detect_ms": 1027.5,
+     "promote_ms": 1074.0
+    },
+    {
+     "detect_ms": 1054.5,
+     "promote_ms": 1099.4
+    },
+    {
+     "detect_ms": 1056.4,
+     "promote_ms": 1097.4
+    }
+   ],
+   "notes": [
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 26 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0"
+   ]
+  },
+  "emfile_idle": {
+   "trials": [
+    {
+     "detect_ms": 1033.1,
+     "promote_ms": 1075.8
+    },
+    {
+     "detect_ms": 1044.2,
+     "promote_ms": 1081.4
+    },
+    {
+     "detect_ms": 1018.9,
+     "promote_ms": 1077.8
+    },
+    {
+     "detect_ms": 1025.9,
+     "promote_ms": 1057.5
+    },
+    {
+     "detect_ms": 1030.0,
+     "promote_ms": 1100.8
+    },
+    {
+     "detect_ms": 1045.2,
+     "promote_ms": 1108.5
+    },
+    {
+     "detect_ms": 998.4,
+     "promote_ms": 1036.4
+    },
+    {
+     "detect_ms": 1034.3,
+     "promote_ms": 1061.1
+    },
+    {
+     "detect_ms": 1031.7,
+     "promote_ms": 1086.2
+    },
+    {
+     "detect_ms": 1024.7,
+     "promote_ms": 1055.6
+    }
+   ],
+   "notes": [
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=103 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=103 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=103 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0",
+    "8 kept idle connections on the primary",
+    "primary descriptor limit 20000 -> 34 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "old primary adm_kept=8 adm_kept_evicted=0"
+   ]
+  },
+  "kill_unlabeled": {},
+  "kill_requests": [
+   {
+    "proc": "witness",
+    "caller": "watch",
+    "verb": "HEALTH",
+    "n": 72
+   },
+   {
+    "proc": "witness",
+    "caller": "watch/propose/read_latest",
+    "verb": "READ ha/0",
+    "n": 30
+   },
+   {
+    "proc": "witness",
+    "caller": "watch/propose",
+    "verb": "PREPARE ha/0",
+    "n": 18
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_GET/read_latest",
+    "verb": "READ placement",
+    "n": 15
+   },
+   {
+    "proc": "witness",
+    "caller": "watch/propose",
+    "verb": "ACCEPT ha/0",
+    "n": 9
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_LEASES_TAKE/propose/read_latest",
+    "verb": "READ leases",
+    "n": 6
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_LEASES_TAKE/propose",
+    "verb": "PREPARE leases",
+    "n": 6
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_LEASES_TAKE/propose",
+    "verb": "ACCEPT leases",
+    "n": 6
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_LEASES_TAKE/propose",
+    "verb": "COMMIT leases",
+    "n": 6
+   },
+   {
+    "proc": "witness",
+    "caller": "watch/propose",
+    "verb": "COMMIT ha/0",
+    "n": 6
+   },
+   {
+    "proc": "server",
+    "caller": "placement_fetch",
+    "verb": "PLACEMENT GET",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_INIT/propose/read_latest",
+    "verb": "READ placement",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_INIT/propose",
+    "verb": "PREPARE placement",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_INIT/propose",
+    "verb": "ACCEPT placement",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_INIT/propose",
+    "verb": "COMMIT placement",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_NOTREADY/propose/read_latest",
+    "verb": "READ ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_NOTREADY/propose",
+    "verb": "PREPARE ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_NOTREADY/propose",
+    "verb": "ACCEPT ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_NOTREADY/propose",
+    "verb": "COMMIT ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/read_linear/read_latest",
+    "verb": "READ ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/read_linear",
+    "verb": "PREPARE ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/propose/read_latest",
+    "verb": "READ ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/propose",
+    "verb": "PREPARE ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/propose",
+    "verb": "ACCEPT ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_READY/propose",
+    "verb": "COMMIT ha/0",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "watch",
+    "verb": "STATUS",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_SYNC/read_linear/read_latest",
+    "verb": "READ placement",
+    "n": 3
+   },
+   {
+    "proc": "witness",
+    "caller": "serve_PLACEMENT_SYNC/read_linear",
+    "verb": "PREPARE placement",
+    "n": 3
+   },
+   {
+    "proc": "server",
+    "caller": "start/resolve",
+    "verb": "PLACEMENT GET",
+    "n": 2
+   },
+   {
+    "proc": "witness",
+    "caller": "watch",
+    "verb": "PROMOTE",
+    "n": 2
+   },
+   {
+    "proc": "server",
+    "caller": "start/lease_blocks",
+    "verb": "LEASES TAKE",
+    "n": 1
+   },
+   {
+    "proc": "server",
+    "caller": "ask_witness",
+    "verb": "NOTREADY",
+    "n": 1
+   },
+   {
+    "proc": "server",
+    "caller": "ask_witness",
+    "verb": "READY",
+    "n": 1
+   },
+   {
+    "proc": "server",
+    "caller": "promote/placement_sync",
+    "verb": "PLACEMENT SYNC",
+    "n": 1
+   },
+   {
+    "proc": "server",
+    "caller": "promote/lease_blocks",
+    "verb": "LEASES TAKE",
+    "n": 1
+   }
+  ]
+ }
+}

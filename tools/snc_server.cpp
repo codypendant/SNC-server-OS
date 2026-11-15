@@ -9,7 +9,7 @@
 //                   [--standby PORT [--standby-host H] [--space-uuid HEX]
 //                    [--seed-from HOST:PORT]] [--seed-port P] [--report-ms N]
 //                   [--checkpoint-s N] [--replica-retain-mib N] [--catchup-mib-s N]
-//                   [--admin-port P [--debug-admin]] [--witness HOST:PORT] [--standby-reads LEASE_MS]
+//                   [--admin-port P [--debug-admin] [--no-keep]] [--witness HOST:PORT] [--standby-reads LEASE_MS]
 //                   [--adopt-role primary|standby]
 //                   [--move-units on|off] [--move-unit-us N] [--move-unit-bytes N]
 //                   [--move-window-bytes N]
@@ -77,6 +77,9 @@
 // its replication state and may be slow. --debug-admin also accepts DEBUG
 // STALL <shard> <ms>, DEBUG REPL-PAUSE 1|0, DEBUG DROP-ANSWERS 1|0, DEBUG CKPT-HOLD commit|sync 1|0
 // and DEBUG MOVE-STOP <phase> <unit>
+// The admin port keeps a connection that asks with "KEEP 1" (K0,
+// docs/CONTROL_CONNECTIONS_DESIGN.md 4.1, 4.3; only the test probe asks
+// today); --no-keep refuses that, as a server from before K0 does.
 // hold:MS|crash, and --debug-barrier hold:MS|crash
 // (the end of the start barrier, docs/MIGRATION_FAIL_CLOSED.md; tests only). With --witness, a sync primary past --replica-timeout-ms continues
 // without its standby only once the witness grants it, and tells the
@@ -279,6 +282,7 @@ int main(int argc, char** argv) {
   control::Members control_members;
   long long node_id = -1;
   bool debug_admin = false;  // DEBUG STALL on the admin port (tests only)
+  bool admin_keep = true;    // --no-keep: no kept admin connections
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&] {
@@ -351,6 +355,7 @@ int main(int argc, char** argv) {
     else if (k == "--standby-reads") cfg.standby_read_lease_ms = static_cast<u32>(std::atoi(val()));
     else if (k == "--admin-port") admin_port = static_cast<unsigned>(std::atoi(val()));
     else if (k == "--debug-admin") debug_admin = true;
+    else if (k == "--no-keep") admin_keep = false;
     else if (k == "--move-units") {
       const std::string v = val();
       if (v != "on" && v != "off") {
@@ -932,7 +937,7 @@ int main(int argc, char** argv) {
   // PR #36, option B).
   std::atomic<admin::Loop*> admin_loop{nullptr};
   auto health = [&] {
-    // Sized for every field at its maximum (about 1.1 KB) so clamp never
+    // Sized for every field at its maximum (about 1.4 KB with K0's keys) so clamp never
     // cuts a reply that would then still end in its newline (S4.1 review).
     char b[1536];
     int n = std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s epoch=%llu leases=%llu-%llu shards=%u",
@@ -1049,6 +1054,13 @@ int main(int argc, char** argv) {
       // Failed accepts (EMFILE and kin), per attempt; last, as new keys are
       // (docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2).
       n += std::snprintf(b + n, sizeof(b) - n, " adm_accept_fail=%llu", c.accept_fail.load());
+      clamp();
+      // Kept admin connections (K0, docs/CONTROL_CONNECTIONS_DESIGN.md 4.3).
+      n += std::snprintf(b + n, sizeof(b) - n,
+                         " adm_kept=%llu adm_keep_ok=%llu adm_keep_full=%llu adm_kept_idle_closed=%llu "
+                         "adm_kept_evicted=%llu adm_kept_proto=%llu",
+                         c.kept.load(), c.keep_ok.load(), c.keep_full.load(), c.kept_idle_closed.load(),
+                         c.kept_evicted.load(), c.kept_proto.load());
       clamp();
     }
     return std::string(b);
@@ -1271,25 +1283,25 @@ int main(int argc, char** argv) {
       return "NO unknown request";
     };
     if (mover) {
-      h.move = [&](int fd, std::string got, u64 deadline) {
+      h.move = [&](int fd, std::string got, u64 deadline, bool strict, admin::Loop::Handlers::MoveDone done) {
         {
           std::lock_guard<std::mutex> g(move_mu);
           ++moving;
         }
-        std::thread([&, fd, got = std::move(got), deadline]() mutable {
+        std::thread([&, fd, got = std::move(got), deadline, strict, done = std::move(done)]() mutable {
           const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
-          if (admin::finish_line(fd, got, deadline)) {
+          if (admin::finish_line(fd, got, deadline, strict)) {
             const u64 t1 = trace::enabled() ? trace::now_ns() : 0;
             SNC_TRACE("admin_move_in verb=%.24s bytes=%zu read_ms=%.1f", got.c_str() + 5, got.size(), (t1 - t0) / 1e6);
             const std::string out = mover->handle(got);
             const u64 t2 = trace::enabled() ? trace::now_ns() : 0;
-            ha::write_all(fd, out + "\n");
+            done(true, out);  // writes the reply; closes, or hands a kept connection back
             SNC_TRACE("admin_move_out verb=%.24s handle_ms=%.1f write_ms=%.1f reply=%.40s", got.c_str() + 5,
                       (t2 - t1) / 1e6, trace::enabled() ? (trace::now_ns() - t2) / 1e6 : 0.0, out.c_str());
           } else {
             SNC_TRACE("admin_read_fail move bytes=%zu", got.size());
+            done(false, "");
           }
-          ::close(fd);
           std::lock_guard<std::mutex> g(move_mu);
           --moving;
           move_cv.notify_all();
@@ -1298,7 +1310,9 @@ int main(int argc, char** argv) {
     }
     // Opened only now, after Engine::start: no admin verb, HEALTH
     // included, is answered during recovery (CORE_CONTRACTS E6, E8).
-    admin_owner = std::make_unique<admin::Loop>(lfd, std::move(h));
+    admin::KeepOptions keep;
+    keep.on = admin_keep;
+    admin_owner = std::make_unique<admin::Loop>(lfd, std::move(h), admin::kWriteMs, admin::kOutMax, keep);
     admin_loop.store(admin_owner.get());  // before any HEALTH: its counters
     admin_owner->start();
   }

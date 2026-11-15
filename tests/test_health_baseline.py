@@ -30,8 +30,17 @@ Scenarios (each on a fresh cluster):
             descriptor (prlimit), so every accept fails with EMFILE: HEALTH
             goes silent, promotion; once the limit is restored the old
             primary's HEALTH shows adm_accept_fail > 0.
+  emfile_idle as emfile, with the primary's idle set of kept connections
+            populated first (K0; A2(b) "run with the idle set populated"):
+            the same outcome, and no kept connection closed to make room
+            (adm_kept unchanged, adm_kept_evicted 0).
 
-Checked in every scenario (A2(a)): every ha_ask line is conn=oneshot, and
+SNC_BASELINE_IDLE=N populates N kept idle connections on the primary
+before every failover scenario (for recording K0 against the baseline).
+
+Checked in every scenario (A2(a)): every ha_ask line is conn=oneshot (no
+caller in this harness is eligible for a kept connection; K0 keeps only
+test_migrate's probe), no process sends KEEP, and
 the HA-path requests the design keeps one-shot are present in the kill
 scenario's trace (watch HEALTH; the promotion's PLACEMENT SYNC and LEASES
 TAKE; the witnesses' Paxos rounds under them; readiness). Recorded (A2(b)):
@@ -73,6 +82,7 @@ FAILOVER_MS = 1000
 POLL_MS = 100
 SANITIZED = bool(os.environ.get("SNC_SANITIZED"))
 TRIALS = int(os.environ.get("SNC_BASELINE_TRIALS", "2"))
+IDLE = int(os.environ.get("SNC_BASELINE_IDLE", "0"))
 
 # HA-path request kinds the design keeps one-shot (section 4.5), as
 # (process, caller path pattern, verb pattern); each must appear in the
@@ -149,7 +159,7 @@ class Cluster:
     """Three witnesses and one group (node 1 primary, node 2 sync standby)."""
 
     def __init__(self, build, work, proxy_primary=False):
-        self.procs, self.proxy = [], None
+        self.procs, self.proxy, self.kept = [], None, []
         try:
             self._start_all(build, work, proxy_primary)
         except BaseException:
@@ -223,7 +233,25 @@ class Cluster:
         s = status(self.admin[2], 0.5)
         return s if s and s.get("role") in ("p", "n") else None
 
+    def keep_idle(self, n):
+        """n kept admin connections to the primary, left idle (K0)."""
+        for _ in range(n):
+            s = socket.create_connection(("127.0.0.1", self.admin[1]), timeout=3)
+            s.sendall(b"KEEP 1\n")
+            got = b""
+            while not got.endswith(b"\n"):
+                b = s.recv(1)
+                assert b, "kept connection closed during the handshake"
+                got += b
+            assert got == b"OK keep\n", got
+            self.kept.append(s)
+        g = fields(ask(self.admin[1], "HEALTH", 1))
+        assert int(g.get("adm_kept", "0")) == len(self.kept), g
+        self.notes.append(f"{len(self.kept)} kept idle connections on the primary")
+
     def close(self):
+        for s in self.kept:
+            s.close()
         if self.proxy:
             self.proxy.heal()
         for p in self.procs:
@@ -256,10 +284,13 @@ class Cluster:
 
 
 def check_oneshot(asks, what):
-    # True by construction today (ha::ask writes conn=oneshot): a tripwire
-    # for later slices, which label pooled requests otherwise.
+    # Every request here is one-shot: ha::Conn writes conn=kept, and no
+    # caller in this harness uses it. No process ever sends KEEP (only the
+    # eligible callers' ha::Conn handshakes, design 4.1).
     bad = [a for a in asks if a[3] != "oneshot"]
     assert not bad, f"{what}: requests not one-shot: {bad[:5]}"
+    keeps = [a for a in asks if a[2].startswith("KEEP")]
+    assert not keeps, f"{what}: KEEP sent: {keeps[:5]}"
     assert asks, f"{what}: no ha_ask trace lines (is SNC_TRACE honored?)"
 
 
@@ -286,6 +317,9 @@ def run_failover(build, name, fault, after=None):
     c = None
     try:
         c = Cluster(build, work, proxy_primary=name == "partition")
+        idle = IDLE or (8 if name.endswith("_idle") else 0)
+        if idle:
+            c.keep_idle(idle)
         fault_ns = fault(c)
         detect_ms, promote_ms = failover(c, fault_ns)
         st = c.promoted()
@@ -340,11 +374,22 @@ def hold_fault(c):
 
 
 def lowest_free_fd(pid):
-    fds = {int(x) for x in os.listdir(f"/proc/{pid}/fd")}
-    k = 0
-    while k in fds:
-        k += 1
-    return k
+    """The lowest descriptor number the process does not hold, over 100
+    samples 1 ms apart. One sample can land while a short-lived descriptor
+    is open (the node's own placement poll opens one every second; an
+    accepted HEALTH another): the limit then sits above a slot that is
+    free again a moment later, every accept reuses that hole, HEALTH keeps
+    answering and nothing is promoted (seen once in 8 trials, 2026-11-15).
+    The smallest of many samples finds the hole."""
+    low = None
+    for _ in range(100):
+        fds = {int(x) for x in os.listdir(f"/proc/{pid}/fd")}
+        k = 0
+        while k in fds:
+            k += 1
+        low = k if low is None else min(low, k)
+        time.sleep(0.001)
+    return low
 
 
 def emfile_fault(c):
@@ -397,14 +442,71 @@ def hold_short(build):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def kept_requests(sock, reqs):
+    """K <seq> requests on one kept connection; returns the replies."""
+    f = sock.makefile("rb")
+    out = []
+    for seq, line in reqs:
+        sock.sendall(f"K {seq} {line}\n".encode())
+        out.append(f.readline().decode().rstrip("\n"))
+    return out
+
+
+def kept_real(build):
+    """K0 against the real snc_server (the clustered primary): inline,
+    heavy and MOVE requests on one kept connection, and one-shot HEALTH
+    unchanged beside it; then a server started with --no-keep refuses KEEP
+    as a server from before K0 does."""
+    work = tempfile.mkdtemp(prefix="snc-hbase-kept-")
+    c = srv = None
+    try:
+        c = Cluster(build, work)
+        c.keep_idle(1)
+        s = c.kept[0]
+        s.settimeout(5)
+        r = kept_requests(s, [(1, "HEALTH"), (2, "STATUS"), (3, "MOVE INFO 0"), (4, "HEALTH")])
+        assert r[0].startswith("1 role=p ") and r[3].startswith("4 role=p "), r  # HEALTH, inline
+        assert r[1].startswith("2 ") and "role=p" in r[1], r[1]  # STATUS, on the worker
+        assert r[2].startswith("3 ") and len(r[2]) > 2, r[2]     # MOVE, on a MOVE thread
+        g = fields(ask(c.admin[1], "HEALTH", 1))
+        assert int(g["adm_kept"]) == 1 and int(g["adm_keep_ok"]) == 1 and int(g["adm_kept_proto"]) == 0, g
+        # --no-keep: KEEP 1 is an unknown verb, answered and closed.
+        adm, cli = free_ports(2)
+        srv = subprocess.Popen([f"{build}/snc_server", "--shards", "1", "--port", str(cli), "--data-dir",
+                                f"{work}/nk", "--admin-port", str(adm), "--no-keep"],
+                               stdout=open(f"{work}/nk.log", "w"), stderr=subprocess.STDOUT)
+        wait(lambda: ask(adm, "HEALTH", 1), "the --no-keep server up")
+        with socket.create_connection(("127.0.0.1", adm), 3) as k:
+            k.settimeout(3)
+            k.sendall(b"KEEP 1\n")
+            got = k.makefile("rb").read()
+        assert got == b"NO unknown request\n", got
+        return r
+    finally:
+        if srv:
+            srv.kill()
+            srv.wait()
+        if c:
+            c.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def table(asks):
     n = Counter((k, c, v) for k, c, v, _ in asks)
     return sorted(n.items(), key=lambda kv: -kv[1])
 
 
+def emfile_idle_after(c):
+    emfile_after(c)
+    g = fields(ask(c.admin[1], "HEALTH", 1))
+    assert int(g.get("adm_kept", "0")) == len(c.kept), g
+    assert int(g.get("adm_kept_evicted", "0")) == 0, g
+    c.notes.append(f"old primary adm_kept={g['adm_kept']} adm_kept_evicted={g['adm_kept_evicted']}")
+
+
 def main():
     build = sys.argv[1] if len(sys.argv) > 1 else "build"
-    want = sys.argv[2:] or ["kill", "stop", "partition", "hold", "hold_short", "emfile"]
+    want = sys.argv[2:] or ["kept", "kill", "stop", "partition", "hold", "hold_short", "emfile", "emfile_idle"]
     results = {}
     scenarios = {
         "kill": (kill_fault, None, TRIALS),
@@ -412,9 +514,16 @@ def main():
         "hold": (hold_fault, None, TRIALS),
         "partition": (partition_fault, None, TRIALS),
         "emfile": (emfile_fault, emfile_after, TRIALS),
+        "emfile_idle": (emfile_fault, emfile_idle_after, TRIALS),
     }
     kill_asks = None
     for name in want:
+        if name == "kept":
+            r = kept_real(build)
+            results[name] = {"replies": [x[:60] for x in r]}
+            print(f"baseline kept: snc_server answered K requests on one kept connection (HEALTH, STATUS, MOVE "
+                  f"INFO, HEALTH); one-shot HEALTH beside it; --no-keep refused KEEP as an unknown verb")
+            continue
         if name == "hold_short":
             hold_ms, n_suspect = hold_short(build)
             results[name] = {"hold_ms": hold_ms, "promoted": False, "suspect_lines": n_suspect}
