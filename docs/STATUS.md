@@ -352,7 +352,11 @@ Decided by cody on 2026-11-04.
      connection, so one `test_migrate` run leaves about 90k to 107k entries in a hosted 262144-entry conntrack table
      for 120 s; a third run back to back filled it and failed mid-scenario (6 of 10). `test_migrate` now refuses a
      run the table cannot hold, at once and saying why (REFINE); hosted 0 drops after. Persistent control
-     connections are proposed for review (RECONSIDER), not started. F2 to F4 not started.
+     connections are proposed for review (RECONSIDER), not started. **PR #129 merged (03849c3).** Persistent
+     control connections, design only (for review, [CONTROL_CONNECTIONS_DESIGN.md](CONTROL_CONNECTIONS_DESIGN.md)):
+     an opt-in keep-alive (`K` prefix) with one request per connection, close on any failure, no retry after
+     sending; a new count shows the test's own probe makes 81% of `test_migrate`'s control connections. No code.
+     F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

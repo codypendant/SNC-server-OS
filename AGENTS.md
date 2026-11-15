@@ -3069,3 +3069,20 @@ or source comments.
     a default table on a host that tracks connections (inferred from the code, not measured).
 -   **Next action:** reviewer decision; whether to design persistent control connections (C1). Not started:
     R1 multi-process CPU placement, R2, F2, F3, F4.
+
+### 2026-11-15 UTC --- Claude (Claude Code): persistent control-plane connections, design (for review)
+
+-   **What:** the slice the PR #129 review recommended (cody: a pasted review that recommends a slice is the go).
+    Design only, `docs/CONTROL_CONNECTIONS_DESIGN.md`; authorizes no code. Classification: **RECONSIDER**
+    (proposed) one TCP connection per control request; **KEEP** every verb, payload and fencing check.
+-   **What changed:** docs only (`docs/CONTROL_CONNECTIONS_DESIGN.md`, `docs/STATUS.md`). An opt-in `K` prefix
+    keeps a connection open after the reply; one request at a time; close on any timeout or error; a pre-send
+    reuse check; no retry after a request is written; per-lane pools so HEALTH never waits behind heavy work;
+    bounded idle connections on the admin loop and witness threads. Slices K1 (library and servers), K2
+    (callers, probe first), K3 (hosted measurement), with acceptance criteria A1 to A7.
+-   **Evidence:** every `ha::ask` counted in one untraced local `test_migrate` run (instrumentation not committed):
+    125,695 calls in 49 s, of which the test's `MOVE INFO` probe made 101,811 (81%). This corrects the churn
+    document's strace-based attribution (about a quarter), which the tracer's throttling of the probe skewed.
+-   **Assumption changed:** the hosted conntrack load is mostly the test's probe, not the product's control
+    traffic; the product's steady-state churn is witness health polls and placement polls (inferred rates).
+-   **Next action:** reviewer decision on the design; K1 not started.
