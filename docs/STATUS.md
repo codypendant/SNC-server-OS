@@ -467,6 +467,12 @@ Decided by cody on 2026-11-04.
   [handoff/AGENT_SNC_ARCHITECTURE_V0_1.md](handoff/AGENT_SNC_ARCHITECTURE_V0_1.md).
   It says itself that it is "design input, not uncontrolled
   implementation authorization"; it starts no Agent-SNC or Rust work.
+- **SNC-ADR-RUST-001, Rust-native production architecture (accepted 2026-11-15):**
+  [adr/SNC-ADR-RUST-001.md](adr/SNC-ADR-RUST-001.md). Production SNC is to be designed natively in
+  Rust, with this C++ system as the independently maintained behavioral reference (parallel development,
+  differential testing; the specification is authoritative). It begins only after the architecture
+  stabilization and a Rust readiness review, so it starts no Rust work now; C++ work continues only for
+  architectural validation, correctness fixes and reference maintenance.
 - **State-native computing lineage (research, not authorized):**
   [STATE_NATIVE_COMPUTING_LINEAGE.md](STATE_NATIVE_COMPUTING_LINEAGE.md)
   records prior art and frames the minimal durable state-machine contract
