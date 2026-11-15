@@ -357,8 +357,9 @@ so the S3.2 gate admitted them together.
 - **Latency.** A promotion waits behind a checkpoint in progress, and holds
   `control_mu_` across its control-plane calls. This adds failover
   latency for an embedder that checkpoints and promotes from different
-  threads. `snc_server` already runs both from its main loop, one at a
-  time.
+  threads. `snc_server` ran both from its main loop, one at a time; since
+  `docs/CHECKPOINT_FAILOVER.md` it runs periodic checkpoints on their own
+  thread and promotes from the main loop, so this lock is what orders them.
 
 **Unchanged:**
 - the checkpoint and promotion steps themselves;

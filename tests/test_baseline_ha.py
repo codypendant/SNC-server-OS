@@ -225,7 +225,7 @@ def scenario_q3_runtime(work, trials=3):
             probe_writes(g.p_cli, probe_id, time.time() + 1.0, pre)
             time.sleep(1.0 + 0.37 * (trial % 3))  # checkpoints running; vary the phase
             # Kill the standby while a checkpoint is in flight (RESOURCES
-            # ckpt_running, set around Engine::checkpoint on the main loop).
+            # ckpt_running, set while a periodic Engine::checkpoint runs).
             ckpt_at_kill, t_look = None, time.time() + 10
             while time.time() < t_look:
                 rk = kv(af.ask(g.p_adm, "RESOURCES", 1))
@@ -239,11 +239,12 @@ def scenario_q3_runtime(work, trials=3):
             writes = []
             probe_writes(g.p_cli, probe_id, t_kill + 15, writes)
             granted = g.prim.wait_for(r"witness: granted", 0.1)
-            # main_ms is how long ago the main loop last turned. It also
-            # turns slowly while it cuts a checkpoint (Engine::checkpoint runs
-            # on the main loop, every 1 s here; ~1.3 s per cut under TSan), so
-            # one sample can land inside a cut. Take the smallest of several
-            # over 3 s: a wedged loop stays high in all of them.
+            # main_ms is how long ago the main loop last turned. Before
+            # docs/CHECKPOINT_FAILOVER.md it also turned slowly while it cut a
+            # checkpoint (Engine::checkpoint ran on the main loop, every 1 s
+            # here; ~1.3 s per cut under TSan), so one sample could land
+            # inside a cut. Take the smallest of several over 3 s: a wedged
+            # loop stays high in all of them.
             hs = []
             for _ in range(15):
                 hk = kv(af.ask(g.p_adm, "HEALTH", 2))
