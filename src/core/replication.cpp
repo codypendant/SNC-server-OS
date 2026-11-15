@@ -119,7 +119,9 @@ bool leave_shard_cpu(const std::vector<int>& cpus) {
   }
   // No set given: the main thread's, which no shard pins.
   if (CPU_COUNT(&set) == 0 && sched_getaffinity(::getpid(), sizeof(set), &set) != 0) return false;
-  return pthread_setaffinity_np(pthread_self(), sizeof(set), &set) == 0;
+  const int rc = pthread_setaffinity_np(pthread_self(), sizeof(set), &set);
+  if (rc != 0) errno = rc;
+  return rc == 0;
 }
 
 void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
@@ -131,7 +133,10 @@ void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
     // Not on the shard's core, which this thread inherited, and behind
     // the shards wherever it runs: on the process's own CPUs, never on
     // CPUs outside them (docs/CPU_PLACEMENT_R1.md D1).
-    leave_shard_cpu(cpus);
+    if (!leave_shard_cpu(cpus)) {
+      std::fprintf(stderr, "snc: shard %u: catch-up reader cannot leave the shard's CPU (%s); it stays there\n",
+                   shard, std::strerror(errno));
+    }
     ::setpriority(PRIO_PROCESS, static_cast<id_t>(::gettid()), 10);
     g_readers_live.fetch_add(1, std::memory_order_relaxed);
     g_started.fetch_add(1, std::memory_order_relaxed);

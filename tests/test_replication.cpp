@@ -536,8 +536,17 @@ void test_reader_placement() {
   for (int c = 0; c < CPU_SETSIZE; ++c) {
     if (CPU_ISSET(c, &host)) all.push_back(c);
   }
-  if (all.size() < 2) {
-    std::printf("reader placement: skipped, needs 2 CPUs (has %zu)\n", all.size());
+  // With 2 CPUs the process's set would be one CPU, every shard's too, and a
+  // reader that never left its shard's CPU would pass.
+  if (all.size() < 3) {
+    std::printf("reader placement: skipped, needs 3 CPUs (has %zu)\n", all.size());
+    return;
+  }
+  // Readers are found by their nice 10 (setpriority sets it absolutely).
+  errno = 0;
+  const int base_nice = ::getpriority(PRIO_PROCESS, 0);
+  if (errno != 0 || base_nice != 0) {
+    std::printf("reader placement: skipped, needs nice 0 (runs at %d)\n", base_nice);
     return;
   }
   // The process's CPUs: all but the first this test may use.
@@ -577,7 +586,8 @@ void test_reader_placement() {
       if (!parked) std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     if (!parked) _exit(21);
-    // The readers are the process's nice-10 threads.
+    // The readers are the process's nice-10 threads (the parent checked the
+    // process itself runs at nice 0).
     int readers = 0;
     for (const auto& t : std::filesystem::directory_iterator("/proc/self/task")) {
       const std::string tid = t.path().filename().string();

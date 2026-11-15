@@ -1,7 +1,11 @@
 # R1: CPU placement with several SNC processes on one host (2026-11-15)
 
-Status: **review, plus one defect fix (D1)**. The stacking itself (P1) is not changed here; the slices
-proposed for it in section 5 wait for review.
+Status: **review, plus one defect fix (D1)**. The stacking itself (P1) and a second defect found in QA (D2)
+are not changed here; the slices proposed for them in section 5 wait for review.
+
+Scope: the native runtime, which is the product. The Seastar backend (`src/seastar/runtime.cc`, built only
+for `snc_bench_seastar`, off by default) is out of scope; note that it passes `--cpuset 0..n-1` to Seastar
+when no CPUs are given, the same class of mistake as D1.
 
 Assignment: Codex's PR #128 review (`docs/handoff/PR128_Test_Migrate_Review_Approval.md`) asked for "a review
 of SNC's multi-process CPU placement behavior" after connection churn (R4, PR #129), because "SNC's default
@@ -22,17 +26,26 @@ placement can still overload individual CPUs when multiple nodes share a host". 
    (strace, section 3). The new regression test fails on main (`reader ... runs on CPUs 0 1 2 3, not the
    process's 3`, exit 22) and passes with the fix.
 3. **P1, the stacking itself, is confirmed and is a design limit, not a slip.** With no `--cpus`, every
-   process puts shard *i* on the *i*-th CPU it is allowed, and no process knows of the others. Two
-   `snc_server` processes under `taskset -c 2,3` both put shard 0 on CPU 2 and shard 1 on CPU 3
-   (**observed**). An explicit `--cpus` that overlaps another process's is not detected either. Inside the
+   process puts shard *i* on the (*i* mod *k*)-th of the *k* CPUs it is allowed, and no process knows of the
+   others. Two `snc_server --shards 2` processes under `taskset -c 2,3` both put shard 0 on CPU 2 and shard 1
+   on CPU 3 (**observed**). An explicit `--cpus` that overlaps another process's is not detected either. Inside the
    deployment model (one node per host, one shard per core, `docs/BENCHMARKS.md`) this does not arise.
-4. **P2, related, measured only.** Each shard's io_uring workers inherit the shard's single CPU, because
-   `RuntimeConfig::io_worker_cpus` exists but nothing sets it (`snc_server` has no flag). In the PR #128
+4. **P2, related, measured only.** Each shard's io_uring workers inherit the shard's single CPU
+   (observed on kernel 6.18; io-wq's affinity rules have changed across kernels and the hosted 7.0 kernels
+   were not checked), because `snc_server` never sets `RuntimeConfig::io_worker_cpus` (it has no flag; only
+   `snc_bench --io-cpus` does). In the PR #128
    failures the starved threads were the kernel's per-CPU `kworker/N:M-dio` and `ksoftirqd/N`, not
    `iou-wrk`, so no failure is attributed to P2. Recorded so a fix for P1 does not overlook it.
-5. **R2 (the Python multi-process suites) measured:** see section 4.
+5. **D2, a second defect, found in QA, not fixed here** (its own slice). With neither `--shards` nor
+   `--cpus`, `snc_server` runs `std::thread::hardware_concurrency()` shards (`tools/snc_server.cpp`
+   548-551): the host's online CPU count, not the process's set. Under `taskset -c 2,3` on this 4-CPU host
+   one process runs 4 shards on 2 CPUs; in a 2-CPU container on a 64-CPU host it would run 64 shards on 2
+   CPUs (32 per CPU, far past the 4-per-CPU envelope). **Confirmed by reading**; not yet run.
+6. **R2 (the Python multi-process suites) measured:** see section 4.
 
-No safety property depends on placement. Every effect found is liveness or performance.
+No effect on safety was found; every effect found is liveness or performance. That is **inferred, not
+shown**: starvation stretches pauses, and time-based mechanisms (standby read leases, witness failover,
+`T_block`) assume pauses are bounded. This review did not test them under unbounded pauses.
 
 ## 1. Classification
 
@@ -40,6 +53,7 @@ No safety property depends on placement. Every effect found is liveness or perfo
 |---|---|---|
 | D1 catch-up reader placement | **REFINE** (fixed) | It contradicted its own comment ("not on the shard's core ... behind the shards"): it widened past the process's CPUs |
 | P1 default placement with several processes | **KEEP** for one node per host; **limitation** outside it | Correct inside the deployment model; outside it, nothing prevents stacking (section 5 proposes slices) |
+| D2 default shard count from the host's CPU count | **REFINE** (proposed, not fixed) | Same count-is-not-a-set mistake as D1, in `snc_server` |
 | P2 io_uring worker placement | **KEEP**, open question | No failure attributed; changing it needs measurement first (benchmark every assumption) |
 | F1's pause (PR #126) | **KEEP** | Unchanged; its limit (a busy shard with no 1 ms-old I/O never yields) stays as `TEST_MIGRATE_ROOT_CAUSE.md` R1 states it |
 
@@ -56,7 +70,7 @@ a 50 ms `/proc` sampler (comm, `Cpus_allowed_list`, nice) over the pair in secti
 | io_uring workers `iou-wrk-<shard tid>` | the kernel, for each shard's ring | the shard's one CPU (inherited; `io_worker_cpus` unset) | sampler: `iou-wrk-1752` on CPU 2 with shard 1752 on CPU 2 |
 | Catch-up reader (nice 10) | the shard thread (`Sender::start_disk`) | **before:** `0 .. nprocs-1`; **after:** the process's set (D1) | strace, section 3 |
 | Main, admin loop and worker, checkpoint thread, move handlers, sampler | `snc_server` main thread and its children | the process's set (inherited) | sampler |
-| Segment preparer, placement watcher, seed server | `Engine` on the constructing thread | the process's set | source (`Engine::recover`, `start`); sampler |
+| Segment preparer, placement watcher, seed server | `Engine` on the thread calling `start()` | the process's set | source (`Engine::recover`, `start`); sampler |
 | `snc_witness`, `snc_ctl`, `snc_load` threads | their own processes | the process's set (never pin) | sampler |
 
 No other thread is started from a shard thread, so D1 is the only thread that inherited a pinned CPU and had
@@ -80,11 +94,15 @@ killed, 4 s of writes, `strace -f -e sched_setaffinity` on the primary, the stan
 9565  setpriority(PRIO_PROCESS, 9565, 10) = 0
 ```
 
-**Fix.** `Engine`'s constructor records the CPUs of the thread that constructs it, before the runtime starts
-and pins its shards (`Engine::process_cpus_`). That is the set the runtime places shards from. It goes to
+**Fix.** `Engine::start_` records the CPUs of the calling thread before it starts the runtime
+(`Engine::process_cpus_`). The shard workers are created by that call and inherit that set, so it is the
+set the runtime places shards from. (A first version captured it in the constructor; QA 1 noted that
+construction and start may be on different threads, so it moved.) It goes to
 each shard's `Sender::Config::reader_cpus`, and the reader calls `repl::leave_shard_cpu(cpus)`, which sets
-exactly that set (empty: the main thread's set, which no shard pins). Nice 10 is unchanged. If the set can
-no longer be applied (a cpuset shrunk since start), the reader stays where it started, as before.
+exactly that set (empty: the main thread's set). Nice 10 is unchanged. If the set cannot be applied (a
+cpuset shrunk since start, or a host with more than `CPU_SETSIZE` = 1024 CPUs), the reader stays on its
+shard's CPU and now says so on stderr. Not changed: with `--cpus` and no taskset the process's set
+includes the shards' CPUs, so the reader may still share one with a shard, at nice 10, as on main.
 
 **Regression test** (`tests/test_replication.cpp` `test_reader_placement`, deterministic). The forked
 primary restricts itself to every allowed CPU but the first, writes more than a reader's 16 MiB read-ahead on
@@ -92,42 +110,96 @@ each of its 4 shards past a checkpoint, and pauses replication. The standby star
 reader, and each reader fills its read-ahead and waits there. The test waits for that state on
 `repl_disk_gauges()` (all 4 readers live and 64 MiB queued), not on time. It then checks that every nice-10
 thread has exactly the process's CPUs and that there are 4. It unpauses and checks that the standby's log
-matches. It skips, saying so, on a host with one CPU.
+matches. It skips, saying so, on a host with fewer than 3 CPUs (with 2, the process's set would be the
+shards' one CPU and a reader that never moved would pass) or when run under `nice` (readers are found by
+nice 10).
 
 | Code | Result |
 |---|---|
-| main (28733cf) | `reader 3663 runs on CPUs 0 1 2 3, not the process's 3`, child exit 22, test fails |
-| this change | `reader placement: 4 readers on the process's 3 of 4 CPUs, standby matches`; whole `test_replication` 5 of 5 passed |
+| main (28733cf) | `reader 3663 runs on CPUs 0 1 2 3, not the process's 3` (3 CPUs: 1-3), child exit 22, test fails; reproduced by QA 1 |
+| this change | `reader placement: 4 readers on the process's 3 of 4 CPUs, standby matches`; whole `test_replication` passed 5 of 5 (first version), 3 of 3 (final), 4 of 4 by QA 1 |
+| end to end, `snc_server`, QA 3 | main: `sched_setaffinity(..., [0 1 2 3])` under `taskset -c 2,3`; fix: `[2 3]`, and `[1 3]` under `taskset -c 1,3`. Through a promotion (standby B under `taskset -c 0,2` promoted, then catching up a new standby): main `[0 1 2 3]`, fix `[0 2]`. The standby caught up in every arm |
+| end to end, final code | `taskset -c 1,3`: `sched_setaffinity(..., [1 3])`, nice 10, both shards caught up, no "cannot leave" line |
 
 ## 4. R2: the Python multi-process suites
 
-PLACEHOLDER_R2
+Method: the 50 ms `/proc` sampler over 12 suites that start `snc_server` clusters (`test_witness`,
+`test_async_failover`, `test_control`, `test_health`, `test_fail_closed`, `test_s1`, `test_baseline_retry`,
+`test_baseline_move`, `test_xnode_proc`, `test_baseline_ha`, `test_ckpt_failover`, `test_index_wire`; all
+passed, 1037 s, local 4 vCPUs). Counted per sample: pinned shard threads of every `snc_server` from this
+build on each CPU (io_uring workers not counted). 18,046 samples had at least one pinned shard.
+
+| Most pinned shard threads on one CPU, in a sample | Samples |
+|---|---|
+| 1 | 3,022 |
+| 2 | 8,990 |
+| 3 | 2,289 |
+| 4 | 3,721 |
+| 5 | 1 |
+| 6 | 23 |
+
+Per CPU, the most ever seen: CPU 0: 6, CPU 1: 6, CPU 2: 2, CPU 3: 1. So the suites stack on the low CPUs, as
+P1 predicts, and leave CPUs 2 and 3 almost unused. They stay within the 4-per-CPU envelope except for 24
+samples (about 1.2 s in 15 minutes) at 5 or 6. The sampler did not record which suite those came from. None
+of these suites failed here, and their hosted stability is not re-measured (as R2 said). This supports
+R2-a as a hardening, not as the fix of an observed failure.
 
 ## 5. P1: proposed slices (not started)
 
 None of these is started. Each would be its own slice, in this order of value:
 
+- **D2-a. Default shard count from the process's CPU set** (`sched_getaffinity` count), not the host's.
+  A separate defect slice with its own regression test.
 - **R1-a. Refuse or avoid a CPU another SNC process pinned.** Each shard takes a non-blocking `flock` on a
-  per-CPU file (for example `/run/snc/cpu/<n>`, a runtime directory) when it pins. With no `--cpus`, the
-  runtime takes the first allowed CPUs nobody holds; with `--cpus`, a CPU already held refuses the start
-  (or warns: a decision for review). The kernel drops the lock when the process dies, so nothing goes
-  stale. Limits to state: it sees only SNC processes that share the lock directory (not other containers or
-  mount namespaces) and nothing that is not SNC.
+  per-CPU file when it pins, opened `O_CLOEXEC` so no child inherits it. With no `--cpus`, the runtime takes
+  the first allowed CPUs nobody holds; with `--cpus`, a CPU already held refuses the start (or warns). To
+  decide in review: what happens when no free CPU is left without `--cpus` (refuse, or stack as today; the
+  multi-process tests stack today, so refusing needs R2-a first), and the lock directory (`/run/snc` needs
+  root; a fallback such as `$XDG_RUNTIME_DIR` means processes using different directories miss each other).
+  The kernel drops the lock when the last holder of the file description exits. Limits: it sees only
+  processes that open the same lock files (containers see each other only if they bind-mount the same
+  directory), nothing that is not SNC, and covers pinned shards only, not readers, `iou-wrk` or the kernel's
+  completion threads, which are what starved in PR #128.
 - **R1-b. A pause that does not depend on the shard's own I/O age** (Codex's option (b) in
-  `TEST_MIGRATE_ROOT_CAUSE.md` R1). It would protect other processes' completion threads, SNC or not. It
+  `TEST_MIGRATE_ROOT_CAUSE.md` R1). It aims to protect other processes' completion threads, SNC or not. It
   needs measurement on the hosted 7.0 kernels first; R3, why those kernel threads go unscheduled, stays open.
 - **R1-c. Say it in the deployment docs:** one node per host, or disjoint `--cpus` per process; the verified
-  envelope on hosted 7.0 kernels is at most 4 pinned shard threads per CPU.
+  envelope on hosted 7.0 kernels is at most 4 pinned shard threads per CPU, measured under the q10 and
+  `test_migrate` test workloads, not a production load.
 - **R2-a. Python launchers give each process its own CPUs,** as `test_migrate` does since PR #128, if section
   4 shows stacking past that envelope.
 - **P2.** Measure before deciding whether `snc_server` should set `io_worker_cpus` (and to what).
 
-Recommendation: R1-c with R1-a, since R1-a makes the product fail closed on the hazard R1 names, and R1-c
+Recommendation: D2-a first (a defect, small), then R1-c with R1-a, since R1-a makes the product fail closed on the hazard R1 names, and R1-c
 states the limit until then.
 
 ## 6. Independent QA
 
-PLACEHOLDER_QA
+Three independent reviews of the first version (c4dc492). None found a blocker.
+
+| Reviewer | Scope | Result |
+|---|---|---|
+| QA 1 | code and test: every Sender path, determinism, failure on main | Fix correct on every path that builds a Sender; the test waits on state, not time; reproduced the failure on main and 4 passes on the branch |
+| QA 2 | this document against the source: every thread creation | Inventory confirmed: no thread but the reader is started from a shard thread; found D2 and the Seastar gap |
+| QA 3 | end to end with `snc_server` and strace, before and after, including a promotion | Reader on all host CPUs on main, on exactly the taskset CPUs with the fix, in all 4 arms |
+
+| Finding | Reviewer | Resolution |
+|---|---|---|
+| Default shard count from the host's CPU count (D2) | QA 2 | Recorded as D2, slice D2-a proposed; not fixed here (one defect per slice) |
+| Seastar backend not in the inventory; it also passes `--cpuset 0..n-1` | QA 2 | Scope stated at the top; not changed |
+| "No safety property depends on placement" was stated as fact | QA 2 | Reworded as inferred, with the time-based mechanisms named |
+| R1-a's limits imprecise (flock follows the file, `O_CLOEXEC`, `/run` needs root, exhaustion rule, kernel threads not covered) | QA 2 | R1-a rewritten |
+| Captured on the constructing thread, but shards inherit from the thread calling `start()` | QA 1 | Capture moved to `Engine::start_` |
+| Test passes a reader that never moved on a 2-CPU host | QA 1, QA 2 | Test needs 3 CPUs, else skips saying so |
+| Test fails spuriously under `nice -n 10` | QA 1 | Test skips, saying so, unless at nice 0 |
+| Reader ignores a failed affinity call | QA 3 | Now logged on stderr |
+| More than 1024 CPUs: the reader stays on its shard's CPU | QA 1, QA 3 | Stated in section 3; the runtime's own pinning has the same limit |
+| P2 wording ("nothing sets it"), io-wq rule observed on 6.18 only, envelope's workload, "aims to", failure string | QA 2 | Reworded |
+| `--cpus` without taskset: reader may share a shard's CPU at nice 10 | QA 3 | Stated in section 3; unchanged from main |
+| Vector copy per reader start | QA 1 | Kept: once per catch-up |
+
+After the changes: `test_replication` passed 3 of 3 on the final code, and the end-to-end strace check was
+repeated (section 3).
 
 ## Evidence index
 

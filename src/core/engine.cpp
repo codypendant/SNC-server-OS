@@ -466,14 +466,6 @@ std::pair<u64, u64> Engine::lease_block() const {
 }
 
 Engine::Engine(const Config& cfg) : cfg_(cfg) {
-  // Before the runtime starts: its shards pin themselves within this set.
-  cpu_set_t set;
-  CPU_ZERO(&set);
-  if (sched_getaffinity(0, sizeof(set), &set) == 0) {
-    for (int c = 0; c < CPU_SETSIZE; ++c) {
-      if (CPU_ISSET(c, &set)) process_cpus_.push_back(c);
-    }
-  }
   role_.store(cfg.standby ? Role::STANDBY : Role::PRIMARY);
   // Validation only (docs/S3_WRITEBACK.md section 8): SNC_CKPT_IO=legacy or
   // dsync overrides Config::ckpt_io_dsync, so a whole test suite can run on
@@ -674,6 +666,17 @@ void Engine::start() {
 }
 
 void Engine::start_() {
+  // This thread starts the shard workers, which inherit its CPUs and pin
+  // themselves within them: threads the shards start later go back to this
+  // set (docs/CPU_PLACEMENT_R1.md D1).
+  process_cpus_.clear();
+  cpu_set_t set;
+  CPU_ZERO(&set);
+  if (sched_getaffinity(0, sizeof(set), &set) == 0) {
+    for (int c = 0; c < CPU_SETSIZE; ++c) {
+      if (CPU_ISSET(c, &set)) process_cpus_.push_back(c);
+    }
+  }
   if (cfg_.data_dir.empty()) {
     // In-memory mode: no WAL, every state is durable at once. Leases repeat
     // across processes, which is harmless because nothing persists.
