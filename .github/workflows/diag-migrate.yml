@@ -25,6 +25,7 @@ jobs:
           uname -r; nproc; lscpu | grep -E 'Model name|^CPU\(s\)|Thread|NUMA node0'; free -m | head -2
           cat /proc/sys/net/ipv4/ip_local_port_range /proc/sys/kernel/pid_max; df -h /tmp | tail -1; ulimit -a | grep -E 'proc|open'
       - name: rounds
+        shell: bash {0}
         run: |
           for i in $(seq 1 $ROUNDS); do
             pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
@@ -35,7 +36,7 @@ jobs:
               d=$(grep -m1 -oE 'kept /tmp/snc-migrate-[A-Za-z0-9]+' out.txt | cut -c6-)
               if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; fi
               echo "--- ps after"; ps -eo pid,stat,etimes,pcpu,comm | grep -E 'snc_|test_mig' | head
-              echo "--- out tail"; tail -c 3000 out.txt
+              echo "--- out"; grep -c DONE out.txt; grep -v "DONE\|ABORTED" out.txt | tail -c 6000
             fi
             sleep 2
             echo "after: left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate)"
