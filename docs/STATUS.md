@@ -354,8 +354,9 @@ Decided by cody on 2026-11-04.
      run the table cannot hold, at once and saying why (REFINE); hosted 0 drops after. Persistent control
      connections are proposed for review (RECONSIDER), not started. **PR #129 merged (03849c3).** Persistent
      control connections, design only (for review, [CONTROL_CONNECTIONS_DESIGN.md](CONTROL_CONNECTIONS_DESIGN.md)):
-     an opt-in keep-alive (`K` prefix) with one request per connection, close on any failure, no retry after
-     sending; a new count shows the test's own probe makes 81% of `test_migrate`'s control connections. No code.
+     opt-in keep-alive negotiated per connection (`KEEP 1` handshake, `K <seq>` requests), one request at a
+     time, RST close on any failure, read-only retry only, LRU idle eviction, a kill switch; revised after three
+     QA reviews. A new count shows the test's own probe makes 81% of `test_migrate`'s control connections. No code.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

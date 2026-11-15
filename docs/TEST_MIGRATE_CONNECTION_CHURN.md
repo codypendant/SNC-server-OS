@@ -57,7 +57,9 @@ across the control plane, not attempted here (section 5).
 **Correction (2026-11-15, `docs/CONTROL_CONNECTIONS_DESIGN.md` 2.2 and 2.3):** an untraced count of every
 `ha::ask` shows the test's `MOVE INFO` probe makes 81% of a run's control connections, not about a quarter.
 The trace below throttled the probe's tight loop far more than the paced callers, so its caller attribution
-is skewed; its destination counts describe the traced run only.
+is skewed; its destination counts describe the traced run only. In particular, the caller rows
+"witness → node admin (health polls)" and "node → node admin (peer health)" have no real caller in this test:
+its witnesses run without `--pair`, so they send no HEALTH polls.
 
 The trace slows a run to about 95 s, from 45 s. One traced run made 59,289 IPv4 connects to ports of the
 test's two lanes, classified exactly by destination below. The rest of its 71,447 connects went to other
