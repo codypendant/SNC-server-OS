@@ -874,6 +874,12 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
   return rc;
 }
 
+[[noreturn]] static void refuse_cluster_remap(const std::string& dir, u16 has, u16 group) {
+  throw std::runtime_error("cluster: data directory " + dir + " holds " + std::to_string(has) +
+                           " shards, but its group has " + std::to_string(group) +
+                           "; refusing to remap a cluster member's state (docs/SHARD_COUNT_D3.md)");
+}
+
 void Engine::recover() {
   const auto t0 = std::chrono::steady_clock::now();
   const std::string& dir = cfg_.data_dir;
@@ -914,6 +920,17 @@ void Engine::recover() {
     if (!untracked && role != want) {
       throw std::runtime_error(std::string("--adopt-role ") + role_name(want) + ": data directory " + dir +
                                " already has role " + role_name(role) + " (a recorded role is never overridden)");
+    }
+  }
+  // A cluster member's shard count is its group's (snc_server takes it from
+  // the --cluster list or the placement map): a directory that already holds
+  // another count is refused here, before the role file or anything else in
+  // it is written, not remapped (docs/SHARD_COUNT_D3.md). Step 3 checks
+  // again, for a directory seeded below.
+  if (!cfg_.cluster.empty()) {
+    if (const std::optional<Superblock> pre = read_superblock(dir); pre && pre->active_ckpt != 0) {
+      const std::optional<Manifest> pm = read_manifest(dir, pre->active_ckpt);
+      if (pm && pm->n_shards != cfg_.runtime.n_shards) refuse_cluster_remap(dir, pm->n_shards, cfg_.runtime.n_shards);
     }
   }
   if (standby_()) write_role(dir, DirRole::STANDBY);
@@ -1029,7 +1046,10 @@ void Engine::recover() {
     recovery_.checkpoint_seq = m->seq;
   }
 
-  // 3. Slot map.
+  // 3. Slot map. A cluster member's directory with another shard count than
+  // its group's is not remapped to it (checked before anything was written
+  // above; here again for a directory just seeded from a peer).
+  if (m && m->n_shards != n && !cfg_.cluster.empty()) refuse_cluster_remap(dir, m->n_shards, n);
   if (m && m->n_shards == n) {
     slots_ = m->slots;
   } else {
