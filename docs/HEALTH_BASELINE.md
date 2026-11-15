@@ -74,6 +74,7 @@ Times are in ms from the fault: min / median / max.
 | partition | 1087 / 1253 / 1272 | 1125 / 1287 / 1308 | promoted, every trial |
 | hold | 1245 / 1268 / 1271 | 1283 / 1308 / 1316 | promoted, every trial |
 | emfile | 1248 / 1257 / 1273 | 1284 / 1291 / 1333 | promoted; `adm_accept_fail` 120 to 122, `adm_evicted` 0 |
+| emfile, corrected harness (K0 PR) | 1028 / 1046 / 1056 | 1075 / 1090 / 1106 | see the correction below |
 | hold_short | none | none | no promotion; HA state unchanged; HEALTH answered after the hold |
 
 - The full suite passed on this build (56 of 56, ctest `-j1`).
@@ -128,6 +129,17 @@ Times are in ms from the fault: min / median / max.
 6. **Possible flake.** With the soft limit at the lowest free descriptor, a
    descriptor closing below it leaves one usable slot. Accept then succeeds
    once. The test asserts `adm_accept_fail > 0`, not a count.
+
+**Correction (K0 PR, for cody's review).** Finding 6 was real and larger
+than recorded. The harness read the lowest free descriptor once; when a
+transient descriptor was open at that instant, the limit sat above a hole
+that stayed usable, so the primary stayed partly reachable and detection
+waited for a later silent iteration. The fixed harness takes the minimum of
+100 samples. Rerun on this same commit (28733cf), same host, 10 trials, EMFILE
+detection is 1028 / 1046 / 1056 ms and promotion 1075 / 1090 / 1106 ms
+(`bench/results/health-baseline-20261115/emfile_fixed_harness.json`). The row
+above with 1248 to 1333 ms is kept as recorded; K0 and later slices are judged
+against the corrected row. Details: [K0_TEST_PROBE.md](K0_TEST_PROBE.md).
 
 ## Trace overhead (measured and controlled)
 

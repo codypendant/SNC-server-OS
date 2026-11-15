@@ -1,0 +1,75 @@
+{
+ "failover_ms": 1000,
+ "poll_ms": 100,
+ "trials": 10,
+ "cpus": 4,
+ "sanitized": false,
+ "results": {
+  "emfile": {
+   "trials": [
+    {
+     "detect_ms": 1035.7,
+     "promote_ms": 1081.7
+    },
+    {
+     "detect_ms": 1037.1,
+     "promote_ms": 1074.7
+    },
+    {
+     "detect_ms": 1054.3,
+     "promote_ms": 1105.9
+    },
+    {
+     "detect_ms": 1039.1,
+     "promote_ms": 1103.1
+    },
+    {
+     "detect_ms": 1053.8,
+     "promote_ms": 1100.3
+    },
+    {
+     "detect_ms": 1055.7,
+     "promote_ms": 1103.2
+    },
+    {
+     "detect_ms": 1035.5,
+     "promote_ms": 1077.9
+    },
+    {
+     "detect_ms": 1055.2,
+     "promote_ms": 1098.7
+    },
+    {
+     "detect_ms": 1027.9,
+     "promote_ms": 1078.6
+    },
+    {
+     "detect_ms": 1053.0,
+     "promote_ms": 1076.2
+    }
+   ],
+   "notes": [
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=103 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=102 adm_evicted=0",
+    "primary descriptor limit 20000 -> 25 (its lowest free descriptor)",
+    "old primary adm_accept_fail=101 adm_evicted=0"
+   ]
+  }
+ }
+}
