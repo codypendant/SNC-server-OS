@@ -16,6 +16,21 @@ def ksoft():
 def softirq():
     for l in open("/proc/softirqs"):
         if l.strip().startswith("NET_RX"): return [int(x) for x in l.split()[1:]]
+def disk():
+    r = {}
+    for l in open("/proc/diskstats"):
+        f = l.split()
+        if re.match(r"(nvme\d+n\d+|sd[a-z]|vd[a-z])$", f[2]): r[f[2]] = (int(f[3]) + int(f[7]), int(f[11]), int(f[12]))  # ios done, in flight, io ms
+    return r
+def dstate():
+    n = 0
+    for p in os.listdir("/proc"):
+        if p.isdigit():
+            try:
+                for t in os.listdir(f"/proc/{p}/task"):
+                    if open(f"/proc/{p}/task/{t}/stat").read().split(") ")[1][0] == "D": n += 1
+            except OSError: pass
+    return n
 def tcp():
     d = {}
     for path in ("/proc/net/netstat", "/proc/net/snmp"):
@@ -77,16 +92,17 @@ def dump(t):
         out.write(f"ftrace failed: {e}\n")
     out.write(f"R threads on cpu0 by syscall (24=sched_yield 230=clock_nanosleep 7=poll 426=io_uring_enter): {hist}\n=== END DUMP\n")
 dumps = 0; stuck = 0
-k0, s0, t0 = ksoft(), softirq(), tcp(); start = time.time()
+k0, s0, t0 = ksoft(), softirq(), tcp(); d0 = disk(); start = time.time()
 while True:
     time.sleep(0.5)
-    k1, s1, t1 = ksoft(), softirq(), tcp(); nr, kw = sched()
+    k1, s1, t1 = ksoft(), softirq(), tcp(); nr, kw = sched(); d1 = disk(); nd = dstate()
+    dk = ' '.join(f'{k}:{d1[k][0]-d0.get(k,d1[k])[0]}/{d1[k][1]}' for k in sorted(d1))
     ks = " ".join(f"{c}:{k1[c][0]}{(k1[c][2]-k0.get(c,k1[c])[2])//1000000}" for c in sorted(k1))
     sq = " ".join(str(b - a) for a, b in zip(s0, s1))
     out.write(f"{time.time()-start:7.1f} nr={','.join(str(nr.get(c,-1)) for c in range(4))} kw={','.join(str(kw.get(c,-1)) for c in range(4))} "
               f"ksoft_wait_ms[{ks}] netrx[{sq}] opens={t1['ActiveOpens']-t0['ActiveOpens']} synrtx={t1['TCPSynRetrans']-t0['TCPSynRetrans']} "
-              f"psi={open('/proc/pressure/cpu').readline().split()[1]}\n")
+              f"psi={open('/proc/pressure/cpu').readline().split()[1]} io_psi={open('/proc/pressure/io').readline().split()[1]} D={nd} disk[{dk}]\n")
     stuck = stuck + 1 if k1.get("0", ("S",))[0] == "R" else 0
     if stuck >= 4 and dumps < 2 and stuck % 8 == 4:
         dumps += 1; dump(time.time() - start)
-    k0, s0, t0 = k1, s1, t1
+    k0, s0, t0, d0 = k1, s1, t1, d1

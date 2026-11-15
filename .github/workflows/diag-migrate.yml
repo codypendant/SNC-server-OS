@@ -5,7 +5,7 @@ on:
   push:
     branches: [claude/project-thread-n8tebd]
 env:
-  ROUNDS: "12"
+  ROUNDS: "8"
   FILTER: ""
   LANES: "3"
 jobs:
@@ -30,7 +30,7 @@ jobs:
           for i in $(seq 1 $ROUNDS); do
             pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
             cat /proc/net/netstat > ns0; cat /proc/net/snmp > sn0; sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
-            arm=M; envx=X=1; case $((i % 3)) in 2) arm=U; envx=SNC_DIAG_NOPIN=1;; 0) arm=L; envx=SNC_MIGRATE_LANES=1;; esac
+            arm=M; envx=X=1
             t0=$(date +%s); env SNC_MIGRATE_LANES=$LANES SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh $envx ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
             sudo kill $sp; wait $sp 2>/dev/null
             delta=$(python3 tools/diag/netdelta.py ns0 /proc/net/netstat sn0 /proc/net/snmp)
@@ -40,6 +40,7 @@ jobs:
               d=$(grep -m1 -oE 'kept /tmp/snc-migrate-[A-Za-z0-9]+' out.txt | cut -c6-)
               if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; fi
               echo "--- ps after"; ps -eo pid,stat,etimes,pcpu,comm | grep -E 'snc_|test_mig' | head
+              echo "--- dmesg"; sudo dmesg -T | tail -n 15
               echo "--- samples"; cat samp.txt
               echo "--- out"; grep -c DONE out.txt; grep -v "DONE\|ABORTED" out.txt | tail -c 6000
             fi
