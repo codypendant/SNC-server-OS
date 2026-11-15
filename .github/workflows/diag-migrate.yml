@@ -43,7 +43,7 @@ jobs:
               echo "[$arm] FAIL round $i rc=$rc $((t1-t0))s $pre | $delta"; sed -n "/=== SNAPSHOT/,/=== END SNAPSHOT/p" out.txt
               grep -m1 "test_migrate: scenario" out.txt
               d=$(grep -m1 -oE 'kept /tmp/snc-migrate-[A-Za-z0-9]+' out.txt | cut -c6-)
-              if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; fi
+              if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; for f in $d/gauges.*; do echo "--- $f"; cat $f; done; fi
               echo "--- ps after"; ps -eo pid,stat,etimes,pcpu,comm | grep -E 'snc_|test_mig' | head
               echo "--- dmesg"; sudo dmesg -T | tail -n 15
               echo "--- samples"; cat samp.txt

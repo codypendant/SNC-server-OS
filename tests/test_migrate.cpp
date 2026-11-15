@@ -60,6 +60,7 @@
 #include "harness.h"
 #include "snc/cluster.h"
 #include "snc/net.h"
+#include "snc/gauges.h"
 #include "snc/types/account.h"
 
 using namespace snc;
@@ -315,6 +316,26 @@ int node_main(const std::string& dir, u32 k, bool restart) {
       }
     }
     if (slot < 0 && exists(e.dir + "/slot")) slot = std::stoi(read_file(e.dir + "/slot"));
+    static auto last_g = clk::now();  // DIAG: gauges, nonzero ones, every 250 ms
+    if (clk::now() - last_g >= std::chrono::milliseconds(250)) {
+      last_g = clk::now();
+      std::string out;
+      for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
+        GaugeSnapshot gs;
+        for (int i = 0; i < 1000; ++i) {
+          gs = eng.gauges(sh);
+          if (gs.consistent) break;
+        }
+        out += "sh" + std::to_string(sh) + (gs.consistent ? "" : "(inconsistent)") + ":";
+        for (u32 i = 0; i < kGaugeCount; ++i) {
+          if (gs.v[i] != 0 && std::string(kGaugeNames[i]).find("ckpt") == std::string::npos)
+            out += " " + std::string(kGaugeNames[i]) + "=" + std::to_string(gs.v[i]);
+        }
+        out += "\n";
+      }
+      write_file(e.dir + "/gauges." + t + ".tmp", out);
+      ::rename((e.dir + "/gauges." + t + ".tmp").c_str(), (e.dir + "/gauges." + t).c_str());
+    }
     if (!standby && clk::now() - last >= std::chrono::milliseconds(40)) {
       last = clk::now();
       report(eng, e, k, g, slot, false);
@@ -802,6 +823,14 @@ std::string run_scenario(const Scenario& sc, u16 port_lo, u16 port_hi) {
     }
   }
 
+  if (const char* st = std::getenv("SNC_DIAG_STOP_STANDBY_MS")) {  // DIAG: a standby that stalls
+    const int ms_ = std::atoi(st);
+    const int who = std::getenv("SNC_DIAG_STOP_WHO") ? std::atoi(std::getenv("SNC_DIAG_STOP_WHO")) : 1;
+    ::kill(node[who], SIGSTOP);
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms_));
+    ::kill(node[who], SIGCONT);
+    std::fprintf(stderr, "DIAG stopped node %d for %d ms\n", who, ms_);
+  }
   // The first driver, until it dies after the step.
   migrate::Driver d1(ms);
   d1.stop_at = [&](const std::string& s) { return s == sc.stop; };
