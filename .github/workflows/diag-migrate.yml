@@ -5,7 +5,7 @@ on:
   push:
     branches: [claude/project-thread-n8tebd]
 env:
-  ROUNDS: "8"
+  ROUNDS: "9"
   FILTER: ""
   LANES: "3"
 jobs:
@@ -26,13 +26,7 @@ jobs:
           cat /proc/sys/net/ipv4/ip_local_port_range /proc/sys/kernel/pid_max; df -h /tmp | tail -1; ulimit -a | grep -E 'proc|open'
       - name: arm
         run: |
-          r=${{ matrix.r }}
-          case $((r % 4)) in
-            1) echo "ARM=M" >> $GITHUB_ENV;;
-            2) echo "ARM=X" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV;;
-            3) echo "ARM=Z" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV; echo "LANES=2" >> $GITHUB_ENV;;
-            0) echo "ARM=Y" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV; echo "LANES=1" >> $GITHUB_ENV;;
-          esac
+          echo paired arms per round
           sysctl net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_tcp_timeout_time_wait net.netfilter.nf_conntrack_buckets 2>&1; lsmod | grep -E 'conntrack|nf_' | head; sudo iptables -S | head -20
       - name: rounds
         shell: bash {0}
@@ -40,7 +34,7 @@ jobs:
           for i in $(seq 1 $ROUNDS); do
             pre="ct=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null)/$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null) left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
             cat /proc/net/netstat > ns0; cat /proc/net/snmp > sn0; sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
-            arm=$ARM; envx=X=1
+            case $((i % 3)) in 1) arm=M; envx="X=1"; LANES=3;; 2) arm=X; envx="SNC_DIAG_SPREAD=1"; LANES=3;; 0) arm=Z; envx="SNC_DIAG_SPREAD=1"; LANES=2;; esac
             t0=$(date +%s); env SNC_MIGRATE_LANES=$LANES SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh $envx ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
             sudo kill $sp; wait $sp 2>/dev/null
             post="ct_after=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null) ctfull=$(sudo dmesg | grep -c 'table full')"
@@ -55,7 +49,7 @@ jobs:
               echo "--- samples"; cat samp.txt
               echo "--- out"; grep -c DONE out.txt; grep -v "DONE\|ABORTED" out.txt | tail -c 6000
             fi
-            sleep 2
+            sleep 2; for w in $(seq 1 30); do [ "$(cat /proc/sys/net/netfilter/nf_conntrack_count)" -lt 2000 ] && break; sleep 5; done
             echo "after: left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate)"
             rm -rf /tmp/snc-migrate-*
           done
