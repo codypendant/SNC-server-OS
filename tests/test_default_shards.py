@@ -2,7 +2,7 @@
 """snc_server's default shard count (docs/CPU_PLACEMENT_R1.md D2, slice D2-a).
 
 With neither --shards nor --cpus, snc_server runs one shard per CPU the
-process may run on (its affinity set: taskset, a cpuset, a container), not
+process may run on (its affinity set: taskset or a cgroup cpuset), not
 one per CPU the host has online. Deterministic: each case starts the server
 in memory under a given CPU set, reads its startup line and stops it.
 
@@ -13,12 +13,14 @@ in memory under a given CPU set, reads its startup line and stops it.
 
 S1 and S2 fail on the code before D2-a whenever the host has more CPUs than
 the set given. Needs 2 CPUs (S1, S4) and 3 (S2); a case that cannot
-discriminate on this host is skipped, saying so.
+discriminate on this host is skipped, saying so, and with fewer than 2 CPUs
+the whole test exits 77 (skipped).
 
 Usage: test_default_shards.py BUILD_DIR
 """
 import os
 import re
+import selectors
 import signal
 import socket
 import subprocess
@@ -61,8 +63,14 @@ def shards_under(cpus, *flags):
                          stderr=subprocess.STDOUT, text=True, preexec_fn=pin)
     out, got = [], None
     t_end = time.time() + 30
+    sel = selectors.DefaultSelector()
+    sel.register(p.stdout, selectors.EVENT_READ)
     try:
-        while time.time() < t_end:
+        # Wait for each line with a deadline, so a server that hangs before
+        # printing fails here, not at the ctest timeout.
+        while got is None and time.time() < t_end:
+            if not sel.select(timeout=max(0.0, t_end - time.time())):
+                break
             line = p.stdout.readline()
             if not line:
                 break
@@ -70,14 +78,14 @@ def shards_under(cpus, *flags):
             m = LINE.match(line)
             if m:
                 got = int(m.group(1))
-                break
     finally:
+        sel.close()
         p.send_signal(signal.SIGINT)
         try:
-            p.wait(timeout=30)
+            p.communicate(timeout=30)  # drains stdout while it stops
         except subprocess.TimeoutExpired:
             p.kill()
-            p.wait()
+            p.communicate()
     assert got is not None, f"cpus={cpus} {flags}: no startup line\n{''.join(out)}"
     return got
 
@@ -113,6 +121,10 @@ def main():
     assert n == len(allowed), f"S3: unrestricted gave shards={n}, want {len(allowed)}"
     print(f"S3 unrestricted: shards={n}")
     ran += 1
+    if ran < 2:
+        # Only S3 ran, which the code before D2-a passes too: nothing checked.
+        print("test_default_shards: skipped, needs 2 CPUs to tell the defaults apart")
+        sys.exit(77)
     print(f"test_default_shards: ok ({ran} cases)")
 
 

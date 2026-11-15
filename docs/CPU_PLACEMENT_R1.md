@@ -37,9 +37,9 @@ placement can still overload individual CPUs when multiple nodes share a host". 
    failures the starved threads were the kernel's per-CPU `kworker/N:M-dio` and `ksoftirqd/N`, not
    `iou-wrk`, so no failure is attributed to P2. Recorded so a fix for P1 does not overlook it.
 5. **D2, a second defect, found in QA; fixed afterwards in its own slice, D2-a (section 7).** With neither `--shards` nor
-   `--cpus`, `snc_server` runs `std::thread::hardware_concurrency()` shards (`tools/snc_server.cpp`
-   548-551): the host's online CPU count, not the process's set. Under `taskset -c 2,3` on this 4-CPU host
-   one process runs 4 shards on 2 CPUs; in a 2-CPU container on a 64-CPU host it would run 64 shards on 2
+   `--cpus`, `snc_server` runs `std::thread::hardware_concurrency()` shards (`tools/snc_server.cpp`,
+   before D2-a): the host's online CPU count, not the process's set. Under `taskset -c 2,3` on this 4-CPU host
+   one process runs 4 shards on 2 CPUs; in a 2-CPU cpuset on a 64-CPU host it would run 64 shards on 2
    CPUs (32 per CPU, far past the 4-per-CPU envelope). **Confirmed by reading**, then observed (section 7).
 6. **R2 (the Python multi-process suites) measured:** see section 4.
 
@@ -213,32 +213,89 @@ ran *n* shards on *k* CPUs, *n/k* per CPU. **Observed** before the fix: under on
 
 **Fix.** The default is now the size of the process's affinity set (`sched_getaffinity` on the main thread,
 which no shard has pinned yet). `--shards` and `--cpus` behave as before. If the set cannot be read, the
-old count is used. Nothing else changed.
+old count is used and a line on stderr says so. Nothing else changed.
 
 **Regression test** (`tests/test_default_shards.py`, deterministic, about 3 s). Each case starts the server
 in memory under a given CPU set, reads its startup line and stops it.
 
 | Case | Before (28733cf + test) | After |
 |---|---|---|
-| S1: one CPU of 4 | `shards=4`, fails | `shards=1` |
+| S1: one CPU of 4 | `shards=4`, fails (also reproduced by QA 1 at ed47b61) | `shards=1` |
 | S2: two CPUs that are not neighbours | (not reached) | `shards=2` |
 | S3: unrestricted | `shards=4` | `shards=4` (unchanged) |
 | S4: `--shards 3` or `--cpus` of 2, under one CPU | unchanged | unchanged |
 
 S1 and S4 need 2 CPUs and S2 needs 3; a case that cannot discriminate is skipped, saying so.
 
-**What this changes for an operator** (only for processes started without `--shards` and `--cpus` in a
-limited CPU set; unrestricted hosts get the same count as before):
+**What this changes for an operator.** Only processes started without `--shards` and `--cpus` under a
+limited CPU set (taskset or a cgroup cpuset) see a different count; on an unrestricted host the count is as
+before. A CPU *quota* (`docker --cpus`, Kubernetes CPU limits, cgroup `cpu.max`) leaves the affinity set at
+the whole host, so such a container still gets the host count: this slice does not cover quotas.
 
-- Restarting an existing data directory under a smaller set than it was created with now gives fewer shards,
-  and recovery remaps the shard count once, as it does when a host's CPU count changes. **Observed:** a data
-  directory made with 4 shards, restarted under `taskset -c 3`, logged `recovery: checkpoint before serving
-  (shard count changed)` and served with `shards=1`.
-- A primary and standby must have the same shard count (the standby refuses otherwise, with a message). Two
-  such processes started under sets of different sizes used to agree, both at the host count; now they do
-  not, and replication is refused. Every launcher in this repository (tests, `bench/lab/lab.py`, the pilot)
-  passes `--shards` or `--cpus`, so none is affected. Deployments should pass `--shards` explicitly.
-- Not changed: an allowed set larger than `kMaxShards` (256) aborts the start, as the host count did before.
+- **Pass `--shards` explicitly in deployments.** Every launcher in this repository (tests, `bench/lab/lab.py`,
+  the pilot, the bench scripts, the README example) already passes `--shards` or `--cpus` (QA 2 checked each);
+  `docs/CLUSTER.md`'s `--control` example elides its other flags.
+- **A standalone node** restarted with its data directory under a set of a different size now gets a
+  different count, and recovery remaps once, as when a host's CPU count changes. That restart routes every
+  record on the control thread, so it is slower on large data. **Observed:** a directory made with 4
+  shards, restarted under `taskset -c 3`, logged `recovery: checkpoint before serving (shard count changed)`
+  and served with `shards=1`.
+- **A primary and standby** must have the same count. Two such processes under sets of different sizes used
+  to agree (both at the host count); now the standby is refused, and the refusal is easy to miss
+  (**observed by QA 3**: primary unrestricted with 4 shards, standby under `taskset -c 2,3` with 2):
+  - only the primary logs, once a second per shard: `standby refused shard N (another space, shard count or
+    slot map)`, which names neither the failed check nor the two counts; shards past the standby's count log
+    only `standby unreachable`; the standby logs nothing;
+  - a sync primary without a witness then degrades and keeps acknowledging writes with one copy (139k in
+    QA 3's run; STATUS `live=0 degraded=4`), as it does for any lost standby;
+  - a `--seed-from` standby seeds the primary's checkpoint, remaps it to its own count and is then refused,
+    so reseeding does not help. Restarting the standby with matching `--shards` fixed every case, and the
+    promoted standby matched the primary.
+- **`--cluster` and `--control` nodes** must match the shard count their group has in the placement map.
+  A node that relied on the default, restarted under a smaller set, now fails at start. It aborts
+  (`std::terminate`) rather than exiting cleanly, because `snc_server` constructs the `Engine` outside the
+  `try` that turns refused starts into exit 1 (`tools/snc_server.cpp`). That abort is a pre-existing defect
+  this default makes easier to reach; see D3 and D4 below.
+- **Clients** that outlive a server restarted with another count fail to reconnect (`EPROTO`, "another shard
+  count", `src/net/client.cpp`) and must be recreated. `snc_load` then does not record its in-flight
+  transfers as in doubt, so its check fails (24 accounts in QA 3's run; the total was conserved). QA 3
+  showed the same on the code before D2-a with an explicit `--shards 4` then `--shards 2`: pre-existing,
+  now reachable by restarting under another CPU set.
+- Not changed: an allowed set larger than `kMaxShards` (256) aborts the start, as the host count did.
+
+**Found in QA, not fixed here (each its own slice, for review):**
+
+- **D3.** In `--cluster` and `--control` mode the shard count is recorded in the group's map, but the default
+  ignores it. The default there should come from the map, or a mismatch should be refused with a message.
+- **D4.** A configuration the `Engine` constructor refuses (`std::invalid_argument`) aborts `snc_server`
+  instead of exiting 1 with the reason, since the constructor runs outside the `try` around `start()`.
+- **D5.** A shard-count mismatch between primary and standby deserves its own refusal, naming both counts and
+  logged on both sides (today the standby folds it into "another space" and logs nothing), or a standby
+  could refuse at start. A `--seed-from` standby could default to the seed's count.
+- **Noted for investigation (QA 2):** after a shard-count remap, a standby resumes without the WAL tail CRC
+  check (`tail_crc` is filled only on the non-remap path). Not shown reachable with diverged data.
+
+**Independent QA of D2-a** (three reviews of 251d3fe; none found a blocker).
+
+| Reviewer | Scope | Result |
+|---|---|---|
+| QA 1 | code and test | Ordering, fallback and casts correct; test fails on ed47b61 (`S1: one CPU (3) gave shards=4`), passes 4 of 4 |
+| QA 2 | claims and deployment impact: every launcher, remap, replication, cluster mode | Every launcher passes `--shards` or `--cpus`; found the cluster/control abort (D3, D4), the client and HA effects, the quota limit, the remap tail-CRC note |
+| QA 3 | end to end, before and after: startup matrix, remap 4→1→2→4 after SIGINT and SIGKILL, replication, seeding, live clients | Counts as designed; no data lost in any remap or replication case (check OK over all runs); found the quiet refusal and the single-copy degrade (D5) |
+
+| Finding | Reviewer | Resolution |
+|---|---|---|
+| Cluster/control nodes now abort when the default differs from the map | QA 1, QA 2 | Stated above; D3 and D4 proposed |
+| Primary/standby mismatch is quiet; a sync primary degrades to one copy | QA 3 | Stated above; D5 proposed |
+| Clients fail across a count change; `snc_load` loses in-doubt transfers | QA 2, QA 3 | Stated above (pre-existing) |
+| "a container" overclaimed: a CPU quota does not narrow the set | QA 2, QA 3 | Reworded in code, test and doc |
+| Test could hang past its 30 s deadline; stdout not drained | QA 1 | Reads with a selector deadline; `communicate()` drains |
+| Test passes vacuously on a 1-CPU host | QA 1, QA 3 | Exits 77, `SKIP_RETURN_CODE` |
+| Silent fallback to the host count | QA 3 | Logged on stderr |
+| `--cpus` tested twice | QA 1 | Simplified to if/else |
+| Remap slower on large data; restart under any other size, not only smaller | QA 2 | Stated above |
+| Tail CRC not checked after a remap | QA 2 | Noted for investigation |
+| Sets over 256 CPUs abort with no hint; `bench/baseline_server` default; port race in test | QA 1, QA 3 | Not changed (pre-existing, bench-only, usual pattern) |
 
 ## Evidence index
 

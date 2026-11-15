@@ -374,7 +374,14 @@ Decided by cody on 2026-11-04.
      new `test_reader_placement` fails on main and passes. The stacking itself (P1: several processes put shard
      *i* on the same CPU) is KEEP for one node per host and a stated limit outside it; slices proposed, not
      started: D2-a (`snc_server`'s default shard count uses the host's CPU count, a second defect found in QA),
-     R1-a (per-CPU locks so processes avoid or refuse each other's CPUs), R1-b, R1-c, R2-a.
+     R1-a (per-CPU locks so processes avoid or refuse each other's CPUs), R1-b, R1-c, R2-a. **PR #133 approved by cody.** D2-a (for review,
+     [CPU_PLACEMENT_R1.md](CPU_PLACEMENT_R1.md) section 7): `snc_server`'s default shard count (no `--shards`, no
+     `--cpus`) is now the size of the process's CPU affinity set, not the host's online count (REFINE); under one
+     CPU of 4 it started 4 shards, now 1. New `test_default_shards`. Operator effects stated (restart remaps; a
+     primary/standby or cluster member started without `--shards` under different sets now mismatches). QA found
+     D3 (cluster/control default should come from the map), D4 (an Engine-constructor refusal aborts
+     `snc_server`) and D5 (a shard-count refusal is quiet and a sync primary degrades to one copy): proposed,
+     not started.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

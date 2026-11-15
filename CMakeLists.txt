@@ -119,6 +119,7 @@ if(PYTHON3)
   # snc_server's default shard count follows the process's CPUs (docs/CPU_PLACEMENT_R1.md D2).
   add_test(NAME test_default_shards COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_default_shards.py
            ${CMAKE_BINARY_DIR})
+  set_tests_properties(test_default_shards PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_s1 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s1.py ${CMAKE_BINARY_DIR})
   # Pre-baseline readiness (docs/EXPERIMENTAL_BASELINE.md section 5): the

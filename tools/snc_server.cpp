@@ -547,18 +547,23 @@ int main(int argc, char** argv) {
     return 2;
   }
   if (cfg.runtime.n_shards == 0) {
-    // One shard per CPU this process may run on (taskset, a cpuset, a
-    // container), not per CPU the host has online: those differ wherever
-    // the process is limited, and the runtime places shards within this set
-    // (docs/CPU_PLACEMENT_R1.md D2).
+    // --cpus: one shard per listed CPU. Otherwise one per CPU this process
+    // may run on (taskset or a cgroup cpuset; a CPU quota does not narrow
+    // it), not per CPU the host has online: the runtime places shards within
+    // this set (docs/CPU_PLACEMENT_R1.md D2).
     unsigned n = 0;
-    cpu_set_t allowed;
-    CPU_ZERO(&allowed);
-    if (cfg.runtime.cpus.empty() && sched_getaffinity(0, sizeof(allowed), &allowed) == 0) {
-      n = static_cast<unsigned>(CPU_COUNT(&allowed));
+    if (!cfg.runtime.cpus.empty()) {
+      n = static_cast<unsigned>(cfg.runtime.cpus.size());
+    } else {
+      cpu_set_t allowed;
+      CPU_ZERO(&allowed);
+      if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0) n = static_cast<unsigned>(CPU_COUNT(&allowed));
     }
-    if (!cfg.runtime.cpus.empty()) n = static_cast<unsigned>(cfg.runtime.cpus.size());
-    if (n == 0) n = std::max(1u, std::thread::hardware_concurrency());  // the set cannot be read
+    if (n == 0) {
+      n = std::max(1u, std::thread::hardware_concurrency());
+      std::fprintf(stderr, "snc_server: cannot read this process's CPUs (%s); %u shards, one per online CPU\n",
+                   std::strerror(errno), n);
+    }
     cfg.runtime.n_shards = static_cast<u16>(n);
   }
   account::register_type();
