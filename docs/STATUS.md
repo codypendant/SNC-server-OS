@@ -355,8 +355,9 @@ Decided by cody on 2026-11-04.
      connections are proposed for review (RECONSIDER), not started. **PR #129 merged (03849c3).** Persistent
      control connections, design only (for review, [CONTROL_CONNECTIONS_DESIGN.md](CONTROL_CONNECTIONS_DESIGN.md)):
      opt-in keep-alive negotiated per connection (`KEEP 1` handshake, `K <seq>` requests), one request at a
-     time, RST close on any failure, read-only retry only, LRU idle eviction, a kill switch. Revision 3 (cody's
-     PR #130 review): HEALTH and the whole HA decision path stay one-shot; timeouts are ambiguous outcomes, not
+     time, RST close on any failure, read-only retry only, LRU idle eviction, a kill switch. Revisions 3 and 4
+     (cody's PR #130 review, then QA): HEALTH, promotion's placement and lease calls, every Paxos write and the
+     rest of the HA decision path stay one-shot; timeouts are ambiguous outcomes, not
      proof of non-execution. A new count shows the test's own probe makes 81% of `test_migrate`'s control
      connections. No code; K0 to K3 not started.
      F2 to F4 not started.
