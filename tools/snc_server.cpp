@@ -107,6 +107,7 @@
 #include <chrono>
 #include <mutex>
 #include <memory>
+#include <optional>
 #include <condition_variable>
 #include <cerrno>
 #include <cstdio>
@@ -250,6 +251,12 @@ bool parse_uuid(const char* s, Uuid& u) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Trace label for the control requests this thread makes while starting
+  // ("ha_ask", tools/ha.h): start, rejoin and the start barrier. Ended before
+  // the signal-wait loop, whose requests (readiness, promotion) carry their
+  // own labels.
+  std::optional<ha::Caller> start_tag;
+  start_tag.emplace("start");
   Engine::Config cfg;
   cfg.runtime.n_shards = 0;
   cfg.runtime.ring_slots = 1024;
@@ -562,6 +569,7 @@ int main(int argc, char** argv) {
     }
     control::NodeSetup setup;
     std::string why;
+    const ha::Caller resolve_tag("resolve");
     if (!control::resolve(control_members, cfg.data_dir, static_cast<u32>(node_id), 10000, setup, why)) {
       std::fprintf(stderr, "control: %s\n", why.c_str());
       return 1;
@@ -1022,6 +1030,10 @@ int main(int argc, char** argv) {
                          c.out.load(), c.out_hw.load(), c.write_timeouts.load(), c.write_failed.load(),
                          c.write_evicted.load());
       clamp();
+      // Failed accepts (EMFILE and kin), per attempt; last, as new keys are
+      // (docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2).
+      n += std::snprintf(b + n, sizeof(b) - n, " adm_accept_fail=%llu", c.accept_fail.load());
+      clamp();
     }
     return std::string(b);
   };
@@ -1081,6 +1093,27 @@ int main(int argc, char** argv) {
           }
         });
         std::printf("debug: stalling shard %u for %u ms\n", sh, ms);
+        std::fflush(stdout);
+        reply = "OK";
+        return true;
+      }
+      // DEBUG ACCEPT-HOLD <ms> (tests; docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2):
+      // the admin loop accepts no new connection for ms (0 ends a hold) while
+      // it keeps serving those it holds: a stalled accept path.
+      if (debug_admin && line.rfind("DEBUG ACCEPT-HOLD ", 0) == 0) {
+        unsigned ms = 0;
+        char extra = 0;
+        if (std::sscanf(line.c_str() + 18, "%u %c", &ms, &extra) != 1 || ms > 600000) {
+          reply = "NO DEBUG ACCEPT-HOLD <ms>";
+          return true;
+        }
+        admin::Loop* al = admin_loop.load();
+        if (al == nullptr) {
+          reply = "NO not running";
+          return true;
+        }
+        al->debug_hold_accept(ms);
+        std::printf("debug: admin accept held for %u ms\n", ms);
         std::fflush(stdout);
         reply = "OK";
         return true;
@@ -1276,6 +1309,7 @@ int main(int argc, char** argv) {
   // that does not know the request (an older binary: no NOTREADY or
   // READY) is skipped: the next one may know it.
   auto ask_witness = [&](const std::string& req, std::string& reply) {
+    const ha::Caller tag("ask_witness");
     for (const auto& [h, p] : witnesses) {
       const u64 t0 = trace::enabled() ? trace::now_ns() : 0;
       const bool ok = ha::ask(h, p, req, reply, 1500);
@@ -1313,6 +1347,7 @@ int main(int argc, char** argv) {
 
   int sig = 0;
   // Wait for a signal, reporting and checkpointing on the way.
+  start_tag.reset();
   {
     using clock = std::chrono::steady_clock;
     const auto t0 = clock::now();
@@ -1350,6 +1385,7 @@ int main(int argc, char** argv) {
           double s = 0;
           promoting.store(true);
           try {
+            const ha::Caller::Adopt promote_tag("promote");
             s = eng.promote();
           } catch (const std::exception& e) {
             // Nothing changed (no placement read or no lease block): still

@@ -18,7 +18,67 @@
 #include <cstdlib>
 #include <string>
 
+#include "snc/trace.h"
+
 namespace snc::ha {
+
+// Who is asking, for the SNC_TRACE=1 line every ask writes ("ha_ask",
+// docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2): a path of the Caller scopes
+// open on this thread, outermost first ("watch/propose/read_latest"), "-"
+// with none. It only labels trace lines; nothing reads it otherwise.
+inline std::string& caller_path() {
+  thread_local std::string p;
+  return p;
+}
+// With tracing off (the default) a scope does nothing: one load and branch
+// on trace::enabled(), no string work (docs/HEALTH_BASELINE.md, overhead).
+struct Caller {
+  static constexpr std::size_t kOff = static_cast<std::size_t>(-1);
+  std::size_t prev = kOff;
+  explicit Caller(const char* name) {
+    if (!::snc::trace::enabled()) return;
+    prev = caller_path().size();
+    if (prev != 0) caller_path() += '/';
+    caller_path() += name;
+  }
+  explicit Caller(const std::string& name) : Caller(name.c_str()) {}
+  // Another thread's path, carried into a helper thread (Paxos broadcast).
+  struct Adopt {
+    std::string prev;
+    bool on = ::snc::trace::enabled();
+    explicit Adopt(const std::string& path) {
+      if (!on) return;
+      prev = caller_path();
+      caller_path() = path;
+    }
+    ~Adopt() {
+      if (on) caller_path() = prev;
+    }
+    Adopt(const Adopt&) = delete;
+    Adopt& operator=(const Adopt&) = delete;
+  };
+  ~Caller() {
+    if (prev != kOff) caller_path().resize(prev);
+  }
+  Caller(const Caller&) = delete;
+  Caller& operator=(const Caller&) = delete;
+};
+
+// The verb of a request line for a trace: its first word, and its second
+// when that is short (a sub-verb or a Paxos machine: "PLACEMENT GET",
+// "READ ha/0"; not a space UUID), at most 40 bytes (never a payload).
+inline std::string verb_of(const std::string& line) {
+  std::size_t e = line.find(' ');
+  if (e != std::string::npos) {
+    const std::size_t e2 = line.find(' ', e + 1);
+    const std::size_t len2 = (e2 == std::string::npos ? line.size() : e2) - (e + 1);
+    e = len2 <= 12 ? e2 : e;
+  }
+  std::string v = line.substr(0, e == std::string::npos ? line.size() : e);
+  if (v.size() > 40) v.resize(40);
+  for (char& c : v) if (c == '\n' || c == '\r') c = ' ';
+  return v;
+}
 
 inline bool parse_hostport(const std::string& v, std::string& host, unsigned& port) {
   auto colon = v.rfind(':');
@@ -87,9 +147,27 @@ inline bool write_all(int fd, const std::string& s) {
   return true;
 }
 
-// Sends `line` to host:port and reads the reply, all within timeout_ms.
+// One connection: connect, send `line`, read one reply line (ask's body).
+inline bool ask_once(const std::string& host, unsigned port, const std::string& line,
+                     std::string& reply, int timeout_ms);
+
+// Sends `line` to host:port and reads the reply, all within timeout_ms. One
+// connection per request (docs/CONTROL_CONNECTIONS_DESIGN.md). With
+// SNC_TRACE=1, one "ha_ask" line per call: caller path, verb, port, result.
 inline bool ask(const std::string& host, unsigned port, const std::string& line,
                 std::string& reply, int timeout_ms) {
+  const bool ok = ask_once(host, port, line, reply, timeout_ms);
+  if (::snc::trace::enabled()) {
+    std::string c = caller_path().empty() ? "-" : caller_path();
+    for (char& ch : c) if (ch == ' ') ch = '_';  // one token: "serve PLACEMENT SYNC" -> serve_PLACEMENT_SYNC
+    ::snc::trace::emit("ha_ask caller=%s verb=%s port=%u conn=oneshot ok=%d", c.c_str(),
+                       verb_of(line).c_str(), port, ok ? 1 : 0);
+  }
+  return ok;
+}
+
+inline bool ask_once(const std::string& host, unsigned port, const std::string& line,
+                     std::string& reply, int timeout_ms) {
   int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
   sockaddr_in a{};
   a.sin_family = AF_INET;

@@ -416,6 +416,7 @@ std::string debug_verb(std::istream& in) {
 void serve(int fd) {
   std::string line, reply = "NO bad request";
   if (ha::read_line(fd, line, 500)) {
+    const ha::Caller tag(::snc::trace::enabled() ? "serve " + ha::verb_of(line) : std::string());  // labels this request's own asks
     std::istringstream in(line);
     std::string verb;
     in >> verb;
@@ -712,6 +713,7 @@ namespace {
 // promotes the standby when the primary has been silent for failover_ms,
 // only from READY (docs/SYNC_READINESS.md).
 void watch(unsigned group, Pair pair, int failover_ms, int poll_ms) {
+  const ha::Caller tag("watch");
   using clock = std::chrono::steady_clock;
   const std::string* host = pair.host;
   const unsigned* aport = pair.port;

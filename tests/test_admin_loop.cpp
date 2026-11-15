@@ -17,11 +17,20 @@
 //      counted (write_evicted); HEALTH still answers
 //   A4 a reply the socket takes at once (HEALTH) leaves nothing waiting
 //      (a regression guard; it also passes with a one-call send)
+//
+// HEALTH baseline (docs/CONTROL_CONNECTIONS_DESIGN.md 5, A6, and section 6):
+//   H1 heavy worker stalled, its queue full (the next heavy request gets
+//      "NO busy") and 200 connections that never send a line: a new
+//      one-shot HEALTH is answered inline, promptly, every time
+//   H2 accept hold (DEBUG ACCEPT-HOLD's loop side): a connection accepted
+//      before the hold is still answered during it; a new connection's
+//      HEALTH waits in the backlog until the hold ends, then is answered
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -97,7 +106,8 @@ double health_ms(u16 port) {
 struct Server {
   u16 port = 0;
   std::unique_ptr<admin::Loop> loop;
-  explicit Server(int write_ms = kWriteDeadlineMs, std::size_t out_max = admin::kOutMax) {
+  explicit Server(int write_ms = kWriteDeadlineMs, std::size_t out_max = admin::kOutMax,
+                  std::function<std::string(const std::string&)> heavy = nullptr) {
     const int lfd = listen_any(port);
     admin::Loop::Handlers h;
     h.inline_verb = [](const std::string& line, std::string& reply) {
@@ -113,7 +123,7 @@ struct Server {
       }
       return false;
     };
-    h.heavy = [](const std::string& line) { return "HEAVY " + line; };
+    h.heavy = heavy ? std::move(heavy) : [](const std::string& line) { return "HEAVY " + line; };
     loop = std::make_unique<admin::Loop>(lfd, std::move(h), write_ms, out_max);
     loop->start();
   }
@@ -226,11 +236,99 @@ void test_small() {
   std::printf("A4 small replies: 50 HEALTH sent at once, none waited\n");
 }
 
+// One line from fd (blocking, 3 s receive timeout), without its newline.
+std::string reply_of(int fd) {
+  timeval tv{3, 0};
+  CHECK_EQ(::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)), 0);
+  std::string r = read_all(fd, 0, 4096);
+  if (!r.empty() && r.back() == '\n') r.pop_back();
+  return r;
+}
+
+void test_heavy_stalled() {
+  std::atomic<bool> release{false};
+  std::atomic<int> started{0};
+  Server s(kWriteDeadlineMs, admin::kOutMax, [&](const std::string& line) {
+    started.fetch_add(1);
+    while (!release.load()) ::usleep(1000);
+    return "HEAVY " + line;
+  });
+  // One request held on the worker, then kQueueMax queued behind it.
+  std::vector<int> heavy;
+  heavy.push_back(connect_to(s.port));
+  send_line(heavy.back(), "STATUS");
+  wait_for([&] { return started.load() == 1; }, "the worker holds a request");
+  for (std::size_t i = 0; i < admin::kQueueMax; ++i) {
+    heavy.push_back(connect_to(s.port));
+    send_line(heavy.back(), "STATUS");
+  }
+  wait_for([&] { return s.c().queue_depth.load() == admin::kQueueMax; }, "the queue full");
+  const int over = connect_to(s.port);
+  send_line(over, "STATUS");
+  CHECK(reply_of(over) == "NO busy");
+  ::close(over);
+  // Connections that never send a line, under the half-read bound.
+  std::vector<int> idle;
+  for (int i = 0; i < 200; ++i) idle.push_back(connect_to(s.port));
+  wait_for([&] { return s.c().half.load() >= 200; }, "200 half-read connections");
+  double worst = 0;
+  for (int i = 0; i < 20; ++i) worst = std::max(worst, health_ms(s.port));
+  CHECK(s.c().half.load() >= 200);  // still held (kReadMs is 500 ms): the probes ran under them
+  CHECK_EQ(s.c().busy.load(), 1u);
+  CHECK_EQ(s.c().queue_depth.load(), admin::kQueueMax);
+  release.store(true);
+  for (int fd : heavy) {
+    CHECK(reply_of(fd) == "HEAVY STATUS");
+    ::close(fd);
+  }
+  for (int fd : idle) ::close(fd);
+  // Inline means not behind the held request; a generous bound for loaded
+  // hosts (the loop wakes at least every 100 ms).
+  CHECK(worst < 500);
+  std::printf("H1 heavy worker stalled, queue full (NO busy past it), 200 half-read: 20 HEALTH inline, "
+              "worst %.1f ms\n", worst);
+}
+
+void test_accept_hold() {
+  Server s;
+  // Accepted before the hold: a half-read connection the loop holds.
+  const int early = connect_to(s.port);
+  wait_for([&] { return s.c().half.load() == 1; }, "the early connection accepted");
+  constexpr unsigned kHoldMs = 600;
+  const auto t0 = std::chrono::steady_clock::now();
+  s.loop->debug_hold_accept(kHoldMs);
+  // A new connection completes in the kernel (the listen backlog) but is
+  // not accepted: its HEALTH waits.
+  const int late = connect_to(s.port);
+  send_line(late, "HEALTH");
+  send_line(early, "HEALTH");
+  CHECK(reply_of(early) == "OK");
+  const double early_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  ::close(early);
+  CHECK(reply_of(late) == "OK");
+  const double late_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  ::close(late);
+  CHECK(early_ms < kHoldMs);
+  CHECK(late_ms >= kHoldMs - 5);  // the hold is measured from before the connect
+  // 0 ends a hold at once.
+  s.loop->debug_hold_accept(60000);
+  const int late2 = connect_to(s.port);
+  send_line(late2, "HEALTH");
+  ::usleep(200 * 1000);
+  s.loop->debug_hold_accept(0);
+  CHECK(reply_of(late2) == "OK");
+  ::close(late2);
+  CHECK(health_ms(s.port) < 500);
+  std::printf("H2 accept hold %u ms: the connection accepted before it answered in %.1f ms, a new one in "
+              "%.1f ms (after the hold); a hold of 60 s ended by 0\n", kHoldMs, early_ms, late_ms);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   const std::vector<std::pair<const char*, void (*)()>> tests = {
-      {"A1", test_slow_reader}, {"A2", test_stalled_reader}, {"A3", test_bound}, {"A4", test_small}};
+      {"A1", test_slow_reader}, {"A2", test_stalled_reader}, {"A3", test_bound}, {"A4", test_small},
+      {"H1", test_heavy_stalled}, {"H2", test_accept_hold}};
   for (const auto& [name, fn] : tests) {
     bool run = argc == 1;
     for (int k = 1; k < argc; ++k) run |= std::string(argv[k]) == name;

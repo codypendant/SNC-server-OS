@@ -210,6 +210,7 @@ class Node {
   // The newest value of m a majority reports: chosen, since only chosen
   // values are reported. Fails without a majority.
   bool read_latest(const std::string& m, Value& out) {
+    ha::Caller tag("read_latest");
     std::size_t n = 0;
     out = Value{};
     for (const Reply& r : broadcast("READ " + m, 300)) {
@@ -241,6 +242,7 @@ class Node {
   // synced write) per acceptor; for decisions that must not act on a stale
   // value (docs/MIGRATION.md), not for polling.
   bool read_linear(const std::string& m, Value& out, int deadline_ms = 3000) {
+    ha::Caller tag("read_linear");
     std::lock_guard<std::mutex> serial(one_at_a_time_);
     thread_local std::mt19937 rng(std::random_device{}());
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
@@ -320,6 +322,7 @@ class Node {
   template <class F, class Same>
   std::string propose(const std::string& m, F change, Same same, int deadline_ms = 1000, u64* version = nullptr,
                       bool fresh = false) {
+    ha::Caller tag("propose");
     std::lock_guard<std::mutex> serial(one_at_a_time_);  // ours do not race each other
     thread_local std::mt19937 rng(std::random_device{}());
     const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(deadline_ms);
@@ -449,7 +452,10 @@ class Node {
     std::vector<Reply> r(peers_.size());
     std::vector<std::thread> ts;
     for (std::size_t i = 0; i < peers_.size(); ++i) {
-      ts.emplace_back([&, i] { r[i].ok = ha::ask(peers_[i].host, peers_[i].port, line, r[i].line, timeout_ms); });
+      ts.emplace_back([&, i, path = ha::caller_path()] {
+        ha::Caller::Adopt from(path);  // label the ask with the broadcaster's caller path
+        r[i].ok = ha::ask(peers_[i].host, peers_[i].port, line, r[i].line, timeout_ms);
+      });
     }
     for (auto& t : ts) t.join();
     return r;
