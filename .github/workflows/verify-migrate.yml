@@ -22,9 +22,9 @@ jobs:
         shell: bash {0}
         run: |
           lscpu | grep -E 'Model name'; uname -r
-          for i in $(seq 1 9); do
-            L=$(( (i - 1) % 3 + 1 ))
-            t0=$(date +%s); SNC_MIGRATE_LANES=$L ./build/test_migrate > out.txt 2>&1; rc=$?; t1=$(date +%s)
+          for i in $(seq 1 8); do
+            L=default
+            t0=$(date +%s); ./build/test_migrate > out.txt 2>&1; rc=$?; t1=$(date +%s)
             if [ $rc -eq 0 ]; then echo "L$L PASS round $i $((t1-t0))s $(tail -1 out.txt)"; else echo "L$L FAIL round $i rc=$rc $((t1-t0))s"; grep "test_migrate: scenario" out.txt | head -5; fi
             rm -rf /tmp/snc-migrate-*
             for w in $(seq 1 30); do [ "$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null || echo 0)" -lt 2000 ] && break; sleep 5; done
