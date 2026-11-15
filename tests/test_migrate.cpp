@@ -41,6 +41,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdarg>
@@ -1116,9 +1117,14 @@ int main(int argc, char** argv) {
   // Lanes: scenarios in parallel, each lane its own port range. One
   // process group, so a failure anywhere stops everything (fail()).
   ::setpgid(0, 0);
+  // At most 4 pinned shard threads per CPU by default (2 lanes on 4 CPUs,
+  // 3 from 6): at 6 per CPU, 3 lanes on 4 CPUs still stalled WAL writes on
+  // some hosted runners (docs/TEST_MIGRATE_ROOT_CAUSE.md, section 4).
+  const u32 per_lane = 4 * kShards;
+  const u32 by_cpus = std::clamp<u32>(static_cast<u32>(allowed_cpus().size()) * 4 / per_lane, 1, 3);
   const u32 lanes = std::min<u32>(static_cast<u32>(todo.size()), getenv("SNC_MIGRATE_LANES")
                                                                       ? static_cast<u32>(std::atoi(getenv("SNC_MIGRATE_LANES")))
-                                                                      : 3);
+                                                                      : by_cpus);
   const auto t0 = clk::now();
   std::vector<pid_t> pids;
   for (u32 l = 0; l < lanes; ++l) {
@@ -1144,6 +1150,6 @@ int main(int argc, char** argv) {
     ok = ok && WIFEXITED(st) && WEXITSTATUS(st) == 0;
   }
   CHECK(ok);
-  std::printf("test_migrate: %zu scenarios in %.1f s: ok\n", todo.size(), since(t0));
+  std::printf("test_migrate: %zu scenarios in %.1f s (%u lanes): ok\n", todo.size(), since(t0), lanes);
   return 0;
 }
