@@ -18,6 +18,28 @@ ps -eLo psr,stat,pcpu,comm --sort=-pcpu | head -15
 echo "--- runnable per cpu (sched debug)"
 sudo cat /sys/kernel/debug/sched/debug 2>/dev/null | awk '/^cpu#/{c=$1} /nr_running/{print c, $0}' | head -8
 sudo cat /sys/kernel/debug/sched/debug 2>/dev/null | awk '/runnable tasks:/{p=1;next} /^cpu#/{p=0} p && /^ *[RS>]/' | awk '{print $1,$2,$3}' | grep -v ' S ' | head -40
+echo "--- cpu0/cpu1 run time over 2 s (ms ran, state, policy/nice, comm, pid): kernel threads and top consumers"
+snap() { for t in /proc/[0-9]*/task/[0-9]*; do read -r st < $t/stat 2>/dev/null || continue; echo "${t##*/} $(cut -d' ' -f1 $t/schedstat 2>/dev/null) $st"; done; }
+snap > /tmp/snc-s0.$$; sleep 2; snap > /tmp/snc-s1.$$
+python3 - /tmp/snc-s0.$$ /tmp/snc-s1.$$ <<'PY'
+import sys,re
+def load(f):
+    d={}
+    for l in open(f):
+        m=re.match(r'(\d+) (\d+) \d+ \((.*)\) (\S) (.*)',l)
+        if not m: continue
+        rest=m.group(5).split()
+        d[m.group(1)]=(int(m.group(2)),m.group(3),m.group(4),int(rest[35]),rest[15],rest[37])
+    return d
+a,b=load(sys.argv[1]),load(sys.argv[2])
+for cpu in (0,1):
+    rows=[(b[t][0]-a[t][0],t,b[t]) for t in b if t in a and b[t][3]==cpu]
+    rows.sort(reverse=True)
+    k=[r for r in rows if re.match(r'(ksoftirqd|kworker|jbd2|migration|rcu)',r[2][1]) and (r[2][2]=='R' or r[0]>0)]
+    print("cpu%d top:"%cpu, "; ".join("%s/%s %.1fms %s"%(r[2][1],r[1],r[0]/1e6,r[2][2]) for r in rows[:8]))
+    print("cpu%d kthreads runnable or ran:"%cpu, "; ".join("%s/%s %.1fms %s"%(r[2][1],r[1],r[0]/1e6,r[2][2]) for r in k[:12]))
+PY
+rm -f /tmp/snc-s0.$$ /tmp/snc-s1.$$
 if [ ! -e /tmp/snc-gdb-done ]; then touch /tmp/snc-gdb-done
 for pid in $(pgrep -x test_migrate); do
   n=$(sudo ls -l /proc/$pid/fd 2>/dev/null | grep -oE "$d/n[0-9]" | head -1)
