@@ -29,9 +29,11 @@ jobs:
         run: |
           for i in $(seq 1 $ROUNDS); do
             pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
-            t0=$(date +%s); SNC_MIGRATE_LANES=$LANES ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
-            if [ $rc -eq 0 ]; then echo "PASS round $i $((t1-t0))s $pre"; else
-              echo "FAIL round $i rc=$rc $((t1-t0))s $pre"
+            cp /proc/net/netstat ns0; cp /proc/net/snmp sn0
+            t0=$(date +%s); SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh SNC_MIGRATE_LANES=$LANES ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
+            delta=$(python3 tools/diag/netdelta.py ns0 /proc/net/netstat sn0 /proc/net/snmp)
+            if [ $rc -eq 0 ]; then echo "PASS round $i $((t1-t0))s $pre | $delta"; else
+              echo "FAIL round $i rc=$rc $((t1-t0))s $pre | $delta"; sed -n "/=== SNAPSHOT/,/=== END SNAPSHOT/p" out.txt
               grep -m1 "test_migrate: scenario" out.txt
               d=$(grep -m1 -oE 'kept /tmp/snc-migrate-[A-Za-z0-9]+' out.txt | cut -c6-)
               if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; fi

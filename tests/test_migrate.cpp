@@ -372,6 +372,10 @@ std::string g_scenario, g_dir;
   va_end(ap);
   std::fprintf(stderr, "test_migrate: scenario %s: %s (kept %s)\n", g_scenario.c_str(), b, g_dir.c_str());
   std::fflush(stderr);
+  if (const char* snap = std::getenv("SNC_MIGRATE_SNAPSHOT")) {  // DIAG ONLY: live state before the kill
+    const std::string c = std::string(snap) + " " + g_dir + " 1>&2";
+    if (std::system(c.c_str()) != 0) std::fprintf(stderr, "snapshot failed\n");
+  }
   ::kill(0, SIGKILL);  // the whole process group: every lane, witness and node
   _exit(1);
 }
