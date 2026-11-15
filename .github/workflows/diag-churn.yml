@@ -1,0 +1,45 @@
+# DIAGNOSTIC ONLY (test_migrate connection churn, R4). Removed before the PR is merged.
+name: diag-churn
+on:
+  push:
+    branches: [claude/project-thread-n8tebd]
+jobs:
+  churn:
+    if: contains(github.event.head_commit.message, '[diag-churn]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: {r: [1, 2, 3, 4, 5, 6]}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libmimalloc-dev libxxhash-dev liburing-dev > /dev/null
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release > /dev/null && cmake --build build -j "$(nproc)" --target test_migrate snc_witness > /dev/null
+      - name: env
+        run: |
+          uname -r; nproc; lscpu | grep 'Model name'
+          sysctl net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_tcp_timeout_time_wait net.netfilter.nf_conntrack_tcp_timeout_close
+          sudo iptables -S | head; sudo iptables -t nat -S | head
+      - name: arms
+        shell: bash {0}
+        run: |
+          ct() { cat /proc/sys/net/netfilter/nf_conntrack_count; }
+          drain() { for w in $(seq 1 40); do [ "$(ct)" -lt 2000 ] && return; sleep 5; done; }
+          one() {  # label
+            pre=$(ct); full0=$(sudo dmesg | grep -c 'table full')
+            ( m=0; while :; do c=$(ct); [ $c -gt $m ] && m=$c && echo $m > peak; sleep 0.5; done ) & sp=$!
+            t0=$(date +%s); ./build/test_migrate > out.txt 2>&1; rc=$?; t1=$(date +%s)
+            kill $sp; wait $sp 2>/dev/null
+            drops=$(( $(sudo dmesg | grep -c 'table full') - full0 ))
+            echo "[$1] rc=$rc $((t1-t0))s max=$(cat /proc/sys/net/netfilter/nf_conntrack_max) tw=$(cat /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait) start=$pre peak=$(cat peak) end=$(ct) table_full_msgs=$drops | $(tail -n 1 out.txt | cut -c1-200)"
+            [ $rc -ne 0 ] && grep -m3 -E "test_migrate: scenario|FAILED|unanswered|stuck" out.txt | cut -c1-300
+            rm -rf /tmp/snc-migrate-*; echo 0 > peak
+          }
+          for it in 1 2; do
+            drain; one "A cold"
+            one "B back-to-back"
+            one "B2 back-to-back again"
+            drain; sudo sysctl -q -w net.netfilter.nf_conntrack_max=50000; one "C max=50000"
+            drain; sudo sysctl -q -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10; one "D max=50000 tw=10"
+            sudo sysctl -q -w net.netfilter.nf_conntrack_max=262144 net.netfilter.nf_conntrack_tcp_timeout_time_wait=120
+          done
