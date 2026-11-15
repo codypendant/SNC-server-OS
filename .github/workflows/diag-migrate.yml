@@ -1,13 +1,16 @@
 # DIAGNOSTIC ONLY (test_migrate hosted failures). Removed before the PR is merged.
 name: diag-migrate
+# Runs on a push to the work branch whose commit message holds [diag-migrate].
 on:
-  workflow_dispatch:
-    inputs:
-      rounds: {default: "12"}
-      filter: {default: ""}
-      lanes: {default: "3"}
+  push:
+    branches: [claude/project-thread-n8tebd]
+env:
+  ROUNDS: "12"
+  FILTER: ""
+  LANES: "3"
 jobs:
   loop:
+    if: contains(github.event.head_commit.message, '[diag-migrate]')
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
@@ -23,9 +26,9 @@ jobs:
           cat /proc/sys/net/ipv4/ip_local_port_range /proc/sys/kernel/pid_max; df -h /tmp | tail -1; ulimit -a | grep -E 'proc|open'
       - name: rounds
         run: |
-          for i in $(seq 1 ${{ inputs.rounds }}); do
+          for i in $(seq 1 $ROUNDS); do
             pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
-            t0=$(date +%s); SNC_MIGRATE_LANES=${{ inputs.lanes }} ./build/test_migrate ${{ inputs.filter }} > out.txt 2>&1; rc=$?; t1=$(date +%s)
+            t0=$(date +%s); SNC_MIGRATE_LANES=$LANES ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
             if [ $rc -eq 0 ]; then echo "PASS round $i $((t1-t0))s $pre"; else
               echo "FAIL round $i rc=$rc $((t1-t0))s $pre"
               grep -m1 "test_migrate: scenario" out.txt
