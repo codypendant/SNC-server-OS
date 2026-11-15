@@ -432,11 +432,7 @@ void NativeRuntime::Impl::loop(Worker& w) {
         // The request is 1 us; the kernel's timer slack (50 us by default)
         // sets the pause. The period restarts after the pause, so the loop
         // still runs for io_yield_us between pauses however long they take.
-        static const u64 diag_block_after_us = [&] {  // DIAG ONLY, removed before merge
-          const char* e = std::getenv("SNC_DIAG_IO_BLOCK_AFTER_US");
-          return e ? std::strtoull(e, nullptr, 10) : u64{cfg.io_block_after_us};
-        }();
-        if (now - w.io_oldest->submit_ns >= diag_block_after_us * 1000) {
+        if (now - w.io_oldest->submit_ns >= u64{cfg.io_block_after_us} * 1000) {
           timespec ts{0, 1000};
           clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, nullptr);
           now = now_ns();

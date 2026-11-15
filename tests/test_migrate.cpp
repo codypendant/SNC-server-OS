@@ -60,7 +60,6 @@
 #include "harness.h"
 #include "snc/cluster.h"
 #include "snc/net.h"
-#include "snc/gauges.h"
 #include "snc/types/account.h"
 
 using namespace snc;
@@ -251,11 +250,6 @@ int node_main(const std::string& dir, u32 k, bool restart) {
   const std::string t = std::to_string(k);
   Engine::Config c;
   c.runtime.n_shards = kShards;
-  if (std::getenv("SNC_DIAG_NOPIN")) c.runtime.pin = false;  // DIAG ONLY
-  if (std::getenv("SNC_DIAG_SPREAD")) {  // DIAG ONLY: node k of lane L pins its shards to distinct CPUs
-    const long n = ::sysconf(_SC_NPROCESSORS_ONLN), lane = std::atol(std::getenv("SNC_DIAG_LANE") ? std::getenv("SNC_DIAG_LANE") : "0");
-    for (u16 sh = 0; sh < kShards; ++sh) c.runtime.cpus.push_back(static_cast<int>((lane * 4 * kShards + k * kShards + sh) % n));
-  }
   c.expected_objects = 4096;
   c.data_dir = e.dir + "/n" + t;
   c.init = !restart;
@@ -316,26 +310,6 @@ int node_main(const std::string& dir, u32 k, bool restart) {
       }
     }
     if (slot < 0 && exists(e.dir + "/slot")) slot = std::stoi(read_file(e.dir + "/slot"));
-    static auto last_g = clk::now();  // DIAG: gauges, nonzero ones, every 250 ms
-    if (clk::now() - last_g >= std::chrono::milliseconds(250)) {
-      last_g = clk::now();
-      std::string out;
-      for (u16 sh = 0; sh < eng.shard_count(); ++sh) {
-        GaugeSnapshot gs;
-        for (int i = 0; i < 1000; ++i) {
-          gs = eng.gauges(sh);
-          if (gs.consistent) break;
-        }
-        out += "sh" + std::to_string(sh) + (gs.consistent ? "" : "(inconsistent)") + ":";
-        for (u32 i = 0; i < kGaugeCount; ++i) {
-          if (gs.v[i] != 0 && std::string(kGaugeNames[i]).find("ckpt") == std::string::npos)
-            out += " " + std::string(kGaugeNames[i]) + "=" + std::to_string(gs.v[i]);
-        }
-        out += "\n";
-      }
-      write_file(e.dir + "/gauges." + t + ".tmp", out);
-      ::rename((e.dir + "/gauges." + t + ".tmp").c_str(), (e.dir + "/gauges." + t).c_str());
-    }
     if (!standby && clk::now() - last >= std::chrono::milliseconds(40)) {
       last = clk::now();
       report(eng, e, k, g, slot, false);
@@ -398,10 +372,6 @@ std::string g_scenario, g_dir;
   va_end(ap);
   std::fprintf(stderr, "test_migrate: scenario %s: %s (kept %s)\n", g_scenario.c_str(), b, g_dir.c_str());
   std::fflush(stderr);
-  if (const char* snap = std::getenv("SNC_MIGRATE_SNAPSHOT")) {  // DIAG ONLY: live state before the kill
-    const std::string c = std::string(snap) + " " + g_dir + " 1>&2";
-    if (std::system(c.c_str()) != 0) std::fprintf(stderr, "snapshot failed\n");
-  }
   ::kill(0, SIGKILL);  // the whole process group: every lane, witness and node
   _exit(1);
 }
@@ -518,26 +488,12 @@ struct Workload {
     Ctx ctx{this, &inflight, &retry, false, &cc};
     u64 next_id = 1;
     std::optional<clk::time_point> stopped;
-    auto last_answer = clk::now();
-    u64 answers_after_stop = 0;
     while (error.empty()) {
       if (stop && !stopped) stopped = clk::now();
       if (stopped && inflight.empty() && retry.empty()) break;
       if (stopped && since(*stopped) > 60) {
         error = "requests unanswered 60 s after the end: " + std::to_string(inflight.size()) + " in flight, " +
                 std::to_string(retry.size()) + " to retry";
-        // DIAG: where the stuck requests go and what each group client did.
-        std::map<u16, int> by_group;
-        for (auto& [id, x] : inflight) ++by_group[cc.group_of(x.from)];
-        error += " | DIAG last_answer_ago=" + std::to_string(since(last_answer)) + "s answers_after_stop=" +
-                 std::to_string(answers_after_stop) + " epoch=" + std::to_string(cc.epoch());
-        for (auto& [g, n] : by_group) error += " g" + std::to_string(g) + ":" + std::to_string(n);
-        for (u16 g = 0; g < cc.group_count(); ++g) {
-          const auto& c = cc.group(g);
-          error += " [grp" + std::to_string(g) + " fo=" + std::to_string(c.failovers()) + " to=" + std::to_string(c.timeouts()) +
-                   " rs=" + std::to_string(c.resends()) + " rr=" + std::to_string(c.replay_retries()) + " fw=" +
-                   std::to_string(c.forwarded()) + " err='" + c.error() + "']";
-        }
         break;
       }
       const auto now = clk::now();
@@ -564,12 +520,7 @@ struct Workload {
         inflight[h.req_id] = x;
         ++sent;
       }
-      const int got_ = cc.poll(on_response, &ctx, 10);
-      if (got_ > 0) {
-        last_answer = clk::now();
-        if (stopped) answers_after_stop += static_cast<u64>(got_);
-      }
-      if (got_ < 0) {
+      if (cc.poll(on_response, &ctx, 10) < 0) {
         error = "client failed: " + cc.error();
         break;
       }
@@ -682,8 +633,6 @@ struct Probe {
         }
       }
       ++rounds;
-      static const long diag_us = std::getenv("SNC_DIAG_PROBE_SLEEP_US") ? std::atol(std::getenv("SNC_DIAG_PROBE_SLEEP_US")) : 0;  // DIAG ONLY
-      if (diag_us > 0) std::this_thread::sleep_for(std::chrono::microseconds(diag_us));
     }
   }
 };
@@ -823,14 +772,6 @@ std::string run_scenario(const Scenario& sc, u16 port_lo, u16 port_hi) {
     }
   }
 
-  if (const char* st = std::getenv("SNC_DIAG_STOP_STANDBY_MS")) {  // DIAG: a standby that stalls
-    const int ms_ = std::atoi(st);
-    const int who = std::getenv("SNC_DIAG_STOP_WHO") ? std::atoi(std::getenv("SNC_DIAG_STOP_WHO")) : 1;
-    ::kill(node[who], SIGSTOP);
-    std::this_thread::sleep_for(std::chrono::milliseconds(ms_));
-    ::kill(node[who], SIGCONT);
-    std::fprintf(stderr, "DIAG stopped node %d for %d ms\n", who, ms_);
-  }
   // The first driver, until it dies after the step.
   migrate::Driver d1(ms);
   d1.stop_at = [&](const std::string& s) { return s == sc.stop; };
@@ -1118,7 +1059,6 @@ int main(int argc, char** argv) {
     const pid_t pid = ::fork();
     CHECK(pid >= 0);
     if (pid == 0) {
-      ::setenv("SNC_DIAG_LANE", std::to_string(l).c_str(), 1);  // DIAG ONLY
       const u16 lo = static_cast<u16>(20000 + l * 2000), hi = static_cast<u16>(lo + 2000);
       for (std::size_t i = l; i < todo.size(); i += lanes) {
         const std::string line = run_scenario(todo[i], lo, hi);

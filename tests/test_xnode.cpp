@@ -2314,37 +2314,6 @@ void x19_variant(bool undeliverable) {
                 (t_left - t_pb) * 1000, (t_q - t_pb) * 1000, kBlockMs + kReleaseMs, (unsigned long long)inc_after);
   }
 }
-
-// EXPERIMENT (scratch): requests in flight across a block, leave and rejoin.
-void x36_answered_after_rejoin() {
-  Net net;
-  net.build({{0, 0}, {1, 0}, {1, 1, true, true, 1}});
-  net.start_all();
-  Ledger L = make_ledger(net, 8);
-  Engine& A = *net.nodes[0].eng;
-  Engine& P = *net.nodes[1].eng;
-  wait_until([&] { return bound_to(A, 1, 0) && bound_to(P, 0, 0); }, "bound");
-  const u64 inc_p = entry(A, 1, 0).e.inc;
-  {
-    Load ab(net, L, 0, 1), pa(net, L, 1, 0), pp(net, L, 1, 1);
-    sleep_ms(200);
-    net.repl[1]->refuse(true);
-    net.repl[1]->cut();
-    wait_until([&] { return gauges(P)[G_XNODE_LEFT] != 0; }, "P leaves the links", 10);
-    sleep_ms(500);
-    net.repl[1]->refuse(false);
-    wait_until([&] { return entry(A, 1, 0).e.inc > inc_p && bound_to(A, 1, 0); }, "P rejoined", 20);
-    sleep_ms(500);
-    std::printf("X36 before stop: ab ok %llu out %llu, pa ok %llu, pp ok %llu\n", (unsigned long long)ab.ok(),
-                0ull, (unsigned long long)pa.ok(), (unsigned long long)pp.ok());
-    ab.stop();
-    pa.stop();
-    pp.stop();
-    std::printf("X36: lost ab %llu pa %llu pp %llu\n", (unsigned long long)ab.lost(), (unsigned long long)pa.lost(),
-                (unsigned long long)pp.lost());
-  }
-  settle(net, L, "X36");
-}
 void x19_blocked() { x19_variant(false); }
 void x19b_undeliverable() { x19_variant(true); }
 
@@ -2984,7 +2953,7 @@ const Test kTests[] = {
     {"X15", x15_alternation}, {"X16", x16_end_switch}, {"X20", x20_steering}, {"X25", x25_delayed_old},
     {"X1", x1_stalled},       {"X11", x11_backpressure}, {"X2", x2_rate_mismatch},
     {"X8", x8_slot_move},     {"X12", x12_purge_handoff},
-    {"X36", x36_answered_after_rejoin}, {"X19", x19_blocked},     {"X19b", x19b_undeliverable},
+    {"X19", x19_blocked},     {"X19b", x19b_undeliverable},
     {"X30", x30_forged},     {"X31", x31_retire_purge}, {"X32", x32_stale_heartbeat},
     {"X33", x33_generation_file_lock}, {"X34", x34_blocked_clear_full}, {"X35", x35_end_wire},
     {"X17", x17_churn},
