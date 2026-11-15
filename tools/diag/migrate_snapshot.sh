@@ -18,4 +18,11 @@ ps -eLo psr,stat,pcpu,comm --sort=-pcpu | head -15
 echo "--- runnable per cpu (sched debug)"
 sudo cat /sys/kernel/debug/sched/debug 2>/dev/null | awk '/^cpu#/{c=$1} /nr_running/{print c, $0}' | head -8
 sudo cat /sys/kernel/debug/sched/debug 2>/dev/null | awk '/runnable tasks:/{p=1;next} /^cpu#/{p=0} p && /^ *[RS>]/' | awk '{print $1,$2,$3}' | grep -v ' S ' | head -40
+if [ ! -e /tmp/snc-gdb-done ]; then touch /tmp/snc-gdb-done
+for pid in $(pgrep -x test_migrate); do
+  n=$(sudo ls -l /proc/$pid/fd 2>/dev/null | grep -oE "$d/n[0-9]" | head -1)
+  [ -z "$n" ] && continue
+  echo "--- gdb ${n##*/} pid $pid"
+  sudo timeout 60 gdb -p $pid -batch -q -ex "set pagination off" -ex "thread apply all bt 14" 2>/dev/null | grep -E '^Thread|^#' | sed -E 's/ \(.*\) at / at /' | cut -c1-200
+done; fi
 echo "=== END SNAPSHOT"
