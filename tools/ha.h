@@ -15,11 +15,13 @@
 
 #include <cstring>
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <mutex>
 #include <string>
+#include <system_error>
 #include <thread>
 
 #include "snc/trace.h"
@@ -219,8 +221,9 @@ inline bool keep_enabled() {
 // with no reply byte on a reused connection (design 4.2, 4.7). Read-only
 // only; no other verb, idempotent or not, is ever resent.
 inline bool read_only_verb(const std::string& line) {
-  for (const char* v : {"MOVE INFO ", "MOVE ROLE ", "MOVE HAVE ", "READ ", "PLACEMENT GET"}) {
-    if (line.rfind(v, 0) == 0) return true;
+  for (const std::string v : {"MOVE INFO", "MOVE ROLE", "MOVE HAVE", "READ", "PLACEMENT GET"}) {
+    // The verb alone ("MOVE ROLE") or followed by its arguments.
+    if (line.rfind(v, 0) == 0 && (line.size() == v.size() || line[v.size()] == ' ')) return true;
   }
   return false;
 }
@@ -346,11 +349,23 @@ class Conn {
     const auto now = std::chrono::steady_clock::now();
     if (!now_ok && now < next_try_) return;
     if (hs_.joinable()) hs_.join();  // finished: handshaking_ is false
-    handshaking_ = true;
-    hs_ = std::thread([this] { handshake(); });
+    try {
+      hs_ = std::thread([this] { handshake(); });
+      handshaking_ = true;
+    } catch (const std::system_error&) {
+      next_try_ = now + std::chrono::milliseconds(kRetryMs);  // as a failed handshake; the request goes one-shot
+    }
   }
 
+  // One kHandshakeMs budget for the connect, the send and the reply
+  // together, so a silent server holds the destructor at most that long.
   void handshake() {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(kHandshakeMs);
+    const auto left = [&] {
+      return std::max(1, static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                              end - std::chrono::steady_clock::now())
+                                              .count()));
+    };
     int fd = connect_to(kHandshakeMs);
     bool ok = false;
     if (fd >= 0) {
@@ -358,8 +373,9 @@ class Conn {
       ::setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
       std::string got;
       bool any = false;
-      ok = send_by(fd, "KEEP 1\n", kHandshakeMs) && read_reply(fd, got, kHandshakeMs, any) && got == "OK keep";
+      ok = send_by(fd, "KEEP 1\n", left()) && read_reply(fd, got, left(), any) && got == "OK keep";
     }
+    trace_ask("KEEP 1", port_, "handshake", ok);  // A2(a): a KEEP is visible in the trace
     std::lock_guard<std::mutex> g(mu_);
     handshaking_ = false;
     if (ok && !stop_) {
@@ -443,7 +459,7 @@ class Conn {
   // then the reply within timeout_ms of the send's end (design 4.2).
   bool request(int fd, const std::string& line, std::string& reply, int timeout_ms, bool& any) {
     const std::string seq = std::to_string(++seq_);
-    const unsigned uto = static_cast<unsigned>(timeout_ms);
+    const unsigned uto = static_cast<unsigned>(std::max(1, timeout_ms));
     ::setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &uto, sizeof(uto));
     if (!send_by(fd, "K " + seq + " " + line + "\n", timeout_ms)) return false;
     std::string got;
@@ -460,7 +476,10 @@ class Conn {
   std::mutex mu_;
   int fd_ = -1;  // the confirmed connection, while not in use or in use by one request
   bool in_use_ = false, used_ = false, handshaking_ = false, stop_ = false;
-  unsigned long long seq_ = 0;  // only the request holding in_use_ touches it
+  // Per Conn, not per connection: numbers never repeat across reconnects
+  // (a stricter form of design 4.1). Only the request holding in_use_
+  // touches it.
+  unsigned long long seq_ = 0;
   std::chrono::steady_clock::time_point idle_since_{}, next_try_{};
   std::thread hs_;
 };

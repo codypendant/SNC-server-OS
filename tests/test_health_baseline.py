@@ -374,11 +374,22 @@ def hold_fault(c):
 
 
 def lowest_free_fd(pid):
-    fds = {int(x) for x in os.listdir(f"/proc/{pid}/fd")}
-    k = 0
-    while k in fds:
-        k += 1
-    return k
+    """The lowest descriptor number the process does not hold, over 100
+    samples 1 ms apart. One sample can land while a short-lived descriptor
+    is open (the node's own placement poll opens one every second; an
+    accepted HEALTH another): the limit then sits above a slot that is
+    free again a moment later, every accept reuses that hole, HEALTH keeps
+    answering and nothing is promoted (seen once in 8 trials, 2026-11-15).
+    The smallest of many samples finds the hole."""
+    low = None
+    for _ in range(100):
+        fds = {int(x) for x in os.listdir(f"/proc/{pid}/fd")}
+        k = 0
+        while k in fds:
+            k += 1
+        low = k if low is None else min(low, k)
+        time.sleep(0.001)
+    return low
 
 
 def emfile_fault(c):
@@ -431,6 +442,55 @@ def hold_short(build):
         shutil.rmtree(work, ignore_errors=True)
 
 
+def kept_requests(sock, reqs):
+    """K <seq> requests on one kept connection; returns the replies."""
+    f = sock.makefile("rb")
+    out = []
+    for seq, line in reqs:
+        sock.sendall(f"K {seq} {line}\n".encode())
+        out.append(f.readline().decode().rstrip("\n"))
+    return out
+
+
+def kept_real(build):
+    """K0 against the real snc_server (the clustered primary): inline,
+    heavy and MOVE requests on one kept connection, and one-shot HEALTH
+    unchanged beside it; then a server started with --no-keep refuses KEEP
+    as a server from before K0 does."""
+    work = tempfile.mkdtemp(prefix="snc-hbase-kept-")
+    c = srv = None
+    try:
+        c = Cluster(build, work)
+        c.keep_idle(1)
+        s = c.kept[0]
+        s.settimeout(5)
+        r = kept_requests(s, [(1, "HEALTH"), (2, "STATUS"), (3, "MOVE INFO 0"), (4, "HEALTH")])
+        assert r[0].startswith("1 role=p ") and r[3].startswith("4 role=p "), r  # HEALTH, inline
+        assert r[1].startswith("2 ") and "role=p" in r[1], r[1]  # STATUS, on the worker
+        assert r[2].startswith("3 ") and len(r[2]) > 2, r[2]     # MOVE, on a MOVE thread
+        g = fields(ask(c.admin[1], "HEALTH", 1))
+        assert int(g["adm_kept"]) == 1 and int(g["adm_keep_ok"]) == 1 and int(g["adm_kept_proto"]) == 0, g
+        # --no-keep: KEEP 1 is an unknown verb, answered and closed.
+        adm, cli = free_ports(2)
+        srv = subprocess.Popen([f"{build}/snc_server", "--shards", "1", "--port", str(cli), "--data-dir",
+                                f"{work}/nk", "--admin-port", str(adm), "--no-keep"],
+                               stdout=open(f"{work}/nk.log", "w"), stderr=subprocess.STDOUT)
+        wait(lambda: ask(adm, "HEALTH", 1), "the --no-keep server up")
+        with socket.create_connection(("127.0.0.1", adm), 3) as k:
+            k.settimeout(3)
+            k.sendall(b"KEEP 1\n")
+            got = k.makefile("rb").read()
+        assert got == b"NO unknown request\n", got
+        return r
+    finally:
+        if srv:
+            srv.kill()
+            srv.wait()
+        if c:
+            c.close()
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def table(asks):
     n = Counter((k, c, v) for k, c, v, _ in asks)
     return sorted(n.items(), key=lambda kv: -kv[1])
@@ -446,7 +506,7 @@ def emfile_idle_after(c):
 
 def main():
     build = sys.argv[1] if len(sys.argv) > 1 else "build"
-    want = sys.argv[2:] or ["kill", "stop", "partition", "hold", "hold_short", "emfile", "emfile_idle"]
+    want = sys.argv[2:] or ["kept", "kill", "stop", "partition", "hold", "hold_short", "emfile", "emfile_idle"]
     results = {}
     scenarios = {
         "kill": (kill_fault, None, TRIALS),
@@ -458,6 +518,12 @@ def main():
     }
     kill_asks = None
     for name in want:
+        if name == "kept":
+            r = kept_real(build)
+            results[name] = {"replies": [x[:60] for x in r]}
+            print(f"baseline kept: snc_server answered K requests on one kept connection (HEALTH, STATUS, MOVE "
+                  f"INFO, HEALTH); one-shot HEALTH beside it; --no-keep refused KEEP as an unknown verb")
+            continue
         if name == "hold_short":
             hold_ms, n_suspect = hold_short(build)
             results[name] = {"hold_ms": hold_ms, "promoted": False, "suspect_lines": n_suspect}

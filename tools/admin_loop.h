@@ -40,7 +40,10 @@
 //   - the worker and a MOVE thread write the reply with a deadline and hand
 //     the connection back to the loop (an eventfd wakes it at once);
 //   - a line that is not "K <digits> ...", or any byte after the request
-//     line before its reply, is a protocol error: the connection closes.
+//     line that is waiting when its reply is about to be sent, is a
+//     protocol error: the connection closes (kept_proto, which also counts
+//     a kept MOVE line not read by its deadline and a reply holding a
+//     newline). A kept line over kLineMax closes without a reply.
 // Keep off (--no-keep): KEEP is not special, so it goes to the worker as an
 // unknown verb, exactly as on a server from before K0.
 #pragma once
@@ -52,6 +55,7 @@
 #include <poll.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -197,10 +201,12 @@ class Loop {
         write_ms_(write_ms),
         out_max_(out_max == 0 ? 1 : out_max),
         keep_(keep.on),
-        idle_ms_(keep.idle_ms),
+        idle_ms_(std::clamp(keep.idle_ms, 1, 3600 * 1000)),
         idle_max_(keep_idle_cap(keep.idle_max)) {
     ::fcntl(lfd_, F_SETFL, ::fcntl(lfd_, F_GETFL) | O_NONBLOCK);
     efd_ = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    // Without it a handback waits for the loop's 100 ms tick: slower, not wrong.
+    if (efd_ < 0) SNC_TRACE("admin_eventfd_fail errno=%d", errno);
   }
   // Starts answering. Separate from the constructor so the caller can
   // publish the Loop (its counters) before the first request.
@@ -336,6 +342,49 @@ class Loop {
 
   // ---- Kept connections (loop thread only, except handback) ----
 
+  // Before a kept reply is sent: the client sends one request at a time,
+  // so a byte already waiting on the connection (or its close) is a
+  // protocol error (design 4.3). Bytes that arrive after the reply's last
+  // byte has left cannot be told apart from the next request; the client's
+  // sequence numbers cover those. Any thread.
+  static bool stray(int fd) {
+    pollfd p{fd, POLLIN, 0};
+    int r;
+    do r = ::poll(&p, 1, 0);
+    while (r < 0 && errno == EINTR);
+    return r != 0;
+  }
+  // "<seq> <reply>\n" for a kept connection; false if the reply holds a
+  // newline, which no reply may (design 4.1): the connection is then
+  // closed rather than send a line the client would split.
+  bool kept_line(const std::string& seq, const std::string& reply, std::string& out) {
+    if (reply.find('\n') != std::string::npos) {
+      SNC_TRACE("admin_kept_newline bytes=%zu", reply.size());
+      c_.kept_proto.fetch_add(1);
+      return false;
+    }
+    out = seq + " " + reply + "\n";
+    return true;
+  }
+  // The worker's and a MOVE thread's kept reply: checked, written by the
+  // write deadline, then the connection handed back (or closed).
+  void kept_reply(u64 kid, int fd, const std::string& seq, const std::string& reply) {
+    std::string out;
+    if (stray(fd)) {
+      SNC_TRACE("admin_kept_proto why=%s", "bytes before the reply");
+      c_.kept_proto.fetch_add(1);
+      handback(kid, fd, false);
+      return;
+    }
+    if (!kept_line(seq, reply, out)) {
+      handback(kid, fd, false);
+      return;
+    }
+    const bool sent = write_by(fd, out, mono_ns() + static_cast<u64>(write_ms_) * 1000000);
+    if (!sent) c_.write_failed.fetch_add(1);
+    handback(kid, fd, sent);
+  }
+
   // Records are only marked closed (fd = -1) here; the loop erases them at
   // the top of a pass, so pointers it holds during a pass stay valid.
   Kept* find_kept(u64 id) {
@@ -376,16 +425,16 @@ class Loop {
     for (const Kept& k : kept_) idle += k.st == KSt::IDLE && k.fd >= 0 ? 1 : 0;
     for (auto it = kept_.begin(); idle > idle_max_ && it != kept_.end(); ++it) {
       if (it->st != KSt::IDLE || it->fd < 0) continue;
+      c_.kept_evicted.fetch_add(1);  // before the close a client can observe
       ::close(it->fd);
       it->fd = -1;
       --idle;
-      c_.kept_evicted.fetch_add(1);
     }
     set_kept();
   }
   void proto_error(Kept& k, const char* why) {
     SNC_TRACE("admin_kept_proto why=%s bytes=%zu", why, k.buf.size());
-    c_.kept_proto.fetch_add(1);
+    c_.kept_proto.fetch_add(1);  // before the close a client can observe
     ::close(k.fd);
     k.fd = -1;  // erased by the loop pass
   }
@@ -483,6 +532,12 @@ class Loop {
         for (std::size_t i = 0; i < out_.size(); ++i) {
           Out& o = out_[i];
           if (pfds[base + i].revents != 0) {
+            if (o.kid != 0 && stray(o.fd)) {  // bytes before the reply was all sent
+              SNC_TRACE("admin_kept_proto why=%s", "bytes before the reply");
+              c_.kept_proto.fetch_add(1);
+              close_out(o);
+              continue;
+            }
             const Sent st = send_some(o);
             if (st == Sent::DONE && o.kid != 0) {
               to_idle(o.kid, now);
@@ -523,14 +578,14 @@ class Loop {
           // the pass stamps mono_ns().)
           if (k.st == KSt::READING && now >= k.line_ns && now - k.line_ns >= u64{kReadMs} * 1000000) {
             SNC_TRACE("admin_read_fail kept read_ms=%.1f bytes=%zu", (now - k.line_ns) / 1e6, k.buf.size());
+            c_.timeouts.fetch_add(1);
             ::close(k.fd);
             k.fd = -1;
-            c_.timeouts.fetch_add(1);
           } else if (k.st == KSt::IDLE && now >= k.last_ns &&
                      now - k.last_ns >= static_cast<u64>(idle_ms_) * 1000000) {
+            c_.kept_idle_closed.fetch_add(1);
             ::close(k.fd);
             k.fd = -1;
-            c_.kept_idle_closed.fetch_add(1);
           }
         }
         set_kept();
@@ -684,13 +739,13 @@ class Loop {
         h_.move(fd, std::move(got), k.line_ns + u64{kReadMs} * 1000000, true,
                 [this, fd, id, seq = std::move(seq)](bool line_ok, const std::string& out) {
                   if (!line_ok) {
+                    // Not read by its deadline, closed, or bytes after the
+                    // line (strict): counted with the protocol errors.
                     c_.kept_proto.fetch_add(1);
                     handback(id, fd, false);
                     return;
                   }
-                  const bool sent = write_by(fd, seq + " " + out + "\n", mono_ns() + static_cast<u64>(write_ms_) * 1000000);
-                  if (!sent) c_.write_failed.fetch_add(1);
-                  handback(id, fd, sent);
+                  kept_reply(id, fd, seq, out);
                 });
         return;
       }
@@ -784,7 +839,21 @@ class Loop {
   void dispatch(int fd, const std::string& line, u64 accepted_ns, u64 kid = 0, std::string seq = {}) {
     std::string reply;
     const auto text = [&](const std::string& r) { return kid == 0 ? r : seq + " " + r; };
+    // A kept reply from the loop: its checks first (see kept_reply).
+    const auto kept_ok = [&](const std::string& r) {
+      if (kid == 0) return true;
+      std::string unused;
+      if (stray(fd)) {
+        SNC_TRACE("admin_kept_proto why=%s", "bytes before the reply");
+        c_.kept_proto.fetch_add(1);
+      } else if (kept_line(seq, r, unused)) {
+        return true;
+      }
+      drop_kept(kid);
+      return false;
+    };
     if (h_.inline_verb && h_.inline_verb(line, reply)) {
+      if (!kept_ok(reply)) return;
       this->reply(fd, text(reply), mono_ns(), kid);
       if (trace::enabled()) {
         const u64 ms = (mono_ns() - accepted_ns) / 1000000;
@@ -796,6 +865,7 @@ class Loop {
     if (q_.size() >= kQueueMax) {
       g.unlock();
       c_.busy.fetch_add(1);
+      if (!kept_ok("NO busy")) return;
       this->reply(fd, text("NO busy"), mono_ns(), kid);
       return;
     }
@@ -831,10 +901,7 @@ class Loop {
       const u64 t_run = mono_ns();
       const std::string reply = h_.heavy(j.line);
       if (j.kid != 0) {
-        // Kept: written with a deadline, then the loop's again.
-        const bool sent = write_by(j.fd, j.seq + " " + reply + "\n", mono_ns() + static_cast<u64>(write_ms_) * 1000000);
-        if (!sent) c_.write_failed.fetch_add(1);
-        handback(j.kid, j.fd, sent);
+        kept_reply(j.kid, j.fd, j.seq, reply);  // with a deadline, then the loop's again
       } else {
         ::fcntl(j.fd, F_SETFL, ::fcntl(j.fd, F_GETFL) & ~O_NONBLOCK);
         ha::write_all(j.fd, reply + "\n");

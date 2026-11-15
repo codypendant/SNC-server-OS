@@ -358,11 +358,16 @@ class AdminServer {
       }).detach();
     }
   }
-  // A kept connection (K0, docs/CONTROL_CONNECTIONS_DESIGN.md 4.1), as
-  // admin::Loop keeps one: "K <seq> <line>" in, "<seq> <reply>" out, one
-  // request at a time. A line without "K <digits> ", or a byte after the
-  // request line, closes it; so does 30 s idle, 5 s to finish a line once
-  // started, or the server stopping.
+  // A kept connection (K0, docs/CONTROL_CONNECTIONS_DESIGN.md 4.1), for
+  // test_migrate's in-process nodes, whose probe keeps one per node: "K
+  // <seq> <line>" in, "<seq> <reply>" out, one request at a time, as
+  // admin::Loop. A line without "K <digits> ", a byte after the request
+  // line, or a reply holding a newline closes it; so do 30 s idle and the
+  // server stopping. Test infrastructure, simpler than admin::Loop: a
+  // thread per connection, AdminServer's own 5 s to finish a line (not
+  // kReadMs), no idle cap, no counters, and bytes sent with "KEEP 1" are
+  // dropped (read_line) rather than refused. snc_server's kept connections
+  // are admin::Loop's (tests/test_admin_loop.cpp K1-K7).
   void serve_kept(int c) {
     if (!ha::write_all(c, "OK keep\n")) return;
     std::string buf;
@@ -393,7 +398,11 @@ class AdminServer {
       }
       const std::string seq = buf.substr(2, sp - 2), line = buf.substr(sp + 1, nl - sp - 1);
       buf.clear();
-      if (!ha::write_all(c, seq + " " + fn_(line) + "\n")) return;
+      const std::string reply = fn_(line);
+      // As admin::Loop: a byte waiting before the reply, or a reply holding
+      // a newline, closes the connection.
+      if (reply.find('\n') != std::string::npos || ha::wait_fd(c, POLLIN, 0)) return;
+      if (!ha::write_all(c, seq + " " + reply + "\n")) return;
     }
   }
 

@@ -368,6 +368,12 @@ Decided by cody on 2026-11-04.
      one poll of main's) and intended guarantee (design 5.1); runtime tracing accepted with its overhead measured
      (under 1 ns per scope when off). **Open item O1 (correctness, to investigate):** a SIGSTOPped old primary,
      resumed after its standby's promotion, still reports `role=p` at its old term. K0 authorized next.
+     **K0 (for review, [K0_TEST_PROBE.md](K0_TEST_PROBE.md)):** the admin server accepts `KEEP 1` and kept
+     `K <seq>` requests (handback through an eventfd, a separate idle set capped at min(64, NOFILE/16), LRU
+     eviction, protocol errors close), `--no-keep`, and a client `ha::Conn` used only by test_migrate's probe
+     and `node_info`; `SNC_HA_KEEP=0` turns it off. HEALTH and the HA path stay one-shot. A2 rerun, 10 trials:
+     every scenario within the 5.1 tolerance. A harness flaw (a descriptor hole) had inflated main's recorded
+     EMFILE times; corrected on main to 1028-1056 ms detection (put to cody).
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

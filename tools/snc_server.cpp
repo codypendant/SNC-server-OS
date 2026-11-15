@@ -921,7 +921,7 @@ int main(int argc, char** argv) {
   // PR #36, option B).
   std::atomic<admin::Loop*> admin_loop{nullptr};
   auto health = [&] {
-    // Sized for every field at its maximum (about 1.1 KB) so clamp never
+    // Sized for every field at its maximum (about 1.4 KB with K0's keys) so clamp never
     // cuts a reply that would then still end in its newline (S4.1 review).
     char b[1536];
     int n = std::snprintf(b, sizeof(b), "role=%c term=%llu uuid=%s epoch=%llu leases=%llu-%llu shards=%u",

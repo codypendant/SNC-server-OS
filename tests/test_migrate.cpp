@@ -117,6 +117,8 @@ struct Env {
   struct Conns {
     std::unique_ptr<ha::Conn> c[4];
   };
+  // Made lazily, not thread-safe: only the scenario's main thread calls
+  // node_info (the probe thread has its own). Copies of an Env share them.
   mutable std::shared_ptr<Conns> conns;
   ha::Conn& conn(u32 k) const {
     if (!conns) conns = std::make_shared<Conns>();

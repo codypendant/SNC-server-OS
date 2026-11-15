@@ -376,7 +376,7 @@ single bound is split into three terms rather than loosened. The revision 4 word
 
 | Term | What it is | Value (failover 1000 ms, poll 100 ms) | Who checks it |
 |---|---|---|---|
-| **Measured behavior** | What main does today: per scenario, min, median and max of detection (fault to first `witness_suspect`) and promotion (fault to the standby reporting `role=p`), 10 trials, on the recorded host | max detection 1084 ms (SIGKILL), 1272 to 1276 ms (SIGSTOP, partition, accept stall, EMFILE); max promotion 1120 to 1333 ms; no promotion for a 400 ms stall | the baseline record; rerun by each slice |
+| **Measured behavior** | What main does today: per scenario, min, median and max of detection (fault to first `witness_suspect`) and promotion (fault to the standby reporting `role=p`), 10 trials, on the recorded host | max detection 1084 ms (SIGKILL), 1272 to 1276 ms (SIGSTOP, partition, accept stall), EMFILE 1056 ms with the corrected harness (K0 PR; 1273 ms as first recorded); max promotion 1106 to 1316 ms (EMFILE 1106, corrected; 1333 as first recorded); no promotion for a 400 ms stall | the baseline record; rerun by each slice |
 | **Regression tolerance** | What a later slice (K0 to K3) may show, same scenarios, trials and runner class: every outcome identical to main (promoted or not, the same suspect events), and each scenario's max detection and max promotion no more than one `poll_ms` (100 ms) above main's recorded max. Anything outside it is a regression to explain or fix, not a new baseline | detection max ≤ main's max + 100 ms; promotion max ≤ main's max + 100 ms | the slice's PR, from `SNC_BASELINE_TRIALS=10` on the same runner class |
 | **Intended guarantee** | The design contract, derived from the witness loop (`tools/snc_witness.cpp` `watch`): a silent primary is suspected no later than `failover_ms` after its last answered poll plus one silent iteration, which is a `poll_ms` timeout, a `poll_ms` sleep and the witness's state read. Revision 4's "+ 2 × `poll_ms`" left out the state read. It holds on an unloaded host; scheduling delay is outside it | `failover_ms` + 2 × `poll_ms` + one state read (main: the excess over 2 × `poll_ms`, state read plus scheduling, was at most 76 ms here) | analysis; the measured values must stay consistent with it |
 
@@ -402,6 +402,9 @@ any host. It is not the tolerance and not the guarantee.
   - Its acceptance includes A4 and A6 with the idle set populated, since it ships the sequence numbers, the
     handback and kept routing.
   - That removes about 80% of the test's churn, and no product caller changes behavior.
+  - *Done, for review: [K0_TEST_PROBE.md](K0_TEST_PROBE.md).* A2 within the 5.1 tolerance on every
+    scenario; deviations listed there (`NO keep full`, the read-only resend in K0, sequence numbers per
+    `ha::Conn`). The EMFILE baseline row was corrected after a harness flaw was found.
 - **K1, library and servers.** `ha::Pool`, the eligible list, the witness changes and the rest of 4.3. Then
   A3, A5 and A7, and A4 and A6 again. No product caller changes.
 - **K2, eligible product callers.** In order of churn: the PLACEMENT GET handler's READ broadcast, the

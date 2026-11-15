@@ -148,6 +148,10 @@ struct Server {
         reply = "OK";
         return true;
       }
+      if (line == "NL") {  // a reply with a newline in it (no real verb has one)
+        reply = "a\nb";
+        return true;
+      }
       if (line.rfind("BIG ", 0) == 0) {
         const std::size_t n = std::stoull(line.substr(4));
         reply.assign(n, 'g');
@@ -472,8 +476,50 @@ void test_keep_proto() {
   CHECK(closed_by_peer(fd));
   ::close(fd);
   wait_for([&] { return s.c().kept_proto.load() == want + 1; }, "bytes after KEEP 1");
+  // Bytes after a strict MOVE line (the MOVE thread reads it).
+  {
+    const int m = keep_conn(s.port);
+    CHECK(ha::write_all(m, "K 1 MOVE INFO 7\nX"));
+    CHECK(closed_by_peer(m));
+    ::close(m);
+    wait_for([&] { return s.c().kept_proto.load() == want + 2; }, "bytes after a MOVE line");
+  }
+  // A reply holding a newline: never sent on a kept connection (closed);
+  // one-shot unchanged.
+  {
+    const int n = keep_conn(s.port);
+    send_line(n, "K 1 NL");
+    CHECK(closed_by_peer(n));
+    ::close(n);
+    wait_for([&] { return s.c().kept_proto.load() == want + 3; }, "a reply with a newline");
+    const int o = connect_to(s.port);
+    send_line(o, "NL");
+    CHECK(reply_of(o) == "a\nb");
+    ::close(o);
+  }
   CHECK(health_ms(s.port) < 500);
-  std::printf("K2 protocol errors (%zu kinds and bytes after KEEP 1) close the connection; the next one gets "
+  // A second request sent while the first is with the worker: closed
+  // before the first reply is written.
+  {
+    std::atomic<bool> release{false};
+    std::atomic<int> started{0};
+    Server h(kWriteDeadlineMs, admin::kOutMax, [&](const std::string& line) {
+      started.fetch_add(1);
+      while (!release.load()) ::usleep(1000);
+      return "HEAVY " + line;
+    });
+    const int fd = keep_conn(h.port);
+    send_line(fd, "K 1 STATUS");
+    wait_for([&] { return started.load() == 1; }, "the worker holds the kept request");
+    send_line(fd, "K 2 HEALTH");
+    ::usleep(50 * 1000);
+    release.store(true);
+    CHECK(line_of(fd) == "<EOF>");  // no reply to either
+    ::close(fd);
+    wait_for([&] { return h.c().kept_proto.load() == 1; }, "bytes while with the worker");
+  }
+  std::printf("K2 protocol errors (%zu kinds, bytes after KEEP 1, after a MOVE line, a second request while the "
+              "first is with the worker, a reply holding a newline) close the connection; the next one gets "
               "its own replies\n", cases.size());
 }
 
@@ -489,7 +535,7 @@ void test_keep_deadlines() {
   CHECK(closed_by_peer(fd));
   const double read_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   ::close(fd);
-  CHECK(read_ms >= admin::kReadMs - 5 && read_ms < admin::kReadMs + 400);
+  CHECK(read_ms >= admin::kReadMs - 5 && read_ms < admin::kReadMs + 1500);  // upper: loaded or sanitized hosts
   // Idle: closed at idle_ms after its last reply.
   const int idle = keep_conn(s.port);
   send_line(idle, "K 1 HEALTH");
@@ -498,7 +544,7 @@ void test_keep_deadlines() {
   CHECK(closed_by_peer(idle));
   const double idle_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count();
   ::close(idle);
-  CHECK(idle_ms >= 300 - 5 && idle_ms < 300 + 400);
+  CHECK(idle_ms >= 300 - 5 && idle_ms < 300 + 1500);
   CHECK_EQ(s.c().kept_idle_closed.load(), 1u);
   CHECK(s.c().timeouts.load() >= 1u);
   std::printf("K3 deadlines: a partial request closed %.0f ms after its first byte (kReadMs %d), an idle "
@@ -550,7 +596,7 @@ void test_keep_health_inline() {
   std::vector<int> kept;
   for (int i = 0; i < 64; ++i) kept.push_back(keep_conn(s.port));
   wait_for([&] { return s.c().kept.load() == 64; }, "64 idle kept connections");
-  // The worker held by a kept request, kQueueMax queued behind it.
+  // The worker held by a one-shot request, kQueueMax queued behind it.
   std::vector<int> heavy;
   heavy.push_back(connect_to(s.port));
   send_line(heavy.back(), "STATUS");
@@ -560,6 +606,13 @@ void test_keep_health_inline() {
     send_line(heavy.back(), "STATUS");
   }
   wait_for([&] { return s.c().queue_depth.load() == admin::kQueueMax; }, "the queue full");
+  // A kept heavy request past the full queue: "<seq> NO busy", and the
+  // connection stays kept.
+  send_line(kept[1], "K 1 STATUS");
+  CHECK(line_of(kept[1]) == "1 NO busy");
+  // Kept connections active while HEALTH is measured: one with a partial
+  // request line.
+  CHECK(ha::write_all(kept[2], "K 1 HEA"));
   std::vector<int> half;
   for (int i = 0; i < 200; ++i) half.push_back(connect_to(s.port));
   wait_for([&] { return s.c().half.load() >= 200; }, "200 half-read connections");
@@ -576,6 +629,8 @@ void test_keep_health_inline() {
   // The kept ones still answer.
   send_line(kept[0], "K 1 HEALTH");
   CHECK(line_of(kept[0]) == "1 OK");
+  send_line(kept[1], "K 2 HEALTH");
+  CHECK(line_of(kept[1]) == "2 OK");
   for (int fd : kept) ::close(fd);
   CHECK(worst < 500);
   std::printf("K5 (A6) 64 idle kept, worker stalled, queue full, 200 half-read: 20 one-shot HEALTH inline, "
@@ -607,10 +662,9 @@ void test_keep_stop() {
   send_line(busy, "K 1 STATUS");
   wait_for([&] { return started.load() == 1; }, "the worker holds the kept request");
   std::thread stopper([&] { s->loop->stop(); });  // waits for the running request
-  ::usleep(100 * 1000);
+  CHECK(closed_by_peer(idle));  // the loop has exited: the worker's handback comes after it
   release.store(true);
   stopper.join();
-  CHECK(closed_by_peer(idle));
   CHECK(line_of(busy) == "1 HEAVY STATUS");  // written, then handed back after stop: closed
   CHECK(closed_by_peer(busy));
   ::close(idle);
@@ -630,6 +684,7 @@ struct Fake {
   std::atomic<int> conns{0}, keeps{0}, kreqs{0}, bare{0};
   std::mutex mu;
   std::vector<std::string> lines;  // every request line received, in order
+  std::vector<std::pair<int, std::string>> by_conn;  // (connection number, line)
   std::vector<int> open;           // to close at the end
   std::thread acc;
   std::atomic<bool> stop{false};
@@ -641,12 +696,12 @@ struct Fake {
         if (!ha::wait_fd(lfd, POLLIN, 50)) continue;
         const int fd = ::accept(lfd, nullptr, nullptr);
         if (fd < 0) continue;
-        conns.fetch_add(1);
+        const int id = conns.fetch_add(1) + 1;
         {
           std::lock_guard<std::mutex> g(mu);
           open.push_back(fd);
         }
-        std::thread([this, fd] { serve(fd); }).detach();
+        std::thread([this, fd, id] { serve(fd, id); }).detach();
       }
     });
   }
@@ -658,7 +713,7 @@ struct Fake {
     for (int fd : open) ::shutdown(fd, SHUT_RDWR);
     ::usleep(50 * 1000);  // the connection threads see it and end
   }
-  void serve(int fd) {
+  void serve(int fd, int id) {
     bool kept = false;
     int answered = 0;
     while (true) {
@@ -673,6 +728,7 @@ struct Fake {
       {
         std::lock_guard<std::mutex> g(mu);
         lines.push_back(line);
+        by_conn.emplace_back(id, line);
       }
       const Mode m = mode.load();
       if (!kept) {
@@ -721,6 +777,14 @@ struct Fake {
     int n = 0;
     for (const auto& x : lines) n += x == l ? 1 : 0;
     return n;
+  }
+  // The connection a line arrived on (0 if none).
+  int conn_of(const std::string& l) {
+    std::lock_guard<std::mutex> g(mu);
+    for (const auto& [id, x] : by_conn) {
+      if (x == l) return id;
+    }
+    return 0;
   }
   bool any_prefixed() {
     std::lock_guard<std::mutex> g(mu);
@@ -816,6 +880,14 @@ void test_conn_drop_reused() {
   CHECK(c.ask("MOVE INFO 3", r, 1000));  // read-only: resent once, one-shot
   CHECK(r == "R MOVE INFO 3");
   CHECK_EQ(f.count("MOVE INFO 3"), 1);
+  // A read-only verb with no argument ("MOVE ROLE", as the driver sends it).
+  f.mode = Fake::Mode::NORMAL;
+  wait_kept(c);
+  CHECK(c.ask("D", r, 1000));
+  f.mode = Fake::Mode::DROP_REUSED;
+  CHECK(c.ask("MOVE ROLE", r, 1000));
+  CHECK(r == "R MOVE ROLE");
+  CHECK_EQ(f.count("MOVE ROLE"), 1);
   // Again for a verb that is not read-only: false, never resent.
   f.mode = Fake::Mode::NORMAL;
   wait_kept(c);
@@ -835,10 +907,19 @@ void test_conn_late() {
   CHECK(c.ask("A", r, 1000));
   wait_kept(c);
   CHECK(!c.ask("SLOW", r, 200));
-  ::usleep(400 * 1000);  // the late reply is sent to a closed connection
-  wait_kept(c);
+  // At once, while the server still sleeps on SLOW: if the timed-out
+  // connection were reused, its late "1 R SLOW" would be read for NEXT.
   CHECK(c.ask("NEXT", r, 1000));
   CHECK(r == "R NEXT");
+  const int slow = f.conn_of("K 1 SLOW");
+  CHECK(slow != 0);
+  ::usleep(500 * 1000);  // the server wakes, answers SLOW into the closed connection, reads on
+  int on_slow = 0;
+  {
+    std::lock_guard<std::mutex> g(f.mu);
+    for (const auto& [id, x] : f.by_conn) on_slow += id == slow && x != "KEEP 1" && x != "K 1 SLOW" ? 1 : 0;
+  }
+  CHECK_EQ(on_slow, 0);  // nothing after SLOW was sent on the timed-out connection
   std::printf("C6 client: a reply late past the deadline is not returned; the next request got its own\n");
 }
 

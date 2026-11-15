@@ -3163,3 +3163,20 @@ or source comments.
     keep the 5.1 regression tolerance and pass independent QA, then stop for review. O1 is not started
     without cody's word.
 
+### 2026-11-15 UTC --- Claude (Claude Code): K0, kept connections for the test probe (for review)
+
+-   **What:** slice K0 of `docs/CONTROL_CONNECTIONS_DESIGN.md` section 6, authorized by cody's PR #132 review.
+    Write-up in `docs/K0_TEST_PROBE.md`, raw A2 data in `bench/results/k0-20261115/`.
+-   **Code (REFINE):** kept connections in `admin::Loop` (design 4.3) and `migrate::AdminServer`;
+    `snc_server --no-keep`; six `adm_kept*` HEALTH counters appended; `ha::Conn` (design 4.1, 4.2) used only by
+    test_migrate's probe and `node_info`; `SNC_HA_KEEP=0` kill switch. One-shot handling, HEALTH and the HA
+    path unchanged.
+-   **Tests:** `test_admin_loop` K1-K7 and C1-C7, keep-off ctest entries for test_admin_loop and test_migrate,
+    `test_health_baseline.py` scenarios `kept` and `emfile_idle`.
+-   **Evidence:** A2 10 trials, every scenario within the 5.1 tolerance; independent three-way QA, no blocking
+    findings, fixes applied; full suite 60/60 with keep on and 60/60 with `SNC_HA_KEEP=0`; test_migrate answered one-shot connections 106,152 to 11,517.
+-   **Assumptions changed, put to review:** main's recorded EMFILE baseline was inflated by a descriptor-hole
+    flaw in the harness (fixed; main rerun 1028-1056 ms detection). Deviations: `NO keep full` at twice the idle
+    cap, the read-only resend shipped in K0, sequence numbers per `ha::Conn`.
+-   **Next action:** cody reviews. K1 and O1 not started.
+
