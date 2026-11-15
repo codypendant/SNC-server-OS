@@ -72,3 +72,18 @@ jobs:
             sudo kill $sp; wait $sp 2>/dev/null
             echo "   (system.slice) ksoftirqd/0 runnable in $(grep -c 'ksoft_wait_ms\[0:R' samp.txt) of $(wc -l < samp.txt) samples; longest run of R: $(awk '{r=($0 ~ /ksoft_wait_ms\[0:R/)?r+1:0; if(r>m)m=r} END{print m*0.5}' samp.txt) s"
           done
+  twsyn:
+    if: contains(github.event.head_commit.message, '[diag-twsyn]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: {r: [1, 2, 3, 4, 5, 6]}
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash {0}
+        run: |
+          uname -r; lscpu | grep 'Model name'; sysctl net.ipv4.tcp_timestamps net.ipv4.tcp_tw_reuse net.ipv4.tcp_max_tw_buckets net.ipv4.tcp_rfc1337 net.ipv4.ip_local_port_range
+          for k in 1 2 3; do python3 -I tools/diag/twsyn.py 60000; done
+          python3 -I tools/diag/twsyn.py 60000 c
+          nstat -az | grep -E 'TCPSynRetrans|TCPTimeWaitOverflow|TCPTWRecycled|PAWSEstab|PAWSActive|TCPChallengeACK|TWKilled|TCPTSReorder' | awk '{print $1"="$2}' | tr '\n' ' '; echo

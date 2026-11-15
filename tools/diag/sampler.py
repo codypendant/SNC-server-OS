@@ -38,7 +38,7 @@ def dump(t):
     try: txt = open("/sys/kernel/debug/sched/debug").read()
     except OSError: return
     blk = re.split(r"\ncpu#", txt)[1]
-    out.write("\n".join(l for l in blk.split("runnable tasks:")[-1].splitlines()[:45]) + "\n")
+    out.write("\n".join(l for l in blk.split("runnable tasks:")[-1].splitlines() if re.match(r"\s*>?R\s", l)) + "\n")
     for k in ("nr_running", "min_vruntime", "avg_vruntime", "zero_vruntime", "nr_queued", "h_nr"):
         for l in blk.splitlines():
             if k in l: out.write(l.strip() + "\n")
@@ -53,6 +53,28 @@ def dump(t):
                 sc = open(f"/proc/{p}/task/{t}/syscall").read().split()[0]
                 hist[sc] = hist.get(sc, 0) + 1
         except (OSError, IndexError): pass
+    try:
+        T = "/sys/kernel/tracing"
+        def w(f, v): open(f"{T}/{f}", "w").write(v)
+        w("tracing_on", "0"); w("trace", ""); w("tracing_cpumask", "1")
+        w("events/sched/sched_switch/enable", "1"); w("events/sched/sched_wakeup/enable", "1"); w("tracing_on", "1")
+        time.sleep(0.5)
+        w("tracing_on", "0"); w("events/sched/sched_switch/enable", "0"); w("events/sched/sched_wakeup/enable", "0")
+        tr = open(f"{T}/trace").read().splitlines()
+        runs, ontime, wakes, last = {}, {}, {}, None
+        for l in tr:
+            m = re.search(r"\s(\d+\.\d+): sched_switch: prev_comm=(.+?) prev_pid=\d+ prev_prio=\d+ prev_state=(\S+) ==> next_comm=(.+?) next_pid=(\d+)", l)
+            if m:
+                ts, nxt = float(m.group(1)), m.group(4)
+                if last: ontime[last[0]] = ontime.get(last[0], 0) + ts - last[1]
+                runs[nxt] = runs.get(nxt, 0) + 1; last = (nxt, ts); continue
+            m = re.search(r"sched_wakeup: comm=(\S+)", l)
+            if m: wakes[m.group(1)] = wakes.get(m.group(1), 0) + 1
+        top = sorted(ontime.items(), key=lambda x: -x[1])[:12]
+        out.write(f"ftrace cpu0 0.5 s: switches={sum(runs.values())} ontime_ms={[(k, round(v*1000,1), runs.get(k,0)) for k,v in top]}\n")
+        out.write(f"  ksoftirqd/0 picked {runs.get('ksoftirqd/0',0)}x, woken {wakes.get('ksoftirqd/0',0)}x; kworkers picked {sum(v for k,v in runs.items() if k.startswith('kworker/0'))}x\n")
+    except OSError as e:
+        out.write(f"ftrace failed: {e}\n")
     out.write(f"R threads on cpu0 by syscall (24=sched_yield 230=clock_nanosleep 7=poll 426=io_uring_enter): {hist}\n=== END DUMP\n")
 dumps = 0; stuck = 0
 k0, s0, t0 = ksoft(), softirq(), tcp(); start = time.time()
