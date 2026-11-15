@@ -497,12 +497,26 @@ struct Workload {
     Ctx ctx{this, &inflight, &retry, false, &cc};
     u64 next_id = 1;
     std::optional<clk::time_point> stopped;
+    auto last_answer = clk::now();
+    u64 answers_after_stop = 0;
     while (error.empty()) {
       if (stop && !stopped) stopped = clk::now();
       if (stopped && inflight.empty() && retry.empty()) break;
       if (stopped && since(*stopped) > 60) {
         error = "requests unanswered 60 s after the end: " + std::to_string(inflight.size()) + " in flight, " +
                 std::to_string(retry.size()) + " to retry";
+        // DIAG: where the stuck requests go and what each group client did.
+        std::map<u16, int> by_group;
+        for (auto& [id, x] : inflight) ++by_group[cc.group_of(x.from)];
+        error += " | DIAG last_answer_ago=" + std::to_string(since(last_answer)) + "s answers_after_stop=" +
+                 std::to_string(answers_after_stop) + " epoch=" + std::to_string(cc.epoch());
+        for (auto& [g, n] : by_group) error += " g" + std::to_string(g) + ":" + std::to_string(n);
+        for (u16 g = 0; g < cc.group_count(); ++g) {
+          const auto& c = cc.group(g);
+          error += " [grp" + std::to_string(g) + " fo=" + std::to_string(c.failovers()) + " to=" + std::to_string(c.timeouts()) +
+                   " rs=" + std::to_string(c.resends()) + " rr=" + std::to_string(c.replay_retries()) + " fw=" +
+                   std::to_string(c.forwarded()) + " err='" + c.error() + "']";
+        }
         break;
       }
       const auto now = clk::now();
@@ -529,7 +543,12 @@ struct Workload {
         inflight[h.req_id] = x;
         ++sent;
       }
-      if (cc.poll(on_response, &ctx, 10) < 0) {
+      const int got_ = cc.poll(on_response, &ctx, 10);
+      if (got_ > 0) {
+        last_answer = clk::now();
+        if (stopped) answers_after_stop += static_cast<u64>(got_);
+      }
+      if (got_ < 0) {
         error = "client failed: " + cc.error();
         break;
       }
