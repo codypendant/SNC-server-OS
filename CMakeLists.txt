@@ -63,6 +63,8 @@ foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runti
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})
 endforeach()
+# ha::Conn with SNC_HA_KEEP=0: never a KEEP (K0, docs/CONTROL_CONNECTIONS_DESIGN.md 4.2)
+add_test(NAME test_admin_loop_keep_off COMMAND ${CMAKE_COMMAND} -E env SNC_HA_KEEP=0 $<TARGET_FILE:test_admin_loop>)
 # test_migrate refuses a run its host's connection table cannot hold
 # (docs/TEST_MIGRATE_CONNECTION_CHURN.md): one scenario needs 2,000 entries;
 # with 1,144 free it refuses, exits non-zero and says why; with 3,144 free, or

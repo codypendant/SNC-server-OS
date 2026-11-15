@@ -1,0 +1,45 @@
+baseline kill: detection/promotion ms per trial: 1056/1097, 1058/1113, 1082/1135, 1077/1119, 1072/1097, 1079/1122, 1060/1100, 1079/1123, 1078/1119, 1055/1095
+baseline stop: detection/promotion ms per trial: 1248/1290, 1277/1309, 1250/1284, 1273/1316, 1256/1307, 1252/1316, 1276/1328, 1272/1309, 1253/1284, 1242/1292; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0; old primary after SIGCONT: role=p term=0
+baseline partition: detection/promotion ms per trial: 1255/1294, 1259/1286, 1271/1310, 1232/1272, 1272/1321, 1274/1310, 1255/1308, 1251/1287, 1277/1312, 1276/1331
+baseline hold: detection/promotion ms per trial: 1250/1308, 1250/1291, 1252/1307, 1250/1307, 1249/1283, 1250/1284, 1251/1306, 1249/1286, 1269/1309, 1253/1289
+baseline hold_short: accept held 400 ms (< failover_ms 1000): no promotion, HA machine unchanged, HEALTH answered after it; witness_suspect lines 0
+baseline emfile: detection/promotion ms per trial: 1271/1310, 1253/1287, 1273/1334, 1272/1326, 1271/1304, 1268/1307, 1274/1327, 1250/1284, 1252/1296, 1271/1329; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=122 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; primary descriptor limit 20000 -> 26 (its lowest free descriptor); old primary adm_accept_fail=123 adm_evicted=0
+baseline emfile_idle: detection/promotion ms per trial: 1270/1304, 1250/1305, 1268/1325, 1273/1308, 1248/1295, 1271/1306, 1271/1311, 1268/1327, 1271/1305, 1271/1306; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=122 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=122 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=122 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=120 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0; 8 kept idle connections on the primary; primary descriptor limit 20000 -> 34 (its lowest free descriptor); old primary adm_accept_fail=121 adm_evicted=0; old primary adm_kept=8 adm_kept_evicted=0
+baseline kill: requests with no caller label: none
+baseline kill: control requests by process, caller, verb (all one-shot):
+      71  witness watch                                         HEALTH
+      27  witness watch/propose/read_latest                     READ ha/0
+      15  witness serve_PLACEMENT_GET/read_latest               READ placement
+      15  witness watch/propose                                 PREPARE ha/0
+      15  witness watch/propose                                 ACCEPT ha/0
+       6  witness serve_LEASES_TAKE/propose/read_latest         READ leases
+       6  witness serve_LEASES_TAKE/propose                     PREPARE leases
+       6  witness serve_LEASES_TAKE/propose                     ACCEPT leases
+       6  witness serve_LEASES_TAKE/propose                     COMMIT leases
+       6  witness watch/propose                                 COMMIT ha/0
+       3  server  placement_fetch                               PLACEMENT GET
+       3  witness serve_PLACEMENT_INIT/propose/read_latest      READ placement
+       3  witness serve_PLACEMENT_INIT/propose                  PREPARE placement
+       3  witness serve_PLACEMENT_INIT/propose                  ACCEPT placement
+       3  witness serve_PLACEMENT_INIT/propose                  COMMIT placement
+       3  witness serve_NOTREADY/propose/read_latest            READ ha/0
+       3  witness serve_NOTREADY/propose                        PREPARE ha/0
+       3  witness serve_NOTREADY/propose                        ACCEPT ha/0
+       3  witness serve_NOTREADY/propose                        COMMIT ha/0
+       3  witness serve_READY/read_linear/read_latest           READ ha/0
+       3  witness serve_READY/read_linear                       PREPARE ha/0
+       3  witness serve_READY/propose/read_latest               READ ha/0
+       3  witness serve_READY/propose                           PREPARE ha/0
+       3  witness serve_READY/propose                           ACCEPT ha/0
+       3  witness serve_READY/propose                           COMMIT ha/0
+       3  witness watch                                         STATUS
+       3  witness watch                                         PROMOTE
+       3  witness serve_PLACEMENT_SYNC/read_linear/read_latest  READ placement
+       3  witness serve_PLACEMENT_SYNC/read_linear              PREPARE placement
+       2  server  start/resolve                                 PLACEMENT GET
+       1  server  start/lease_blocks                            LEASES TAKE
+       1  server  ask_witness                                   NOTREADY
+       1  server  ask_witness                                   READY
+       1  server  promote/placement_sync                        PLACEMENT SYNC
+       1  server  promote/lease_blocks                          LEASES TAKE
+test_health_baseline: ok

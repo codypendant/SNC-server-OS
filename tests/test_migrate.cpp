@@ -112,6 +112,17 @@ struct Env {
   u16 link(u32 k) const { return static_cast<u16>(base + 11 + 10 * k); }
   u16 client(u32 k) const { return static_cast<u16>(base + 15 + 10 * k); }
   u16 repl(u32 g) const { return static_cast<u16>(base + 60 + 2 * g); }
+  // node_info's kept admin connections, one per node for the scenario (K0,
+  // docs/CONTROL_CONNECTIONS_DESIGN.md section 6), made on first use.
+  struct Conns {
+    std::unique_ptr<ha::Conn> c[4];
+  };
+  mutable std::shared_ptr<Conns> conns;
+  ha::Conn& conn(u32 k) const {
+    if (!conns) conns = std::make_shared<Conns>();
+    if (!conns->c[k]) conns->c[k] = std::make_unique<ha::Conn>("127.0.0.1", admin(k));
+    return *conns->c[k];
+  }
   std::string control() const {
     std::string s;
     for (u32 i = 0; i < 3; ++i) s += (i ? "," : "") + std::string("127.0.0.1:") + std::to_string(witness(i));
@@ -642,11 +653,17 @@ struct Probe {
   std::atomic<bool> stop{false};
   u64 rounds = 0, violations = 0, max_epoch = 0;
   std::string what;
+  // One kept admin connection per node for the scenario (K0): the probe
+  // made about 81% of this test's control connections
+  // (docs/CONTROL_CONNECTIONS_DESIGN.md 2.2). A request with no confirmed
+  // connection goes one-shot, as before.
+  std::unique_ptr<ha::Conn> conn[4];
 
   // serving, map epoch; false if the node does not answer.
   bool info(u32 k, bool& serving, u64& epoch) {
     std::string r;
-    if (!ha::ask("127.0.0.1", e->admin(k), "MOVE INFO " + std::to_string(slot), r, 1000)) return false;
+    if (!conn[k]) conn[k] = std::make_unique<ha::Conn>("127.0.0.1", e->admin(k));
+    if (!conn[k]->ask("MOVE INFO " + std::to_string(slot), r, 1000)) return false;
     std::istringstream in(r);
     std::string tag;
     SlotReport rep;
@@ -734,7 +751,7 @@ struct NodeInfo {
 NodeInfo node_info(const Env& e, u32 k, u16 slot) {
   NodeInfo n;
   std::string reply;
-  if (!ha::ask("127.0.0.1", e.admin(k), "MOVE INFO " + std::to_string(slot), reply, 2000)) return n;
+  if (!e.conn(k).ask("MOVE INFO " + std::to_string(slot), reply, 2000)) return n;
   std::istringstream in(reply);
   std::string tag;
   n.up = (in >> tag) && tag == "INFO" && migrate::parse_report(in, n.r);

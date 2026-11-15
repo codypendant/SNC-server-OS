@@ -30,8 +30,17 @@ Scenarios (each on a fresh cluster):
             descriptor (prlimit), so every accept fails with EMFILE: HEALTH
             goes silent, promotion; once the limit is restored the old
             primary's HEALTH shows adm_accept_fail > 0.
+  emfile_idle as emfile, with the primary's idle set of kept connections
+            populated first (K0; A2(b) "run with the idle set populated"):
+            the same outcome, and no kept connection closed to make room
+            (adm_kept unchanged, adm_kept_evicted 0).
 
-Checked in every scenario (A2(a)): every ha_ask line is conn=oneshot, and
+SNC_BASELINE_IDLE=N populates N kept idle connections on the primary
+before every failover scenario (for recording K0 against the baseline).
+
+Checked in every scenario (A2(a)): every ha_ask line is conn=oneshot (no
+caller in this harness is eligible for a kept connection; K0 keeps only
+test_migrate's probe), no process sends KEEP, and
 the HA-path requests the design keeps one-shot are present in the kill
 scenario's trace (watch HEALTH; the promotion's PLACEMENT SYNC and LEASES
 TAKE; the witnesses' Paxos rounds under them; readiness). Recorded (A2(b)):
@@ -73,6 +82,7 @@ FAILOVER_MS = 1000
 POLL_MS = 100
 SANITIZED = bool(os.environ.get("SNC_SANITIZED"))
 TRIALS = int(os.environ.get("SNC_BASELINE_TRIALS", "2"))
+IDLE = int(os.environ.get("SNC_BASELINE_IDLE", "0"))
 
 # HA-path request kinds the design keeps one-shot (section 4.5), as
 # (process, caller path pattern, verb pattern); each must appear in the
@@ -149,7 +159,7 @@ class Cluster:
     """Three witnesses and one group (node 1 primary, node 2 sync standby)."""
 
     def __init__(self, build, work, proxy_primary=False):
-        self.procs, self.proxy = [], None
+        self.procs, self.proxy, self.kept = [], None, []
         try:
             self._start_all(build, work, proxy_primary)
         except BaseException:
@@ -223,7 +233,25 @@ class Cluster:
         s = status(self.admin[2], 0.5)
         return s if s and s.get("role") in ("p", "n") else None
 
+    def keep_idle(self, n):
+        """n kept admin connections to the primary, left idle (K0)."""
+        for _ in range(n):
+            s = socket.create_connection(("127.0.0.1", self.admin[1]), timeout=3)
+            s.sendall(b"KEEP 1\n")
+            got = b""
+            while not got.endswith(b"\n"):
+                b = s.recv(1)
+                assert b, "kept connection closed during the handshake"
+                got += b
+            assert got == b"OK keep\n", got
+            self.kept.append(s)
+        g = fields(ask(self.admin[1], "HEALTH", 1))
+        assert int(g.get("adm_kept", "0")) == len(self.kept), g
+        self.notes.append(f"{len(self.kept)} kept idle connections on the primary")
+
     def close(self):
+        for s in self.kept:
+            s.close()
         if self.proxy:
             self.proxy.heal()
         for p in self.procs:
@@ -256,10 +284,13 @@ class Cluster:
 
 
 def check_oneshot(asks, what):
-    # True by construction today (ha::ask writes conn=oneshot): a tripwire
-    # for later slices, which label pooled requests otherwise.
+    # Every request here is one-shot: ha::Conn writes conn=kept, and no
+    # caller in this harness uses it. No process ever sends KEEP (only the
+    # eligible callers' ha::Conn handshakes, design 4.1).
     bad = [a for a in asks if a[3] != "oneshot"]
     assert not bad, f"{what}: requests not one-shot: {bad[:5]}"
+    keeps = [a for a in asks if a[2].startswith("KEEP")]
+    assert not keeps, f"{what}: KEEP sent: {keeps[:5]}"
     assert asks, f"{what}: no ha_ask trace lines (is SNC_TRACE honored?)"
 
 
@@ -286,6 +317,9 @@ def run_failover(build, name, fault, after=None):
     c = None
     try:
         c = Cluster(build, work, proxy_primary=name == "partition")
+        idle = IDLE or (8 if name.endswith("_idle") else 0)
+        if idle:
+            c.keep_idle(idle)
         fault_ns = fault(c)
         detect_ms, promote_ms = failover(c, fault_ns)
         st = c.promoted()
@@ -402,9 +436,17 @@ def table(asks):
     return sorted(n.items(), key=lambda kv: -kv[1])
 
 
+def emfile_idle_after(c):
+    emfile_after(c)
+    g = fields(ask(c.admin[1], "HEALTH", 1))
+    assert int(g.get("adm_kept", "0")) == len(c.kept), g
+    assert int(g.get("adm_kept_evicted", "0")) == 0, g
+    c.notes.append(f"old primary adm_kept={g['adm_kept']} adm_kept_evicted={g['adm_kept_evicted']}")
+
+
 def main():
     build = sys.argv[1] if len(sys.argv) > 1 else "build"
-    want = sys.argv[2:] or ["kill", "stop", "partition", "hold", "hold_short", "emfile"]
+    want = sys.argv[2:] or ["kill", "stop", "partition", "hold", "hold_short", "emfile", "emfile_idle"]
     results = {}
     scenarios = {
         "kill": (kill_fault, None, TRIALS),
@@ -412,6 +454,7 @@ def main():
         "hold": (hold_fault, None, TRIALS),
         "partition": (partition_fault, None, TRIALS),
         "emfile": (emfile_fault, emfile_after, TRIALS),
+        "emfile_idle": (emfile_fault, emfile_idle_after, TRIALS),
     }
     kill_asks = None
     for name in want:

@@ -344,7 +344,13 @@ class AdminServer {
       }
       std::thread([this, c] {
         std::string line;
-        if (ha::read_line(c, line, 5000)) ha::write_all(c, fn_(line) + "\n");
+        if (ha::read_line(c, line, 5000)) {
+          if (line == "KEEP 1") {
+            serve_kept(c);  // the client waits for "OK keep": nothing followed the line
+          } else {
+            ha::write_all(c, fn_(line) + "\n");
+          }
+        }
         ::close(c);
         std::lock_guard<std::mutex> g(mu_);
         --busy_;
@@ -352,6 +358,45 @@ class AdminServer {
       }).detach();
     }
   }
+  // A kept connection (K0, docs/CONTROL_CONNECTIONS_DESIGN.md 4.1), as
+  // admin::Loop keeps one: "K <seq> <line>" in, "<seq> <reply>" out, one
+  // request at a time. A line without "K <digits> ", or a byte after the
+  // request line, closes it; so does 30 s idle, 5 s to finish a line once
+  // started, or the server stopping.
+  void serve_kept(int c) {
+    if (!ha::write_all(c, "OK keep\n")) return;
+    std::string buf;
+    char b[65536];
+    while (true) {
+      // Idle: wait for a request's first byte, checking stop_.
+      int waited = 0;
+      while (buf.empty() && !ha::wait_fd(c, POLLIN, 50)) {
+        if (stop_ || (waited += 50) >= 30000) return;
+      }
+      const auto start = std::chrono::steady_clock::now();
+      std::size_t nl;
+      while ((nl = buf.find('\n')) == std::string::npos) {
+        const int left = 5000 - static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                     std::chrono::steady_clock::now() - start)
+                                                     .count());
+        if (stop_ || left <= 0 || !ha::wait_fd(c, POLLIN, left)) return;
+        const ssize_t r = ::recv(c, b, sizeof(b), 0);
+        if (r <= 0) return;
+        buf.append(b, static_cast<std::size_t>(r));
+        if (buf.size() > (std::size_t{1} << 28)) return;
+      }
+      if (nl + 1 != buf.size() || buf.compare(0, 2, "K ") != 0) return;
+      const std::size_t sp = buf.find(' ', 2);
+      if (sp == std::string::npos || sp > nl || sp == 2) return;
+      for (std::size_t i = 2; i < sp; ++i) {
+        if (buf[i] < '0' || buf[i] > '9') return;
+      }
+      const std::string seq = buf.substr(2, sp - 2), line = buf.substr(sp + 1, nl - sp - 1);
+      buf.clear();
+      if (!ha::write_all(c, seq + " " + fn_(line) + "\n")) return;
+    }
+  }
+
   std::function<std::string(const std::string&)> fn_;
   int fd_ = -1;
   std::atomic<bool> stop_{false};
