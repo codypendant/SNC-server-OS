@@ -91,6 +91,12 @@ class Sender {
     // records wait is treated as down (a hung or stopped standby keeps its
     // socket open). 0: never.
     u64 ack_timeout_ns = 0;
+    // CPUs a catch-up-from-disk reader thread runs on: the CPUs the process
+    // was allowed before its shards pinned themselves (Engine::start_ captures them,
+    // docs/CPU_PLACEMENT_R1.md D1). The reader starts on the shard's CPU and
+    // must not stay there, nor widen to CPUs outside this set (another
+    // process's, under taskset or a cpuset). Empty: the main thread's set.
+    std::vector<int> reader_cpus;
   };
   explicit Sender(const Config& cfg);
   ~Sender();
@@ -288,5 +294,10 @@ class Receiver {
 
 // crc32c of a slot map's owner table, to check both sides route alike.
 u32 slot_map_crc(const SlotMap& m);
+
+// Moves the calling thread onto `cpus` (empty: the main thread's CPUs).
+// False, with errno set, if it could not (the thread stays where it is).
+// For threads started from a pinned shard thread (docs/CPU_PLACEMENT_R1.md D1).
+bool leave_shard_cpu(const std::vector<int>& cpus);
 
 }  // namespace snc::repl
