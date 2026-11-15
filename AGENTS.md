@@ -3233,3 +3233,10 @@ or source comments.
     directory is never converted by a start. Residual risks in section 8.
 -   **Next action:** cody reviews. D4, D5, K1 and R1-a/b/c, R2-a not started.
 
+### 2026-11-15 UTC --- Claude (Claude Code): PR #136 review carried out (cody approved D3)
+
+-   **Review:** `docs/handoff/PR136_D3_Cluster_Shards_Review_Approval.md`. D3 approved for merge, provided full
+    CI passes; merged only after it did.
+-   **Next action:** D4 (controlled startup errors) as its own slice, PR, stop for review; then D5. K1 stays
+    unstarted and separate.
+

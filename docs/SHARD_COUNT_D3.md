@@ -1,6 +1,6 @@
 # D3: a cluster member's shard count comes from its group (2026-11-15)
 
-Status: **for review.** Assigned by cody's review of PR #134 and #135
+Status: **approved by cody** (PR #136, `docs/handoff/PR136_D3_Cluster_Shards_Review_Approval.md`), merged once full CI passed. Assigned by cody's review of PR #134 and #135
 (`docs/handoff/PR135_D2a_Default_Shards_Review_Approval.md`), Priority 1. It is the first of D3, D4 and D5 from
 `docs/CPU_PLACEMENT_R1.md` section 7.
 
