@@ -47,3 +47,28 @@ jobs:
             echo "after: left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate)"
             rm -rf /tmp/snc-migrate-*
           done
+  starve:
+    if: contains(github.event.head_commit.message, '[diag-starve]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: {r: [1, 2, 3, 4, 5, 6]}
+    steps:
+      - uses: actions/checkout@v4
+      - run: gcc -O2 -pthread -o starve tools/diag/starve.c && uname -r && lscpu | grep 'Model name' && cat /proc/self/cgroup
+      - shell: bash {0}
+        run: |
+          for cfg in "1 spin" "2 spin" "4 spin" "12 spin" "1 sleep" "4 sleep" "12 sleep" "12 yield"; do
+            sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
+            ./starve $cfg 20
+            sudo kill $sp; wait $sp 2>/dev/null
+            echo "   ksoftirqd/0 runnable in $(grep -c 'ksoft_wait_ms\[0:R' samp.txt) of $(wc -l < samp.txt) samples; longest run of R: $(awk '{r=($0 ~ /ksoft_wait_ms\[0:R/)?r+1:0; if(r>m)m=r} END{print m*0.5}' samp.txt) s; netrx cpu0 min/0.5s: $(grep -oE 'netrx\[[0-9]+' samp.txt | cut -c7- | sort -n | head -1)"
+          done
+          echo "--- in the root cgroup (systemd-run --scope -p Slice=-.slice not used); run as a transient scope under system.slice"
+          for cfg in "12 spin"; do
+            sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
+            sudo systemd-run --scope --quiet -p Slice=system.slice ./starve $cfg 20
+            sudo kill $sp; wait $sp 2>/dev/null
+            echo "   (system.slice) ksoftirqd/0 runnable in $(grep -c 'ksoft_wait_ms\[0:R' samp.txt) of $(wc -l < samp.txt) samples; longest run of R: $(awk '{r=($0 ~ /ksoft_wait_ms\[0:R/)?r+1:0; if(r>m)m=r} END{print m*0.5}' samp.txt) s"
+          done
