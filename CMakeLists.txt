@@ -64,8 +64,9 @@ foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runti
   add_test(NAME ${t} COMMAND ${t})
 endforeach()
 # test_migrate refuses a run its host's connection table cannot hold
-# (docs/TEST_MIGRATE_CONNECTION_CHURN.md): one scenario against a table 1,144
-# entries short refuses, exits non-zero and says why; with 3,144 free it runs.
+# (docs/TEST_MIGRATE_CONNECTION_CHURN.md): one scenario needs 2,000 entries;
+# with 1,144 free it refuses, exits non-zero and says why; with 3,144 free, or
+# with no conntrack files at all, it runs that one scenario to the end.
 set(ct_fix ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/conntrack)
 add_test(NAME test_migrate_conntrack_refuses
          COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/full $<TARGET_FILE:test_migrate> prepared/driver/abort)
@@ -76,6 +77,10 @@ set_tests_properties(test_migrate_conntrack_says_why PROPERTIES
                      PASS_REGULAR_EXPRESSION "connection table has 261000 of 262144 entries in use; 1 scenarios need about 2000 more")
 add_test(NAME test_migrate_conntrack_room
          COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/room $<TARGET_FILE:test_migrate> prepared/driver/abort)
+add_test(NAME test_migrate_conntrack_absent
+         COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/absent $<TARGET_FILE:test_migrate> prepared/driver/abort)
+set_tests_properties(test_migrate_conntrack_room test_migrate_conntrack_absent PROPERTIES
+                     PASS_REGULAR_EXPRESSION "test_migrate: 1 scenarios in [0-9.]+ s \\(1 lanes\\): ok")
 # A hung S3 test fails the suite instead of stalling it (a CHECK failure
 # exits with the engine running, which can hang under a sanitizer).
 set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens test_intake test_xnode PROPERTIES TIMEOUT 2400)

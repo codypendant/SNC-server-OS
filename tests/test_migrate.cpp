@@ -778,8 +778,10 @@ void check_spread(const Env& e) {
 // one for nf_conntrack_tcp_timeout_time_wait (120 s) after it closes. One
 // scenario leaves about 1,600 entries on hosted runners; a full table drops
 // new connections, and scenarios then stall mid-step. So a run that would
-// not fit is refused before it starts, with what is in the table. A host
-// that does not track loopback, or has no conntrack, never refuses.
+// not fit is refused before it starts, with what is in the table. The check
+// reads only the table's count and size, whatever traffic fills it; a host
+// without readable conntrack files is never refused. It is a check at start,
+// not a cap: a run that fits can still fill a table that others fill too.
 // SNC_MIGRATE_CONNTRACK_DIR replaces /proc/sys/net/netfilter (for the test
 // of this check).
 bool conntrack_room(std::size_t scenarios) {
@@ -790,7 +792,7 @@ bool conntrack_room(std::size_t scenarios) {
   u64 count = 0, max = 0;
   if (!(fc >> count) || !(fm >> max) || max == 0) return true;
   const u64 need = kPerScenario * scenarios;
-  if (count + need <= max) return true;
+  if (count <= max && need <= max - count) return true;
   std::fprintf(stderr,
                "test_migrate: the host's connection table has %llu of %llu entries in use; %zu scenarios need about %llu "
                "more. Closed connections stay there for nf_conntrack_tcp_timeout_time_wait (120 s by default): wait for "

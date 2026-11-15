@@ -290,7 +290,8 @@ in a sandbox that refuses `sched_setaffinity`. Before, nothing checked pinning t
   the new default (all 5 spread 2-lane failures in 3.1 dropped packets for a full table). Every
   verification round, the final 0/96 included, started from a drained table. One CI run of the suite
   runs `test_migrate` once, so it fills the table only if tests just before it leave enough entries;
-  that was not measured. Nothing was changed for it here; it is a candidate for its own slice.
+  that was not measured. Nothing was changed for it here. Measured and guarded since in
+  `docs/TEST_MIGRATE_CONNECTION_CHURN.md`.
 - **R5. The residual at 3 lanes.** The spread alone left 4 failures in 144 rounds at 6 shard threads
   per CPU. They were not traced further. At 4 per CPU, 0 of 168 rounds failed (72 paired, 96 final).
 

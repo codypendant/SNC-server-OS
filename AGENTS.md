@@ -3057,14 +3057,15 @@ or source comments.
     **RECONSIDER** (proposed, not started) one connection per control request at witness scale.
 -   **What changed:** `tests/test_migrate.cpp` refuses, before any scenario, a run whose 2,000 entries per scenario
     do not fit in the host's table, with a message naming the count, size and need (`SNC_MIGRATE_CONNTRACK_DIR`
-    for testing). Three ctest entries with fixture tables (`tests/fixtures/conntrack`). New
+    for testing). Four ctest entries with fixture tables (`tests/fixtures/conntrack`). New
     `docs/TEST_MIGRATE_CONNECTION_CHURN.md`, `docs/STATUS.md`. No product code, timeout or assertion changed.
 -   **Evidence:** hosted, 6 runners × 2: before, the third run back to back failed mid-scenario in 6 of 10 runs at
     262144 and a 50000 table failed 12/12; after, those are refused in 0 s (10/10, 12/12), runs that fit pass
-    (24/24 plus 2/2 at 1048576), and no packet was dropped. The new ctest entries fail on main's binary and pass
-    on the new one. CI's single run fits with about 2.5× headroom (tests before it open under 1,000 connections).
+    (24/24 plus 2/2 at 1048576), and no packet was dropped. The refusal tests fail on main's binary and pass on
+    the new one. CI's single run fits with about 2.5× headroom (tests before it open under 1,000 connections).
+    Three independent QA reviews: nothing blocking; findings re-checked and applied (doc section 6).
 -   **Assumption changed:** the churn is a property of the control protocol, not of the test alone; a witness
-    watching about 100 groups would fill a default table with polls alone on a host that tracks connections
-    (inferred, not measured).
+    polls each group's primary every 100 ms with a fresh connection, so near 218 groups its polls alone would fill
+    a default table on a host that tracks connections (inferred from the code, not measured).
 -   **Next action:** reviewer decision; whether to design persistent control connections (C1). Not started:
     R1 multi-process CPU placement, R2, F2, F3, F4.
