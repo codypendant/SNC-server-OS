@@ -191,6 +191,8 @@ for them to expire, or run fewer scenarios (docs/TEST_MIGRATE_CONNECTION_CHURN.m
   - Persistent connections, a request/reply stream per peer reopened on error, would remove most of this.
     That touches `ha::ask`, `admin_loop.h`, the witness's `serve()` and watcher, Paxos, and the nodes'
     control calls. It changes how silence and failover are detected, so it needs its own design and review.
+    (2026-11-15: the design, `docs/CONTROL_CONNECTIONS_DESIGN.md`, keeps HEALTH, every Paxos write and the
+    rest of the HA path one-shot after review, so it does not reduce witness health polls.)
 - **Alternatives considered for this slice:**
   - **Closing with RST** (`SO_LINGER {1, 0}` in `ha::ask` after the reply is read). The entry would expire
     in about 10 s instead of 120 s. Not done here: it is a product wire change, and arm D shows a short

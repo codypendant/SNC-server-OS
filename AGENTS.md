@@ -3103,8 +3103,12 @@ or source comments.
     not guarantees; library retries only read-only verbs. A2, A3, A8 rewritten; K2 limited to placement,
     leases and migration.
 -   **Evidence:** consistency checked in code (`watch` decides with `propose` on `ha/<group>`; `kReadMs` counts
-    from accept for every connection; no witness active cap today). Independent QA of revision 3: design
-    section 9.
+    from accept for every connection; no witness active cap today). Three independent QA reviews of
+    revision 3 found two blockers, both confirmed in code and fixed in revision 4 (design section 10):
+    promotion runs PLACEMENT SYNC and LEASES TAKE (`Engine::promote`), so those and every Paxos write stay
+    one-shot and the pool takes only a closed list of requests; and idle connections freed on EMFILE would
+    have let a descriptor-exhausted node answer HEALTH, so today's EMFILE rule is kept.
 -   **Assumption changed:** witness health polls are not reduced by this design and may remain the largest
     steady churn in deployments with many groups.
--   **Next action:** cody's final review of PR #130; K0 to K3 not started.
+-   **Next action:** cody's final review of PR #130, including the added HEALTH-baseline step before K0
+    (design section 6); K0 to K3 not started.
