@@ -103,6 +103,7 @@
 // group's links, and the other groups find it there. A CLUSTER request
 // returns the map with each member's CLIENT_PORT, so that
 // net::ClusterClient sends each request to its owner's primary.
+#include <sched.h>
 #include <signal.h>
 
 #include <algorithm>
@@ -551,9 +552,24 @@ int main(int argc, char** argv) {
     return 2;
   }
   if (cfg.runtime.n_shards == 0) {
-    cfg.runtime.n_shards = cfg.runtime.cpus.empty()
-                               ? static_cast<u16>(std::max(1u, std::thread::hardware_concurrency()))
-                               : static_cast<u16>(cfg.runtime.cpus.size());
+    // --cpus: one shard per listed CPU. Otherwise one per CPU this process
+    // may run on (taskset or a cgroup cpuset; a CPU quota does not narrow
+    // it), not per CPU the host has online: the runtime places shards within
+    // this set (docs/CPU_PLACEMENT_R1.md D2).
+    unsigned n = 0;
+    if (!cfg.runtime.cpus.empty()) {
+      n = static_cast<unsigned>(cfg.runtime.cpus.size());
+    } else {
+      cpu_set_t allowed;
+      CPU_ZERO(&allowed);
+      if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0) n = static_cast<unsigned>(CPU_COUNT(&allowed));
+    }
+    if (n == 0) {
+      n = std::max(1u, std::thread::hardware_concurrency());
+      std::fprintf(stderr, "snc_server: cannot read this process's CPUs (%s); %u shards, one per online CPU\n",
+                   std::strerror(errno), n);
+    }
+    cfg.runtime.n_shards = static_cast<u16>(n);
   }
   account::register_type();
 

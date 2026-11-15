@@ -3202,3 +3202,16 @@ or source comments.
     baseline correction rides with it.
 -   **Next action:** none in this slice. K1 is not started: it waits until the shard-count work (D3 to D5, its
     own thread) is resolved or isolated, then for cody's explicit go.
+
+### 2026-11-15 UTC --- Claude (Claude Code): D2-a default shard count (approved, PR #135)
+
+-   **What:** D2-a, assigned by cody's PR #133 review (`docs/handoff/PR133_CPU_Placement_Review_Approval.md`).
+    `docs/CPU_PLACEMENT_R1.md` section 7.
+-   **Code (REFINE):** `tools/snc_server.cpp` default `n_shards` = `CPU_COUNT(sched_getaffinity)`, not
+    `hardware_concurrency()`; logged fallback. `--shards`/`--cpus` unchanged. Test `test_default_shards`
+    (fails before: `shards=4` under one CPU of 4; passes; exit 77 skip under 2 CPUs).
+-   **Evidence:** fast suite locally; 3 independent QA reviews, no blockers; QA 3 remapped 4->1->2->4 with no
+    data lost and checked replication and seeding end to end.
+-   **Assumptions changed:** a node started without `--shards` now depends on its CPU set. Deployments should
+    pass `--shards`. Cluster/control members and primary/standby pairs relying on the default can mismatch.
+-   **Next action:** cody reviews. D3, D4, D5 and R1-a/b/c, R2-a are proposals; none started.
