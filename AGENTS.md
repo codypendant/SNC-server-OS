@@ -3240,3 +3240,15 @@ or source comments.
 -   **Next action:** D4 (controlled startup errors) as its own slice, PR, stop for review; then D5. K1 stays
     unstarted and separate.
 
+### 2026-11-15 UTC --- Claude (Claude Code): D4 controlled startup errors (for review)
+
+-   **What:** D4, assigned by cody's PR #136 review. Write-up `docs/STARTUP_ERRORS_D4.md`.
+-   **Code (REFINE):** `tools/snc_server.cpp` only. `parse_cluster` and the `Engine` constructor run inside
+    `try` (invalid_argument exits 2 `refused:`, other exceptions exit 1 `not started:`); `parse_uuid` needs
+    32 hex digits; `--shards` and a default count above 256 exit 2. No accepted configuration changes.
+-   **Tests:** `test_startup_errors` E1-E6 (fails on 88c2f15 at E1 with an abort; passes).
+-   **Evidence:** fast suite locally; 3 independent QA reviews, no blockers, findings resolved (section 6).
+-   **Assumptions changed:** none for accepted configurations. A `--space-uuid` with `0x`, `+` or
+    whitespace is now refused (it was misread).
+-   **Next action:** cody reviews. D4-b, D4-c, D5 and K1 not started.
+
