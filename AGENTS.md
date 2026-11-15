@@ -3069,3 +3069,47 @@ or source comments.
     a default table on a host that tracks connections (inferred from the code, not measured).
 -   **Next action:** reviewer decision; whether to design persistent control connections (C1). Not started:
     R1 multi-process CPU placement, R2, F2, F3, F4.
+
+### 2026-11-15 UTC --- Claude (Claude Code): persistent control-plane connections, design (for review)
+
+-   **What:** the slice the PR #129 review recommended (cody: a pasted review that recommends a slice is the go).
+    Design only, `docs/CONTROL_CONNECTIONS_DESIGN.md` revision 2; authorizes no code. Classification:
+    **RECONSIDER** (proposed) one TCP connection per control request; **KEEP** every verb, payload and fencing
+    check; **REFINE** (proposed) `ha::ask` gains an opt-in pooled connection.
+-   **What changed:** docs only (`docs/CONTROL_CONNECTIONS_DESIGN.md`, `docs/STATUS.md`, a correction note in
+    `docs/TEST_MIGRATE_CONNECTION_CHURN.md` 2.1). Design: a per-connection `KEEP 1` handshake (nothing prefixed
+    to a peer that has not confirmed it), `K <seq>` requests with the sequence echoed, one request at a time,
+    RST close on any failure, `TCP_USER_TIMEOUT`, a read-only retry allowlist, per-lane pools that never block,
+    a 5 s maximum age on health connections, LRU idle eviction on both servers, and a kill switch
+    (`SNC_HA_KEEP=0`, `--no-keep`). Slices K0 (test probe only), K1, K2, K3; acceptance A1 to A8.
+-   **Evidence:** every `ha::ask` counted in one untraced local `test_migrate` run (instrumentation not committed):
+    125,695 calls in 49 s, of which the test's `MOVE INFO` probe made 101,811 (81%); an independent rerun
+    reproduced it within 1.4%. This corrects the churn document's strace-based attribution. Three independent
+    QA reviews of revision 1 found two blockers (mixed-version HEALTH misrouting; a witness cap refusing Paxos
+    peers) and about ten gaps; all were checked in code and applied (design section 8).
+-   **Assumption changed:** the hosted conntrack load is mostly the test's probe, not the product's control
+    traffic; the product's steady-state churn is witness health polls and placement polls (inferred rates).
+    New risk stated: a kept connection allows late delivery of a request after its caller gave up (4.5).
+-   **Next action:** reviewer decision on the design, including the health-lane maximum-age trade (4.5); K0 and
+    K1 not started.
+
+### 2026-11-15 UTC --- Claude (Claude Code): control connections design revision 3 (for review)
+
+-   **What:** cody's PR #130 review (`docs/handoff/PR130_Control_Connections_Review_Corrections.md`) approved
+    the direction and required two corrections; revision 3 applies them. Docs only.
+-   **What changed:** HEALTH, STATUS, PROMOTE, `ha/<group>` Paxos, readiness and start-time rejoin asks stay
+    one-shot (no health lane, no 5 s window); handshakes never run on a request's path; one-shot admin
+    deadlines unchanged. Timeouts are stated as ambiguous outcomes; RST and `TCP_USER_TIMEOUT` are hygiene,
+    not guarantees; library retries only read-only verbs. A2, A3, A8 rewritten; K2 limited to placement,
+    leases and migration.
+-   **Evidence:** consistency checked in code (`watch` decides with `propose` on `ha/<group>`; `kReadMs` counts
+    from accept for every connection; no witness active cap today). Three independent QA reviews of
+    revision 3 found two blockers, both confirmed in code and fixed in revision 4 (design section 10):
+    promotion runs PLACEMENT SYNC and LEASES TAKE (`Engine::promote`), so those and every Paxos request
+    except the PLACEMENT GET handler's READ stay one-shot (a confirmation pass found the READ round inside
+    `propose`), and the pool takes only a closed list of requests; and idle connections freed on EMFILE would
+    have let a descriptor-exhausted node answer HEALTH, so today's EMFILE rule is kept.
+-   **Assumption changed:** witness health polls are not reduced by this design and may remain the largest
+    steady churn in deployments with many groups.
+-   **Next action:** cody's final review of PR #130, including the added HEALTH-baseline step before K0
+    (design section 6); K0 to K3 not started.

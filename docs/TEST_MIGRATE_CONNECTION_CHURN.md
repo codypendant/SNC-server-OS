@@ -54,6 +54,13 @@ across the control plane, not attempted here (section 5).
 
 ### 2.1 Where the connections go (local, `strace -f -e connect`)
 
+**Correction (2026-11-15, `docs/CONTROL_CONNECTIONS_DESIGN.md` 2.2 and 2.3):** an untraced count of every
+`ha::ask` shows the test's `MOVE INFO` probe makes 81% of a run's control connections, not about a quarter.
+The trace below throttled the probe's tight loop far more than the paced callers, so its caller attribution
+is skewed; its destination counts describe the traced run only. In particular, the caller rows
+"witness → node admin (health polls)" and "node → node admin (peer health)" have no real caller in this test:
+its witnesses run without `--pair`, so they send no HEALTH polls.
+
 The trace slows a run to about 95 s, from 45 s. One traced run made 59,289 IPv4 connects to ports of the
 test's two lanes, classified exactly by destination below. The rest of its 71,447 connects went to other
 addresses or families and were not classified.
@@ -184,12 +191,14 @@ for them to expire, or run fewer scenarios (docs/TEST_MIGRATE_CONNECTION_CHURN.m
   - Persistent connections, a request/reply stream per peer reopened on error, would remove most of this.
     That touches `ha::ask`, `admin_loop.h`, the witness's `serve()` and watcher, Paxos, and the nodes'
     control calls. It changes how silence and failover are detected, so it needs its own design and review.
+    (2026-11-15: the design, `docs/CONTROL_CONNECTIONS_DESIGN.md`, keeps HEALTH, every Paxos write and the
+    rest of the HA path one-shot after review, so it does not reduce witness health polls.)
 - **Alternatives considered for this slice:**
   - **Closing with RST** (`SO_LINGER {1, 0}` in `ha::ask` after the reply is read). The entry would expire
     in about 10 s instead of 120 s. Not done here: it is a product wire change, and arm D shows a short
     time-wait alone did not keep a 50000 table from filling (Open, section 2.2).
-  - **Pacing the test's probe.** `Probe::run` asks in a tight loop and makes about a quarter of the
-    connections. Not done here: it is the test's only continuous check for two serving owners, and how
+  - **Pacing the test's probe.** `Probe::run` asks in a tight loop and makes most of the connections
+    (81% untraced; see the correction in 2.1). Not done here: it is the test's only continuous check for two serving owners, and how
     much detection a slower probe would lose was not measured. Its connections could only be shared
     through C1.
 - **C2. The estimate is time-paced, not scenario-paced.** Much of the traffic runs on clocks: witness polls,
