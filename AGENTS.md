@@ -3025,3 +3025,25 @@ or source comments.
 -   **Next action:** reviewer decision. Not started: F2, F3, F4, `test_migrate` hosted flake, checkpoint
     abandonment for faster promotion.
 
+
+### 2026-11-15 UTC --- Claude (Claude Code): test_migrate hosted failures, root cause and fix (for review)
+
+-   **What:** per cody's assignment after PR #127 (F1 discipline). Root cause: `test_migrate` ran 3 lanes of 4-node
+    scenarios with the runtime's default placement, so 12 nodes pinned shard 0 to CPU 0 and shard 1 to CPU 1. On the
+    hosted 7.0 kernels the CPUs' dio kworkers and `ksoftirqd` were runnable and ran 0.0 ms in 2 s, WAL writes stalled
+    30 to 90 s, standbys stopped acknowledging, primaries blocked and left the node links as designed, and clients
+    saw no answers for 60 s. Test infrastructure, not migration, delivery, reconnection or state transitions.
+    Classification: **REFINE** of the harness; **KEEP** runtime placement for one node per host, F1, and protocols.
+-   **What changed:** `tests/test_migrate.cpp` only: shards placed round the allowed CPUs by lane and node; default
+    lanes from the CPU count (at most 4 pinned shard threads per CPU, 2 lanes on 4 CPUs); `check_spread` fails a
+    scenario whose CPU runs more than an even share of its 8 shard threads. New `docs/TEST_MIGRATE_ROOT_CAUSE.md`,
+    `docs/STATUS.md`. No product code, timeout or existing assertion changed.
+-   **Evidence:** hosted on 12 runners: before 101/324 rounds failed (8/36 against 0/36 for the spread, paired);
+    spread at 3 lanes 4/144; at 2 lanes 0/72; at 1 lane 0/36; final default 0/96. Both new checks fail on the old
+    placement or lane count and pass on the new. Local suite 51/51. Diagnostic commits stay in the branch history.
+    Three independent QA reviews; findings re-checked and applied (doc section 6).
+-   **Assumption changed:** F1's pause is enough at 4 pinned shard threads per CPU, not at 6 or 12. Several SNC
+    processes on one host without their own CPU lists stack on the same CPUs (risk R1, reported, not fixed). Back-to-back
+    runs can also fill the host's conntrack table and fail on their own (R4, a separate defect, not fixed).
+-   **Next action:** reviewer decision. Not started: R1 (runtime overlap warning or pause policy), R2 (Python
+    multi-process tests' placement), R4 (test connection churn), F2, F3, F4.
