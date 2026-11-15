@@ -250,6 +250,7 @@ int node_main(const std::string& dir, u32 k, bool restart) {
   const std::string t = std::to_string(k);
   Engine::Config c;
   c.runtime.n_shards = kShards;
+  if (std::getenv("SNC_DIAG_NOPIN")) c.runtime.pin = false;  // DIAG ONLY
   c.expected_objects = 4096;
   c.data_dir = e.dir + "/n" + t;
   c.init = !restart;

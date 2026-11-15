@@ -30,8 +30,8 @@ jobs:
           for i in $(seq 1 $ROUNDS); do
             pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
             cat /proc/net/netstat > ns0; cat /proc/net/snmp > sn0; sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
-            arm=M; envx=; if [ $((i % 2)) -eq 0 ]; then arm=S; envx=SNC_DIAG_IO_BLOCK_AFTER_US=0; fi
-            t0=$(date +%s); env $envx SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh SNC_MIGRATE_LANES=$LANES ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
+            arm=M; envx=X=1; case $((i % 3)) in 2) arm=U; envx=SNC_DIAG_NOPIN=1;; 0) arm=L; envx=SNC_MIGRATE_LANES=1;; esac
+            t0=$(date +%s); env SNC_MIGRATE_LANES=$LANES SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh $envx ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
             sudo kill $sp; wait $sp 2>/dev/null
             delta=$(python3 tools/diag/netdelta.py ns0 /proc/net/netstat sn0 /proc/net/snmp)
             if [ $rc -eq 0 ]; then echo "[$arm] PASS round $i $((t1-t0))s $pre | $delta"; awk '{for(i=1;i<=NF;i++) if ($i ~ /^synrtx=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}} END{print "  max synrtx per 0.5 s:", m}' samp.txt; grep -c "ksoft_wait_ms\[0:R" samp.txt; sed -n '/=== DUMP/,/=== END DUMP/p' samp.txt; else
