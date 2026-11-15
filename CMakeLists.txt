@@ -116,6 +116,9 @@ if(PYTHON3)
            ${CMAKE_BINARY_DIR})
   add_test(NAME test_gauges_admin COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_gauges_admin.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_ckpt_cli COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_ckpt_cli.py ${CMAKE_BINARY_DIR})
+  # snc_server's default shard count follows the process's CPUs (docs/CPU_PLACEMENT_R1.md D2).
+  add_test(NAME test_default_shards COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_default_shards.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_s1 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s1.py ${CMAKE_BINARY_DIR})
   # Pre-baseline readiness (docs/EXPERIMENTAL_BASELINE.md section 5): the

@@ -100,6 +100,7 @@
 // group's links, and the other groups find it there. A CLUSTER request
 // returns the map with each member's CLIENT_PORT, so that
 // net::ClusterClient sends each request to its owner's primary.
+#include <sched.h>
 #include <signal.h>
 
 #include <algorithm>
@@ -546,9 +547,19 @@ int main(int argc, char** argv) {
     return 2;
   }
   if (cfg.runtime.n_shards == 0) {
-    cfg.runtime.n_shards = cfg.runtime.cpus.empty()
-                               ? static_cast<u16>(std::max(1u, std::thread::hardware_concurrency()))
-                               : static_cast<u16>(cfg.runtime.cpus.size());
+    // One shard per CPU this process may run on (taskset, a cpuset, a
+    // container), not per CPU the host has online: those differ wherever
+    // the process is limited, and the runtime places shards within this set
+    // (docs/CPU_PLACEMENT_R1.md D2).
+    unsigned n = 0;
+    cpu_set_t allowed;
+    CPU_ZERO(&allowed);
+    if (cfg.runtime.cpus.empty() && sched_getaffinity(0, sizeof(allowed), &allowed) == 0) {
+      n = static_cast<unsigned>(CPU_COUNT(&allowed));
+    }
+    if (!cfg.runtime.cpus.empty()) n = static_cast<unsigned>(cfg.runtime.cpus.size());
+    if (n == 0) n = std::max(1u, std::thread::hardware_concurrency());  // the set cannot be read
+    cfg.runtime.n_shards = static_cast<u16>(n);
   }
   account::register_type();
 

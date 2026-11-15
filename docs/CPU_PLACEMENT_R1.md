@@ -36,11 +36,11 @@ placement can still overload individual CPUs when multiple nodes share a host". 
    `snc_bench --io-cpus` does). In the PR #128
    failures the starved threads were the kernel's per-CPU `kworker/N:M-dio` and `ksoftirqd/N`, not
    `iou-wrk`, so no failure is attributed to P2. Recorded so a fix for P1 does not overlook it.
-5. **D2, a second defect, found in QA, not fixed here** (its own slice). With neither `--shards` nor
+5. **D2, a second defect, found in QA; fixed afterwards in its own slice, D2-a (section 7).** With neither `--shards` nor
    `--cpus`, `snc_server` runs `std::thread::hardware_concurrency()` shards (`tools/snc_server.cpp`
    548-551): the host's online CPU count, not the process's set. Under `taskset -c 2,3` on this 4-CPU host
    one process runs 4 shards on 2 CPUs; in a 2-CPU container on a 64-CPU host it would run 64 shards on 2
-   CPUs (32 per CPU, far past the 4-per-CPU envelope). **Confirmed by reading**; not yet run.
+   CPUs (32 per CPU, far past the 4-per-CPU envelope). **Confirmed by reading**, then observed (section 7).
 6. **R2 (the Python multi-process suites) measured:** see section 4.
 
 No effect on safety was found; every effect found is liveness or performance. That is **inferred, not
@@ -53,7 +53,7 @@ shown**: starvation stretches pauses, and time-based mechanisms (standby read le
 |---|---|---|
 | D1 catch-up reader placement | **REFINE** (fixed) | It contradicted its own comment ("not on the shard's core ... behind the shards"): it widened past the process's CPUs |
 | P1 default placement with several processes | **KEEP** for one node per host; **limitation** outside it | Correct inside the deployment model; outside it, nothing prevents stacking (section 5 proposes slices) |
-| D2 default shard count from the host's CPU count | **REFINE** (proposed, not fixed) | Same count-is-not-a-set mistake as D1, in `snc_server` |
+| D2 default shard count from the host's CPU count | **REFINE** (D2-a, section 7) | Same count-is-not-a-set mistake as D1, in `snc_server` |
 | P2 io_uring worker placement | **KEEP**, open question | No failure attributed; changing it needs measurement first (benchmark every assumption) |
 | F1's pause (PR #126) | **KEEP** | Unchanged; its limit (a busy shard with no 1 ms-old I/O never yields) stays as `TEST_MIGRATE_ROOT_CAUSE.md` R1 states it |
 
@@ -201,10 +201,50 @@ Three independent reviews of the first version (c4dc492). None found a blocker.
 After the changes: `test_replication` passed 3 of 3 on the final code, and the end-to-end strace check was
 repeated (section 3).
 
+## 7. D2-a: the default shard count (2026-11-15, after cody's PR #133 review)
+
+Assigned by cody's PR #133 review (`docs/handoff/PR133_CPU_Placement_Review_Approval.md`) as its own slice.
+
+**Root cause.** With neither `--shards` nor `--cpus`, `tools/snc_server.cpp` set the shard count to
+`std::thread::hardware_concurrency()`, the host's online CPU count (glibc 2.39 here). The runtime then
+places those shards round the process's allowed CPUs (`Impl::run`), so a process limited to *k* of *n* CPUs
+ran *n* shards on *k* CPUs, *n/k* per CPU. **Observed** before the fix: under one CPU of 4,
+`snc_server shards=4`.
+
+**Fix.** The default is now the size of the process's affinity set (`sched_getaffinity` on the main thread,
+which no shard has pinned yet). `--shards` and `--cpus` behave as before. If the set cannot be read, the
+old count is used. Nothing else changed.
+
+**Regression test** (`tests/test_default_shards.py`, deterministic, about 3 s). Each case starts the server
+in memory under a given CPU set, reads its startup line and stops it.
+
+| Case | Before (28733cf + test) | After |
+|---|---|---|
+| S1: one CPU of 4 | `shards=4`, fails | `shards=1` |
+| S2: two CPUs that are not neighbours | (not reached) | `shards=2` |
+| S3: unrestricted | `shards=4` | `shards=4` (unchanged) |
+| S4: `--shards 3` or `--cpus` of 2, under one CPU | unchanged | unchanged |
+
+S1 and S4 need 2 CPUs and S2 needs 3; a case that cannot discriminate is skipped, saying so.
+
+**What this changes for an operator** (only for processes started without `--shards` and `--cpus` in a
+limited CPU set; unrestricted hosts get the same count as before):
+
+- Restarting an existing data directory under a smaller set than it was created with now gives fewer shards,
+  and recovery remaps the shard count once, as it does when a host's CPU count changes. **Observed:** a data
+  directory made with 4 shards, restarted under `taskset -c 3`, logged `recovery: checkpoint before serving
+  (shard count changed)` and served with `shards=1`.
+- A primary and standby must have the same shard count (the standby refuses otherwise, with a message). Two
+  such processes started under sets of different sizes used to agree, both at the host count; now they do
+  not, and replication is refused. Every launcher in this repository (tests, `bench/lab/lab.py`, the pilot)
+  passes `--shards` or `--cpus`, so none is affected. Deployments should pass `--shards` explicitly.
+- Not changed: an allowed set larger than `kMaxShards` (256) aborts the start, as the host count did before.
+
 ## Evidence index
 
 | Item | Where |
 |---|---|
 | Fix | `src/core/replication.{h,cpp}` (`leave_shard_cpu`, `reader_cpus`), `src/core/engine.cpp`, `include/snc/snc.h` |
 | Regression test | `tests/test_replication.cpp` `test_reader_placement` |
+| D2-a fix and test | `tools/snc_server.cpp` (default `n_shards`), `tests/test_default_shards.py` |
 | Inventory sampler | section 2 (a 50 ms `/proc` scan; not committed, its output is summarized above) |
