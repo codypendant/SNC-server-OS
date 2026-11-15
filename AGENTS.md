@@ -3113,3 +3113,20 @@ or source comments.
     steady churn in deployments with many groups.
 -   **Next action:** cody's final review of PR #130, including the added HEALTH-baseline step before K0
     (design section 6); K0 to K3 not started.
+
+### 2026-11-15 UTC --- Claude (Claude Code): SNC-ADR-RUST-001 recorded (cody's decision)
+
+-   **What:** cody asked that the accepted ADR "Rust-Native Production Architecture" be filed in the
+    repository. Transcribed verbatim to `docs/adr/SNC-ADR-RUST-001.md`; `docs/STATUS.md` links it.
+-   **Decision recorded:** production SNC designed natively in Rust; the C++ system becomes an
+    independently maintained behavioral reference; parallel development with differential testing, not
+    translation; the specification is authoritative; correctness before performance, with
+    performance-aware architecture; justified `unsafe` needs a documented invariant and targeted
+    verification.
+-   **Assumption changed:** C++ is no longer the default long-term production implementation. Every agent
+    should treat new C++ work as validation, correctness or reference maintenance (the ADR's Scope control).
+-   **Not changed:** no Rust work is authorized yet. The ADR's Timing clause requires the architecture
+    stabilization and a Rust readiness review first; the existing "no Rust rewrite until authorized" lines
+    in this log and the STATUS scope freeze stand until then.
+-   **Next action:** none from this entry; the HEALTH baseline slice (control connections, section 6)
+    continues.
