@@ -638,6 +638,8 @@ struct Probe {
         }
       }
       ++rounds;
+      static const long diag_us = std::getenv("SNC_DIAG_PROBE_SLEEP_US") ? std::atol(std::getenv("SNC_DIAG_PROBE_SLEEP_US")) : 0;  // DIAG ONLY
+      if (diag_us > 0) std::this_thread::sleep_for(std::chrono::microseconds(diag_us));
     }
   }
 };

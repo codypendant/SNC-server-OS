@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix: {r: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+      matrix: {r: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq libmimalloc-dev libxxhash-dev liburing-dev > /dev/null
@@ -24,16 +24,24 @@ jobs:
         run: |
           uname -r; nproc; lscpu | grep -E 'Model name|^CPU\(s\)|Thread|NUMA node0'; free -m | head -2
           cat /proc/sys/net/ipv4/ip_local_port_range /proc/sys/kernel/pid_max; df -h /tmp | tail -1; ulimit -a | grep -E 'proc|open'
+      - name: arm
+        run: |
+          r=${{ matrix.r }}
+          if [ $((r % 3)) -eq 1 ]; then echo "ARM=N" >> $GITHUB_ENV; sudo iptables -t raw -I PREROUTING -i lo -j NOTRACK; sudo iptables -t raw -I OUTPUT -o lo -j NOTRACK; sudo iptables -t raw -L -n | head
+          elif [ $((r % 3)) -eq 2 ]; then echo "ARM=P" >> $GITHUB_ENV; echo "SNC_DIAG_PROBE_SLEEP_US=20000" >> $GITHUB_ENV
+          else echo "ARM=M" >> $GITHUB_ENV; fi
+          sysctl net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_tcp_timeout_time_wait net.netfilter.nf_conntrack_buckets 2>&1; lsmod | grep -E 'conntrack|nf_' | head; sudo iptables -S | head -20
       - name: rounds
         shell: bash {0}
         run: |
           for i in $(seq 1 $ROUNDS); do
-            pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
+            pre="ct=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null)/$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null) left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
             cat /proc/net/netstat > ns0; cat /proc/net/snmp > sn0; sudo python3 tools/diag/sampler.py $PWD/samp.txt & sp=$!
-            arm=M; envx=X=1
+            arm=$ARM; envx=X=1
             t0=$(date +%s); env SNC_MIGRATE_LANES=$LANES SNC_MIGRATE_SNAPSHOT=$PWD/tools/diag/migrate_snapshot.sh $envx ./build/test_migrate $FILTER > out.txt 2>&1; rc=$?; t1=$(date +%s)
             sudo kill $sp; wait $sp 2>/dev/null
-            delta=$(python3 tools/diag/netdelta.py ns0 /proc/net/netstat sn0 /proc/net/snmp)
+            post="ct_after=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null) ctfull=$(sudo dmesg | grep -c 'table full')"
+            delta="$post $(python3 tools/diag/netdelta.py ns0 /proc/net/netstat sn0 /proc/net/snmp)"
             if [ $rc -eq 0 ]; then echo "[$arm] PASS round $i $((t1-t0))s $pre | $delta"; awk '{for(i=1;i<=NF;i++) if ($i ~ /^synrtx=/){split($i,a,"=");if(a[2]+0>m)m=a[2]+0}} END{print "  max synrtx per 0.5 s:", m}' samp.txt; grep -c "ksoft_wait_ms\[0:R" samp.txt; sed -n '/=== DUMP/,/=== END DUMP/p' samp.txt; else
               echo "[$arm] FAIL round $i rc=$rc $((t1-t0))s $pre | $delta"; sed -n "/=== SNAPSHOT/,/=== END SNAPSHOT/p" out.txt
               grep -m1 "test_migrate: scenario" out.txt
