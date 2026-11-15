@@ -359,7 +359,12 @@ Decided by cody on 2026-11-04.
      (cody's PR #130 review, then QA): HEALTH, promotion's placement and lease calls, every Paxos request but the
      placement poll's READ, and the rest of the HA decision path stay one-shot; timeouts are ambiguous outcomes, not
      proof of non-execution. A new count shows the test's own probe makes 81% of `test_migrate`'s control
-     connections. No code; K0 to K3 not started.
+     connections. **PR #130 merged (7c54806)**, documentation only. HEALTH baseline (for review,
+     [HEALTH_BASELINE.md](HEALTH_BASELINE.md)): measurement and test hooks only (`ha::ask` trace per caller and verb,
+     `DEBUG ACCEPT-HOLD`, `adm_accept_fail`), no request handling changed. On main, 10 trials each, suspect at
+     1055-1084 ms after SIGKILL and 1238-1276 ms after SIGSTOP, partition, accept stall or EMFILE (failover 1000,
+     poll 100); every HA-path request one-shot. The design's A2(b) detection bound (+2 × poll) is tighter than main
+     itself and is put to review. K0 to K3 not started.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

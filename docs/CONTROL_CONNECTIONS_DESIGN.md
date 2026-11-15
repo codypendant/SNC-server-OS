@@ -374,6 +374,10 @@ Each criterion states something the implementation can establish and a test can 
   the A2 per-verb counter for test builds, and the A2 and A6 tests, all run against main, so the baseline is
   recorded before anything changes. It changes no request handling. (This adds a step before K0; it is the
   only change to the review's order and is put to review.)
+  - *Recorded in [HEALTH_BASELINE.md](HEALTH_BASELINE.md) (for review).* Main detects a silent primary in
+    up to about failover_ms + 2.8 × poll_ms, so A2(b)'s "+ 2 × poll_ms" bound is too tight for main itself;
+    the baseline proposes reading A2(b) as "within main's recorded range". The counter is a runtime
+    `SNC_TRACE` line rather than a test-build option, so the measured binary is the shipped one.
 - **K0, test probe.** The `test_migrate` probe and `node_info` keep one connection per node for the scenario.
   - It needs the admin server's kept-connection handling (4.3), which is product server code, and a
     client. K0 therefore brings `ha::Conn` (one kept connection, handshake, sequence numbers, close on

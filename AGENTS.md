@@ -3130,3 +3130,21 @@ or source comments.
     in this log and the STATUS scope freeze stand until then.
 -   **Next action:** none from this entry; the HEALTH baseline slice (control connections, section 6)
     continues.
+
+### 2026-11-15 UTC --- Claude (Claude Code): HEALTH baseline before K0 (for review)
+
+-   **What:** the "Before K0: HEALTH baseline" slice of `docs/CONTROL_CONNECTIONS_DESIGN.md` section 6,
+    authorized by cody's PR #130 final review. Results and method in `docs/HEALTH_BASELINE.md`, raw data in
+    `bench/results/health-baseline-20261115/`.
+-   **Code (KEEP, no request handling changed):** an `SNC_TRACE` line per `ha::ask` with a caller path
+    (`ha::Caller`) and verb; `DEBUG ACCEPT-HOLD <ms>` behind `--debug-admin`; `adm_accept_fail` appended to
+    HEALTH. Tests: `test_admin_loop` H1 and H2 (A6 in-process), new `test_health_baseline.py` (A2(a) and A2(b):
+    SIGKILL, SIGSTOP, partition, accept hold, short hold, EMFILE; slow label).
+-   **Evidence:** full suite 56/56 locally. 10 trials per scenario; every HA-path request kind seen and
+    one-shot.
+-   **Assumptions changed, put to review:** A2(b)'s detection bound `failover_ms + 2 x poll_ms` is too tight
+    for main (measured up to 1276 ms against 1200 ms). The counter is a runtime trace, not a test-build
+    option. `poll()` EINVAL below the poll set's descriptor count is a second silent admin-loop path
+    (recorded, not fixed).
+-   **Next action:** cody reviews. No persistent-connection work (K0 to K3) until then.
+
