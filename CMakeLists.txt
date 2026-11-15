@@ -104,6 +104,10 @@ if(PYTHON3)
   add_test(NAME test_async_failover COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_async_failover.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_control COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_control.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_health COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_health.py ${CMAKE_BINARY_DIR})
+  # HEALTH and failover baseline before persistent control connections
+  # (docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2; section 6).
+  add_test(NAME test_health_baseline COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_health_baseline.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_gauges_admin COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_gauges_admin.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_ckpt_cli COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_ckpt_cli.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
@@ -149,7 +153,7 @@ if(PYTHON3)
   # CI tiers (docs/CI.md). "slow" = about a minute or more serially on a
   # 4-core runner; CI runs `ctest -LE slow` on every pull request and the
   # whole suite (slow tests included) on pushes to main, nightly and on demand.
-  set_tests_properties(test_xnode test_health test_fail_closed test_s1 test_baseline_retry test_sync_readiness
+  set_tests_properties(test_xnode test_health test_health_baseline test_fail_closed test_s1 test_baseline_retry test_sync_readiness
                        test_baseline_move test_baseline_ha test_ready_order PROPERTIES LABELS slow)
 endif()
 

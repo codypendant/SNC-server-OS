@@ -244,11 +244,15 @@ inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
   c.group_id = s.group;
   c.member = s.member;
   c.init_uuid = s.placement.groups[s.group].space;
-  c.lease_blocks = [ms](u64 want, u64& lo, u64& hi) { return take_leases(ms, want, lo, hi); };
+  c.lease_blocks = [ms](u64 want, u64& lo, u64& hi) {
+    const ha::Caller tag("lease_blocks");
+    return take_leases(ms, want, lo, hi);
+  };
   auto stored = std::make_shared<std::atomic<u64>>(s.placement.epoch);
   const std::string path = c.data_dir + "/placement";
   const Uuid cluster = s.placement.cluster_id;
   c.placement_fetch = [ms, stored, path, cluster](Placement& out) {
+    const ha::Caller tag("placement_fetch");
     Placement p;
     std::string why;
     if (get(ms, p, why) != Got::MAP || p.cluster_id != cluster) return false;
@@ -260,6 +264,7 @@ inline void apply(const NodeSetup& s, const Members& ms, Engine::Config& c) {
     return true;
   };
   c.placement_sync = [ms, stored, path, cluster](Placement& out) {
+    const ha::Caller tag("placement_sync");
     u64 version = 0;
     Placement p;
     std::string why;

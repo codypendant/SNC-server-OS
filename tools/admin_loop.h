@@ -62,6 +62,9 @@ struct Counters {
   // S4.1: replies waiting for the client to read; closed unfinished at the
   // write deadline, on a send error, or to admit a newer one past kOutMax.
   std::atomic<unsigned long long> out{0}, out_hw{0}, write_timeouts{0}, write_failed{0}, write_evicted{0};
+  // Failed accepts (EMFILE, ENFILE, ENOBUFS, ENOMEM), one per attempt: the
+  // loop retries every pass, so this counts attempts, not connections.
+  std::atomic<unsigned long long> accept_fail{0};
 };
 
 inline u64 mono_ns() {
@@ -144,6 +147,13 @@ class Loop {
 
   const Counters& counters() const { return c_; }
 
+  // Tests only (DEBUG ACCEPT-HOLD, --debug-admin; docs/CONTROL_CONNECTIONS_DESIGN.md 5, A2): for `ms`, the
+  // loop accepts nothing new while it keeps serving the connections it holds, as a stalled accept path
+  // would. New connections wait in the kernel's backlog. 0 ends a hold.
+  void debug_hold_accept(unsigned ms) {
+    accept_hold_until_ns_.store(ms == 0 ? 0 : mono_ns() + u64{ms} * 1000000);
+  }
+
  private:
   struct Conn {
     int fd;
@@ -221,7 +231,11 @@ class Loop {
     std::vector<pollfd> pfds;
     while (!stop_.load()) {
       pfds.clear();
-      pfds.push_back({lfd_, POLLIN, 0});
+      // A test's accept hold (debug_hold_accept): the listener stays in
+      // pfds[0], so the indexes below hold, but is not polled.
+      const u64 hold_ns = accept_hold_until_ns_.load();
+      const bool holding = hold_ns != 0 && mono_ns() < hold_ns;
+      pfds.push_back({lfd_, static_cast<short>(holding ? 0 : POLLIN), 0});
       for (const Conn& c : half) pfds.push_back({c.fd, POLLIN, 0});
       for (const Out& o : out_) pfds.push_back({o.fd, POLLOUT, 0});
       // Wake for the next read or write deadline, or to see stop_.
@@ -233,6 +247,7 @@ class Loop {
       };
       for (const Conn& c : half) until(c.accepted_ns + u64{kReadMs} * 1000000);
       for (const Out& o : out_) until(o.deadline_ns);
+      if (holding) until(hold_ns);
       int n = ::poll(pfds.data(), pfds.size(), timeout);
       if (n < 0) {
         // Never give up the port: a silent admin port reads as a dead
@@ -286,11 +301,14 @@ class Loop {
         it = it->fd < 0 ? half.erase(it) : it + 1;
       }
       // Accept everything waiting.
-      if (n > 0 && (pfds[0].revents & POLLIN)) {
+      // (A hold set while poll waited takes effect here too.)
+      const u64 hold_now = accept_hold_until_ns_.load();
+      if (n > 0 && (pfds[0].revents & POLLIN) && !(hold_now != 0 && mono_ns() < hold_now)) {
         while (true) {
           int fd = ::accept4(lfd_, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
           if (fd < 0) {
             if (errno == EMFILE || errno == ENFILE || errno == ENOBUFS || errno == ENOMEM) {
+              c_.accept_fail.fetch_add(1);
               // Out of descriptors: the listener stays readable, so free
               // one (the oldest half-read connection) or back off rather
               // than spin.
@@ -427,6 +445,7 @@ class Loop {
   std::deque<Out> out_;  // loop thread only
   Counters c_;
   std::atomic<bool> stop_{false}, stopped_{false};
+  std::atomic<u64> accept_hold_until_ns_{0};
   std::mutex mu_;
   std::condition_variable cv_;
   std::deque<Job> q_;
