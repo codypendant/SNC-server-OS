@@ -342,7 +342,12 @@ Decided by cody on 2026-11-04.
      that asks the witnesses for DEGRADE, so a standby lost mid-checkpoint was granted away only when the checkpoint
      ended. The checkpoint now runs on its own thread (REFINE); with a held checkpoint the grant came in 0.55 s, where
      before none came in 20 s. A promotion still waits for the standby's own running checkpoint (S3.3, by design).
-     `test_migrate` is flaky on hosted runners, with and without F1's pause (reported, not fixed). F2 to F4 not started.
+     **PR #127 merged (2532f40).** `test_migrate` hosted failures (for review,
+     [TEST_MIGRATE_ROOT_CAUSE.md](TEST_MIGRATE_ROOT_CAUSE.md)): CPU starvation from the test's own placement, not a
+     protocol defect. Its 3 lanes put 12 nodes' shard 0 on CPU 0 and shard 1 on CPU 1, and on hosted 7.0 kernels the
+     CPUs' WAL completion threads got no time. Fix (REFINE of the harness only): shards spread round the allowed CPUs,
+     lanes from the CPU count (2 on 4 CPUs), and a spread check in every scenario. Hosted 53/180 rounds failed
+     before, 0/96 after. F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
