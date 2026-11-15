@@ -771,6 +771,37 @@ void check_spread(const Env& e) {
   }
 }
 
+// Room in the host's connection-tracking table for this run
+// (docs/TEST_MIGRATE_CONNECTION_CHURN.md). Every control request (witness
+// polls, witness Paxos, a node's calls to the witnesses, this test's probe)
+// opens its own TCP connection, and a host that tracks loopback keeps each
+// one for nf_conntrack_tcp_timeout_time_wait (120 s) after it closes. One
+// scenario leaves about 1,600 entries on hosted runners; a full table drops
+// new connections, and scenarios then stall mid-step. So a run that would
+// not fit is refused before it starts, with what is in the table. The check
+// reads only the table's count and size, whatever traffic fills it; a host
+// without readable conntrack files is never refused. It is a check at start,
+// not a cap: a run that fits can still fill a table that others fill too.
+// SNC_MIGRATE_CONNTRACK_DIR replaces /proc/sys/net/netfilter (for the test
+// of this check).
+bool conntrack_room(std::size_t scenarios) {
+  constexpr u64 kPerScenario = 2000;
+  const char* d = getenv("SNC_MIGRATE_CONNTRACK_DIR");
+  const std::string dir = d ? d : "/proc/sys/net/netfilter";
+  std::ifstream fc(dir + "/nf_conntrack_count"), fm(dir + "/nf_conntrack_max");
+  u64 count = 0, max = 0;
+  if (!(fc >> count) || !(fm >> max) || max == 0) return true;
+  const u64 need = kPerScenario * scenarios;
+  if (count <= max && need <= max - count) return true;
+  std::fprintf(stderr,
+               "test_migrate: the host's connection table has %llu of %llu entries in use; %zu scenarios need about %llu "
+               "more. Closed connections stay there for nf_conntrack_tcp_timeout_time_wait (120 s by default): wait for "
+               "them to expire, or run fewer scenarios (docs/TEST_MIGRATE_CONNECTION_CHURN.md).\n",
+               static_cast<unsigned long long>(count), static_cast<unsigned long long>(max), scenarios,
+               static_cast<unsigned long long>(need));
+  return false;
+}
+
 std::string run_scenario(const Scenario& sc, u16 port_lo, u16 port_hi) {
   char tmpl[] = "/tmp/snc-migrate-XXXXXX";
   Env e;
@@ -1116,6 +1147,7 @@ int main(int argc, char** argv) {
   for (const Scenario& s : all_scenarios()) {
     if (s.name().find(filter) != std::string::npos) todo.push_back(s);
   }
+  if (!conntrack_room(todo.size())) return 1;
   // Lanes: scenarios in parallel, each lane its own port range. One
   // process group, so a failure anywhere stops everything (fail()).
   ::setpgid(0, 0);
