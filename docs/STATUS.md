@@ -375,12 +375,12 @@ Decided by cody on 2026-11-04.
      *i* on the same CPU) is KEEP for one node per host and a stated limit outside it; slices proposed, not
      started: D2-a (`snc_server`'s default shard count uses the host's CPU count, a second defect found in QA),
      R1-a (per-CPU locks so processes avoid or refuse each other's CPUs), R1-b, R1-c, R2-a.
-     **K0 (for review, [K0_TEST_PROBE.md](K0_TEST_PROBE.md)):** the admin server accepts `KEEP 1` and kept
+     **K0 (approved, PR #134, [K0_TEST_PROBE.md](K0_TEST_PROBE.md)):** the admin server accepts `KEEP 1` and kept
      `K <seq>` requests (handback through an eventfd, a separate idle set capped at min(64, NOFILE/16), LRU
      eviction, protocol errors close), `--no-keep`, and a client `ha::Conn` used only by test_migrate's probe
      and `node_info`; `SNC_HA_KEEP=0` turns it off. HEALTH and the HA path stay one-shot. A2 rerun, 10 trials:
      every scenario within the 5.1 tolerance. A harness flaw (a descriptor hole) had inflated main's recorded
-     EMFILE times; corrected on main to 1028-1056 ms detection (put to cody).
+     EMFILE times; corrected on main to 1028-1056 ms detection (merged with the approved PR). K1 waits for the shard-count work (D3-D5) and cody's explicit go.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

@@ -402,7 +402,7 @@ any host. It is not the tolerance and not the guarantee.
   - Its acceptance includes A4 and A6 with the idle set populated, since it ships the sequence numbers, the
     handback and kept routing.
   - That removes about 80% of the test's churn, and no product caller changes behavior.
-  - *Done, for review: [K0_TEST_PROBE.md](K0_TEST_PROBE.md).* A2 within the 5.1 tolerance on every
+  - *Done: [K0_TEST_PROBE.md](K0_TEST_PROBE.md), PR #134, approved by cody.* A2 within the 5.1 tolerance on every
     scenario; deviations listed there (`NO keep full`, the read-only resend in K0, sequence numbers per
     `ha::Conn`). The EMFILE baseline row was corrected after a harness flaw was found.
 - **K1, library and servers.** `ha::Pool`, the eligible list, the witness changes and the rest of 4.3. Then

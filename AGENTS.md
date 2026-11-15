@@ -3195,3 +3195,10 @@ or source comments.
     cap, the read-only resend shipped in K0, sequence numbers per `ha::Conn`.
 -   **Next action:** cody reviews. K1 and O1 not started.
 
+
+### 2026-11-15 UTC --- Claude (Claude Code): PR #134 review carried out (cody approved K0)
+
+-   **Review:** `docs/handoff/PR134_K0_Review_Approval.md`. K0 approved for merge, no corrections; the EMFILE
+    baseline correction rides with it.
+-   **Next action:** none in this slice. K1 is not started: it waits until the shard-count work (D3 to D5, its
+    own thread) is resolved or isolated, then for cody's explicit go.

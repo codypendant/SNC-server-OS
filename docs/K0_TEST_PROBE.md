@@ -1,6 +1,6 @@
 # K0: kept connections for the test probe
 
-Status: **for review.** This is slice K0 of
+Status: **approved by cody (PR #134 review, [handoff/PR134_K0_Review_Approval.md](handoff/PR134_K0_Review_Approval.md)).** This is slice K0 of
 [CONTROL_CONNECTIONS_DESIGN.md](CONTROL_CONNECTIONS_DESIGN.md) section 6,
 authorized by cody's PR #132 review ("The next authorized step is K0, subject
 to preserving these baseline guarantees and completing independent QA").
