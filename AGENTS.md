@@ -3038,10 +3038,12 @@ or source comments.
     lanes from the CPU count (at most 4 pinned shard threads per CPU, 2 lanes on 4 CPUs); `check_spread` fails a
     scenario whose CPU runs more than an even share of its 8 shard threads. New `docs/TEST_MIGRATE_ROOT_CAUSE.md`,
     `docs/STATUS.md`. No product code, timeout or existing assertion changed.
--   **Evidence:** hosted, paired on 12 runners: before 53/180 rounds failed; spread at 3 lanes 4/108; at 2 lanes
-    0/72; at 1 lane 0/36; final default 0/96. The spread check fails on the old placement and passes on the new.
-    Local suite 51/51. Diagnostic commits stay in the branch history. Three independent QA reviews (PR body).
+-   **Evidence:** hosted on 12 runners: before 101/324 rounds failed (8/36 against 0/36 for the spread, paired);
+    spread at 3 lanes 4/144; at 2 lanes 0/72; at 1 lane 0/36; final default 0/96. Both new checks fail on the old
+    placement or lane count and pass on the new. Local suite 51/51. Diagnostic commits stay in the branch history.
+    Three independent QA reviews; findings re-checked and applied (doc section 6).
 -   **Assumption changed:** F1's pause is enough at 4 pinned shard threads per CPU, not at 6 or 12. Several SNC
-    processes on one host without their own CPU lists stack on the same CPUs (risk R1, reported, not fixed).
+    processes on one host without their own CPU lists stack on the same CPUs (risk R1, reported, not fixed). Back-to-back
+    runs can also fill the host's conntrack table and fail on their own (R4, a separate defect, not fixed).
 -   **Next action:** reviewer decision. Not started: R1 (runtime overlap warning or pause policy), R2 (Python
-    multi-process tests' placement), F2, F3, F4.
+    multi-process tests' placement), R4 (test connection churn), F2, F3, F4.

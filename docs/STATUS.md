@@ -346,7 +346,7 @@ Decided by cody on 2026-11-04.
      [TEST_MIGRATE_ROOT_CAUSE.md](TEST_MIGRATE_ROOT_CAUSE.md)): CPU starvation from the test's own placement, not a
      protocol defect. Its 3 lanes put 12 nodes' shard 0 on CPU 0 and shard 1 on CPU 1, and on hosted 7.0 kernels the
      CPUs' WAL completion threads got no time. Fix (REFINE of the harness only): shards spread round the allowed CPUs,
-     lanes from the CPU count (2 on 4 CPUs), and a spread check in every scenario. Hosted 53/180 rounds failed
+     lanes from the CPU count (2 on 4 CPUs), and a spread check in every scenario. Hosted 101/324 rounds failed
      before, 0/96 after. F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

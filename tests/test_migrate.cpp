@@ -882,6 +882,8 @@ std::string run_scenario(const Scenario& sc, u16 port_lo, u16 port_hi) {
     ::unlink((e.dir + "/up." + std::to_string(k)).c_str());
     node[k] = spawn_node(e, k, true);
     wait_for(e.dir + "/up." + std::to_string(k), 30);
+    // Restarted on the CPUs it had (check_spread checked those).
+    REQUIRE(read_file(e.dir + "/cpus." + std::to_string(k) + ".restart") == read_file(e.dir + "/cpus." + std::to_string(k)));
     // Started from its stored map, the control plane being down.
     std::istringstream in(read_file(e.dir + "/setup." + std::to_string(k) + ".restart"));
     int stored = -1;
@@ -1119,12 +1121,29 @@ int main(int argc, char** argv) {
   ::setpgid(0, 0);
   // At most 4 pinned shard threads per CPU by default (2 lanes on 4 CPUs,
   // 3 from 6): at 6 per CPU, 3 lanes on 4 CPUs still stalled WAL writes on
-  // some hosted runners (docs/TEST_MIGRATE_ROOT_CAUSE.md, section 4).
+  // some hosted runners (docs/TEST_MIGRATE_ROOT_CAUSE.md, section 4). One
+  // lane is the minimum, so 2 CPUs run 4 each and 1 CPU runs all 8.
+  const std::vector<int> allowed = allowed_cpus();
   const u32 per_lane = 4 * kShards;
-  const u32 by_cpus = std::clamp<u32>(static_cast<u32>(allowed_cpus().size()) * 4 / per_lane, 1, 3);
-  const u32 lanes = std::min<u32>(static_cast<u32>(todo.size()), getenv("SNC_MIGRATE_LANES")
-                                                                      ? static_cast<u32>(std::atoi(getenv("SNC_MIGRATE_LANES")))
-                                                                      : by_cpus);
+  const u32 by_cpus = std::clamp<u32>(static_cast<u32>(allowed.size()) * 4 / per_lane, 1, 3);
+  const char* lanes_env = getenv("SNC_MIGRATE_LANES");
+  const u32 lanes = std::min<u32>(static_cast<u32>(todo.size()), lanes_env ? static_cast<u32>(std::atoi(lanes_env)) : by_cpus);
+  // The whole run's density, from the placement every node uses: check_spread
+  // sees one scenario; this sees all lanes together.
+  {
+    std::map<int, u32> per_cpu;
+    u32 most = 0;
+    for (u32 l = 0; l < lanes; ++l) {
+      for (u32 k = 0; k < 4; ++k) {
+        for (int c : shard_cpus(l, k, allowed)) most = std::max(most, ++per_cpu[c]);
+      }
+    }
+    if (most > 4 && allowed.size() >= 2) {
+      std::fprintf(stderr, "test_migrate: %u lanes put %u pinned shard threads on one of %zu CPUs (at most 4)\n", lanes, most,
+                   allowed.size());
+      if (!lanes_env) return 1;  // the default must keep to it; an explicit SNC_MIGRATE_LANES may exceed it
+    }
+  }
   const auto t0 = clk::now();
   std::vector<pid_t> pids;
   for (u32 l = 0; l < lanes; ++l) {
