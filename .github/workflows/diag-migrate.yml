@@ -1,0 +1,40 @@
+# DIAGNOSTIC ONLY (test_migrate hosted failures). Removed before the PR is merged.
+name: diag-migrate
+on:
+  workflow_dispatch:
+    inputs:
+      rounds: {default: "12"}
+      filter: {default: ""}
+      lanes: {default: "3"}
+jobs:
+  loop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: {r: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq liburing-dev > /dev/null
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo > /dev/null && cmake --build build -j "$(nproc)" --target test_migrate snc_witness > /dev/null
+      - name: env
+        run: |
+          uname -r; nproc; lscpu | grep -E 'Model name|^CPU\(s\)|Thread|NUMA node0'; free -m | head -2
+          cat /proc/sys/net/ipv4/ip_local_port_range /proc/sys/kernel/pid_max; df -h /tmp | tail -1; ulimit -a | grep -E 'proc|open'
+      - name: rounds
+        run: |
+          for i in $(seq 1 ${{ inputs.rounds }}); do
+            pre="left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate) load=$(cut -d' ' -f1-3 /proc/loadavg) tw=$(ss -tan state time-wait | wc -l)"
+            t0=$(date +%s); SNC_MIGRATE_LANES=${{ inputs.lanes }} ./build/test_migrate ${{ inputs.filter }} > out.txt 2>&1; rc=$?; t1=$(date +%s)
+            if [ $rc -eq 0 ]; then echo "PASS round $i $((t1-t0))s $pre"; else
+              echo "FAIL round $i rc=$rc $((t1-t0))s $pre"
+              grep -m1 "test_migrate: scenario" out.txt
+              d=$(grep -m1 -oE 'kept /tmp/snc-migrate-[A-Za-z0-9]+' out.txt | cut -c6-)
+              if [ -n "$d" ]; then for f in $d/*.log; do echo "--- $f"; tail -n 25 $f; done; ls $d; cat $d/status.* 2>/dev/null; fi
+              echo "--- ps after"; ps -eo pid,stat,etimes,pcpu,comm | grep -E 'snc_|test_mig' | head
+              echo "--- out tail"; tail -c 3000 out.txt
+            fi
+            sleep 2
+            echo "after: left=$(pgrep -c -x snc_witness)/$(pgrep -c -x test_migrate)"
+            rm -rf /tmp/snc-migrate-*
+          done
