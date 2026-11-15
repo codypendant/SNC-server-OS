@@ -3092,3 +3092,19 @@ or source comments.
     New risk stated: a kept connection allows late delivery of a request after its caller gave up (4.5).
 -   **Next action:** reviewer decision on the design, including the health-lane maximum-age trade (4.5); K0 and
     K1 not started.
+
+### 2026-11-15 UTC --- Claude (Claude Code): control connections design revision 3 (for review)
+
+-   **What:** cody's PR #130 review (`docs/handoff/PR130_Control_Connections_Review_Corrections.md`) approved
+    the direction and required two corrections; revision 3 applies them. Docs only.
+-   **What changed:** HEALTH, STATUS, PROMOTE, `ha/<group>` Paxos, readiness and start-time rejoin asks stay
+    one-shot (no health lane, no 5 s window); handshakes never run on a request's path; one-shot admin
+    deadlines unchanged. Timeouts are stated as ambiguous outcomes; RST and `TCP_USER_TIMEOUT` are hygiene,
+    not guarantees; library retries only read-only verbs. A2, A3, A8 rewritten; K2 limited to placement,
+    leases and migration.
+-   **Evidence:** consistency checked in code (`watch` decides with `propose` on `ha/<group>`; `kReadMs` counts
+    from accept for every connection; no witness active cap today). Independent QA of revision 3: design
+    section 9.
+-   **Assumption changed:** witness health polls are not reduced by this design and may remain the largest
+    steady churn in deployments with many groups.
+-   **Next action:** cody's final review of PR #130; K0 to K3 not started.
