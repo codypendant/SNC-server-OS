@@ -959,6 +959,9 @@ class Engine {
   template <typename F>
   void on_shard_steps(u16 shard, F step);
   std::unique_ptr<SegmentPreparer> spares_;
+  // The CPUs the constructing thread was allowed, before any shard pinned
+  // itself: where threads that shards start must run (docs/CPU_PLACEMENT_R1.md D1).
+  std::vector<int> process_cpus_;
   RecoveryReport recovery_;
   struct DebugStageStop {
     int phase = -1;

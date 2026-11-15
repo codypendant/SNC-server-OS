@@ -6,12 +6,18 @@
 // after the timeout; a standby that needs records no longer retained is
 // reported lost. Every engine runs in a forked child (one engine per
 // process); the parent only forks, waits and compares.
+#include <errno.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <atomic>
 #include <latch>
 #include <map>
@@ -494,6 +500,117 @@ void test_late(Late mode) {
     std::printf("%s: the standby matches the primary (%llu records on the standby)\n",
                 name[static_cast<int>(mode)], (unsigned long long)total_records(s));
   }
+  rm_rf(pd + " " + sd);
+}
+
+// 3b. Where a catch-up-from-disk reader runs (docs/CPU_PLACEMENT_R1.md D1).
+// The primary process is started on fewer CPUs than the host has, as under
+// taskset or a cpuset. The reader thread starts on its shard's CPU; it must
+// move to exactly the process's CPUs, not stay on the shard's one nor widen
+// to CPUs the process was never given (another process's). Replication is
+// paused once the standby is live, so each reader fills its read-ahead and
+// waits there: the check reads threads that are certain to exist.
+std::vector<int> cpus_of(const std::string& status_path) {
+  std::ifstream f(status_path);
+  std::string line;
+  while (std::getline(f, line)) {
+    if (line.rfind("Cpus_allowed_list:", 0) != 0) continue;
+    std::vector<int> out;
+    std::stringstream ss(line.substr(18));
+    std::string part;
+    while (std::getline(ss, part, ',')) {
+      const auto dash = part.find('-');
+      const int lo = std::stoi(part), hi = dash == std::string::npos ? lo : std::stoi(part.substr(dash + 1));
+      for (int c = lo; c <= hi; ++c) out.push_back(c);
+    }
+    return out;
+  }
+  return {};
+}
+
+void test_reader_placement() {
+  cpu_set_t host;
+  CPU_ZERO(&host);
+  CHECK_EQ(sched_getaffinity(0, sizeof(host), &host), 0);
+  std::vector<int> all;
+  for (int c = 0; c < CPU_SETSIZE; ++c) {
+    if (CPU_ISSET(c, &host)) all.push_back(c);
+  }
+  if (all.size() < 2) {
+    std::printf("reader placement: skipped, needs 2 CPUs (has %zu)\n", all.size());
+    return;
+  }
+  // The process's CPUs: all but the first this test may use.
+  const std::vector<int> given(all.begin() + 1, all.end());
+  std::string pd = temp_dir("p"), sd = temp_dir("s");
+  int go[2], ready[2];
+  CHECK_EQ(::pipe(go), 0);
+  CHECK_EQ(::pipe(ready), 0);
+  pid_t pid = ::fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    ::close(go[1]);
+    ::close(ready[0]);
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    for (int c : given) CPU_SET(c, &set);
+    if (sched_setaffinity(0, sizeof(set), &set) != 0) _exit(20);
+    Engine::Config c = primary_config(pd, true, /*sync=*/false, 0);
+    c.replica_retain_bytes = 64u << 10;  // memory holds almost nothing
+    Engine eng(c);
+    eng.start();
+    auto ids = create_accounts(eng, 200);
+    auto dep = create_accounts(eng, 64);
+    eng.checkpoint();
+    // More WAL than a reader reads ahead (16 MiB) on every shard.
+    workload(eng, ids, dep, 120000, 5, [](const ExecResult&) {});
+    if (!eng.wait_emits()) _exit(8);
+    Engine::debug_pause_replication(true);
+    char b = 1;
+    if (::write(ready[1], &b, 1) != 1) _exit(3);
+    if (::read(go[0], &b, 1) != 1) _exit(3);  // the standby is up
+    // Every shard's reader starts and parks on its full read-ahead.
+    bool parked = false;
+    for (int i = 0; i < 30000 && !parked; ++i) {
+      const ReplDiskGauges g = repl_disk_gauges();
+      parked = g.readers_live == kShards && g.queued_bytes >= u64{kShards} * (16u << 20);
+      if (!parked) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    if (!parked) _exit(21);
+    // The readers are the process's nice-10 threads.
+    int readers = 0;
+    for (const auto& t : std::filesystem::directory_iterator("/proc/self/task")) {
+      const std::string tid = t.path().filename().string();
+      errno = 0;
+      const int nice = ::getpriority(PRIO_PROCESS, static_cast<id_t>(std::stoi(tid)));
+      if (errno != 0 || nice != 10) continue;
+      ++readers;
+      const std::vector<int> on = cpus_of(t.path().string() + "/status");
+      if (on != given) {
+        std::string got;
+        for (int x : on) got += " " + std::to_string(x);
+        std::printf("reader %s runs on CPUs%s, not the process's %zu\n", tid.c_str(), got.c_str(), given.size());
+        _exit(22);
+      }
+    }
+    if (readers != kShards) _exit(23);
+    Engine::debug_pause_replication(false);
+    wait_replicated(eng);
+    eng.stop();
+    _exit(0);
+  }
+  ::close(go[0]);
+  ::close(ready[1]);
+  char b;
+  CHECK_EQ(::read(ready[0], &b, 1), 1);
+  pid_t sb = start_standby(sd, true);
+  CHECK_EQ(::write(go[1], &b, 1), 1);
+  wait_ok(pid);
+  stop_child(sb);
+  auto a = log_of(pd), s = log_of(sd);
+  for (u16 i = 0; i < kShards; ++i) CHECK(same_log(a[i], s[i]));
+  std::printf("reader placement: %u readers on the process's %zu of %zu CPUs, standby matches\n", kShards,
+              given.size(), all.size());
   rm_rf(pd + " " + sd);
 }
 
@@ -1389,6 +1506,7 @@ int main() {
   test_late(Late::LOST);
   test_late(Late::SEED);
   test_late(Late::SLOW);
+  test_reader_placement();
   test_outage();
   test_diverged();
   test_promote();

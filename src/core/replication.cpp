@@ -111,19 +111,27 @@ void queued_sub(u64 n) { g_queued.fetch_sub(n, std::memory_order_relaxed); }
 
 Sender::DiskRead::~DiskRead() { queued_sub(bytes); }
 
+bool leave_shard_cpu(const std::vector<int>& cpus) {
+  cpu_set_t set;
+  CPU_ZERO(&set);
+  for (int c : cpus) {
+    if (c >= 0 && c < CPU_SETSIZE) CPU_SET(c, &set);
+  }
+  // No set given: the main thread's, which no shard pins.
+  if (CPU_COUNT(&set) == 0 && sched_getaffinity(::getpid(), sizeof(set), &set) != 0) return false;
+  return pthread_setaffinity_np(pthread_self(), sizeof(set), &set) == 0;
+}
+
 void Sender::start_disk(u64 from, u64 to, u32 verify_crc) {
   auto d = std::make_shared<DiskRead>();
   disk_ = d;
   disk_to_ = to;
-  std::thread([d, dir = cfg_.data_dir, shard = cfg_.shard, uuid = cfg_.uuid, from, to, verify_crc] {
+  std::thread([d, dir = cfg_.data_dir, shard = cfg_.shard, uuid = cfg_.uuid, from, to, verify_crc,
+               cpus = cfg_.reader_cpus] {
     // Not on the shard's core, which this thread inherited, and behind
-    // the shards wherever it runs.
-    cpu_set_t all;
-    CPU_ZERO(&all);
-    for (int i = 0; i < CPU_SETSIZE && i < static_cast<int>(std::thread::hardware_concurrency()); ++i) {
-      CPU_SET(i, &all);
-    }
-    pthread_setaffinity_np(pthread_self(), sizeof(all), &all);
+    // the shards wherever it runs: on the process's own CPUs, never on
+    // CPUs outside them (docs/CPU_PLACEMENT_R1.md D1).
+    leave_shard_cpu(cpus);
     ::setpriority(PRIO_PROCESS, static_cast<id_t>(::gettid()), 10);
     g_readers_live.fetch_add(1, std::memory_order_relaxed);
     g_started.fetch_add(1, std::memory_order_relaxed);
