@@ -3105,8 +3105,9 @@ or source comments.
 -   **Evidence:** consistency checked in code (`watch` decides with `propose` on `ha/<group>`; `kReadMs` counts
     from accept for every connection; no witness active cap today). Three independent QA reviews of
     revision 3 found two blockers, both confirmed in code and fixed in revision 4 (design section 10):
-    promotion runs PLACEMENT SYNC and LEASES TAKE (`Engine::promote`), so those and every Paxos write stay
-    one-shot and the pool takes only a closed list of requests; and idle connections freed on EMFILE would
+    promotion runs PLACEMENT SYNC and LEASES TAKE (`Engine::promote`), so those and every Paxos request
+    except the PLACEMENT GET handler's READ stay one-shot (a confirmation pass found the READ round inside
+    `propose`), and the pool takes only a closed list of requests; and idle connections freed on EMFILE would
     have let a descriptor-exhausted node answer HEALTH, so today's EMFILE rule is kept.
 -   **Assumption changed:** witness health polls are not reduced by this design and may remain the largest
     steady churn in deployments with many groups.

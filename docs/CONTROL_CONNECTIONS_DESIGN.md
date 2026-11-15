@@ -36,8 +36,9 @@ Labels: **Observed** (source, log or counter), **Inferred**, **Open**.
      readiness verbs, and the placement and lease calls a standby makes while promoting or passing its start
      barrier.
    - **Only listed requests may be kept** (4.2): the test probe, the migration driver's MOVE steps, the
-     engine's periodic placement poll, and the Paxos READ broadcasts that answer it. Every Paxos PREPARE,
-     ACCEPT and COMMIT, on any machine, stays one-shot.
+     engine's periodic placement poll, and the Paxos READ broadcast of the PLACEMENT GET handler that answers
+     it. Every other Paxos request stays one-shot, including the READ round that begins every `propose` and
+     `read_linear`.
    - **Opt-in keep-alive**, negotiated per connection by an explicit handshake that old servers refuse quickly
      and harmlessly, and that never runs on a request's path.
    - **One request at a time**, each tagged with a sequence number that its reply echoes.
@@ -179,10 +180,12 @@ quarter" of the connections. It made 81%.
   - the `test_migrate` probe and `node_info` (MOVE INFO);
   - the migration driver's MOVE steps (`migrate.h`);
   - the engine's periodic placement poll and epoch-hint polls (PLACEMENT GET, `control.h`), but not the
-    PLACEMENT SYNC of the start barrier or of a promotion, nor LEASES TAKE (4.5);
-  - the witness's Paxos READ broadcasts in `read_latest`, which answer PLACEMENT GET. In `paxos.h` this is a
-    per-verb choice at the `broadcast` call in `read_latest`; `read_linear` and `propose` keep one-shot
-    `broadcast` for every machine.
+    GET in `resolve` at node start, the PLACEMENT SYNC of the start barrier or of a promotion, nor LEASES
+    TAKE (4.5);
+  - the READ broadcast that the witness's PLACEMENT GET handler makes through `read_latest`. `propose` and
+    `read_linear` also begin with `read_latest` (`paxos.h`), so the choice cannot sit in `read_latest`
+    itself: it is a `pooled` parameter on `read_latest`, false by default, that only the PLACEMENT GET
+    handler sets. Every READ inside `propose` and `read_linear`, on every machine, stays one-shot.
 - **Pool and lanes.** The pool is keyed by (host, port, lane). The lanes are control, move and probe, so a
   short request never shares a connection with a long one.
   - Each key holds a small free list, filled only by background handshakes and capped at 4.
@@ -270,7 +273,8 @@ quarter" of the connections. It made 81%.
 - **The HA decision path is unchanged (review decision).** These stay one-shot `ha::ask` calls with today's
   deadlines, and K2 does not touch them:
   - the witness watcher: HEALTH with its STATUS fallback, STATUS to the standby, PROMOTE (`watch`);
-  - every Paxos PREPARE, ACCEPT and COMMIT on every machine (`propose`, `read_linear`), to peers and to self.
+  - every Paxos request of `propose` and `read_linear` on every machine (their opening READ round, PREPARE,
+    ACCEPT and COMMIT), to peers and to self.
     That covers the `ha/<group>` decisions of `watch`, readiness and start, and the `placement` and `leases`
     writes;
   - `snc_server`'s readiness requests (`ask_witness`: DEGRADE, NOTREADY, READY, SYNCED);
@@ -281,14 +285,18 @@ quarter" of the connections. It made 81%.
   - the start-time rejoin asks (HEALTH, STATUS, MOVE ROLE to peers).
 
   Every HEALTH still opens a connection, so it still exercises accept: a node out of descriptors, with a full
-  backlog or a stalled accept loop reads as silent exactly as today (4.3 keeps today's EMFILE rule).
+  backlog or a stalled accept loop reads as silent exactly as today (4.3 keeps today's EMFILE rule). One
+  difference is stated: idle kept connections hold up to `kIdleMax` descriptors, so a process near its limit
+  reaches exhaustion that many descriptors sooner. On a node that makes one-shot HEALTH fail earlier; on a
+  witness it makes its own outbound requests fail earlier. The small caps bound it, and A2 tests it.
   Detection stays within `failover_ms` plus up to 2 × `poll_ms`, with no added window.
 - **No pooling delay on witness decisions or on promotion.** No checkout, handshake, reuse check, eviction or
   retry is on a failure-detection, decision or promotion path, because no request on those paths is in the
-  eligible list (4.2). One existing coupling is unchanged and stated: one `paxos::Node` per witness serializes
-  `read_linear` and `propose` for all machines on one mutex (`one_at_a_time_`), so an `ha/*` decision can
-  already wait behind a placement or lease decision. The pooled `read_latest` does not take that mutex, and a
-  pooled READ never exceeds its 300 ms per-ask deadline.
+  eligible list (4.2), including the READ round inside every `propose` and `read_linear`. One existing
+  coupling is unchanged and stated: one `paxos::Node` per witness serializes `read_linear` and `propose` for
+  all machines on one mutex (`one_at_a_time_`), so an `ha/*` decision can already wait behind a placement or
+  lease decision. The pooled READ of the PLACEMENT GET handler runs outside that mutex and never exceeds its
+  300 ms per-ask deadline.
 - **Server-side changes do not reach one-shot requests.** K1's admin and witness changes apply to kept
   connections only (4.3, 4.4); a connection that does not send `KEEP 1` is handled byte for byte as today.
   The one shared resource, descriptors, is protected by the small idle caps.
@@ -310,9 +318,10 @@ quarter" of the connections. It made 81%.
       higher ballot was promised since, answered `LATE` if its version is chosen, and otherwise accepted,
       which Paxos permits (`paxos.h`);
     - a late CAS fails its version check (`NO version`);
-    - a late MOVE step is refused unless it is a step of the move in progress: SEAL and STAGE are checked
-      against the move id and the placement read linearizably when they run, and a final EXPORT needs the
-      slot sealed by that move; ACTIVATE and REFRESH are local refreshes, harmless to repeat.
+    - a late MOVE step is judged against the placement read when it runs: SEAL and STAGE are checked
+      against the move id and a linearizable read, a final EXPORT needs the slot sealed by that move and
+      durable, and UNSEAL is refused while its move is still in progress (`migrate.h`). A non-final EXPORT
+      is not fenced and only reads; ACTIVATE and REFRESH are local refreshes, harmless to repeat.
 - **Fencing.** No request gains authority from its connection, and every term, epoch, ballot and move-id check
   stays in its handler. PROMOTE has no term and stays one-shot.
 
@@ -334,7 +343,8 @@ quarter" of the connections. It made 81%.
 | HEALTH, STATUS, GAUGES | read-only; never pooled (HA path) | nothing |
 | MOVE INFO, MOVE ROLE, MOVE HAVE, READ, PLACEMENT GET | read-only (retry allowed, 4.2); GET also records a learned value locally, which is monotone | nothing |
 | PLACEMENT SYNC | safe to repeat, but writes (promises, may finish an accepted value); serialized per witness; never pooled or retried by the library | nothing; a repeat may queue behind the first |
-| COMMIT, ACCEPT (same ballot), PLACEMENT INIT (same body), MOVE STAGE/EXPORT/SEAL/ACTIVATE/UNSEAL/REFRESH | idempotent | nothing; the caller re-reads. The migration driver already resends STAGE |
+| COMMIT, ACCEPT (same ballot), PLACEMENT INIT (same body), MOVE STAGE/EXPORT/SEAL/ACTIVATE/REFRESH | idempotent | nothing; the caller re-reads. The migration driver already resends STAGE |
+| MOVE UNSEAL | conditional: refused while its move is in progress, else unseals once | nothing; a repeat finds the slot not sealed |
 | PREPARE | repeat at the same ballot is NACKed | liveness only |
 | PLACEMENT CAS | version-checked | the retry reads `NO version`; the caller re-reads, as today |
 | LEASES TAKE | not idempotent | a block of leases is wasted; never retried by the library |
@@ -350,7 +360,7 @@ Each criterion states something the implementation can establish and a test can 
 | # | Criterion | How |
 |---|---|---|
 | A1 | `test_migrate` connections per run fall at least 10× (conntrack peak from a drained table, from about 100k), with descriptor and thread counts reported. **Inferred** from 2.2: the eligible requests made about 116k of 126k calls, so about 12× is expected | hosted, 6 runners, as the churn document's arm A |
-| A2 | **HEALTH and failover unchanged.** (a) Every request on the HA path (4.5: HEALTH, STATUS, PROMOTE, readiness verbs, rejoin asks, promotion and start-barrier PLACEMENT SYNC and LEASES TAKE, every Paxos PREPARE, ACCEPT and COMMIT) is one connection, counted per verb before and after each slice. (b) For SIGKILL, SIGSTOP, a partition, a stalled accept loop and descriptor exhaustion (EMFILE), the witness's suspect and promotion events have the same outcome as on main, and their times stay within `failover_ms` + 2 × `poll_ms` (suspect) and within main's measured range (promotion), over the same number of trials on the same runner class. (c) A healthy primary is never promoted while kept connections are idle, evicted or reset | (a) a per-verb connect counter in `ha::ask`, compiled only into test builds. (b) `test_health` T4 (SIGKILL), T5 (SIGSTOP) and T6 (partition, its `Proxy`) reused, plus a clustered variant with placement and leases that records detection and promotion times; the stalled accept uses a `DEBUG ACCEPT-HOLD` hook behind `--debug-admin`; EMFILE is induced in the admin loop and asserted on its evicted and EMFILE counters as well as on promotion, run with the idle set populated. The hook and the baseline land first, against main (section 6) |
+| A2 | **HEALTH and failover unchanged.** (a) Every request on the HA path (4.5: HEALTH, STATUS, PROMOTE, readiness verbs, rejoin asks, promotion and start-barrier PLACEMENT SYNC and LEASES TAKE, every READ, PREPARE, ACCEPT and COMMIT of `propose` and `read_linear`) is one connection, counted per verb before and after each slice. (b) For SIGKILL, SIGSTOP, a partition, a stalled accept loop and descriptor exhaustion (EMFILE), the witness's suspect and promotion events have the same outcome as on main, and their times stay within `failover_ms` + 2 × `poll_ms` (suspect) and within main's measured range (promotion), over the same number of trials on the same runner class. (c) A healthy primary is never promoted while kept connections are idle, evicted or reset. (d) Near its descriptor limit with the idle set full, a primary's one-shot HEALTH and a witness's outbound requests behave as on main with the same number of extra descriptors held | (a) a per-verb, per-caller connect counter in `ha::ask`, compiled only into test builds, so the READ inside a `propose` is counted apart from the PLACEMENT GET handler's. (b) `test_health` T4 (SIGKILL), T5 (SIGSTOP) and T6 (partition, its `Proxy`) reused, plus a clustered variant with placement and leases that records detection and promotion times; the stalled accept uses a `DEBUG ACCEPT-HOLD` hook behind `--debug-admin`; EMFILE is induced in the admin loop and asserted on its evicted and EMFILE counters as well as on promotion, run with the idle set populated. The hook and the baseline land first, against main (section 6) |
 | A3 | **Ambiguous outcomes handled, not denied.** (a) Late reply: a reply delayed past its deadline is never returned to a later request; the connection is closed. (b) Half-open: a peer that vanished without FIN or RST fails the request at its deadline, including a request larger than the socket buffer, and the connection is not reused. (c) Partition, both directions, on an established kept connection: the request fails at its deadline; after healing, the next request uses a new connection and gets its own reply. (d) Execute, then lose the reply: the request has taken effect, the caller got false, no library retry was sent for a non-read-only verb, and a re-read shows the effect once. (e) A request delivered late is judged by its handler's check and rejected when overtaken (a higher ballot promised first, a newer version, a finished move) | a test-controlled TCP relay that can delay, drop or black-hole each direction (no firewall changes); for (e) it keeps forwarding held client-to-server bytes after the client has given up and reset. The relay terminates TCP, so it does not exercise `TCP_USER_TIMEOUT` or kernel retransmission; no criterion claims those. A debug hook drops a reply after executing, behind `--debug-admin` on nodes and `--debug 1` on witnesses |
 | A4 | No stale reply or desynchronized connection: a wrong sequence number or bytes after a line each close the connection, and the next request gets its own reply | new deterministic tests |
 | A5 | Idle eviction, a server restart, a handshake to an old server: at most one failed request per pooled connection, on eligible paths only, never a false failover; read-only verbs recover by the retry | new tests |
@@ -369,10 +379,12 @@ Each criterion states something the implementation can establish and a test can 
     client. K0 therefore brings `ha::Conn` (one kept connection, handshake, sequence numbers, close on
     failure) used only by the test probe, plus the admin side of 4.3 and `--no-keep`. One-shot handling,
     HEALTH included, is unchanged, and the baseline tests from the step before must pass unchanged.
+  - Its acceptance includes A4 and A6 with the idle set populated, since it ships the sequence numbers, the
+    handback and kept routing.
   - That removes about 80% of the test's churn, and no product caller changes behavior.
 - **K1, library and servers.** `ha::Pool`, the eligible list, the witness changes and the rest of 4.3. Then
-  A3 to A7. No product caller changes.
-- **K2, eligible product callers.** In order of churn: the witness's `read_latest` READ broadcasts, the
+  A3, A5 and A7, and A4 and A6 again. No product caller changes.
+- **K2, eligible product callers.** In order of churn: the PLACEMENT GET handler's READ broadcast, the
   engine's periodic placement poll, then the migration driver's MOVE steps. Each is switched behind the pool,
   and A2 and A8 run before the next one is switched. HEALTH and the HA path (4.5) are excluded.
 - **K3, measurement.** Hosted A1 and A2, before and after: connection counts, request latency, descriptor and
@@ -400,7 +412,7 @@ before it was applied.
 | `K HEALTH` to an old node fails the inline exact match (`snc_server.cpp` `line == "HEALTH"`) and queues behind heavy verbs; it times out without `NO unknown request`, so the client never learns, and a false failover returns | blocking | Per-connection `KEEP 1` handshake; nothing prefixed to unconfirmed peers; handshakes never on a request's path (4.1); revision 3 keeps HEALTH one-shot |
 | A witness cap that refuses new connections would refuse Paxos peers and readiness once idle clients fill it | blocking | LRU eviction of idle connections (4.4). Revision 3: no active cap and no `NO busy`, so `ask_witness` is unchanged |
 | `K MOVE` misses the `MOVE ` prefix routing; the K1 probe switch would silently fall back | high | Strip `K <seq>` before routing; test (4.3) |
-| Heavy worker had no handback; deadlines keyed to accept time; no wake on handback; LRU eviction and EMFILE | high | One handback path with an eventfd; line deadline from the first byte; LRU on cap and on EMFILE (4.3) |
+| Heavy worker had no handback; deadlines keyed to accept time; no wake on handback; LRU eviction and EMFILE | high | One handback path with an eventfd; line deadline from the first byte; LRU on cap and on EMFILE (4.3). Superseded in revisions 3 and 4: first-byte deadlines for kept connections only, and no eviction on EMFILE |
 | Late delivery on established connections is new | should-fix | `TCP_USER_TIMEOUT`, RST on failure, stated in 4.5, test in A3. Reframed in revision 3: late execution happens with one-shot requests too; RST and `TCP_USER_TIMEOUT` are hygiene only (4.5) |
 | The health check stops exercising accept and EMFILE | should-fix | Revision 2: 5 s maximum age. Superseded in revision 3: HEALTH stays one-shot (section 9) |
 | One connection per key would queue concurrent `read_latest` broadcasts | should-fix | Small free list per key; never wait for a checkout (4.2) |
@@ -425,7 +437,7 @@ required two corrections before any implementation.
 | Keep HEALTH one-shot; no five-second window; HEALTH on its fast path | Health lane and maximum age removed (4.2); HEALTH, STATUS, PROMOTE one-shot (4.5); the admin loop's one-shot handling is unchanged (4.3) |
 | Preserve witness liveness and failover timing | The whole HA decision path stays one-shot, including `ha/*` Paxos and readiness (4.5); A2 compares against main |
 | Pooling must not delay witness decisions | Watcher and `ha/*` machines never use the pool; handshakes never run on a request's path (4.1, 4.5) |
-| Regression coverage: stalled accept, EMFILE, SIGSTOP, SIGKILL, partitions | A2(b), landed first in K1 and run against main |
+| Regression coverage: stalled accept, EMFILE, SIGSTOP, SIGKILL, partitions | A2(b), landed first in K1 and run against main (revision 4: in its own step before K0, section 6) |
 | A timeout is not proof of non-execution | Stated in sections 3, 4.2 and 4.5; RST and `TCP_USER_TIMEOUT` described as hygiene, not guarantees |
 | Preserve fencing; never retry non-idempotent operations; retries only for classified safe verbs | Fencing unchanged (4.5); library retry only for the read-only allowlist (4.2, 4.7) |
 | Keep sequence-number validation | 4.1, 4.5, A3(a), A4 |
@@ -456,7 +468,7 @@ consistency. Each finding was checked in the code before it was applied.
 | Promotion depends on placement and lease calls: PROMOTE → SIGUSR1 → `Engine::promote` runs PLACEMENT SYNC (start barrier) and LEASES TAKE, and either failing refuses the promotion (`engine.cpp`); revision 3 pooled exactly those | blocking | They join the HA path; every Paxos write stays one-shot; the pool takes only a closed list of requests (4.2, 4.5) |
 | Idle kept connections freed on EMFILE would let a node out of descriptors answer HEALTH, which today stays silent (`admin_loop.h` EMFILE path) | blocking | Today's EMFILE rule kept; idle connections never freed for accept; small idle caps; A2 EMFILE run with the idle set populated (4.3) |
 | The witness's descriptor and thread budget is shared with the HA path and its idle cap was unsized | should-fix | Cap sized against RLIMIT_NOFILE and threads (4.4). The witness accept loop's EMFILE spin and `ha::ask`'s unchecked `socket()` are pre-existing and recorded for their own slice |
-| One `paxos::Node` mutex serializes all machines' `read_linear` and `propose` | should-fix | Stated in 4.5; only `read_latest`, outside the mutex, is pooled |
+| One `paxos::Node` mutex serializes all machines' `read_linear` and `propose` | should-fix | Stated in 4.5; only the PLACEMENT GET handler's READ, outside the mutex, is pooled |
 | Handshakes could queue ahead of PROMOTE in an old node's heavy queue during rollout | should-fix | Witnesses and the HA path never handshake with a node (4.1) |
 | 4.2 still put handshakes and replacements inline on a request's path | should-fix | All of them go one-shot (4.2) |
 | `ha::ask`'s real budget is connect T, an unbounded blocking send, then a fresh T for the reply | should-fix | Stated; kept connections bound the send and keep the reply budget (4.2); A3(b) includes a large request |
@@ -467,6 +479,17 @@ consistency. Each finding was checked in the code before it was applied.
 | K0 is not test-only and landed before the HEALTH baseline; its client was unnamed | should-fix | Section 6; the extra baseline step is put to review |
 | Leftovers: "age limits", lane names, `test_health` test list, a section 8 row, the churn document's "changes how silence and failover are detected" | nits | Fixed; the churn document points here |
 | Paxos production deadline is 3000 ms | nit | 2.1 |
+
+**Confirmation pass on revision 4** (one reviewer, all four checked in the code and applied):
+
+| Finding | Severity | Applied |
+|---|---|---|
+| `propose` and `read_linear` begin with `read_latest`, so pooling "the `broadcast` in `read_latest`" would have pooled the READ round of every `ha/*` promotion, READY, and the promotion's PLACEMENT SYNC and LEASES TAKE | blocking | A `pooled` flag on `read_latest`, false by default, set only by the PLACEMENT GET handler; A2(a) counts per caller (4.2, 4.5) |
+| Idle descriptors make exhaustion arrive sooner, on nodes and witnesses | should-fix | Stated in 4.5; A2(d) |
+| UNSEAL is refused while its move is in progress; non-final EXPORT is unfenced | should-fix | 4.5, 4.7 |
+| K0 ships sequence numbers and handback without A4 and A6 | should-fix | Section 6 |
+| `resolve` at node start also uses GET | should-fix | Stays one-shot (4.2) |
+| Section 8 and 9 rows superseded | nits | Marked |
 
 Checked and confirmed correct by the reviewers: HEALTH's inline handler and the one-shot `kReadMs` deadline
 from accept are untouched; `ask_witness`, rejoin and watcher deadlines; the detection bound; CAS, INIT, COMMIT,
