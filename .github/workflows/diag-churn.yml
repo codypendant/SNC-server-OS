@@ -32,7 +32,7 @@ jobs:
             kill $sp; wait $sp 2>/dev/null
             drops=$(( $(sudo dmesg | grep -c 'table full') - full0 ))
             echo "[$1] rc=$rc $((t1-t0))s max=$(cat /proc/sys/net/netfilter/nf_conntrack_max) tw=$(cat /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait) start=$pre peak=$(cat peak) end=$(ct) table_full_msgs=$drops | $(tail -n 1 out.txt | cut -c1-200)"
-            [ $rc -ne 0 ] && grep -m3 -E "test_migrate: scenario|FAILED|unanswered|stuck" out.txt | cut -c1-300
+            [ $rc -ne 0 ] && grep -m3 -E "test_migrate: scenario|connection table|FAILED|unanswered|stuck" out.txt | cut -c1-300
             rm -rf /tmp/snc-migrate-*; echo 0 > peak
           }
           for it in 1 2; do
@@ -40,6 +40,5 @@ jobs:
             one "B back-to-back"
             one "B2 back-to-back again"
             drain; sudo sysctl -q -w net.netfilter.nf_conntrack_max=50000; one "C max=50000"
-            drain; sudo sysctl -q -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10; one "D max=50000 tw=10"
             sudo sysctl -q -w net.netfilter.nf_conntrack_max=262144 net.netfilter.nf_conntrack_tcp_timeout_time_wait=120
           done

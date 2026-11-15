@@ -63,6 +63,19 @@ foreach(t test_rate_schedule test_object_id test_local_map test_pages test_runti
   target_link_libraries(${t} PRIVATE snc_core)
   add_test(NAME ${t} COMMAND ${t})
 endforeach()
+# test_migrate refuses a run its host's connection table cannot hold
+# (docs/TEST_MIGRATE_CONNECTION_CHURN.md): one scenario against a table 1,144
+# entries short refuses, exits non-zero and says why; with 3,144 free it runs.
+set(ct_fix ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/conntrack)
+add_test(NAME test_migrate_conntrack_refuses
+         COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/full $<TARGET_FILE:test_migrate> prepared/driver/abort)
+set_tests_properties(test_migrate_conntrack_refuses PROPERTIES WILL_FAIL TRUE)
+add_test(NAME test_migrate_conntrack_says_why
+         COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/full $<TARGET_FILE:test_migrate> prepared/driver/abort)
+set_tests_properties(test_migrate_conntrack_says_why PROPERTIES
+                     PASS_REGULAR_EXPRESSION "connection table has 261000 of 262144 entries in use; 1 scenarios need about 2000 more")
+add_test(NAME test_migrate_conntrack_room
+         COMMAND ${CMAKE_COMMAND} -E env SNC_MIGRATE_CONNTRACK_DIR=${ct_fix}/room $<TARGET_FILE:test_migrate> prepared/driver/abort)
 # A hung S3 test fails the suite instead of stalling it (a CHECK failure
 # exits with the engine running, which can hang under a sanitizer).
 set_tests_properties(test_s3_writeback test_lifecycle test_s4_sync_tokens test_intake test_xnode PROPERTIES TIMEOUT 2400)
