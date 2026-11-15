@@ -251,6 +251,10 @@ int node_main(const std::string& dir, u32 k, bool restart) {
   Engine::Config c;
   c.runtime.n_shards = kShards;
   if (std::getenv("SNC_DIAG_NOPIN")) c.runtime.pin = false;  // DIAG ONLY
+  if (std::getenv("SNC_DIAG_SPREAD")) {  // DIAG ONLY: node k of lane L pins its shards to distinct CPUs
+    const long n = ::sysconf(_SC_NPROCESSORS_ONLN), lane = std::atol(std::getenv("SNC_DIAG_LANE") ? std::getenv("SNC_DIAG_LANE") : "0");
+    for (u16 sh = 0; sh < kShards; ++sh) c.runtime.cpus.push_back(static_cast<int>((lane * 4 * kShards + k * kShards + sh) % n));
+  }
   c.expected_objects = 4096;
   c.data_dir = e.dir + "/n" + t;
   c.init = !restart;
@@ -1066,6 +1070,7 @@ int main(int argc, char** argv) {
     const pid_t pid = ::fork();
     CHECK(pid >= 0);
     if (pid == 0) {
+      ::setenv("SNC_DIAG_LANE", std::to_string(l).c_str(), 1);  // DIAG ONLY
       const u16 lo = static_cast<u16>(20000 + l * 2000), hi = static_cast<u16>(lo + 2000);
       for (std::size_t i = l; i < todo.size(); i += lanes) {
         const std::string line = run_scenario(todo[i], lo, hi);

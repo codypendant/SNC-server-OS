@@ -27,9 +27,12 @@ jobs:
       - name: arm
         run: |
           r=${{ matrix.r }}
-          if [ $((r % 3)) -eq 1 ]; then echo "ARM=N" >> $GITHUB_ENV; sudo iptables -t raw -I PREROUTING -i lo -j NOTRACK; sudo iptables -t raw -I OUTPUT -o lo -j NOTRACK; sudo iptables -t raw -L -n | head
-          elif [ $((r % 3)) -eq 2 ]; then echo "ARM=P" >> $GITHUB_ENV; echo "SNC_DIAG_PROBE_SLEEP_US=20000" >> $GITHUB_ENV
-          else echo "ARM=M" >> $GITHUB_ENV; fi
+          case $((r % 4)) in
+            1) echo "ARM=M" >> $GITHUB_ENV;;
+            2) echo "ARM=X" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV;;
+            3) echo "ARM=Z" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV; echo "LANES=2" >> $GITHUB_ENV;;
+            0) echo "ARM=Y" >> $GITHUB_ENV; echo "SNC_DIAG_SPREAD=1" >> $GITHUB_ENV; echo "LANES=1" >> $GITHUB_ENV;;
+          esac
           sysctl net.netfilter.nf_conntrack_max net.netfilter.nf_conntrack_count net.netfilter.nf_conntrack_tcp_timeout_time_wait net.netfilter.nf_conntrack_buckets 2>&1; lsmod | grep -E 'conntrack|nf_' | head; sudo iptables -S | head -20
       - name: rounds
         shell: bash {0}
