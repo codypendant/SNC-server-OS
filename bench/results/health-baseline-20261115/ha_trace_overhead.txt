@@ -1,0 +1,6 @@
+trace=0 scope_ns=0.56 ask_us=58.07 ok=20000/20000
+trace=1 scope_ns=2.99 ask_us=55.70 ok=20000/20000
+trace=0 scope_ns=0.85 ask_us=57.87 ok=20000/20000
+trace=1 scope_ns=2.93 ask_us=51.72 ok=20000/20000
+trace=0 scope_ns=0.57 ask_us=53.95 ok=20000/20000
+trace=1 scope_ns=4.85 ask_us=57.50 ok=20000/20000

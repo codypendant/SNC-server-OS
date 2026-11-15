@@ -3148,3 +3148,18 @@ or source comments.
     (recorded, not fixed).
 -   **Next action:** cody reviews. No persistent-connection work (K0 to K3) until then.
 
+### 2026-11-15 UTC --- Claude (Claude Code): PR #132 review carried out (cody approved; K0 next)
+
+-   **Review:** `docs/handoff/PR132_Health_Baseline_Review_Approval.md`. cody approved PR #132 with two
+    decisions and one tracking item.
+-   **Changed:**
+    -   A2's single detection bound is split into measured behavior, regression tolerance and intended
+        guarantee (`docs/CONTROL_CONNECTIONS_DESIGN.md` 5.1, REFINE).
+    -   `ha::Caller` and `Adopt` do no work with tracing off (KEEP). There is a new `test_ha_caller` (off
+        and on), and the overhead is measured in `docs/HEALTH_BASELINE.md`.
+    -   Open item O1 (a resumed old primary reports `role=p` at its old term) is tracked for
+        investigation.
+-   **Next action:** K0 (test probe's kept connection, `ha::Conn`, admin-side keep, `--no-keep`). It must
+    keep the 5.1 regression tolerance and pass independent QA, then stop for review. O1 is not started
+    without cody's word.
+

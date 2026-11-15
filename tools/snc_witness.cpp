@@ -416,7 +416,7 @@ std::string debug_verb(std::istream& in) {
 void serve(int fd) {
   std::string line, reply = "NO bad request";
   if (ha::read_line(fd, line, 500)) {
-    const ha::Caller tag(("serve " + ha::verb_of(line)).c_str());  // labels this request's own asks
+    const ha::Caller tag(::snc::trace::enabled() ? "serve " + ha::verb_of(line) : std::string());  // labels this request's own asks
     std::istringstream in(line);
     std::string verb;
     in >> verb;

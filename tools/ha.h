@@ -30,19 +30,36 @@ inline std::string& caller_path() {
   thread_local std::string p;
   return p;
 }
+// With tracing off (the default) a scope does nothing: one load and branch
+// on trace::enabled(), no string work (docs/HEALTH_BASELINE.md, overhead).
 struct Caller {
-  std::size_t prev;
-  explicit Caller(const char* name) : prev(caller_path().size()) {
+  static constexpr std::size_t kOff = static_cast<std::size_t>(-1);
+  std::size_t prev = kOff;
+  explicit Caller(const char* name) {
+    if (!::snc::trace::enabled()) return;
+    prev = caller_path().size();
     if (prev != 0) caller_path() += '/';
     caller_path() += name;
   }
+  explicit Caller(const std::string& name) : Caller(name.c_str()) {}
   // Another thread's path, carried into a helper thread (Paxos broadcast).
   struct Adopt {
     std::string prev;
-    explicit Adopt(const std::string& path) : prev(caller_path()) { caller_path() = path; }
-    ~Adopt() { caller_path() = prev; }
+    bool on = ::snc::trace::enabled();
+    explicit Adopt(const std::string& path) {
+      if (!on) return;
+      prev = caller_path();
+      caller_path() = path;
+    }
+    ~Adopt() {
+      if (on) caller_path() = prev;
+    }
+    Adopt(const Adopt&) = delete;
+    Adopt& operator=(const Adopt&) = delete;
   };
-  ~Caller() { caller_path().resize(prev); }
+  ~Caller() {
+    if (prev != kOff) caller_path().resize(prev);
+  }
   Caller(const Caller&) = delete;
   Caller& operator=(const Caller&) = delete;
 };

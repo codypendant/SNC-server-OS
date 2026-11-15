@@ -1,6 +1,7 @@
 # HEALTH and failover baseline (before K0)
 
-Status: **for review.** This is the "Before K0: HEALTH baseline" step of
+Status: **approved by cody (PR #132 review, transcribed in
+[handoff/PR132_Health_Baseline_Review_Approval.md](handoff/PR132_Health_Baseline_Review_Approval.md)).** This is the "Before K0: HEALTH baseline" step of
 [CONTROL_CONNECTIONS_DESIGN.md](CONTROL_CONNECTIONS_DESIGN.md) section 6. It
 measures failure detection and promotion on main as it is, before any kept
 connection exists. K0, K1, K2 and K3 are not started. The figures below are
@@ -92,39 +93,77 @@ Times are in ms from the fault: min / median / max.
 - **The partition proxy usually black-holes.** One trial in ten (1087 ms)
   timed like kill, because the cut reset a connection.
 
-## Findings for review
+## Findings and decisions
 
-1. **The design's detection bound is too tight.** A2(b) says suspect within
-   failover_ms + 2 × poll_ms, which is 1200 ms here. Main measures up to
-   1276 ms, so main itself would fail that bound.
-   - **Cause (`tools/snc_witness.cpp` 805-850).** `primary_ok` is set at the
+1. **The design's detection bound was too tight. Decided: split, not loosened.**
+   A2(b) said suspect within failover_ms + 2 × poll_ms, which is 1200 ms here.
+   Main measures up to 1276 ms, so main itself would fail that bound.
+   - **Cause (`tools/snc_witness.cpp` `watch`).** `primary_ok` is set at the
      top of the last answered iteration. Suspicion is checked only at the end
      of an iteration. A silent iteration costs a poll_ms timeout, plus a
      poll_ms sleep, plus the witness's per-iteration state read.
-   - **What the test asserts instead:** failover_ms + 3 × poll_ms + 500 ms of
-     scheduling slack. Promotion must be within failover_ms + 8000 ms. Both
-     are skipped under sanitizers.
-   - **Proposed:** A2(b) is read as "within main's range as recorded here",
-     for detection and promotion alike, with the asserted bound as a
-     backstop. That needs review, because it changes an approved criterion.
+   - **cody's decision:** accept the measured baseline, but do not replace
+     the detection contract with a loose timeout. The design's new section
+     5.1 separates three terms: the measured behavior (this record), the
+     regression tolerance (same outcomes, each max within one poll_ms of
+     main's), and the intended guarantee (failover_ms + one silent
+     iteration, including the state read).
+   - **The test's bound is only a backstop:** failover_ms + 3 × poll_ms +
+     500 ms for detection, failover_ms + 8000 ms for promotion, skipped
+     under sanitizers. It catches gross breakage on any host.
 2. **A second silent path in the admin loop.** If RLIMIT_NOFILE is below the
    poll set's size, `poll()` returns EINVAL. The loop then answers nothing,
    and `adm_accept_fail` stays 0. It was found while setting the soft limit
    to 0. The EMFILE scenario therefore sets the limit to the lowest free
    descriptor. Recorded, not fixed (outside this slice).
-3. **Deviation: the counter is a runtime trace, not a test-build compile
-   option.** The design asked for a counter compiled only into test builds.
-   It is a runtime `SNC_TRACE` line instead, so the same binary is measured.
-   With tracing off, the remaining cost is a thread-local string append per
-   `ha::Caller` scope on the control path. The data path is not touched.
+3. **Runtime trace instead of a test-build counter. Decided: accepted,
+   provided the overhead stays measured and controlled.** See "Trace
+   overhead" below.
 4. **`conn=oneshot` is a literal today.** `check_oneshot` is a tripwire that
    becomes meaningful once K0 adds a kept path that writes `conn=kept`.
-5. **A stopped primary still claims primary after SIGCONT.** It reports
-   `role=p` at its old term. This is the known cut-off-primary gap in
-   STATUS; this slice only records it.
+5. **A stopped primary still claims primary after SIGCONT. Tracked as open
+   item O1 below.** It reports `role=p` at its old term. cody's review: a
+   potentially important correctness concern, to be investigated, not
+   dismissed as a monitoring issue.
 6. **Possible flake.** With the soft limit at the lowest free descriptor, a
    descriptor closing below it leaves one usable slot. Accept then succeeds
    once. The test asserts `adm_accept_fail > 0`, not a count.
+
+## Trace overhead (measured and controlled)
+
+**Control.** With `SNC_TRACE` unset (the default), an `ha::Caller` or
+`Caller::Adopt` scope does one load and branch on `trace::enabled()` and
+nothing else: no string append, no copy. The witness's per-request label
+(`"serve " + verb`) is built only when tracing is on. `test_ha_caller` runs
+twice in ctest, once with tracing off, where the path must stay empty, and
+once on, where the paths must nest, unwind and be adopted correctly.
+
+**Measurement.** `bench/results/health-baseline-20261115/ha_trace_overhead.cpp`, built against `tools/ha.h` with
+`-O2`, on the same 4 vCPU container, 3 runs each:
+
+| | Tracing off | Tracing on (stderr to /dev/null) |
+|---|---|---|
+| one `ha::Caller` scope | 0.6 to 0.9 ns | 2.9 to 4.9 ns |
+| one loopback `ha::ask` (connect, send, reply, close), 20,000 asks | 54 to 58 µs | 52 to 58 µs |
+
+A scope costs under 1 ns with tracing off. That is under 0.002% of the
+cheapest control request, which is a TCP connection of about 55 µs. With
+tracing on, the per-request trace line is within run-to-run noise.
+
+## Open items
+
+- **O1. A resumed old primary reports `role=p` at its previous term.**
+  - **Seen:** in all 10 stop trials, after SIGSTOP, promotion of the
+    standby, and SIGCONT. The old primary's HEALTH said `role=p term=0`
+    while the group's decided term was 1.
+  - **Not yet known:**
+    - whether it serves reads or accepts writes in that state, and for how
+      long;
+    - whether the existing withdrawal paths (DEGRADE answered "term
+      replaced", `sender_->fenced()`; EVIDENCE.md, the cut experiment) apply
+      when no write traffic reaches it, as in this test.
+  - **Owner:** to be investigated as its own slice, with cody's
+    authorization. This baseline only records it.
 
 ## Coverage of A2 and A6
 
