@@ -3047,3 +3047,24 @@ or source comments.
     runs can also fill the host's conntrack table and fail on their own (R4, a separate defect, not fixed).
 -   **Next action:** reviewer decision. Not started: R1 (runtime overlap warning or pause policy), R2 (Python
     multi-process tests' placement), R4 (test connection churn), F2, F3, F4.
+
+### 2026-11-15 UTC --- Claude (Claude Code): test_migrate connection churn, measurement and guard (for review)
+
+-   **What:** per cody's "Yes" to the slice recommended in the PR #128 review (R4). Every control request
+    (`ha::ask`: witness polls, witness Paxos, nodes' control calls, the test's probe) opens and closes its own TCP
+    connection; one `test_migrate` run opens 70k to 180k and leaves about 90k to 107k entries in a hosted conntrack
+    table for 120 s. Classification: **REFINE** of the harness; **KEEP** the control protocol pending review;
+    **RECONSIDER** (proposed, not started) one connection per control request at witness scale.
+-   **What changed:** `tests/test_migrate.cpp` refuses, before any scenario, a run whose 2,000 entries per scenario
+    do not fit in the host's table, with a message naming the count, size and need (`SNC_MIGRATE_CONNTRACK_DIR`
+    for testing). Three ctest entries with fixture tables (`tests/fixtures/conntrack`). New
+    `docs/TEST_MIGRATE_CONNECTION_CHURN.md`, `docs/STATUS.md`. No product code, timeout or assertion changed.
+-   **Evidence:** hosted, 6 runners × 2: before, the third run back to back failed mid-scenario in 6 of 10 runs at
+    262144 and a 50000 table failed 12/12; after, those are refused in 0 s (10/10, 12/12), runs that fit pass
+    (24/24 plus 2/2 at 1048576), and no packet was dropped. The new ctest entries fail on main's binary and pass
+    on the new one. CI's single run fits with about 2.5× headroom (tests before it open under 1,000 connections).
+-   **Assumption changed:** the churn is a property of the control protocol, not of the test alone; a witness
+    watching about 100 groups would fill a default table with polls alone on a host that tracks connections
+    (inferred, not measured).
+-   **Next action:** reviewer decision; whether to design persistent control connections (C1). Not started:
+    R1 multi-process CPU placement, R2, F2, F3, F4.

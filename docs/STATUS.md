@@ -347,7 +347,12 @@ Decided by cody on 2026-11-04.
      protocol defect. Its 3 lanes put 12 nodes' shard 0 on CPU 0 and shard 1 on CPU 1, and on hosted 7.0 kernels the
      CPUs' WAL completion threads got no time. Fix (REFINE of the harness only): shards spread round the allowed CPUs,
      lanes from the CPU count (2 on 4 CPUs), and a spread check in every scenario. Hosted 101/324 rounds failed
-     before, 0/96 after. F2 to F4 not started.
+     before, 0/96 after. **PR #128 merged (1701c5d).** Connection churn (for review,
+     [TEST_MIGRATE_CONNECTION_CHURN.md](TEST_MIGRATE_CONNECTION_CHURN.md)): every control request opens its own TCP
+     connection, so one `test_migrate` run leaves about 90k to 107k entries in a hosted 262144-entry conntrack table
+     for 120 s; a third run back to back filled it and failed mid-scenario (6 of 10). `test_migrate` now refuses a
+     run the table cannot hold, at once and saying why (REFINE); hosted 0 drops after. Persistent control
+     connections are proposed for review (RECONSIDER), not started. F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
