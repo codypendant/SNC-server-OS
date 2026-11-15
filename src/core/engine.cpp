@@ -4,6 +4,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <sched.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -665,6 +666,17 @@ void Engine::start() {
 }
 
 void Engine::start_() {
+  // This thread starts the shard workers, which inherit its CPUs and pin
+  // themselves within them: threads the shards start later go back to this
+  // set (docs/CPU_PLACEMENT_R1.md D1).
+  process_cpus_.clear();
+  cpu_set_t set;
+  CPU_ZERO(&set);
+  if (sched_getaffinity(0, sizeof(set), &set) == 0) {
+    for (int c = 0; c < CPU_SETSIZE; ++c) {
+      if (CPU_ISSET(c, &set)) process_cpus_.push_back(c);
+    }
+  }
   if (cfg_.data_dir.empty()) {
     // In-memory mode: no WAL, every state is durable at once. Leases repeat
     // across processes, which is harmless because nothing persists.
@@ -828,7 +840,7 @@ void Engine::open_links_generation_(bool fresh) {
 // Shard s's replication settings, as standby or as primary.
 static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const SlotMap& slots,
                                            const Uuid& uuid_, u64 term, u16 s, bool standby,
-                                           const std::atomic<bool>* gate) {
+                                           const std::atomic<bool>* gate, const std::vector<int>& cpus) {
   const u16 n = cfg_.runtime.n_shards;
   const u32 crc = repl::slot_map_crc(slots);
   Shard::ReplicaConfig rc;
@@ -852,6 +864,7 @@ static Shard::ReplicaConfig replica_config(const Engine::Config& cfg_, const Slo
     rc.sender.slot_crc = crc;
     rc.sender.retain_bytes = cfg_.replica_retain_bytes;
     rc.sender.catchup_bytes_per_s = cfg_.replica_catchup_bytes_per_s;
+    rc.sender.reader_cpus = cpus;
     rc.sender.term = term;
     rc.sync = cfg_.replica_sync;
     rc.timeout_ns = u64{cfg_.replica_timeout_ms} * 1'000'000;
@@ -1195,7 +1208,7 @@ void Engine::recover() {
   }
 
   if (!cfg_.replica_host.empty() || standby_()) {
-    run_on_all_([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, standby_(), &degrade_ok_)); });
+    run_on_all_([&](u16 s) { current_shard()->set_replication(replica_config(cfg_, slots_, uuid_, sb_.term, s, standby_(), &degrade_ok_, process_cpus_)); });
   }
   run_on_all_([&](u16 s) {
     if (tail_crc[s] != 0) current_shard()->set_wal_tail(next_lsn[s] - 1, tail_crc[s]);
@@ -1385,7 +1398,7 @@ double Engine::promote() {
     sh->pause_emits(true);
     sh->set_lease(base + s);
     if (barrier) reseal_from(*barrier);
-    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_), cfg_.data_dir);
+    sh->promote(replica_config(cfg_, slots_, uuid_, sb_.term, s, false, &degrade_ok_, process_cpus_), cfg_.data_dir);
   });
   release_emits();
   finish_barrier(false);  // the re-seal durable here, then role "primary"

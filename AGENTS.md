@@ -3163,3 +3163,17 @@ or source comments.
     keep the 5.1 regression tolerance and pass independent QA, then stop for review. O1 is not started
     without cody's word.
 
+### 2026-11-15 UTC --- Claude (Claude Code): R1 multi-process CPU placement review and D1 fix (for review)
+
+-   **What:** the R1 review Codex asked for in the PR #128 review. `docs/CPU_PLACEMENT_R1.md`.
+-   **Found:** shard threads and their `iou-wrk` workers are the only single-CPU threads; nothing but the
+    catch-up reader is started from a shard thread. D1: that reader widened itself to CPUs `0..nprocs-1`,
+    outside a `taskset` limit. P1 (several processes stack shard *i* on one CPU) confirmed; D2 (default shard
+    count = host CPU count) found in QA. R2: 12 Python suites peak at 6 pinned shards per CPU on CPUs 0-1.
+-   **Code (REFINE):** `Engine::start_` records its thread's CPUs; `Sender::Config::reader_cpus`,
+    `repl::leave_shard_cpu`. Test `test_reader_placement` (test_replication) fails on main (exit 22), passes.
+-   **Evidence:** strace before/after (`[0 1 2 3]` vs the taskset set) by this session and QA 3, including a
+    promotion; 3 independent QA reviews, no blockers, findings resolved in section 6.
+-   **Assumptions changed:** none for one node per host. Safety is not shown to be independent of placement
+    (inferred only).
+-   **Next action:** cody reviews. D2-a, R1-a/b/c and R2-a are proposals; none started without assignment.

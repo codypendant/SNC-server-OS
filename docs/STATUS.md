@@ -367,7 +367,14 @@ Decided by cody on 2026-11-04.
      itself: cody's PR #132 review split A2's timing into measured behavior, regression tolerance (each max within
      one poll of main's) and intended guarantee (design 5.1); runtime tracing accepted with its overhead measured
      (under 1 ns per scope when off). **Open item O1 (correctness, to investigate):** a SIGSTOPped old primary,
-     resumed after its standby's promotion, still reports `role=p` at its old term. K0 authorized next.
+     resumed after its standby's promotion, still reports `role=p` at its old term. K0 authorized next. R1 multi-process CPU
+     placement (for review, [CPU_PLACEMENT_R1.md](CPU_PLACEMENT_R1.md)): every thread's placement inventoried; only
+     the catch-up-from-disk reader moved itself, to CPUs `0..nprocs-1`, so under `taskset` it ran on CPUs the
+     process was never given (D1). Fixed (REFINE): the reader takes the CPUs `Engine::start_` was called with; a
+     new `test_reader_placement` fails on main and passes. The stacking itself (P1: several processes put shard
+     *i* on the same CPU) is KEEP for one node per host and a stated limit outside it; slices proposed, not
+     started: D2-a (`snc_server`'s default shard count uses the host's CPU count, a second defect found in QA),
+     R1-a (per-CPU locks so processes avoid or refuse each other's CPUs), R1-b, R1-c, R2-a.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
