@@ -3267,3 +3267,21 @@ or source comments.
     normal checks; the v0.1 specification is imported with the byline redacted.
 -   **Next action:** none until cody's explicit go. Codex recommends the architectural guarantees review (Phase 2)
     next; it is not authorized yet, and neither are AFR-S-1 to S-3.
+
+### 2026-11-16 UTC --- Claude (Claude Code): SNC-AFR-001 Phase 2, Guarantees Specification (proposed)
+
+-   **Authorization:** cody authorized Phase 2 after PR #138 merged (`2fb029c`). Codex's planning note (relayed by
+    cody) set three milestones: inventory accepted, then the guarantees specification with rulings on known
+    defects, then Rust readiness as a later decision gate. Not every C++ defect must be fixed before Rust; each
+    critical defect is classified, tied to a guarantee and a verification strategy, and marked as an immediate
+    C++ fix only when it compromises C++ as the testing reference.
+-   **Output:** `docs/SNC_GUARANTEES.md` (PROPOSED). It contains:
+    -   AFR-G-01 to 63, each with a C++ status, evidence and a differential-testing class;
+    -   AFR-R-01 to 32, proposed rulings with owner disposition left blank;
+    -   section 13.1, the C++ treatment of each ruling: FIX-IN-C++, KNOWN-VIOLATION or EXPERIMENT FIRST;
+    -   section 13.2, which decisions are ready to stabilize and which are not;
+    -   AFR-D-01 to 15, decisions needed before Rust crate design.
+    The handoff is `docs/handoff/AFR001_Phase2_Handoff_To_Codex.md`.
+-   **Verification:** two independent verifiers, plus the author's re-check of every corrected citation (section 17).
+-   **Next action:** STOP for cody's and Codex's review. No C++ slice is started (the five proposed FIX-IN-C++ slices
+    each need their own go). This work is isolated from D3-D5, K1 and the port-exposure thread.
