@@ -1,0 +1,41 @@
+trial 0 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 1 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 2 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 3 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 4 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 5 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 6 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 7 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 8 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 9 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 10 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 11 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 12 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 13 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 14 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 15 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 16 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 17 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 18 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 19 case1: withdraw(issued 1st)=OK answered#1, delete(issued 2nd)=E_APP answered#0
+trial 0 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 1 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 2 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 3 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 4 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 5 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 6 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 7 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 8 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 9 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 10 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 11 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 12 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 13 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 14 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 15 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 16 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 17 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 18 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+trial 19 case2: deposit(1st)=OK ver=2 answered#1, deposit@v2(2nd)=E_VERSION_CONFLICT answered#0
+case1 delete overtook withdraw: 20/20; case2 versioned overtook plain: 20/20

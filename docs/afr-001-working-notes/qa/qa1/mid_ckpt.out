@@ -1,0 +1,9 @@
+[before damage] segments: 1(recs=100,lsn 1..100)
+damaging segment 1 (newest with records=is last file) record idx 49 lsn 50 off 204800, mode=mid
+[restart 1 (+10 new creates)] start OK: wal_records_replayed=49 torn_tails=1 objects=49; acked=100 present=49 first_missing_idx=49
+[restart 1 (+10 new creates)] checkpoint seq=2 segments_deleted=1
+[restart 1 (+10 new creates)] child exit: status 0
+[after restart 1] segments: 50(recs=10,lsn 50..59)
+[restart 2] start OK: wal_records_replayed=0 torn_tails=0 objects=59; acked=100 present=49 first_missing_idx=49
+[restart 2] child exit: status 0
+[after restart 2] segments: 50(recs=10,lsn 50..59) 60(recs=0,lsn 0..0)

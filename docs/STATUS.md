@@ -400,6 +400,13 @@ Decided by cody on 2026-11-04.
      without `--host`. `AUDIT NAME` writes only a plain file name inside `--audit-dir`. No authentication yet:
      PROMOTE, forged COMMIT, replication Hello and identity items stay open for the guarantees spec.
      F2 to F4 not started.
+     **SNC-AFR-001 architecture foundation review, Phase 1 (approved, PR #138, [handoff](handoff/PR138_AFR001_Phase1_Codex_Approval.md); [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
+     read-only inventory and immediately critical findings; no code changed. audit-D1 to D4 are still open and
+     audit-D2 and audit-D4 are wider than recorded (AFR-F-01: a damaged first record makes recovery delete the
+     segment, a zeroed block or unknown record type truncates silently, LSNs are reused; AFR-F-02: `AUDIT PATH`
+     truncates any writable file, forged Paxos `COMMIT` is persisted as chosen). Slices AFR-S-1 to S-3 proposed,
+     not started. **Phase 2 (authorized by cody 2026-11-16): [SNC_GUARANTEES.md](SNC_GUARANTEES.md) PROPOSED, in review**
+     (64 guarantees, 32 proposed rulings, 15 decisions; revision 1 after Codex's review; nothing accepted; no code changed).
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

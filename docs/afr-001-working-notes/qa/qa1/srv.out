@@ -1,0 +1,6 @@
+snc_server shards=1 ports 23711-23711 durability=DURABLE (WAL, RWF_DSYNC) mint_local=1
+ckpt_pacing: pacing=on batch=16 min_us=20 max_us=100 ceiling_us=250 step_us=10 update_us=1000 target_ms=30000 max_age_ms=300000
+space uuid 7702f22e4c51cbba49a98592a7eeff23
+shard 0: requests 0 forwarded 0.0% ops_local 0 ops_remote 0 served 0
+total: requests 0 forwarded 0.0% frames/recv 0.0 frames/send 0.0 ring msgs/request 0.00
+exit=124
