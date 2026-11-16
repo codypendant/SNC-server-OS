@@ -32,10 +32,11 @@ NONE == -1
 VARIABLES rec, T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks,
           acked, nid, crashes,
           inh,   \* primary-local: its log end when it learned its promotion
-          pack   \* primary-local: highest LSN it acknowledged in its own term
+          pack,  \* primary-local: highest LSN it acknowledged in its own term
+          hist   \* history only: every <<lsn, entry>> any log has ever held
 
 vars == <<rec, T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks,
-          acked, nid, crashes, inh, pack>>
+          acked, nid, crashes, inh, pack, hist>>
 
 Min(S) == CHOOSE x \in S : \A y \in S : x <= y
 Max(S) == CHOOSE x \in S : \A y \in S : x >= y
@@ -61,6 +62,7 @@ Init ==
   /\ crashes = 0
   /\ inh = [n \in Nodes |-> 0]
   /\ pack = [n \in Nodes |-> 0]
+  /\ hist = {}
 
 Busy(n) == inc[n] \/ rs[n]
 IntentDone(n) == intent[n] = NONE \/ (~FixClear /\ Len(dlog[n]) <= intent[n])
@@ -212,13 +214,20 @@ Crash(n) ==
   /\ rs' = [rs EXCEPT ![n] = inc[n]]                       \* resume a flagged reseed
   /\ UNCHANGED <<rec, T, inc, cks, acked, nid, inh, pack>>
 
-Next ==
+Step ==
   \/ \E p \in Nodes : NewEntry(p) \/ WriteLocal(p) \/ Promote(p) \/ Learn(p)
                       \/ ApplyIntent(p) \/ ClearIntent(p) \/ Checkpoint(p)
                       \/ RDiscardLog(p) \/ RDiscardCk(p) \/ Crash(p)
   \/ \E p, m \in Nodes : Ship(p, m) \/ AddA(p, m) \/ Grow(p, m) \/ Shrink(p, m)
                          \/ Drop(p, m) \/ ReconStep(m, p) \/ RCopy(m, p) \/ RDone(m, p)
   \/ \E p \in Nodes, i \in 1..MaxIds : Ack(p, i)
+
+\* hist records every entry any durable or in-memory log has ever held at each LSN.
+\* It is written only here and read only by HistoryUnique, so it adds no behaviour to
+\* the other variables. It does depend on the path taken, so TLC counts more distinct
+\* states: state counts with hist are not comparable with earlier runs.
+Held(l) == UNION {{<<i, l[n][i]>> : i \in 1..Len(l[n])} : n \in Nodes}
+Next == Step /\ hist' = hist \cup Held(dlog') \cup Held(ilog')
 
 Spec == Init /\ [][Next]_vars
 
@@ -229,6 +238,9 @@ AckedPreserved == \A e \in acked : \A n \in rec.S :
 \* I1: same (term, lsn) means the same entry
 EntryUnique == \A a, b \in Nodes : \A i \in 1..Min({Len(dlog[a]), Len(dlog[b])}) :
                  dlog[a][i].t = dlog[b][i].t => dlog[a][i] = dlog[b][i]
+\* G-15 over history: a (term, lsn) pair never identifies two different entries,
+\* even when one of them no longer exists anywhere. An LSN may be reused under another term.
+HistoryUnique == \A x, y \in hist : (x[1] = y[1] /\ x[2].t = y[2].t) => x[2] = y[2]
 \* I2: same entry at i means the same prefix up to i
 LogMatching == \A a, b \in Nodes : \A i \in 1..Min({Len(dlog[a]), Len(dlog[b])}) :
                  dlog[a][i] = dlog[b][i] => SubSeq(dlog[a], 1, i) = SubSeq(dlog[b], 1, i)
@@ -239,5 +251,5 @@ PositionedPrefix == \A k, j \in Nodes :
                       (isPrim[j] /\ k # j /\ pos[k] = T[j] /\ T[k] = T[j] /\ ~Busy(k)
                        /\ intent[k] = NONE)
                       => Prefix(dlog[k], ilog[j])
-Safety == AckedPreserved /\ EntryUnique /\ LogMatching /\ StateMatchesLog /\ PositionedPrefix
+Safety == AckedPreserved /\ EntryUnique /\ LogMatching /\ StateMatchesLog /\ PositionedPrefix /\ HistoryUnique
 =============================================================================

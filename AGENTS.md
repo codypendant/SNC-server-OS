@@ -3366,6 +3366,25 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 guarantee wording fixes and (term, LSN) history invariant
+
+-   **Trigger:** Codex's review of PR #146 (`docs/handoff/PR146_Acceptance_Review_Codex_Review.md`): approve as a
+    proposed decision record, do not freeze yet; make the five wording corrections and the G-15 clarification in the
+    Guarantees Specification; require a history-sensitive `(term, LSN)` check. PR #146 merged as `031a75f`.
+-   **Output:**
+    -   `docs/SNC_GUARANTEES.md`: AFR-G-14(a), G-15, G-30, G-35, G-46 and G-48 reworded.
+    -   `docs/AFR_001_SAFETY_ANALYSIS.md`: R6.4 (refuse on a damaged term history), R6.6, R9 (no degrade, no
+        removal, no acknowledgement without a standby whose lease may be valid), and the H durability note.
+    -   `spec/tla/Log.tla`: `HistoryUnique` is added to `Safety`.
+    -   `spec/tla/RESULTS.md` section 8.
+-   **Results (bounded):** `HistoryUnique` passes at both completed Log bounds. Without R6.0 it fails at depth 4,
+    and with one node `EntryUnique` cannot see that failure. The torn-tail path of G-15 is not modelled. How a node
+    without replicas takes a new term is OPEN.
+-   **QA:** independent QA reported 3 blockers, 5 majors and 3 minors; all were addressed. The corrected text was
+    not re-reviewed.
+-   **Not done (cody's decisions):** conditional acceptance of D-01 and D-03; `m = 2` as the default.
+-   **Next action:** STOP for cody's and Codex's review. No implementation is authorized.
+
 ### 2026-11-16 --- SNC-AFR-001 protocol-acceptance review (docs only)
 
 -   **Trigger:** Codex's review of PR #145 (`docs/handoff/PR145_Model_Composition_Codex_Review.md`, partial: the

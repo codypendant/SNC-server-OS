@@ -63,7 +63,7 @@ Each member `i` keeps:
 - a term history `H_i`, mapping each term to its first LSN in `i`'s log [EXT: Kafka KIP-101 "Leader Epoch
   Sequence File"].
 
-`H_i` must be durable, or rebuilt from the term stamps in the log. If it is lost, the member is reseeded (R6).
+`H_i` must be durable, or rebuilt from intact term stamps in the log. If it is damaged and cannot be rebuilt, the member refuses with a named error (G-14(a)); a reseed is then an explicit operator action (R6.4). [Revised after Codex's PR #146 review; previously: "If it is lost, the member is reseeded."]
 
 ### Ack set A and lease
 
@@ -163,14 +163,19 @@ Each member `i` keeps:
 - **R6.4 Reseed.** `k` is reseeded in place of R6.2-R6.3 in either of two cases:
   - the truncation point is below `k`'s checkpoint maximum LSN (checkpoints are local-only, `shard.cpp:2710-2716`,
     [FACT-SNC]);
-  - `H_k` or `H_j` cannot answer.
+  - `H_j` cannot answer because it no longer covers `t_k` (compacted). A damaged `H_j` is not this case: `j` refuses
+    like any member.
+
+  If `H_k` is damaged, `k` refuses with a named error instead (G-14(a)). Reseeding it then is an explicit operator
+  action. [Revised after Codex's PR #146 review.]
 - **R6.5 Incomplete.** A durable `incomplete` flag is set before `k` discards anything, and cleared only once the
   copied state is durable and positioned at a `(term, lsn)` of `j`'s log.
   - While the flag is set, `k` acknowledges no entries, is not counted in A, cannot be added to S, and cannot be
     promoted.
   - Recovery with the flag set restarts the reseed.
 - **R6.6 No silent fallback.** Kafka falls back to the high watermark when the epoch query fails (KIP-279 [EXT]). SNC
-  does not: a failed or unanswerable query leads to a retry or to R6.4.
+  does not: a failed or unanswerable query leads to a retry or to R6.4, except that a damaged `H_k` leads to a
+  refusal (R6.4).
 
 **R7. Operator promotion.**
 - It carries the expected term and goes through the same compare-and-set, so R3, including the `learned + W`
@@ -227,6 +232,9 @@ majority of witnesses, so it stays bounded (G-33).
   to every failover. X-3 measures both.
 
 **R9. Standby read leases.** A standby read lease that p grants never outlasts p's own authority (fixes M2).
+- While a standby lease that p granted to `m` may still be valid, p does not degrade, does not remove `m` from A,
+  and does not acknowledge without `m` (G-30). Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`); it has no A, and its lease frame is forgeable (G-30). [Added after Codex's
+  PR #146 review. Not model-checked: `Authority.tla` has no writes and `Combined.tla` has no standby leases.]
 - Like any grant, it is anchored at the standby's send time and deflated by `(1-ρ)` on the standby's clock.
 - It is fenced against a new primary by the R3 bound.
 
