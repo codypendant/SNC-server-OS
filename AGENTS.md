@@ -3321,3 +3321,26 @@ or source comments.
     suspend, and the migration rule.
 -   **Next action:** STOP for cody's and Codex's review. Experiments X-1 to X-3 are proposals and none is
     started. Nothing is accepted, and no code is authorized.
+
+### 2026-11-16 --- SNC-AFR-001 safety analysis for D-01/D-02/D-03 (docs only)
+
+-   **Trigger:** Codex's review of PRs #140 and #141 (`docs/handoff/PR140_141_Codex_Review.md`). PR #140 was approved
+    for documentation merge only, and a focused safety analysis is required before final acceptance.
+-   **Output:** `docs/AFR_001_SAFETY_ANALYSIS.md`. It sets out the protocol as rules R1-R9 and walks each hand-off
+    case as a concrete interleaving, giving every case a verdict of PREVENTED or UNRESOLVED. It also covers:
+    -   Claim D, labelled as inference throughout;
+    -   single-copy windows and the limits of G-14(b);
+    -   the dependencies and proposed acceptance criteria for X-1 to X-3;
+    -   a TLA+ validation plan.
+
+    It also records cody's engineering principle (`docs/ENGINEERING_PRINCIPLES.md`).
+-   **Verification:** an independent adversarial review. It broke the first draft with two blockers, B1 (a lost
+    reply to a grow, then a promotion) and B2 (a fast double promotion), plus three major defects M1, M2 and M4.
+    All five are fixed by rules R1, R2/R3, R6, R9 and the lease from A.
+
+    Case 5c (operator promotion outside S while S has two or more members) remains UNRESOLVED. The amendment to
+    `AFR_001_CORE_DECISIONS.md` section 5.1 (take the lease from A, not S) is noted in the analysis and has not
+    been applied.
+-   **Next action:** STOP for cody's and Codex's review. The owner still has to decide the default for m, the
+    single-copy reporting, R8 or unbounded degraded mode, and the X-1 to X-3 thresholds. No code and no
+    experiments are authorized.
