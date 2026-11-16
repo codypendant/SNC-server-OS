@@ -7,7 +7,7 @@ These are verification artifacts for `docs/AFR_001_SAFETY_ANALYSIS.md` and
 |---|---|
 | `Authority.tla` | Claim L: `OneAuthority` (at most one node holds valid authority) and `NoStaleStandby` (no standby read lease from an older term outlives the start of a newer primary's authority), plus `R3Lemma` (the simplified R3 rule implies the full one). Rules R1-R5, R7-R9. Time is countdown timers |
 | `Combined.tla` | Authority and durability together: `OneAuthority`, `AckedPreserved`, `EntryUnique`, `LogMatching`, `AckedAtPrimary` across promotion, acknowledgement, membership changes and restarts. Its abstractions are listed in its header |
-| `Log.tla` | Claim D: `AckedPreserved` (I4), `EntryUnique` (I1), `LogMatching` (I2), `StateMatchesLog` (I5), `PositionedPrefix` (I3) and `HistoryUnique` (G-15: a `(term, LSN)` never identifies two different entries over the whole history). Rules R1, R2, R6 |
+| `Log.tla` | Claim D: `AckedPreserved` (I4), `EntryUnique` (I1), `LogMatching` (I2), `StateMatchesLog` (I5), `PositionedPrefix` (I3) and `HistoryUnique` (G-15: a `(term, LSN)` never identifies two different entries over the run's history; it exercises R6.0 only, see `RESULTS.md` section 8). Rules R1, R2, R6 |
 | `Authority.cfg`, `Log.cfg`, `Combined.cfg` | The fixed protocol. Every fix is on, and case 5c is excluded (R7 forbids it) |
 | `MC_Authority.tla` | Defines the witness symmetry used by `Authority.cfg` |
 | `RESULTS.md` | Every run, its configuration and its result, including counterexamples and modelling limits |

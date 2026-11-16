@@ -216,7 +216,10 @@ the same term are the same entry, even if one of them no longer exists anywhere.
 - Checkpoints (`cks`) are copies of a `dlog` prefix, and reseeds write into `dlog`, so `hist` misses neither.
 - Including `ilog` is stronger than "durable": a primary ships from `ilog` before its local write
   (`storage.cpp:651-652`), so in-memory content can reach a standby.
-- The model has no torn tails, so the torn-tail path of G-15 is not covered.
+- **What it covers is narrower than G-15 (independent QA of PR #147).** The model has no torn tails, and a standby
+  has no volatile tail (`Ship` writes straight to `dlog`), so the only reuse it can produce is a primary writing its
+  old term again after a crash. `HistoryUnique` therefore checks R6.0 and nothing else of G-15's condition (2), with
+  one crash in total.
 
 | Run | Configuration | Result |
 |---|---|---|
