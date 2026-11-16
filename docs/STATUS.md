@@ -392,7 +392,12 @@ Decided by cody on 2026-11-04.
      without `--shards`/`--cpus` takes its group's shard count; a disagreeing `--shards`, `--cpus`, `--group` or
      `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
-     (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
+     (K1-K7). Dependency order checked: D3, then D4, then D5 (independent).
+     **D4 (conditionally approved, PR #137, [STARTUP_ERRORS_D4.md](STARTUP_ERRORS_D4.md); x7 CI investigation in [handoff/PR137_D4_Startup_Errors_Review_Approval.md](handoff/PR137_D4_Startup_Errors_Review_Approval.md)):** a configuration refused at startup
+     (malformed `--cluster`, an environment override or timer the engine refuses, a non-hex `--space-uuid`,
+     more than 256 shards) exits 2 with its reason instead of aborting (SIGABRT). New `test_startup_errors`
+     (E1-E6). Proposed, not started: D4-b (listener aborts: busy port, hostname `--host`), D4-c (validate
+     before `--control`/`--rejoin` side effects). D5 not started.
      F2 to F4 not started.
      **SNC-AFR-001 architecture foundation review, Phase 1 (approved, PR #138, [handoff](handoff/PR138_AFR001_Phase1_Codex_Approval.md); [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
      read-only inventory and immediately critical findings; no code changed. audit-D1 to D4 are still open and

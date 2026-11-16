@@ -113,6 +113,7 @@
 #include <memory>
 #include <optional>
 #include <condition_variable>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -248,6 +249,10 @@ bool parse_uuid(const char* s, Uuid& u) {
   for (const char* p = s; *p; ++p)
     if (*p != '-') h += *p;
   if (h.size() != 32) return false;
+  // Every character a hex digit: std::stoul alone throws on "zz" (an abort,
+  // D4) and accepts "0x", " 1" or "+1" as a byte.
+  for (char c : h)
+    if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
   for (int i = 0; i < 16; ++i) u[i] = static_cast<u8>(std::stoul(h.substr(2 * i, 2), nullptr, 16));
   return true;
 }
@@ -292,7 +297,17 @@ int main(int argc, char** argv) {
       }
       return argv[++i];
     };
-    if (k == "--shards") cfg.runtime.n_shards = static_cast<u16>(std::atoi(val()));
+    if (k == "--shards") {
+      // Above kMaxShards NativeRuntime aborts, and a value past 65535 wrapped
+      // through u16 (65536 read as 0, "not given"): refuse both (D4). A
+      // non-number still reads as 0, as before.
+      const unsigned long long n = std::strtoull(val(), nullptr, 10);
+      if (n > kMaxShards) {
+        std::fprintf(stderr, "--shards takes 1 to %u\n", kMaxShards);
+        return 2;
+      }
+      cfg.runtime.n_shards = static_cast<u16>(n);
+    }
     else if (k == "--cpus") cfg.runtime.cpus = parse_cpus(val());
     else if (k == "--host") {
       ncfg.host = val();
@@ -323,7 +338,17 @@ int main(int argc, char** argv) {
     else if (k == "--standby-host") cfg.standby_host = val();
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--seed-from") cfg.seed_from = val();
-    else if (k == "--cluster") cfg.cluster = parse_cluster(val());
+    else if (k == "--cluster") {
+      // A malformed list is a configuration error: exit 2 with the reason,
+      // not an uncaught exception (D4, docs/STARTUP_ERRORS_D4.md).
+      const char* v = val();
+      try {
+        cfg.cluster = parse_cluster(v);
+      } catch (const std::invalid_argument& e) {
+        std::fprintf(stderr, "snc_server: --cluster refused: %s\n", e.what());
+        return 2;
+      }
+    }
     else if (k == "--group") cfg.group_id = static_cast<u16>(std::atoi(val()));
     else if (k == "--member") cfg.member = static_cast<u16>(std::atoi(val()));
     else if (k == "--links-generation-file") cfg.links_generation_file = val();
@@ -654,6 +679,13 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "snc_server: cannot read this process's CPUs (%s); %u shards, one per online CPU\n",
                    std::strerror(errno), n);
     }
+    if (n > kMaxShards) {
+      // A host (or --cpus list) with more CPUs than shards allowed: refuse
+      // with the reason rather than abort in NativeRuntime (D4).
+      std::fprintf(stderr, "snc_server: %u CPUs would give %u shards; at most %u, so pass --shards\n", n, n,
+                   kMaxShards);
+      return 2;
+    }
     cfg.runtime.n_shards = static_cast<u16>(n);
   }
 
@@ -847,7 +879,25 @@ int main(int argc, char** argv) {
                  (unsigned long long)cfg.ckpt_walk_ceiling_ns / 1000);
     return 2;
   }
-  Engine eng(cfg);
+  // The constructor validates the configuration (environment overrides,
+  // timers, the cluster shape) and throws std::invalid_argument when it
+  // refuses one. Built here, inside a try, so a refusal exits 2 with its
+  // reason and anything else it throws exits 1, instead of escaping main and
+  // aborting (D4, docs/STARTUP_ERRORS_D4.md). `eng` keeps the lifetime and
+  // destruction order it had as a local.
+  std::optional<Engine> eng_holder;
+  try {
+    eng_holder.emplace(cfg);
+  } catch (const std::invalid_argument& e) {
+    std::fflush(stdout);
+    std::fprintf(stderr, "snc_server: refused: %s\n", e.what());
+    return 2;
+  } catch (const std::exception& e) {
+    std::fflush(stdout);
+    std::fprintf(stderr, "snc_server: not started: %s\n", e.what());
+    return 1;
+  }
+  Engine& eng = *eng_holder;
   try {
     eng.start();
   } catch (const std::exception& e) {
