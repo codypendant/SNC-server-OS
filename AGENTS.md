@@ -3301,3 +3301,18 @@ or source comments.
     -   section 15 gives an oracle per clause group and four coverage outcomes;
     -   section 16 adds three separate decisions.
 -   **Next action:** STOP for review. Owner dispositions remain pending. No slice is started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): core decisions D-01/D-02/D-03 for owner review (proposed)
+
+-   **Trigger:** Codex's PR #139 final review (`docs/handoff/PR139_AFR001_Phase2_Codex_Final_Approval.md`). PR #139
+    merged as `15d3cf4`. The history-checker carry-forward is recorded in `SNC_GUARANTEES.md` section 15.
+-   **Output:** `docs/AFR_001_CORE_DECISIONS.md`. The authority model, durability boundary and group model are
+    evaluated together, and section 7 compares them with prior art from primary sources, as cody asked. The
+    recommendations are:
+    -   an in-sync set under a versioned witness group record;
+    -   term-scoped leases from every set member, with grace rules;
+    -   (term, LSN) log positions, with the end of the log decided by the new primary.
+-   **Verification:** an independent verifier. All three of its blockers were fixed: lease hand-off, stall and
+    suspend, and the migration rule.
+-   **Next action:** STOP for cody's and Codex's review. Experiments X-1 to X-3 are proposals and none is
+    started. Nothing is accepted, and no code is authorized.
