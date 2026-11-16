@@ -11,7 +11,8 @@
 (*     (add to A, grow, shrink, drop, degrade);                            *)
 (*   - restarts lose volatile state.                                       *)
 (*                                                                         *)
-(* Sound abstractions, each covered in detail by another model:            *)
+(* Abstractions, each covered in detail by another model (see            *)
+(* docs/AFR_001_MODEL_COMPOSITION.md for what each assumes of the others): *)
 (*   - Time: countdown timers, exact, as in Authority.tla.                 *)
 (*   - Witness Paxos: a promotion is chosen atomically, and the witness    *)
 (*     group's degraded lease is one timer granted only per the chosen     *)
@@ -19,13 +20,20 @@
 (*   - Reconciliation: one atomic KIP-279 truncation step against the      *)
 (*     current primary. Durable intents, checkpoints and reseeding are     *)
 (*     member-local and checked in Log.tla.                                *)
-(*   - Operator promotion and standby leases are left out; Authority.tla   *)
-(*     checks them.                                                        *)
+(*   - Operator promotion: inside S without READY (OpInside) and outside  *)
+(*     S from a degraded READY record (OpOutsideDeg) are switches. Fencing *)
+(*     and standby leases are left out; Authority.tla checks them.         *)
 (***************************************************************************)
 EXTENDS Integers, Sequences, FiniteSets
 
 CONSTANTS Nodes, P0, Q0, D, MaxTerm, MaxIds, MaxRestarts,
-          FixBarrier, FixAckAuth, FixGrow, FixDrop   \* TRUE = protocol; FALSE = mutation check
+          FixBarrier, FixAckAuth, FixGrow, FixDrop,  \* TRUE = protocol; FALSE = mutation check
+          FixGrantTerm,  \* R4: a member grants only to the primary of its own term
+          FixLearnStep,  \* R6.0/R4: learning a newer term ends primary status
+          FixAinS,       \* R1: a member joins S only from A
+          FixW1Term,     \* R8 W1: witness grants only per the chosen record's term
+          OpInside,      \* R7: operator promotion inside S, without READY
+          OpOutsideDeg   \* R7 5b: operator promotion outside S from a degraded, READY record
 
 VARIABLES rec, T, isPrim, learnW, A, pdeg, hg, wl,   \* authority
           dlog, ilog, pos, inh, pack, acked, nid,    \* durability
@@ -76,24 +84,26 @@ Tick ==
   /\ UNCHANGED <<rec, T, isPrim, A, pdeg, logv, nRestarts>>
 
 Grant(m, n) ==
-  /\ m # n /\ isPrim[n] /\ T[m] = T[n] /\ m \in A[n]
+  /\ m # n /\ isPrim[n] /\ (FixGrantTerm => T[m] = T[n]) /\ m \in A[n]
   /\ hg' = [hg EXCEPT ![n][m] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, wl, logv, nRestarts>>
 
 WGrant(n) ==   \* W1 against the chosen record
-  /\ isPrim[n] /\ pdeg[n] /\ rec.term = T[n] /\ rec.prim = n /\ rec.deg
+  /\ isPrim[n] /\ pdeg[n] /\ (FixW1Term => rec.term = T[n]) /\ rec.prim = n /\ rec.deg
   /\ wl' = [wl EXCEPT ![n] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, hg, logv, nRestarts>>
 
 Promote(j) ==  \* R2: j in S and READY; new S = {j}, degraded
-  /\ rec.term < MaxTerm /\ j \in rec.S /\ j # rec.prim /\ rec.ready
+  /\ rec.term < MaxTerm /\ j # rec.prim
+  /\ \/ j \in rec.S /\ (rec.ready \/ OpInside)
+     \/ OpOutsideDeg /\ j \notin rec.S /\ rec.deg /\ rec.ready
   /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> {j}, ready |-> FALSE, deg |-> TRUE]
   /\ UNCHANGED <<T, isPrim, learnW, A, pdeg, hg, wl, logv, nRestarts>>
 
 Learn(n) ==
   /\ rec.term > T[n]
   /\ T' = [T EXCEPT ![n] = rec.term]
-  /\ isPrim' = [isPrim EXCEPT ![n] = (rec.prim = n)]
+  /\ isPrim' = [isPrim EXCEPT ![n] = (rec.prim = n) \/ (~FixLearnStep /\ @)]
   /\ learnW' = [learnW EXCEPT ![n] = IF rec.prim = n THEN D ELSE @]
   /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN {n} ELSE {}]
   /\ pdeg' = [pdeg EXCEPT ![n] = (rec.prim = n)]
@@ -129,7 +139,7 @@ AddA(p, c) ==
   /\ UNCHANGED <<rec, T, isPrim, learnW, pdeg, hg, wl, logv, nRestarts>>
 
 Grow(p, c) ==  \* caught up: positioned, durable end >= max(inherited end, own acks)
-  /\ Current(p) /\ c \in A[p] /\ c \notin rec.S /\ pos[c] = T[p]
+  /\ Current(p) /\ (FixAinS => c \in A[p]) /\ c \notin rec.S /\ pos[c] = T[p]
   /\ Len(dlog[c]) >= IF FixGrow THEN Max({inh[p], pack[p]}) ELSE pack[p]
   /\ rec' = [rec EXCEPT !.S = @ \cup {c}, !.deg = FALSE]
   /\ pdeg' = [pdeg EXCEPT ![p] = FALSE]
@@ -203,4 +213,21 @@ AckedAtPrimary == \A e \in acked : \A n \in Nodes :
                     (isPrim[n] /\ T[n] = rec.term) =>
                        (Len(dlog[n]) >= e[1] /\ dlog[n][e[1]] = e[2])
 Safety == OneAuthority /\ AckedPreserved /\ EntryUnique /\ LogMatching /\ AckedAtPrimary
+
+(* --- Auth and the group record (Codex concern 3 on PR #144) -------------- *)
+\* Literal form: valid authority only at the record's term. Expected to FAIL by
+\* design: an old primary keeps its lease until it expires, after the new term
+\* is chosen; the new primary waits learned + W instead.
+AuthAtRecTerm == \A n \in Nodes : Auth(n) => T[n] = rec.term
+\* What holds instead (interface invariant, same as StaleAuthBounded in
+\* Authority.tla): authority below the record's term ends no later than the new
+\* primary's learn barrier, and the new primary has none meanwhile.
+Rem(n) == Min({hg[n][m] : m \in A[n] \ {n}} \cup (IF pdeg[n] THEN {wl[n]} ELSE {}) \cup {D})
+StaleAuthBounded == \A n \in Nodes : (Auth(n) /\ T[n] # rec.term) =>
+   /\ ~(Auth(rec.prim) /\ T[rec.prim] = rec.term)
+   /\ ((isPrim[rec.prim] /\ T[rec.prim] = rec.term) => Rem(n) <= learnW[rec.prim])
+\* Stronger form, true only without operator promotion: stale authority is one
+\* term behind and still holds a lease from the promoted member.
+OneTermBehind == \A n \in Nodes : (Auth(n) /\ T[n] # rec.term) =>
+   T[n] = rec.term - 1 /\ rec.prim \in A[n]
 =============================================================================
