@@ -202,3 +202,32 @@ State counts differ from section 1 for the same scenario (B_stale_core 1,441,064
 2,523,448) because the old model also stored the set of accepting witnesses, which the new one derives from the
 witnesses' records. The two encodings should have the same behaviours [INF; the independent QA checked the
 enabling conditions by hand].
+
+## 8. History-sensitive `(term, LSN)` uniqueness (follow-up to the PR #146 review)
+
+Codex: "The current model's `EntryUnique` invariant does not establish uniqueness across the entire history. I would
+require a history-sensitive test or invariant before freezing this clause" (`docs/handoff/PR146_Acceptance_Review_Codex_Review.md`).
+
+**Change to `Log.tla`.** A history variable `hist` collects every `<<lsn, entry>>` that any node's durable log
+(`dlog`) or in-memory log (`ilog`) has ever held. It is written only in `Next == Step /\ hist' = ...` and read only
+by the new invariant, so the other variables have the same behaviours as before. `hist` depends on the path, so
+state counts are not comparable with earlier sections. `HistoryUnique` says two entries ever held at one LSN with
+the same term are the same entry, even if one of them no longer exists anywhere. It is now part of `Safety`.
+- Checkpoints (`cks`) are copies of a `dlog` prefix, and reseeds write into `dlog`, so `hist` misses neither.
+- Including `ilog` is stronger than "durable": a primary ships from `ilog` before its local write
+  (`storage.cpp:651-652`), so in-memory content can reach a standby.
+- The model has no torn tails, so the torn-tail path of G-15 is not covered.
+
+| Run | Configuration | Result |
+|---|---|---|
+| H_fixed | `Log.cfg` with MaxIds 2 (L_ids2's bounds: MaxTerm 3, one crash), `Safety` with `HistoryUnique` | **PASS**, exhaustive, 5,226,372 states, depth 42 |
+| H_fixed_t2 | `Log.cfg` with MaxTerm 2 (L_term2's bounds: MaxIds 3, one crash) | **PASS**, exhaustive, 15,996,310 states, depth 42 |
+| H_one_hu | broken: one node (`Nodes = {n1}`, `P0 = Q0 = n1`), MaxIds 2, `FixR60 = FALSE`, `HistoryUnique` | violated, depth 4: NewEntry(n1) writes `(1, 1)` = id 0 in memory, Crash(n1) loses it, NewEntry(n1) writes `(1, 1)` = id 1 |
+| H_one_eu | as H_one_hu, `EntryUnique` only | **no violation**, exhaustive, 57 states. With one node, the per-instant invariant cannot see the reuse |
+| H_one_fixed | as H_one_hu with `FixR60 = TRUE`, `Safety` | **PASS**, exhaustive, 46 states. Weak control: after a crash the only node is no longer primary and nothing promotes it |
+| H_r60 | broken: `Log.cfg` with MaxIds 2, `FixR60 = FALSE`, `HistoryUnique` | violated, depth 4 (same reuse as H_one_hu, on n1) |
+| H_r60_eu | as H_r60, `EntryUnique` only | violated, depth 6: only once both copies coexist on two nodes |
+
+**What this shows.** Within the completed Log bounds, no `(term, LSN)` is ever reused for different content under
+the fixed protocol. Without R6.0, the reuse happens and `HistoryUnique` catches it where `EntryUnique` cannot
+(H_one_eu) or catches it later (H_r60_eu). `Log.cfg` at MaxTerm 3 and MaxIds 3 remains NOT COMPLETED (section 1).
