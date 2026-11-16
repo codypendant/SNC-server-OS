@@ -1,4 +1,4 @@
-# TLC results for SNC-AFR-001 (closure phase)
+# TLC results for SNC-AFR-001 (closure phase): PROPOSED / PARTIAL VERIFICATION
 
 These are the runs on the models in this directory, made during the closure phase
 (`docs/AFR_001_VERIFICATION_CLOSURE.md`). Each run copies the models into a fresh directory and applies the stated

@@ -1,6 +1,8 @@
 # SNC-AFR-001: formal-verification closure
 
-- **Status: PROPOSED evidence, not a proof.** This phase follows Codex's review of PR #142 Revision 2
+- **Status: PROPOSED / PARTIAL VERIFICATION.** Bounded model-checking evidence, not a proof. Codex accepted it as a
+  documentation-and-model checkpoint only (`docs/handoff/PR144_Closure_Codex_Review.md`); section 6 lists the proof
+  obligations that remain open. This phase follows Codex's review of PR #142 Revision 2
   (`docs/handoff/PR142_Revision2_Codex_Review.md`). That review carried forward three open items. Each section below
   takes one, says what the closure phase did, and gives the result as bounded model-checking evidence.
 - **Nothing here authorizes implementation.** AFR-D-01, AFR-D-02 and AFR-D-03 stay unaccepted.
@@ -211,3 +213,19 @@ not needed under R2 at MaxIds 2.
 - bounds: three nodes, three witnesses, at most three terms, one restart, two entry ids in the combined model.
   Failures needing more of any of these are not covered;
 - nothing here says the C++ implements the protocol, or what it costs (X-1 to X-3).
+
+## 6. Remaining proof obligations
+
+These stay open. None of them is closed by this document.
+1. **The split models.** `Authority.tla`, `Log.tla` and `Combined.tla` each abstract parts the others check. That
+   the abstractions preserve the safety properties is argued, not shown (Codex's next step).
+2. **The larger Log configuration.** `Log.cfg` as committed (MaxTerm 3, MaxIds 3) did not finish after the `Learn`
+   fix (62,464,105 states explored). Only smaller Log bounds completed.
+3. **The full Authority configuration.** No run with every scenario, a restart and fencing together has finished,
+   at MaxTerm 2 or 3. Nor has the 5c gate with two fences and a returning node.
+4. **Missing combinations.** A restart with operator promotion or standby leases; fencing with standby leases;
+   acknowledgement under operator promotion.
+5. **Reads.** Linearizable reads are not modelled, so read safety rests on Claim L and the argument.
+6. **Bounds and time.** Three nodes, three witnesses, at most three terms, small entry and restart counts; discrete
+   time with drift folded into D by argument.
+7. **Implementation and cost.** Nothing shows the C++ implements the protocol, or what it costs (X-1 to X-3).

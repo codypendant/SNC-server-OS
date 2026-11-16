@@ -3381,6 +3381,9 @@ or source comments.
     with every system checked; the QA found the returning-fenced-member hole that the boot read closes. M1 is
     distinguished under a relaxed R2. R3Lemma holds in every completed Authority run. **No all-scenario Authority
     run with restarts and fencing completed.**
+-   **Review:** Codex (`docs/handoff/PR144_Closure_Codex_Review.md`, tail only): merge as a docs-and-model
+    checkpoint with status PROPOSED / PARTIAL VERIFICATION; remaining proof obligations in the closure doc section
+    6. Next: verify that the split between Authority, Log and Combined preserves the intended safety properties.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
