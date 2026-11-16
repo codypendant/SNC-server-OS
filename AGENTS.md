@@ -129,6 +129,11 @@ handoff entry below when another agent's assumptions change.
 Avoid large architectural rewrites without rationale, evidence, and a
 migration path.
 
+## Engineering Principles
+
+Standing owner principles, recorded verbatim in `docs/ENGINEERING_PRINCIPLES.md`, apply to every
+agent. Currently: **Research Before Architectural Reinvention** (2026-11-16).
+
 ## Architecture Review Priorities
 
 Before another major subsystem, review: - ObjectID/object
