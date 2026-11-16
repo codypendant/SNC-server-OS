@@ -3268,6 +3268,55 @@ or source comments.
 -   **Next action:** none until cody's explicit go. Codex recommends the architectural guarantees review (Phase 2)
     next; it is not authorized yet, and neither are AFR-S-1 to S-3.
 
+### 2026-11-16 UTC --- Claude (Claude Code): SNC-AFR-001 Phase 2, Guarantees Specification (proposed)
+
+-   **Authorization:** cody authorized Phase 2 after PR #138 merged (`2fb029c`). Codex's planning note (relayed by
+    cody) set three milestones: inventory accepted, then the guarantees specification with rulings on known
+    defects, then Rust readiness as a later decision gate. Not every C++ defect must be fixed before Rust; each
+    critical defect is classified, tied to a guarantee and a verification strategy, and marked as an immediate
+    C++ fix only when it compromises C++ as the testing reference.
+-   **Output:** `docs/SNC_GUARANTEES.md` (PROPOSED). It contains:
+    -   AFR-G-01 to 63, each with a C++ status, evidence and a differential-testing class;
+    -   AFR-R-01 to 32, proposed rulings with owner disposition left blank;
+    -   section 13.1, the C++ treatment of each ruling: FIX-IN-C++, KNOWN-VIOLATION or EXPERIMENT FIRST;
+    -   section 13.2, which decisions are ready to stabilize and which are not;
+    -   AFR-D-01 to 15, decisions needed before Rust crate design.
+    The handoff is `docs/handoff/AFR001_Phase2_Handoff_To_Codex.md`.
+-   **Verification:** two independent verifiers, plus the author's re-check of every corrected citation (section 17).
+-   **Next action:** STOP for cody's and Codex's review. No C++ slice is started (the proposed FIX-IN-C++ slices
+    each need their own go). This work is isolated from D3-D5, K1 and the port-exposure thread.
+
+### 2026-11-16 UTC --- Claude (Claude Code): PR #139 revision 1 (Codex's Phase 2 review)
+
+-   **Review:** `docs/handoff/PR139_AFR001_Phase2_Codex_Review.md`. Codex approved the documentation as PROPOSED
+    and held acceptance pending nine refinements.
+-   **What:** a focused revision of `docs/SNC_GUARANTEES.md`, recorded in section 17, "Revision 1":
+    -   G-14 is split into detection and the acknowledgement boundary;
+    -   R-05 waits for AFR-D-05 and AFR-D-06;
+    -   the recommendations for AFR-D-01 and AFR-D-03 are withdrawn and replaced by what each must specify
+        (sections 14.1 and 14.2);
+    -   G-09 is split into three properties;
+    -   G-11 and G-12 now cover the requested versus the achieved class;
+    -   authentication, cluster identity (new G-64), authorization and resource exhaustion are separate clauses;
+    -   section 15 gives an oracle per clause group and four coverage outcomes;
+    -   section 16 adds three separate decisions.
+-   **Next action:** STOP for review. Owner dispositions remain pending. No slice is started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): core decisions D-01/D-02/D-03 for owner review (proposed)
+
+-   **Trigger:** Codex's PR #139 final review (`docs/handoff/PR139_AFR001_Phase2_Codex_Final_Approval.md`). PR #139
+    merged as `15d3cf4`. The history-checker carry-forward is recorded in `SNC_GUARANTEES.md` section 15.
+-   **Output:** `docs/AFR_001_CORE_DECISIONS.md`. The authority model, durability boundary and group model are
+    evaluated together, and section 7 compares them with prior art from primary sources, as cody asked. The
+    recommendations are:
+    -   an in-sync set under a versioned witness group record;
+    -   term-scoped leases from every set member, with grace rules;
+    -   (term, LSN) log positions, with the end of the log decided by the new primary.
+-   **Verification:** an independent verifier. All three of its blockers were fixed: lease hand-off, stall and
+    suspend, and the migration rule.
+-   **Next action:** STOP for cody's and Codex's review. Experiments X-1 to X-3 are proposals and none is
+    started. Nothing is accepted, and no code is authorized.
+
 ### 2026-11-15 UTC --- Claude (Claude Code): D4 controlled startup errors (for review)
 
 -   **What:** D4, assigned by cody's PR #136 review. Write-up `docs/STARTUP_ERRORS_D4.md`.
