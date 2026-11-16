@@ -124,6 +124,9 @@ if(PYTHON3)
   add_test(NAME test_default_shards COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_default_shards.py
            ${CMAKE_BINARY_DIR})
   set_tests_properties(test_default_shards PROPERTIES SKIP_RETURN_CODE 77)
+  # A cluster member's shard count is its group's (docs/SHARD_COUNT_D3.md).
+  add_test(NAME test_cluster_shards COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_cluster_shards.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_s1 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s1.py ${CMAKE_BINARY_DIR})
   # Pre-baseline readiness (docs/EXPERIMENTAL_BASELINE.md section 5): the

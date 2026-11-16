@@ -65,8 +65,9 @@ on after the snapshot is unsupported and unsafe (PAXOS_BALLOTS.md 9.4).
   `snc_ctl get` prints it.
 - `snc_server --control ... --node-id N` asks the control members for the
   map (one answers after reading what a majority holds), finds its group
-  and member by NodeID, takes its client port and the group's space UUID
-  from the map, and keeps the map and its NodeID in its data directory
+  and member by NodeID, takes its client port, the group's space UUID and
+  the group's shard count from the map (a `--shards` or `--cpus` that gives
+  another count is refused; docs/SHARD_COUNT_D3.md), and keeps the map and its NodeID in its data directory
   (`placement`, `node`). It refuses to start in a data directory of
   another node or another space, if the map does not name it, or if the
   control plane has no map yet.

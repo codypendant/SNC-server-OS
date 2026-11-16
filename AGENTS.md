@@ -3215,3 +3215,28 @@ or source comments.
 -   **Assumptions changed:** a node started without `--shards` now depends on its CPU set. Deployments should
     pass `--shards`. Cluster/control members and primary/standby pairs relying on the default can mismatch.
 -   **Next action:** cody reviews. D3, D4, D5 and R1-a/b/c, R2-a are proposals; none started.
+
+### 2026-11-15 UTC --- Claude (Claude Code): D3 cluster member shard count (for review)
+
+-   **What:** D3, Priority 1 of cody's PR #134/#135 review (`docs/handoff/PR135_D2a_Default_Shards_Review_Approval.md`).
+    Write-up `docs/SHARD_COUNT_D3.md`. Dependency check first: D3 needs neither D4 nor D5; D4 and D5 are
+    independent; order D3, D4, D5.
+-   **Code (REFINE):** `tools/snc_server.cpp` resolves the shard count after `--control`; in cluster mode the
+    group's count is the default and any other is refused (exit 2), as is an out-of-range `--group`/`--member`.
+    `Engine::recover` refuses, before writing anything, a cluster member's directory with another shard count
+    (no silent remap), and again after a seed. Standalone behavior and on-disk format unchanged.
+-   **Tests:** `test_cluster_shards` K1-K7 (fails on d605cdf at K1 with an abort; passes), restart and
+    mismatched-affinity cases included; `test_default_shards` harness pipe fix.
+-   **Evidence:** fast suite and the cluster/HA slow tests locally; 3 independent QA reviews, no blockers,
+    findings resolved (section 7).
+-   **Assumptions changed:** the group's shard count is authoritative for a member at start, and its
+    directory is never converted by a start. Residual risks in section 8.
+-   **Next action:** cody reviews. D4, D5, K1 and R1-a/b/c, R2-a not started.
+
+### 2026-11-15 UTC --- Claude (Claude Code): PR #136 review carried out (cody approved D3)
+
+-   **Review:** `docs/handoff/PR136_D3_Cluster_Shards_Review_Approval.md`. D3 approved for merge, provided full
+    CI passes; merged only after it did.
+-   **Next action:** D4 (controlled startup errors) as its own slice, PR, stop for review; then D5. K1 stays
+    unstarted and separate.
+

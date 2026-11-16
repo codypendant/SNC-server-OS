@@ -388,6 +388,11 @@ Decided by cody on 2026-11-04.
      and `node_info`; `SNC_HA_KEEP=0` turns it off. HEALTH and the HA path stay one-shot. A2 rerun, 10 trials:
      every scenario within the 5.1 tolerance. A harness flaw (a descriptor hole) had inflated main's recorded
      EMFILE times; corrected on main to 1028-1056 ms detection (merged with the approved PR). K1 waits for the shard-count work (D3-D5) and cody's explicit go.
+     **D3 (approved, PR #136, [SHARD_COUNT_D3.md](SHARD_COUNT_D3.md)):** in `--cluster`/`--control` mode a member
+     without `--shards`/`--cpus` takes its group's shard count; a disagreeing `--shards`, `--cpus`, `--group` or
+     `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
+     shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
+     (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
