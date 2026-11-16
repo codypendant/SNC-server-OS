@@ -393,11 +393,24 @@ Decided by cody on 2026-11-04.
      `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
      (K1-K7). Dependency order checked: D3, then D4, then D5 (independent).
-     **D4 (conditionally approved, PR #137, [STARTUP_ERRORS_D4.md](STARTUP_ERRORS_D4.md); x7 CI investigation in [handoff/PR137_D4_Startup_Errors_Review_Approval.md](handoff/PR137_D4_Startup_Errors_Review_Approval.md)):** a configuration refused at startup
+     **D4 (merged, PR #137 e1594bd after a green full suite on its final head 5010bec, run 43793041721; [STARTUP_ERRORS_D4.md](STARTUP_ERRORS_D4.md); reviews in [handoff/PR137_D4_Startup_Errors_Review_Approval.md](handoff/PR137_D4_Startup_Errors_Review_Approval.md) and [handoff/PR137_141_Codex_Final_Review.md](handoff/PR137_141_Codex_Final_Review.md)):** a configuration refused at startup
      (malformed `--cluster`, an environment override or timer the engine refuses, a non-hex `--space-uuid`,
      more than 256 shards) exits 2 with its reason instead of aborting (SIGABRT). New `test_startup_errors`
      (E1-E6). Proposed, not started: D4-b (listener aborts: busy port, hostname `--host`), D4-c (validate
      before `--control`/`--rejoin` side effects). D5 not started.
+     **Open, tracked (not started; wait for cody's go):**
+     - **T-X7: `test_xnode_proc` x7 test-readiness race** (Codex, final review of #137: track separately, not
+       part of #137's startup handling). x7 kills group 1's primary at a fixed time under load without checking
+       that the group is still READY; a primary killed while NOT READY is on record is correctly not replaced,
+       so the test then times out. Mechanism reproduced (`tests/probe_x7_not_ready.py`); the one CI failure's
+       logs are gone, so it is the reproduced mechanism, not proof of that run's cause. Proposed fix: wait for
+       READY before the kill and name the NOT READY case.
+     - **T-X7B: `test_xnode_proc` x7b liveness failure** (one CI run, 43783722134): 16 requests unanswered 60 s
+       after the end, 156 client failovers; whether a resumed old primary acknowledged writes (AFR-F-04) is
+       not settled. Its balance mismatch may be a harness gap: `snc_load` drops abandoned in-flight requests
+       instead of recording them as in doubt.
+     - **Test tooling:** `snc_load` to count abandoned requests as in doubt; CI to keep failed tests'
+       directories as artifacts.
      **AFR-S-2 listener exposure (approved with conditions, met; PR #141, [LISTENER_EXPOSURE.md](LISTENER_EXPOSURE.md)):** interim
      mitigation of AFR-F-02. Every `snc_server` listener (data, admin, seed, node links, standby replication)
      binds `--host`, default `127.0.0.1`; `snc_witness --host` likewise; the `--control` fallback to `0.0.0.0` is
