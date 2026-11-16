@@ -1,9 +1,16 @@
 # PR #143 review decision (Codex, relayed by cody, 2026-11-16 16:52 UTC)
 
-Posted by cody in the project chat as a screenshot of Codex's review; the visible part transcribed verbatim
-(the screenshot begins mid-review, after the list of #137's merge facts: final head `5010bec`, fast tests
-53/53, full suite 63/63, merge commit `e1594bd`).
+Posted by cody in the project chat as two screenshots of Codex's review; transcribed verbatim.
 
+> I reviewed all three changed files.
+>
+> PR #143 correctly records that PR #137 satisfied its final CI requirement before merging:
+>
+> - Final head: `5010bec`
+> - Fast tests: **53/53 passed**
+> - Full suite: **63/63 passed**
+> - Merge commit: `e1594bd`
+>
 > It also properly separates the outstanding test issues:
 >
 > - **T-X7:** Reproduced test-readiness race.
