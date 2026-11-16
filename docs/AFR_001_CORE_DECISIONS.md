@@ -1,5 +1,6 @@
 # SNC-AFR-001: three core decisions, evaluated together (for owner review)
 
+- **Owner decisions, 2026-11-16** (`docs/handoff/PR148_Owner_Decisions.md`): D-01 conditionally accepted: term-scoped primary leases from every member of A, witness-majority leases in degraded mode, durable term fencing, the R3 barrier, answer-time checks, a suspend-aware clock, linearizable witness reads. Where section 5.1 here differs (lease from S, restart wait), the later safety analysis (`docs/AFR_001_SAFETY_ANALYSIS.md` R3, R8) is the current text; R9 is not accepted. D-03 direction (A) selected, final R2 pending. `m = 2` default. D-02 on HOLD. This document stays as the comparison record.
 - **Status: PROPOSED.** This document decides nothing. A recommendation binds only when cody accepts it, after
   Codex's review. It authorizes no code, no C++ slice and no Rust work.
 - **Scope.** Three decisions, evaluated together because each one constrains the others (Codex, PR #139 final

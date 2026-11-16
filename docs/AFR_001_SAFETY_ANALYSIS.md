@@ -11,8 +11,11 @@
 - **Closure phase.** `docs/AFR_001_VERIFICATION_CLOSURE.md` follows Codex's Revision 2 review: case 5c is now
   forbidden by R7, R3's simplified rule and a combined authority-and-durability model are model-checked within
   bounds, and a defect in the Revision 2 Log model is disclosed.
-- **Nothing here authorizes implementation.** AFR-D-01, AFR-D-02 and AFR-D-03 are not accepted as a complete
-  protocol.
+- **Owner decisions, 2026-11-16** (`docs/handoff/PR148_Owner_Decisions.md`): the authority mechanism here (R3, R4, R5,
+  R8, the lease from A) is conditionally accepted as AFR-D-01. The in-sync-set direction is selected for AFR-D-03, but
+  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 waits for its targeted model. This is not a proof.
+- **Nothing here authorizes implementation.** AFR-D-02 is on HOLD. R1, R2, R6 and R7 are not accepted as a complete
+  protocol; they are the D-03 direction's current candidates.
 - **Method.** This follows `docs/ENGINEERING_PRINCIPLES.md` (research before reinvention). Each claim carries a
   label:
   - **[FACT-SNC]**: verified in the code at `5338688`.
