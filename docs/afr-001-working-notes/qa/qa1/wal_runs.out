@@ -1,0 +1,47 @@
+=== mid
+[before damage] segments: 1(recs=100,lsn 1..100)
+damaging segment 1 (newest with records=is last file) record idx 49 lsn 50 off 204800, mode=mid
+[restart 1 (+10 new creates)] start OK: wal_records_replayed=49 torn_tails=1 objects=49; acked=100 present=49 first_missing_idx=49
+[restart 1 (+10 new creates)] child exit: status 0
+[after restart 1] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59)
+[restart 2] start OK: wal_records_replayed=59 torn_tails=1 objects=59; acked=100 present=49 first_missing_idx=49
+[restart 2] child exit: status 0
+[after restart 2] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59) 60(recs=0,lsn 0..0)
+=== first
+[before damage] segments: 1(recs=100,lsn 1..100) 101(recs=50,lsn 101..150)
+damaging segment 101 (newest with records=is last file) record idx 0 lsn 101 off 4096, mode=first
+[restart 1 (+10 new creates)] start OK: wal_records_replayed=100 torn_tails=1 objects=100; acked=150 present=100 first_missing_idx=100
+[restart 1 (+10 new creates)] child exit: status 0
+[after restart 1] segments: 1(recs=100,lsn 1..100) 101(recs=10,lsn 101..110)
+[restart 2] start OK: wal_records_replayed=110 torn_tails=0 objects=110; acked=150 present=100 first_missing_idx=100
+[restart 2] child exit: status 0
+[after restart 2] segments: 1(recs=100,lsn 1..100) 101(recs=10,lsn 101..110) 111(recs=0,lsn 0..0)
+=== type
+[before damage] segments: 1(recs=100,lsn 1..100)
+damaging segment 1 (newest with records=is last file) record idx 49 lsn 50 off 204800, mode=type
+record crc recomputed: check_record now returns 0
+[restart 1 (+10 new creates)] start OK: wal_records_replayed=49 torn_tails=1 objects=49; acked=100 present=49 first_missing_idx=49
+[restart 1 (+10 new creates)] child exit: status 0
+[after restart 1] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59)
+[restart 2] start OK: wal_records_replayed=59 torn_tails=1 objects=59; acked=100 present=49 first_missing_idx=49
+[restart 2] child exit: status 0
+[after restart 2] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59) 60(recs=0,lsn 0..0)
+=== older
+[before damage] segments: 1(recs=100,lsn 1..100) 101(recs=50,lsn 101..150)
+damaging segment 1 (newest with records=not last file) record idx 49 lsn 50 off 204800, mode=older
+snc storage: WAL gap before segment (spec C4): qa1/d_older/wal/s000/0000000000000065.wal (errno 0)
+[restart 1 (+10 new creates)] child exit: signal 6
+[after restart 1] segments: 1(recs=49,lsn 1..49) 101(recs=50,lsn 101..150)
+snc storage: WAL gap before segment (spec C4): qa1/d_older/wal/s000/0000000000000065.wal (errno 0)
+[restart 2] child exit: signal 6
+[after restart 2] segments: 1(recs=49,lsn 1..49) 101(recs=50,lsn 101..150)
+=== zero
+[before damage] segments: 1(recs=100,lsn 1..100)
+damaging segment 1 (newest with records=is last file) record idx 49 lsn 50 off 204800, mode=zero
+zeroed block at 204800
+[restart 1 (+10 new creates)] start OK: wal_records_replayed=49 torn_tails=0 objects=49; acked=100 present=49 first_missing_idx=49
+[restart 1 (+10 new creates)] child exit: status 0
+[after restart 1] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59)
+[restart 2] start OK: wal_records_replayed=59 torn_tails=0 objects=59; acked=100 present=49 first_missing_idx=49
+[restart 2] child exit: status 0
+[after restart 2] segments: 1(recs=49,lsn 1..49) 50(recs=10,lsn 50..59) 60(recs=0,lsn 0..0)

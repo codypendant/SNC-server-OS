@@ -3215,3 +3215,24 @@ or source comments.
 -   **Assumptions changed:** a node started without `--shards` now depends on its CPU set. Deployments should
     pass `--shards`. Cluster/control members and primary/standby pairs relying on the default can mismatch.
 -   **Next action:** cody reviews. D3, D4, D5 and R1-a/b/c, R2-a are proposals; none started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): SNC-AFR-001 Phase 1, inventory and critical findings (for review)
+
+-   **What:** Phase 1 of cody's architecture foundation review (SNC-AFR-001, five amendments accepted; Codex
+    approved Handoff 1, `docs/handoff/AFR001_Handoff1_Codex_Review.md`). `docs/AFR_001_INVENTORY.md`
+    (Deliverable 1 plus immediately critical findings); evidence in `docs/afr-001-working-notes/`.
+-   **Code:** none. Docs only. New IDs use the `AFR-` prefix; older IDs are cited with their source document.
+-   **Found:** audit-D1 to D4 still open at `24006ee`. Critical: AFR-F-01 (WAL damage loses acknowledged writes
+    silently, wider than audit-D2: segment deleted when its first record is damaged, zeroed block and unknown
+    record type truncate with no trace, LSN reuse) and AFR-F-02 (unauthenticated ports wider than audit-D4:
+    `AUDIT PATH` file truncation, forged Paxos `COMMIT` persisted, replication receiver takeover). High:
+    AFR-F-03 dedup not bound to the request and wall-clock expiry (double apply reproduced), AFR-F-04 authority is
+    an in-memory belief (shared cause of stale reads, O1 and non-durable fencing; two acknowledging primaries
+    reproduced after a restart without witnesses), AFR-F-05 unbounded standby receive. AFR-F-07: no accepted
+    specification exists; the v0.1 spec is located (Claude Doc, revision 22, SHA-256 recorded) but not imported.
+-   **Evidence:** four bounded reviewers, author re-read of every critical finding, two QA agents not shown the
+    notes (QA1 P1-P8, QA2 N1-N9). Experiments on loopback, scratch dirs only.
+-   **Assumptions changed:** "acknowledged durable writes survive restart" holds only for undamaged media; "the
+    admin port is only a lab convenience" is wrong for any LAN deployment.
+-   **Next action:** STOP for cody and Codex review. AFR-S-1 to S-3 and experiments E-01 to E-03 are proposals; none
+    started. Phase 2 not started. Isolated from D3-D5 and K1.
