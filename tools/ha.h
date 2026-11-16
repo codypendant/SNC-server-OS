@@ -7,6 +7,7 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -139,12 +140,31 @@ inline bool bind_serves(const std::string& bind, const std::string& advertised) 
   return bind == "0.0.0.0" || bind == advertised;
 }
 
-// Whether a peer at `host` is on another machine as far as a loopback bind
-// can tell: it resolves to an address outside 127/8. A name that does not
+// Whether an IPv4 address (text) is one of this machine's: 127/8, 0.0.0.0,
+// or an address on one of its interfaces (getifaddrs).
+inline bool is_this_machine_ipv4(const std::string& ip) {
+  in_addr a{};
+  if (::inet_pton(AF_INET, ip.c_str(), &a) != 1) return false;
+  const uint32_t h = ntohl(a.s_addr);
+  if ((h >> 24) == 127 || h == 0) return true;
+  ifaddrs* list = nullptr;
+  if (::getifaddrs(&list) != 0) return false;
+  bool found = false;
+  for (ifaddrs* i = list; i != nullptr && !found; i = i->ifa_next) {
+    if (i->ifa_addr != nullptr && i->ifa_addr->sa_family == AF_INET)
+      found = reinterpret_cast<sockaddr_in*>(i->ifa_addr)->sin_addr.s_addr == a.s_addr;
+  }
+  ::freeifaddrs(list);
+  return found;
+}
+
+// Whether a peer at `host` is on another machine: it resolves to an
+// address that is not this machine's (a local LAN address is this machine,
+// QA 1; a peer there can dial back over loopback). A name that does not
 // resolve is not counted (nothing can be said about it here).
 inline bool peer_off_loopback(const std::string& host) {
   std::string ip;
-  return resolve_ipv4_text(host, ip) && !is_loopback_ipv4(ip);
+  return resolve_ipv4_text(host, ip) && !is_this_machine_ipv4(ip);
 }
 
 // A listening socket on host:port; -1 when host is not an IPv4 literal or

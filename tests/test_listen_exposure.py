@@ -335,6 +335,9 @@ def l4_refusals(work):
     rc, out = run_exit([WITNESS, "--port", adm, "--state", f"{work}/wg.state", "--new-state", 1, "--group",
                         "0=192.0.2.77:1,192.0.2.78:2"])
     assert rc == 2 and "another machine" in out, (rc, out)
+    rc, out = run_exit([WITNESS, "--port", adm, "--state", f"{work}/wp.state", "--new-state", 1, "--id", 0,
+                        "--peers", f"127.0.0.1:{adm},192.0.2.77:2,192.0.2.78:3"])
+    assert rc == 2 and "another machine" in out and not os.path.exists(f"{work}/wp.state"), (rc, out)
     rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--host", "localhost"])
     assert rc == 2 and "not an IPv4 address" in out, (rc, out)
     os.mkdir(os.path.join(work, "d"))
@@ -371,6 +374,10 @@ def l4_refusals(work):
         rc, out = run_exit([WITNESS, "--port", a, "--state", f"{work}/w.state", "--new-state", 1, "--id", 0,
                             "--peers", peers, "--host", "127.0.0.1"])
         assert rc == 2 and f"--host {other}" in out, (rc, out)
+        # This machine's own LAN address is not "another machine" (QA 1).
+        rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--port", c0, "--admin-port", adm,
+                            "--witness", f"{other}:1"], timeout=3)
+        assert rc is None, (rc, out)
         print(f"  L4: witness refusal checked at {other}")
     else:
         print("  L4: no non-loopback address here; the witness refusal is not exercised")

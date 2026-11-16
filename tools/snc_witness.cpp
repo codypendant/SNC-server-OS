@@ -674,6 +674,19 @@ int main(int argc, char** argv) {
     // serve exactly that address, or be 0.0.0.0. Otherwise it would start
     // and never be reached: refused, with the fix (AFR-S-2), as snc_server
     // refuses a cluster member.
+    // The reverse (QA 1): its own entry loopback while a peer is on
+    // another machine; that peer dials 127.x on its own host.
+    if (ha::is_loopback_ipv4(peers[self_id].host)) {
+      for (std::size_t i = 0; i < peers.size(); ++i) {
+        if (i != self_id && ha::peer_off_loopback(peers[i].host)) {
+          std::fprintf(stderr, "snc_witness: --peers names this witness (--id %u) at %s, but peer %s is on another "
+                               "machine and could not reach it there: name this machine's address in --peers and "
+                               "pass it as --host (docs/LISTENER_EXPOSURE.md)\n", self_id,
+                       peers[self_id].host.c_str(), peers[i].host.c_str());
+          return 2;
+        }
+      }
+    }
     std::string self_ip;
     if (ha::resolve_ipv4_text(peers[self_id].host, self_ip) && !ha::bind_serves(listen_host, self_ip)) {
       std::fprintf(stderr, "snc_witness: --peers names this witness (--id %u) at %s, but it would listen on %s "

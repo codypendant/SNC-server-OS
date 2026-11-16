@@ -83,13 +83,18 @@ exit 2, naming the fix:
   `--witness` on another machine with `--admin-port` (the witness polls the
   admin port); `--replica-of` on another machine with `--seed-port` (the
   standby fetches seeds); a standby whose `--seed-from` primary is on
-  another machine (that primary dials it); `--rejoin` with the peer on
-  another machine.
+  another machine (that primary dials it; not checked when `--standby-host`
+  sets the replication address); `--rejoin` with the peer on another
+  machine.
 - Bound to loopback, a witness watching (`--group`, `--primary`,
-  `--standby`) nodes on another machine (they dial it).
+  `--standby`) nodes on another machine (they dial it); and a replicated
+  witness whose own `--peers` entry is loopback while another entry is on
+  another machine.
 
-A peer "on another machine" is one whose host resolves outside 127/8; a
-name that does not resolve is not counted. Still not detectable: a plain
+A peer "on another machine" is one whose host resolves to an address that
+is none of this machine's (127/8, 0.0.0.0, or an interface address from
+`getifaddrs`): a peer named by this machine's own LAN address is local and
+can dial back over loopback. A name that does not resolve is not counted. Still not detectable: a plain
 standby (`--standby`, no `--seed-from`, no cluster map) whose primary is
 on another machine. Pass `--host` (or `--standby-host`) on such a standby.
 

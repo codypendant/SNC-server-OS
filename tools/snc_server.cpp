@@ -113,6 +113,7 @@
 #include <netdb.h>
 #include <sched.h>
 #include <signal.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -286,9 +287,19 @@ std::string audit(Engine& eng, const std::string& name, int audit_dir) {
     if (::fstatat(audit_dir, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) == 0 && !S_ISREG(st.st_mode)) {
       return "NO cannot write " + name + ": not a regular file";
     }
-    static std::atomic<u64> seq{0};
-    const std::string tmp = ".audit-" + std::to_string(::getpid()) + "-" + std::to_string(seq.fetch_add(1));
-    const int fd = ::openat(audit_dir, tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    // A random suffix, retried on a clash: a predictable name could be
+    // pre-created to make AUDIT fail (QA 1).
+    std::string tmp;
+    int fd = -1;
+    for (int attempt = 0; attempt < 16 && fd < 0; ++attempt) {
+      u64 r = 0;
+      if (::getrandom(&r, sizeof(r), 0) != static_cast<ssize_t>(sizeof(r))) r ^= sri_now_ns();
+      char hex[17];
+      std::snprintf(hex, sizeof(hex), "%016llx", (unsigned long long)r);
+      tmp = std::string(".audit-") + hex;
+      fd = ::openat(audit_dir, tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+      if (fd < 0 && errno != EEXIST) break;
+    }
     if (fd < 0) return "NO cannot write " + name + ": " + std::strerror(errno);
     bool ok = true;
     for (std::size_t off = 0; ok && off < bal.size();) {
@@ -823,8 +834,12 @@ int main(int argc, char** argv) {
       return 2;
     }
     // The links generation file (D.2) is the other file a node depends on.
+    // Resolved first when it exists (a symbolic link to a file in the audit
+    // directory must not hide it; QA 1).
     if (!cfg.links_generation_file.empty()) {
-      std::string parent = cfg.links_generation_file;
+      char lr[PATH_MAX];
+      std::string parent = ::realpath(cfg.links_generation_file.c_str(), lr) != nullptr ? std::string(lr)
+                                                                                         : cfg.links_generation_file;
       const auto slash = parent.rfind('/');
       parent = slash == std::string::npos ? "." : slash == 0 ? "/" : parent.substr(0, slash);
       struct stat pst{}, ast{};
