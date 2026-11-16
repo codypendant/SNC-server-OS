@@ -130,6 +130,9 @@ if(PYTHON3)
   # Listener bind address and AUDIT NAME (AFR-F-02, docs/LISTENER_EXPOSURE.md).
   add_test(NAME test_listen_exposure COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_listen_exposure.py
            ${CMAKE_BINARY_DIR})
+  # Startup refusals exit with their reason, never abort (docs/STARTUP_ERRORS_D4.md).
+  add_test(NAME test_startup_errors COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_startup_errors.py
+           ${CMAKE_BINARY_DIR})
   add_test(NAME test_fail_closed COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_fail_closed.py ${CMAKE_BINARY_DIR})
   add_test(NAME test_s1 COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_s1.py ${CMAKE_BINARY_DIR})
   # Pre-baseline readiness (docs/EXPERIMENTAL_BASELINE.md section 5): the
