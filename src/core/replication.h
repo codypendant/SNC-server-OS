@@ -229,7 +229,7 @@ class Sender {
 class Receiver {
  public:
   struct Config {
-    std::string host = "0.0.0.0";
+    std::string host = "127.0.0.1";  // loopback unless set (docs/LISTENER_EXPOSURE.md)
     u16 port = 0;
     Uuid uuid{};
     u16 shard = 0;

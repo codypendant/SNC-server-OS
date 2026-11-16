@@ -3,6 +3,7 @@
 // section 12, recovery steps 1 to 9).
 #include <dirent.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sched.h>
 #include <sys/file.h>
@@ -109,6 +110,7 @@ void hook_init(void* user) {
     s->set_intake(in, h->intake);
     Shard::Xnode x;
     x.accounting = c.xnode_accounting;
+    x.listen_host = c.listen_host;
     x.gen = h->links_gen;
     x.hb_ns = u64{c.xnode_hb_ms} * 1'000'000;
     x.dead_ns = u64{c.xnode_dead_ms} * 1'000'000;
@@ -1264,10 +1266,11 @@ void Engine::recover() {
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_port = htons(cfg_.seed_port);
-    a.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 4) != 0) {
+    if (::inet_pton(AF_INET, cfg_.listen_host.c_str(), &a.sin_addr) != 1 ||
+        ::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 4) != 0) {
       ::close(fd);
-      throw std::runtime_error("cannot listen for seeds on port " + std::to_string(cfg_.seed_port));
+      throw std::runtime_error("cannot listen for seeds on " + cfg_.listen_host + ":" +
+                               std::to_string(cfg_.seed_port));
     }
     seed_->listen_fd = fd;
     seed_->thread = std::thread([this] { serve_seed(); });

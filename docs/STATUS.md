@@ -398,6 +398,12 @@ Decided by cody on 2026-11-04.
      more than 256 shards) exits 2 with its reason instead of aborting (SIGABRT). New `test_startup_errors`
      (E1-E6). Proposed, not started: D4-b (listener aborts: busy port, hostname `--host`), D4-c (validate
      before `--control`/`--rejoin` side effects). D5 not started.
+     **AFR-S-2 listener exposure (approved with conditions, met; PR #141, [LISTENER_EXPOSURE.md](LISTENER_EXPOSURE.md)):** interim
+     mitigation of AFR-F-02. Every `snc_server` listener (data, admin, seed, node links, standby replication)
+     binds `--host`, default `127.0.0.1`; `snc_witness --host` likewise; the `--control` fallback to `0.0.0.0` is
+     gone; a cluster member or replicated witness whose own map/peers address is not loopback is refused
+     without `--host`. `AUDIT NAME` writes only a plain file name inside `--audit-dir`. No authentication yet:
+     PROMOTE, forged COMMIT, replication Hello and identity items stay open for the guarantees spec.
      F2 to F4 not started.
      **SNC-AFR-001 architecture foundation review, Phase 1 (approved, PR #138, [handoff](handoff/PR138_AFR001_Phase1_Codex_Approval.md); [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
      read-only inventory and immediately critical findings; no code changed. audit-D1 to D4 are still open and
