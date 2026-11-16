@@ -3283,5 +3283,21 @@ or source comments.
     -   AFR-D-01 to 15, decisions needed before Rust crate design.
     The handoff is `docs/handoff/AFR001_Phase2_Handoff_To_Codex.md`.
 -   **Verification:** two independent verifiers, plus the author's re-check of every corrected citation (section 17).
--   **Next action:** STOP for cody's and Codex's review. No C++ slice is started (the five proposed FIX-IN-C++ slices
+-   **Next action:** STOP for cody's and Codex's review. No C++ slice is started (the proposed FIX-IN-C++ slices
     each need their own go). This work is isolated from D3-D5, K1 and the port-exposure thread.
+
+### 2026-11-16 UTC --- Claude (Claude Code): PR #139 revision 1 (Codex's Phase 2 review)
+
+-   **Review:** `docs/handoff/PR139_AFR001_Phase2_Codex_Review.md`. Codex approved the documentation as PROPOSED
+    and held acceptance pending nine refinements.
+-   **What:** a focused revision of `docs/SNC_GUARANTEES.md`, recorded in section 17, "Revision 1":
+    -   G-14 is split into detection and the acknowledgement boundary;
+    -   R-05 waits for AFR-D-05 and AFR-D-06;
+    -   the recommendations for AFR-D-01 and AFR-D-03 are withdrawn and replaced by what each must specify
+        (sections 14.1 and 14.2);
+    -   G-09 is split into three properties;
+    -   G-11 and G-12 now cover the requested versus the achieved class;
+    -   authentication, cluster identity (new G-64), authorization and resource exhaustion are separate clauses;
+    -   section 15 gives an oracle per clause group and four coverage outcomes;
+    -   section 16 adds three separate decisions.
+-   **Next action:** STOP for review. Owner dispositions remain pending. No slice is started.

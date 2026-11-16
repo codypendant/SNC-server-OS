@@ -400,7 +400,7 @@ Decided by cody on 2026-11-04.
      segment, a zeroed block or unknown record type truncates silently, LSNs are reused; AFR-F-02: `AUDIT PATH`
      truncates any writable file, forged Paxos `COMMIT` is persisted as chosen). Slices AFR-S-1 to S-3 proposed,
      not started. **Phase 2 (authorized by cody 2026-11-16): [SNC_GUARANTEES.md](SNC_GUARANTEES.md) PROPOSED, in review**
-     (63 guarantees, 32 proposed rulings, 15 decisions; nothing accepted; no code changed).
+     (64 guarantees, 32 proposed rulings, 15 decisions; revision 1 after Codex's review; nothing accepted; no code changed).
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,

@@ -17,7 +17,7 @@
 
 **Keywords** are RFC 2119 (MUST, MUST NOT, SHOULD, MAY).
 
-**Counts.** 63 guarantees (AFR-G-01 to 63), 32 rulings (AFR-R-01 to 32), 15 decisions (AFR-D-01 to 15).
+**Counts.** 64 guarantees (AFR-G-01 to 64), 32 rulings (AFR-R-01 to 32), 15 decisions (AFR-D-01 to 15).
 
 **Clause IDs.** `AFR-G-nn` is a guarantee; `AFR-R-nn` is a proposed ruling on a known gap; `AFR-D-nn` is a decision
 that must be made before Rust crate design. Older identifiers are cited with their source document
@@ -116,7 +116,7 @@ clauses or be refused at start-up unless the operator explicitly accepts the nam
 | AFR-G-06 | The atomic unit of change is one operation on one owner shard: its target object, at most one same-shard peer object (`OpCtx::local`), the session record and the obligations it creates, made durable as one indivisible WAL group. Recovery applies a group entirely or not at all. Operations registered `unlogged` are outside this clause: they change memory only and are never durable. | CORE_CONTRACTS 14 (transaction boundary) | HOLDS | `kRecGroupNext` (`wal_format.h:55-58`); incomplete groups dropped (`storage.cpp:416-434`); groups never span segments (`storage.cpp:651-688`); `unlogged` path (`shard.cpp:666-671`); `test_transfer` | `EQ` |
 | AFR-G-07 | No multi-object atomicity is offered across shards or groups; such work is built from durable obligations (AFR-G-09). An answer of OK for such an operation means the source transition is acknowledged, never that its obligations are settled. | CORE_CONTRACTS 3, H-4 [ACCEPTED: work order Part III] | HOLDS | `docs/TRANSFERS.md`; `test_transfer`, `test_cluster` | `EQ` |
 | AFR-G-08 | A refusal means "not applied": any status other than OK or OK-replayed MUST guarantee the operation had no effect, or the status MUST be IN-DOUBT (or carry an explicit applied marker). Validation MUST have no side effects. | CORE_CONTRACTS H-3 | PARTIAL | validate is hash-checked in debug builds only (`shard.cpp:514-526`); `E_NO_MEMORY` after the op ran on the cross-shard path (CORE_CONTRACTS 6.1, STABILIZATION_REPORT L-8); a replay refused at admission answers `E_OVERLOADED` with `replayed=1` for an applied op (`shard.cpp:330-335`), which conforms only if `replayed=1` is specified as the applied marker | `KD` |
-| AFR-G-09 | An obligation (follow-up) is durable atomically with the transition that creates it; it is eventually applied exactly once at its target once the target is reachable, without depending on an unrelated event (restart, link flap, map change); every dropped delivery is counted and visible. | CORE_CONTRACTS O-1 [ACCEPTED], O-2, O-3; FAILURE_MODEL G4 | PARTIAL | O-1 HOLDS (outbox in the same group); O-2 ABSENT (no timer, re-emission only on events); two silent drop paths (CORE_CONTRACTS 13) | O-1 `EQ`; O-2 `KD` |
+| AFR-G-09 | Obligations (follow-ups), three separate properties: **(a) durable creation**: an obligation is durable atomically with the transition that creates it. **(b) At-least-once delivery**: it is re-delivered until its target has applied it, without depending on an unrelated event (restart, link flap, map change); duplicates are possible; every dropped delivery is counted and visible. **(c) Idempotent processing**: the target applies a duplicate delivery with no further effect. **Exactly-once observable effect is not claimed**: it would follow from (a) to (c) only with a deduplication and crash-recovery proof, which does not exist. | CORE_CONTRACTS O-1 [ACCEPTED], O-2 (which says "exactly once"; this clause narrows it), O-3; FAILURE_MODEL G4 | (a) HOLDS; (b) PARTIAL; (c) HOLDS (code) for the account type only; exactly-once UNPROVEN | (a) outbox in the same WAL group (`test_transfer`, `test_cluster`); (b) re-emission only on events, no timer, two silent drop paths (CORE_CONTRACTS 13); (c) idempotence is per application type (account inbox and outbox, "each step is idempotent", `docs/TRANSFERS.md:94`), not an engine guarantee; duplicates arise from `resume` after a restart | (a) `EQ`; (b) `KD`; (c) `EQ` per type |
 | AFR-G-10 | An object's type and schema version are recorded durably; a node MUST refuse to start on data whose type or schema it cannot interpret, with a named error, and MUST NOT silently reinterpret it. A schema upgrade path is UNDECIDED (AFR-D-09). | CORE_CONTRACTS 1; `A_core.md` 3 | PARTIAL | manifest catalogue check refuses a changed schema or name at start (`engine.cpp:1040-1044`), but only when a checkpoint exists; replay checks the type (`shard.cpp:1789-1795`) and aborts on an unknown one, but copies `schema_ver` without comparing it (`:1818`) | `EQ` |
 
 | AFR-G-57 | Every logged mutation increases the object's version by exactly one; a request carrying `expected_version` that does not match is refused (`E_VERSION_CONFLICT`) with no effect; redo is idempotent by version. | new | HOLDS (code) | `shard.cpp:673`, `:1791` | `EQ` |
@@ -130,10 +130,10 @@ HA_DURABLE, SETTLED). This section states what an acknowledgement promises.
 
 | ID | Guarantee | Source | C++ status | Evidence | Diff |
 |---|---|---|---|---|---|
-| AFR-G-11 | A DURABLE OK is given only after the operation's WAL group has crossed the persistence boundary of the group's configured mode: LOCAL_DURABLE with no replica or in an explicitly weaker mode; HA_DURABLE (primary durable and every automatically promotable replica acknowledged) in the reference configuration. Creates always wait for this point. An APPLIED-class OK (`Durability::APPLIED`) is acknowledged before the WAL and promises nothing across a crash; it is never the default. | CORE_CONTRACTS 6.1 | PARTIAL (holds for sync, healthy; async below HA_DURABLE, see G-31) | `shard.h:555-559`; `test_replication`, `test_witness.py`, Vultr P3 | `EQ` |
-| AFR-G-12 | An OK MUST NOT claim more than its class. A node acknowledging below its configured mode (degraded, replica lost, async) MUST say so in its status surface and SHOULD flag it in the answer. | CORE_CONTRACTS H-1 | VIOLATED | a group with a lost standby acknowledges LOCAL_DURABLE with nothing reported (STABILIZATION_REPORT D) | `KD` |
+| AFR-G-11 | An answer distinguishes the **requested** class (per request, bounded by the group's configured mode) from the **achieved** class (the class the WAL group actually reached when the answer was sent). An OK guarantees exactly the achieved class: LOCAL_DURABLE means durable on the answering node; HA_DURABLE means durable on the primary and acknowledged by every automatically promotable replica; APPLIED (`Durability::APPLIED`, never the default) promises nothing across a crash. Creates always wait for at least LOCAL_DURABLE. In the reference configuration a default OK is HA_DURABLE. | CORE_CONTRACTS 6.1 | PARTIAL (holds for sync, healthy; the achieved class is not reported, G-12; async below HA_DURABLE, G-31) | `shard.h:555-559`; `test_replication`, `test_witness.py`, Vultr P3 | `EQ` |
+| AFR-G-12 | **Degradation is represented, never silent.** When the achieved class is below the requested class (lost or lagging replica, degraded mode, async), the node either refuses or waits (per configuration), or answers OK with the achieved class stated; and its status surface reports the current achievable class. How the achieved class travels in the answer is part of the wire format and is decided under AFR-D-14 and AFR-D-06; until then the status surface is the only required channel. | CORE_CONTRACTS H-1 | VIOLATED | a group with a lost standby acknowledges LOCAL_DURABLE with nothing reported (STABILIZATION_REPORT D) | `KD` |
 | AFR-G-13 | An acknowledged write at class C survives every covered fault for class C. In particular an HA_DURABLE write survives the loss of the primary's host or disk. | FAILURE_MODEL G2 | PARTIAL | holds for process kill (EL3-EL5); host crash and power loss UNPROVEN; storage damage VIOLATED (AFR-G-14) | `DUR` |
-| AFR-G-14 | **No silent loss.** Recovery MUST either restore every write acknowledged at LOCAL_DURABLE or above on that node, or refuse to start (or refuse to serve the affected shard) with a named, operator-visible error. It MUST NOT truncate, delete, overwrite or reuse durable log content that may hold acknowledged writes. An unacknowledged torn tail MAY be discarded only when the node can prove it lies beyond the last acknowledged point. | new; cody's PR #121 ruling on audit-D2 ("fail-stop on detected corruption that could conceal acknowledged data") | VIOLATED | AFR-F-01: mid-record damage, first-record damage (segment unlinked, `storage.cpp:526`), zeroed block, unknown record type all lead to exit 0 with acknowledged writes missing | `DUR` |
+| AFR-G-14 | **No silent loss**, in two parts. **(a) Detection**: recovery MUST NOT truncate, delete, overwrite or reuse durable log content it finds damaged or cannot interpret; it refuses to start (or to serve the affected shard) with a named, operator-visible error. **(b) Boundary**: recovery restores every write acknowledged at LOCAL_DURABLE or above on that node, or refuses. (b) needs a durable acknowledgement boundary (AFR-D-02), because damage that removes whole flushes (missing or zeroed newest flushes), a superblock rolled back to its older copy, or a reused LSN can leave nothing to detect. An unacknowledged torn tail MAY be discarded only when the node can prove it lies beyond that boundary. Satisfying (a) is not compliance with G-14. | new; cody's PR #121 ruling on audit-D2 ("fail-stop on detected corruption that could conceal acknowledged data") | (a) VIOLATED; (b) ABSENT (no acknowledgement boundary exists) | AFR-F-01: mid-record damage, first-record damage (segment unlinked, `storage.cpp:526`), zeroed block, unknown record type all lead to exit 0 with acknowledged writes missing | `DUR` |
 | AFR-G-15 | A log position (LSN) identifies one record for the life of a stream. After any recovery, no LSN that was ever durable is reassigned to different content. | new (AFR-F-01 item 5) | VIOLATED | QA 1 and reviewer A: new writes reuse the lost LSNs | `INV` |
 | AFR-G-16 | A storage I/O error (EIO, short write, ENOSPC) on the WAL, a checkpoint, the manifest or the superblock stops the node (fail-stop) before any further acknowledgement; it is never retried silently or ignored. | FAILURE_MODEL S3 (the v0.1 storage spec's C7, not FAILURE_MODEL C7); `A_core.md` 6.4 | HOLDS (code) | `storage.cpp:814-819`, `storage_fatal` aborts (`:103-106`); checkpoint EIO tested (`test_s3_writeback` T6, T18; `test_s4_sync_tokens` T6), so FAILURE_MODEL S3's "no test injects EIO" is out of date; WAL EIO has no injection test | `EQ` |
 | AFR-G-17 | The checkpoint correctness contract CC-1 to CC-5 holds. | [ACCEPTED: Codex, PR #68 review] CORE_CONTRACTS 13A | HOLDS | anchors T1-T18, `test_s2_pacing`, `test_s3_writeback` | `EQ` |
@@ -216,14 +216,15 @@ durable at its end**, not believed.
 
 | ID | Guarantee | Source | C++ status | Evidence | Diff |
 |---|---|---|---|---|---|
-| AFR-G-40 | Every network endpoint authenticates its peer before acting on any request, and every control, consensus, replication, seed and node-link message is bound to the cluster (space) identity and the sender's member identity. A message that fails either check changes no state. | new (AFR-F-02); CORE_CONTRACTS 14 (security, UNDECIDED) | ABSENT (authentication); PARTIAL (identity binding, unauthenticated) | identity checks exist but use values learnable from HEALTH: replication Hello (`replication.cpp:675-685`), node-link cluster-shape CRC (`node_link.cpp:961`), witness HA verbs (uuid, term). Forged consensus: a `COMMIT` is persisted as chosen (`paxos.h:142-152`), a `PREPARE` base value is adopted (`:157-166`), machine names are invented on demand (`acc_[m]`, `:140`), and one poisoned witness spreads through `read_latest` (QA 2 N3). A Hello-matching peer can inject WAL records into a standby (`replication.cpp:749-756`) | `KD` |
+| AFR-G-40 | **Authentication.** Every network endpoint authenticates its peer (a cluster member, a client or an operator principal) before acting on any request; an unauthenticated request changes no state and discloses nothing beyond what G-41 allows. | new (AFR-F-02); CORE_CONTRACTS 14 (security, UNDECIDED) | ABSENT | no authentication on any port (audit-D4); QA 2 N1-N4 | `KD` |
+| AFR-G-64 | **Cluster identity.** Every control, consensus, replication, seed and node-link message is bound to the cluster (space) identity and the sender's member identity, and a message that fails the check changes no state. This is separate from G-40: identity binding without authentication only stops mistakes, not attackers. | new (AFR-F-02) | PARTIAL (checks exist, unauthenticated) | identity checks use values learnable from HEALTH: replication Hello (`replication.cpp:675-685`), node-link cluster-shape CRC (`node_link.cpp:961`), witness HA verbs (uuid, term). Forged consensus: a `COMMIT` is persisted as chosen (`paxos.h:142-152`), a `PREPARE` base value is adopted (`:157-166`), machine names are invented on demand (`acc_[m]`, `:140`), and one poisoned witness spreads through `read_latest` (QA 2 N3). A Hello-matching peer can inject WAL records into a standby (`replication.cpp:749-756`) | `KD` |
 | AFR-G-41 | State-changing management operations (promotion, slot moves, placement changes, debug faults) and data-disclosing operations (seed transfer, `MOVE HAVE`, `MOVE EXPORT`, audit output) require an authorized principal; only non-sensitive status is separable and may be exposed more widely. | new | ABSENT | `PROMOTE`, `MOVE SEAL/STAGE`, witness `DEGRADE/READY/PLACEMENT CAS` open to any peer; the seed port serves a full checkpoint to an all-zero uuid; `MOVE HAVE`/`EXPORT` return payloads (AFR-F-02 item 6) | `KD` |
 | AFR-G-42 | No management operation writes to a caller-chosen file-system path. | new (AFR-F-02 item 2) | VIOLATED | `AUDIT <PATH>` (`snc_server.cpp:204-226`); being removed in the separate port-exposure thread | `KD` |
-| AFR-G-43 | Every listener binds only the addresses it is configured for; the default is loopback; wider exposure needs an explicit flag. | cody's PR #121 review (D4) | VIOLATED | admin, witness, seed and node-link bind `INADDR_ANY` (`ha.h:97-110`, `engine.cpp:1267`, `node_link.cpp:203`, `snc_witness.cpp:678`); the replication receiver defaults to `0.0.0.0` (`replication.h:232`); `--control` forces the data port to `0.0.0.0` (`snc_server.cpp:596`); being fixed in the separate port-exposure thread | `KD` |
+| AFR-G-43 | Every listener binds only the addresses it is configured for; the default is loopback; wider exposure needs an explicit flag. | cody's PR #121 review (D4) | VIOLATED | admin, witness, seed and node-link bind `INADDR_ANY` (`ha.h:97-110`, `engine.cpp:1267`, `node_link.cpp:203`, `snc_witness.cpp:678`); the replication receiver defaults to `0.0.0.0` (`replication.h:232`); `--control` forces the data port to `0.0.0.0` (`snc_server.cpp:596`); being fixed in the separate port-exposure thread. Loopback binding reduces exposure in the interim; it is not a production security solution and satisfies none of G-40, G-41, G-63 or G-64 | `KD` |
 | AFR-G-44 | State-changing management actions are recorded in a durable, tamper-evident audit trail with principal, time, target and outcome. | assignment domain G | ABSENT | | n/a |
 | AFR-G-63 | Object data leaves a node only to an authenticated member or an authorized principal; no protocol answers an unauthenticated peer with object payloads, checkpoints or WAL. | new (QA of this document) | VIOLATED (code reading) | seed to an all-zero uuid; `MOVE HAVE`/`EXPORT`; replication shipping to any Hello-matching peer | `KD` |
 
-The concrete mechanism (mutual TLS, shared cluster keys, capability tokens) is a decision (AFR-D-07). The clauses
+The four concerns stay separate: authentication (G-40), authorization (G-41, G-63), cluster identity (G-64), and resource exhaustion (G-45, section 11), which must hold even against authenticated peers. The concrete mechanism (mutual TLS, shared cluster keys, capability tokens) is a decision (AFR-D-07). The clauses
 above are what any mechanism must deliver.
 
 ---
@@ -270,7 +271,7 @@ strength scale: experiment (E), test (T), code reading (C), documented only (D).
 | AFR-R-02 | Unknown record type read as a torn tail (AFR-F-01 item 4) | no | G-50 | a log written by a newer binary, or one bit in `rec_type` | E (QA 1 P3) | **DEFECT** | durability and upgrade, high | defines record-kind versioning | fold into AFR-S-1 | |
 | AFR-R-03 | LSN reuse after truncation (AFR-F-01 item 5) | no | G-15 | any truncation of acknowledged records | E | **DEFECT** | integrity, high | log identity rule | fold into AFR-S-1 | |
 | AFR-R-04 | Cross-shard overtaking (audit-D1, AFR-F-06) | yes (audit-D1) | G-19 | batching on, mixed batchable and non-batchable requests to one shard | E (audit, QA 1 20/20) | **DEFECT** (scope per AFR-D-04; flushing the batch before a direct send satisfies both per-shard and per-object scope, so the fix holds unless AFR-D-04 chooses "none") | consistency, high for in-process apps | dispatch design | audit-D1 slice: flush the destination's batch before a direct send; measure the cost (CROSSCORE) | |
-| AFR-R-05 | Dedup entry not bound to the request (audit-D3) | yes (audit-D3) | G-21, G-23 | client restart reusing `client_id`, or a buggy client | E (audit, reviewer A, QA 1 P5) | **DEFECT** | false success, high | session record and wire format (AFR-D-05) | audit-D3 slice: store a request fingerprint and refuse mismatches. This changes the durable session record before AFR-D-05 and AFR-D-06 are decided, so the fingerprint format is provisional and the slice needs explicit approval of that change | |
+| AFR-R-05 | Dedup entry not bound to the request (audit-D3) | yes (audit-D3) | G-21, G-23 | client restart reusing `client_id`, or a buggy client | E (audit, reviewer A, QA 1 P5) | **DEFECT** | false success, high | session record and wire format (AFR-D-05) | none before AFR-D-05 and AFR-D-06 are decided: a request fingerprint changes the durable session record. A provisional C++ change needs explicit authorization and a migration analysis (existing data directories, replication between versions, rollback) | |
 | AFR-R-06 | Session expiry by wall clock inside checkpoints (R11, audit 0.2) | yes (FAILURE_MODEL W2; R11) | G-22, G-46 | clock step, long outage, checkpoint after TTL | E (QA 1 P7), T (`test_session_ttl`) | **DEFECT** | double apply, high | session lifecycle (CORE_CONTRACTS 10) | session incarnation (G-1 to G-7) | |
 | AFR-R-07 | Failed sequenced ops not recorded; a later success makes the failed seq answer `E_REPLAYED_OLD` | yes (`RETRIES.md:42-45`) | G-21, G-24 | resend after an `E_APP`-class failure | E (QA 1 P6), D (`RETRIES.md:42-45`) | **ACCEPTED BEHAVIOR**: failed ops change nothing, so re-running them is safe; `E_REPLAYED_OLD` is specified as IN-DOUBT | none beyond the stated ambiguity | none | document in the client contract | |
 | AFR-R-08 | Deletes never sequenced | yes (CORE_CONTRACTS 7) | G-25 | resend of a delete | E (QA 1 P6), D (`shard.cpp:403`) | **ACCEPTED BEHAVIOR** for the reference: a resent delete answers `E_NOT_FOUND`, which G-24 classes IN-DOUBT, never a double effect, because an ObjectID is never reused (G-01); production SHOULD sequence deletes | low | small | none now | |
@@ -286,7 +287,7 @@ strength scale: experiment (E), test (T), code reading (C), documented only (D).
 | AFR-R-18 | Paxos F8: ballots after a clock step | yes (F8 outcome A approved) | G-46 | clock step back | T (`test_paxos_ballots`), E (C1-C3) | **ACCEPTED BEHAVIOR**: safe by strict promise comparison; liveness cost only (outcome A approved, `PAXOS_BALLOTS.md:300-302`) | none | none: no ballot persistence needed | none | |
 | AFR-R-19 | Paxos F9: witness acceptor state restored or rolled back | yes (F9 outcome B approved for the baseline) | G-31; fault model 1.2 | operator restores or deletes a witness state file | E (C4a restored, C4b deleted; `PAXOS_BALLOTS.md:21`) | **UNRESOLVED** for production: outcome B (excluded history plus guard) is approved for the baseline; proposed OUT OF CONTRACT with mandatory detection in production | safety under operator error, high | consensus persistence design (AFR-D-13) | review the candidate design in `PAXOS_BALLOTS.md` section 7 | |
 | AFR-R-20 | Sessions do not move with slots; cross-group resend (CORE_CONTRACTS D-3) | yes (CORE_CONTRACTS D-3) | G-26 | in-doubt request across a slot move | C, D | **UNRESOLVED** (AFR-D-08) | duplicate application, medium | session and migration design | E: two-group resend test (audit M2-a) | |
-| AFR-R-21 | Unauthenticated ports; forged `COMMIT` and `PREPARE`; receiver takeover and WAL injection into a standby; data disclosure (seed, `MOVE EXPORT`); `AUDIT PATH` (audit-D4, AFR-F-02) | yes ("prototype limitation", `CORE_CONTRACTS.md:756-759`; C2x non-Byzantine proposer, `PAXOS_BALLOTS.md:303`) | G-40 to G-44, G-63 | any network peer | E (QA 2 N1-N4) | **DEFECT** against the proposed G-40 to G-44 and G-63; a documented exclusion today | security, critical | trust model and every protocol (AFR-D-07) | interim: separate port-exposure thread; full fix after AFR-D-07 | |
+| AFR-R-21 | Unauthenticated ports; forged `COMMIT` and `PREPARE`; receiver takeover and WAL injection into a standby; data disclosure (seed, `MOVE EXPORT`); `AUDIT PATH` (audit-D4, AFR-F-02) | yes ("prototype limitation", `CORE_CONTRACTS.md:756-759`; C2x non-Byzantine proposer, `PAXOS_BALLOTS.md:303`) | G-40 to G-44, G-63, G-64 | any network peer | E (QA 2 N1-N4) | **DEFECT** against the proposed G-40 to G-44 and G-63; a documented exclusion today | security, critical | trust model and every protocol (AFR-D-07) | interim: separate port-exposure thread; full fix after AFR-D-07 | |
 | AFR-R-22 | test_xnode X16 flake (CI_FAILURE_DIAGNOSIS) | yes (CI_FAILURE_DIAGNOSIS) | test estate | full CI under load | E (local reproduction 5/20 and 2/55, CI_FAILURE_DIAGNOSIS), not at the current head | **UNRESOLVED** until E-03 reproduces it at the current head | CI trust, medium | none | E-03 | |
 | AFR-R-23 | Superblock silently falls back to the older copy (speculative S-a) | no | G-02, G-04, G-32 | damage to the newest superblock copy; or a newest copy with an unknown `format` (`storage.cpp:219-222`, see AFR-R-32) | C | **UNRESOLVED**: experiment first | lease and term regression, potentially high | superblock design | E: corrupt the newest copy after a promotion and a lease take; check term and leases | |
 | AFR-R-24 | Older-segment damage: abort with a misleading message; checkpoint-covered segments never read (QA 1 P4) | no | G-14, G-54 | damage in an older segment | E | **DEFECT** (diagnostic only; fail-closed outcome is correct) | operability, low | none | name the damaged file | |
@@ -314,9 +315,9 @@ verification strategy. Each ruling therefore also says how the C++ reference is 
 
 | Ruling | Proposed treatment | Why | Verification strategy |
 |---|---|---|---|
-| AFR-R-01, 02, 03 (WAL damage, unknown record, LSN reuse) | **FIX-IN-C++**, minimal form (one slice, AFR-S-1): fail closed on detected damage or an unknown record, never reuse an LSN; no format change. The full end-of-log mechanism waits for AFR-D-02 | storage damage is a covered fault like a partition, so a `KD` treatment would be possible. The difference is that a partition defect is visible to a history checker, while silent truncation leaves a recovered state the harness cannot tell from a correct one; and the fail-closed slice is small, format-neutral and needed whatever AFR-D-02 decides. AFR-R-24 (misleading message) rides along with no oracle reason | storage-damage fault injection (bit flip, zeroed block, first record, unknown type) over every segment position; checker: acknowledged-set subset of recovered-set, or named refusal |
+| AFR-R-01, 02, 03 (WAL damage, unknown record, LSN reuse) | **FIX-IN-C++**, minimal form (one slice, AFR-S-1): fail closed on detected damage or an unknown record, never reuse an LSN; no format change. This satisfies G-14(a) only; G-14(b) waits for AFR-D-02, and the harness keeps whole-flush loss and superblock rollback as `KD` until then | storage damage is a covered fault like a partition, so a `KD` treatment would be possible. The difference is that a partition defect is visible to a history checker, while silent truncation leaves a recovered state the harness cannot tell from a correct one; and the fail-closed slice is small, format-neutral and needed whatever AFR-D-02 decides. AFR-R-24 (misleading message) rides along with no oracle reason | storage-damage fault injection (bit flip, zeroed block, first record, unknown type) over every segment position; checker: acknowledged-set subset of recovered-set, or named refusal |
 | AFR-R-04 (cross-shard overtaking) | **FIX-IN-C++** (audit-D1 slice) | in-process workloads are the core of SNC; a reference that reorders one origin's requests cannot judge ordering | history checker for per-origin FIFO (G-19) on mixed batchable and direct sends |
-| AFR-R-05 (dedup not bound to the request) | **FIX-IN-C++** (audit-D3 slice) | a false "OK, replayed" corrupts every retry scenario's oracle | fingerprint-mismatch tests; retry histories checked for at-most-once and no false replay |
+| AFR-R-05 (dedup not bound to the request) | KNOWN-VIOLATION until AFR-D-05 and AFR-D-06 are decided; then **FIX-IN-C++** | a false "OK, replayed" corrupts the retry oracle, but the fix changes a durable format, which must not be frozen early (Codex, PR #139 review item 2). Meanwhile the harness never reuses a client identity across incarnations, and mismatched-retry scenarios run as `KD` | fingerprint-mismatch tests; retry histories checked for at-most-once and no false replay |
 | AFR-R-30 (no pinned hash vectors) | **FIX-IN-C++** (test-only) | placement equivalence between implementations needs fixed vectors | golden vectors shared by both implementations |
 | AFR-R-06 (session TTL by wall clock) | KNOWN-VIOLATION | the fix is the session redesign (AFR-D-05); the harness avoids clock steps and outages beyond the TTL for C++ | clock-step injection, judged against G-22 for Rust only |
 | AFR-R-09, 12, 14, 29 (authority) | KNOWN-VIOLATION | the fix is the authority model (AFR-D-01); partition scenarios run as `KD` | netns partition tests with a linearizability checker (single object) |
@@ -324,7 +325,7 @@ verification strategy. Each ruling therefore also says how the C++ reference is 
 | AFR-R-13 (unguarded `PROMOTE`) | KNOWN-VIOLATION | harness drives promotion only through guarded paths | stale-term promotion refused (Rust) |
 | AFR-R-21 (unauthenticated ports) | KNOWN-VIOLATION, interim loopback binding by the port-exposure thread | harness runs on an isolated network; not an oracle problem | adversarial-peer tests (forged `COMMIT`, oversized frames) against Rust; memory bound check |
 | AFR-R-15 (unbounded standby receive) | KNOWN-VIOLATION for forged peers; **EXPERIMENT FIRST** for the benign trigger | if harness load can drive a slow standby to exhaustion, C++ becomes an unstable reference under load and the slice (AFR-S-3) moves to FIX-IN-C++ | measure standby memory under the harness's heaviest load profile |
-| AFR-R-28 (lost standby acknowledges LOCAL_DURABLE unreported) | **FIX-IN-C++** (report the class; small) | every failover without `--rejoin` triggers it, so every later fault scenario would judge C++ at an unreported weaker class | class reported in STATUS and answers; checker compares reported class with the clause |
+| AFR-R-28 (lost standby acknowledges LOCAL_DURABLE unreported) | **FIX-IN-C++** (report the achievable class in the status surface only; no client-wire change) | every failover without `--rejoin` triggers it, so every later fault scenario would judge C++ at an unreported weaker class. The answer-level field waits for AFR-D-14 and AFR-D-06, so no wire format is frozen | the harness reads the status surface and compares it with the clause |
 | AFR-R-25, 26, 27 (false refusal, uuid check order, obligation timer) | KNOWN-VIOLATION | narrow scenarios the harness can exclude or mark `KD` | targeted tests per clause |
 | AFR-R-31, 32 (placement reads take write rounds; unknown superblock format) | KNOWN-VIOLATION; R-32 experiment with R-23 | liveness, and upgrade scenarios the harness does not yet run | |
 | AFR-R-07, 08, 16, 17 (loop excepted), 18 | ACCEPTED BEHAVIOR: part of the clause | | tested as `ND` or `EQ` |
@@ -332,7 +333,7 @@ verification strategy. Each ruling therefore also says how the C++ reference is 
 | AFR-R-19, 20 | UNRESOLVED; scenario excluded | needs a design decision | after AFR-D-13 (F9 design, `PAXOS_BALLOTS.md` section 7) and AFR-D-08 |
 | AFR-R-22, 23 | EXPERIMENT FIRST | | E-03; superblock corruption experiment |
 
-The FIX-IN-C++ set is deliberately small: five slices (WAL fail-closed, audit-D1, audit-D3, pinned vectors, class reporting), all narrow, all on paths the harness must trust. Everything
+The FIX-IN-C++ set is deliberately small: four slices now (WAL fail-closed, audit-D1, pinned vectors, class reporting in status), and audit-D3 after its format decisions. All are narrow and on paths the harness must trust. None is started; each needs its own authorization. Everything
 else stays a documented known violation until the decision that fixes it is made.
 
 ### 13.2 What is ready to stabilize, and what is not
@@ -363,9 +364,9 @@ unlocks can be accepted. The recommendation is mine; none is accepted.
 
 | ID | Decision | Unlocks | Options | Recommendation and reason |
 |---|---|---|---|---|
-| AFR-D-01 | **Authority model** | G-28, G-31 to G-34; R-09, R-12, R-14, R-29 | (a) leader leases granted by the replica set or witnesses, with a stated drift bound; (b) read-index style confirmation per read (a round trip to a quorum); (c) keep the documented stale-read limitation | (a), with (b) as an opt-in for clients that need it without a clock assumption. It closes stale reads, O1 and fencing with one mechanism and keeps the hot path local (INV 14). |
+| AFR-D-01 | **Authority model** | G-28, G-31 to G-34, G-37, G-46; R-09, R-12, R-14, R-29 | (a) leader leases; (b) quorum-confirmed authority (a quorum round per read or per batch, no clock assumption) | **No recommendation yet.** A unified model is required first (section 14.1); both options are then compared against the same invariants. |
 | AFR-D-02 | **End-of-log rule** (how recovery knows how far acknowledgements went) | G-14, G-15; R-01 to R-03 | (a) a durable acknowledged-LSN watermark; (b) self-describing flush frames (per-flush header and trailer with LSN range and CRC) that let recovery tell a torn flush from damage before it; (c) both | **No recommendation until measured.** (b) alone cannot tell a wholly lost or zeroed newest flush from an unwritten tail, which is exactly the R-01 trigger, unless a replica holds a copy; in a no-replica configuration G-14 then needs (a). The cost of (a) (an extra synchronous write or a piggy-backed one) and of (b) are not measured anywhere in the repository. Proposed: an experiment measuring both on the R640 data disk, then decide; (c) is the likely answer. |
-| AFR-D-03 | **Replication group model** | G-31, G-35; membership | (a) keep primary/standby pairs; (b) N-replica groups with majority acknowledgement, HA state derived from placement | (b) for Rust: the witness's pair model and placement's N-member model are two sources of truth today (`B_distributed.md` 0). Decide before the replication crate. |
+| AFR-D-03 | **Replication group model** | G-31, G-35; membership | (a) keep primary/standby pairs with witnesses; (b) N-replica groups with majority acknowledgement | **No recommendation yet.** Today's two sources of truth (pair HA state, N-member placement, `B_distributed.md` 0) are a problem to solve, not a reason to pick (b). A comparison is required first (section 14.2). |
 | AFR-D-04 | **Ordering scope** | G-19; R-04 | per (origin, shard); per (origin, object); none | per (origin, shard): it makes routing purely an optimization, which the README already claims. |
 | AFR-D-05 | **Client and session identity** | G-21 to G-24; R-05, R-06 | server-issued SessionID (CORE_CONTRACTS G-1); client id plus incarnation | server-issued SessionID: no clock in safety, carries a principal later (AFR-D-07). |
 | AFR-D-06 | **Format and protocol versioning and compatibility** | G-49 to G-51; R-02 | strict same-version clusters; N/N-1 rolling upgrade; negotiated features | N/N-1 with explicit versions on every format and handshake; specify bytes first (AFR-G-49). |
@@ -378,6 +379,37 @@ unlocks can be accepted. The recommendation is mine; none is accepted.
 | AFR-D-13 | **Durable consensus state and member replacement** | R-19, R-31; G-31 | keep outcome B (excluded history plus guard); adopt the `PAXOS_BALLOTS.md` section 7 design (new durable witness state); move to a different consensus design for the Rust control plane | review the section 7 design before the control-plane crate; outcome B is not acceptable for production. |
 | AFR-D-14 | **Client status and IN-DOUBT taxonomy on the wire** | G-08, G-24, G-53, G-62; R-25 | keep today's status codes and document them; a versioned status enum with explicit categories (OK, refused-no-effect, in-doubt, retry-elsewhere) | versioned categories: every client library and the differential harness need the same classification, and it is part of the wire format (AFR-D-06). |
 | AFR-D-15 | **Configuration-safety model** | G-31; R-10, R-11 | allow every mode with documentation (today); refuse weaker modes unless an explicit flag names the weaker guarantee | refuse with an explicit flag; may be folded into AFR-D-03 if the group model removes the unsafe modes. |
+
+### 14.1 What AFR-D-01 must specify before a choice
+
+One model covers every path by which a node decides it may serve: primary reads, primary writes, durable fencing,
+promotion, restart, slot migration (source and destination) and recovery after a partition heals. For each path it
+states:
+
+1. **The safety invariants every option is judged against:** G-28 (read your acknowledged writes), G-31 (one serving
+   owner), G-32 (newer term is durable and final), G-34 (status follows authority), G-37 (migration serving proof).
+2. **How authority is obtained, renewed, ended and proven**, and what is persisted before a node acts on it.
+3. **Stale-authority rejection:** what a node holding older authority sees (a refusal naming the newer term or
+   epoch), on every path, including after a restart that lost memory.
+4. **Clock assumptions:** none for (b); for (a) a stated maximum rate drift, how it is checked, and what happens
+   when it is exceeded (safety must fail closed, not open).
+5. **Cost:** round trips on the read and write paths, measured, not estimated (INV 14).
+
+The same scenarios (partition, stall and resume, restart while fenced, promotion during migration) are run as
+thought experiments against both options, and the result is written up before cody decides.
+
+### 14.2 What AFR-D-03 must specify before a choice
+
+For both the existing pair model and an N-replica model:
+
+1. **Quorum intersection:** which sets must intersect (acknowledgement and promotion, promotion and promotion) and why.
+2. **Data commit:** when a write counts as committed, and what a replica may hold that is not committed.
+3. **Witness responsibilities:** what witnesses decide (term, placement, membership) and what they never hold (data).
+4. **Promotion eligibility:** E1 to E11 restated for the model, including how the new primary is shown to hold every
+   committed write.
+5. **Membership transitions:** adding, removing and replacing a replica or witness without a window of two quorums.
+6. **Complexity and guarantees compared:** failures tolerated per replica count, write latency, recovery work, and
+   the code and test surface each needs.
 
 ---
 
@@ -397,6 +429,26 @@ The harness compares C++ and Rust executions **against this document**, not agai
 7. A ruling of UNRESOLVED keeps the affected scenario out of the equivalence suite until it is ruled, and the
    suite lists it as excluded.
 
+8. **Every accepted guarantee has a named oracle** before it counts as covered. The oracle is a check that
+   needs no knowledge of either implementation's internals:
+
+   | Clauses | Oracle |
+   |---|---|
+   | Identity (G-01 to G-05, G-55, G-56) | pinned vectors; an ObjectID-uniqueness check over the full history, across restarts |
+   | Atomicity and obligations (G-06 to G-10, G-57) | a state invariant per workload (for example the conserved total of transfers) checked after every fault; every obligation eventually observed applied |
+   | Durability (G-11 to G-18, G-58, G-59) | the acknowledged set (with achieved class) is a subset of the recovered set after each covered fault, or a named refusal; the reported class matches |
+   | Ordering (G-19, G-20) | a per-origin FIFO check on the recorded history |
+   | Dedup and retry (G-21 to G-26, G-60 to G-62) | at most one effect per (session, seq); no OK-replayed for a mismatched request; IN-DOUBT classification of every unanswered request |
+   | Reads (G-27 to G-30) | a single-object linearizability check (with the weaker read modes checked against their stated bound) |
+   | Authority and placement (G-31 to G-39) | at most one node answering OK per object per instant (from timestamps and terms); status matches proven authority |
+   | Security and resources (G-40 to G-45, G-63, G-64) | adversarial-peer scenarios: no state change, no disclosure, bounded memory |
+   | Formats and management (G-49 to G-54) | golden corpus round trips; refusal of unknown versions; documented exit codes |
+   | Liveness (G-46 to G-48) | preregistered time bounds after a fault heals; measured, never used as a correctness verdict |
+
+9. **Coverage reports show four outcomes, never two:** PASS, FAIL, KNOWN-VIOLATION (ran, and violated as a ruled
+   defect) and EXCLUDED (not run, with the ruling that excludes it). A KNOWN-VIOLATION or EXCLUDED scenario is never
+   counted as passing, and the report lists them on every run.
+
 Prerequisites the repository lacks today (`D_verification_docs.md` 8): byte-level format and wire specifications
 (AFR-G-49), a golden corpus of WAL, checkpoint and wire samples, a history checker for G-19, G-21 and G-28, a
 fault-injection layer for storage damage and I/O errors, and test drivers that do not depend on C++ log text.
@@ -407,6 +459,13 @@ fault-injection layer for storage damage and I/O errors, and test drivers that d
 
 - It would make the accepted clauses the specification that SNC-ADR-RUST-001 calls authoritative, and supersede the
   overlapping PROPOSED clauses of CORE_CONTRACTS and FAILURE_MODEL.
+- Three decisions stay separate, for each clause:
+  1. **Accepting the contract**: the clause becomes part of the specification.
+  2. **Proving the C++ reference satisfies it**: its status reaches HOLDS with a named oracle (section 15), or it is
+     ruled a KNOWN-VIOLATION with a visible coverage entry.
+  3. **Authorizing Rust implementation**: a later, separate decision (Milestone 3, readiness review), which this
+     document does not make.
+  Accepting a clause implies neither of the others.
 - It would not authorize any implementation: each DEFECT ruling still needs its own slice, and Rust work still
   waits for the readiness review (ADR Timing clause).
 - Owner dispositions in section 13 and decisions in section 14 can be accepted one at a time.
@@ -434,4 +493,25 @@ fault-injection layer for storage damage and I/O errors, and test drivers that d
 - Passing tests are not taken as proof: every HOLDS cites the test or experiment, and every HOLDS (code) is marked as
   code reading only.
 - Codex's independent review via cody is still to come. Nothing here is accepted until it does.
+
+### Revision 1 (Codex's PR #139 review, `docs/handoff/PR139_AFR001_Phase2_Codex_Review.md`)
+
+A focused revision, with no redesign. Each of Codex's nine points maps to one change:
+
+1. G-14 is split into (a) detection and (b) the acknowledgement boundary. The fail-closed slice is stated as
+   meeting (a) only.
+2. R-05: no durable fingerprint is written before AFR-D-05 and AFR-D-06; R-05 is a known violation until then.
+3. AFR-D-01: the recommendation is withdrawn. Section 14.1 sets out what a unified authority model must specify.
+4. AFR-D-03: the recommendation is withdrawn. Section 14.2 sets out what the comparison of the two group models
+   must cover.
+5. G-09 is split into durable creation, at-least-once delivery and idempotent processing. Exactly-once is not
+   claimed.
+6. G-11 and G-12 now cover the requested versus the achieved class, and how degradation is represented. R-28
+   reports through the status surface only.
+7. Authentication (G-40), cluster identity (new G-64), authorization and resource exhaustion are now separate
+   clauses. Loopback binding is stated as an interim measure.
+8. Section 15 gives an oracle per clause group and four coverage outcomes.
+9. Section 16 separates accepting a clause, proving the C++ reference meets it, and authorizing Rust.
+
+Every owner disposition remains pending.
 
