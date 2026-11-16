@@ -394,6 +394,12 @@ Decided by cody on 2026-11-04.
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
      (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
      F2 to F4 not started.
+     **SNC-AFR-001 architecture foundation review, Phase 1 (approved, PR #138, [handoff](handoff/PR138_AFR001_Phase1_Codex_Approval.md); [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
+     read-only inventory and immediately critical findings; no code changed. audit-D1 to D4 are still open and
+     audit-D2 and audit-D4 are wider than recorded (AFR-F-01: a damaged first record makes recovery delete the
+     segment, a zeroed block or unknown record type truncates silently, LSNs are reused; AFR-F-02: `AUDIT PATH`
+     truncates any writable file, forged Paxos `COMMIT` is persisted as chosen). Slices AFR-S-1 to S-3 proposed,
+     not started. Phase 2 (guarantees specification, rulings, roadmap) waits for authorization.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),
      then the SNC Experimental Baseline: a fixed commit, machine manifests,
