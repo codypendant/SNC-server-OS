@@ -135,9 +135,15 @@ def ctl_flags(profile):
 
 
 def node_args(bin_path, shards, objects, data_dir, control, node_id, admin, cpus, standby_port, replica_of,
-              replica_timeout_ms, profile_args=()):
+              replica_timeout_ms, profile_args=(), host=None, audit_dir=None):
+    """host: the address every listener binds (--host; snc_server defaults to
+    loopback, docs/LISTENER_EXPOSURE.md). audit_dir: where AUDIT NAME writes."""
     args = [bin_path, "--shards", shards, "--objects", objects, "--data-dir", data_dir, "--control", control,
             "--node-id", node_id, "--admin-port", admin, "--witness", control]
+    if host is not None:
+        args += ["--host", host]
+    if audit_dir is not None:
+        args += ["--audit-dir", audit_dir]
     if cpus:
         args += ["--cpus", cpus]
     if standby_port is not None:
@@ -147,11 +153,13 @@ def node_args(bin_path, shards, objects, data_dir, control, node_id, admin, cpus
     return args + list(profile_args)
 
 
-def witness_args(bin_path, port, state, wid, control, failover_ms, poll_ms, groups, new_state=False):
+def witness_args(bin_path, port, state, wid, control, failover_ms, poll_ms, groups, new_state=False, host=None):
     """new_state: only when this run creates the witness (docs/PAXOS_BALLOTS.md
-    6); never on a restart."""
+    6); never on a restart. host: the address the witness port binds."""
     args = [bin_path, "--port", port, "--state", state, "--id", wid, "--peers", control,
             "--failover-ms", failover_ms, "--poll-ms", poll_ms]
+    if host is not None:
+        args += ["--host", host]
     if new_state:
         args += ["--new-state", 1]
     for g in groups:
@@ -291,7 +299,7 @@ class Lab:
                   for g in range(len(self.groups))]
         for i, h in enumerate(self.witness_hosts):
             args = witness_args(self.bin(h, "snc_witness"), self.witness_port(i), f"{self.run_dir}/w{i}.state", i,
-                                control, failover_ms, poll_ms, groups, new_state=True)
+                                control, failover_ms, poll_ms, groups, new_state=True, host=h.addr)
             if self.guard:
                 self.guard.witness(args, host=h.name, state_exists=lambda p, h=h: h.sh(
                     f"test -e {shlex.quote(p)}", check=False).returncode == 0)
@@ -337,7 +345,10 @@ class Lab:
             replica_of = f"{sn['host'].addr}:{sn['repl']}"
         args = node_args(self.bin(h, "snc_server"), self.shards, objects, f"{self.run_dir}/n{k}", self.control(), k,
                          n["admin"], h.cpus, n["repl"] if n["member"] > 0 else None, replica_of, replica_timeout_ms,
-                         profile_args(self.profile, self.cfg))
+                         profile_args(self.profile, self.cfg), host=h.addr, audit_dir=f"{self.run_dir}/audit")
+        # A directory of its own: AUDIT NAME may replace any file in it, and
+        # run_dir holds witness state and logs (QA 2).
+        h.sh(f"mkdir -p {shlex.quote(self.run_dir)}/audit")
         if self.guard:
             self.guard.server(args, dir_exists=lambda p: h.sh(f"test -e {shlex.quote(p)}", check=False).returncode == 0,
                               host=h.name)
@@ -508,8 +519,8 @@ class Lab:
         self.check_witness_state("before the final check")
         files = []
         for k, n in self.nodes.items():
-            path = f"{self.run_dir}/bal.{k}"
-            r = ask(n["host"].addr, n["admin"], f"AUDIT {path}", 60)
+            path = f"{self.run_dir}/audit/bal.{k}"
+            r = ask(n["host"].addr, n["admin"], f"AUDIT bal.{k}", 60)  # into --audit-dir (run_dir/audit)
             if r and r.startswith("AUDIT") and int(r.split()[1]) > 0:
                 local = os.path.join(self.out, f"bal.{k}")
                 n["host"].fetch(path, local)
@@ -631,7 +642,7 @@ def p1_p2(lab, args, replicate):
         if replicate:
             pids.append((stby, stby.spawn(f"{lab.run_dir}/p2-standby.log",
                                           f"{lab.bin(stby, 'snc_server')} --shards {lab.shards} --objects 1000000 "
-                                          f"--data-dir {lab.run_dir}/p2s --standby {rport}")))
+                                          f"--host {stby.addr} --data-dir {lab.run_dir}/p2s --standby {rport}")))
             time.sleep(1)
         cmd = f"{lab.bin(prim, 'snc_server')} --shards {lab.shards} --objects 1000000 --host 0.0.0.0 --port {port}"
         if prim.cpus:

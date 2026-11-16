@@ -3365,3 +3365,50 @@ or source comments.
     -   Case 5c remains UNRESOLVED, and TLC confirms the counterexample.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
+
+### 2026-11-15 UTC --- Claude (Claude Code): D4 controlled startup errors (for review)
+
+-   **What:** D4, assigned by cody's PR #136 review. Write-up `docs/STARTUP_ERRORS_D4.md`.
+-   **Code (REFINE):** `tools/snc_server.cpp` only. `parse_cluster` and the `Engine` constructor run inside
+    `try` (invalid_argument exits 2 `refused:`, other exceptions exit 1 `not started:`); `parse_uuid` needs
+    32 hex digits; `--shards` and a default count above 256 exit 2. No accepted configuration changes.
+-   **Tests:** `test_startup_errors` E1-E6 (fails on 88c2f15 at E1 with an abort; passes).
+-   **Evidence:** fast suite locally; 3 independent QA reviews, no blockers, findings resolved (section 6).
+-   **Assumptions changed:** none for accepted configurations. A `--space-uuid` with `0x`, `+` or
+    whitespace is now refused (it was misread).
+-   **Next action:** cody reviews. D4-b, D4-c, D5 and K1 not started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): PR #137 review carried out (Codex: conditional approval) and x7
+
+-   **Review:** `docs/handoff/PR137_D4_Startup_Errors_Review_Approval.md`. Merge once the x7 CI
+    investigation is resolved and the full suite passes.
+-   **x7:** reproduced deterministically (`tests/probe_x7_not_ready.py`): a primary killed while its group
+    has NOT READY on record (a DEGRADE after a late standby ack) is correctly not replaced; x7 kills at a
+    fixed time without checking READY. A test race, not #137's (startup path only). Test fix and CI log
+    artifacts proposed, not started.
+-   **Next action:** merge #137 on green full CI, then stop. No D5 or other work until cody's go; Codex
+    recommends the architectural guarantees review first. Subagents: Opus or Sonnet only.
+
+### 2026-11-16 UTC --- Claude (Claude Code): AFR-S-2 listener exposure (for review)
+
+-   **What:** the interim mitigation of AFR-F-02 (audit-D4), slice AFR-S-2 of `docs/AFR_001_INVENTORY.md`, started
+    on cody's go ("close the open ports first"). Write-up `docs/LISTENER_EXPOSURE.md`.
+-   **Code (REFINE):** one bind address per process, `--host`, default `127.0.0.1`, for every `snc_server`
+    listener (data, admin, seed, node links, standby replication unless `--standby-host`); new `snc_witness
+    --host`; `ha::listen_on` takes the host. The `--control` fallback to `0.0.0.0` is removed. A cluster member
+    or replicated witness whose own map/peers address is not loopback is refused (exit 2) without `--host`.
+    `AUDIT NAME` writes only a plain file name inside the new `--audit-dir` (O_NOFOLLOW, regular files only;
+    never the data directory). No wire or on-disk format change.
+-   **Tests:** `test_listen_exposure` L1-L5 (fails on 63cf6d7: listeners on `0.0.0.0`, `AUDIT /path` truncated
+    the file, the non-loopback member started); lab and `test_baseline_move` callers updated.
+-   **Assumptions changed:** a process started without `--host` is reachable only from its own machine.
+    Multi-machine launches must pass `--host` (lab.py does). Authentication, PROMOTE guard, forged COMMIT and
+    replication Hello stay open for the guarantees spec (section 6 of the write-up).
+-   **Next action:** cody and Codex review. Nothing else in AFR-F-02 started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): PR #141 conditions met (Codex conditional approval)
+
+-   **Review:** `docs/handoff/PR141_Listener_Exposure_Review_Conditional.md`.
+-   **Evidence at a12f4c1:** full suite 63/63 (`ctest -j1`); `test_xnode_proc` x9 against D.1 33f7c6d passes; CI
+    fast green. Rerun after merging main (PR #140, PR #137 D4) at e5c9561: 64/64, x9 pass, CI fast green. Authentication, authorization and cluster identity stay open for AFR-D-07.
+-   **Next action:** merge, then stop. No further architectural implementation from this approval.

@@ -211,6 +211,7 @@ class Shard {
   // Cross-node exchange accounting (docs/CROSS_NODE_EXCHANGE_DESIGN.md, D.2).
   struct Xnode {
     bool accounting = true;  // SNC_XNODE_ACCOUNTING; off: D.1 counting on the v2 wire
+    std::string listen_host = "127.0.0.1";  // Engine::Config::listen_host
     // Where links incarnations come from (2.1); null or empty: no links.
     std::unique_ptr<class LinksGeneration>* gen = nullptr;
     // Timers (2.10), as hypotheses; the engine checks their ordering.

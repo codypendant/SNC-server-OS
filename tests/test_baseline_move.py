@@ -75,7 +75,9 @@ class BCluster(fc.Cluster):
         super().__init__(work, groups=2, ha=True, async_replica=False, v2=True)
 
     def start(self, k, standby_of=None, extra=(), bin_dir=None):
-        more = ["--witness", self.control]
+        # AUDIT NAME writes only inside --audit-dir (docs/LISTENER_EXPOSURE.md).
+        os.makedirs(f"{self.work}/audit", exist_ok=True)
+        more = ["--witness", self.control, "--audit-dir", f"{self.work}/audit"]
         if self.ckpt:
             more += ["--checkpoint-s", str(self.ckpt)]
         super().start(k, standby_of=standby_of, extra=list(extra) + more, bin_dir=bin_dir)
@@ -136,8 +138,14 @@ def settle_and_check(c, ids, res, timeout=120):
     res["pending_at_end"] = pending
     files = []
     for k in primaries(c):
-        path = f"{c.work}/bal.{k}"
-        r = c.ask(k, f"AUDIT {path}", 60)
+        path = f"{c.work}/audit/bal.{k}"
+        # Written to --audit-dir (c.work/audit). A node of a build before
+        # AFR-S-2 (c.old, test_xnode_proc x9) takes the path instead.
+        old = k in getattr(c, "old", ())
+        r = c.ask(k, f"AUDIT {path}" if old else f"AUDIT bal.{k}", 60)
+        # A refusal (no --audit-dir on that node) must not read as a node
+        # serving nothing: say so in the result.
+        assert not (r or "").startswith("NO "), f"node {k}: AUDIT bal.{k} refused: {r}"
         if r and r.startswith("AUDIT") and int(r.split()[1]) > 0:
             files.append(path)
     rc, out = snc_load("check", "--ids", ids, "--start", START, "--balances", ",".join(files),

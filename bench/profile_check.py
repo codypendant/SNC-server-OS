@@ -77,10 +77,11 @@ STRUCTURAL = {
     "--shards", "--cpus", "--host", "--port", "--objects", "--data-dir", "--control", "--node-id", "--admin-port",
     "--report-ms", "--space-uuid", "--seed-port", "--seed-from", "--rejoin", "--standby-host", "--cluster",
     "--group", "--member", "--standby", "--replica-of", "--witness", "--async-replica", "--replica-retain-mib",
+    "--audit-dir",
 }
 
 WITNESS_STRUCTURAL = {"--port", "--state", "--id", "--peers", "--failover-ms", "--poll-ms", "--group", "--primary",
-                      "--standby", "--health-verb", "--new-state"}
+                      "--standby", "--health-verb", "--new-state", "--host"}
 
 
 class ProfileViolation(Exception):

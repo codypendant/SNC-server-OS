@@ -91,9 +91,10 @@ Built (2026-10-13):
   takes the nodes' balance files and applies `test_migrate`'s checks:
   every account served exactly once, and every balance equal to its start
   plus the acknowledged transfers plus some subset of the in-doubt ones.
-- `snc_server` admin `AUDIT [PATH]`: accounts served now, their total,
+- `snc_server` admin `AUDIT [NAME]`: accounts served now, their total,
   unsettled transfer entries, epoch, held and misrouted follow-ups; with
-  PATH it writes the balances there.
+  NAME it writes the balances to that file inside `--audit-dir` (since
+  AFR-S-2 a plain name, not a path: docs/LISTENER_EXPOSURE.md).
 - `snc_ctl move --stop-after STEP` (a driver that dies at a step, for
   crash runs) and `--chunk N` (objects per copy request ahead of the
   seal). The driver's log lines now carry elapsed time.
@@ -295,6 +296,9 @@ From building the harness, on loopback:
 2. **A node started with `--control` listened for clients on loopback
    only**, although the map advertises its host to other hosts' clients.
    Fixed: it now listens on every interface unless `--host` is given.
+   (Superseded by AFR-S-2, docs/LISTENER_EXPOSURE.md: every listener now
+   binds `--host`, default loopback, and a member whose map address is not
+   loopback is refused without `--host`; `lab.py` passes each host's address.)
 3. A promoted standby whose group has no other member reports `role=n`
    (no replication), not `p`; the lab accepts either.
 

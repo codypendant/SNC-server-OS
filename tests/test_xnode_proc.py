@@ -77,6 +77,13 @@ class XCluster(fc.Cluster):
 
     def start(self, k, standby_of=None, extra=(), bin_dir=None):
         more = list(self.extra.get(k, []))
+        # tbm.settle_and_check asks AUDIT NAME, written only inside
+        # --audit-dir (docs/LISTENER_EXPOSURE.md).
+        # A node of the older build (x9) has no --audit-dir and takes a path
+        # (tbm.settle_and_check asks it that way, through c.old).
+        os.makedirs(f"{self.work}/audit", exist_ok=True)
+        if k not in self.old:
+            more += ["--audit-dir", f"{self.work}/audit"]
         if self.how == "ha":
             more += []
         super().start(k, standby_of=standby_of, extra=list(extra) + more,

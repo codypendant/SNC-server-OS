@@ -16,7 +16,7 @@
 //     failover whose outcome was lost) and PREFIX.summary.
 //   snc_load check --ids FILE --start CENTS --balances F1,F2,...
 //                  --runs PREFIX1,PREFIX2,...
-//     Checks AUDIT balance files (snc_server's AUDIT PATH, one per primary)
+//     Checks AUDIT balance files (snc_server's AUDIT NAME in --audit-dir, one per primary)
 //     against the runs: every account served exactly once, and its balance
 //     the start plus every acknowledged transfer plus some subset of the
 //     in-doubt ones (as tests/test_migrate.cpp checks).

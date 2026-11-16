@@ -46,8 +46,11 @@ ConnSet::ConnSet(const std::string& host, u16 port, OnRequest on_request, void* 
   sockaddr_in a{};
   a.sin_family = AF_INET;
   a.sin_port = htons(port);
-  if (::inet_pton(AF_INET, host.c_str(), &a.sin_addr) != 1) die("inet_pton");
-  if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0) die("bind");
+  // The address is in the message (docs/LISTENER_EXPOSURE.md): --host now
+  // names every listener, so a wrong one should say which.
+  const std::string where = host + ":" + std::to_string(port);
+  if (::inet_pton(AF_INET, host.c_str(), &a.sin_addr) != 1) die(("inet_pton " + where).c_str());
+  if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0) die(("bind " + where).c_str());
   if (::listen(listen_fd_, 1024) != 0) die("listen");
   epfd_ = ::epoll_create1(EPOLL_CLOEXEC);
   if (epfd_ < 0) die("epoll_create1");
