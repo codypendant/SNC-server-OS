@@ -8,6 +8,9 @@
     protocol. This document is a hand argument toward the second.
   - Every step is an inference unless it is labelled otherwise. Section 6 says what would turn the argument into
     evidence.
+- **Closure phase.** `docs/AFR_001_VERIFICATION_CLOSURE.md` follows Codex's Revision 2 review: case 5c is now
+  forbidden by R7, R3's simplified rule and a combined authority-and-durability model are model-checked within
+  bounds, and a defect in the Revision 2 Log model is disclosed.
 - **Nothing here authorizes implementation.** AFR-D-01, AFR-D-02 and AFR-D-03 are not accepted as a complete
   protocol.
 - **Method.** This follows `docs/ENGINEERING_PRINCIPLES.md` (research before reinvention). Each claim carries a
@@ -105,8 +108,8 @@ Each member `i` keeps:
 - **Stop granting.** A member stops granting to terms below `t'` the moment it persists `t'` (R4).
 - **When it may serve.** A member promoted to `t'` may serve only once its own clock reaches `learned_i + W`.
   `learned_i` is when it persisted `t'` after learning that its promotion was chosen.
-- **Why this one bound covers every earlier grant** [INF; the model keeps all three bounds, so this simplification
-  is argued, not model-checked; see `spec/tla/RESULTS.md`]:
+- **Why this one bound covers every earlier grant** [INF; model-checked within bounds in the closure phase through
+  `R3Lemma`, see `docs/AFR_001_VERIFICATION_CLOSURE.md` section 3]:
   - A member grants only to its own known term, and stops granting to lower terms when it persists `t'` (R4).
     So every grant it made to a lower term, **including grants made after a restart or during any wait**, was made
     at or before `learned_i`.
@@ -174,8 +177,17 @@ Each member `i` keeps:
   barrier, applies.
 - It may name a member outside S only in one of two cases:
   - the record is degraded **and READY at its current term**, meaning the degraded primary has taken over (R2);
-  - the operator asserts that every member of S is fenced or down (STONITH; [EXT: PostgreSQL warm-standby
-    failover docs]).
+  - every member of S is **confirmed** fenced: a fencing action (for example power-off) has reported that each one has
+    stopped (STONITH; [EXT: PostgreSQL warm-standby failover docs],
+    [EXT: Pacemaker fencing]). An operator's belief that a member is down is not a confirmation.
+  - **Boot read.** A fenced member may come back (Pacemaker's default fencing action is a reboot). When any member
+    boots, it reads R from the witnesses and adopts its term before it grants. Without this, a returning member that
+    never learned the new term renews the old primary's lease, and 5c reappears (found by the closure QA; TLC
+    `U_noBootRead`).
+- **Closure (case 5c).** Any other outside-S promotion while `|S| ≥ 2` is not a protocol operation. If SNC offers
+  it at all, it is an explicitly unsafe recovery override, labelled as able to break Claim L and lose acknowledged
+  writes, outside the contract. This matches how other systems treat the same step (see
+  `docs/AFR_001_VERIFICATION_CLOSURE.md` section 2).
 - **Why READY is needed.** The independent QA found this interleaving, and the model reproduces it
   (`op_outside_degraded_unfenced`):
   1. Term 2 is chosen for `j` (degraded, S = {j}), but `j` has not learned it.
@@ -238,9 +250,9 @@ rates [INF].
 | 3b | Grow chosen, reply lost, then promotion (B1) | PREVENTED by the fix | R1.2 |
 | 3c | Fast double promotion (B2) | PREVENTED by the fix | R2 READY rule plus R3 |
 | 4 | Drift at ρ / beyond the condition | SAFE / out of contract | The drift condition above |
-| 5a | Operator promotion inside S during a valid lease | PREVENTED | R3: last grant and learned barrier |
+| 5a | Operator promotion inside S during a valid lease | PREVENTED | R3: the `learned + W` barrier |
 | 5b | Operator promotion outside S, degraded (Codex issue 2) | PREVENTED by the fix | R8 (W1 plus the barrier) fences the degraded holder. R7's READY condition fences older holders, which needs a STONITH assertion otherwise |
-| 5c | Operator promotion outside S while `S = {p, j}` and `j` is partitioned from the operator but still granting to p | **UNRESOLVED** | No rule. `j` never learns the new term, so p's lease stays alive. Safety rests on the operator's assertion |
+| 5c | Operator promotion outside S while `S = {p, j}` and `j` is partitioned from the operator but still granting to p | **FORBIDDEN** (closure phase) | R7 admits it only once every member of S is confirmed fenced; otherwise it is an unsafe override outside the contract. TLC: `A_mut_5c` reproduces the failure when admitted, `A_fence_op` checks the gate |
 | 6 | A standby still serves reads under a lease from the old primary (M2) | PREVENTED by the fix | R9 |
 
 **Option for 5c (not adopted).** Members could grant only while they have confirmed the current term from a witness
@@ -249,7 +261,7 @@ majority within `d`. That closes 5c, at the cost of witness traffic in normal mo
 **Residual assumptions:**
 - the drift bound;
 - a clock that counts through suspend (today's CLOCK_MONOTONIC does not; `runtime.cpp:38-41`, [FACT-SNC]);
-- a correct operator assertion (5c).
+- a fencing action that reports success only when the member has really stopped, and the boot read (R7).
 
 ## 2. Claim D: log prefix and acknowledged-write preservation (Codex points 2 and 4)
 
@@ -388,7 +400,7 @@ preregistration. Runs use the R640 with the frozen manifest.
 ## 5. What this establishes
 
 **Established [INF]:** with R1 to R9 and the residual assumptions, the hand argument finds no interleaving that
-breaks Claim L or I1-I5, except case 5c (UNRESOLVED) and the stated out-of-contract cases.
+breaks Claim L or I1-I5, except the stated out-of-contract cases. Case 5c is now forbidden by R7 (closure phase).
 
 **Not established:**
 - that no interleaving was missed (section 6);

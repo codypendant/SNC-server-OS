@@ -23,7 +23,9 @@ CONSTANTS Nodes, P0, Q0, MaxTerm, MaxIds, MaxCrashes,
           FixClear,   \* R6.3: clear the intent before accepting entries beyond it
           FixReseed,  \* R6.4: reseed when the truncation point is below the checkpoint
           FixInc,     \* R6.5: durable incomplete flag during a reseed
-          FixCkIntent \* R6.3 (found by TLC): no checkpoint while an intent is pending
+          FixCkIntent,\* R6.3 (found by TLC): no checkpoint while an intent is pending
+          KeepS       \* relax R2 Kafka-style: promotion keeps the rest of S, unreconciled
+                      \* (FALSE is the protocol; TRUE exists to exercise R6.2, see RESULTS)
 
 NONE == -1
 
@@ -116,19 +118,19 @@ Drop(p, c) ==      \* without FixB1: a lost grow reply is treated as a failure
 
 Promote(j) ==      \* R2: j in S; new S = {j}
   /\ rec.term < MaxTerm /\ j \in rec.S /\ j # rec.prim /\ ~Busy(j)
-  /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> {j}]
+  /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> IF KeepS THEN rec.S ELSE {j}]
   /\ UNCHANGED <<T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks, acked, nid, crashes, inh, pack>>
 
 Learn(n) ==
   /\ rec.term > T[n]
   /\ T' = [T EXCEPT ![n] = rec.term]
   /\ isPrim' = [isPrim EXCEPT ![n] = (rec.prim = n)]
-  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN {n} ELSE {}]
+  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN (IF KeepS THEN rec.S ELSE {n}) ELSE {}]
   /\ ilog' = [ilog EXCEPT ![n] = dlog[n]]                  \* R6.1 drain
   /\ pos' = [pos EXCEPT ![n] = IF rec.prim = n THEN rec.term ELSE 0]
   /\ inh' = [inh EXCEPT ![n] = IF rec.prim = n THEN Len(dlog[n]) ELSE 0]
   /\ pack' = [pack EXCEPT ![n] = 0]
-  /\ UNCHANGED <<rec, dlog, intent, inc, rs, cks, acked, nid, crashes, inh, pack>>
+  /\ UNCHANGED <<rec, dlog, intent, inc, rs, cks, acked, nid, crashes>>
 
 (* --- reconciliation (R6.2-R6.5) --------------------------------------- *)
 \* Truncation point that k's next reconciliation step would choose against j.

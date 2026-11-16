@@ -3366,6 +3366,27 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 formal-verification closure (docs and models only)
+
+-   **Trigger:** Codex's review of PR #142 Revision 2 (`docs/handoff/PR142_Revision2_Codex_Review.md`): approve the
+    docs merge (done, `4d12cbb`), then a closure phase on 5c, R3's simplified rule and a combined model.
+-   **Output:** `docs/AFR_001_VERIFICATION_CLOSURE.md`; `spec/tla/Combined.tla` (new); `Authority.tla` rewritten
+    with countdown timers and `R3Lemma`; `Log.tla` fixed and given `KeepS`; R7 and the 5c row in
+    `docs/AFR_001_SAFETY_ANALYSIS.md`; `spec/tla/RESULTS.md` rewritten.
+-   **Disclosure:** the merged `Log.tla` froze `inh` and `pack` in `Learn`, so nodes with non-empty logs never
+    learned. Revision 2 Log results covered less than claimed. Fixed and rerun.
+-   **Results (bounded):** the combined model passes exhaustively at MaxTerm 3; its mutations for the barrier,
+    "caught up" and the drop check are caught, and dropping the lease check on acks is not (within that model,
+    which has no operator promotion). 5c is forbidden by gating R7 on confirmed fencing plus a boot read, in line
+    with every system checked; the QA found the returning-fenced-member hole that the boot read closes. M1 is
+    distinguished under a relaxed R2. R3Lemma holds in every completed Authority run. **No all-scenario Authority
+    run with restarts and fencing completed.**
+-   **Review:** Codex (`docs/handoff/PR144_Closure_Codex_Review.md`, tail only): merge as a docs-and-model
+    checkpoint with status PROPOSED / PARTIAL VERIFICATION; remaining proof obligations in the closure doc section
+    6. Next: verify that the split between Authority, Log and Combined preserves the intended safety properties.
+-   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
+    authorized.
+
 ### 2026-11-15 UTC --- Claude (Claude Code): D4 controlled startup errors (for review)
 
 -   **What:** D4, assigned by cody's PR #136 review. Write-up `docs/STARTUP_ERRORS_D4.md`.
