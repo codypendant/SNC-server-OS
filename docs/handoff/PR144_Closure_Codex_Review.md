@@ -1,7 +1,33 @@
 # PR #144 verification closure: Codex review (relayed by cody as a screenshot, 2026-11-16)
 
-Only the end of the review was received. **Points 1-3 and the start of point 4 were not received**; this file will
-be completed if they are relayed. Transcribed from the screenshot:
+Received in two parts. **The middle of concern 1, concerns 2 and 3, and the start of concern 4 were not
+received**; this file will be completed if they are relayed. Transcribed from the screenshots:
+
+> **PR #144 — Formal Verification Closure** — *Conditional approval*
+>
+> I've reviewed the verification-closure document, the TLA+ model changes, and the recorded TLC results.
+>
+> **Decision: Approve as provisional verification evidence, but do not declare formal verification complete or
+> accept D-01/D-02/D-03 yet.**
+>
+> **What passed**
+>
+> - **Combined authority and durability model:** 15,151,183 states, exhaustive at MaxTerm 3.
+> - **Operator promotion fencing gate:** 30,970,751 states, exhaustive for one fence and one return.
+> - **R3 simplified lease rule:** Passed in completed Authority configurations.
+> - **Log model:** Previous verification defect corrected; smaller configurations rerun successfully.
+> - **Mutation testing:** Successfully exposed several safety violations, including lease-barrier, membership, and
+>   reconciliation defects.
+>
+> Claude also disclosed that the original Log model contained a defect that invalidated part of its earlier
+> verification coverage. Correcting and rerunning that model was essential.
+>
+> **Remaining concerns**
+>
+> 1. **The combined model is not yet a complete protocol model.** It excludes operator promotion, standby leases,
+> [not received] ... interactions are checked separately, so their combined safety remains unestablished.
+>
+> [concerns 2 and 3 not received]
 
 > 4. The corrected Log model's larger configuration did not finish. The completed [smaller] configurations provide
 > bounded evidence, not unrestricted correctness.
