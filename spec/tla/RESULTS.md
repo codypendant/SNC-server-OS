@@ -132,3 +132,73 @@ The Revision 2 runs used the models at `2a561c1`: an absolute-time Authority mod
 with the `Learn` defect above. Their Authority switch results still stand as found on that model, and are repeated
 on the current model in section 2. Their Log results are superseded by sections 1 to 3. The full Revision 2 table is
 in git history (`git show 4d12cbb:spec/tla/RESULTS.md`).
+
+## 7. Model composition (follow-up to the PR #144 review)
+
+Runs for `docs/AFR_001_MODEL_COMPOSITION.md`, on the models in this directory (`Compete` and `StaleAuthBounded` in
+`Authority.tla`; the fencing switches, `OpInside`, `OpOutsideDeg`, `StaleAuthBounded`, `AuthAtRecTerm` and
+`OneTermBehind` in `Combined.tla`). 2 workers, `-Xmx3g`, two runs at a time. Depth is the number of states in the
+counterexample.
+
+`StaleAuthBounded` had three versions. "Draft": R's primary holds no `Auth`, is in the stale node's A, and its
+lease to the stale node ends before its barrier. "First": R's primary holds no `Auth`, and `Rem` ends before the
+barrier. "Current" (committed): R's primary holds no `Auth` **at R's term**, and `Rem` ends before the barrier.
+Each is weaker than the one before when R's primary is in the stale node's A, so a Combined pass with an earlier
+version carries over. The first version was refuted in `Authority.tla` (Q_A_ rows), which is why it changed.
+
+**Combined** (MaxTerm 3 unless stated):
+
+| Run | Change from `Combined.cfg` | Result |
+|---|---|---|
+| X_literal | MaxTerm 2, invariant `AuthAtRecTerm` | violated, depth 3: Tick, Promote(n2) (expected) |
+| X_fenced_t2 | MaxTerm 2, draft | **PASS**, exhaustive, 3,235,335 states, depth 35 |
+| X_fenced_t3 | draft | **PASS**, exhaustive, 15,151,183 states, depth 45 |
+| Q_shipped | first | **PASS**, exhaustive, 15,151,183 states, depth 45 |
+| C_opInside_t3 | `OpInside = TRUE`, first | **PASS**, exhaustive, 16,505,916 states, depth 44 |
+| C_oneTerm_t3 | invariant `OneTermBehind` | **PASS**, exhaustive, 15,151,183 states, depth 46 |
+| C_oneTerm_opInside_t3 | `OpInside = TRUE`, `OneTermBehind` only | violated, depth 8: Promote(n2), Learn(n2), Learn(n3), Recon(n3,n2), AddA(n2,n3), Grow(n2,n3), Promote(n3) |
+| C_opOutsideDeg_auth | MaxTerm 2, `OpOutsideDeg = TRUE`, `OneAuthority` and first | **PASS**, exhaustive, 6,143,462 states, depth 36 |
+| Q_opOut_t3_ids2 | `OpOutsideDeg = TRUE`, `OneAuthority` and first | **PASS**, exhaustive, 45,720,782 states, depth 44 |
+| C_opOutsideDeg_safety | MaxTerm 2, `OpOutsideDeg = TRUE`, `Safety` | violated, depth 7: NewEntry(n1), WriteLocal(n1), Ship(n1,n2), Ack(n1,1), Shrink(n1,n2), Promote(n3): the 5b write loss Claim D excludes |
+| M_grantTerm | MaxTerm 2, `FixGrantTerm = FALSE` | draft violated, depth 6 |
+| S_grantTerm | as above, `Safety` only | violated, depth 7: Promote(n2), Learn(n2), Tick, Tick, WGrant(n2), Grant(n2,n1) |
+| M_learnStep | MaxTerm 2, `FixLearnStep = FALSE` | `Safety` violated, depth 6: NewEntry(n1), WriteLocal(n1), Promote(n2), Learn(n1), Ack(n1,1) |
+| M_AinS | MaxTerm 2, `FixAinS = FALSE` | draft violated, depth 4 |
+| S_AinS | as above, `Safety` only | violated, depth 7: NewEntry(n1), WriteLocal(n1), Shrink(n1,n2), Drop(n1,n2), Grow(n1,n2), Ack(n1,1) |
+| M_barrier | MaxTerm 2, `FixBarrier = FALSE` | `Safety` violated, depth 5: Tick, Promote(n2), Learn(n2), WGrant(n2) |
+| M_w1Term_t3 | `FixW1Term = FALSE` | no violation, exhaustive, 15,151,183 states (identical to the protocol) |
+| Q_w1Mut_opOut_ids0 | MaxIds 0, no restart, `OpOutsideDeg = TRUE`, `FixW1Term = FALSE`, `OneAuthority` | violated, depth 12: Tick, Shrink(n1,n2), Promote(n3), Learn(n3), Tick, Tick, Ready(n3), WGrant(n3), Promote(n1), WGrant(n1), Grant(n2,n1) |
+| Q_opOut_ids0 | as above with `FixW1Term = TRUE`, `OneAuthority` and first | **PASS**, exhaustive, 46,823 states, depth 27 |
+
+**Text mutations of term guards** (`Combined.tla` edited in a scratch copy; MaxTerm 2 runs check `Safety`; the
+"3" runs use MaxTerm 3, MaxIds 1, no restart, `OpInside` and `OpOutsideDeg` on, and check `OneAuthority`,
+`EntryUnique`, `LogMatching` and the current bound, because outside-S promotion breaks Claim D by contract):
+
+| Run | Guard removed | Result |
+|---|---|---|
+| T3b_protocol | none | **PASS**, exhaustive, 1,514,402 states, depth 35 |
+| T_current | `Current`'s `rec.term = T[p]` | no violation, 3,235,335 states (protocol's count) |
+| T3b_current | as above | `OneAuthority` violated, depth 11: Shrink(n1,n2), Promote(n3), Learn(n3), Tick, WGrant(n3), Tick, Ready(n3), Promote(n1), Grant(n2,n1), Grow(n1,n2) |
+| T_ship / T3_ship | `Ship`'s `T[m] = T[p]` | no violation at either bound (protocol's counts) |
+| T_addA / T3_addA | `AddA`'s `T[c] = T[p]` | no violation at either bound (protocol's counts) |
+| T_recon | `Recon`'s `T[k] = T[j]` | `Safety` violated, depth 10: Promote(n2), Learn(n2), Tick, Tick, WGrant(n2), NewEntry(n2), WriteLocal(n2), Ack(n2,1), Recon(n2,n1) |
+
+**Authority** (`Safety`, `R3Lemma` and `StaleAuthBounded`; restart core = MaxTerm 2, one restart, degraded mode,
+no operator promotion, fencing or standby leases):
+
+| Run | Change | Invariant version | Result |
+|---|---|---|---|
+| B_stale_core | restart core | current | **PASS**, exhaustive, 1,441,064 states, depth 32 |
+| B_compete_core | restart core, `Compete = TRUE` | current | **PASS**, exhaustive, 1,616,575 states, depth 33 |
+| B_stale_gate | U_gate_f1 (MaxTerm 3, outside-S operator promotion, one fence, one return) | current | **PASS**, exhaustive, 27,814,539 states, depth 35 |
+| B_compete_ops_t3 | MaxTerm 3, `Compete = TRUE`, operator promotion and degraded mode; no restart, fencing or standby | current | **PASS**, exhaustive, 18,009,677 states, depth 43 |
+| Q_A_compete_ops_t3 | as B_compete_ops_t3 | first | violated, depth 10: Propose(n2), two accepts, Learn(n2), AddA(n2,n1), Grow(n2,n1), Propose(n1), two accepts: n1 is named in R again while it still holds its term-1 lease (safe; the version was wrong) |
+| Q_A_stale_gate | as B_stale_gate | first | violated, depth 9: Tick, Propose(n2), two accepts, Fence(n2), Propose(n1), two accepts (same cause) |
+| A_compete_ops | MaxTerm 2, `Compete = TRUE`, operator promotion and degraded mode | `T[n] < rec.term` form without the first clause | **PASS**, exhaustive, 640,719 states, depth 30 |
+| A_compete_barrierMut | as A_compete_ops, `Barrier = FALSE` | same | violated, depth 7: Propose(n2), two accepts, Learn(n2), WGrant(w1,n2), WGrant(w2,n2) |
+| A_compete_W1mut_ops | as A_compete_ops, `W1 = FALSE` | same | violated, depth 9: Shrink(n1), Propose(n2), two accepts, Learn(n2), Tick, WGrant(w1,n1), WGrant(w2,n1) |
+
+State counts differ from section 1 for the same scenario (B_stale_core 1,441,064 against A_restart_core
+2,523,448) because the old model also stored the set of accepting witnesses, which the new one derives from the
+witnesses' records. The two encodings should have the same behaviours [INF; the independent QA checked the
+enabling conditions by hand].

@@ -18,7 +18,10 @@
 (*                                                                         *)
 (* The group record is a single register; witness Paxos is abstracted.    *)
 (*   - A promotion is accepted witness by witness, and is chosen at a      *)
-(*     majority. Its proposer is modelled as never failing.                *)
+(*     majority. With Compete, two promotions may race for the next        *)
+(*     version: a witness may move its acceptance between them, the first  *)
+(*     to reach a majority is chosen, and the other is abandoned with its  *)
+(*     acceptances left in place (a failed or slower proposer).            *)
 (*   - Other compare-and-sets (grow, shrink, ready) are atomic, and are    *)
 (*     disabled while a promotion is pending.                              *)
 (*                                                                         *)
@@ -41,14 +44,15 @@ CONSTANTS Nodes, Witnesses, P0, Q0, D, MaxTerm, MaxRestarts, MaxFences,
           FixBootRead,\* R7: a fenced node that comes back reads R before it grants
           OpOutside,  \* allow operator promotion outside S at all
           Degrade,    \* allow the degrade step (Shrink)
-          Standby     \* allow standby read leases
+          Standby,    \* allow standby read leases
+          Compete     \* two promotions may compete for the next version; one is chosen
 
-VARIABLES rec, propOn, prop, acc, wrec,
+VARIABLES rec, propOn, prop, wrec,
           T, isPrim, fenced, restarted,
           bootW, grantW, learnW,   \* R3 wait timers
           A, pdeg, hg, hw, sl, nRestarts
 
-vars == <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+vars == <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
           bootW, grantW, learnW, A, pdeg, hg, hw, sl, nRestarts>>
 
 Maj(Q) == 2 * Cardinality(Q) > Cardinality(Witnesses)
@@ -61,8 +65,7 @@ NoWGrants == [w \in Witnesses |-> 0]
 Init ==
   /\ rec = [term |-> 1, prim |-> P0, S |-> {P0, Q0}, ready |-> TRUE, deg |-> FALSE]
   /\ propOn = FALSE
-  /\ prop = rec
-  /\ acc = {}
+  /\ prop = {}
   /\ wrec = [w \in Witnesses |-> rec]
   /\ T = [n \in Nodes |-> 1]
   /\ isPrim = [n \in Nodes |-> n = P0]
@@ -106,7 +109,7 @@ Tick ==
   /\ hg' = [n \in Nodes |-> [m \in Nodes |-> Dec(hg[n][m])]]
   /\ hw' = [n \in Nodes |-> [w \in Witnesses |-> Dec(hw[n][w])]]
   /\ sl' = [n \in Nodes |-> [sl[n] EXCEPT !.rem = Dec(@)]]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
                  A, pdeg, nRestarts>>
 
 \* member m grants to the primary n of m's own known term
@@ -114,14 +117,14 @@ Grant(m, n) ==
   /\ m # n /\ ~fenced[m] /\ isPrim[n] /\ ~fenced[n] /\ T[m] = T[n] /\ m \in A[n]
   /\ hg' = [hg EXCEPT ![n][m] = D]
   /\ grantW' = [grantW EXCEPT ![m] = IF FixR3 \/ ~restarted[m] THEN D ELSE @]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
                  bootW, learnW, A, pdeg, hw, sl, nRestarts>>
 
 WGrant(w, n) ==
   /\ isPrim[n] /\ ~fenced[n] /\ pdeg[n]
   /\ (W1 => (wrec[w].term = T[n] /\ wrec[w].prim = n /\ wrec[w].deg))
   /\ hw' = [hw EXCEPT ![n][w] = D]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
                  bootW, grantW, learnW, A, pdeg, hg, sl, nRestarts>>
 
 AllSFenced == \A m \in rec.S : fenced[m]
@@ -133,21 +136,22 @@ MayPromote(j) ==
            /\ (FixOp => (rec.ready \/ AllSFenced)))      \* operator outside S, degraded
      \/ (OpOutside /\ j \notin rec.S /\ ~rec.deg /\ (AllowOp5c \/ AllSFenced))
 
-Propose(j) ==
-  /\ ~propOn /\ rec.term < MaxTerm /\ MayPromote(j)
-  /\ propOn' = TRUE /\ acc' = {}
-  /\ prop' = [term |-> rec.term + 1, prim |-> j, S |-> {j}, ready |-> FALSE, deg |-> TRUE]
+Propose(j) ==  \* prop: pending promotions for the next version (Paxos chooses at most one)
+  /\ rec.term < MaxTerm /\ MayPromote(j)
+  /\ IF Compete THEN Cardinality(prop) < 2 ELSE ~propOn
+  /\ LET r == [term |-> rec.term + 1, prim |-> j, S |-> {j}, ready |-> FALSE, deg |-> TRUE]
+     IN r \notin prop /\ prop' = prop \cup {r}
+  /\ propOn' = TRUE
   /\ UNCHANGED <<rec, wrec, T, isPrim, fenced, restarted, bootW, grantW, learnW,
                  A, pdeg, hg, hw, sl, nRestarts>>
 
-WAccept(w) ==
-  /\ propOn /\ w \notin acc
-  /\ wrec' = [wrec EXCEPT ![w] = prop]
-  /\ acc' = acc \cup {w}
-  /\ IF Maj(acc \cup {w})
-       THEN rec' = prop /\ propOn' = FALSE
-       ELSE UNCHANGED <<rec, propOn>>
-  /\ UNCHANGED <<prop, T, isPrim, fenced, restarted, bootW, grantW, learnW,
+WAccept(w, r) ==  \* a witness may move its acceptance between pending values
+  /\ r \in prop /\ wrec[w] # r
+  /\ wrec' = [wrec EXCEPT ![w] = r]
+  /\ IF Maj({v \in Witnesses : wrec'[v] = r})
+       THEN rec' = r /\ propOn' = FALSE /\ prop' = {}
+       ELSE UNCHANGED <<rec, propOn, prop>>
+  /\ UNCHANGED <<T, isPrim, fenced, restarted, bootW, grantW, learnW,
                  A, pdeg, hg, hw, sl, nRestarts>>
 
 \* atomic non-term compare-and-set by the current primary
@@ -156,14 +160,14 @@ SetRec(r) == rec' = r /\ wrec' = [w \in Witnesses |-> r]
 AddA(p, c) ==
   /\ Current(p) /\ ~propOn /\ c # p /\ c \notin A[p] /\ ~fenced[c]
   /\ A' = [A EXCEPT ![p] = @ \cup {c}]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
                  bootW, grantW, learnW, pdeg, hg, hw, sl, nRestarts>>
 
 Grow(p, c) ==
   /\ Current(p) /\ ~propOn /\ c \in A[p] /\ c \notin rec.S
   /\ SetRec([rec EXCEPT !.S = @ \cup {c}, !.deg = FALSE])
   /\ pdeg' = [pdeg EXCEPT ![p] = FALSE]
-  /\ UNCHANGED <<propOn, prop, acc, T, isPrim, fenced, restarted, bootW, grantW,
+  /\ UNCHANGED <<propOn, prop, T, isPrim, fenced, restarted, bootW, grantW,
                  learnW, A, hg, hw, sl, nRestarts>>
 
 Shrink(p) ==   \* degrade: S becomes {p}; R1.2 lets p drop the others from A
@@ -171,14 +175,14 @@ Shrink(p) ==   \* degrade: S becomes {p}; R1.2 lets p drop the others from A
   /\ SetRec([rec EXCEPT !.S = {p}, !.deg = TRUE])
   /\ pdeg' = [pdeg EXCEPT ![p] = TRUE]
   /\ A' = [A EXCEPT ![p] = {p}]
-  /\ UNCHANGED <<propOn, prop, acc, T, isPrim, fenced, restarted, bootW, grantW,
+  /\ UNCHANGED <<propOn, prop, T, isPrim, fenced, restarted, bootW, grantW,
                  learnW, hg, hw, sl, nRestarts>>
 
 Ready(p) ==
   /\ Current(p) /\ ~propOn /\ ~rec.ready
   /\ (FixReady => Eligible(p))
   /\ SetRec([rec EXCEPT !.ready = TRUE])
-  /\ UNCHANGED <<propOn, prop, acc, T, isPrim, fenced, restarted, bootW, grantW,
+  /\ UNCHANGED <<propOn, prop, T, isPrim, fenced, restarted, bootW, grantW,
                  learnW, A, pdeg, hg, hw, sl, nRestarts>>
 
 Learn(n) ==
@@ -190,7 +194,7 @@ Learn(n) ==
   /\ pdeg' = [pdeg EXCEPT ![n] = (rec.prim = n)]
   /\ hg' = [hg EXCEPT ![n] = NoGrants]
   /\ hw' = [hw EXCEPT ![n] = NoWGrants]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, fenced, restarted, bootW, grantW,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, fenced, restarted, bootW, grantW,
                  sl, nRestarts>>
 
 Restart(n) ==
@@ -205,12 +209,12 @@ Restart(n) ==
   /\ hg' = [hg EXCEPT ![n] = NoGrants]
   /\ hw' = [hw EXCEPT ![n] = NoWGrants]
   /\ sl' = [sl EXCEPT ![n] = [term |-> 0, rem |-> 0]]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, fenced, learnW>>
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, fenced, learnW>>
 
 Fence(n) ==    \* STONITH by the operator: n stops
   /\ ~fenced[n] /\ Cardinality({m \in Nodes : fenced[m]}) < MaxFences
   /\ fenced' = [fenced EXCEPT ![n] = TRUE]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, restarted, bootW, grantW,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, restarted, bootW, grantW,
                  learnW, A, pdeg, hg, hw, sl, nRestarts>>
 
 Unfence(n) ==  \* a fenced node comes back (reboot or power-on), as after Restart
@@ -228,20 +232,20 @@ Unfence(n) ==  \* a fenced node comes back (reboot or power-on), as after Restar
   /\ hg' = [hg EXCEPT ![n] = NoGrants]
   /\ hw' = [hw EXCEPT ![n] = NoWGrants]
   /\ sl' = [sl EXCEPT ![n] = [term |-> 0, rem |-> 0]]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, learnW>>
+  /\ UNCHANGED <<rec, propOn, prop, wrec, learnW>>
 
 SGrant(p, m) ==
   /\ Standby /\ Auth(p) /\ m \in A[p] \ {p} /\ T[m] = T[p] /\ ~fenced[m]
   /\ sl' = [sl EXCEPT ![m] = [term |-> T[p],
                               rem  |-> IF FixM2 THEN Min({D, Rem(p)}) ELSE D]]
-  /\ UNCHANGED <<rec, propOn, prop, acc, wrec, T, isPrim, fenced, restarted,
+  /\ UNCHANGED <<rec, propOn, prop, wrec, T, isPrim, fenced, restarted,
                  bootW, grantW, learnW, A, pdeg, hg, hw, nRestarts>>
 
 Next ==
   \/ Tick
   \/ \E m, n \in Nodes : Grant(m, n) \/ SGrant(m, n) \/ AddA(m, n) \/ Grow(m, n)
   \/ \E w \in Witnesses, n \in Nodes : WGrant(w, n)
-  \/ \E w \in Witnesses : WAccept(w)
+  \/ \E w \in Witnesses, r \in prop : WAccept(w, r)
   \/ \E n \in Nodes : Propose(n) \/ Shrink(n) \/ Ready(n) \/ Learn(n)
                       \/ Restart(n) \/ Fence(n) \/ Unfence(n)
 
@@ -255,4 +259,9 @@ NoStaleStandby == \A m, n \in Nodes :
 \* so the simplified rule (learned + W) implies the full one.
 R3Lemma == \A n \in Nodes : isPrim[n] => (learnW[n] >= bootW[n] /\ learnW[n] >= grantW[n])
 Safety == OneAuthority /\ NoStaleStandby
+\* Interface invariant shared with Combined.tla: authority below the record's
+\* term ends no later than the new primary's learn barrier.
+StaleAuthBounded == \A n \in Nodes : (Auth(n) /\ T[n] # rec.term) =>
+   /\ ~(Auth(rec.prim) /\ T[rec.prim] = rec.term)
+   /\ ((isPrim[rec.prim] /\ T[rec.prim] = rec.term) => Rem(n) <= learnW[rec.prim])
 =============================================================================

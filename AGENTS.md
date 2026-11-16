@@ -3366,6 +3366,21 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 model composition (docs and models only)
+
+-   **Trigger:** Codex's review of PR #144 (`docs/handoff/PR144_Closure_Codex_Review.md`); PR #144 merged as a
+    PROPOSED / PARTIAL VERIFICATION checkpoint (`41a14cd`).
+-   **Output:** `docs/AFR_001_MODEL_COMPOSITION.md`; `StaleAuthBounded` in `Authority.tla` and `Combined.tla`;
+    competing promotions (`Compete`) in `Authority.tla`; fencing-guard mutations and operator promotion switches in
+    `Combined.tla`; `spec/tla/RESULTS.md` section 7.
+-   **Results (bounded):** Codex concern 3: "Auth only at R's term" fails by design; `StaleAuthBounded` holds in
+    both authority models in every completed run. Removing a stale-node term guard breaks `Safety` or
+    `OneAuthority`, except `Ship`/`AddA` (implied by positioning); `Current`'s and W1's term checks matter only
+    with operator promotion (the QA caught the first draft calling W1's redundant). Competing promotions pass.
+    Open: A2 not proven sound, A7-A9 unchecked, no refinement mapping, concerns 2 and 4 unchanged.
+-   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
+    authorized.
+
 ### 2026-11-16 --- SNC-AFR-001 formal-verification closure (docs and models only)
 
 -   **Trigger:** Codex's review of PR #142 Revision 2 (`docs/handoff/PR142_Revision2_Codex_Review.md`): approve the
