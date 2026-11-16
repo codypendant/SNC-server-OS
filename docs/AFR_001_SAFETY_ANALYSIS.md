@@ -63,7 +63,7 @@ Each member `i` keeps:
 - a term history `H_i`, mapping each term to its first LSN in `i`'s log [EXT: Kafka KIP-101 "Leader Epoch
   Sequence File"].
 
-`H_i` must be durable, or rebuilt from intact term stamps in the log. If it is damaged and cannot be rebuilt, the member refuses with a named error (G-14(a)); a reseed is then an explicit operator action (R6.4). [Revised after Codex's PR #146 review; previously: "If it is lost, the member is reseeded."]
+`H_i` must be durable, with a checksum and a durable compaction floor, so that damage is distinguishable from compaction. If it is damaged, the member refuses with a named error (G-14(a)); rebuilding it from the log's term stamps or reseeding is an explicit operator action (R6.4). [Revised after Codex's PR #146 review; previously: "If it is lost, the member is reseeded."]
 
 ### Ack set A and lease
 
@@ -233,7 +233,10 @@ majority of witnesses, so it stays bounded (G-33).
 
 **R9. Standby read leases.** A standby read lease that p grants never outlasts p's own authority (fixes M2).
 - While a standby lease that p granted to `m` may still be valid, p does not degrade, does not remove `m` from A,
-  and does not acknowledge without `m` (G-30). Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`); it has no A, and its lease frame is forgeable (G-30). [Added after Codex's
+  and does not acknowledge without `m` (G-30). "May still be valid" means until `W = d·(1+ρ)` has passed on p's
+  clock since p last sent `m` a grant (waiter rule, section 0 Timing), and this bound survives a restart of p
+  (R6.0: a restarted p is no longer primary until a new promotion). A standby that holds a lease acknowledges an entry only once it has applied it, so its
+  reads reflect it [INF]. Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`), but it has no A, its lease frame is forgeable, and its bound lacks the `(1+ρ)` factor and is lost on restart (G-30 evidence). [Added after Codex's
   PR #146 review. Not model-checked: `Authority.tla` has no writes and `Combined.tla` has no standby leases.]
 - Like any grant, it is anchored at the standby's send time and deflated by `(1-ρ)` on the standby's clock.
 - It is fenced against a new primary by the R3 bound.

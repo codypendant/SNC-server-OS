@@ -3366,6 +3366,24 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 owner-decision package (docs only)
+
+-   **Trigger:** Codex's review of PR #147 (`docs/handoff/PR147_Guarantee_Fixes_Codex_Review.md`): approved as
+    PROPOSED contracts and evidence; prepare a concise owner-decision package; QA the corrected #147 text. PR #147
+    merged as `747bfcf`.
+-   **Output:**
+    -   `docs/AFR_001_OWNER_DECISION_PACKAGE.md`. It recommends conditional acceptance of D-01 and D-03, `m = 2` by
+        default, D-02 kept on HOLD, and authorizing only X-2's preregistration. It lists the Rust design blockers
+        and Codex's obligations.
+    -   Fixes from the independent QA of the #147 text, in `docs/SNC_GUARANTEES.md` (G-14(a), G-15, G-30, G-46,
+        G-48, the fault table), `docs/AFR_001_SAFETY_ANALYSIS.md` (H, R9) and `spec/tla/RESULTS.md` section 8.
+-   **QA:** #147 text: 6 major and 5 minor findings, fixed. Package: 2 blockers, 8 majors and 4 minors, fixed. The
+    fixed text has not been re-reviewed.
+-   **Open:** a restarted sole copy (single node, or a degraded group's primary) has no specified way to resume.
+    R9's new clauses are not modelled.
+-   **Not recorded as approved:** D-01, D-03, `m = 2`. They are cody's decisions.
+-   **Next action:** STOP for cody's decision. No X-2, implementation or model runs.
+
 ### 2026-11-16 --- SNC-AFR-001 guarantee wording fixes and (term, LSN) history invariant
 
 -   **Trigger:** Codex's review of PR #146 (`docs/handoff/PR146_Acceptance_Review_Codex_Review.md`): approve as a
