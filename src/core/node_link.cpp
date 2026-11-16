@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/epoll.h>
@@ -200,12 +201,13 @@ void NodeLinks::try_listen(u64 now_ns) {
   ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
   sockaddr_in a{};
   a.sin_family = AF_INET;
-  a.sin_addr.s_addr = htonl(INADDR_ANY);
   a.sin_port = htons(listen_port_);
-  if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 64) != 0) {
+  const bool addr_ok = ::inet_pton(AF_INET, opt_.listen_host.c_str(), &a.sin_addr) == 1;
+  if (!addr_ok) errno = EINVAL;
+  if (!addr_ok || ::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, 64) != 0) {
     if (listen_retry_ns_ == 0) {
-      std::fprintf(stderr, "snc: node link: cannot listen on port %u (%s), retrying\n", listen_port_,
-                   std::strerror(errno));
+      std::fprintf(stderr, "snc: node link: cannot listen on %s:%u (%s), retrying\n", opt_.listen_host.c_str(),
+                   listen_port_, std::strerror(errno));
     }
     ::close(fd);
     listen_retry_ns_ = now_ns + kRetryNs;

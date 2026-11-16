@@ -541,6 +541,10 @@ bool g_use_health = true;
 int main(int argc, char** argv) {
   unsigned port = 0, pport = 0, sport = 0;
   std::string phost, shost, peer_list, state_path;
+  // The IPv4 address the witness port binds (docs/LISTENER_EXPOSURE.md):
+  // loopback unless --host says otherwise. Nothing on it authenticates.
+  std::string listen_host = ha::kDefaultListenHost;
+  bool host_given = false;
   std::map<unsigned, Pair> pairs;
   unsigned self_id = 0;
   int failover_ms = 1000, poll_ms = 100;
@@ -572,6 +576,10 @@ int main(int argc, char** argv) {
     else if (k == "--poll-ms") poll_ms = std::atoi(v.c_str());
     else if (k == "--id") self_id = static_cast<unsigned>(std::atoi(v.c_str()));
     else if (k == "--peers") peer_list = v;
+    else if (k == "--host") {
+      listen_host = v;
+      host_given = true;
+    }
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
     else if (k == "--debug") g_debug = v == "1";
     else if (k == "--debug-clock-offset-ms") px.debug_clock_offset_ms.store(std::atoll(v.c_str()));
@@ -585,7 +593,12 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "usage: snc_witness --port P [--primary HOST:ADMIN --standby HOST:ADMIN] "
                          "[--group G=PHOST:ADMIN,SHOST:ADMIN ...] --state FILE [--failover-ms N] "
                          "[--health-verb health|status] "
-                         "[--poll-ms N] [--id I --peers H:P,...] [--new-state 1]\n");
+                         "[--poll-ms N] [--id I --peers H:P,...] [--new-state 1] [--host ADDR]\n");
+    return 2;
+  }
+  if (!ha::valid_listen_host(listen_host)) {
+    std::fprintf(stderr, "snc_witness: --host %s is not an IPv4 address (0.0.0.0 is every interface)\n",
+                 listen_host.c_str());
     return 2;
   }
   if (px.debug_clock_offset_ms.load() != 0 && !g_debug) {
@@ -616,7 +629,8 @@ int main(int argc, char** argv) {
     // One acceptor, one place in the quorum (docs/PAXOS_BALLOTS.md 9):
     // every entry names a distinct endpoint, this witness's entry is one of
     // this machine's addresses, and no two entries reach one port on this
-    // machine (it listens on all its addresses). Not detectable here: one
+    // machine (it may listen on all its addresses, --host 0.0.0.0, so two
+    // local entries on one port are refused whatever --host is). Not detectable here: one
     // remote host named by two of its addresses (PAXOS_BALLOTS.md 9.1).
     std::vector<std::string> norm(peers.size());
     std::vector<bool> local(peers.size());
@@ -629,8 +643,9 @@ int main(int argc, char** argv) {
       char txt[INET_ADDRSTRLEN] = {};
       ::inet_ntop(AF_INET, &ip, txt, sizeof(txt));
       local[i] = is_local_ipv4(ip);
-      // Every address of this machine reaches the same listener (it binds
-      // all of them): local entries are one endpoint per port.
+      // Every address of this machine may reach the same listener (with
+      // --host 0.0.0.0 it binds all of them): local entries are one
+      // endpoint per port.
       norm[i] = (local[i] ? std::string("this machine") : std::string(txt)) + ":" + std::to_string(peers[i].port);
       for (std::size_t j = 0; j < i; ++j) {
         if (norm[j] == norm[i]) {
@@ -644,6 +659,20 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "--id %u names %s, which is not an address of this machine\n", self_id,
                    norm[self_id].c_str());
       return 2;
+    }
+    // The other witnesses dial this one at its --peers entry. Left on the
+    // loopback default with an entry that is not loopback, it would start
+    // and never be reached: refused, with the fix (AFR-S-2).
+    if (!host_given && !ha::is_loopback_ipv4(peers[self_id].host)) {
+      in_addr ip{};
+      const bool lo = resolve_ipv4(peers[self_id].host, ip) && (ntohl(ip.s_addr) >> 24) == 127;
+      if (!lo) {
+        std::fprintf(stderr, "snc_witness: --peers names this witness (--id %u) at %s, but it would listen on %s "
+                             "only: the other witnesses could not reach it. Pass --host %s (or --host 0.0.0.0); "
+                             "nothing on the witness port authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
+                     self_id, peers[self_id].host.c_str(), listen_host.c_str(), peers[self_id].host.c_str());
+        return 2;
+      }
     }
   }
   // The state file: created only on a witness's first start, never
@@ -675,12 +704,14 @@ int main(int argc, char** argv) {
   ::signal(SIGPIPE, SIG_IGN);
   px.init(state_path, peers, self_id, /*legacy=*/ha_machine(0));  // older state files hold one pair's
   if (new_state) px.create();
-  int lfd = ha::listen_on(port);
+  int lfd = ha::listen_on(listen_host, port);
   if (lfd < 0) {
-    std::fprintf(stderr, "snc_witness: cannot listen on %u\n", port);
+    std::fprintf(stderr, "snc_witness: cannot listen on %s:%u: %s\n", listen_host.c_str(), port, std::strerror(errno));
     return 1;
   }
   std::printf("snc_witness: port %u, %zu witness%s\n", port, peers.size(), peers.size() == 1 ? "" : "es");
+  std::printf("snc_witness: listening on %s%s (--host)\n", listen_host.c_str(),
+              ha::is_loopback_ipv4(listen_host) ? ", loopback only" : listen_host == "0.0.0.0" ? ", every interface" : "");
   for (unsigned g : watched_groups) {
     const State chosen = chosen_state(g);
     std::printf("snc_witness: group %u: state version %llu, term %llu, primary node %u%s\n", g, chosen.version,

@@ -320,7 +320,7 @@ class NodeHandler {
 class AdminServer {
  public:
   AdminServer(unsigned port, std::function<std::string(const std::string&)> fn) : fn_(std::move(fn)) {
-    fd_ = ha::listen_on(port);
+    fd_ = ha::listen_on(ha::kDefaultListenHost, port);
     if (fd_ >= 0) thread_ = std::thread([this] { loop(); });
   }
   ~AdminServer() {

@@ -393,6 +393,12 @@ Decided by cody on 2026-11-04.
      `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
      (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
+     **AFR-S-2 listener exposure (for review, [LISTENER_EXPOSURE.md](LISTENER_EXPOSURE.md)):** interim
+     mitigation of AFR-F-02. Every `snc_server` listener (data, admin, seed, node links, standby replication)
+     binds `--host`, default `127.0.0.1`; `snc_witness --host` likewise; the `--control` fallback to `0.0.0.0` is
+     gone; a cluster member or replicated witness whose own map/peers address is not loopback is refused
+     without `--host`. `AUDIT NAME` writes only a plain file name inside `--audit-dir`. No authentication yet:
+     PROMOTE, forged COMMIT, replication Hello and identity items stay open for the guarantees spec.
      F2 to F4 not started.
      D.2 (cross-node) is its own reviewed slice, required before S6
      ([handoff/CP1A_Pilot_Abort_For_Review.md](handoff/CP1A_Pilot_Abort_For_Review.md)),

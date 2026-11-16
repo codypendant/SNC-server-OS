@@ -75,7 +75,8 @@ class BCluster(fc.Cluster):
         super().__init__(work, groups=2, ha=True, async_replica=False, v2=True)
 
     def start(self, k, standby_of=None, extra=(), bin_dir=None):
-        more = ["--witness", self.control]
+        # AUDIT NAME writes only inside --audit-dir (docs/LISTENER_EXPOSURE.md).
+        more = ["--witness", self.control, "--audit-dir", self.work]
         if self.ckpt:
             more += ["--checkpoint-s", str(self.ckpt)]
         super().start(k, standby_of=standby_of, extra=list(extra) + more, bin_dir=bin_dir)
@@ -137,7 +138,7 @@ def settle_and_check(c, ids, res, timeout=120):
     files = []
     for k in primaries(c):
         path = f"{c.work}/bal.{k}"
-        r = c.ask(k, f"AUDIT {path}", 60)
+        r = c.ask(k, f"AUDIT bal.{k}", 60)  # written to --audit-dir (c.work)
         if r and r.startswith("AUDIT") and int(r.split()[1]) > 0:
             files.append(path)
     rc, out = snc_load("check", "--ids", ids, "--start", START, "--balances", ",".join(files),

@@ -1877,6 +1877,7 @@ void Shard::start_links() {
   }
   NodeLinks::Options o;
   o.member = member_;
+  o.listen_host = xnode_.listen_host;
   o.incarnation = inc;
   o.accounting = xnode_.accounting;
   o.hb_ns = xnode_.hb_ns;

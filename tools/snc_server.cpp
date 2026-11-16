@@ -65,8 +65,13 @@
 // match it (then it does nothing).
 // Slot moves (docs/MIGRATION.md): with --control, --admin-port also answers
 // the MOVE requests of snc_ctl move (tools/migrate.h). --admin-port also
-// answers AUDIT [PATH] (the accounts served here; docs/REAL_MACHINES.md).
-// With --control, clients are served on every interface unless --host is set.
+// answers AUDIT [NAME] (the accounts served here; docs/REAL_MACHINES.md):
+// with NAME, also their balances, written to NAME inside --audit-dir only.
+// Listeners (docs/LISTENER_EXPOSURE.md): every one this process opens (client
+// data ports, admin, seed, node links, and the standby's replication ports
+// unless --standby-host says otherwise) binds --host, 127.0.0.1 by default;
+// --host 0.0.0.0 is every interface. None authenticates its peer. A cluster
+// member whose map address is not loopback must be given --host.
 // Automatic failover (snc_witness): --admin-port answers HEALTH, STATUS and
 // PROMOTE lines (role p primary with a replication sender, n primary
 // without one, s standby, f fenced: a newer primary exists, and this node
@@ -103,8 +108,12 @@
 // group's links, and the other groups find it there. A CLUSTER request
 // returns the map with each member's CLIENT_PORT, so that
 // net::ClusterClient sends each request to its owner's primary.
+#include <fcntl.h>
+#include <limits.h>
 #include <sched.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -198,11 +207,33 @@ std::string gauges_line(const Engine& eng, const std::string& arg) {
   return out;
 }
 
-// AUDIT [PATH] (docs/REAL_MACHINES.md): the accounts this node serves now.
+// Whether NAME may name a file in --audit-dir: 1 to 128 of [A-Za-z0-9._-],
+// not starting with '.' (so never ".", ".." or a path).
+bool audit_name_ok(const std::string& name) {
+  if (name.empty() || name.size() > 128 || name[0] == '.') return false;
+  for (char c : name) {
+    const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' ||
+                    c == '_' || c == '-';
+    if (!ok) return false;
+  }
+  return true;
+}
+
+// AUDIT [NAME] (docs/REAL_MACHINES.md): the accounts this node serves now.
 // "AUDIT accounts total pending epoch held misrouted", pending being
-// unsettled transfer entries (outbox plus inbox). With PATH, also writes
-// "ID BALANCE" for each of those accounts to PATH on this host.
-std::string audit(Engine& eng, const std::string& path) {
+// unsettled transfer entries (outbox plus inbox). With NAME, also writes
+// "ID BALANCE" for each of those accounts to the file NAME in the directory
+// --audit-dir named at start (audit_dir, an open descriptor; -1: none, and
+// NAME is refused). Before AFR-S-2 the argument was any path, opened with
+// "w": any peer of the admin port could create or truncate any file this
+// user may write (docs/LISTENER_EXPOSURE.md). Now it is a plain name, never
+// followed through a symbolic link, and only a regular file is written.
+std::string audit(Engine& eng, const std::string& name, int audit_dir) {
+  const bool to_file = !name.empty();
+  if (to_file && audit_dir < 0) return "NO AUDIT NAME needs --audit-dir on this node";
+  if (to_file && !audit_name_ok(name)) {
+    return "NO AUDIT NAME is a file name in --audit-dir: 1-128 of A-Z a-z 0-9 . _ - and no leading '.'";
+  }
   u64 accounts = 0, pending = 0, held = 0, misrouted = 0;
   i64 total = 0;
   std::string bal;
@@ -213,17 +244,30 @@ std::string audit(Engine& eng, const std::string& path) {
       ++accounts;
       total += a->balance_cents;
       pending += a->n_out + a->n_in;
-      if (!path.empty()) bal += h.id.to_string() + " " + std::to_string(a->balance_cents) + "\n";
+      if (to_file) bal += h.id.to_string() + " " + std::to_string(a->balance_cents) + "\n";
     });
     const ShardStats st = eng.stats(sh);
     held += st.emits_held;
     misrouted += st.node_emits_misrouted;
   }
-  if (!path.empty()) {
-    FILE* f = std::fopen(path.c_str(), "w");
-    if (f == nullptr || std::fwrite(bal.data(), 1, bal.size(), f) != bal.size() || std::fclose(f) != 0) {
-      return "NO cannot write " + path;
+  if (to_file) {
+    // O_NOFOLLOW: a symbolic link named NAME is refused (ELOOP), not
+    // followed out of the directory. O_NONBLOCK: a FIFO there cannot hold
+    // the admin thread; anything but a regular file is refused below.
+    const int fd = ::openat(audit_dir, name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC,
+                            0644);
+    if (fd < 0) return "NO cannot write " + name + ": " + std::strerror(errno);
+    struct stat st{};
+    bool ok = ::fstat(fd, &st) == 0 && S_ISREG(st.st_mode);
+    const std::string why = ok ? "" : "not a regular file";
+    for (std::size_t off = 0; ok && off < bal.size();) {
+      const ssize_t w = ::write(fd, bal.data() + off, bal.size() - off);
+      if (w < 0 && errno == EINTR) continue;
+      ok = w > 0;
+      if (ok) off += static_cast<std::size_t>(w);
     }
+    if (::close(fd) != 0) ok = false;
+    if (!ok) return "NO cannot write " + name + (why.empty() ? "" : ": " + why);
   }
   return "AUDIT " + std::to_string(accounts) + " " + std::to_string(total) + " " + std::to_string(pending) + " " +
          std::to_string(eng.cluster().epoch) + " " + std::to_string(held) + " " + std::to_string(misrouted);
@@ -271,7 +315,8 @@ int main(int argc, char** argv) {
   net::NetServer::Config ncfg;
   int report_ms = 0;
   unsigned admin_port = 0;
-  bool host_given = false;
+  bool standby_host_given = false;
+  std::string audit_dir_path;  // --audit-dir: where AUDIT NAME writes
   std::vector<std::pair<std::string, unsigned>> witnesses;
   double checkpoint_s = 0;  // checkpoint every this many seconds (0 = never)
   // Rejoin (see the header): the other node's admin and seed ports, and the
@@ -294,10 +339,7 @@ int main(int argc, char** argv) {
     };
     if (k == "--shards") cfg.runtime.n_shards = static_cast<u16>(std::atoi(val()));
     else if (k == "--cpus") cfg.runtime.cpus = parse_cpus(val());
-    else if (k == "--host") {
-      ncfg.host = val();
-      host_given = true;
-    }
+    else if (k == "--host") ncfg.host = val();
     else if (k == "--port") ncfg.base_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--objects") cfg.expected_objects = std::strtoull(val(), nullptr, 10);
     else if (k == "--data-dir") cfg.data_dir = val();
@@ -320,7 +362,11 @@ int main(int argc, char** argv) {
       cfg.standby = true;
       cfg.standby_port = static_cast<u16>(std::atoi(val()));
     }
-    else if (k == "--standby-host") cfg.standby_host = val();
+    else if (k == "--standby-host") {
+      cfg.standby_host = val();
+      standby_host_given = true;
+    }
+    else if (k == "--audit-dir") audit_dir_path = val();
     else if (k == "--seed-port") cfg.seed_port = static_cast<u16>(std::atoi(val()));
     else if (k == "--seed-from") cfg.seed_from = val();
     else if (k == "--cluster") cfg.cluster = parse_cluster(val());
@@ -591,9 +637,10 @@ int main(int argc, char** argv) {
     // Clients reach it where the map says (if it says).
     const PlacementMember& me = setup.placement.groups[setup.group].members[setup.member];
     if (me.client_port != 0) ncfg.base_port = me.client_port;
-    // The map names this node's host for other hosts' clients: listen on
-    // every interface, not only loopback, unless --host says otherwise.
-    if (!host_given) ncfg.host = "0.0.0.0";
+    // The map names this node's host for other hosts' clients and nodes;
+    // the listeners still bind --host (default loopback): the check after
+    // the shard count refuses a non-loopback map address with no --host
+    // (docs/LISTENER_EXPOSURE.md). Before AFR-S-2 this was 0.0.0.0.
     std::printf("control: node %lld, group %u member %u, placement epoch %llu%s\n", node_id, setup.group,
                 setup.member, (unsigned long long)setup.placement.epoch,
                 setup.stored ? " (stored map: the control plane did not answer; provisional)" : "");
@@ -656,6 +703,67 @@ int main(int argc, char** argv) {
     }
     cfg.runtime.n_shards = static_cast<u16>(n);
   }
+
+  // Listen address (docs/LISTENER_EXPOSURE.md, AFR-S-2). One IPv4 address,
+  // --host, for every listener; the standby's replication ports take
+  // --standby-host when it is given. Loopback unless the operator says
+  // otherwise; nothing authenticates a peer, so 0.0.0.0 or a LAN address is
+  // a deliberate choice. A cluster member whose map address (the one other
+  // nodes and clients dial) is not loopback, left on loopback, would start
+  // and then be unreachable: refused here instead, with the fix.
+  if (!ha::valid_listen_host(ncfg.host)) {
+    std::fprintf(stderr, "snc_server: --host %s is not an IPv4 address (0.0.0.0 is every interface)\n",
+                 ncfg.host.c_str());
+    return 2;
+  }
+  if (!standby_host_given) cfg.standby_host = ncfg.host;
+  if (!ha::valid_listen_host(cfg.standby_host)) {
+    std::fprintf(stderr, "snc_server: --standby-host %s is not an IPv4 address\n", cfg.standby_host.c_str());
+    return 2;
+  }
+  cfg.listen_host = ncfg.host;
+  if (!cfg.cluster.empty()) {
+    const std::string& mine = cfg.cluster[cfg.group_id].members[cfg.member].host;
+    if (!ha::is_loopback_ipv4(mine) && ha::is_loopback_ipv4(ncfg.host)) {
+      std::fprintf(stderr, "snc_server: %s names this node (group %u member %u) at %s, but its listeners bind "
+                           "%s: other machines could not reach it. Pass --host %s (or --host 0.0.0.0 for every "
+                           "interface); no listener authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
+                   control_members.empty() ? "--cluster" : "the placement map", cfg.group_id, cfg.member,
+                   mine.c_str(), ncfg.host.c_str(), mine.c_str());
+      return 2;
+    }
+  }
+  // AUDIT NAME's directory, opened once (a later rename of the path does
+  // not move it). Never the data directory or inside it: a name there could
+  // replace a WAL segment or the superblock.
+  int audit_dir = -1;
+  if (!audit_dir_path.empty()) {
+    audit_dir = ::open(audit_dir_path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (audit_dir < 0) {
+      std::fprintf(stderr, "snc_server: --audit-dir %s: %s\n", audit_dir_path.c_str(), std::strerror(errno));
+      return 2;
+    }
+    if (!cfg.data_dir.empty()) {
+      char a[PATH_MAX], d[PATH_MAX];
+      if (::realpath(audit_dir_path.c_str(), a) == nullptr) {
+        std::fprintf(stderr, "snc_server: --audit-dir %s: %s\n", audit_dir_path.c_str(), std::strerror(errno));
+        return 2;
+      }
+      // A data directory that does not exist yet is made by the engine at
+      // the path given: compare against that path, resolved as far as it is.
+      std::string dd = ::realpath(cfg.data_dir.c_str(), d) != nullptr ? std::string(d) : cfg.data_dir;
+      const std::string ad(a);
+      if (ad == dd || ad.rfind(dd + "/", 0) == 0) {
+        std::fprintf(stderr, "snc_server: --audit-dir %s is the data directory or inside it (%s): AUDIT NAME "
+                             "could replace the node's own files\n", audit_dir_path.c_str(), dd.c_str());
+        return 2;
+      }
+    }
+  }
+  std::printf("snc_server: listening on %s%s (--host)%s\n", ncfg.host.c_str(),
+              ha::is_loopback_ipv4(ncfg.host) ? ", loopback only" : ncfg.host == "0.0.0.0" ? ", every interface" : "",
+              standby_host_given ? (", standby replication on " + cfg.standby_host).c_str() : "");
+  std::fflush(stdout);
 
   // Rejoin: a node starting as primary first asks the other node. If that
   // one serves as primary of the same space, the witnesses promoted it
@@ -1116,9 +1224,10 @@ int main(int argc, char** argv) {
   int moving = 0;
   std::unique_ptr<admin::Loop> admin_owner;
   if (admin_port != 0) {
-    int lfd = ha::listen_on(admin_port, 256);
+    int lfd = ha::listen_on(ncfg.host, admin_port, 256);
     if (lfd < 0) {
-      std::fprintf(stderr, "cannot listen on admin port %u\n", admin_port);
+      std::fprintf(stderr, "cannot listen on admin port %s:%u: %s\n", ncfg.host.c_str(), admin_port,
+                   std::strerror(errno));
       sampler_stop.store(true);
       if (sampler.joinable()) sampler.join();
       eng.stop();
@@ -1311,7 +1420,7 @@ int main(int argc, char** argv) {
                       ckpt_running.load(), (unsigned long long)ckpt_done.load());
         return b;
       }
-      if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "");
+      if (line == "AUDIT" || line.rfind("AUDIT ", 0) == 0) return audit(eng, line.size() > 6 ? line.substr(6) : "", audit_dir);
       if (line == "PROMOTE") {
         if (!is_standby.load()) return "NO not a standby";
         ::kill(::getpid(), SIGUSR1);

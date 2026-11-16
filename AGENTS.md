@@ -3240,3 +3240,20 @@ or source comments.
 -   **Next action:** D4 (controlled startup errors) as its own slice, PR, stop for review; then D5. K1 stays
     unstarted and separate.
 
+
+### 2026-11-16 UTC --- Claude (Claude Code): AFR-S-2 listener exposure (for review)
+
+-   **What:** the interim mitigation of AFR-F-02 (audit-D4), slice AFR-S-2 of `docs/AFR_001_INVENTORY.md`, started
+    on cody's go ("close the open ports first"). Write-up `docs/LISTENER_EXPOSURE.md`.
+-   **Code (REFINE):** one bind address per process, `--host`, default `127.0.0.1`, for every `snc_server`
+    listener (data, admin, seed, node links, standby replication unless `--standby-host`); new `snc_witness
+    --host`; `ha::listen_on` takes the host. The `--control` fallback to `0.0.0.0` is removed. A cluster member
+    or replicated witness whose own map/peers address is not loopback is refused (exit 2) without `--host`.
+    `AUDIT NAME` writes only a plain file name inside the new `--audit-dir` (O_NOFOLLOW, regular files only;
+    never the data directory). No wire or on-disk format change.
+-   **Tests:** `test_listen_exposure` L1-L5 (fails on 63cf6d7: listeners on `0.0.0.0`, `AUDIT /path` truncated
+    the file, the non-loopback member started); lab and `test_baseline_move` callers updated.
+-   **Assumptions changed:** a process started without `--host` is reachable only from its own machine.
+    Multi-machine launches must pass `--host` (lab.py does). Authentication, PROMOTE guard, forged COMMIT and
+    replication Hello stay open for the guarantees spec (section 6 of the write-up).
+-   **Next action:** cody and Codex review. Nothing else in AFR-F-02 started.

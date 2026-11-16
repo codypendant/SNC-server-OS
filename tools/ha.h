@@ -94,16 +94,43 @@ inline bool parse_hostport(const std::string& v, std::string& host, unsigned& po
   return port != 0;
 }
 
-inline int listen_on(unsigned port, int backlog = 16) {
-  int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-  int one = 1;
-  ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+// Listeners bind one IPv4 address that the caller names (docs/LISTENER_EXPOSURE.md):
+// every process defaults to 127.0.0.1, and another address (or 0.0.0.0, every
+// interface) is a deliberate --host. Nothing here authenticates a peer.
+inline constexpr const char* kDefaultListenHost = "127.0.0.1";
+
+// Whether host is an IPv4 literal in 127/8 (false for anything else,
+// including names and malformed text).
+inline bool is_loopback_ipv4(const std::string& host) {
+  in_addr ip{};
+  if (::inet_pton(AF_INET, host.c_str(), &ip) != 1) return false;
+  return (ntohl(ip.s_addr) >> 24) == 127;
+}
+
+// Whether host is an IPv4 literal a listener can be given (0.0.0.0 included).
+inline bool valid_listen_host(const std::string& host) {
+  in_addr ip{};
+  return ::inet_pton(AF_INET, host.c_str(), &ip) == 1;
+}
+
+// A listening socket on host:port; -1 when host is not an IPv4 literal or
+// the bind or listen fails (errno says which).
+inline int listen_on(const std::string& host, unsigned port, int backlog = 16) {
   sockaddr_in a{};
   a.sin_family = AF_INET;
   a.sin_port = htons(static_cast<uint16_t>(port));
-  a.sin_addr.s_addr = htonl(INADDR_ANY);
+  if (::inet_pton(AF_INET, host.c_str(), &a.sin_addr) != 1) {
+    errno = EINVAL;
+    return -1;
+  }
+  int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+  if (fd < 0) return -1;
+  int one = 1;
+  ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
   if (::bind(fd, reinterpret_cast<sockaddr*>(&a), sizeof(a)) != 0 || ::listen(fd, backlog) != 0) {
+    const int e = errno;
     ::close(fd);
+    errno = e;
     return -1;
   }
   return fd;

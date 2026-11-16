@@ -77,6 +77,8 @@ class NodeLinks {
 
   struct Options {
     u16 member = 0;
+    // The IPv4 address the links listen on (docs/LISTENER_EXPOSURE.md).
+    std::string listen_host = "127.0.0.1";
     u64 incarnation = 0;     // this links instance (2.1)
     bool accounting = true;  // Hello flag bit 0; a mismatch is refused (2.12 D)
     u64 hb_ns = 100'000'000;      // T_hb (2.10)

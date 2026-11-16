@@ -391,7 +391,9 @@ class Engine {
     // install and log what the primary sends; serve no ops (E_STANDBY).
     // Promote by stopping it and starting a primary on the same data_dir.
     bool standby = false;
-    std::string standby_host = "0.0.0.0";
+    // Loopback unless set (docs/LISTENER_EXPOSURE.md); snc_server sets it
+    // from --host when --standby-host is not given.
+    std::string standby_host = "127.0.0.1";
     // Standby: listen here instead (0 = replica_port). A standby may then
     // also set replica_host/replica_port: where it ships its WAL once
     // promoted (Engine::promote).
@@ -402,6 +404,10 @@ class Engine {
     // Primary: serve seeds on this port (0 = off). A seed is the active
     // checkpoint's files; the standby then catches up from the WAL.
     u16 seed_port = 0;
+    // The IPv4 address the seed port and the node links listen on
+    // (docs/LISTENER_EXPOSURE.md): loopback unless set; 0.0.0.0 is every
+    // interface. snc_server sets it from --host. No listener authenticates.
+    std::string listen_host = "127.0.0.1";
     // Primary: when set, a seed is served only while it returns true;
     // otherwise the standby is told to retry (docs/SYNC_READINESS.md 4).
     // Called on the seed thread.
