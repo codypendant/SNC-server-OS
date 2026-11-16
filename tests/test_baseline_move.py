@@ -139,7 +139,13 @@ def settle_and_check(c, ids, res, timeout=120):
     files = []
     for k in primaries(c):
         path = f"{c.work}/audit/bal.{k}"
-        r = c.ask(k, f"AUDIT bal.{k}", 60)  # written to --audit-dir (c.work/audit)
+        # Written to --audit-dir (c.work/audit). A node of a build before
+        # AFR-S-2 (c.old, test_xnode_proc x9) takes the path instead.
+        old = k in getattr(c, "old", ())
+        r = c.ask(k, f"AUDIT {path}" if old else f"AUDIT bal.{k}", 60)
+        # A refusal (no --audit-dir on that node) must not read as a node
+        # serving nothing: say so in the result.
+        assert not (r or "").startswith("NO "), f"node {k}: AUDIT bal.{k} refused: {r}"
         if r and r.startswith("AUDIT") and int(r.split()[1]) > 0:
             files.append(path)
     rc, out = snc_load("check", "--ids", ids, "--start", START, "--balances", ",".join(files),

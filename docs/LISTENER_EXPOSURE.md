@@ -214,5 +214,40 @@ with the trust-model decision, not here.
 
 ## 7. Evidence and QA
 
-(Filled in with the final PR: full-suite run, three independent QA reviews,
-their findings and how each was resolved.)
+**Full suite** (`ctest -j1`, RelWithDebInfo, this container, final C++ at
+d2fc313): 62 of 63 passed. The one failure was real and caused by this
+slice: `test_xnode_proc` x6/x7/x7b check balances through
+`test_baseline_move.settle_and_check`, whose cluster did not pass
+`--audit-dir`, so `AUDIT bal.K` was refused and the checker reported "64
+accounts served by 0 nodes" (loud, not silent). Fixed in the harness:
+`test_xnode_proc` nodes get `--audit-dir`, a node of an older build (x9,
+run by name with `--old`) is asked with a path as before, and
+`settle_and_check` now fails at once on a refused AUDIT instead of reading
+it as an empty node. Rerun after the fix: `test_xnode_proc`,
+`test_baseline_move`, `test_listen_exposure` pass. x9 (needs an old build)
+was not run. `test_xnode` X16 (known flake) passed in this run.
+
+**Regression test:** `test_listen_exposure` passes on the final build (5 of
+5 cases, repeated runs, no flakes) and fails on `main` 63cf6d7 in L1, L3, L4
+and L5 (L2 only on the new start-up line).
+
+**Three independent QA reviews** (separate agents, two rounds each for QA 1
+and QA 2). No blockers in any round. Findings and resolution:
+
+| # | From | Finding | Resolution |
+|---|---|---|---|
+| 1 | QA 1, QA 3 | start check refused a map that names the node by a host name (and advised an impossible `--host localhost`) | names resolved before the check; the fix names the resolved IPv4 |
+| 2 | QA 1 | **a hard link named NAME let AUDIT truncate a file outside `--audit-dir`** (`O_TRUNC` before the type check) | new file with `O_EXCL`, mode 0600, renamed over NAME; existing non-regular NAME refused; test L3 covers hard link, symbolic link, FIFO, directory |
+| 3 | QA 1 | `--audit-dir` could hold `--links-generation-file` (also via a symbolic link) | refused at start, file resolved first |
+| 4 | QA 1 | pre-created file in a shared audit dir; predictable temp names | covered by 2; temp names random and retried |
+| 5 | QA 1 | data-dir comparison by path string (bind mount, `//` prefix) | device/inode walk from the open directory; QA 1 confirmed with a real bind mount |
+| 6 | QA 1, QA 2 | refusal rules differed between server and witness; 127.0.0.2 and `--host Y` vs map X passed | one rule in both: the bind must be the advertised address or 0.0.0.0 |
+| 7 | QA 2 | other silent-unreachable HA cases (witness watching remote nodes, node with remote `--witness`, etc.) | refused at start (section 2.2) |
+| 8 | QA 1 (round 2) | the new refusals treated this machine's own LAN address as remote | local interface addresses count as this machine |
+| 9 | QA 1 (round 2) | witness with loopback self entry and remote peers | refused |
+| 10 | QA 2 | lab used the run directory (holds witness state) as `--audit-dir` | `run_dir/audit`; QA 2 reran simulated multi-host lab p3 (stop fault) and p5, profile B, check OK |
+| 11 | QA 3 | weak assertions (`refused()` accepted any error; message-free rc checks) | tightened |
+| 12 | QA 1 | data-port bind error did not name the address | `bind HOST:PORT` in the message |
+
+Left as notes (section 6): `AdminServer` in `tools/migrate.h` is test-only
+and loopback; `NodeLinks` retries a non-literal address instead of failing.
