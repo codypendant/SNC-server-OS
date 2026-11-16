@@ -43,7 +43,7 @@ thread.
 Code and tests verified at **a12f4c11237aed935f3de643792860b54fdfe124** (PR head after the test-harness
 corrections and the merge of main at 15d3cf4). The commit that adds this record changes documentation only.
 
-1. **Complete suite on the final head:** `ctest -j1 --timeout 2400`, clean RelWithDebInfo build of a12f4c1, this
+1. **Complete suite on the final head:** `ctest -j1 --timeout 2400`, RelWithDebInfo build of a12f4c1 (configured fresh this session, rebuilt incrementally), this
    container (4 CPUs): **63 of 63 passed**, 1833 s. GitHub Actions fast job on a12f4c1: green.
 2. **Mixed-version x9:** run, **pass**. `python3 tests/test_xnode_proc.py BUILD x9 --old OLD`, OLD = a clean build of
    D.1 commit 33f7c6d (the build PR #95's review used). Mixed phase: the new side refused v1 links 160 times with
