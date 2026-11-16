@@ -27,6 +27,8 @@
 | **D-01 authority** | **A term-scoped primary lease held from every member of the in-sync set**, the PacificA shape. Witnesses never decide a promotion or a degrade until every lease that could block it has expired. Fencing is durable. A restarted node re-acquires authority before serving. | It closes stale reads, O1 and non-durable fencing with one mechanism and keeps reads local (INV 14). PacificA, TiKV, CockroachDB and Spanner make leases the default. The C++ standby lease already has half the timing rule (F-5). | Ongaro's thesis does "not recommend" leases unless needed, and etcd defaults to quorum reads. A lease depends on a clock-rate bound, which is an assumption, not a checked fact (G-46). |
 | **D-02 durability boundary** | **Log positions are (term, LSN), with a durable term-to-start-LSN history. Flushes and truncations are self-describing and term-stamped. The new primary computes the end of the log from its set, and a recovering member truncates to that point before serving.** A node without a replica gets detection only (G-14(a)), unless a watermark is chosen after measurement. | Kafka's KIP-101 is a postmortem of exactly this gap: high-watermark truncation lost committed data, and the fix was (leader epoch, offset). Raft (term, index), PostgreSQL timelines and pg_rewind, Aurora's epoch-stamped truncation ranges and FoundationDB's recovery version all follow the same pattern. | A locally checkpointed, never-acknowledged suffix cannot be truncated away, so the member must be reseeded (section 4). Single-copy windows weaken G-14(b) (section 3.2). |
 
+**Owner dispositions so far:** D-01 lease chosen by cody (section 5.3). D-02 and D-03 pending.
+
 The three decisions stand or fall together:
 1. The in-sync set is both the lease grantor (D-01) and the holder of the acknowledgement boundary (D-02).
 2. The term that fences authority is the term in every log position.
@@ -183,6 +185,11 @@ leases, and etcd's default follows that advice. If cody prefers no clock assumpt
 is quorum-confirmed reads (a round trip to the set per read batch). That alternative needs no grace rules, but it
 pays the round trip that SNC's local-execution thesis is meant to avoid. Offering both modes is deferred, because it
 doubles the authority surface and the oracle modes.
+
+**Owner disposition (cody, 2026-11-16 01:25 UTC), verbatim:** "Okay, so okay. Question 2, you said you need me.
+Authority. Yeah, let's go with the lease." This chooses the lease over a per-read round trip as the default. It is
+recorded ahead of Codex's review of this document, so the grace rules in 5.1 stay open to Codex's challenge. It
+authorizes no implementation. D-02 and D-03 have no owner disposition yet.
 
 **Harness evidence.** For the section 15 oracle, each answer's authority evidence (term, plus the lease or grant it
 relied on) is recorded in the test harness's history. This does not change the client wire format.
