@@ -223,9 +223,12 @@ These stay open. None of them is closed by this document.
    fix (62,464,105 states explored). Only smaller Log bounds completed.
 3. **The full Authority configuration.** No run with every scenario, a restart and fencing together has finished,
    at MaxTerm 2 or 3. Nor has the 5c gate with two fences and a returning node.
-4. **Missing combinations.** A restart with operator promotion or standby leases; fencing with standby leases;
+4. **Combined `Auth` and the group record (Codex concern 3).** `Auth` in `Combined.tla` does not check the node's
+   term against R. The relationship that the other actions enforce is not yet stated as an invariant or
+   mutation-tested.
+5. **Missing combinations.** A restart with operator promotion or standby leases; fencing with standby leases;
    acknowledgement under operator promotion.
-5. **Reads.** Linearizable reads are not modelled, so read safety rests on Claim L and the argument.
-6. **Bounds and time.** Three nodes, three witnesses, at most three terms, small entry and restart counts; discrete
+6. **Reads.** Linearizable reads are not modelled, so read safety rests on Claim L and the argument.
+7. **Bounds and time.** Three nodes, three witnesses, at most three terms, small entry and restart counts; discrete
    time with drift folded into D by argument.
-7. **Implementation and cost.** Nothing shows the C++ implements the protocol, or what it costs (X-1 to X-3).
+8. **Implementation and cost.** Nothing shows the C++ implements the protocol, or what it costs (X-1 to X-3).

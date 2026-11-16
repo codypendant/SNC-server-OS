@@ -1,7 +1,6 @@
 # PR #144 verification closure: Codex review (relayed by cody as a screenshot, 2026-11-16)
 
-Received in two parts. **The middle of concern 1, concerns 2 and 3, and the start of concern 4 were not
-received**; this file will be completed if they are relayed. Transcribed from the screenshots:
+Received in three parts and transcribed from the screenshots. The review is complete.
 
 > **PR #144 — Formal Verification Closure** — *Conditional approval*
 >
@@ -25,11 +24,18 @@ received**; this file will be completed if they are relayed. Transcribed from th
 > **Remaining concerns**
 >
 > 1. **The combined model is not yet a complete protocol model.** It excludes operator promotion, standby leases,
-> [not received] ... interactions are checked separately, so their combined safety remains unestablished.
+> and detailed storage recovery. Those interactions are checked separately, so their combined safety remains
+> unestablished.
 >
-> [concerns 2 and 3 not received]
-
-> 4. The corrected Log model's larger configuration did not finish. The completed [smaller] configurations provide
+> 2. **Authority coverage remains incomplete.** No exhaustive run has completed with restarts, fencing, and all
+> authority scenarios enabled together.
+>
+> 3. **The combined model's authority abstraction needs further scrutiny.** Its `Auth` predicate relies on lease
+> state and local primary status without explicitly checking that the node's term matches the current group record.
+> Other actions provide indirect fencing, but I want that relationship expressed as an invariant and challenged
+> through mutation testing.
+>
+> 4. **The corrected Log model's larger configuration did not finish.** The completed [smaller] configurations provide
 > bounded evidence, not unrestricted correctness.
 >
 > **My next instruction to Claude**
