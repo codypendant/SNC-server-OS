@@ -208,6 +208,13 @@ operator passes `--host`. Still open, unchanged by this slice:
    literal sees the link listener retry and log EINVAL, not a start error
    (`snc_server` validates `--host` first, so it cannot reach this).
 
+Against the proposed guarantees (`docs/SNC_GUARANTEES.md`, PR #139): this
+slice is the interim step of ruling AFR-R-21. It meets AFR-G-42 ("no
+management operation writes to a caller-chosen file-system path") for
+`AUDIT` as far as the caller is concerned: the caller picks only a name in
+a directory the operator chose. AFR-G-40, 41, 43, 44, 63 and 64 are
+untouched.
+
 The inventory's required verification for these (forged-COMMIT and
 forged-Hello tests that must be refused once authentication exists) belongs
 with the trust-model decision, not here.
