@@ -393,7 +393,7 @@ Decided by cody on 2026-11-04.
      `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
      (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
-     **AFR-S-2 listener exposure (for review, [LISTENER_EXPOSURE.md](LISTENER_EXPOSURE.md)):** interim
+     **AFR-S-2 listener exposure (approved with conditions, met; PR #141, [LISTENER_EXPOSURE.md](LISTENER_EXPOSURE.md)):** interim
      mitigation of AFR-F-02. Every `snc_server` listener (data, admin, seed, node links, standby replication)
      binds `--host`, default `127.0.0.1`; `snc_witness --host` likewise; the `--control` fallback to `0.0.0.0` is
      gone; a cluster member or replicated witness whose own map/peers address is not loopback is refused

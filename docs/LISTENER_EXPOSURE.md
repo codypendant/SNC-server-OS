@@ -1,6 +1,7 @@
 # Listener exposure: loopback by default, AUDIT confined (AFR-S-2)
 
-Status: **implemented, for review** (cody and Codex). Slice AFR-S-2 of
+Status: **conditionally approved by Codex (2026-11-16, `docs/handoff/PR141_Listener_Exposure_Review_Conditional.md`);
+conditions met at a12f4c1** (full suite 63/63, mixed-version x9 pass). Slice AFR-S-2 of
 `docs/AFR_001_INVENTORY.md` (section 10), the interim mitigation of finding
 **AFR-F-02** (older ID audit-D4, `docs/ARCHITECTURE_EVIDENCE_AUDIT_20261113.md`).
 In the project chat this was "step 1: close the open ports first"; the
@@ -182,6 +183,11 @@ Full suite results, and the three independent QA reviews, are in section 7.
   Nothing in the protocols depends on the bind address.
 
 ## 6. What this slice leaves open (AFR-F-02 items, for the guarantees spec)
+
+**Authentication, authorization and cluster identity remain explicitly open
+for decision AFR-D-07** (`docs/SNC_GUARANTEES.md`; Codex's PR #141 review,
+condition 4). This slice does not design them and must not be read as
+covering them.
 
 Loopback is not authentication. Any local user or process on the same
 machine still reaches every port, and any machine reaches them once an

@@ -3318,3 +3318,10 @@ or source comments.
     Multi-machine launches must pass `--host` (lab.py does). Authentication, PROMOTE guard, forged COMMIT and
     replication Hello stay open for the guarantees spec (section 6 of the write-up).
 -   **Next action:** cody and Codex review. Nothing else in AFR-F-02 started.
+
+### 2026-11-16 UTC --- Claude (Claude Code): PR #141 conditions met (Codex conditional approval)
+
+-   **Review:** `docs/handoff/PR141_Listener_Exposure_Review_Conditional.md`.
+-   **Evidence at a12f4c1:** full suite 63/63 (`ctest -j1`); `test_xnode_proc` x9 against D.1 33f7c6d passes; CI
+    fast green. Authentication, authorization and cluster identity stay open for AFR-D-07.
+-   **Next action:** merge, then stop. No further architectural implementation from this approval.
