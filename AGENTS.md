@@ -3252,3 +3252,14 @@ or source comments.
     whitespace is now refused (it was misread).
 -   **Next action:** cody reviews. D4-b, D4-c, D5 and K1 not started.
 
+### 2026-11-16 UTC --- Claude (Claude Code): PR #137 review carried out (Codex: conditional approval) and x7
+
+-   **Review:** `docs/handoff/PR137_D4_Startup_Errors_Review_Approval.md`. Merge once the x7 CI
+    investigation is resolved and the full suite passes.
+-   **x7:** reproduced deterministically (`tests/probe_x7_not_ready.py`): a primary killed while its group
+    has NOT READY on record (a DEGRADE after a late standby ack) is correctly not replaced; x7 kills at a
+    fixed time without checking READY. A test race, not #137's (startup path only). Test fix and CI log
+    artifacts proposed, not started.
+-   **Next action:** merge #137 on green full CI, then stop. No D5 or other work until cody's go; Codex
+    recommends the architectural guarantees review first. Subagents: Opus or Sonnet only.
+

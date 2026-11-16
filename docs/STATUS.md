@@ -393,7 +393,7 @@ Decided by cody on 2026-11-04.
      `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
      shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
      (K1-K7). Dependency order checked: D3, then D4, then D5 (independent).
-     **D4 (for review, [STARTUP_ERRORS_D4.md](STARTUP_ERRORS_D4.md)):** a configuration refused at startup
+     **D4 (conditionally approved, PR #137, [STARTUP_ERRORS_D4.md](STARTUP_ERRORS_D4.md); x7 CI investigation in [handoff/PR137_D4_Startup_Errors_Review_Approval.md](handoff/PR137_D4_Startup_Errors_Review_Approval.md)):** a configuration refused at startup
      (malformed `--cluster`, an environment override or timer the engine refuses, a non-hex `--space-uuid`,
      more than 256 shards) exits 2 with its reason instead of aborting (SIGABRT). New `test_startup_errors`
      (E1-E6). Proposed, not started: D4-b (listener aborts: busy port, hostname `--host`), D4-c (validate
