@@ -3344,3 +3344,24 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. The owner still has to decide the default for m, the
     single-copy reporting, R8 or unbounded degraded mode, and the X-1 to X-3 thresholds. No code and no
     experiments are authorized.
+
+### 2026-11-16 --- SNC-AFR-001 safety analysis Revision 2 and TLA+ models (docs only)
+
+-   **Trigger:** Codex's review of PR #142 (`docs/handoff/PR142_Safety_Analysis_Codex_Review.md`): CHANGES REQUIRED
+    on R3 grantor restart, the R8 witness lease, single-copy windows and R6 reconciliation, plus a TLA+ model.
+-   **Output:**
+    -   `docs/AFR_001_SAFETY_ANALYSIS.md` Revision 2: R3 is `learned + W`; R8 has W1, the linearization point and the
+        lease-expiry barrier; admission is separated from preservation; R6.0-R6.6 with invariants I1-I5. KIP-279 and
+        KIP-101 were opened and quoted.
+    -   `spec/tla/`: `Authority.tla` (Claim L) and `Log.tla` (Claim D), with a switch per fix. Results, bounds,
+        traces and modelling limits are in `spec/tla/RESULTS.md`.
+-   **Verification:** an independent adversarial QA (one blocker, three major findings, all fixed) and TLC.
+    -   TLC found two defects in the draft, T1 (checkpoint during a pending truncation intent) and T2 (a replaced
+        primary dropping a member after a read at a higher term). Both are fixed.
+    -   Every fix switched off reproduces its failure, except M1 (KIP-101 single answer), which is not reproduced
+        at these bounds.
+    -   The fixed Log model passes exhaustively. The fixed Authority model passes exhaustively one scenario at a
+        time at small bounds. Degraded mode and the all-scenario configuration did not complete.
+    -   Case 5c remains UNRESOLVED, and TLC confirms the counterexample.
+-   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
+    authorized.
