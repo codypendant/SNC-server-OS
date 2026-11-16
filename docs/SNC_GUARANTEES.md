@@ -440,7 +440,7 @@ The harness compares C++ and Rust executions **against this document**, not agai
    | Ordering (G-19, G-20) | a per-origin FIFO check on the recorded history |
    | Dedup and retry (G-21 to G-26, G-60 to G-62) | at most one effect per (session, seq); no OK-replayed for a mismatched request; IN-DOUBT classification of every unanswered request |
    | Reads (G-27 to G-30) | a single-object linearizability check (with the weaker read modes checked against their stated bound) |
-   | Authority and placement (G-31 to G-39) | at most one node answering OK per object per instant (from timestamps and terms); status matches proven authority |
+   | Authority and placement (G-31 to G-39) | an operation history with each request's invocation and completion interval, the answering node's term and epoch, and explicit authority evidence (which lease or confirmation the answer relied on); a linearizability check over that history. Overlapping successful answers with timestamps only flag obvious split brain: timestamps alone cannot establish linearizability or prove two leaders did not overlap (Codex, PR #139 final review) |
    | Security and resources (G-40 to G-45, G-63, G-64) | adversarial-peer scenarios: no state change, no disclosure, bounded memory |
    | Formats and management (G-49 to G-54) | golden corpus round trips; refusal of unknown versions; documented exit codes |
    | Liveness (G-46 to G-48) | preregistered time bounds after a fault heals; measured, never used as a correctness verdict |
