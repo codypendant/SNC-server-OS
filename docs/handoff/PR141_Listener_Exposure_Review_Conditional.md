@@ -55,4 +55,11 @@ corrections and the merge of main at 15d3cf4). The commit that adds this record 
 4. **Authentication, authorization and cluster identity stay open for AFR-D-07:** `docs/LISTENER_EXPOSURE.md`
    section 6 says so; nothing in this slice designs or implements them.
 
+**Re-verified after main moved.** Before merge, main gained PR #140 (docs) and PR #137 (D4, which also edits
+`tools/snc_server.cpp` startup). Both were merged into the branch (conflicts in `AGENTS.md`, `CMakeLists.txt`,
+`docs/STATUS.md` only, resolved by keeping both sides). Because D4 brought code, conditions 1 and 2 were run
+again on the merged head **e5c9561cd059a213154a2151a9dc0f8434ce7d33**: full suite **64 of 64 passed** (1832 s;
+the 64th is D4's `test_startup_errors`), and x9 against 33f7c6d **passed**. CI fast job on e5c9561: green. The
+commit that updates this record changes documentation only.
+
 No further architectural implementation starts from this approval.

@@ -3361,5 +3361,5 @@ or source comments.
 
 -   **Review:** `docs/handoff/PR141_Listener_Exposure_Review_Conditional.md`.
 -   **Evidence at a12f4c1:** full suite 63/63 (`ctest -j1`); `test_xnode_proc` x9 against D.1 33f7c6d passes; CI
-    fast green. Authentication, authorization and cluster identity stay open for AFR-D-07.
+    fast green. Rerun after merging main (PR #140, PR #137 D4) at e5c9561: 64/64, x9 pass, CI fast green. Authentication, authorization and cluster identity stay open for AFR-D-07.
 -   **Next action:** merge, then stop. No further architectural implementation from this approval.
