@@ -65,23 +65,33 @@ path. Nothing ever asked the operator which network a listener belongs on.
 
 ### 2.2 Refusals instead of silent unreachability
 
-Moving to loopback must not leave a multi-machine cluster starting and then
-unreachable. Two cases are detectable at start and are refused with exit 2,
-naming the fix:
+Moving to loopback must not leave a multi-machine deployment starting and
+then unreachable. These cases are detectable at start and are refused with
+exit 2, naming the fix:
 
 - A cluster member (`--cluster` or `--control`) whose own map address (the
-  one other nodes and clients dial) is not loopback, while its bind address
-  is loopback: `snc_server: the placement map names this node (group G
-  member M) at 10.0.0.11, but its listeners bind 127.0.0.1: other machines
-  could not reach it. Pass --host 10.0.0.11 (or --host 0.0.0.0 ...)`.
-- A replicated witness whose own `--peers` entry is not loopback, with no
-  `--host`: the same message for `snc_witness`. It is refused before the
-  state file is created.
+  one other nodes and clients dial; a host name is resolved, as node links
+  resolve it) is not served by the bind address. The bind must be that
+  exact address or `0.0.0.0`: so `127.0.0.2` in the map with the default
+  `127.0.0.1` is refused, and so is `--host Y` when the map says X.
+  Message: `snc_server: the placement map names this node (group G member
+  M) at 10.0.0.11, but its listeners bind 127.0.0.1: nothing would answer
+  there. Pass --host 10.0.0.11 (or --host 0.0.0.0 ...)`.
+- A replicated witness whose own `--peers` entry is not served by its bind
+  address (same rule), refused before the state file is created.
+- Bound to loopback, a node whose peers on another machine dial it back:
+  `--witness` on another machine with `--admin-port` (the witness polls the
+  admin port); `--replica-of` on another machine with `--seed-port` (the
+  standby fetches seeds); a standby whose `--seed-from` primary is on
+  another machine (that primary dials it); `--rejoin` with the peer on
+  another machine.
+- Bound to loopback, a witness watching (`--group`, `--primary`,
+  `--standby`) nodes on another machine (they dial it).
 
-Not detectable at start, and therefore documented here and in the start-up
-line: a standby (`--standby`, no cluster map) whose primary is on another
-machine. Its primary dials it and fails; the standby cannot know the
-primary's address. Pass `--host` (or `--standby-host`) on such a standby.
+A peer "on another machine" is one whose host resolves outside 127/8; a
+name that does not resolve is not counted. Still not detectable: a plain
+standby (`--standby`, no `--seed-from`, no cluster map) whose primary is
+on another machine. Pass `--host` (or `--standby-host`) on such a standby.
 
 ### 2.3 AUDIT writes only inside an operator-chosen directory
 
@@ -92,16 +102,23 @@ primary's address. Pass `--host` (or `--standby-host`) on such a standby.
 - NAME must be 1 to 128 characters of `A-Z a-z 0-9 . _ -` and must not start
   with `.`; so no `/`, no `..`, no absolute path. Anything else is answered
   `NO ...` and nothing is opened.
-- The file is opened with `openat(dirfd, NAME, O_WRONLY|O_CREAT|O_TRUNC|
-  O_NOFOLLOW|O_NONBLOCK)` against a directory descriptor opened at start: a
-  symbolic link named NAME is refused (not followed), and anything that is
-  not a regular file is refused after open.
+- The balances are written to a new file created with `O_EXCL|O_NOFOLLOW`,
+  mode 0600, under a temporary name AUDIT cannot be given (leading `.`), in
+  a directory descriptor opened at start, then `renameat` over NAME. An
+  existing NAME is therefore never opened: a hard link named NAME is
+  replaced, not written through (QA 1 found that the first version,
+  `O_TRUNC` on NAME, truncated a hard link's target). An existing NAME that
+  is a symbolic link, a directory, a FIFO or anything but a regular file is
+  refused and left alone.
 - Without `--audit-dir`, `AUDIT NAME` is refused (`NO AUDIT NAME needs
   --audit-dir on this node`). An old caller that still sends a path gets
   `NO`, which the harnesses already treat as failure, not as an empty audit.
-- `--audit-dir` that does not exist, or that is the data directory or inside
-  it, is refused at start (exit 2): a name there could replace the node's
-  own files.
+- `--audit-dir` that does not exist, that is the data directory or inside
+  it (compared by device and inode, walking up from the open directory, so a
+  symbolic link or bind mount cannot hide it), or that holds
+  `--links-generation-file`, is refused at start (exit 2): a name there
+  could replace the node's own files. Another node's data directory on the
+  same machine is not known to this node: keep the audit directory apart.
 
 The inventory offered "remove or confine" the path argument. Removing it
 outright would break the lab's and `test_baseline_move`'s end-of-run balance
@@ -113,11 +130,11 @@ the operator names keeps that check and closes the arbitrary-file write.
 
 | Caller | Change |
 |---|---|
-| `bench/lab/lab.py` `node_args` | new keyword args `host`, `audit_dir`; `start_node` passes `host=<host addr>` and `audit_dir=<run dir>` |
+| `bench/lab/lab.py` `node_args` | new keyword args `host`, `audit_dir`; `start_node` passes `host=<host addr>` and `audit_dir=<run dir>/audit` (its own directory, made before start: the run dir holds witness state, QA 2) |
 | `bench/lab/lab.py` `witness_args` | new keyword arg `host`; `up()` passes the witness host's address |
-| `bench/lab/lab.py` `check()` | `AUDIT bal.K` instead of `AUDIT <run dir>/bal.K` (same resulting path) |
+| `bench/lab/lab.py` `check()` | `AUDIT bal.K` instead of `AUDIT <run dir>/bal.K`; fetched from `<run dir>/audit/bal.K` |
 | `bench/lab/lab.py` `p1_p2` | the P2 standby gets `--host <standby addr>` (its primary is on another host) |
-| `tests/test_baseline_move.py` | servers get `--audit-dir <work>`; `AUDIT bal.K` |
+| `tests/test_baseline_move.py` | servers get `--audit-dir <work>/audit`; `AUDIT bal.K` |
 | `bench/profile_check.py` | `--audit-dir` is structural for `snc_server`, `--host` for `snc_witness` |
 
 Every other launcher in `tests/` and `bench/` (pilot, S6, CP-1A, run_*.py,
@@ -178,8 +195,13 @@ operator passes `--host`. Still open, unchanged by this slice:
    serves a full checkpoint to an all-zero uuid; `MOVE HAVE` and
    `MOVE EXPORT` return object payloads (item 6).
 6. The client data port serves any peer that reaches it (by design today).
-7. `AUDIT NAME` may still overwrite files inside `--audit-dir`, by design;
+7. `AUDIT NAME` may still replace files inside `--audit-dir`, by design;
    the directory should hold nothing else.
+8. `tools/migrate.h` `AdminServer` (test-only, used by `test_migrate`) binds
+   loopback and takes no `--host`; nothing else constructs it.
+9. A library caller that gives `NodeLinks` an address that is not an IPv4
+   literal sees the link listener retry and log EINVAL, not a start error
+   (`snc_server` validates `--host` first, so it cannot reach this).
 
 The inventory's required verification for these (forged-COMMIT and
 forged-Hello tests that must be refused once authentication exists) belongs

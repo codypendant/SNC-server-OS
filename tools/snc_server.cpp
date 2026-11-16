@@ -110,6 +110,7 @@
 // net::ClusterClient sends each request to its owner's primary.
 #include <fcntl.h>
 #include <limits.h>
+#include <netdb.h>
 #include <sched.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -207,6 +208,29 @@ std::string gauges_line(const Engine& eng, const std::string& arg) {
   return out;
 }
 
+// Whether the directory open as dirfd is `target` (st_dev/st_ino) or lies
+// below it: walks ".." up to the root.
+bool dir_within(int dirfd, const struct stat& target) {
+  int cur = ::dup(dirfd);
+  bool found = false;
+  for (int depth = 0; cur >= 0 && depth < 4096; ++depth) {
+    struct stat st{};
+    if (::fstat(cur, &st) != 0) break;
+    if (st.st_dev == target.st_dev && st.st_ino == target.st_ino) {
+      found = true;
+      break;
+    }
+    const int up = ::openat(cur, "..", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    struct stat ust{};
+    const bool root = up < 0 || (::fstat(up, &ust) == 0 && ust.st_dev == st.st_dev && ust.st_ino == st.st_ino);
+    ::close(cur);
+    cur = up;
+    if (root) break;
+  }
+  if (cur >= 0) ::close(cur);
+  return found;
+}
+
 // Whether NAME may name a file in --audit-dir: 1 to 128 of [A-Za-z0-9._-],
 // not starting with '.' (so never ".", ".." or a path).
 bool audit_name_ok(const std::string& name) {
@@ -251,15 +275,22 @@ std::string audit(Engine& eng, const std::string& name, int audit_dir) {
     misrouted += st.node_emits_misrouted;
   }
   if (to_file) {
-    // O_NOFOLLOW: a symbolic link named NAME is refused (ELOOP), not
-    // followed out of the directory. O_NONBLOCK: a FIFO there cannot hold
-    // the admin thread; anything but a regular file is refused below.
-    const int fd = ::openat(audit_dir, name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC,
-                            0644);
-    if (fd < 0) return "NO cannot write " + name + ": " + std::strerror(errno);
+    // Never opened in place: an existing NAME could be a symbolic or hard
+    // link to a file outside the directory (QA 1), and O_TRUNC would act on
+    // the target before any check. The balances go to a new file, created
+    // with O_EXCL under a name AUDIT cannot be given (leading '.'), then
+    // renamed over NAME: rename replaces the directory entry, never what a
+    // link points at. An existing NAME that is not a regular file (a
+    // symbolic link, a directory, a FIFO) is refused and left alone.
     struct stat st{};
-    bool ok = ::fstat(fd, &st) == 0 && S_ISREG(st.st_mode);
-    const std::string why = ok ? "" : "not a regular file";
+    if (::fstatat(audit_dir, name.c_str(), &st, AT_SYMLINK_NOFOLLOW) == 0 && !S_ISREG(st.st_mode)) {
+      return "NO cannot write " + name + ": not a regular file";
+    }
+    static std::atomic<u64> seq{0};
+    const std::string tmp = ".audit-" + std::to_string(::getpid()) + "-" + std::to_string(seq.fetch_add(1));
+    const int fd = ::openat(audit_dir, tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return "NO cannot write " + name + ": " + std::strerror(errno);
+    bool ok = true;
     for (std::size_t off = 0; ok && off < bal.size();) {
       const ssize_t w = ::write(fd, bal.data() + off, bal.size() - off);
       if (w < 0 && errno == EINTR) continue;
@@ -267,7 +298,12 @@ std::string audit(Engine& eng, const std::string& name, int audit_dir) {
       if (ok) off += static_cast<std::size_t>(w);
     }
     if (::close(fd) != 0) ok = false;
-    if (!ok) return "NO cannot write " + name + (why.empty() ? "" : ": " + why);
+    if (ok && ::renameat(audit_dir, tmp.c_str(), audit_dir, name.c_str()) != 0) ok = false;
+    if (!ok) {
+      const int e = errno;
+      ::unlinkat(audit_dir, tmp.c_str(), 0);
+      return "NO cannot write " + name + ": " + std::strerror(e);
+    }
   }
   return "AUDIT " + std::to_string(accounts) + " " + std::to_string(total) + " " + std::to_string(pending) + " " +
          std::to_string(eng.cluster().epoch) + " " + std::to_string(held) + " " + std::to_string(misrouted);
@@ -723,13 +759,47 @@ int main(int argc, char** argv) {
   }
   cfg.listen_host = ncfg.host;
   if (!cfg.cluster.empty()) {
+    // A cluster member is dialed at its map address (node links resolve
+    // a name): the bind must serve that address exactly, or be 0.0.0.0.
+    // (127.0.0.2 is loopback too, but a socket on 127.0.0.1 refuses it.)
     const std::string& mine = cfg.cluster[cfg.group_id].members[cfg.member].host;
-    if (!ha::is_loopback_ipv4(mine) && ha::is_loopback_ipv4(ncfg.host)) {
-      std::fprintf(stderr, "snc_server: %s names this node (group %u member %u) at %s, but its listeners bind "
-                           "%s: other machines could not reach it. Pass --host %s (or --host 0.0.0.0 for every "
+    std::string ip;
+    if (ha::resolve_ipv4_text(mine, ip) && !ha::bind_serves(ncfg.host, ip)) {
+      std::fprintf(stderr, "snc_server: %s names this node (group %u member %u) at %s%s, but its listeners bind "
+                           "%s: nothing would answer there. Pass --host %s (or --host 0.0.0.0 for every "
                            "interface); no listener authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
                    control_members.empty() ? "--cluster" : "the placement map", cfg.group_id, cfg.member,
-                   mine.c_str(), ncfg.host.c_str(), mine.c_str());
+                   mine.c_str(), ip != mine ? (" = " + ip).c_str() : "", ncfg.host.c_str(), ip.c_str());
+      return 2;
+    }
+  }
+  if (ha::is_loopback_ipv4(ncfg.host)) {
+    // Peers on another machine that dial this process back (QA 2): bound
+    // to loopback, it would start and never be reached. Refused, naming
+    // the peer. A witness polls the admin port; a standby whose primary
+    // is elsewhere is dialed for replication; a primary's standby fetches
+    // seeds; a rejoining node is dialed as its peer's standby.
+    std::string why;
+    for (const auto& [h, p] : witnesses) {
+      if (admin_port != 0 && ha::peer_off_loopback(h)) why = "--witness " + h + " polls this node's admin port";
+    }
+    if (why.empty() && !cfg.replica_host.empty() && cfg.seed_port != 0 && ha::peer_off_loopback(cfg.replica_host)) {
+      why = "--replica-of " + cfg.replica_host + " fetches seeds from --seed-port";
+    }
+    std::string sh;
+    unsigned sp = 0;
+    if (why.empty() && cfg.standby && !standby_host_given && !cfg.seed_from.empty() &&
+        ha::parse_hostport(cfg.seed_from, sh, sp) && ha::peer_off_loopback(sh)) {
+      why = "--seed-from " + sh + " is the primary, which dials this standby";
+    }
+    if (why.empty() && rejoin_port != 0 && ha::peer_off_loopback(peer_admin_host)) {
+      why = "--rejoin " + peer_admin_host + " dials this node";
+    }
+    if (!why.empty()) {
+      std::fprintf(stderr, "snc_server: %s on another machine, but every listener binds %s: it could not "
+                           "reach this node. Pass --host with this machine's address (or --host 0.0.0.0); no "
+                           "listener authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
+                   why.c_str(), ncfg.host.c_str());
       return 2;
     }
   }
@@ -743,19 +813,25 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "snc_server: --audit-dir %s: %s\n", audit_dir_path.c_str(), std::strerror(errno));
       return 2;
     }
-    if (!cfg.data_dir.empty()) {
-      char a[PATH_MAX], d[PATH_MAX];
-      if (::realpath(audit_dir_path.c_str(), a) == nullptr) {
-        std::fprintf(stderr, "snc_server: --audit-dir %s: %s\n", audit_dir_path.c_str(), std::strerror(errno));
-        return 2;
-      }
-      // A data directory that does not exist yet is made by the engine at
-      // the path given: compare against that path, resolved as far as it is.
-      std::string dd = ::realpath(cfg.data_dir.c_str(), d) != nullptr ? std::string(d) : cfg.data_dir;
-      const std::string ad(a);
-      if (ad == dd || ad.rfind(dd + "/", 0) == 0) {
-        std::fprintf(stderr, "snc_server: --audit-dir %s is the data directory or inside it (%s): AUDIT NAME "
-                             "could replace the node's own files\n", audit_dir_path.c_str(), dd.c_str());
+    // Compared by device and inode, walking up from the open directory (a
+    // symbolic link, bind mount or odd spelling cannot hide it; QA 1). A
+    // data directory that does not exist yet cannot contain it.
+    struct stat dst{};
+    if (!cfg.data_dir.empty() && ::stat(cfg.data_dir.c_str(), &dst) == 0 && dir_within(audit_dir, dst)) {
+      std::fprintf(stderr, "snc_server: --audit-dir %s is the data directory %s or inside it: AUDIT NAME could "
+                           "replace the node's own files\n", audit_dir_path.c_str(), cfg.data_dir.c_str());
+      return 2;
+    }
+    // The links generation file (D.2) is the other file a node depends on.
+    if (!cfg.links_generation_file.empty()) {
+      std::string parent = cfg.links_generation_file;
+      const auto slash = parent.rfind('/');
+      parent = slash == std::string::npos ? "." : slash == 0 ? "/" : parent.substr(0, slash);
+      struct stat pst{}, ast{};
+      if (::stat(parent.c_str(), &pst) == 0 && ::fstat(audit_dir, &ast) == 0 && pst.st_dev == ast.st_dev &&
+          pst.st_ino == ast.st_ino) {
+        std::fprintf(stderr, "snc_server: --audit-dir %s holds --links-generation-file %s: AUDIT NAME could "
+                             "replace it\n", audit_dir_path.c_str(), cfg.links_generation_file.c_str());
         return 2;
       }
     }

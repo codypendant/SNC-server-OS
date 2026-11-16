@@ -345,7 +345,10 @@ class Lab:
             replica_of = f"{sn['host'].addr}:{sn['repl']}"
         args = node_args(self.bin(h, "snc_server"), self.shards, objects, f"{self.run_dir}/n{k}", self.control(), k,
                          n["admin"], h.cpus, n["repl"] if n["member"] > 0 else None, replica_of, replica_timeout_ms,
-                         profile_args(self.profile, self.cfg), host=h.addr, audit_dir=self.run_dir)
+                         profile_args(self.profile, self.cfg), host=h.addr, audit_dir=f"{self.run_dir}/audit")
+        # A directory of its own: AUDIT NAME may replace any file in it, and
+        # run_dir holds witness state and logs (QA 2).
+        h.sh(f"mkdir -p {shlex.quote(self.run_dir)}/audit")
         if self.guard:
             self.guard.server(args, dir_exists=lambda p: h.sh(f"test -e {shlex.quote(p)}", check=False).returncode == 0,
                               host=h.name)
@@ -516,8 +519,8 @@ class Lab:
         self.check_witness_state("before the final check")
         files = []
         for k, n in self.nodes.items():
-            path = f"{self.run_dir}/bal.{k}"
-            r = ask(n["host"].addr, n["admin"], f"AUDIT bal.{k}", 60)  # into --audit-dir (run_dir)
+            path = f"{self.run_dir}/audit/bal.{k}"
+            r = ask(n["host"].addr, n["admin"], f"AUDIT bal.{k}", 60)  # into --audit-dir (run_dir/audit)
             if r and r.startswith("AUDIT") and int(r.split()[1]) > 0:
                 local = os.path.join(self.out, f"bal.{k}")
                 n["host"].fetch(path, local)

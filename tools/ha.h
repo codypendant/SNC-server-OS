@@ -7,6 +7,7 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
@@ -111,6 +112,39 @@ inline bool is_loopback_ipv4(const std::string& host) {
 inline bool valid_listen_host(const std::string& host) {
   in_addr ip{};
   return ::inet_pton(AF_INET, host.c_str(), &ip) == 1;
+}
+
+// The IPv4 address host names, as text: a literal as given, a name
+// resolved (getaddrinfo). False when it does not resolve.
+inline bool resolve_ipv4_text(const std::string& host, std::string& ip) {
+  in_addr a{};
+  if (::inet_pton(AF_INET, host.c_str(), &a) == 1) {
+    ip = host;
+    return true;
+  }
+  addrinfo hints{}, *res = nullptr;
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+  if (::getaddrinfo(host.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) return false;
+  char txt[INET_ADDRSTRLEN] = {};
+  ::inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(res->ai_addr)->sin_addr, txt, sizeof(txt));
+  ::freeaddrinfo(res);
+  ip = txt;
+  return true;
+}
+
+// Whether a listener bound to `bind` accepts connections addressed to
+// `advertised` (both IPv4 text): the same address, or 0.0.0.0.
+inline bool bind_serves(const std::string& bind, const std::string& advertised) {
+  return bind == "0.0.0.0" || bind == advertised;
+}
+
+// Whether a peer at `host` is on another machine as far as a loopback bind
+// can tell: it resolves to an address outside 127/8. A name that does not
+// resolve is not counted (nothing can be said about it here).
+inline bool peer_off_loopback(const std::string& host) {
+  std::string ip;
+  return resolve_ipv4_text(host, ip) && !is_loopback_ipv4(ip);
 }
 
 // A listening socket on host:port; -1 when host is not an IPv4 literal or

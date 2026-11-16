@@ -544,7 +544,6 @@ int main(int argc, char** argv) {
   // The IPv4 address the witness port binds (docs/LISTENER_EXPOSURE.md):
   // loopback unless --host says otherwise. Nothing on it authenticates.
   std::string listen_host = ha::kDefaultListenHost;
-  bool host_given = false;
   std::map<unsigned, Pair> pairs;
   unsigned self_id = 0;
   int failover_ms = 1000, poll_ms = 100;
@@ -576,10 +575,7 @@ int main(int argc, char** argv) {
     else if (k == "--poll-ms") poll_ms = std::atoi(v.c_str());
     else if (k == "--id") self_id = static_cast<unsigned>(std::atoi(v.c_str()));
     else if (k == "--peers") peer_list = v;
-    else if (k == "--host") {
-      listen_host = v;
-      host_given = true;
-    }
+    else if (k == "--host") listen_host = v;
     else if (k == "--health-verb" && (v == "health" || v == "status")) g_use_health = v == "health";
     else if (k == "--debug") g_debug = v == "1";
     else if (k == "--debug-clock-offset-ms") px.debug_clock_offset_ms.store(std::atoll(v.c_str()));
@@ -606,6 +602,20 @@ int main(int argc, char** argv) {
     return 2;
   }
   if (pport != 0) pairs[0] = Pair{{phost, shost}, {pport, sport}};
+  // Watched nodes on another machine dial this witness (SYNCED, READY,
+  // DEGRADE; QA 2): a loopback bind would leave them unable to.
+  if (ha::is_loopback_ipv4(listen_host)) {
+    for (const auto& [g, pr] : pairs) {
+      for (int m = 0; m < 2; ++m) {
+        if (ha::peer_off_loopback(pr.host[m])) {
+          std::fprintf(stderr, "snc_witness: group %u's node %s is on another machine and dials this witness, but "
+                               "it would listen on %s only. Pass --host with this machine's address (or --host "
+                               "0.0.0.0) (docs/LISTENER_EXPOSURE.md)\n", g, pr.host[m].c_str(), listen_host.c_str());
+          return 2;
+        }
+      }
+    }
+  }
   for (auto& [g, pr] : pairs) watched_groups.push_back(g);
   std::vector<paxos::Peer> peers;
   if (peer_list.empty()) {
@@ -660,19 +670,17 @@ int main(int argc, char** argv) {
                    norm[self_id].c_str());
       return 2;
     }
-    // The other witnesses dial this one at its --peers entry. Left on the
-    // loopback default with an entry that is not loopback, it would start
-    // and never be reached: refused, with the fix (AFR-S-2).
-    if (!host_given && !ha::is_loopback_ipv4(peers[self_id].host)) {
-      in_addr ip{};
-      const bool lo = resolve_ipv4(peers[self_id].host, ip) && (ntohl(ip.s_addr) >> 24) == 127;
-      if (!lo) {
-        std::fprintf(stderr, "snc_witness: --peers names this witness (--id %u) at %s, but it would listen on %s "
-                             "only: the other witnesses could not reach it. Pass --host %s (or --host 0.0.0.0); "
-                             "nothing on the witness port authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
-                     self_id, peers[self_id].host.c_str(), listen_host.c_str(), peers[self_id].host.c_str());
-        return 2;
-      }
+    // The other witnesses dial this one at its --peers entry: the bind must
+    // serve exactly that address, or be 0.0.0.0. Otherwise it would start
+    // and never be reached: refused, with the fix (AFR-S-2), as snc_server
+    // refuses a cluster member.
+    std::string self_ip;
+    if (ha::resolve_ipv4_text(peers[self_id].host, self_ip) && !ha::bind_serves(listen_host, self_ip)) {
+      std::fprintf(stderr, "snc_witness: --peers names this witness (--id %u) at %s, but it would listen on %s "
+                           "only: the other witnesses could not reach it. Pass --host %s (or --host 0.0.0.0); "
+                           "nothing on the witness port authenticates its peer (docs/LISTENER_EXPOSURE.md)\n",
+                   self_id, peers[self_id].host.c_str(), listen_host.c_str(), self_ip.c_str());
+      return 2;
     }
   }
   // The state file: created only on a witness's first start, never

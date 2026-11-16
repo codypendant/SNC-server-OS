@@ -19,12 +19,21 @@ it gave, or the file system after one admin request.
      code it truncated it, any peer of the admin port could); AUDIT NAME
      without --audit-dir is refused; with it, the balances land in the
      directory; a name with '/', a leading '.', or a symbolic link in the
-     directory is refused and the link's target is untouched.
+     directory is refused and the link's target is untouched; a FIFO or
+     a directory is refused; a hard link named NAME is replaced, and the
+     file it pointed at is untouched.
   L4 refusals at start, exit 2 with the fix named: a cluster member whose
      map address is not loopback and no --host; a witness whose --peers
      entry is a non-loopback address of this machine and no --host (needs
-     one, else skipped); --audit-dir equal to or inside --data-dir; --host
-     that is not an IPv4 address.
+     one, else skipped), also with an explicit --host 127.0.0.1;
+     --audit-dir equal to or inside --data-dir (also through a symbolic
+     link) or holding --links-generation-file; --host that is not an IPv4
+     address; a map address the bind does not serve (127.0.0.2 on the
+     default 127.0.0.1, or a different --host); a loopback-bound node whose
+     --witness, --seed-from or --replica-of (with --seed-port) peer is on
+     another machine, and a loopback-bound witness watching nodes on
+     another machine. A map naming the node by a name that resolves to
+     loopback starts; with --host 0.0.0.0 the member listens on every interface.
 
   L5 --control: a node's admin, client and link ports on loopback without
      --host; a node the placement map names at a non-loopback address is
@@ -131,8 +140,6 @@ def refused(host, port):
         s.close()
         return False
     except ConnectionRefusedError:
-        return True
-    except OSError:
         return True
 
 
@@ -249,6 +256,12 @@ def l3_audit(work):
         adir = os.path.join(work, "audit")
         os.mkdir(adir)
         os.symlink(outside, os.path.join(adir, "link"))
+        hard_target = os.path.join(work, "hard_target")
+        with open(hard_target, "w") as f:
+            f.write("hard target\n")
+        os.link(hard_target, os.path.join(adir, "hard"))
+        os.mkfifo(os.path.join(adir, "fifo"))
+        os.mkdir(os.path.join(adir, "sub"))
         data, admin, data2, admin2 = free_ports(4)
         # Without --audit-dir.
         pr.start("plain", [SERVER, "--shards", 1, "--objects", 1000, "--data-dir", f"{work}/p", "--port", data,
@@ -264,13 +277,18 @@ def l3_audit(work):
         pr.start("audited", [SERVER, "--shards", 1, "--objects", 1000, "--data-dir", f"{work}/q", "--port", data2,
                              "--admin-port", admin2, "--audit-dir", adir])
         wait(lambda: admin2 in listening(), "admin port (audited)")
-        for bad in (victim, "../victim", "a/b", ".hidden", "..", "x" * 129, "link"):
+        for bad in (victim, "../victim", "a/b", ".hidden", "..", "x" * 129, "link", "fifo", "sub"):
             r = ask(admin2, f"AUDIT {bad}")
             assert r.startswith("NO "), (bad, r)
         r = ask(admin2, "AUDIT bal.1")
         assert r.startswith("AUDIT "), r
         assert os.path.isfile(os.path.join(adir, "bal.1")), os.listdir(adir)
-        assert sorted(os.listdir(adir)) == ["bal.1", "link"], os.listdir(adir)
+        # A hard link named NAME is replaced, not written through (QA 1).
+        r = ask(admin2, "AUDIT hard")
+        assert r.startswith("AUDIT "), r
+        with open(hard_target) as f:
+            assert f.read() == "hard target\n", "AUDIT wrote through a hard link"
+        assert sorted(os.listdir(adir)) == ["bal.1", "fifo", "hard", "link", "sub"], os.listdir(adir)
         with open(victim) as f:
             assert f.read() == "must survive\n", "AUDIT PATH touched the file a path names"
         with open(outside) as f:
@@ -287,9 +305,36 @@ def l4_refusals(work):
                         "--member", 0, "--links-generation-file", f"{work}/gen"])
     assert rc == 2 and "--host 192.0.2.77" in out, (rc, out)
     # The same map with the address given (or 0.0.0.0) is not refused for it.
+    pr = Procs(work)
+    try:
+        pr.start("open", [SERVER, "--shards", 1, "--objects", 1000, "--port", c0, "--cluster", cluster, "--group", 0,
+                          "--member", 0, "--links-generation-file", f"{work}/gen", "--host", "0.0.0.0"])
+        expect_bound([c0, l0], "0.0.0.0", "member with --host 0.0.0.0")
+    finally:
+        pr.stop()
+    # An explicit --host 127.0.0.1 is refused the same way (no listener
+    # would serve the map's address).
     rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--port", c0, "--cluster", cluster, "--group", 0,
-                        "--member", 0, "--links-generation-file", f"{work}/gen", "--host", "0.0.0.0"], timeout=3)
-    assert rc is None, (rc, out)
+                        "--member", 0, "--links-generation-file", f"{work}/gen", "--host", "127.0.0.1"])
+    assert rc == 2 and "--host 192.0.2.77" in out, (rc, out)
+    # The bind must serve the map address exactly: 127.0.0.2 is loopback,
+    # but a socket on 127.0.0.1 refuses it; and a different --host (QA 2).
+    for host_args, addr in (([], "127.0.0.2"), (["--host", "127.0.0.1"], "192.0.2.77")):
+        m = f"{addr}:{l0}:1:{c0},127.0.0.1:{l1}:1:{c1}"
+        rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--port", c0, "--cluster", m, "--group", 0,
+                            "--member", 0, "--links-generation-file", f"{work}/gen"] + host_args)
+        assert rc == 2 and f"--host {addr}" in out, (addr, rc, out)
+    # Peers on another machine that dial back (QA 2), each refused on loopback.
+    (adm,) = free_ports(1)
+    for extra, word in ((["--admin-port", adm, "--witness", "192.0.2.77:1"], "--witness"),
+                        (["--data-dir", f"{work}/sb", "--standby", adm, "--seed-from", "192.0.2.77:1"], "--seed-from"),
+                        (["--data-dir", f"{work}/pr", "--replica-of", "192.0.2.77:1", "--seed-port", adm],
+                         "--replica-of")):
+        rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--port", c0] + extra)
+        assert rc == 2 and word in out and "another machine" in out, (extra, rc, out)
+    rc, out = run_exit([WITNESS, "--port", adm, "--state", f"{work}/wg.state", "--new-state", 1, "--group",
+                        "0=192.0.2.77:1,192.0.2.78:2"])
+    assert rc == 2 and "another machine" in out, (rc, out)
     rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--host", "localhost"])
     assert rc == 2 and "not an IPv4 address" in out, (rc, out)
     os.mkdir(os.path.join(work, "d"))
@@ -298,7 +343,24 @@ def l4_refusals(work):
         rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--data-dir", f"{work}/d", "--audit-dir", adir])
         assert rc == 2 and "data directory" in out, (adir, rc, out)
     rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--audit-dir", f"{work}/missing"])
-    assert rc == 2, (rc, out)
+    assert rc == 2 and "No such file or directory" in out, (rc, out)
+    # --audit-dir holding the links generation file (QA 1).
+    os.mkdir(f"{work}/lg")
+    rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--links-generation-file", f"{work}/lg/gen",
+                        "--audit-dir", f"{work}/lg"])
+    assert rc == 2 and "--links-generation-file" in out, (rc, out)
+    # --audit-dir reached through a symbolic link to the data directory.
+    os.symlink(f"{work}/d", f"{work}/dlink")
+    rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--data-dir", f"{work}/d", "--audit-dir",
+                        f"{work}/dlink/sub"])
+    assert rc == 2 and "data directory" in out, (rc, out)
+    # A map that names this node by a name resolving to loopback is not
+    # refused (node links resolve names; QA 1 and 3).
+    l2, l3, c2, c3 = free_ports(4, span=2)
+    rc, out = run_exit([SERVER, "--shards", 1, "--objects", 1000, "--port", c2, "--cluster",
+                        f"localhost:{l2}:1:{c2},127.0.0.1:{l3}:1:{c3}", "--group", 0, "--member", 0,
+                        "--links-generation-file", f"{work}/gen2"], timeout=3)
+    assert rc is None, (rc, out)
     if other:
         a, b, c = free_ports(3)
         peers = f"{other}:{a},127.0.0.1:{b},127.0.0.1:{c}"
@@ -306,6 +368,9 @@ def l4_refusals(work):
                             "--peers", peers])
         assert rc == 2 and f"--host {other}" in out, (rc, out)
         assert not os.path.exists(f"{work}/w.state"), "a refused witness created its state"
+        rc, out = run_exit([WITNESS, "--port", a, "--state", f"{work}/w.state", "--new-state", 1, "--id", 0,
+                            "--peers", peers, "--host", "127.0.0.1"])
+        assert rc == 2 and f"--host {other}" in out, (rc, out)
         print(f"  L4: witness refusal checked at {other}")
     else:
         print("  L4: no non-loopback address here; the witness refusal is not exercised")
