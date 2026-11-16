@@ -3229,7 +3229,7 @@ or source comments.
     AFR-F-03 dedup not bound to the request and wall-clock expiry (double apply reproduced), AFR-F-04 authority is
     an in-memory belief (shared cause of stale reads, O1 and non-durable fencing; two acknowledging primaries
     reproduced after a restart without witnesses), AFR-F-05 unbounded standby receive. AFR-F-07: no accepted
-    specification exists; the v0.1 spec is located (Claude Doc, revision 22, SHA-256 recorded) but not imported.
+    specification exists; the v0.1 spec is located (Claude Doc, revision 22) and imported with a provenance header as historical design input, byline redacted (cody), `docs/spec/`.
 -   **Evidence:** four bounded reviewers, author re-read of every critical finding, two QA agents not shown the
     notes (QA1 P1-P8, QA2 N1-N9). Experiments on loopback, scratch dirs only.
 -   **Assumptions changed:** "acknowledged durable writes survive restart" holds only for undamaged media; "the

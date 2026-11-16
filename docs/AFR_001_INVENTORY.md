@@ -252,10 +252,11 @@ Claude Docs document (id `8a25e96e-09ae-43ef-9e42-d6763e1eebd9`, one tab, **revi
 A Markdown export of revision 22 is 49,639 bytes, SHA-256
 `c0a8ab56ea1bf3dc21070672893b53a00577583ba599ee180b5c860373f7e801`. The export drops one embedded diagram
 (replaced by a placeholder) and renders a date and an author mention as text. Revision 22 is the current
-revision; whether it differs from the text the prototype was built against is **UNKNOWN**. Import is held for
-cody's decision on the byline (the export names the author in full and this repository is public); once
-decided, it goes in verbatim with this provenance, classified as **historical design input, not authoritative**
-(Codex, Handoff 1 review, item 2).
+revision; whether it differs from the text the prototype was built against is **UNKNOWN**. It is imported as
+`docs/spec/SNC_v0.1_Object_Execution_Specification.md`, verbatim except that the author mention is replaced by
+"[byline redacted]" (cody's decision, 2026-11-16, because this repository is public); a provenance header records
+the source, revision, both checksums and the export limits. It is classified as **historical design input, not
+authoritative** (Codex, Handoff 1 review, item 2).
 
 ### 8.3 Identifier collisions (VERIFIED; full list `D_verification_docs.md` 6.5)
 
@@ -502,7 +503,7 @@ evidence says they do.
 ### AFR-F-07. There is no accepted specification to judge correctness against
 
 - **Evidence (VERIFIED):** SNC-ADR-RUST-001 makes "the specification" authoritative, but the v0.1 specification is
-  outside the repository (section 8.2); `docs/CORE_CONTRACTS.md` is a DRAFT; `docs/FAILURE_MODEL.md`'s guarantees
+  outside the repository until this PR, and is imported here only as historical design input (section 8.2); `docs/CORE_CONTRACTS.md` is a DRAFT; `docs/FAILURE_MODEL.md`'s guarantees
   G1 to G6 are PROPOSED.
 - **Consequence:** today no behaviour can be called a violation of an accepted guarantee; findings AFR-F-01 to 06
   are measured against documented intent and owner rulings. Differential testing (ADR verification clause) has
@@ -536,4 +537,4 @@ and K1.
 - The CLI, developer experience and observability received an inventory only (amendment 1).
 - Not re-run here: audit-D1 over TCP; the clustered O1 variant; test_xnode X16; netns partition experiments;
   power loss, EIO and ENOSPC on the WAL (no harness exists).
-- The v0.1 specification is located and checksummed but not imported (section 8.2).
+- The v0.1 specification is imported as historical design input only; it is not reconciled with the code (section 8.2).
