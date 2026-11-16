@@ -3366,6 +3366,25 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 protocol-acceptance review (docs only)
+
+-   **Trigger:** Codex's review of PR #145 (`docs/handoff/PR145_Model_Composition_Codex_Review.md`, partial: the
+    decision header was not received). PR #145 merged as `a78e0cb`. Codex: stop expanding the verification
+    documents; run a bounded protocol-acceptance review.
+-   **Output:** `docs/AFR_001_PROTOCOL_ACCEPTANCE_REVIEW.md` (PROPOSED). It sorts R1-R9, Claims L and D, the
+    guarantees AFR-D-01 to AFR-D-03 unlock, and Codex's open items into freeze / freeze with an assumption / fix the
+    text / experiment / bounded model / out of contract, from merged evidence only. No new modelling or runs.
+-   **Findings:**
+    -   Five wording fixes before freezing: G-15 identity is `(term, LSN)`; R9 lacks the rule G-30 needs (no
+        degrade while a standby lease is live; the C++ already refuses, neither model enforces it); R6.4 must
+        refuse, not reseed, on a damaged term history (G-14(a)); G-35 must name write loss on R7 outside S; G-46
+        needs a clock that counts through suspend.
+    -   X-2 gates AFR-D-02 and G-14(b).
+    -   A2 closed by a bounded argument; A7 and A9 move to AFR-D-13; eight runs did not finish (recorded gaps).
+    -   Independent QA: 13 findings, 12 confirmed and corrected, 1 partly rejected (section 7).
+-   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
+    authorized.
+
 ### 2026-11-16 --- SNC-AFR-001 model composition (docs and models only)
 
 -   **Trigger:** Codex's review of PR #144 (`docs/handoff/PR144_Closure_Codex_Review.md`); PR #144 merged as a
