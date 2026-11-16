@@ -551,26 +551,6 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "--debug-barrier is for tests: it needs --debug-admin\n");
     return 2;
   }
-  if (cfg.runtime.n_shards == 0) {
-    // --cpus: one shard per listed CPU. Otherwise one per CPU this process
-    // may run on (taskset or a cgroup cpuset; a CPU quota does not narrow
-    // it), not per CPU the host has online: the runtime places shards within
-    // this set (docs/CPU_PLACEMENT_R1.md D2).
-    unsigned n = 0;
-    if (!cfg.runtime.cpus.empty()) {
-      n = static_cast<unsigned>(cfg.runtime.cpus.size());
-    } else {
-      cpu_set_t allowed;
-      CPU_ZERO(&allowed);
-      if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0) n = static_cast<unsigned>(CPU_COUNT(&allowed));
-    }
-    if (n == 0) {
-      n = std::max(1u, std::thread::hardware_concurrency());
-      std::fprintf(stderr, "snc_server: cannot read this process's CPUs (%s); %u shards, one per online CPU\n",
-                   std::strerror(errno), n);
-    }
-    cfg.runtime.n_shards = static_cast<u16>(n);
-  }
   account::register_type();
 
   // Control plane (docs/CONTROL_PLANE.md): the placement map, this node's
@@ -618,6 +598,63 @@ int main(int argc, char** argv) {
                 setup.member, (unsigned long long)setup.placement.epoch,
                 setup.stored ? " (stored map: the control plane did not answer; provisional)" : "");
     std::fflush(stdout);
+  }
+
+  // Shard count (docs/SHARD_COUNT_D3.md). A cluster member's count is its
+  // group's in the placement map (--control) or --cluster, which is
+  // authoritative: with neither --shards nor --cpus the node takes it, and a
+  // --shards or --cpus that says otherwise is refused here, with both
+  // counts, before anything starts.
+  if (!cfg.cluster.empty()) {
+    if (cfg.group_id >= cfg.cluster.size()) {
+      std::fprintf(stderr, "snc_server: --group %u, but the %s has %zu groups\n", cfg.group_id,
+                   control_members.empty() ? "--cluster list" : "placement map", cfg.cluster.size());
+      return 2;
+    }
+    if (cfg.member >= cfg.cluster[cfg.group_id].members.size()) {
+      std::fprintf(stderr, "snc_server: --member %u, but group %u has %zu members\n", cfg.member, cfg.group_id,
+                   cfg.cluster[cfg.group_id].members.size());
+      return 2;
+    }
+    const unsigned want = cfg.cluster[cfg.group_id].n_shards;
+    const char* where = control_members.empty() ? "--cluster" : "the placement map";
+    if (cfg.runtime.n_shards == 0 && cfg.runtime.cpus.empty()) {
+      cfg.runtime.n_shards = static_cast<u16>(want);
+    } else {
+      const bool by_shards = cfg.runtime.n_shards != 0;
+      const unsigned given = by_shards ? cfg.runtime.n_shards : static_cast<unsigned>(cfg.runtime.cpus.size());
+      if (given != want) {
+        if (by_shards) {
+          std::fprintf(stderr, "snc_server: group %u has %u shards in %s, but --shards gives %u; pass --shards %u "
+                               "or leave it out\n", cfg.group_id, want, where, given, want);
+        } else {
+          std::fprintf(stderr, "snc_server: group %u has %u shards in %s, but --cpus gives %u; list %u CPUs or add "
+                               "--shards %u\n", cfg.group_id, want, where, given, want, want);
+        }
+        return 2;
+      }
+      cfg.runtime.n_shards = static_cast<u16>(given);
+    }
+  }
+  if (cfg.runtime.n_shards == 0) {
+    // --cpus: one shard per listed CPU. Otherwise one per CPU this process
+    // may run on (taskset or a cgroup cpuset; a CPU quota does not narrow
+    // it), not per CPU the host has online: the runtime places shards within
+    // this set (docs/CPU_PLACEMENT_R1.md D2).
+    unsigned n = 0;
+    if (!cfg.runtime.cpus.empty()) {
+      n = static_cast<unsigned>(cfg.runtime.cpus.size());
+    } else {
+      cpu_set_t allowed;
+      CPU_ZERO(&allowed);
+      if (sched_getaffinity(0, sizeof(allowed), &allowed) == 0) n = static_cast<unsigned>(CPU_COUNT(&allowed));
+    }
+    if (n == 0) {
+      n = std::max(1u, std::thread::hardware_concurrency());
+      std::fprintf(stderr, "snc_server: cannot read this process's CPUs (%s); %u shards, one per online CPU\n",
+                   std::strerror(errno), n);
+    }
+    cfg.runtime.n_shards = static_cast<u16>(n);
   }
 
   // Rejoin: a node starting as primary first asks the other node. If that

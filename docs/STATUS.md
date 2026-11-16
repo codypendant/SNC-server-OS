@@ -388,8 +388,13 @@ Decided by cody on 2026-11-04.
      and `node_info`; `SNC_HA_KEEP=0` turns it off. HEALTH and the HA path stay one-shot. A2 rerun, 10 trials:
      every scenario within the 5.1 tolerance. A harness flaw (a descriptor hole) had inflated main's recorded
      EMFILE times; corrected on main to 1028-1056 ms detection (merged with the approved PR). K1 waits for the shard-count work (D3-D5) and cody's explicit go.
+     **D3 (approved, PR #136, [SHARD_COUNT_D3.md](SHARD_COUNT_D3.md)):** in `--cluster`/`--control` mode a member
+     without `--shards`/`--cpus` takes its group's shard count; a disagreeing `--shards`, `--cpus`, `--group` or
+     `--member` is refused with exit 2 instead of aborting; a cluster member's data directory with another
+     shard count is refused (exit 1, nothing written) instead of silently remapped. New `test_cluster_shards`
+     (K1-K7). Dependency order checked: D3, then D4, then D5 (independent). D4, D5 not started.
      F2 to F4 not started.
-     **SNC-AFR-001 architecture foundation review, Phase 1 (for review, [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
+     **SNC-AFR-001 architecture foundation review, Phase 1 (approved, PR #138, [handoff](handoff/PR138_AFR001_Phase1_Codex_Approval.md); [AFR_001_INVENTORY.md](AFR_001_INVENTORY.md)):**
      read-only inventory and immediately critical findings; no code changed. audit-D1 to D4 are still open and
      audit-D2 and audit-D4 are wider than recorded (AFR-F-01: a damaged first record makes recovery delete the
      segment, a zeroed block or unknown record type truncates silently, LSNs are reused; AFR-F-02: `AUDIT PATH`

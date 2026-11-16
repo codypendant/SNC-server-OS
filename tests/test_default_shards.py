@@ -63,21 +63,29 @@ def shards_under(cpus, *flags):
                          stderr=subprocess.STDOUT, text=True, preexec_fn=pin)
     out, got = [], None
     t_end = time.time() + 30
+    # Read the pipe's bytes directly: a buffered readline() would hold lines
+    # that select() no longer reports.
+    fd = p.stdout.fileno()
     sel = selectors.DefaultSelector()
-    sel.register(p.stdout, selectors.EVENT_READ)
+    sel.register(fd, selectors.EVENT_READ)
+    pending = b""
     try:
-        # Wait for each line with a deadline, so a server that hangs before
-        # printing fails here, not at the ctest timeout.
+        # Wait with a deadline, so a server that hangs before printing fails
+        # here, not at the ctest timeout.
         while got is None and time.time() < t_end:
             if not sel.select(timeout=max(0.0, t_end - time.time())):
                 break
-            line = p.stdout.readline()
-            if not line:
+            chunk = os.read(fd, 65536)
+            if not chunk:
                 break
-            out.append(line)
-            m = LINE.match(line)
-            if m:
-                got = int(m.group(1))
+            pending += chunk
+            while b"\n" in pending and got is None:
+                line, pending = pending.split(b"\n", 1)
+                line = line.decode(errors="replace") + "\n"
+                out.append(line)
+                m = LINE.match(line)
+                if m:
+                    got = int(m.group(1))
     finally:
         sel.close()
         p.send_signal(signal.SIGINT)
