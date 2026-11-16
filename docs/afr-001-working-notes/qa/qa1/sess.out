@@ -1,0 +1,29 @@
+session_ttl_s=3600
+--- P5: same (client,seq), different target/op/args
+c7 s1 deposit A +100                                       status=OK                 replayed=0 id_is_target=1 result_len=16 ver=2
+c7 s1 deposit B +500 (different target+args)               status=OK                 replayed=1 id_is_target=0 result_len=0 ver=2
+c7 s1 withdraw B 1 (different op)                          status=OK                 replayed=1 id_is_target=0 result_len=0 ver=2
+balances A=1100 (expect 1100) B=1000 (unchanged would be 1000)
+c7 s1 CREATE (same seq)                                    status=OK                 replayed=1 id_is_target=1 result_len=0 ver=2
+--- P6: failed sequenced mutations are not recorded
+c7 s2 withdraw Z 1000 (insufficient)                       status=E_APP              replayed=0 id_is_target=1 result_len=0 ver=1
+c7 s2 resend: deposit Z +1                                 status=OK                 replayed=0 id_is_target=1 result_len=16 ver=2
+Z=6 (6 = resend executed)
+c7 s3 deposit A +1 expected_version=999                    status=E_VERSION_CONFLICT replayed=0 id_is_target=1 result_len=0 ver=2
+c7 s3 resend without version                               status=OK                 replayed=0 id_is_target=1 result_len=16 ver=3
+c7 s4 deposit on missing object                            status=E_NOT_FOUND        replayed=0 id_is_target=1 result_len=0 ver=0
+c7 s4 resend on A                                          status=OK                 replayed=0 id_is_target=1 result_len=16 ver=4
+c7 s5 withdraw Z 1000 (fails)                              status=E_APP              replayed=0 id_is_target=1 result_len=0 ver=2
+c7 s6 deposit Z +1                                         status=OK                 replayed=0 id_is_target=1 result_len=16 ver=3
+c7 s5 resend (never applied)                               status=E_REPLAYED_OLD     replayed=1 id_is_target=1 result_len=0 ver=0
+c7 s7 delete Y (balance 0)                                 status=OK                 replayed=0 id_is_target=1 result_len=0 ver=2
+c7 s7 delete Y resend                                      status=E_NOT_FOUND        replayed=0 id_is_target=1 result_len=0 ver=0
+c7 s7 deposit A (seq 7 not consumed by delete?)            status=OK                 replayed=0 id_is_target=1 result_len=16 ver=5
+--- P7: wall-clock step and expiry at checkpoint
+c9 s1 deposit A +1000                                      status=OK                 replayed=0 id_is_target=1 result_len=16 ver=6
+c9 s1 resend after checkpoint, clock normal                status=OK                 replayed=1 id_is_target=1 result_len=0 ver=6
+A=2103 (no change expected, was 2103)
+c9 s1 resend after clock step, before checkpoint           status=OK                 replayed=1 id_is_target=1 result_len=0 ver=6
+checkpoint seq=3
+c9 s1 resend after clock step + checkpoint                 status=OK                 replayed=0 id_is_target=1 result_len=16 ver=7
+A=3103 (was 2103: +1000 means applied twice)
