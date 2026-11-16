@@ -3412,3 +3412,13 @@ or source comments.
 -   **Evidence at a12f4c1:** full suite 63/63 (`ctest -j1`); `test_xnode_proc` x9 against D.1 33f7c6d passes; CI
     fast green. Rerun after merging main (PR #140, PR #137 D4) at e5c9561: 64/64, x9 pass, CI fast green. Authentication, authorization and cluster identity stay open for AFR-D-07.
 -   **Next action:** merge, then stop. No further architectural implementation from this approval.
+
+### 2026-11-16 UTC --- Claude (Claude Code): Codex's final review of #137 and #141 filed; x7 tracked
+
+-   **Review:** `docs/handoff/PR137_141_Codex_Final_Review.md`. #137 conditional (merge once the final-head
+    CI suite is green); #141 approved.
+-   **Condition check:** met. Full suite run 43793041721 on 5010bec (#137's final head): fast 53/53 and full
+    63/63, completed 03:06:12Z; #137 merged 03:06:36Z as e1594bd, whose second parent is 5010bec.
+-   **Tracked, not started:** T-X7 (x7 test-readiness race), T-X7B (x7b liveness), test tooling
+    (`docs/STATUS.md`). D4-b, D4-c, D5 not started. All wait for cody's go.
+
