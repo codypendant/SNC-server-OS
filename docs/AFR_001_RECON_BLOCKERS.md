@@ -218,7 +218,7 @@ None found a blocker. Their findings, and what was done:
 | 10 | downstream | MINOR | G-15 (2) and (3) referred to "the current primary's log", which is not the log a cross-term completion used | G-15 reworded: the primary that answered the bound request |
 | 11 | downstream | MINOR | Self re-promotion costs; witness-record damage has no named refusal; term growth in a crash loop | Recorded as open items (promotion doc 2.4). **Unresolved** |
 | 12 | downstream | MINOR | The intent itself must be protected against damage, or it can lower a D-02 watermark | Added to the D-02 item in 2.4 |
-| 13 | model | MAJOR | Only the positioning guard of the block does work: with it, a node with a pending intent is never positioned, so the ship, acknowledgement, READY, A, S and lease guards are implied | Disclosed (section 5). MI shows the positioning block necessary; the other clauses are kept as defence in depth, not shown necessary |
+| 13 | model | MAJOR | Only the positioning guard of the block does work: with it, a node with a pending intent is never positioned, so the ship, acknowledgement, READY, A, S and lease guards are implied | Disclosed (section 5). MI removes every clause together, so it shows the block as a whole is necessary, not any single clause (corrected in `docs/AFR_001_PROTOCOL_ACCEPTANCE_R2P_R9.md`) |
 | 14 | model | MAJOR | `LogMatching` cannot fail with at most two ids, so 2.1's appeal to it holds trivially here | Disclosed. The equivalence argument of 2.1 is INF, as labelled; the protocol reviewer tried and could not break it |
 | 15 | model | MAJOR | C3's uniqueness check is narrow (reuse only at LSN 1, with an empty common prefix) | Disclosed (section 5) |
 | 16 | model | MAJOR | C2 is narrow: L = 0 only, no crash, no checkpoint, no concurrent replies; no lane combines cases 1 and 2 | Disclosed (section 5) |
@@ -230,7 +230,7 @@ None found a blocker. Their findings, and what was done:
 What the reviewers tried and could not break: the binding against duplicate truncations, change-and-change-back
 logs, reseeds, checkpoints in flight and term persistence with lost memory; the claim that completing an older
 intent never removes an entry a member of S must hold; R9-F's direction (never an older version); the m = 2 default
-(a node with a pending intent is outside S); the snapshot abstraction (a PASS with it transfers to the real check,
+(corrected later: under R2′ a node with a pending intent can be in S, but it is never positioned, so no acknowledgement completes while it is there; `docs/AFR_001_PROTOCOL_ACCEPTANCE_R2P_R9.md` section 3); the snapshot abstraction (a PASS with it transfers to the real check,
 which accepts fewer replies); the completeness of every action's `UNCHANGED` list.
 
 ## 5. What this shows, and its limits
@@ -239,7 +239,7 @@ which accepts fewer replies); the completeness of every action's `UNCHANGED` lis
 - Case 1: with the binding, duplicated, reordered, lost and post-restart replies lose no acknowledged write (C1).
   Without it, the predicted loss comes back (MB).
 - Case 2: with the block, a node carrying an older-term intent into a newer term loses nothing (C2). Without the
-  positioning block, section 6's QA trace comes back (MI). PX shows the carried intent is reachable.
+  block, section 6's QA trace comes back (MI). PX shows the carried intent is reachable.
 - Case 3: self re-promotion to a new term is reachable (PS) and reuses an LSN under the new term (PR) without
   breaking `(term, LSN)` uniqueness or any other `Safety` property (C3). Resuming at the old term breaks uniqueness
   (MNH).
@@ -247,8 +247,8 @@ which accepts fewer replies); the completeness of every action's `UNCHANGED` lis
   record that is not READY, at these bounds.
 
 **Not shown, or narrow:**
-- Of the block's clauses, only "not positioned while an intent is pending" is shown necessary. The others are
-  implied by it in the model and are kept as defence in depth.
+- MI removes every clause of the block together, so only the block as a whole is shown necessary (corrected in `docs/AFR_001_PROTOCOL_ACCEPTANCE_R2P_R9.md`). In the model the
+  other clauses follow from the positioning clause, so no single clause is shown necessary.
 - C2 covers case 2 only with L = 0, no crash, no checkpoint or reseed, and one reply at a time. No lane combines
   cases 1 and 2. Whether the dangerous continuation (complete, reposition, count in the newer term) is reached under
   the fix is not shown.
