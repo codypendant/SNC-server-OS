@@ -13,7 +13,7 @@
   bounds, and a defect in the Revision 2 Log model is disclosed.
 - **Owner decisions, 2026-11-16** (`docs/handoff/PR148_Owner_Decisions.md`): the authority mechanism here (R3, R4, R5,
   R8, the lease from A) is conditionally accepted as AFR-D-01. The in-sync-set direction is selected for AFR-D-03, but
-  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 was revised after its targeted model (R9-A to R9-E, 2026-11-17) and is not frozen. This is not a proof.
+  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 was revised after its targeted model (R9-A to R9-E, 2026-11-17). **Owner decision 2026-11-17** (`docs/handoff/PR155_Owner_Decision.md`): R2′ and R9-A to R9-E are conditionally frozen, with the exclusions and conditions stated there; R9-F is not. This is not a proof.
 - **Nothing here authorizes implementation.** AFR-D-02 is on HOLD. R1, R2, R6 and R7 are not accepted as a complete
   protocol; they are the D-03 direction's current candidates.
 - **Method.** This follows `docs/ENGINEERING_PRINCIPLES.md` (research before reinvention). Each claim carries a
@@ -251,7 +251,10 @@ majority of witnesses, so it stays bounded (G-33).
 
 **R9. Standby read leases.** A standby read lease that p grants never outlasts p's own authority (fixes M2).
 [Revised 2026-11-17 after Codex's review of PRs #151 and #152 (`docs/handoff/PR151_152_Codex_Review.md`, R9-A to
-R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9.md`). PROPOSED, not frozen.]
+R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9.md`). **R9-A to R9-E are
+CONDITIONALLY FROZEN (owner decision 2026-11-17, `docs/handoff/PR155_Owner_Decision.md`)**, with G-46's clock
+assumptions and R9-E's argued formulas accepted. R9-F is not frozen. This is the contract only: not C++ conformance,
+not a Rust authorization.]
 - **R9-A. Apply before acknowledging.** Every replica (a member of A, or one catching up to join it) reports an
   entry as acknowledged only once it has applied it, whether or not it holds a lease at that moment. p counts no
   other report. An acknowledgement sent before a lease was granted can be counted
@@ -262,8 +265,13 @@ R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9
   - is positioned on p's log (R6.2, R6.3; under R2′ this is rule 2);
   - has no pending truncation intent (R6.3′ item 3);
   - has applied every entry up to `max(inh_p, ack_p)`, judged by the applied position `m` reports (R9-A). `inh_p` is
-    p's log end after its quiescence and drain (S2′), and `ack_p` is the highest LSN p has acknowledged (the Grow
-    test of R1, applied to the applied state).
+    p's log end after its quiescence and drain (S2′). The Grow test of R1, applied to the applied state.
+  - **Definition of `ack_p`** (added 2026-11-17 for the conditional freeze, `docs/handoff/PR155_Owner_Decision.md`):
+    `ack_p` is the highest LSN that `p` has recorded as HA_DURABLE in its current term. That means every member of A
+    has reported every entry up to it as applied (R9-A), and `p` held authority when it recorded it. It is 0 when `p`
+    starts serving its term. It is never set from `inh_p`, because the inherited log is covered by the `inh_p` term of
+    the max. The durability class a client asked for (APPLIED or LOCAL_DURABLE, G-11) does not move it: such a reply
+    can be sent before the entry is HA_DURABLE. "Acknowledged" in G-30 means acknowledged at HA_DURABLE.
 
   Evidence: M_leaseSync, _pack, _inh. The "positioned" part gave no counterexample in RESULTS_R9 (today's R2) and is
   kept. Under R2′ it is needed for the stronger `LeasedPrefix` property (`spec/tla/PromoteRecon.tla`, run MP).
@@ -293,10 +301,8 @@ R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9
   (`docs/handoff/PR153_Codex_Review.md`), revised after this step's review (`docs/AFR_001_RECON_BLOCKERS.md`
   section 4). PROPOSED; **text only, not model-checked**. Not part of the R9-A to R9-E set that may be reviewed for
   freeze. It needs its own model with separate applied, acknowledged and `c_m` positions before any freeze.]
-  - **`ack_p`** is the highest LSN `p` has acknowledged at HA_DURABLE in its current term: every member of A has
-    applied it and `p` holds authority. APPLIED and LOCAL_DURABLE replies (G-11) do not move it. `ack_p` is never set
-    from `inh_p` directly. An inherited entry counts once `p` acknowledges it under this rule, which happens as soon
-    as every member of A has applied through `inh_p` (as a new Raft leader commits its no-op entry).
+  - **`ack_p`** is as defined in R9-B. The inherited log becomes covered once every member of A has applied through
+    `inh_p`, as a new Raft leader commits its no-op entry [EXT].
   - `p` sends `ack_p` with every frame, and sends a frame within a stated bound after `ack_p` moves, also when idle.
     `m` keeps `c_m`, the highest value it has received from `p` in `p`'s term while positioned. `c_m` is volatile.
     It resets to 0 when `m` persists a newer term (R4), restarts, or is no longer positioned.

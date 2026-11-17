@@ -1,6 +1,9 @@
 # SNC-AFR-001: R2 survivors and single-copy recovery
 
-- **Status: PROPOSED.** Nothing here is frozen. It authorizes no implementation and no R640 runs.
+- **Status: R2′ CONDITIONALLY FROZEN (owner decision 2026-11-17, `docs/handoff/PR155_Owner_Decision.md`).** Frozen as
+  the contract: rules 1-5, P1-P7 with P6′, S1-S5 with S2′, and 4.2's rule that a restarted sole primary serves again
+  only in a new witness-approved term. Excluded: P5's and 4.2's silent-loss guarantees (D-02), and TEXT ONLY clauses.
+  Section 4.3 (standalone reservation) is not frozen. Not C++ conformance; no implementation or R640 runs authorized.
 - **Owner direction, 2026-11-17** (`docs/handoff/PR149_150_Owner_Direction.md`):
   - R2′ is the **preferred design candidate**, not frozen until the model evidence and independent QA are reviewed.
     The bounded validation in 2.4 is authorized: at most eight runs, two hours each, no R640. An unexplained safety

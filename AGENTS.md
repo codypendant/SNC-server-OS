@@ -3640,3 +3640,16 @@ or source comments.
 -   **Not authorized and not done:** any freeze, C++/Rust, R640, D-02 acceptance, m = 2 change.
 -   **Next action:** STOP for Codex's and cody's review.
 
+### 2026-11-17 UTC --- Claude (Claude Code): owner decision recorded: conditional freeze of R2′ and R9-A to R9-E (docs only)
+
+-   **Trigger:** cody's "Yes." (2026-11-17 23:16 UTC) to Codex's five recommendations on #155, put to cody as one
+    decision. #155 merged (0fa7a46); Codex's review filed as `docs/handoff/PR155_Codex_Review.md`.
+-   **Output:** `docs/handoff/PR155_Owner_Decision.md` (the decision, the exact frozen text, exclusions, conditions);
+    `ack_p` defined in R9-B; freeze markers in `docs/AFR_001_SAFETY_ANALYSIS.md`, `docs/AFR_001_R2_AND_SINGLE_COPY.md`,
+    `docs/AFR_001_PROMOTION_DURING_RECON.md` and `docs/SNC_GUARANTEES.md` (G-15, G-30, D-03, D-06).
+-   **Frozen (contract only):** R2′ (rules 1-5, P1-P7 with P6′, S1-S5 with S2′, R6.3′ items 1-3, completion
+    requirements, 4.2's new-term rule) and R9-A to R9-E. **Excluded:** P5's and 4.2's silent-loss guarantees, TEXT ONLY
+    clauses, R9-F, D-02. **Condition:** one logical atomic metadata authority per node.
+-   **Not authorized:** C++ or Rust, R640, X-2, D-02 acceptance, R9-F freeze, m = 2 change.
+-   **Next action:** the D-06 storage-format and metadata-atomicity design, as a separate docs-only PR.
+
