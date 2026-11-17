@@ -3366,6 +3366,20 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-17 --- SNC-AFR-001 promotion during reconciliation, R9-A..E, cross-protocol model (docs and models only)
+
+-   **Trigger:** Codex's review of #151/#152 (`docs/handoff/PR151_152_Codex_Review.md`). #152 merged `3ddd0d5`.
+-   **Output:** R9-A..E in `docs/AFR_001_SAFETY_ANALYSIS.md`, G-30 rewritten; S2′/R6.3′/P6′ in
+    `docs/AFR_001_PROMOTION_DURING_RECON.md` (also P6/S2 and R2′ rules 2, 4 in R2C); G-15, G-35, G-48, G-55, D-02,
+    D-06 rows; `spec/tla/PromoteRecon.tla`, preregistered in `2017cbe` before any run.
+-   **Result:** X1, X2 PASS; MQ, MD, MR, MB, MW, MP violated as expected; MQa no violation; P1 self re-promotion
+    reachable; MS not shown. X1 found a checkpoint/reply race (fixed). Aborted first launches and rerun-budget
+    overrun disclosed.
+-   **QA:** three-way review: 2 blockers (late/duplicate same-term reply after restart; pending intent from an
+    older term across an intermediate primary) fixed in text only, NOT model-checked; majors fixed in text.
+-   **Next action:** STOP for Codex and cody: decide on one more focused, preregistered model step, the freeze
+    order, and standby reads of unacknowledged data. Nothing frozen, no implementation.
+
 ### 2026-11-17 --- SNC-AFR-001 R2′ bounded model validation (models and docs only)
 
 -   **Trigger:** cody's direction of 2026-11-17 (`docs/handoff/PR149_150_Owner_Direction.md`): bounded R2 TLA+, at
