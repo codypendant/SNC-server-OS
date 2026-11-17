@@ -1,7 +1,16 @@
-# SNC-AFR-001: R2 survivors and single-copy recovery (for owner decision)
+# SNC-AFR-001: R2 survivors and single-copy recovery
 
-- **Status: PROPOSED, for cody's decision.** This document recommends; it decides nothing. It authorizes no
-  implementation, no model runs and no R640 runs.
+- **Status: PROPOSED.** Nothing here is frozen. It authorizes no implementation and no R640 runs.
+- **Owner direction, 2026-11-17** (`docs/handoff/PR149_150_Owner_Direction.md`):
+  - R2′ is the **preferred design candidate**, not frozen until the model evidence and independent QA are reviewed.
+    The bounded validation in 2.4 is authorized: at most eight runs, two hours each, no R640. An unexplained safety
+    counterexample is a blocker; a timeout is NOT COMPLETED.
+  - P1-P7 and S1-S5 are the **proposed** replacement for E1-E11, subject to verification against the selected R2.
+    Promotion eligibility stays distinct from permission to begin serving.
+  - Standalone node: monotonic LSN reservation is the **preferred candidate**. Restarted degraded-group primary:
+    witness-coordinated re-promotion into a new term is the **preferred candidate**; it must never resume serving
+    under its old term; fencing, leases, log matching and recovery are to be verified before it is frozen.
+  - D-02 and the silent-loss durability boundary remain unresolved. No D-02 selection and no R2 freeze.
 - **Trigger.** cody's owner decisions on PR #148 (`docs/handoff/PR148_Owner_Decisions.md`):
   - section 2, the R2 evaluation against eight points and a rewrite of E1-E11;
   - section 5, single-copy recovery by monotonic LSN reservation, establishing seven points.
@@ -22,7 +31,7 @@
 |---|---|---|
 | 1 | R2: after a promotion, new S = {j}, or keep verified survivors? | **Keep survivors**: new S = old S without the old primary. A survivor's acknowledgements count only after it is positioned in the new term. A survivor that must reseed leaves S first. READY waits until every member of S is positioned. **Freeze only after the bounded model run in 2.4 passes and is reviewed.** |
 | 2 | E1-E11 | Replace them with the in-sync-set rules in section 3 |
-| 3 | Single-copy recovery | **Standalone node: monotonic LSN reservation** with a durable local mark. **Degraded group (S = {p}, witnesses exist): the witnesses re-promote the restarted p to `t+1` by the ordinary compare-and-set**, instead of reservation, because QA showed reservation inside a group breaks rules other proofs depend on (section 4). This narrows cody's preferred candidate for degraded groups and needs cody's ruling. The standalone lost-write case still depends on D-02 |
+| 3 | Single-copy recovery | **Standalone node: monotonic LSN reservation** with a durable local mark. **Degraded group (S = {p}, witnesses exist): the witnesses re-promote the restarted p to `t+1` by the ordinary compare-and-set**, instead of reservation, because QA showed reservation inside a group breaks rules other proofs depend on (section 4). Both are now cody's preferred candidates (2026-11-17), not frozen. Both still depend on D-02 for silently lost writes |
 
 What does not change: the safety invariants (Claims L and D, G-15), `m = 2`, and the in-sync-set direction.
 
@@ -42,11 +51,11 @@ Every system checked except one keeps survivors as members after a leader change
 
 | System | Survivors after a leader change | When a survivor counts again |
 |---|---|---|
-| **PacificA** (MSR-TR-2008-25) | Kept: "The secondary proposes a new configuration with itself being the new primary and with the old primary excluded" [FACT] | The new primary "starts to process new requests only after it completes a reconciliation process", re-committing its prepared requests on the new configuration. Replicas "truncate their prepared lists and keep only all requests up to serial number sn" [FACT] |
+| **PacificA** (MSR-TR-2008-25) | Kept: "The secondary proposes a new configuration with itself being the new primary and with the old primary excluded" [EXT] | The new primary "starts to process new requests only after it completes a reconciliation process", re-committing its prepared requests on the new configuration. Replicas "truncate their prepared lists and keep only all requests up to serial number sn" [FACT] |
 | **Kafka** (KRaft controller; `Partition.scala`) | Kept. The failed broker is removed from the ISR. Only an unclean election "forcibly set[s] the ISR to just the new leader. This can result in data loss!" [FACT] | The new leader resets remote log-end offsets. A replica must be "caught up to an offset within the current leader epoch" [FACT]. Truncation is by leader epoch (KIP-101, iterated in KIP-279) |
 | **Raft** (Ongaro thesis) | Configuration unchanged | `matchIndex` is "Reinitialized after election". "Only log entries from the leader's current term are committed by counting replicas" [FACT] |
 | **Chain replication** | Kept; only the failed node is removed [FACT] | Downstream history is a prefix of upstream history, so there is nothing to reconcile [INF] |
-| **Vertical Paxos II** | The new configuration is "initially inactive" until "the state transfer … is complete" [FACT] | After the new ballot's phase 2 [INF] |
+| **Vertical Paxos II** | The new configuration is "initially inactive" until "the state transfer … is complete" [EXT] | After the new ballot's phase 2 [INF] |
 | **FoundationDB** | Replaced: recovery recruits new log servers and discards data after the recovery version [FACT] | — |
 
 **Documented failures to avoid:**
@@ -75,7 +84,8 @@ SA already has all three: R4, R6.2 (KIP-279) and R6.3.
 
 **R2′ (replaces R2's last bullet).** A promotion is a compare-and-set to `t+1` naming `j ∈ S`, as today. It also
 sets:
-1. **The new set.** S′ = S \ {old primary}. The new primary's A starts as S′.
+1. **The new set.** S′ = S \ {old primary}, or {p} when the sole member p re-promotes itself (4.2). The new
+   primary's A starts as S′.
 2. **A survivor counts only once positioned.** A member of S′ counts toward an acknowledgement, and grants j a lease,
    only after:
    - it has persisted `t+1` (R4);
@@ -83,14 +93,16 @@ sets:
    - j has positioned it in term `t+1`.
 
    Until every member of A is positioned, j acknowledges nothing. This is today's rule that an acknowledgement needs
-   every member of A, applied to survivors.
+   every member of A, applied to survivors. j also grants a standby read lease (R9) only to a positioned member:
+   an unpositioned survivor may hold an unacknowledged tail that reconciliation is about to truncate.
 3. **Reseed means leaving S first.** A member of S that needs a reseed (R6.4) or would set the incomplete flag (R6.5)
    must first be removed from S by a chosen shrink. The model has already shown why: with survivors kept and no such
    rule, "a member still in S reseeds and drops an acknowledged entry" (RES section 3, L_keepS_kip279).
 4. **READY.** It is recorded only after j's R3 point **and** once every member of S′ is positioned in `t+1` or has
    been removed. This plays the role of PacificA's reconciliation and Vertical Paxos II's activation.
 5. **A survivor that does not position** within the failure-detection timeout is removed by the ordinary shrink.
-   That shrink first waits out its standby lease (R9).
+   A standby lease it held from the old primary is already fenced by j's `learned + W` barrier (R3); j granted it
+   none (rule 2).
 
 ### 2.3 The eight evaluation points
 
@@ -139,7 +151,9 @@ automatically promotable.
 wall-clock limit of 2 hours on the 4-core cloud container, no R640, at most 8 runs. A run that hits its limit is NOT
 COMPLETED, not a pass, and is reported as such; bounds are cut rather than limits raised.
 
-**Stop rule.** Any unexplained violation keeps R2 at `{j}`. The results get an independent review before R2 is
+**Stop rule.** Any violation in a V run blocks the freeze, explained or not; a rule change after it must be re-run
+within the same eight-run budget. An unexplained violation in a mutation run is also a blocker. Until then R2 stays
+at `{j}`. The results get an independent review before R2 is
 frozen.
 
 ## 3. E1-E11 rewritten for the in-sync-set model
@@ -214,12 +228,16 @@ ordinary promotion compare-and-set to `t+1` naming itself. All of P2-P7 apply (P
 read included. If the record is not READY (p crashed before its own barrier), only operator promotion (R7) remains. Then S1-S4 apply:
 p persists `t+1`, waits `learned + W`, drains, and serves in `t+1`. Every earlier lease and A is void with term `t`.
 - R6.0 is unchanged. G-15 and HistoryUnique hold because the term is new and minted by the witnesses.
-- The term stays the group's HA term, not a local one, which is how we read cody's "preserve the existing HA term
-  where possible rather than introduce an independent local term". **This is a reading cody must confirm**, because
-  cody's preferred candidate was reservation for degraded groups too.
-- G-55 is not affected: G-55 concerns standalone nodes. G-48 improves: the group resumes without an operator.
-- It is a small case of today's promotion path [INF]. The H_one models already show resuming in the old term fails
-  (H_one_hu); a bounded check of this rule is part of the optional model run in 4.4.
+- The term stays the group's HA term, minted by the witnesses, not a local one. cody accepted this as the preferred
+  candidate on 2026-11-17; p must never resume serving under its old term.
+- G-55 holds: the node does not mint a term itself. G-48 improves only partly: the group resumes reads without an
+  operator, but under `m = 2` it admits no new writes until a grow (G-12).
+- It is a small case of today's promotion path [INF]. The bounded R2′ runs (2.4) include this self-promotion.
+- **Depends on D-02 (re-review finding).** If p's newest flush was silently lost and p passes G-14(a) undetected,
+  a member still in A but not in S may hold an acknowledged write p lacks. Reconciling that member against the
+  re-promoted p truncates it, so the protocol itself deletes the last copy, where today an operator could still
+  promote that member (R7). p cannot tell this from an unacknowledged shipped tail, because p ships before its local
+  write. **Unresolved** until D-02; the models have no silent loss, so the runs cannot show it.
 
 ### 4.3 Standalone node: monotonic LSN reservation
 
@@ -233,31 +251,28 @@ A standalone node has no A, no standby leases and no members, so the failures in
 
 | # | Point | Result |
 |---|---|---|
-| 1 | **Crash safety** | A crash between reserving and using leaves a gap, never a reuse (rule 3) [INF]. A torn write of the mark leaves the other copy; see point 3 for when using it is safe |
+| 1 | **Crash safety** | A crash between reserving and using leaves a gap, never a reuse (rule 3) [INF]. A torn write of the newest mark copy is detected by its CRC; the node then uses the older copy, which rule 3 keeps ≥ every LSN assigned before that write began, plus the frame scan (rule 4) |
 | 2 | **Silently lost reservation write** | If the mark write is lost but later frames survive, the scan in rule 4 resumes above them. If the mark and the frames above it are both silently lost, nothing local can tell, and an LSN could be reused for content that was never durable. Whether a LOCAL_DURABLE acknowledgement was lost too is G-14(b), so this **depends on D-02** |
-| 3 | **Stale or rolled-back metadata** | Using the older superblock copy is safe only if its mark is ≥ every LSN assigned, which rule 3 ensures for a torn newest write but not for a silently lost one; proving that nothing exists above the older mark again needs D-02. Until then the node refuses to start on a fallback, as the mint-lease `next_lease` precedent already requires (G-02, AFR-R-23). A restored backup is not detectable without an external authority; out of contract, like a witness rollback (AFR-R-19) |
+| 3 | **Stale or rolled-back metadata** | Using the older superblock copy is safe only if its mark is ≥ every LSN assigned, which rule 3 ensures for a torn newest write but not for a silently lost one; proving that nothing exists above the older mark again needs D-02. The torn case of point 1 (newest copy fails its CRC) is exempt. A fallback for any other reason (both copies valid but the newer one missing or older than the WAL shows) refuses to start until D-02, as the mint-lease `next_lease` precedent already requires (G-02, AFR-R-23). A restored backup is not detectable without an external authority; out of contract, like a witness rollback (AFR-R-19) |
 | 4 | **WAL formats with LSN gaps** | Every record carries its LSN explicitly. Readers, reconciliation (R6.2 end offsets), the term history H and "caught up" tests compare LSN values, never counts. A skip record marks each gap, so readers can tell a gap from a missing tail. Format items for AFR-D-06 |
 | 5 | **Acknowledged writes preserved** | Reservation only skips; it never removes content. G-14 applies unchanged |
-| 6 | **G-55 and G-48** | G-55 holds: the term is unchanged. G-48 improves: the node resumes without an operator unless G-14(a) refuses |
+| 6 | **G-55 and G-48** | G-55 holds: the term is unchanged. G-48 improves: the node resumes without an operator unless G-14(a) or point 3 refuses |
 | 7 | **Later joining a replicated group** | Standalone nodes never mint terms, so all of them share the same initial term, and term history alone cannot tell two nodes' logs apart. A group created from node X carries X's stream identity, term and `R_hi` in the record; members reseed from X (R6.4). The reconciliation handshake carries the stream and group identity (as P4 does) and refuses on a mismatch, so a node with its own data never "positions" against an unrelated log; reseeding such a node, which discards its data, is an explicit operator action. Moving the mark into the record is a handoff to test (KAFKA-15552) |
 
 ### 4.4 Still open
 
 - the standalone silently-lost case (points 2 and 3), which waits on D-02;
-- cody's ruling on 4.2 (re-promotion instead of reservation for degraded groups);
-- an optional small model check: in `Log.tla`, the 4.2 self-promotion with `HistoryUnique` and `AckedPreserved`,
-  with "resume in the old term" as the mutation expected to fail like H_one_hu. New modelling; waits for a go.
+- the 4.2 dependence on D-02 (silent loss on the restarted primary);
+- standby read leases are not in either model, so rule 2's standby-lease clause is argued only (the R9 model is a
+  separate thread).
 
-## 5. What cody is asked to decide
+## 5. Owner direction and what remains
 
-1. Adopt R2′ as the R2 candidate, frozen only after the validation in 2.4 passes and is reviewed. If so, authorize
-   those runs (about 3 hours of container time, no R640).
-2. Accept the E1-E11 replacement in section 3 as the eligibility contract (P1-P7, S1-S5).
-3. For single-copy recovery: LSN reservation for standalone nodes (4.3), still depending on D-02; and for degraded
-   groups, confirm or reject re-promotion to `t+1` (4.2) in place of reservation. Authorize the small model check
-   in 4.4 if wanted.
-4. Revisit `m = 2`'s failover cost (cody's request) after V1-V3: under R2′, groups of three or more may resume
-   writes without a grow; pairs do not. The default is not weakened.
+cody's direction of 2026-11-17 (`docs/handoff/PR149_150_Owner_Direction.md`) answered the questions of the first
+draft: R2′, the re-promotion of 4.2 and standalone reservation are preferred candidates; P1-P7 and S1-S5 are the
+proposed replacement for E1-E11; the bounded runs of 2.4 are authorized (at most eight runs of two hours, no R640).
+What remains: the model results (follow-up PR), the D-02 dependencies (4.2, 4.3), and the revisit of `m = 2`'s
+failover cost once the results are in. The default is not weakened.
 
 ## 6. Independent QA
 
@@ -283,8 +298,15 @@ running anything. It reported 14 findings (no blocker against R2′ itself; 8 ma
 
 The reviewer could not break, by hand: a `t+2` promotion before survivors are positioned (blocked by READY);
 operator promotion of an unpositioned survivor; survivor crash mid-truncation; grow or shrink racing the promotion;
-old-primary lease overlap; pairs; HistoryUnique under R2′. **The corrected text has not been re-reviewed**, and
-none of R2′ is model-checked.
+old-primary lease overlap; pairs; HistoryUnique under R2′.
+
+**Re-review (2026-11-17).** A second independent reviewer (Opus) checked the corrected text. Of the 14 findings
+above, 8 were resolved and 6 partly. It found 4 major and 10 minor new issues. Fixed in this text: rule 1 with the
+self-promotion; standby leases only for positioned members (rule 2); the G-11 wording (HA_DURABLE copies must be in
+S); the stop rule; stale owner-decision text; G-48/G-55 wording; the torn-mark exemption; the [FACT] labels; rule 5's
+reference; the SG D-02 row against the 2026-11-17 direction. **Unresolved:** 4.2 depends on D-02 (a silently lost
+flush on the restarted primary lets reconciliation delete the last copy); M1 may pass, because the earlier trace's
+reseeding node is the old primary (left to the runs). The model runs are reported in a follow-up PR.
 
 ## 7. Sources
 
