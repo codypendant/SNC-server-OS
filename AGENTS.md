@@ -3533,3 +3533,23 @@ or source comments.
     (section 12). Section 13 lists the open points.
 -   **Next action:** cody reviews and sets T. The harness, the offline correctness run and the R640 run each need
     their own go.
+
+### 2026-11-17 UTC --- Claude (Claude Code): X-2 preregistration revision 2, owner thresholds and final QA
+
+-   **Owner direction (cody, 2026-11-17 00:16 UTC, on PRs #149 and #150), sections 4-6:**
+    - provisional limits: at most a 10% throughput reduction and at most a 10% increase in p99 acknowledgement
+      latency;
+    - inconclusive results are reported UNRESOLVED, and thresholds are never adjusted after results;
+    - silent loss under a covered fault disqualifies a mechanism, regardless of performance;
+    - PR #149 is the planning baseline, subject to final QA;
+    - blktrace is not authorized.
+-   **What:** `docs/X2_PREREG.md` revision 2 records these rules, and no rule depends on blktrace. The final
+    independent QA found 3 blocking and 8 major issues, all applied (section 12.2):
+    - misdirected-write cases (C16), where a same-device watermark alone is expected to fail;
+    - W-arm recovery that never refuses above the watermark;
+    - spare misses counted as cost, not INCOMPLETE;
+    - "covers" also requires zero false refusals;
+    - F arms judged against both B0 and B1;
+    - VOID and INCOMPLETE reported as UNRESOLVED.
+-   **Next action:** none authorized. The harness, the offline correctness run and the R640 benchmark are separate
+    owner gates.
