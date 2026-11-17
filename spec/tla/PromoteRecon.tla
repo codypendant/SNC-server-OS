@@ -35,10 +35,11 @@ CONSTANTS Nodes, P0, MaxTerm, MaxIds, MaxCrashes,
           FixStopOnLearn \* R9-D / R4: a standby stops serving when it learns a newer term
 
 NONE == -1
+NOREP == [tag |-> 0, L |-> NONE]   \* no reply in flight
 
 VARIABLES rec, T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks,
           acked, nid, crashes, inh, pack,
-          rep,    \* reconciliation reply in flight to k: NONE or [tag, L]
+          rep,    \* reconciliation reply in flight to k: NOREP or [tag, L]
           lease,  \* standby k's read lease: 0, or the term of the primary that granted it
           cx,     \* volatile: k cancelled its pending intent in memory (FixDurable = FALSE only)
           selfT,  \* history: the term created by a self re-promotion, 0 if none
@@ -71,7 +72,7 @@ Init ==
   /\ crashes = 0
   /\ inh = [n \in Nodes |-> 0]
   /\ pack = [n \in Nodes |-> 0]
-  /\ rep = [n \in Nodes |-> NONE]
+  /\ rep = [n \in Nodes |-> NOREP]
   /\ lease = [n \in Nodes |-> 0]
   /\ cx = [n \in Nodes |-> FALSE]
   /\ selfT = 0
@@ -196,7 +197,7 @@ Answer(k, j) ==    \* KIP-279 step
 
 ReconStep(k, j) == \* j answers k; a truncation answer travels as a reply tagged with j's term
   /\ Serving(j) /\ k # j /\ T[k] = T[j] /\ pos[k] # T[j] /\ ~Busy(k)
-  /\ intent[k] = NONE /\ rep[k] = NONE
+  /\ intent[k] = NONE /\ rep[k] = NOREP
   /\ LET a == Answer(k, j) IN
        IF a.L = Len(dlog[k]) /\ a.ts = LastT(dlog[k])
        THEN /\ pos' = [pos EXCEPT ![k] = T[j]]               \* positioned
@@ -214,15 +215,15 @@ ReconStep(k, j) == \* j answers k; a truncation answer travels as a reply tagged
 UsableRep(k) == FixRepTerm => (rep[k].tag = T[k] /\ ~isPrim[k] /\ pos[k] # T[k])
 
 RecvRep(k) ==      \* the durable intent (R6.3) is written from the reply
-  /\ rep[k] # NONE /\ intent[k] = NONE /\ ~Busy(k) /\ UsableRep(k)
+  /\ rep[k] # NOREP /\ intent[k] = NONE /\ ~Busy(k) /\ UsableRep(k)
   /\ intent' = [intent EXCEPT ![k] = rep[k].L]
-  /\ rep' = [rep EXCEPT ![k] = NONE]
+  /\ rep' = [rep EXCEPT ![k] = NOREP]
   /\ UNCHANGED <<rec, T, isPrim, dlog, ilog, A, pos, inc, rs, cks, acked, nid, crashes, inh, pack,
                  lease, cx, selfT>>
 
 DropRep(k) ==      \* a reply that cannot be used is discarded
-  /\ rep[k] # NONE /\ ~(intent[k] = NONE /\ ~Busy(k) /\ UsableRep(k))
-  /\ rep' = [rep EXCEPT ![k] = NONE]
+  /\ rep[k] # NOREP /\ ~(intent[k] = NONE /\ ~Busy(k) /\ UsableRep(k))
+  /\ rep' = [rep EXCEPT ![k] = NOREP]
   /\ UNCHANGED <<rec, T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks, acked, nid, crashes, inh,
                  pack, lease, cx, selfT>>
 
