@@ -3625,3 +3625,18 @@ or source comments.
 -   **Not authorized and not done:** C++/Rust, R640, D-02 acceptance, any freeze, m = 2 change.
 -   **Next action:** STOP for Codex's and cody's review.
 
+### 2026-11-17 UTC --- Claude (Claude Code): SNC-AFR-001 protocol-acceptance review of R2′ and R9 (docs only)
+
+-   **Trigger:** Codex's review of #154 (`docs/handoff/PR154_Codex_Review.md`, filed): merge #154 (done), then one
+    focused review that consolidates the evidence from #151-154, says which guarantees are checked and which are
+    argued, and records the remaining obligations. No new runs.
+-   **Output:** `docs/AFR_001_PROTOCOL_ACCEPTANCE_R2P_R9.md`. Two corrections to `docs/AFR_001_RECON_BLOCKERS.md`:
+    MI shows only the whole pending-intent block necessary; a node with a pending intent can be in S.
+-   **Result:** R2′ supported for advancing toward a conditional freeze, excluding 4.2 and P5's silent-loss clause
+    (D-02) and conditioning R6.3′ items 2-3 on one metadata store per node; R9-A..E candidate set once `ack_p` is
+    defined in R9-B; R9-F text only. Obligations O1-O8.
+-   **QA:** three adversarial reviewers (CHECKED claims, ARGUED rows and omissions, downstream); 2 blockers and about
+    20 findings, all applied.
+-   **Not authorized and not done:** any freeze, C++/Rust, R640, D-02 acceptance, m = 2 change.
+-   **Next action:** STOP for Codex's and cody's review.
+
