@@ -3527,3 +3527,42 @@ or source comments.
 -   **Tracked, not started:** T-X7 (x7 test-readiness race), T-X7B (x7b liveness), test tooling
     (`docs/STATUS.md`). D4-b, D4-c, D5 not started. All wait for cody's go.
 
+
+### 2026-11-16 UTC --- Claude (Claude Code): X-2 durability-boundary preregistration (for owner review, NOT RUN)
+
+-   **Authority:** cody's owner decision on PR #148, section 4: preregistration of X-2 only, no R640 run. AFR-D-02
+    stays on HOLD.
+-   **What:** `docs/X2_PREREG.md`, revision 1, docs only. It defines:
+    - arms: today's path (B0, twice for A/A), zero-filled control B1, nonce frames F, watermark serial and
+      pipelined (WS, WP), both combined, and latency and throughput positive controls;
+    - R640 guards on manifest e and the persistent SSD identity;
+    - 6 workloads (QD1, open loop at 50% and 80%, closed loop), 12 paired randomized blocks over 2 boots;
+    - a 95% t-interval on block log-ratios, with WITHIN, OVER and UNRESOLVED verdicts (T = 10% PROPOSED, not
+      approved);
+    - an offline fault matrix (C1-C15) with expected results fixed in advance, under a common fail-closed recovery
+      rule R0.
+
+    An independent adversarial review found 2 blocking and 11 major issues in the first draft; all were applied
+    (section 12). Section 13 lists the open points.
+-   **Next action:** cody reviews and sets T. The harness, the offline correctness run and the R640 run each need
+    their own go.
+
+### 2026-11-17 UTC --- Claude (Claude Code): X-2 preregistration revision 2, owner thresholds and final QA
+
+-   **Owner direction (cody, 2026-11-17 00:16 UTC, on PRs #149 and #150), sections 4-6:**
+    - provisional limits: at most a 10% throughput reduction and at most a 10% increase in p99 acknowledgement
+      latency;
+    - inconclusive results are reported UNRESOLVED, and thresholds are never adjusted after results;
+    - silent loss under a covered fault disqualifies a mechanism, regardless of performance;
+    - PR #149 is the planning baseline, subject to final QA;
+    - blktrace is not authorized.
+-   **What:** `docs/X2_PREREG.md` revision 2 records these rules, and no rule depends on blktrace. The final
+    independent QA found 3 blocking and 8 major issues, all applied (section 12.2):
+    - misdirected-write cases (C16), where a same-device watermark alone is expected to fail;
+    - W-arm recovery that never refuses above the watermark;
+    - spare misses counted as cost, not INCOMPLETE;
+    - "covers" also requires zero false refusals;
+    - F arms judged against both B0 and B1;
+    - VOID and INCOMPLETE reported as UNRESOLVED.
+-   **Next action:** none authorized. The harness, the offline correctness run and the R640 benchmark are separate
+    owner gates.
