@@ -3609,3 +3609,19 @@ or source comments.
 -   **Not changed:** `docs/SNC_GUARANTEES.md`, `docs/AFR_001_SAFETY_ANALYSIS.md` (owned by the AFR thread). R9 is
     not frozen.
 -   **Next action:** STOP for cody's and Codex's review.
+
+### 2026-11-17 UTC --- Claude (Claude Code): SNC-AFR-001 reconciliation blockers, bounded model check (models and docs only)
+
+-   **Trigger:** Codex's review of PR #153 (`docs/handoff/PR153_Codex_Review.md`): merge #153 (done), then one
+    preregistered step with exactly three cases, the acknowledged-LSN standby read rule in the proposed text, and
+    three-way review.
+-   **Output:** `spec/tla/ReconBlockers.tla` and `.cfg`; `docs/AFR_001_RECON_BLOCKERS.md` (preregistration committed
+    as ccb88f7 before any counted run, results, review, limits); R9-F in `docs/AFR_001_SAFETY_ANALYSIS.md` and G-30
+    clause F; on-site text fixes to R6.3′, 2.2 (completion end marker), 2.4 (open D-06 items) and G-15.
+-   **Result:** C1 (binding), C2 (four-node cross-term block) and C3 (two entries, crash, self re-promotion) PASS
+    exhaustively; MB, MI and MNH give the predicted counterexamples; the three reachability probes are reached. 10 of
+    10 launches, no reruns, no fallbacks. Bounds are narrow (section 5). R9-F is text only and outside the freeze set.
+-   **QA:** three adversarial reviewers, no blocker; 20 findings, text fixes applied, the rest disclosed or UNRESOLVED.
+-   **Not authorized and not done:** C++/Rust, R640, D-02 acceptance, any freeze, m = 2 change.
+-   **Next action:** STOP for Codex's and cody's review.
+

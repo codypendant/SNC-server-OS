@@ -162,14 +162,16 @@ Each member `i` keeps:
   - `k` takes no checkpoint while an intent is pending.
 
   - **R6.3′ (proposed 2026-11-17; full text in `docs/AFR_001_PROMOTION_DURING_RECON.md` 2.1).**
-    1. A reply is bound to its request (boot incarnation, request number, `k`'s last term and end LSN) and carries
+    1. A reply is bound to its request (group and stream, boot incarnation, request number, `k`'s last term and
+       durable end LSN) and carries
        the answering primary's term. `k` uses it only if the term equals its durable term, the binding matches its
        latest request and an unchanged log, `k` is not primary, not positioned, not incomplete, has no pending intent,
        and the truncation point is not below its current or in-progress checkpoint (R6.4 re-checked).
     2. The check and the intent write are one step, serialized against R4's term write, positioning, checkpoint
        publication and S2′.
     3. While an intent is pending, `k` sends no request, is not positioned, counts toward no acknowledgement or READY,
-       holds no lease and takes no checkpoint, in any term. It completes the intent before acting on a newer term.
+       holds no lease and takes no checkpoint, in any term. On learning a newer term it persists the term first (R4),
+       then completes the intent, in-process, before any other action in that term.
     4. A promoted node completes any pending intent before it serves (S2′). Completion is a crash-consistent
        procedure, including a state rebuild (2.2 there).
 
@@ -287,6 +289,41 @@ R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9
     earlier lease through the R3 bound (M_restartStop shows the failure without R6.0).
   - The drift assumption is G-46's: each clock's rate is within `[1-ρ, 1+ρ]`.
   - A standby's lease does not survive the standby's own restart (the suspend-aware clock resets at reboot).
+- **R9-F. Reads expose only acknowledged entries.** [Added 2026-11-17 after Codex's review of #153
+  (`docs/handoff/PR153_Codex_Review.md`), revised after this step's review (`docs/AFR_001_RECON_BLOCKERS.md`
+  section 4). PROPOSED; **text only, not model-checked**. Not part of the R9-A to R9-E set that may be reviewed for
+  freeze. It needs its own model with separate applied, acknowledged and `c_m` positions before any freeze.]
+  - **`ack_p`** is the highest LSN `p` has acknowledged at HA_DURABLE in its current term: every member of A has
+    applied it and `p` holds authority. APPLIED and LOCAL_DURABLE replies (G-11) do not move it. `ack_p` is never set
+    from `inh_p` directly. An inherited entry counts once `p` acknowledges it under this rule, which happens as soon
+    as every member of A has applied through `inh_p` (as a new Raft leader commits its no-op entry).
+  - `p` sends `ack_p` with every frame, and sends a frame within a stated bound after `ack_p` moves, also when idle.
+    `m` keeps `c_m`, the highest value it has received from `p` in `p`'s term while positioned. `c_m` is volatile.
+    It resets to 0 when `m` persists a newer term (R4), restarts, or is no longer positioned.
+  - **The read's target is fixed when it executes.** `m` keeps, for every key it serves, the LSN of the last applied
+    change, deletions included, as tombstones that stay until `c_m` passes them. The same holds for each index entry
+    and each range a read depends on. A read captures its answer and the largest such LSN it depends on. It then waits
+    until `c_m` reaches that LSN. Then it checks that the lease is still valid and that `m` has not persisted a newer
+    term (R5, R9-D), and only then answers with what it captured. If the lease ends first, the read is refused.
+  - So `m` never answers with an unacknowledged change (a value, a delete or an index entry), which may later be
+    truncated. It never answers with a version older than an acknowledged one, which would break G-30. Later writes
+    to the same key cannot starve a read, because the target was fixed at execution.
+  - A multi-object read waits for each object it read. It is not a snapshot at one LSN; G-29 says what it promises.
+  - The wait is needed because of R9-A: `m` applies an entry before it reports it, so an entry already acknowledged
+    to a client can be applied at `m` before `m` learns that it was acknowledged.
+  - Cost: nothing on the acknowledgement path. A read of a just-written object may wait up to the frame bound.
+  - Prior art [EXT]: Raft followers learn the commit index from `leaderCommit` in every AppendEntries (Ongaro and
+    Ousterhout 2014, Figure 2), and a ReadIndex read waits until the applied index reaches the read index (Ongaro's
+    dissertation, section 6.4). Kafka's follower fetching (KIP-392) serves only up to the follower's high watermark
+    and accepts that it lags; R9-F waits instead, because G-30 promises freshness.
+  - R9-F does not replace R9-B's "positioned" clause. `LeasedPrefix` is kept as a model property.
+  - **Today's C++ does not do this (ABSENT).** A standby installs records on receipt, before they are acknowledged
+    (`shard.cpp:2189-2195`). Installed objects carry `last_lsn = 0` (`:1812`), so a standby read never waits
+    (`:626-627`) and checks only the lease (`:555`). A replicated delete erases the object at once (`:1785-1788`).
+    The records frame has no acknowledged-LSN field (`replication.h:41-46`), and the primary sends no heartbeat of
+    its own. These are D-06 format items: per-key applied LSN, tombstones, a safe LSN for objects loaded from a
+    standby's checkpoint (which may hold unacknowledged versions), an index that serves only covered entries, and the
+    `ack_p` field with its frame bound.
 - Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`), but it has no A, its lease
   frame is forgeable, and its bound lacks the `(1+ρ)` factor and is lost on restart (G-30 evidence).
 - It is fenced against a new primary by the R3 bound.

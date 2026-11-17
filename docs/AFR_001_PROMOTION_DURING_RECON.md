@@ -30,9 +30,10 @@ Revised after the three-way review (section 6). Every rule here is PROPOSED.
 
 **R6.3′ (amends R6.3). Reconciliation work cannot outlive its context.**
 1. **Binding.** Each R6.2 request from `k` carries:
-   - `k`'s boot incarnation, a durable counter incremented at every start;
-   - a request number;
-   - `k`'s last term and end LSN when it sent the request.
+   - the group and stream it concerns;
+   - `k`'s boot incarnation, a durable counter incremented and persisted at every start, before the first request;
+   - a request number, counted within the incarnation;
+   - `k`'s last term and durable end LSN when it sent the request.
 
    The reply echoes these and adds the answering primary's term `t_j`. `k` uses the reply only if all five hold:
    - `t_j` equals `k`'s durable highest term;
@@ -45,7 +46,12 @@ Revised after the three-way review (section 6). Every rule here is PROPOSED.
      still in progress counts: the intent write waits for it or aborts it.
 
    Any other reply is discarded, and the next step starts again: a duplicate, a late reply, a reply from before a
-   restart, a reply to an older request.
+   restart, a reply to an older request, a reply for another stream.
+
+   On the answering side, `j` stops answering as soon as it stops being primary, including when it loses its
+   in-memory tail on a write error without crashing (R6.0). Its record that `k` is positioned ends when `k`'s
+   incarnation changes, as a Raft leader resets its matchIndex for a restarted follower. (Added after the review of
+   this step, `docs/AFR_001_RECON_BLOCKERS.md` section 4.)
 2. **One serialized step.** The checks of item 1 and the durable intent write `(t_j, L)` form one local step. It is
    serialized against persisting a newer term (R4), against positioning, against checkpoint publication, and against
    S2′'s quiescence test. Concretely: the durable term, the term history, every stream's intent and the `incomplete`
@@ -58,10 +64,12 @@ Revised after the three-way review (section 6). Every rule here is PROPOSED.
    - is not granted a standby lease;
    - takes no checkpoint.
 
-   If it persists a newer term with an intent pending, it completes the intent first. (Found by review: without this,
+   If it learns a newer term with an intent pending, it persists that term first (R4), then completes the intent
+   before any other action in that term. Completion runs in-process. A restart instead would forfeit a promotion
+   (2.3 case 5). (Ordering stated after the review of this step; the model does exactly this. Found by review: without this,
    a node holding an intent from term `t` could be positioned against a term `t+1` primary that holds entries the
    term-`t` primary lacked, count toward an acknowledgement of one of them, and then delete it by completing the old
-   intent. The model enforces this rule as a guard; it was not removed in any run.)
+   intent. `PromoteRecon.tla` enforces this rule as a guard and never removed it. `ReconBlockers.tla` run MI removes it and TLC finds this trace; run C2 passes with it.)
 
 **S2′ (amends S2). Quiescence before serving.** After its promotion is chosen and it has persisted `t+1` (S1), `j`
 quiesces:
@@ -113,6 +121,11 @@ the model's `ApplyIntent` and `Crash` are atomic]:
    survivor, is a state rebuild on the failover path. It is not "one local truncation". Its cost belongs in X-1.
 4. The intent is cleared only once 1 to 3 are durable. Re-running the procedure after a crash at any point gives the
    same result. That is the idempotence the argument relies on.
+5. Clearing the intent must not lose the valid end of the old segment. Item 2 leaves records above `L` inside a block
+   that also holds records at or below `L`, and appends resume at `L+1` in a new segment. Without a marker, a later
+   recovery would find two contents for `L+1` (G-15). So a durable valid-end marker for that segment stays in the
+   metadata store until the segment is reclaimed, independent of the intent. The alternative is to copy the mixed
+   block's valid prefix into the new segment. (Found by the downstream review of this step.)
 
 These are WAL and metadata format items for AFR-D-06, and they need a crash-consistency test.
 
@@ -130,7 +143,7 @@ Completion is the recommendation.
 |---|---|---|
 | 1 | Pending durable truncation intents | R6.3′ item 3: they block the node in every term. S2′ item 1: completed and cleared before serving |
 | 2 | Reconciliation in progress against a previous primary | R6.3′ item 1: a reply from an older term, or for an older request or incarnation, is discarded. A reply already written as an intent is case 1 |
-| 3 | Interrupted reconciliation across crashes | Recovery completes a pending intent (2.2), which is safe before serving. A reply that arrives after a restart belongs to an older incarnation and is discarded (item 1). The model keeps one reply in flight across a crash, but it has no duplicated or reordered replies, so the binding is **argued, not checked** |
+| 3 | Interrupted reconciliation across crashes | Recovery completes a pending intent (2.2), which is safe before serving. A reply that arrives after a restart belongs to an older incarnation and is discarded (item 1). `PromoteRecon.tla` keeps one reply in flight across a crash, with no duplicates. `ReconBlockers.tla` adds duplicated, reordered and lost replies and checks the binding at bounded scope (`docs/AFR_001_RECON_BLOCKERS.md`, runs C1 and MB) |
 | 4 | Cancellation or completion of obsolete work | Intents: completion (2.2). Replies: discarded by binding and term. No in-memory cancellation is relied on |
 | 5 | Recovery of the promoted node before accepting writes | If the node persisted `t+1` and then crashed before serving, it is not primary after the restart (R6.0); it recovers like any member and serves only through a new promotion. If it crashed before learning, the boot read (R7) tells it of the promotion and it starts at S1 |
 | 6 | Operator promotion that waives READY | S2′ applies to every promotion, automatic or operator, inside or outside S. P2 is the only condition waived |
@@ -154,7 +167,20 @@ Completion is the recommendation.
   and a linearizable boot read (D-01 conditions A2 and A7).
 - **Failover time.** The state rebuild of 2.2 item 3, overlapped with W (S2′ item 4). It is unmeasured.
 - **D-02.** A watermark of D-02(a) must be lowered in the same step as a legitimate truncation, or it would trigger a
-  G-14(b) refusal. Framing of D-02(b) must tell a half-done truncation from damage. Added to the D-02 row.
+  G-14(b) refusal. Framing of D-02(b) must tell a half-done truncation from damage. Added to the D-02 row. The intent
+  itself (term, `L`, checksum) must be protected, so that a damaged intent cannot silently lower the watermark.
+- **Scope per stream (open, from the downstream review of this step).** Intents, the block of R6.3′ item 3 and the
+  binding are per stream. But checkpoints are node-wide today (one superblock with a start LSN per stream,
+  `docs/CHECKPOINT_BACKPRESSURE_DESIGN.md` 1.1-1.2). "Takes no checkpoint" must therefore be defined per stream:
+  for example, the node-wide checkpoint keeps the pending stream at its previous start LSN. Otherwise one shard's
+  reconciliation stalls checkpoints, and so WAL reclamation, for every shard. A pending intent also needs a stated
+  time bound, after which the stream is reseeded or refused. Whether the metadata store of R6.3′ item 2 is one store
+  per node (a serialization point across cores) or one per shard (R4's term write is then not atomic across
+  shards) is a D-06 decision.
+- **Self re-promotion costs (open).** Each restart of a sole primary costs recovery, the boot read, a witness
+  compare-and-set, `W` and quiescence. Under m = 2 it restores reads only, because G-12 refuses writes while
+  |S| < 2. A crash loop grows the term and the term history by one per boot, which needs a stated bound. A damaged
+  or inconsistent witness record has no named refusal yet: it belongs in G-14(a) and the G-48 exceptions.
 
 ## 3. Degraded-primary self re-promotion (Codex item 5)
 
@@ -369,6 +395,10 @@ most severe first. Duplicates are merged.
 - UNCHANGED completeness of every action.
 
 ## 7. Recommendation and owner decisions
+
+**Update, 2026-11-17 (after Codex's review of #153).** Decision 1 was authorized and run: see
+`docs/AFR_001_RECON_BLOCKERS.md`. Decision 3 was adopted as R9-F (PROPOSED, text only). The text below is kept as
+written for #153.
 
 **Recommendation.**
 - Adopt S2′, R6.3′ (with binding, serialization and the pending-intent block) and P6′ as the PROPOSED correction.
