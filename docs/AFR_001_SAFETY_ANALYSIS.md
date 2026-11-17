@@ -287,6 +287,23 @@ R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9
     earlier lease through the R3 bound (M_restartStop shows the failure without R6.0).
   - The drift assumption is G-46's: each clock's rate is within `[1-ρ, 1+ρ]`.
   - A standby's lease does not survive the standby's own restart (the suspend-aware clock resets at reboot).
+- **R9-F. Reads expose only acknowledged entries.** [Added 2026-11-17 after Codex's review of #153
+  (`docs/handoff/PR153_Codex_Review.md`). PROPOSED; text only, not model-checked.]
+  - p sends its highest acknowledged LSN with every frame and heartbeat. `m` keeps `c_m`, the highest such value it
+    has received from p in p's term, and answers a lease read only from entries at or below `c_m`.
+  - If the newest version of the object that `m` has applied lies above `c_m`, the read waits until `c_m` covers it.
+    If the lease ends first, the read is refused. `m` never answers with an older version, which would break G-30,
+    and never with the unacknowledged one, which may later be truncated.
+  - The wait is needed because of R9-A: `m` applies an entry before it reports it, so an entry already acknowledged
+    to a client can be applied at `m` before `m` learns that it was acknowledged.
+  - `c_m` is volatile. It resets to 0 when `m` persists a newer term (R4), restarts, or is no longer positioned.
+  - Cost: nothing on the acknowledgement path. A read of a just-written object may wait up to one frame interval.
+  - Prior art [EXT]: Raft followers learn the commit index from `leaderCommit` in every AppendEntries (Ongaro and
+    Ousterhout 2014, Figure 2), and a ReadIndex read waits until the applied index reaches the read index (Ongaro's
+    dissertation, section 6.4). Kafka's follower fetching (KIP-392) serves only up to the follower's high watermark
+    and accepts that it lags; R9-F waits instead, because G-30 promises freshness.
+  - With this rule, `LeasedPrefix` (section R9-B) is no longer client-visible: an unacknowledged tail at `m` is never
+    read.
 - Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`), but it has no A, its lease
   frame is forgeable, and its bound lacks the `(1+ρ)` factor and is lost on restart (G-30 evidence).
 - It is fenced against a new primary by the R3 bound.
