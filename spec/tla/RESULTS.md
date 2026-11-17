@@ -234,3 +234,72 @@ the same term are the same entry, even if one of them no longer exists anywhere.
 **What this shows.** Within the completed Log bounds, no `(term, LSN)` is ever reused for different content under
 the fixed protocol. Without R6.0, the reuse happens and `HistoryUnique` catches it where `EntryUnique` cannot
 (H_one_eu) or catches it later (H_r60_eu). `Log.cfg` at MaxTerm 3 and MaxIds 3 remains NOT COMPLETED (section 1).
+
+## 9. R2′ verified survivors: bounded validation (PR #150 plan, owner direction 2026-11-17)
+
+cody authorized at most eight runs of two hours each, no R640 (`docs/handoff/PR149_150_Owner_Direction.md`). The plan
+is `docs/AFR_001_R2_AND_SINGLE_COPY.md` 2.4. Every run below is exhaustive; none hit its limit. Setup as at the top
+of this file: `-workers 2`, `-Xmx6g`, two runs at a time, `states/` deleted after each run.
+
+**Disclosure.** V2's first launch was killed at about 3 GB of states by a container restart, before it finished.
+Nothing from it is reported. It was run again from the start at the same configuration, so nine launches were
+made for eight completed runs.
+
+**Model changes** (all behind switches; with `R2p = FALSE` and `InitAll = FALSE` the models behave as before):
+- `InitAll`: S starts as all three nodes, so that S′ = S \ {old primary} has two members.
+- `R2p` (both models): `Promote` sets S′ (rule 1), or {j} when j is the sole member and re-promotes itself at its
+  own current term; the new primary's A starts as S′. `Promote` needs `rec.ready` (P2). `Log.tla` gains a `ready`
+  field, set by the new action `MarkReady`; `Combined.tla` sets `deg` from |S′|.
+- `FixPosAck` (both): a member counts toward an acknowledgement only once positioned in the primary's term (rule 2).
+- `FixPosGrant` (Combined): a member grants the primary a lease only once positioned (rule 2).
+- `FixLeaveS` (Log): a reseed (R6.4) is allowed only for a node outside S (rule 3).
+- `FixReadyPos` (both): READY needs every member of S′ positioned, at the same term, with no reconciliation or
+  truncation intent pending (rule 4).
+
+| Run | Model, bounds | Change | Expected | Result |
+|---|---|---|---|---|
+| V1 | Log, MaxTerm 3, MaxIds 2, one crash | R2′, all rules | PASS | **PASS**, 14,186,264 distinct states, depth 42, 20 min |
+| V2 | Log, MaxTerm 2, MaxIds 3, one crash | R2′, all rules | PASS | **PASS**, 38,833,104 distinct states, depth 41, 64 min (rerun, see disclosure) |
+| V3 | Combined, MaxTerm 3, MaxIds 2, one restart, `Safety` and `StaleAuthBounded` | R2′, all rules | PASS | **PASS**, 19,225,779 distinct states, depth 42, 17 min |
+| M1 | as V1 | `FixLeaveS = FALSE` (no rule 3) | violated | **violated**, depth 14 (`AckedPreserved`) |
+| M2 | as V1 | `FixPosAck = FALSE` (no rule 2) | uncertain | **no violation**, 14,469,966 distinct states |
+| M2b | as V3 | `FixPosGrant = FALSE`, `FixPosAck = FALSE` | violated | **no violation**, 21,048,786 distinct states, depth 43 |
+| M3 | as V1 | `FixM1 = FALSE` (KIP-101 single answer) | violated | **no violation**, 14,186,264 distinct states: the same count as V1 |
+| M4 | as V1 | `FixReadyPos = FALSE` (READY before survivors are positioned) | record | **violated**, depth 12 (`AckedPreserved`) |
+
+**M1 trace.** n1 (primary, term 1) acknowledges entry `(1, 1)` on all three nodes; n3 also holds n1's unacknowledged
+`(1, 2)`. n2 is promoted to term 2 with S′ = {n2, n3}. n3 checkpoints both entries, so its reconciliation against
+n2 (truncate to LSN 1) falls below its checkpoint and it starts a reseed while still in S. The reseed empties n3's
+log, so a member of S, n3, no longer holds the acknowledged entry. n3 is a survivor, not the old primary, so this is a
+direct case for rule 3. It answers the re-review's doubt (the earlier L_keepS_kip279 trace reseeded the old
+primary).
+
+**M4 trace.** n1 (term 1) still believes it is primary after n2 is promoted to term 2 with S′ = {n2, n3}, and ships an
+unacknowledged entry `(1, 1)` to n3. Without rule 4, n2 records READY at once. The witnesses then promote n3 to term
+3 (S′ = {n3}). After that promotion is chosen, n3 records a truncation intent from its reconciliation against n2,
+whose log lacks the entry. n3 becomes primary at term 3, acknowledges `(1, 1)` (S = A = {n3}), and then applies the
+old intent, which deletes it.
+- Rule 4 is therefore necessary in this model, not only conservative.
+- The trace also shows a gap rule 4 does not close for **operator promotion inside S**, which waives P2 (READY) and
+  is not in either model: a node can be promoted while a reconciliation against an older primary is still in
+  progress, and apply its truncation after it has acknowledged. P6 does not exclude this today. See the proposal in
+  `docs/AFR_001_R2_AND_SINGLE_COPY.md` 2.4.
+
+**What this shows.**
+- Within these bounds and the modelling limits (section 5), R2′ with rules 1-4 keeps every Log invariant
+  (`AckedPreserved`, `EntryUnique`, `LogMatching`, `StateMatchesLog`, `PositionedPrefix`, `HistoryUnique`) and every
+  Combined invariant, including `StaleAuthBounded`.
+- Rules 3 and 4 are each necessary: removing either produces a lost acknowledged write.
+
+**What it does not show.**
+- **Rule 2 is not shown necessary.** M2 and M2b find nothing. In these models a member counted for an
+  acknowledgement must already hold the entry, and the lease model has no standby read leases, so rule 2's
+  standby-lease clause has nothing to protect here. Rule 2 stays argued, not checked.
+- **M3 does not discriminate.** Its state count equals V1's, so `FixM1` changes no behaviour at MaxIds 2 under R2′, as
+  with L_M1_ids2 earlier. It says nothing about KIP-101 against KIP-279 under R2′.
+- **Self re-promotion (4.2) is unconfirmed.** The branch is in both models, but no run shows it is reachable at these
+  bounds (no coverage run was made within the budget).
+- Standby read leases, silent loss (D-02), torn tails, a standby's volatile tail, `m = 2` admission and operator
+  promotion are not modelled. Rule 5 (shrink of a survivor that never positions) is covered only as the existing
+  shrink action.
+- `Log.cfg` at MaxTerm 3 and MaxIds 3 remains NOT COMPLETED (section 1); V1 and V2 each cut one bound.
