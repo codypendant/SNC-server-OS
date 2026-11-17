@@ -303,3 +303,11 @@ old intent, which deletes it.
   promotion are not modelled. Rule 5 (shrink of a survivor that never positions) is covered only as the existing
   shrink action.
 - `Log.cfg` at MaxTerm 3 and MaxIds 3 remains NOT COMPLETED (section 1); V1 and V2 each cut one bound.
+
+## 10. Promotion during reconciliation (`PromoteRecon.tla`)
+
+Preregistered, run and reviewed in `docs/AFR_001_PROMOTION_DURING_RECON.md` (sections 4-6), not here. In short: X1 and
+X2 PASS, exhaustive (891,002 and 7,423,089 distinct states). Quiescence (MQ), durable completion (MD), the reply term
+check (MR), the self re-promotion barrier (MB) and R9-C (MW) are each needed, and MP gives R2′ rule 2's lease clause
+its first evidence, for `LeasedPrefix` only. X1 also found a checkpoint race with a reply in flight, now fixed. The
+review's two blockers are fixed in text only and are not model-checked.
