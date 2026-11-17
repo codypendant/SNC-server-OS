@@ -311,3 +311,12 @@ X2 PASS, exhaustive (891,002 and 7,423,089 distinct states). Quiescence (MQ), du
 check (MR), the self re-promotion barrier (MB) and R9-C (MW) are each needed, and MP gives R2′ rule 2's lease clause
 its first evidence, for `LeasedPrefix` only. X1 also found a checkpoint race with a reply in flight, now fixed. The
 review's two blockers are fixed in text only and are not model-checked.
+
+## 11. The reconciliation blockers (`ReconBlockers.tla`)
+
+Preregistered, run and reviewed in `docs/AFR_001_RECON_BLOCKERS.md`, not here. In short: C1 (case 1, the request
+binding) and C2 (case 2, four nodes, the cross-term pending-intent block) PASS exhaustively (929,059 and 5,675,611
+distinct states); C3 (case 3, two entries, a crash and self re-promotion) also PASSES exhaustively (23,744,032 distinct states, 89 min). Without the binding (MB), the
+pending-intent block (MI) or the new term (MNH), the predicted counterexamples come back. The probes show self
+re-promotion, LSN reuse under the new term and a carried older-term intent are reachable. The bounds are narrow
+(section 5 there), and the standby read rule R9-F is text only.
