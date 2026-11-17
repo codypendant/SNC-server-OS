@@ -3366,6 +3366,19 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-16 --- SNC-AFR-001 owner decisions recorded; R2 and single-copy recovery (docs only)
+
+-   **Trigger:** cody's owner decisions on PR #148 (`docs/handoff/PR148_Owner_Decisions.md`, verbatim). PR #148 merged
+    as `80377e5`. X-2 preregistration and the R9 model are handled in separate PRs.
+-   **Output:**
+    -   Decisions recorded in `docs/SNC_GUARANTEES.md` (G-11, G-12 with [ACCEPTED] markers; D-01, D-02, D-03 rows;
+        section 14.3), `docs/AFR_001_CORE_DECISIONS.md` and `docs/AFR_001_SAFETY_ANALYSIS.md` headers.
+    -   `docs/AFR_001_R2_AND_SINGLE_COPY.md`: R2 comparison (recommends verified survivors, R2′, frozen only after a
+        bounded model run), E1-E11 replaced by P1-P7 and S1-S5, single-copy recovery (standalone: LSN reservation;
+        degraded group: re-promotion to `t+1`, needs cody's ruling).
+-   **QA:** 8 major and 6 minor findings, fixed. The fixed text has not been re-reviewed. Nothing model-checked.
+-   **Next:** STOP for cody. No implementation, no model runs, no R640 runs authorized.
+
 ### 2026-11-16 --- SNC-AFR-001 owner-decision package (docs only)
 
 -   **Trigger:** Codex's review of PR #147 (`docs/handoff/PR147_Guarantee_Fixes_Codex_Review.md`): approved as
