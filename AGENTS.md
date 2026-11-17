@@ -3579,3 +3579,19 @@ or source comments.
     - VOID and INCOMPLETE reported as UNRESOLVED.
 -   **Next action:** none authorized. The harness, the offline correctness run and the R640 benchmark are separate
     owner gates.
+
+### 2026-11-17 UTC --- Claude (Claude Code): R9 standby read leases, targeted model check (models and docs only)
+
+-   **Trigger:** cody's decision record on PR #148, section 6 (`docs/handoff/PR148_Owner_Decisions.md`): targeted
+    TLA+ model of R9 only, bounded, mutation tests, independent review before R9 is frozen.
+-   **Output:** `spec/tla/StandbyLease.tla` (Combined.tla plus standby leases, apply order, acks in flight, fencing,
+    a drift mutation), `spec/tla/StandbyLease.cfg` (lane L2), `spec/tla/RESULTS_R9.md`, README row.
+-   **Result:** 8 lanes PASS exhaustively (MaxTerm 1-2, restart, fence, outside-S operator promotion); 1 lane NOT
+    COMPLETED. 15 of 17 guard removals give counterexamples; "does not degrade" and the "positioned" part of the
+    lease condition are redundant at these bounds. R9's text needs four changes (RESULTS_R9.md section 5): every
+    member of A acks only applied entries (the leased-only wording is refuted); a lease only to a caught-up member;
+    the degrade clause is implied by the A rule; R9 relies on R4's holder rule under outside-S promotion.
+-   **QA:** two independent adversarial passes; findings applied (RESULTS_R9.md section 6).
+-   **Not changed:** `docs/SNC_GUARANTEES.md`, `docs/AFR_001_SAFETY_ANALYSIS.md` (owned by the AFR thread). R9 is
+    not frozen.
+-   **Next action:** STOP for cody's and Codex's review.
