@@ -1,7 +1,11 @@
 # SNC-AFR-001: promotion during reconciliation, self re-promotion, and the cross-protocol check
 
-- **Status: PROPOSED.** Nothing here is frozen. It authorizes no implementation and no R640 runs. R2′ and R9 stay
-  unfrozen; AFR-D-02 stays unresolved.
+- **Status: CONDITIONALLY FROZEN in part (owner decision 2026-11-17, `docs/handoff/PR155_Owner_Decision.md`).**
+  Frozen: R6.3′ items 1-3, S2′, P6′, and completion requirements 2.2 items 1 and 4, under the condition that the
+  metadata of R6.3′ item 2 is one logical atomic authority per node (a per-shard layout must show equivalence).
+  Not frozen (TEXT ONLY): item 1's group and stream identity, persisting the incarnation before the first request, an
+  in-progress checkpoint counting, the answering-side rules, and completion item 5. Items 2-3 of 2.2 belong to D-06.
+  AFR-D-02 stays on HOLD. Nothing here authorizes implementation or R640 runs.
 - **Trigger.** Codex's review of PRs #151 and #152, relayed by cody on 2026-11-17
   (`docs/handoff/PR151_152_Codex_Review.md`), items 4-6.
 - **Inputs.** `docs/AFR_001_R2_AND_SINGLE_COPY.md` (R2′, P1-P7, S1-S5; "R2C" below),
