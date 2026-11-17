@@ -89,7 +89,8 @@ sets:
 2. **A survivor counts only once positioned.** A member of S′ counts toward an acknowledgement, and grants j a lease,
    only after:
    - it has persisted `t+1` (R4);
-   - it has completed R6.2/R6.3 against j's log, with the truncation durable;
+   - it has completed R6.2/R6.3 against j's log, with the truncation durable, and has no pending intent from any term
+     (R6.3′ item 3, `docs/AFR_001_PROMOTION_DURING_RECON.md`);
    - j has positioned it in term `t+1`.
 
    Until every member of A is positioned, j acknowledges nothing. This is today's rule that an acknowledgement needs
@@ -98,8 +99,8 @@ sets:
 3. **Reseed means leaving S first.** A member of S that needs a reseed (R6.4) or would set the incomplete flag (R6.5)
    must first be removed from S by a chosen shrink. The model has already shown why: with survivors kept and no such
    rule, "a member still in S reseeds and drops an acknowledged entry" (RES section 3, L_keepS_kip279).
-4. **READY.** It is recorded only after j's R3 point **and** once every member of S′ is positioned in `t+1` or has
-   been removed. This plays the role of PacificA's reconciliation and Vertical Paxos II's activation.
+4. **READY.** It is recorded only after j's R3 point **and** once every member of S′ is positioned in `t+1`, with no
+   pending intent, or has been removed. This plays the role of PacificA's reconciliation and Vertical Paxos II's activation.
 5. **A survivor that does not position** within the failure-detection timeout is removed by the ordinary shrink.
    A standby lease it held from the old primary is already fenced by j's `learned + W` barrier (R3); j granted it
    none (rule 2).
