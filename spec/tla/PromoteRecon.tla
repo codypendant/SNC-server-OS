@@ -212,7 +212,10 @@ ReconStep(k, j) == \* j answers k; a truncation answer travels as a reply tagged
   /\ UNCHANGED <<rec, T, isPrim, dlog, ilog, A, intent, cks, acked, nid, crashes, inh, pack,
                  lease, cx, selfT>>
 
-UsableRep(k) == FixRepTerm => (rep[k].tag = T[k] /\ ~isPrim[k] /\ pos[k] # T[k])
+\* R6.4 is re-checked when the intent is written: a checkpoint taken while the
+\* reply was in flight may now lie above the truncation point (found by TLC, X1).
+UsableRep(k) == /\ rep[k].L >= Len(cks[k])
+                /\ FixRepTerm => (rep[k].tag = T[k] /\ ~isPrim[k] /\ pos[k] # T[k])
 
 RecvRep(k) ==      \* the durable intent (R6.3) is written from the reply
   /\ rep[k] # NOREP /\ intent[k] = NONE /\ ~Busy(k) /\ UsableRep(k)
