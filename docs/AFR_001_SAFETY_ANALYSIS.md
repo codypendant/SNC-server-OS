@@ -13,7 +13,7 @@
   bounds, and a defect in the Revision 2 Log model is disclosed.
 - **Owner decisions, 2026-11-16** (`docs/handoff/PR148_Owner_Decisions.md`): the authority mechanism here (R3, R4, R5,
   R8, the lease from A) is conditionally accepted as AFR-D-01. The in-sync-set direction is selected for AFR-D-03, but
-  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 waits for its targeted model. This is not a proof.
+  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 was revised after its targeted model (R9-A to R9-E, 2026-11-17) and is not frozen. This is not a proof.
 - **Nothing here authorizes implementation.** AFR-D-02 is on HOLD. R1, R2, R6 and R7 are not accepted as a complete
   protocol; they are the D-03 direction's current candidates.
 - **Method.** This follows `docs/ENGINEERING_PRINCIPLES.md` (research before reinvention). Each claim carries a
@@ -160,7 +160,14 @@ Each member `i` keeps:
   - `k` clears the intent durably before it accepts any entry beyond `L`;
   - `k` takes no checkpoint while an intent is pending.
 
-  The last rule was added after the TLA+ model found a counterexample without it (finding T1). A checkpoint taken
+  - **R6.3′ (proposed 2026-11-17, `docs/AFR_001_PROMOTION_DURING_RECON.md` 2.1).** Every reconciliation reply
+    carries the answering primary's term. `k` writes an intent from it only if the reply's term equals `k`'s
+    durable term, `k` is not a primary and not yet positioned in that term, and the truncation point is not below
+    `k`'s current checkpoint (R6.4 is re-checked when the intent is written, because a checkpoint may have been taken
+    while the reply was in flight). Any other reply is discarded. A promoted node completes any pending intent before
+    it serves (S2′).
+
+  The checkpoint rule was added after the TLA+ model found a counterexample without it (finding T1). A checkpoint taken
   after the intent but before the truncation records state that the truncation then removes from the log, and the
   R6.4 check, made before the checkpoint, does not see it.
 - **R6.4 Reseed.** `k` is reseeded in place of R6.2-R6.3 in either of two cases:
@@ -235,13 +242,40 @@ majority of witnesses, so it stays bounded (G-33).
   to every failover. X-3 measures both.
 
 **R9. Standby read leases.** A standby read lease that p grants never outlasts p's own authority (fixes M2).
-- While a standby lease that p granted to `m` may still be valid, p does not degrade, does not remove `m` from A,
-  and does not acknowledge without `m` (G-30). "May still be valid" means until `W = d·(1+ρ)` has passed on p's
-  clock since p last sent `m` a grant (waiter rule, section 0 Timing), and this bound survives a restart of p
-  (R6.0: a restarted p is no longer primary until a new promotion). A standby that holds a lease acknowledges an entry only once it has applied it, so its
-  reads reflect it [INF]. Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`), but it has no A, its lease frame is forgeable, and its bound lacks the `(1+ρ)` factor and is lost on restart (G-30 evidence). [Added after Codex's
-  PR #146 review. Not model-checked: `Authority.tla` has no writes and `Combined.tla` has no standby leases.]
-- Like any grant, it is anchored at the standby's send time and deflated by `(1-ρ)` on the standby's clock.
+[Revised 2026-11-17 after Codex's review of PRs #151 and #152 (`docs/handoff/PR151_152_Codex_Review.md`, R9-A to
+R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9.md`). PROPOSED, not frozen.]
+- **R9-A. Apply before acknowledging.** Every member of A acknowledges an entry only once it has applied it,
+  whether or not it holds a lease at that moment. An acknowledgement sent before a lease was granted can be counted
+  while that lease is valid (RESULTS_R9 M_ackLeased, M_ackDurable).
+- **R9-B. Who may hold a lease.** p grants a standby lease to `m` only if `m`:
+  - belongs to A;
+  - has persisted p's current term (R4);
+  - is positioned on p's log (R6.2, R6.3; under R2′ this is rule 2);
+  - has applied every entry up to `max(inh_p, ack_p)`, where `inh_p` is p's log end when it learned its promotion
+    and `ack_p` is the highest LSN p has acknowledged (the Grow test of R1, applied to the applied state).
+
+  Evidence: M_leaseSync, _pack, _inh. The "positioned" part gave no counterexample in RESULTS_R9 (today's R2) and is
+  kept. Under R2′ it is needed for the stronger `LeasedPrefix` property (`spec/tla/PromoteRecon.tla`, run MP).
+- **R9-C. Removal from A and acknowledgements.** While a lease that p granted to `m` may still be valid, p does not
+  remove `m` from A (M_dropWait). Every acknowledgement needs every member of A (M_ackA). These are two separate
+  requirements, and each fails alone. "p does not degrade while the lease may be valid" follows from them in the
+  A-based protocol, because degrading changes S, not A. It is kept as an explanation, not as a separate mechanism
+  (M_shrinkWait gave no counterexample). In today's C++, which has no A, degrading is that removal.
+- **R9-D. Term fencing.** R9 relies on R4's holder rule: a standby stops serving lease reads once it persists a
+  newer term (M_stopOnLearn_L5, _L6, which arise with outside-S promotion).
+- **R9-E. Timing.** Both ends of a grant use the standby's request-send time as the anchor:
+  - The standby treats its lease as valid for `d·(1-ρ)` on its own clock from when it **sent** the request
+    (section 0, holder side).
+  - The cap "never outlasts p's own authority" (M2) is computed by p at the grant and applied by the standby from the
+    same send time. A grant delayed in flight therefore ends no later than one granted at once (RESULTS_R9 section 1,
+    argued, not checked).
+  - p's side: "may still be valid" lasts until `W = d·(1+ρ)` has passed on p's clock since p last sent `m` a grant
+    (section 0, waiter side). The model shows that a shorter wait breaks G-30 (M_rho). This bound survives a restart
+    of p: a restarted p is no longer primary until a new promotion (R6.0), and the new primary waits out every
+    earlier lease through the R3 bound (M_restartStop shows the failure without R6.0).
+  - The drift assumption is G-46's: each clock's rate is within `[1-ρ, 1+ρ]`.
+- Today's C++ blocks a degrade until the lease it recorded expires (`shard.cpp:2254-2258`), but it has no A, its lease
+  frame is forgeable, and its bound lacks the `(1+ρ)` factor and is lost on restart (G-30 evidence).
 - It is fenced against a new primary by the R3 bound.
 
 ## 1. Claim L: at most one node holds valid authority (Codex point 1)

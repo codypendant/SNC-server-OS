@@ -174,7 +174,8 @@ evidence within bounds. Rule 2 stays argued only (the models have no standby rea
 (4.2) is in the models but not shown reachable. R2′ is **not frozen**: the results still need cody's and an
 independent review.
 
-**Finding from M4 (proposal, not applied to the rules).** M4's trace promotes a survivor that then applies a
+**Finding from M4.** Now addressed as a proposal by S2′, R6.3′ and P6′ (`docs/AFR_001_PROMOTION_DURING_RECON.md`,
+checked within bounds there). The original note follows. M4's trace promotes a survivor that then applies a
 truncation intent from a reconciliation it began against the older primary, after it has acknowledged the entry
 the intent deletes. Rule 4 stops this for automatic promotion, because READY waits. Operator promotion inside S
 waives P2 and is not modelled, so nothing stops it there. Proposed addition to P6 and S2: `j` has no reconciliation
@@ -195,7 +196,7 @@ marked R2′ apply only if R2′ is adopted.
 | P3 | The promotion is a compare-and-set on the current version, to term `t+1`, chosen by a witness majority | old E3, E10 |
 | P4 | `j` belongs to this group: same space and group identity | old E4 |
 | P5 | `j ∈ S` at the chosen version. By I4, `j` then holds every acknowledged write, unless that copy was silently lost (G-14(b), D-02 on HOLD). It replaces old E5 and E6: the witness compares no LSNs | old E5, E6 |
-| P6 | `j` attests, in the status it reports to the witnesses (as old E8's STATUS check), that its durable `incomplete` flag (R6.5) is clear and that it passed its recovery barrier, including G-14(a). The witnesses cannot check these local facts directly | old E6, E8 |
+| P6 | `j` attests, in the status it reports to the witnesses (as old E8's STATUS check), that its durable `incomplete` flag (R6.5) is clear, that it is not reseeding, and that it passed its recovery barrier, including G-14(a). The witnesses cannot check these local facts directly. A pending truncation intent does not make `j` ineligible; S2 handles it (P6′, `docs/AFR_001_PROMOTION_DURING_RECON.md` 2.1) | old E6, E8 |
 | P7 | `j` attests that it read the group record at boot and that its durable highest term is ≤ `t` (R4, R7 boot read). Old E7's no-divergence condition is now covered by I4 and reconciliation (R6.2/R6.3) | new; replaces E7 |
 
 **After the promotion is chosen, before `j` serves:**
@@ -203,7 +204,7 @@ marked R2′ apply only if R2′ is adopted.
 | # | Condition | Source |
 |---|---|---|
 | S1 | `j` persists `t+1` (R4) and waits `learned + W` (R3) | R3 |
-| S2 | `j` drains the older-term entries it holds before writing at `t+1` (R6.1) | R6.1 |
+| S2 | `j` quiesces, then drains. It completes any pending truncation intent and clears it durably; it discards any reconciliation reply from an older term (R6.3′); only then does it drain the older-term entries it holds (R6.1) and serve. This applies to every promotion, including operator promotion that waives P2 (S2′, `docs/AFR_001_PROMOTION_DURING_RECON.md`; model runs MQ, MD, MR) | R6.1, R6.3′ |
 | S3 | `j` reads placement linearizably and re-seals before serving slots (MS-3), and waits for any older-term source lease to expire (CD 5.2) | old E9; G-37 |
 | S4 | `j` obtains a fresh mint lease block | old E11 |
 | S5 | `j` acknowledges only once every member of A is positioned in `t+1` (R2′ rule 2) | new |
@@ -257,8 +258,9 @@ p persists `t+1`, waits `learned + W`, drains, and serves in `t+1`. Every earlie
   candidate on 2026-11-17; p must never resume serving under its old term.
 - G-55 holds: the node does not mint a term itself. G-48 improves only partly: the group resumes reads without an
   operator, but under `m = 2` it admits no new writes until a grow (G-12).
-- It is a small case of today's promotion path [INF]. The bounded R2′ models (2.5) include this self-promotion, but
-  no run shows the branch is reachable at their bounds.
+- It is a small case of today's promotion path [INF]. `spec/tla/PromoteRecon.tla` shows the branch is reachable
+  (run P1). It also shows that the R3 barrier is needed for it (run MB): a lease granted before the restart outlives
+  the restart (`docs/AFR_001_PROMOTION_DURING_RECON.md` section 3).
 - **Depends on D-02 (re-review finding).** If p's newest flush was silently lost and p passes G-14(a) undetected,
   a member still in A but not in S may hold an acknowledged write p lacks. Reconciling that member against the
   re-promoted p truncates it, so the protocol itself deletes the last copy, where today an operator could still
@@ -291,7 +293,8 @@ A standalone node has no A, no standby leases and no members, so the failures in
 - the 4.2 dependence on D-02 (silent loss on the restarted primary);
 - standby read leases are not in either model, so rule 2's standby-lease clause is argued only (the R9 model is a
   separate thread); M2 and M2b found no case for rule 2 at all (2.5);
-- the M4 finding on operator promotion inside S (2.5), whose proposed P6/S2 addition is unverified.
+- the M4 finding on operator promotion inside S (2.5): the proposed correction is checked only within the bounds and
+  the untimed-lease abstraction of `docs/AFR_001_PROMOTION_DURING_RECON.md`.
 
 ## 5. Owner direction and what remains
 

@@ -152,6 +152,70 @@ witness-approved term `t+1` by the ordinary compare-and-set before it serves. It
 - An unexplained violation in a mutation run is a blocker.
 - **Budget:** at most 11 launches for the table above, plus at most 6 reruns after on-site fixes. No other runs.
 
-## 5. Results
+## 5. Results (2026-11-17)
 
-To be filled in after the runs (section 4 is not edited after them).
+Section 4 was committed in `2017cbe` before any run, and it has not been edited since.
+
+**Deviations from the preregistration, disclosed.**
+1. **Aborted launches.** The first launches of all eleven runs used `2017cbe`. Seven of them stopped within 5 s on a
+   TLC evaluation error (a reply record compared with the integer `NONE`), and checked nothing. The other three
+   (P1, MP, MS) ended in violations before reaching that comparison. Fixed in `6b92ac7` (typed `NOREP`), then the
+   runs were launched again (X2 and MQa only after the next fix). These aborted launches are outside the budget count, because they
+   produced no evidence. They are disclosed here.
+2. **X1 found a counterexample** (see below), fixed on site in `6307554`. X1, MQ, MD, MR and MB were rerun on the
+   fixed model, five of the six reruns allowed.
+3. **P1, MW, MP and MS were not rerun.** The fix only removes behaviour: `RecvRep` gained one more guard. None of
+   these four traces delivers a reply, because `rep` is `NOREP` in every state, so each trace is still a behaviour of
+   the fixed model. Their verdicts stand.
+
+**X1 counterexample (first run, depth 10), explained.**
+1. n1 (term 1) writes an unacknowledged entry. n2 is promoted to term 2 with S′ = {n2, n3}, and n1 learns term 2.
+2. n2 answers n1's reconciliation with "truncate to 0", and the reply is in flight.
+3. n1 takes a checkpoint, which R6.3 allows because no intent is pending yet.
+4. The reply arrives, n1 writes the intent, and applying it truncates below the checkpoint (`StateMatchesLog`).
+
+This is finding T1 (R6.3's checkpoint rule) again, opened by a reply in flight: R6.4's "truncation point below the
+checkpoint" test was made when the reply was computed, not when the intent was written. **Fix (part of R6.3′):** R6.4
+is re-checked when the intent is written, and a reply that fails it is discarded, so the next step chooses a reseed.
+This is a protocol finding, not only a model one: the C++ and the Rust design must make the decision against the
+checkpoint as it is when the intent is written.
+
+| Run | Result | Distinct states, depth | Trace (shortest found) |
+|---|---|---|---|
+| X1 | **PASS**, exhaustive, 82 s (after the fix) | 891,002, 36 | |
+| X2 | XX2 | XX2s | |
+| P1 | violated as required: self re-promotion is **reachable** | 5 states | S shrinks to {n1}; n1 crashes; the witnesses re-promote n1 to term 2 with S = {n1} |
+| MQ | **violated** (`AckedPreserved`) | 12 states | M4's shape: n3, unpositioned with a term-1 entry, is promoted by an operator to term 3 (READY waived), writes an intent from n2's term-2 reply, becomes primary, acknowledges the entry, then applies the intent and deletes it |
+| MQa | **no violation**, exhaustive | 726,412, 37 | READY protects automatic promotion, as expected |
+| MD | **violated** (`AckedPreserved`) | 12 states | as MQ to the acknowledgement, with the intent cancelled in memory; n3 crashes and recovery re-applies the durable intent, deleting the acknowledged entry while n3 is the only member of S |
+| MR | **violated** (`AckedPreserved`) | 12 states | n3's reply from term 2 arrives after n3 became primary at term 3 and acknowledged; without the term check it becomes an intent and deletes the entry |
+| MB | **violated** (`StandbyFresh`) | 10 states | n1 leases n2 (in A, outside S), S shrinks to {n1}, n1 crashes and is re-promoted to term 2, and acknowledges at once while n2's term-1 lease is still held without the entry |
+| MW | **violated** (`StandbyFresh`) | 8 states | R9's M_dropWait: n3 is leased, dropped from A, and p acknowledges without it |
+| MP | **violated** (`LeasedPrefix`) | 7 states | n3, a survivor not yet positioned in term 2 and holding n1's unacknowledged term-1 entry, is leased by n2; its lease reads show an entry n2's log does not have |
+| MS | **violated** (`LeasedPrefix` only) | 6 states | n3 holds a term-1 lease, is promoted to term 2 and keeps serving lease reads that show its own term-2 entry |
+
+**What this shows (bounded, and only within the section 4 abstractions).**
+- With S2′, R6.3′ and P6′, the fixed protocol passes X1 (and X2, see the table) with operator promotion inside S,
+  reconciliation replies in flight, untimed standby leases, one crash, and self re-promotion.
+- Each part of the correction is necessary in this model:
+  - quiescence (MQ);
+  - durable completion rather than cancellation in memory (MD, across a crash);
+  - the reply term check (MR);
+  - the R6.4 re-check, found by X1 itself.
+- MQa confirms that READY alone covers automatic promotion, so the gap is specific to operator promotion.
+- Self re-promotion is reachable (P1). The barrier is needed for it (MB): without it, a lease granted before the
+  restart outlives the restart.
+- **Rule 2's lease clause (R2′) now has model evidence**, but only for the stronger `LeasedPrefix`, not for G-30's
+  `StandbyFresh` (MP). R9-D is likewise needed only for `LeasedPrefix` in these in-contract lanes (MS), which agrees
+  with RESULTS_R9.
+
+**What it does not show.**
+- **Leases are untimed.** That the barrier and the M2 cap are long enough is Combined.tla's and StandbyLease.tla's
+  evidence, not this model's.
+- R9-A is not checked here: durable stands for applied.
+- Witness Paxos is atomic.
+- MaxTerm 3, at most one crash, and one or two entries.
+- No damage, torn tails or silent loss. The D-02 dependency of 4.2 is unchanged and **UNRESOLVED**.
+- Durable cancellation (2.2) is not checked.
+- M2 and M2b of `spec/tla/RESULTS.md` section 9 still stand: positioned counting is not shown necessary for
+  durability. M3 still does not distinguish KIP-101 from KIP-279.
