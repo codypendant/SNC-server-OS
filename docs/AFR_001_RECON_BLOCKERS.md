@@ -239,7 +239,7 @@ which accepts fewer replies); the completeness of every action's `UNCHANGED` lis
 - Case 1: with the binding, duplicated, reordered, lost and post-restart replies lose no acknowledged write (C1).
   Without it, the predicted loss comes back (MB).
 - Case 2: with the block, a node carrying an older-term intent into a newer term loses nothing (C2). Without the
-  positioning block, section 6's QA trace comes back (MI). PX shows the carried intent is reachable.
+  block, section 6's QA trace comes back (MI). PX shows the carried intent is reachable.
 - Case 3: self re-promotion to a new term is reachable (PS) and reuses an LSN under the new term (PR) without
   breaking `(term, LSN)` uniqueness or any other `Safety` property (C3). Resuming at the old term breaks uniqueness
   (MNH).
