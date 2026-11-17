@@ -37,7 +37,10 @@ java -XX:+UseParallelGC -cp tla2tools.jar tlc2.TLC -workers 4 -deadlock -config 
 Each `Fix*` constant switches on one fix from the analysis. Setting it to FALSE must let TLC reproduce the failure
 that fix prevents. `AllowOp5c = TRUE` admits case 5c, which R7 now forbids. `Compete = TRUE` (Authority) lets two promotions race for the next version. In `Combined.tla`, `FixGrantTerm`, `FixLearnStep`, `FixAinS` and `FixW1Term` remove the indirect fencing guards, and `OpInside` and `OpOutsideDeg` add operator promotion. `FixBootRead = FALSE` lets a fenced node that comes back (`Unfence`) grant at its old term. `R3Full = TRUE` serves on all three R3
 bounds instead of `learned + W` alone. `KeepS = TRUE` (Log) relaxes R2 so that promotion keeps the rest of S
-unreconciled; it exists to exercise the KIP-279 iteration (M1), not as a protocol option.
+unreconciled; it exists to exercise the KIP-279 iteration (M1), not as a protocol option. `R2p = TRUE` (Log,
+Combined) models R2′ verified survivors, and `InitAll = TRUE` starts with S = all nodes; with both FALSE the
+models behave as before. Under R2′, `FixPosAck`, `FixPosGrant` (Combined), `FixLeaveS` (Log) and `FixReadyPos`
+switch rules 2, 3 and 4 (`RESULTS.md` section 9).
 
 `OpInside`, `OpOutside`, `Degrade`, `Standby`, `MaxRestarts` and `MaxFences` isolate one scenario at a time, so a
 counterexample shows the intended defect rather than an unrelated one.

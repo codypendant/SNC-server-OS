@@ -29,7 +29,7 @@
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | R2: after a promotion, new S = {j}, or keep verified survivors? | **Keep survivors**: new S = old S without the old primary. A survivor's acknowledgements count only after it is positioned in the new term. A survivor that must reseed leaves S first. READY waits until every member of S is positioned. **Freeze only after the bounded model run in 2.4 passes and is reviewed.** |
+| 1 | R2: after a promotion, new S = {j}, or keep verified survivors? | **Keep survivors**: new S = old S without the old primary. A survivor's acknowledgements count only after it is positioned in the new term. A survivor that must reseed leaves S first. READY waits until every member of S is positioned. The bounded runs passed (2.5); **freeze only after they are reviewed.** |
 | 2 | E1-E11 | Replace them with the in-sync-set rules in section 3 |
 | 3 | Single-copy recovery | **Standalone node: monotonic LSN reservation** with a durable local mark. **Degraded group (S = {p}, witnesses exist): the witnesses re-promote the restarted p to `t+1` by the ordinary compare-and-set**, instead of reservation, because QA showed reservation inside a group breaks rules other proofs depend on (section 4). Both are now cody's preferred candidates (2026-11-17), not frozen. Both still depend on D-02 for silently lost writes |
 
@@ -123,7 +123,7 @@ It changes nothing for pairs. Its one regression is read availability when a sur
 recommendation does not rest on performance (cody's rule): the main gain is that acknowledged data stays
 automatically promotable.
 
-### 2.4 Bounded validation plan (needs cody's go; nothing has been run)
+### 2.4 Bounded validation plan (authorized 2026-11-17; results in 2.5)
 
 **Model changes needed first** (QA found the models cannot test R2′ as they stand):
 - an `Init` with S = all three nodes, so that S′ = S \ {p} has more than one member (today `Init` has S = {P0, Q0},
@@ -155,6 +155,31 @@ COMPLETED, not a pass, and is reported as such; bounds are cut rather than limit
 within the same eight-run budget. An unexplained violation in a mutation run is also a blocker. Until then R2 stays
 at `{j}`. The results get an independent review before R2 is
 frozen.
+
+### 2.5 Bounded validation results (2026-11-17)
+
+Full table, traces and limits: `spec/tla/RESULTS.md` section 9. Eight completed runs, all exhaustive, no timeout; one
+earlier launch of V2 was killed by a container restart and rerun, which is disclosed there.
+
+| Run | Expected | Result |
+|---|---|---|
+| V1, V2 (Log), V3 (Combined) | PASS | **PASS** (14.2 M, 38.8 M and 19.2 M distinct states) |
+| M1 (no rule 3) | violated | **violated**: a survivor still in S reseeds and drops an acknowledged entry |
+| M4 (no rule 4) | record | **violated**: rule 4 is necessary, not only conservative |
+| M2, M2b (no rule 2) | uncertain, violated | **no violation**: rule 2 is not shown necessary in these models |
+| M3 (KIP-101) | violated | **no violation**, and the same state count as V1: the switch does not discriminate here |
+
+**What it means for the freeze.** No V run violated, so the stop rule is not triggered. Rules 1, 3 and 4 have model
+evidence within bounds. Rule 2 stays argued only (the models have no standby read leases), and self re-promotion
+(4.2) is in the models but not shown reachable. R2′ is **not frozen**: the results still need cody's and an
+independent review.
+
+**Finding from M4 (proposal, not applied to the rules).** M4's trace promotes a survivor that then applies a
+truncation intent from a reconciliation it began against the older primary, after it has acknowledged the entry
+the intent deletes. Rule 4 stops this for automatic promotion, because READY waits. Operator promotion inside S
+waives P2 and is not modelled, so nothing stops it there. Proposed addition to P6 and S2: `j` has no reconciliation
+in progress and no truncation intent pending, and on learning `t+1` it abandons any reconciliation against an older
+primary before it serves. This is unverified: the eight-run budget is spent, so checking it needs another run.
 
 ## 3. E1-E11 rewritten for the in-sync-set model
 
@@ -232,7 +257,8 @@ p persists `t+1`, waits `learned + W`, drains, and serves in `t+1`. Every earlie
   candidate on 2026-11-17; p must never resume serving under its old term.
 - G-55 holds: the node does not mint a term itself. G-48 improves only partly: the group resumes reads without an
   operator, but under `m = 2` it admits no new writes until a grow (G-12).
-- It is a small case of today's promotion path [INF]. The bounded R2′ runs (2.4) include this self-promotion.
+- It is a small case of today's promotion path [INF]. The bounded R2′ models (2.5) include this self-promotion, but
+  no run shows the branch is reachable at their bounds.
 - **Depends on D-02 (re-review finding).** If p's newest flush was silently lost and p passes G-14(a) undetected,
   a member still in A but not in S may hold an acknowledged write p lacks. Reconciling that member against the
   re-promoted p truncates it, so the protocol itself deletes the last copy, where today an operator could still
@@ -264,15 +290,16 @@ A standalone node has no A, no standby leases and no members, so the failures in
 - the standalone silently-lost case (points 2 and 3), which waits on D-02;
 - the 4.2 dependence on D-02 (silent loss on the restarted primary);
 - standby read leases are not in either model, so rule 2's standby-lease clause is argued only (the R9 model is a
-  separate thread).
+  separate thread); M2 and M2b found no case for rule 2 at all (2.5);
+- the M4 finding on operator promotion inside S (2.5), whose proposed P6/S2 addition is unverified.
 
 ## 5. Owner direction and what remains
 
 cody's direction of 2026-11-17 (`docs/handoff/PR149_150_Owner_Direction.md`) answered the questions of the first
 draft: R2′, the re-promotion of 4.2 and standalone reservation are preferred candidates; P1-P7 and S1-S5 are the
 proposed replacement for E1-E11; the bounded runs of 2.4 are authorized (at most eight runs of two hours, no R640).
-What remains: the model results (follow-up PR), the D-02 dependencies (4.2, 4.3), and the revisit of `m = 2`'s
-failover cost once the results are in. The default is not weakened.
+The model results are in 2.5. What remains: review of those results before any R2 freeze, the M4 finding (2.5),
+the D-02 dependencies (4.2, 4.3), and the revisit of `m = 2`'s failover cost. The default is not weakened.
 
 ## 6. Independent QA
 

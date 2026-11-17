@@ -33,7 +33,12 @@ CONSTANTS Nodes, P0, Q0, D, MaxTerm, MaxIds, MaxRestarts,
           FixAinS,       \* R1: a member joins S only from A
           FixW1Term,     \* R8 W1: witness grants only per the chosen record's term
           OpInside,      \* R7: operator promotion inside S, without READY
-          OpOutsideDeg   \* R7 5b: operator promotion outside S from a degraded, READY record
+          OpOutsideDeg,  \* R7 5b: operator promotion outside S from a degraded, READY record
+          R2p,           \* R2' candidate (docs/AFR_001_R2_AND_SINGLE_COPY.md 2.2, 4.2)
+          InitAll,       \* start with S = A = Nodes
+          FixPosGrant,   \* R2' rule 2: a member grants a lease only once positioned
+          FixPosAck,     \* R2' rule 2: a member counts toward an ack only once positioned
+          FixReadyPos    \* R2' rule 4: READY only once every other member of S is positioned
 
 VARIABLES rec, T, isPrim, learnW, A, pdeg, hg, wl,   \* authority
           dlog, ilog, pos, inh, pack, acked, nid,    \* durability
@@ -53,18 +58,21 @@ Terms(l) == {l[i].t : i \in 1..Len(l)} \cup {0}
 EndLE(l, t) == Max({i \in 0..Len(l) : i = 0 \/ l[i].t <= t})
 NoGrants == [m \in Nodes |-> 0]
 
+S0 == IF InitAll THEN Nodes ELSE {P0, Q0}
+
 Init ==
-  /\ rec = [term |-> 1, prim |-> P0, S |-> {P0, Q0}, ready |-> TRUE, deg |-> FALSE]
+  /\ rec = [term |-> 1, prim |-> P0, S |-> S0, ready |-> TRUE, deg |-> FALSE]
   /\ T = [n \in Nodes |-> 1]
   /\ isPrim = [n \in Nodes |-> n = P0]
   /\ learnW = [n \in Nodes |-> 0]
-  /\ A = [n \in Nodes |-> IF n = P0 THEN {P0, Q0} ELSE {}]
+  /\ A = [n \in Nodes |-> IF n = P0 THEN S0 ELSE {}]
   /\ pdeg = [n \in Nodes |-> FALSE]
-  /\ hg = [n \in Nodes |-> IF n = P0 THEN [NoGrants EXCEPT ![Q0] = D] ELSE NoGrants]
+  /\ hg = [n \in Nodes |-> IF n = P0 THEN [m \in Nodes |-> IF m \in S0 \ {P0} THEN D ELSE 0]
+                                       ELSE NoGrants]
   /\ wl = [n \in Nodes |-> 0]
   /\ dlog = [n \in Nodes |-> <<>>]
   /\ ilog = [n \in Nodes |-> <<>>]
-  /\ pos = [n \in Nodes |-> IF n \in {P0, Q0} THEN 1 ELSE 0]
+  /\ pos = [n \in Nodes |-> IF n \in S0 THEN 1 ELSE 0]
   /\ inh = [n \in Nodes |-> 0]
   /\ pack = [n \in Nodes |-> 0]
   /\ acked = {}
@@ -85,6 +93,7 @@ Tick ==
 
 Grant(m, n) ==
   /\ m # n /\ isPrim[n] /\ (FixGrantTerm => T[m] = T[n]) /\ m \in A[n]
+  /\ (R2p /\ FixPosGrant) => pos[m] = T[n]
   /\ hg' = [hg EXCEPT ![n][m] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, wl, logv, nRestarts>>
 
@@ -93,11 +102,16 @@ WGrant(n) ==   \* W1 against the chosen record
   /\ wl' = [wl EXCEPT ![n] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, hg, logv, nRestarts>>
 
-Promote(j) ==  \* R2: j in S and READY; new S = {j}, degraded
-  /\ rec.term < MaxTerm /\ j # rec.prim
-  /\ \/ j \in rec.S /\ (rec.ready \/ OpInside)
-     \/ OpOutsideDeg /\ j \notin rec.S /\ rec.deg /\ rec.ready
-  /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> {j}, ready |-> FALSE, deg |-> TRUE]
+NewS(j) == IF R2p /\ j \in rec.S THEN rec.S \ {rec.prim} ELSE {j}
+
+Promote(j) ==  \* R2: j in S and READY; new S = {j}, degraded. R2': new S = S \ {old primary};
+               \* the sole member of S re-promotes itself after a restart (4.2)
+  /\ rec.term < MaxTerm
+  /\ \/ j # rec.prim /\ j \in rec.S /\ (rec.ready \/ OpInside)
+     \/ j # rec.prim /\ OpOutsideDeg /\ j \notin rec.S /\ rec.deg /\ rec.ready
+     \/ R2p /\ j = rec.prim /\ rec.S = {j} /\ rec.ready /\ ~isPrim[j] /\ T[j] = rec.term
+  /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> NewS(j), ready |-> FALSE,
+             deg |-> NewS(j) = {j}]
   /\ UNCHANGED <<T, isPrim, learnW, A, pdeg, hg, wl, logv, nRestarts>>
 
 Learn(n) ==
@@ -105,8 +119,8 @@ Learn(n) ==
   /\ T' = [T EXCEPT ![n] = rec.term]
   /\ isPrim' = [isPrim EXCEPT ![n] = (rec.prim = n) \/ (~FixLearnStep /\ @)]
   /\ learnW' = [learnW EXCEPT ![n] = IF rec.prim = n THEN D ELSE @]
-  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN {n} ELSE {}]
-  /\ pdeg' = [pdeg EXCEPT ![n] = (rec.prim = n)]
+  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN (IF R2p THEN rec.S ELSE {n}) ELSE {}]
+  /\ pdeg' = [pdeg EXCEPT ![n] = (rec.prim = n) /\ (R2p => rec.deg)]
   /\ hg' = [hg EXCEPT ![n] = NoGrants]
   /\ wl' = [wl EXCEPT ![n] = 0]
   /\ ilog' = [ilog EXCEPT ![n] = dlog[n]]                  \* R6.1 drain
@@ -117,6 +131,7 @@ Learn(n) ==
 
 Ready(p) ==
   /\ Current(p) /\ ~rec.ready /\ learnW[p] = 0
+  /\ (R2p /\ FixReadyPos) => \A m \in rec.S \ {p} : pos[m] = T[p] /\ T[m] = T[p]
   /\ rec' = [rec EXCEPT !.ready = TRUE]
   /\ UNCHANGED <<T, isPrim, learnW, A, pdeg, hg, wl, logv, nRestarts>>
 
@@ -176,7 +191,7 @@ Ship(p, m) ==    \* a member accepts only from the primary of its own term (R4)
 Ack(p, i) ==     \* needs valid authority now, and every member of A holding it
   /\ isPrim[p] /\ (FixAckAuth => Auth(p)) /\ i \in 1..Len(dlog[p])
   /\ \A m \in A[p] : /\ Len(dlog[m]) >= i /\ dlog[m][i] = dlog[p][i]
-                     /\ (m = p \/ T[m] = T[p])
+                     /\ (m = p \/ (T[m] = T[p] /\ ((R2p /\ FixPosAck) => pos[m] = T[p])))
   /\ acked' = acked \cup {<<i, dlog[p][i]>>}
   /\ pack' = [pack EXCEPT ![p] = Max({@, i})]
   /\ UNCHANGED <<auth, dlog, ilog, pos, inh, nid, nRestarts>>

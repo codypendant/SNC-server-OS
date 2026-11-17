@@ -3366,6 +3366,19 @@ or source comments.
 -   **Next action:** STOP for cody's and Codex's review. D-01/D-02/D-03 are not accepted, and no implementation is
     authorized.
 
+### 2026-11-17 --- SNC-AFR-001 R2′ bounded model validation (models and docs only)
+
+-   **Trigger:** cody's direction of 2026-11-17 (`docs/handoff/PR149_150_Owner_Direction.md`): bounded R2 TLA+, at
+    most eight runs of two hours, no R640. PR #150 merged as PROPOSED (`e102d02`).
+-   **Output:** `R2p`, `InitAll` and rule switches in `spec/tla/Log.tla` and `Combined.tla` (old behaviour when off);
+    `spec/tla/RESULTS.md` section 9; `docs/AFR_001_R2_AND_SINGLE_COPY.md` 2.5.
+-   **Result:** V1, V2, V3 PASS, exhaustive. M1 (no rule 3) and M4 (no rule 4) violated, so both rules are
+    necessary. M2, M2b (no rule 2) and M3 (KIP-101) found nothing; they do not discriminate. One V2 launch was
+    lost to a container restart and rerun (disclosed).
+-   **Open:** rule 2 argued only; self re-promotion not shown reachable; M4 shows operator promotion inside S can
+    apply a stale truncation intent after acknowledging (P6/S2 addition proposed, unverified); D-02 dependencies.
+-   **Next action:** STOP for cody and Codex. R2′ not frozen; no implementation, no further runs.
+
 ### 2026-11-16 --- SNC-AFR-001 owner decisions recorded; R2 and single-copy recovery (docs only)
 
 -   **Trigger:** cody's owner decisions on PR #148 (`docs/handoff/PR148_Owner_Decisions.md`, verbatim). PR #148 merged

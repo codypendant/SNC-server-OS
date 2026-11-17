@@ -24,8 +24,14 @@ CONSTANTS Nodes, P0, Q0, MaxTerm, MaxIds, MaxCrashes,
           FixReseed,  \* R6.4: reseed when the truncation point is below the checkpoint
           FixInc,     \* R6.5: durable incomplete flag during a reseed
           FixCkIntent,\* R6.3 (found by TLC): no checkpoint while an intent is pending
-          KeepS       \* relax R2 Kafka-style: promotion keeps the rest of S, unreconciled
+          KeepS,      \* relax R2 Kafka-style: promotion keeps the rest of S, unreconciled
                       \* (FALSE is the protocol; TRUE exists to exercise R6.2, see RESULTS)
+          R2p,        \* R2' candidate (docs/AFR_001_R2_AND_SINGLE_COPY.md 2.2, 4.2): new S = S
+                      \* without the old primary; READY; a restarted sole primary re-promotes
+          InitAll,    \* start with S = A = Nodes, so that R2' keeps more than one survivor
+          FixLeaveS,  \* R2' rule 3: a member reseeds only once outside S
+          FixPosAck,  \* R2' rule 2: a member counts toward an ack only once positioned
+          FixReadyPos \* R2' rule 4: READY only once every other member of S is positioned
 
 NONE == -1
 
@@ -45,14 +51,16 @@ LastT(l) == IF Len(l) = 0 THEN 0 ELSE l[Len(l)].t
 Terms(l) == {l[i].t : i \in 1..Len(l)} \cup {0}
 EndLE(l, t) == Max({i \in 0..Len(l) : i = 0 \/ l[i].t <= t})
 
+S0 == IF InitAll THEN Nodes ELSE {P0, Q0}
+
 Init ==
-  /\ rec = [term |-> 1, prim |-> P0, S |-> {P0, Q0}]
+  /\ rec = [term |-> 1, prim |-> P0, S |-> S0, ready |-> TRUE]
   /\ T = [n \in Nodes |-> 1]
   /\ isPrim = [n \in Nodes |-> n = P0]
   /\ dlog = [n \in Nodes |-> <<>>]
   /\ ilog = [n \in Nodes |-> <<>>]
-  /\ A = [n \in Nodes |-> IF n = P0 THEN {P0, Q0} ELSE {}]
-  /\ pos = [n \in Nodes |-> IF n \in {P0, Q0} THEN 1 ELSE 0]
+  /\ A = [n \in Nodes |-> IF n = P0 THEN S0 ELSE {}]
+  /\ pos = [n \in Nodes |-> IF n \in S0 THEN 1 ELSE 0]
   /\ intent = [n \in Nodes |-> NONE]
   /\ inc = [n \in Nodes |-> FALSE]
   /\ rs = [n \in Nodes |-> FALSE]
@@ -88,7 +96,8 @@ Ship(p, m) ==
 Ack(p, i) ==
   /\ isPrim[p] /\ i \in 1..Len(dlog[p])
   /\ \A m \in A[p] : /\ Len(dlog[m]) >= i /\ dlog[m][i] = dlog[p][i]
-                     /\ (m = p \/ (T[m] = T[p] /\ ~Busy(m)))
+                     /\ (m = p \/ (T[m] = T[p] /\ ~Busy(m)
+                                    /\ ((R2p /\ FixPosAck) => pos[m] = T[p])))
   /\ acked' = acked \cup {<<i, dlog[p][i]>>}
   /\ pack' = [pack EXCEPT ![p] = Max({@, i})]
   /\ UNCHANGED <<rec, T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks, nid, crashes, inh>>
@@ -118,21 +127,34 @@ Drop(p, c) ==      \* without FixB1: a lost grow reply is treated as a failure
   /\ A' = [A EXCEPT ![p] = @ \ {c}]
   /\ UNCHANGED <<rec, T, isPrim, dlog, ilog, pos, intent, inc, rs, cks, acked, nid, crashes, inh, pack>>
 
-Promote(j) ==      \* R2: j in S; new S = {j}
-  /\ rec.term < MaxTerm /\ j \in rec.S /\ j # rec.prim /\ ~Busy(j)
-  /\ rec' = [term |-> rec.term + 1, prim |-> j, S |-> IF KeepS THEN rec.S ELSE {j}]
+Promote(j) ==      \* R2: j in S; new S = {j}. R2': new S = S \ {old primary}, needs READY;
+                   \* also the sole member re-promotes itself after a restart (4.2)
+  /\ rec.term < MaxTerm /\ j \in rec.S /\ ~Busy(j)
+  /\ \/ j # rec.prim
+     \/ R2p /\ rec.S = {j} /\ ~isPrim[j] /\ T[j] = rec.term
+  /\ R2p => rec.ready
+  /\ rec' = [term |-> rec.term + 1, prim |-> j, ready |-> ~R2p,
+             S |-> IF R2p THEN (IF j = rec.prim THEN {j} ELSE rec.S \ {rec.prim})
+                   ELSE IF KeepS THEN rec.S ELSE {j}]
   /\ UNCHANGED <<T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks, acked, nid, crashes, inh, pack>>
 
 Learn(n) ==
   /\ rec.term > T[n]
   /\ T' = [T EXCEPT ![n] = rec.term]
   /\ isPrim' = [isPrim EXCEPT ![n] = (rec.prim = n)]
-  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN (IF KeepS THEN rec.S ELSE {n}) ELSE {}]
+  /\ A' = [A EXCEPT ![n] = IF rec.prim = n THEN (IF KeepS \/ R2p THEN rec.S ELSE {n}) ELSE {}]
   /\ ilog' = [ilog EXCEPT ![n] = dlog[n]]                  \* R6.1 drain
   /\ pos' = [pos EXCEPT ![n] = IF rec.prim = n THEN rec.term ELSE 0]
   /\ inh' = [inh EXCEPT ![n] = IF rec.prim = n THEN Len(dlog[n]) ELSE 0]
   /\ pack' = [pack EXCEPT ![n] = 0]
   /\ UNCHANGED <<rec, dlog, intent, inc, rs, cks, acked, nid, crashes>>
+
+MarkReady(p) ==    \* R2' rule 4 (the R3 point is Authority's and Combined's concern)
+  /\ R2p /\ Current(p) /\ ~rec.ready
+  /\ FixReadyPos => \A m \in rec.S \ {p} :
+                      pos[m] = T[p] /\ T[m] = T[p] /\ ~Busy(m) /\ intent[m] = NONE
+  /\ rec' = [rec EXCEPT !.ready = TRUE]
+  /\ UNCHANGED <<T, isPrim, dlog, ilog, A, pos, intent, inc, rs, cks, acked, nid, crashes, inh, pack>>
 
 (* --- reconciliation (R6.2-R6.5) --------------------------------------- *)
 \* Truncation point that k's next reconciliation step would choose against j.
@@ -153,7 +175,8 @@ ReconStep(k, j) ==
        THEN /\ pos' = [pos EXCEPT ![k] = T[j]]               \* positioned
             /\ UNCHANGED <<intent, inc, rs, inh, pack>>
        ELSE IF FixReseed /\ a.L < Len(cks[k])
-            THEN /\ rs' = [rs EXCEPT ![k] = TRUE]            \* start a reseed
+            THEN /\ (R2p /\ FixLeaveS) => k \notin rec.S       \* rule 3: leave S first
+                 /\ rs' = [rs EXCEPT ![k] = TRUE]            \* start a reseed
                  /\ inc' = [inc EXCEPT ![k] = FixInc]
                  /\ UNCHANGED <<pos, intent, inh, pack>>
             ELSE /\ intent' = [intent EXCEPT ![k] = a.L]     \* durable intent
@@ -215,7 +238,7 @@ Crash(n) ==
   /\ UNCHANGED <<rec, T, inc, cks, acked, nid, inh, pack>>
 
 Step ==
-  \/ \E p \in Nodes : NewEntry(p) \/ WriteLocal(p) \/ Promote(p) \/ Learn(p)
+  \/ \E p \in Nodes : NewEntry(p) \/ WriteLocal(p) \/ Promote(p) \/ Learn(p) \/ MarkReady(p)
                       \/ ApplyIntent(p) \/ ClearIntent(p) \/ Checkpoint(p)
                       \/ RDiscardLog(p) \/ RDiscardCk(p) \/ Crash(p)
   \/ \E p, m \in Nodes : Ship(p, m) \/ AddA(p, m) \/ Grow(p, m) \/ Shrink(p, m)
