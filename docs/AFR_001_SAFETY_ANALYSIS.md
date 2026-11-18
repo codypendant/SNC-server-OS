@@ -62,28 +62,40 @@ when it is chosen. No node acts on a new version before it learns that the versi
 
 Each member `i` keeps:
 - a durable highest term `T_i`;
-- a log of entries `(term, lsn, payload)`, where each WAL record carries its term (D-02 adds this);
-- a term history `H_i`, mapping each term to its first LSN in `i`'s log [EXT: Kafka KIP-101 "Leader Epoch
-  Sequence File"].
+- a log of entries `(term, lsn, payload)`, where each WAL record carries its term (a D-06 format item);
+- a term history `H_i`, mapping each term to its first LSN in `i`'s log. It plays the role of Kafka's leader-epoch
+  sequence [EXT: KIP-101], but it is derived from the log (below).
 
 **[RECORDED REVISION, CONDITIONALLY APPROVED: owner decision 2026-11-18, `docs/handoff/PR157_Owner_Decision.md`;
 final acceptance depends on AFR-D-02.]** `H_i` is derived, not stored separately. It is the sequence of terms on
 `i`'s retained, validated, non-void WAL records (each record carries its term), above a durable compaction floor. The
-floor of each stream is the CRC-protected `retain_from` in the active checkpoint manifest, and the floor term is the
-`prev_term` field in the header of the segment that starts there (`docs/AFR_001_D06_STORAGE_METADATA.md` 4.2).
+truncation intent in the node metadata record bounds it (`docs/AFR_001_D06_STORAGE_METADATA.md` 4.3). The floor of
+each stream is the CRC-protected `retain_from` in the active checkpoint manifest. The floor term is the `prev_term`
+field in the header of the segment that starts there (D-06 4.2).
 
-Conditions:
-1. `H_i` is reconstructible from validated, retained records and that floor alone.
-2. WAL damage never silently becomes an acceptable truncation of the history. A missing segment at or above the floor,
-   a gap between segments, or a record that cannot be validated makes the member refuse.
-3. G-14(a) holds unchanged. A member whose term history cannot be reconstructed refuses with a named error.
-   Rebuilding or reseeding it is an explicit operator action (R6.4).
-4. Damage that leaves nothing to detect is AFR-D-02's to close, and so is final acceptance. That covers damage inside a
-   segment read as the log's end (R-01), and a write or directory entry that was acknowledged and then lost, including
-   a metadata rollback (R-23).
+The owner's conditions, verbatim from Codex's review:
+1. "The term history must be reconstructible from validated retained WAL records and a durable compaction floor."
+2. "WAL corruption must never silently become an acceptable history truncation."
+3. "The revised contract must explicitly preserve G-14(a)'s refusal behavior."
+4. "Final acceptance depends on D-02's durability-boundary design."
 
-A member is reseeded (R6.4) when its end or its truncation point is below the answering member's floor, or when its last
-term is below the answering member's floor term.
+Realized as:
+- **Refusal (conditions 2 and 3).** The member refuses with a named error when:
+  - no segment starts at `retain_from`, or a segment is missing above it;
+  - two segments leave a gap between them;
+  - a record that cannot be validated lies below the newest segment's valid end.
+
+  Damage inside an older segment is caught this way, because it leaves a gap before the next segment's first LSN.
+  Rebuilding or reseeding is an explicit operator action (R6.4), as G-14(a) requires.
+- **Torn tail.** A torn tail in the newest segment is discarded only as G-14(b) permits.
+- **Not yet met (condition 4).** Condition 2 is **not met** for the newest segment until D-02 closes it. Telling a
+  torn or lost newest flush, a lost newest segment, or a lost truncation segment `L+1` (which would revive a void tail)
+  from the log's real end is D-02's. So is metadata rollback (R-23). Until then, such damage can silently shorten
+  `H_i`.
+
+A member is reseeded (R6.4) when any of these holds:
+- its end or its truncation point is below the answering member's floor;
+- its last term is below the answering member's floor term.
 
 [Earlier text, frozen 2026-11-17: "`H_i` must be durable, with a checksum and a durable compaction floor, so that damage
 is distinguishable from compaction. If it is damaged, the member refuses with a named error (G-14(a)); rebuilding it
@@ -203,10 +215,10 @@ previously: "If it is lost, the member is reseeded."]
 - **R6.4 Reseed.** `k` is reseeded in place of R6.2-R6.3 in either of two cases:
   - the truncation point is below `k`'s checkpoint maximum LSN (checkpoints are local-only, `shard.cpp:2710-2716`,
     [FACT-SNC]);
-  - `H_j` cannot answer because it no longer covers `t_k` (compacted). A damaged `H_j` is not this case: `j` refuses
+  - `H_j` cannot answer because it no longer covers `t_k` (compacted). A damaged `H_j` (G-14(a)) is not this case: `j` refuses
     like any member.
 
-  If `H_k` cannot be reconstructed (Member state, condition 2), `k` refuses with a named error instead (G-14(a)).
+  If `H_k` is damaged (G-14(a); Member state, "Refusal"), `k` refuses with a named error instead (G-14(a)).
   Reseeding it then is an explicit operator action. [Revised after Codex's PR #146 review; wording follows the
   `H_i` revision of 2026-11-18.]
 - **R6.5 Incomplete.** A durable `incomplete` flag is set before `k` discards anything, and cleared only once the

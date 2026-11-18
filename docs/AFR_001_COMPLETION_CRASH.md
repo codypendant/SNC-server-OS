@@ -1,8 +1,12 @@
 # Crash consistency of truncation completion (AFR-D-06 4.3): preregistration and results
 
-Status: **PREREGISTERED.** This plan, the model `spec/tla/Completion.tla` and the configuration
-`spec/tla/Completion.cfg` were committed and pushed before any counted run. Section 5 is filled in after the runs and
-changes nothing above it.
+Status: **COMPLETED.** Results are in section 5 and the review in section 6.
+
+How this document was built:
+- Sections 1-4, the model `spec/tla/Completion.tla` and `spec/tla/Completion.cfg` were committed and pushed before any
+  counted run (554ec32).
+- Section 4a, revision 2, was committed and pushed before any revision-2 run (18d1891).
+- Nothing above section 5 was changed after the runs it governs.
 
 Authority:
 - Codex's review of #157 (`docs/handoff/PR157_Codex_Review.md`) asks for "the proposed small crash-consistency model,
@@ -144,8 +148,90 @@ are gone, and a later segment follows) instead of as a silently lost record. Bot
 
 ## 5. Results
 
-(Filled in after the runs.)
+Every lane completed under its cap, and every outcome matched its preregistered expectation. No lane timed out. TLC
+`states/` directories were deleted after each run.
+
+**Scope of these results:**
+- They hold only within the bounds and the abstractions of section 2.
+- They say nothing about lost acknowledged writes or directory entries, or about metadata rollback. Those stay with
+  D-02 and R-23 as explicit blockers.
+
+**Revision 1** (model 554ec32):
+
+| Lane | Result | Distinct states | Depth | Time |
+|---|---|---|---|---|
+| D1 | PASS | 3,706,729 | 57 | 34 s |
+| D2 | PASS | 123,863,149 | 72 | 31 min 39 s |
+| D3 | PASS | 9,097,360 | 60 | 1 min 30 s |
+| M1 MUnlinkReopen | FAIL (Safety), as expected | 9,237 | 17 | 1 s |
+| M2 MSpareUnlink | FAIL (Safety), as expected | 12,870 | 19 | 1 s |
+| M3 MNoNewSeg | FAIL (Safety), as expected | 3,058 | 14 | 0 s |
+| M4 MClearEarly | FAIL (Safety), as expected | 995 | 10 | 0 s |
+| M5 MNoVoid | FAIL (Safety), as expected | 2,949 | 14 | 0 s |
+| P1 PRecComplete | VIOLATED (reached), as expected | 173 | 7 | 0 s |
+| P2 PTwoTrunc | VIOLATED (reached), as expected | 51,001 | 24 | 1 s |
+| P3 PInoBound | HELD, as expected | 3,706,729 | 57 | 26 s |
+
+**Revision 2** (model 18d1891):
+
+| Lane | Result | Distinct states | Time |
+|---|---|---|---|
+| R2-D1 | PASS | 4,648,225 | 1 min 35 s |
+| R2-D3 | PASS | 10,937,781 | 5 min 2 s |
+| R2-M1 to R2-M5 | FAIL (Safety) each, as expected | 935 to 14,384 | ≤ 1 s each |
+| R2-M6 MNoVoidRange | FAIL (Safety), as expected | 3,315 | 0 s |
+| R2-M7 MNoCrc | FAIL (Safety), as expected | 8,232 | 1 s |
+| R2-P1, R2-P2 | VIOLATED (reached), as expected | 356; 49,004 | ≤ 1 s |
+| R2-P3 PInoBound | HELD, as expected | 4,648,225 | 31 s |
+| R2-P4 PZeroHdr | VIOLATED (reached), as expected | 89 | 0 s |
+
+**What the mutation traces show:**
+- **M3, M4 (MNoNewSeg, MClearEarly).** After the clear, a crash revives the voided record `2v0`.
+- **M1 (MUnlinkReopen).** A crash outcome that keeps only the unlink revives it.
+- **M5 (MNoVoid).** The voided record is read with no crash at all.
+- **M2 (MSpareUnlink).** It fails as a fatal gap. This is the correction noted in section 4a.
+- **M6 (MNoVoidRange).** After truncation, completion, reopen and one append, the catch-up reader ships the voided
+  record.
+- **M7 (MNoCrc).** After a torn record write, recovery chooses the torn copy.
+
+**Conclusion, within the bounds.** In the model, a crash at any intermediate step of completion leaves both readers
+exact: the scan and the catch-up reader return exactly the acknowledged, untruncated log. No voided record is ever
+read, and no fatal scan occurs on a state the design produces. Each guarded step is needed, because removing it lets
+the checker break Safety, with one exception: the first directory fsync, whose need the model cannot show (section 4a).
+
+**UNRESOLVED:**
+- torn WAL writes inside a block;
+- lost acknowledged writes or directory entries (D-02);
+- metadata rollback (R-23);
+- checkpoints, reclaim and `retain_from`;
+- the state rebuild's contents;
+- concurrency between `meta_mu` and `control_mu_`;
+- more than one stream.
 
 ## 6. Review
 
-(Filled in after the review.)
+Two independent reviewers (Opus) were told to break the work. They worked read-only, with their own scratch copies for
+probe runs.
+
+| # | Finding | Severity | Outcome |
+|---|---|---|---|
+| 1 | The catch-up reader was never checked | MAJOR | fixed in revision 2 (`ServedRangeExact`, M6) |
+| 2 | The A/B CRC check was vacuous | MAJOR | fixed in revision 2 (torn copy at `Best.g + 1`, M7) |
+| 3 | The scan's header cases could not be reached | MINOR | fixed in revision 2 (split create, P4) |
+| 4 | The reopen truncation is never exercised | MINOR | disclosed (torn WAL writes not modelled) |
+| 5 | The order of clear and reopen differs from the design; rename with a missing source; stale `TMP` | MINOR | rename fixed; the other two disclosed (4a) |
+| 6 | The first directory fsync is invisible to the model; M2's failure form | MINOR | disclosed; wording corrected (4a) |
+| 7 | `H_i` revision: condition 2 claimed refusal for the newest segment, which only D-02 can give | MAJOR | fixed: "not met for the newest segment until D-02" |
+| 8 | The R-23 row did not name the node metadata record | MAJOR | fixed |
+| 9 | Conditions read as verbatim but were extended; floor edge cases; stale wording; condition cross-reference | MINOR | fixed: verbatim quote plus "Realized as"; floor bullets in D-06 4.2 |
+
+The reviewers also probed these cases and could not break them:
+- the spare branches (adopt at or below `L`, unlink above it, adopt in recovery);
+- a second truncation with `L2 > L1` while the straddling segment still holds a voided record, which is reached and
+  safe;
+- no stuck steps, so `-deadlock` hides nothing;
+- recovery order against `engine.cpp`;
+- the frozen text of 2026-11-17, which is untouched;
+- whether anything claims D-06 is accepted, and nothing does.
+
+Revision 2 was not reviewed again.

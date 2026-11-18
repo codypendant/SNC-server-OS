@@ -19,6 +19,8 @@ is inferred here; [HYP] is a guess not yet checked.
    It alternates between two files by generation and carries a whole-copy CRC. It is the only place that holds the
    node's durable term, every stream's incomplete flag and truncation intent, the checkpoint pointer and today's lease
    fields.
+   Metadata rollback (a lost or silently replaced record write, AFR-R-23) is **not** solved by this format. It stays
+   an explicit D-02/R-23 blocker (Codex's review of #157).
 2. **Writes go through `meta_mu`.** Every write of the record is a compare-and-write under one small mutex,
    `meta_mu`, held only while the copy is built and written. All record writes are rare control events.
 3. **A term on every WAL record.** The term history of a stream is what its records say (Raft), with a durable floor
@@ -148,7 +150,7 @@ Constraints on writes:
 
 None of them runs per operation. The latency of one 8 KiB write is not measured. It is a control-path cost (O8).
 
-### 4.2 Per-record terms; the term history is the log (proposed revision)
+### 4.2 Per-record terms; the term history is the log (recorded revision, owner decision of 2026-11-18)
 
 - **Record header.** `WalRecord` grows from 56 to 64 bytes, with `u64 term`: the term in which a primary first wrote
   the entry.
@@ -159,8 +161,16 @@ None of them runs per operation. The latency of one 8 KiB write is not measured.
   retained log can still serve are not reseeded. Each segment header gains `prev_term`, the term of the record at
   `first_lsn - 1`, protected by the header CRC (Raft's prevLogTerm).
   - The floor of `H_s` is `(prev_term of segment retain_from, retain_from - 1)`.
-  - Recovery refuses if no segment starts at `retain_from`, or if a segment is missing above it. So losing the oldest
-    retained segments is damage and is not mistaken for reclaim (condition 2 of the owner decision).
+  - Recovery refuses if no segment starts at `retain_from`, or if a segment is missing above it, except the newest
+    one, which is D-02's (condition 4). So losing the oldest retained segments is damage and is not mistaken for
+    reclaim.
+  - `retain_from` never exceeds the checkpoint's `start_lsn`. A truncation's `L` is at or above the checkpoint's
+    `max_lsn` (4.3 step 1), so completion never deletes the floor segment.
+  - A stream with no checkpoint yet, or one freshly reseeded, has `retain_from` 1 and `prev_term` 0. The reseed
+    writes its first segment with the `prev_term` of the copied state's end.
+  - Segment `L+1` (4.3 step 4) gets `prev_term` equal to the term of record `L`.
+  - When two segments are both retained, the scan checks `prev_term` against the previous segment's last record
+    term, and a mismatch refuses.
   - Reclaim deletes only after the manifest that names the new `retain_from` is published. Segments left below
     `retain_from` by a crash in the middle of a reclaim are ignored and deleted.
 - **`H_s`.** It is the sequence of term changes over stream `s`'s retained records, plus the floor.
@@ -255,7 +265,7 @@ That breaks KISS for a partial gain. The owner chose the derived history.
 
 **Recovery, per stream.** In order:
 1. read the record;
-2. if the slot is PENDING, run completion, then the clear;
+2. if the slot is PENDING, run completion, then the clear; unlink any leftover `TMP` file;
 3. adopt a spare;
 4. scan with the void rule;
 5. build `H_s`.
@@ -351,18 +361,12 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 - **TEXT ONLY clauses.** The incarnation and the answering-side clauses stay TEXT ONLY. This document realizes them; it
   does not check them.
 
-**Proposed, not run: a small model.** It would cover:
-- completion's steps 2.1 to 3 as separate actions, with a crash anywhere;
-- the writer's reopen;
-- the void rule with two truncations before a checkpoint;
-- spare adoption;
-- reclaim order;
-- A/B selection with a torn write;
-- recovery's order.
-
-Properties: I5, and no void record is ever scanned, shipped or acknowledged. `ReconBlockers.tla` makes `ApplyIntent`
-and `Crash` atomic, so it covers none of this. Once C++ work is authorized, O3's crash-consistency test covers the
-same cases.
+**Crash model of completion: run.** Codex authorized it in the review of #157. Plan and results are in
+`docs/AFR_001_COMPLETION_CRASH.md` (`spec/tla/Completion.tla`):
+- Within its bounds, a crash at any step leaves the scan and the catch-up reader exact.
+- Every guarded step except the first directory fsync is shown necessary by a failing mutation.
+- Torn WAL writes, lost writes, reclaim and concurrency are outside the model.
+- The procedure is not accepted until Codex and cody review this evidence.
 
 **Review record.** Three rounds were told to break the design: three independent reviewers, then one on each
 revision. All were read-only. Round 3's fixes have not been re-reviewed.
@@ -373,7 +377,7 @@ revision. All were read-only. Round 3's fixes have not been re-reviewed.
 | 2 | One slot per stream let a second truncation revive void records (G-15) | BLOCKER | fixed: the void rule, no marker |
 | 3 | Unlinking a spare whose rename was lost deleted acknowledged records | BLOCKER | fixed: step 2.2 |
 | 4 | Catch-up reads shipped void records; the marker cleared too early | BLOCKER | fixed: the void rule in both readers; reclaim order |
-| 5 | A derived `H` dropped G-14(a)'s refusal for damaged `H` (frozen text) | BLOCKER | **owner decision**: proposed revision in 4.2. A separate `H` was drafted in round 1 and broke in round 2 (finding 13) |
+| 5 | A derived `H` dropped G-14(a)'s refusal for damaged `H` (frozen text) | BLOCKER | **owner decision**: recorded revision (4.2; `docs/handoff/PR157_Owner_Decision.md`). A separate `H` was drafted in round 1 and broke in round 2 (finding 13) |
 | 6 | Writing term and role together skipped the start barrier | MAJOR | fixed: `DIR/role` unchanged |
 | 7 | Completion ran against a live writer and a held spare | MAJOR | fixed: step 2.1 |
 | 8 | No floor check after waiting for a checkpoint | MAJOR | fixed: step 1 |

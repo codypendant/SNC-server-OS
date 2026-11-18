@@ -3668,3 +3668,20 @@ or source comments.
     fixes not re-reviewed. A small model of completion is proposed, not run.
 -   **Not authorized:** C++ or Rust, R640, X-2, D-02 acceptance, R9-F freeze, m = 2 change.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): term-history owner decision recorded; completion crash model run (docs/model only)
+
+-   **Trigger:** Codex's reviews of #157 and #156 (filed in `docs/handoff/`); cody's "Yes." (2026-11-18 00:00 UTC) to
+    deriving the term history from WAL records under Codex's four conditions.
+-   **Output:**
+    -   `docs/handoff/PR157_Owner_Decision.md`;
+    -   a recorded revision of the `H_i` paragraph, conditionally approved and with the conditions quoted verbatim, in
+        `docs/AFR_001_SAFETY_ANALYSIS.md`, mirrored in G-14, D-02, R-23 and D-06 4.2;
+    -   metadata rollback recorded as an explicit D-02/R-23 blocker;
+    -   `spec/tla/Completion.tla` and `docs/AFR_001_COMPLETION_CRASH.md`: preregistered (554ec32; revision 2 18d1891).
+-   **Results:** every lane matched its preregistered expectation. Design lanes PASS, up to 123.9M states. All 7
+    mutations FAIL; the probes reached their states. Two independent reviewers found 4 MAJOR issues, all fixed.
+    Revision 2 was not reviewed again.
+-   **Not accepted:** D-06, the completion procedure, D-02.
+-   **Not authorized:** C++ or Rust, R640, migration design.
+-   **Next action:** STOP for Codex and cody.
