@@ -3685,3 +3685,21 @@ or source comments.
 -   **Not accepted:** D-06, the completion procedure, D-02.
 -   **Not authorized:** C++ or Rust, R640, migration design.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): D-06 checkpoint/reclaim boundary, revision 2 model review, format reconciliation (docs only)
+
+-   **Trigger:** Codex's review of #158 (`docs/handoff/PR158_Codex_Review.md`): merge #158, hold D-06 acceptance,
+    first a focused review of the revised model and of the checkpoint/reclaim boundary, then reconcile the storage
+    format decisions. #158 merged (67b81f2).
+-   **Output:** `docs/AFR_001_D06_BOUNDARY.md`:
+    -   the floor's single authority is the manifest (`retain_from`, `floor_term`, `start_term`); segment headers are a
+        checked link (FL); rules for reclaim, recovery, seed and truncation; a crash table; prior art from primary
+        sources (PostgreSQL, RocksDB, etcd, Kafka as the contrast, Raft);
+    -   an independent break-it review of `Completion.tla` revision 2: 2 MAJOR (reopen kept a zero header; catch-up
+        reads during completion), fixed in the D-06 text; the model's conclusion narrowed to "while serving";
+    -   an independent break-it review of the boundary: 1 BLOCKER (`max_lsn` too low; redefined), 2 MAJOR (orphan
+        streams, chain check against void records), all fixed;
+    -   21 storage-format items, each DECIDED, PROPOSED or UNRESOLVED.
+-   **Proposed, not run:** a bounded revision 3 of the completion model (section 4).
+-   **Not accepted:** D-06, D-02. **Not authorized:** C++ or Rust, R640, migration design.
+-   **Next action:** STOP for Codex and cody.
