@@ -2,7 +2,8 @@
 
 Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
 results section 9, conclusions section 10, re-review section 11). Revision 3 **COMPLETED** (preregistration section 12,
-results section 13, review section 14).
+results section 13, review section 14). Revision 4 **PREREGISTERED** (section 15), not yet
+run.
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -530,3 +531,73 @@ A revision 4 to check the first ruling would need an owner yes. It is not author
 - a reseed's binding, and reloading the binding after a restart (neither modelled);
 - a lost unlink of a segment above `L + 1` at `L = 2`, which needs MaxLsn 5 or more (not explored);
 - carried over: a stale watermark slot two generations back, K1 torn frames, and C16b against the gap rule.
+
+## 15. Revision 4 (preregistered before any revision-4 run)
+
+**Authority:**
+- Codex's review of #165 (`docs/handoff/PR165_Codex_Review.md`), item 4: "Revision 4: Recommend authorization. Keep
+  it narrowly scoped to the proposed R-CHAIN properties, negative mutations, and existing bounded verification
+  discipline."
+- cody answered the coordinator's request to authorize revision 4 by pasting that review. Under cody's standing rule
+  for pasted reviews, that starts it.
+
+**Question.** Does R-CHAIN (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md` section 2), together with the OD-2 binding, refuse
+every accepted log that holds a voided entry? This covers a lost binding and a lost unlink. And does it never refuse
+after crashes alone?
+
+**Model changes (part `wm` only):**
+- Each inode records `pn`, the inode (nonce) of the segment the writer appended after:
+  - old segment 1 has 0;
+  - old segment 3 in layout A has 1;
+  - the new `L + 1` has `S`'s inode.
+- `Scan` checks `pn` against the inode bound to the previous present name, for every segment after the first.
+- Mutation **`NoChain`** skips that check, which is revision 3's behaviour.
+- **New property NoVoidRevival, in `Safety`:** an accepted log is a prefix of the node's current log after any fault.
+  It is strict and covers both kinds of fault.
+- New probes:
+  - `PWmUnlinkRefuse`: refused after a lost unlink;
+  - `PWmOkLostUnlink`: accepted after a lost unlink with at least one watermark past `L`.
+
+**Lanes:**
+- Every wm lane runs at layouts A and B, with `L` 1 and 2.
+- Bounds are as in revision 3. Each run uses 1 worker, `-deadlock`, and a 2-hour cap; a run that hits the cap is
+  NOT COMPLETED.
+- `states/` is deleted after each run.
+- Each FAIL lane is also run against its named property alone, and every lane runs PWmDone.
+
+| Lane | A, L 1 | A, L 2 | B, L 1 | B, L 2 |
+|---|---|---|---|---|
+| W0 | PASS | PASS | PASS | PASS |
+| W0n | PASS | PASS | PASS | PASS |
+| **WM6 NoChain** | **FAIL, NoVoidRevival** | PASS | PASS | PASS |
+| WM1 LowerAfterClear | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM2 NoDrain | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM3 NoNonceCheck | FAIL, NoBindRevival | PASS | FAIL, NoBindRevival | FAIL, NoBindRevival |
+| WM4 AckBeforeWm | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss |
+| WM5 BindOnce | PASS | PASS | FAIL, NoBindRevival | PASS |
+
+**Why WM6 fails only at A with `L = 1`.** That is the revision-3 review's trace.
+- At A with `L = 2`, the bind of name 3 overwrites the old name 3, whose unlink was lost.
+- Layout B has no old segment above `L`.
+
+**Probes:**
+- PWmUnlinkRefuse: reached at A, `L = 1`.
+- PWmOkLostUnlink: reached at A, `L = 2`.
+- PWmLostBind, PWmOkLostBind, PWmBindRefuse: reached at A and B, `L = 1`.
+- PWmStray: not reached.
+
+**Regression:** R0 PASS.
+
+**Smoke runs, which count for nothing:** W0 at A and at B, with MaxLsn 3 and MaxCrash 1, found no violation.
+
+**Outside this revision. Each item is listed in section 16 when results are in.**
+- **The 3(b) replacement that keeps the nonce, and its mutation `ReplaceNewNonce`.** It happens after recovery, and
+  recovery is the model's last step.
+- **The two cases where R-CHAIN depends on the binding** (OBSOLETE_SEGMENT section 2): a lost rename over an old
+  `L + 1`, and a lost `L + 1` entry with an old segment directly after `S`. In this file-system model each needs two
+  lost directory operations across two `fsync`s, so neither is reachable with one fault. A lost write of a whole
+  directory block is not in the fault set.
+- **A segment named after the intent but before 2.1.** Structurally, this is layout A's segment 3: an old link and a
+  name above `L`. R-CHAIN does not depend on timing.
+- **A revival left over from an earlier truncation.** It needs two truncations.
+- **The spare header, the per-stream reseed, and the same-nonce C15 case.** None of them is in the model.

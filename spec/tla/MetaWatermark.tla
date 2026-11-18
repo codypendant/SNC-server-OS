@@ -23,6 +23,7 @@
 (*  then the scan and the checks of sections 3-5 decide.                      *)
 (* Revision 3: every watermark after the truncation carries the L + 1 binding *)
 (*  (OD-2); constant Layout adds a void tail of two records in segment 1.     *)
+(* Revision 4: segment headers carry pn, the predecessor's nonce (R-CHAIN).  *)
 (* Not modelled: the floor and reclaim (O-FLOOR), torn or misdirected WAL     *)
 (* writes (X-2 cases), several streams, the wire, process-kill I/O (V8).      *)
 EXTENDS Naturals, Sequences, FiniteSets
@@ -81,7 +82,7 @@ wmVars  == <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextX,
 vars == <<recVars, wmVars, fault, crashes>>
 
 MutOk == MUT \in {"none", "NoRule4", "BootFirst", "Adjacent", "K5", "AB",
-                  "LowerAfterClear", "NoDrain", "NoNonceCheck", "AckBeforeWm", "BindOnce"}
+                  "LowerAfterClear", "NoDrain", "NoNonceCheck", "AckBeforeWm", "BindOnce", "NoChain"}
 
 \* ---------------------------- rec: helpers --------------------------------
 Valid == {s \in Slots : slot[s][1] > 0}
@@ -238,7 +239,11 @@ Scan(d) ==
       \* design 4, "above the watermark": only format sectors may be discarded, so a
       \* valid record after the tail's first gap refuses
       Stray == \E y \in (E + 1) .. MaxLsn : Recs(Last)[y] # <<0, 0>>
-      Chain == \A n \in P : n > 1 => ino[d[n]].prev = Term(Recs(SegOf(d, n - 1))[n - 1])
+      Pred(n) == CHOOSE m \in P : m < n /\ \A k \in P : k < n => k <= m
+      \* FL-chain, plus R-CHAIN (revision 4): the link names the predecessor's nonce
+      Chain == \A n \in P : n > 1 =>
+                 /\ ino[d[n]].prev = Term(Recs(SegOf(d, n - 1))[n - 1])
+                 /\ (MUT # "NoChain" => ino[d[n]].pn = d[Pred(n)])
   IN IF P = {} \/ 1 \notin P \/ ino[d[1]].prev # 0 THEN [ok |-> FALSE, log |-> <<>>]
      ELSE IF ~GapFree THEN [ok |-> FALSE, log |-> <<>>]
      ELSE IF ~Chain \/ Stray THEN [ok |-> FALSE, log |-> <<>>]
@@ -264,13 +269,13 @@ WmInit ==
             \* two records in it at L = 1 (revision 2 review, finding 1).
             /\ IF Layout = "A"
                THEN /\ ino = [n \in 1..2 |-> IF n = 1
-                         THEN [first |-> 1, prev |-> 0,
+                         THEN [first |-> 1, prev |-> 0, pn |-> 0,
                                recs |-> [x \in 1..MaxLsn |-> IF x <= 2 THEN Old(x) ELSE <<0, 0>>]]
-                         ELSE [first |-> 3, prev |-> 1,
+                         ELSE [first |-> 3, prev |-> 1, pn |-> 1,
                                recs |-> [x \in 1..MaxLsn |-> IF x = 3 THEN Old(x) ELSE <<0, 0>>]]]
                     /\ nIno = 2
                     /\ dirDur = [n \in Names |-> CASE n = 1 -> 1 [] n = 3 -> 2 [] OTHER -> 0]
-               ELSE /\ ino = <<[first |-> 1, prev |-> 0,
+               ELSE /\ ino = <<[first |-> 1, prev |-> 0, pn |-> 0,
                                  recs |-> [x \in 1..MaxLsn |-> IF x <= 3 THEN Old(x) ELSE <<0, 0>>]]>>
                     /\ nIno = 1
                     /\ dirDur = [n \in Names |-> IF n = 1 THEN 1 ELSE 0]
@@ -339,7 +344,8 @@ C4 == bpc = "c4" /\
   LET n == nIno + 1
       lrec == ino[dirMem[SegOf(dirMem, L)]].recs[L]
   IN /\ ino' = [i \in 1..n |-> IF i = n
-                  THEN [first |-> L + 1, prev |-> Term(lrec), recs |-> EmptyRecs]
+                  THEN [first |-> L + 1, prev |-> Term(lrec), pn |-> dirMem[SegOf(dirMem, L)],
+                        recs |-> EmptyRecs]
                   ELSE ino[i]]
      /\ nIno' = n
      /\ pend' = Append(pend, [name |-> L + 1, nonce |-> n])
@@ -479,8 +485,14 @@ RevivalAboveW == outcome.st = "ok" =>
 NoBindRevival == outcome.st = "ok" /\ fault = "lostBind" =>
                    \A x \in 1..Len(outcome.log) : x <= Len(intended) /\ outcome.log[x] = intended[x]
 
+\* wm (revision 4): after any fault, an accepted log holds no voided entry: it is a
+\* prefix of the node's current log (covers a lost binding and a lost unlink).
+NoVoidRevival == outcome.st = "ok" =>
+                   /\ Len(outcome.log) <= Len(intended)
+                   /\ \A x \in 1..Len(outcome.log) : outcome.log[x] = intended[x]
+
 Safety == NoRollback /\ RecNoCrashRefusal /\ NoSilentLoss /\ WmNoCrashRefusal
-          /\ CrashOnlyExact /\ RevivalAboveW /\ NoBindRevival
+          /\ CrashOnlyExact /\ RevivalAboveW /\ NoBindRevival /\ NoVoidRevival
 
 \* Reachability probes (each expected to be violated, i.e. reached).
 PRecRule4     == ~(PART = "rec" /\ stage = "r4" /\ pw # {})
@@ -501,7 +513,9 @@ PWmStray      == ~(outcome.st = "refused" /\ fault = "none")  \* expected reache
 PRecActed     == ~(PART = "rec" /\ acted[1] >= 3)              \* vacuity check per rec lane
 PWmOkLostBind == ~(outcome.st = "ok" /\ fault = "lostBind")
 PWmBindRefuse == ~(outcome.st = "refused" /\ fault = "lostBind" /\ nextW > L + 1)
-PWmDone       == ~(outcome.st # "none")                         \* vacuity check per wm lane
+PWmDone       == ~(outcome.st # "none")
+PWmUnlinkRefuse == ~(outcome.st = "refused" /\ fault = "lostUnlink")
+PWmOkLostUnlink == ~(outcome.st = "ok" /\ fault = "lostUnlink" /\ nextW > L + 1)                         \* vacuity check per wm lane
 PWmRefused    == ~(outcome.st = "refused")
 PWmRerun      == ~(PART = "wm" /\ crashes > 0 /\ bpc = "c7")
 PWmRevived    == ~(outcome.st = "ok" /\
