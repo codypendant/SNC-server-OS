@@ -309,7 +309,7 @@ reclaim conformance work.
 | `m = 2` | unchanged; D-02 adds no admission rule. An `m = 1` group stays LOCAL_DURABLE (OD of #148) |
 | OD-4 (one authority) | the watermark is a validator only; disagreement refuses. The combined crash behaviour with the record, OD-4's own condition, is **not verified**: the parts are composed by argument (section 3) |
 
-**No frozen text needs a change [INF].** Rule 4 is the one place where it could be read as a change, against R2′
+**No frozen text needs a change [INF].** *Corrected 2026-11-18: section D of `docs/AFR_001_D02_RESTART_RESEED_NOTE.md` finds that R9-A, R9-B's meaning and R6.3′ item 1 do need a recorded revision.* Rule 4 is the one place where it could be read as a change, against R2′
 and R9-A/R9-B both. It is listed in section 11 (Y5), and rule 4 itself has not been re-reviewed since it was added
 (design 9).
 
