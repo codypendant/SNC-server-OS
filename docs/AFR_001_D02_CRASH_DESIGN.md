@@ -213,7 +213,7 @@ frame left after `E` in the old segment is then void under (d). This replaces R0
 acts by segment name. So frames never have to tell a half-done completion from damage. After the clear, the
 remaining question is whether completion's effects survive one fault. Two cases:
 
-- **The directory entry for `L + 1` is lost**, after the clear and before any acknowledged append.
+- **The directory entry for `L + 1` is lost**, at any time after the clear, until the next truncation.
   - Without a check, `S` is scanned to its old end, the void tail revives, and a watermark at `L` still passes.
     **That would be silent.**
   - **Rule (OD-2, `docs/handoff/PR163_Owner_Decisions.md`):** the watermark lowered by step 2.7 (section 4)
@@ -225,7 +225,15 @@ remaining question is whether completion's effects survive one fault. Two cases:
     a crash. The watermark at `L + 1` then matches `S`'s old record if the entry is identical, and the rest of the
     void tail returns unrefused (`docs/AFR_001_D02_MODEL.md` section 11).
   - **Below the floor.** If reclaim has removed segment `L + 1`, the check is skipped. Reclaim removes segments from
-    the front, so `S`, which holds the void tail, went first [INF; part of O-FLOOR, not modelled].
+    the front, so `S`, which holds the void tail, went first. This holds on two conditions:
+    - the floor is published durably before any delete;
+    - "below" means that `L + 1` is less than the floor segment's name.
+    [INF; part of O-FLOOR, not modelled]
+  - **After a restart**, the writer loads the binding from the newest valid slot when it opens the stream and
+    carries it forward [not modelled].
+  - **Open (revision-3 review, finding 1):** a lost unlink can bring back the same void entries with the binding
+    intact. The proposed rule is to refuse any segment named above `L` whose nonce is older than the binding's. It
+    is not modelled, and it awaits the owner (`docs/AFR_001_D02_MODEL.md` section 14).
 - **The unlink of a segment `M > L` is lost**, so the old segment `M` reappears.
   - If the new log reaches past `M`, recovery refuses: the watermark falls above the recovered end, or the record at
     the watermark has another CRC, or FL-chain fails.

@@ -1,8 +1,8 @@
 # MetaWatermark: a crash model for the D-02 crash design (preregistration and results)
 
 Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
-results section 9, conclusions section 10, re-review section 11). Revision 3 **PREREGISTERED** (section 12), not yet
-run.
+results section 9, conclusions section 10, re-review section 11). Revision 3 **COMPLETED** (preregistration section 12,
+results section 13, review section 14).
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -462,3 +462,71 @@ PWmDone was reached at B.
 **Not covered** (in addition to sections 2 and 8):
 - the floor skip of the binding check (3(e), "below the floor"), because the model has no floor;
 - a reseed's binding.
+
+## 13. Revision 3 results
+
+The setup was the same as for revision 2, with the model as committed in 37c8b14. There were 85 distinct runs. A
+script slip also repeated WM5's single-property run once per configuration, and the repeats gave identical results.
+Every run finished in under 4 seconds. `states/` was deleted after each run. Every lane's PWmDone probe was reached.
+
+**Every result matched its preregistered expectation.** Cells show the result, then distinct states (depth).
+
+| Lane | A, L 1 | A, L 2 | B, L 1 | B, L 2 |
+|---|---|---|---|---|
+| W0 | PASS 9,384 (37) | PASS 4,186 (34) | PASS 8,430 (37) | PASS 3,834 (34) |
+| W0n | PASS 1,278 (36) | PASS 706 (33) | PASS 1,254 (36) | PASS 682 (33) |
+| WM1 LowerAfterClear | FAIL WmNoCrashRefusal 258 (10) | FAIL WmNoCrashRefusal 301 (11) | FAIL WmNoCrashRefusal 160 (10) | FAIL WmNoCrashRefusal 184 (11) |
+| WM2 NoDrain | FAIL WmNoCrashRefusal 517 (12) | FAIL WmNoCrashRefusal 515 (12) | FAIL WmNoCrashRefusal 338 (12) | FAIL WmNoCrashRefusal 338 (12) |
+| WM3 NoNonceCheck | FAIL NoBindRevival 370 (11) | PASS 4,186 (34) | FAIL NoBindRevival 241 (11) | FAIL NoBindRevival 241 (11) |
+| WM4 AckBeforeWm | FAIL NoSilentLoss 693 (13) | FAIL NoSilentLoss 668 (13) | FAIL NoSilentLoss 477 (13) | FAIL NoSilentLoss 461 (13) |
+| WM5 BindOnce | PASS 9,384 (37) | PASS 4,186 (34) | **FAIL NoBindRevival 795 (14)** | PASS 3,834 (34) |
+
+For FAIL cells, the state counts are from the single-property run. Each Safety run failed as well.
+
+**Probes** (`L = 1`):
+- PWmLostBind was reached at A and B.
+- PWmOkLostBind was reached at A (3,335 states, depth 18) and at B (2,773, depth 18).
+- PWmBindRefuse was reached at A (1,061, depth 14) and at B (795, depth 14).
+- PWmStray was not reached at A or B.
+
+**Regression.** R0 passed, 97,903 states, the same as revision 2.
+
+**Reading [FACT for the model, INF for the design]:**
+- **WM5 at B, `L = 1`** reproduces the revision-2 review's counterexample under the old rule.
+- **W0 at B, `L = 1`** shows that the persistent binding closes it. Both use the same bounds and the same fault.
+- **PWmBindRefuse** shows the binding check refusing after the watermark has moved past `L`.
+- **PWmOkLostBind** shows a completion rerun repairing a lost binding with no refusal.
+- **OD-1.** Every lane ran with one data flush in flight. No lane reached a refusal without a fault (PWmStray), and
+  W0n passed in every configuration.
+
+## 14. Revision 3 review
+
+An independent reviewer (Opus) tried to break revision 3. They added invariants of their own in a wrapper module and
+ran them in their own copies. They found **no BLOCKER and no TLA+ error**.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| 1 | MAJOR | A revival of the shape that OD-2 ruled harmful is still accepted when a **lost unlink** causes it. At A with `L = 1` (12 states): the unlink of 3 is lost; `Old(2)` is appended to the new segment 2 and lands; then a crash before its watermark write. The watermark `(1, Old(1), binding)` is valid, and recovery accepts `Old(1) Old(2) Old(3)`. NoBindRevival covers only a lost binding. The asymmetry of section 11 finding 2 remains. The reviewer's own runs: every revival comes from a lost unlink (all four configurations), and this case arises only at A with `L = 1` | **open, for cody with Codex** (below) |
+| 2 | MINOR | Design 3(e) still said "before any acknowledged append" | fixed in the design |
+| 3 | MINOR | Nothing says where the writer gets the binding after a restart. Recovery is the model's last step. If a restarted writer dropped the binding, BindOnce's hole would come back | design: the writer loads the binding from the newest valid slot when it opens the stream, and carries it forward [not modelled] |
+| 4 | MINOR | PWmBindRefuse can also be reached by a refusal on the record or end check. The reviewer's stricter probe shows the binding check itself refusing at A `L = 1`, B `L = 1` and B `L = 2`. The WM5 against W0 pair at B with `L = 1` shows it too | noted |
+| 5 | NOTE | The below-floor skip is safe by reasoning if (a) the floor is published durably before any delete (D-06 already requires this), and (b) "below" means the binding's name is below the floor segment's name | both conditions added to the design [INF] |
+| 6 | NOTE | The model follows OD-2 (check against name `L + 1`, every write after 2.7 carries the binding, reruns rebind) | none |
+| 7 | NOTE | OD-4 holds in the model: the watermark can only turn an acceptance into a refusal, never change what is accepted. Caveat: a slot with no binding is read as "no truncation", which is safe only under the one-fault limit | disclosed |
+
+**The open question (finding 1).** OD-2 treats a revived void entry as harmful when a lost binding causes it. The same
+entries can come back when a lost unlink causes it, and they are just as identical (G-15) and just as far above `W`.
+Two consistent rulings:
+- **Close it too (my recommendation).** Segment nonces only increase. Recovery refuses any segment named above `L`
+  whose nonce is older than the binding's nonce. The binding is already in every slot, so the check is one comparison
+  per segment, and it covers both faults with one rule [INF, not modelled].
+- **Lenient for unlinks.** State why a lost unlink differs from a lost binding. I see no principled difference.
+
+A revision 4 to check the first ruling would need an owner yes. It is not authorized.
+
+**Reviewer's UNRESOLVED items:**
+- the ruling above;
+- the below-floor skip and reclaim ordering (reasoning only; O-FLOOR is not modelled);
+- a reseed's binding, and reloading the binding after a restart (neither modelled);
+- a lost unlink of a segment above `L + 1` at `L = 2`, which needs MaxLsn 5 or more (not explored);
+- carried over: a stale watermark slot two generations back, K1 torn frames, and C16b against the gap rule.
