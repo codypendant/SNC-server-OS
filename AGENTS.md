@@ -3822,3 +3822,20 @@ or source comments.
     `E + 1` links; `S` other than segment 1; two-fault cases. A revision 5 is proposed, NOT authorized.
 -   **Not accepted:** R-CHAIN (OD-6), D-02, R-23, O-FLOOR. **Not authorized:** revision 5, X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): MetaWatermark revision 5, SegChain.tla (spec/tla, docs)
+
+-   **Trigger:** Codex's review of #166 (`docs/handoff/PR166_Codex_Review.md`; only its later part was pasted), "YES to
+    Revision 5"; cody: "Yeah, 166 is approved to be merged" (#166 merged, 2bc73a0).
+-   **Output:** `spec/tla/SegChain.tla` (prereg 556e568) with four narrow lane sets; results and review in
+    `docs/AFR_001_D02_MODEL.md` sections 18-20.
+-   **Results:** 123 runs, 120 as preregistered, 3 deviations traced. U2: today's order refuses after a crash alone;
+    both fixes pass, only header-before-rename passes without a new scan rule (recommended). C15 same-nonce
+    replacement passes. Wrong links (constant, zero, n-1, fixed at prepare) now fail. Review: no BLOCKER; MAJOR 1
+    "check only the newest" fails under a lost directory block, so R-CHAIN stays on every segment; MAJOR 2 the
+    seed's binding is needed only if a seed may rename over an old name.
+-   **UNRESOLVED:** O-R (does R6.5 meet C-S and replace the binding), crashes inside seed/completion/recovery,
+    `L = retain_from - 1`, V8 late writes vs C15, header sector atomicity, FL-floor, O-FLOOR, bounds.
+-   **Not accepted:** R-CHAIN (OD-6), D-02, R-23, O-FLOOR. **Not started:** the consolidated D-02 acceptance review.
+    **Not authorized:** X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.
