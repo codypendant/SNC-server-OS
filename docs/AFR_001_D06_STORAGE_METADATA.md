@@ -4,9 +4,11 @@ Status: **PROPOSED, docs only.** Authorized by the owner decision of 2026-11-17
 (`docs/handoff/PR155_Owner_Decision.md`, "Next, authorized"). Nothing here authorizes C++ or Rust work, an R640 run,
 the X-2 harness, a D-02 choice or an R9-F freeze.
 
-**One recorded revision of frozen text is proposed and needs the owner** (section 4.2): the term history `H` is
-derived from per-record terms instead of being kept as a separate structure. Everything else realizes frozen text
-without changing it.
+**One recorded revision of frozen text:** the term history `H` is derived from per-record terms instead of being kept
+as a separate structure (section 4.2). cody conditionally approved it on 2026-11-18
+(`docs/handoff/PR157_Owner_Decision.md`), under Codex's four conditions, and final acceptance depends on D-02.
+Everything else realizes frozen text without changing it. D-06 as a whole stays PROPOSED and is not frozen (Codex's
+review, `docs/handoff/PR157_Codex_Review.md`).
 
 Labels: [FACT-SNC] means read from this repository at commit 38ad581; [EXT] comes from a cited primary source; [INF]
 is inferred here; [HYP] is a guess not yet checked.
@@ -17,10 +19,12 @@ is inferred here; [HYP] is a guess not yet checked.
    It alternates between two files by generation and carries a whole-copy CRC. It is the only place that holds the
    node's durable term, every stream's incomplete flag and truncation intent, the checkpoint pointer and today's lease
    fields.
+   Metadata rollback (a lost or silently replaced record write, AFR-R-23) is **not** solved by this format. It stays
+   an explicit D-02/R-23 blocker (Codex's review of #157).
 2. **Writes go through `meta_mu`.** Every write of the record is a compare-and-write under one small mutex,
    `meta_mu`, held only while the copy is built and written. All record writes are rare control events.
 3. **A term on every WAL record.** The term history of a stream is what its records say (Raft), with a durable floor
-   in the oldest retained segment's header.
+   named by the checkpoint manifest (`retain_from`, with `prev_term` in that segment's header).
 4. **The valid end is implied by segment layout.** After a truncation, records within a segment at or above the next
    segment's first LSN are void, so no marker is needed.
 5. **No split per shard.**
@@ -146,17 +150,29 @@ Constraints on writes:
 
 None of them runs per operation. The latency of one 8 KiB write is not measured. It is a control-path cost (O8).
 
-### 4.2 Per-record terms; the term history is the log (proposed revision)
+### 4.2 Per-record terms; the term history is the log (recorded revision, owner decision of 2026-11-18)
 
 - **Record header.** `WalRecord` grows from 56 to 64 bytes, with `u64 term`: the term in which a primary first wrote
   the entry.
   - A standby stores the term it receives and never restamps it [EXT: Raft].
   - Cost: 8 bytes per record, not measured (O8).
-- **Floor.** Each segment header gains `prev_term`, the term of the record at `first_lsn - 1`. This is Raft's
-  prevLogTerm, protected by the header CRC.
-  - The floor of `H_s` is the oldest retained segment's `(prev_term, first_lsn - 1)`.
-  - It moves only when reclaim deletes a segment, and reclaim keeps segments for lagging standbys (`keep_from`). So
-    members that the retained log can still serve are not reseeded.
+- **Floor.** Each checkpoint manifest records, per stream, `retain_from`: the first LSN of the oldest segment that
+  this checkpoint's reclaim keeps. Reclaim keeps segments for lagging standbys (`keep_from`), so members that the
+  retained log can still serve are not reseeded. Each segment header gains `prev_term`, the term of the record at
+  `first_lsn - 1`, protected by the header CRC (Raft's prevLogTerm).
+  - The floor of `H_s` is `(prev_term of segment retain_from, retain_from - 1)`.
+  - Recovery refuses if no segment starts at `retain_from`, or if a segment is missing above it, except the newest
+    one, which is D-02's (condition 4). So losing the oldest retained segments is damage and is not mistaken for
+    reclaim.
+  - `retain_from` never exceeds the checkpoint's `start_lsn`. A truncation's `L` is at or above the checkpoint's
+    `max_lsn` (4.3 step 1), so completion never deletes the floor segment.
+  - A stream with no checkpoint yet, or one freshly reseeded, has `retain_from` 1 and `prev_term` 0. The reseed
+    writes its first segment with the `prev_term` of the copied state's end.
+  - Segment `L+1` (4.3 step 4) gets `prev_term` equal to the term of record `L`.
+  - When two segments are both retained, the scan checks `prev_term` against the previous segment's last record
+    term, and a mismatch refuses.
+  - Reclaim deletes only after the manifest that names the new `retain_from` is published. Segments left below
+    `retain_from` by a crash in the middle of a reclaim are ignored and deleted.
 - **`H_s`.** It is the sequence of term changes over stream `s`'s retained records, plus the floor.
   - It is built in memory at recovery by a pass over **every** retained segment, headers and record terms, from the
     floor up, applying the void rule (4.3). The ordinary scan skips segments the checkpoint covers, so this is a
@@ -178,7 +194,7 @@ None of them runs per operation. The latency of one 8 KiB write is not measured.
 
 So every `H_s` that recovery can see is a function of one record copy and the WAL under that copy's intents.
 
-**What changes in frozen text, and why.** The safety analysis keeps `H_i` "durable, with a checksum and a durable
+**What changed in frozen text, and why** (recorded revision; owner decision of 2026-11-18). The safety analysis keeps `H_i` "durable, with a checksum and a durable
 compaction floor, so that damage is distinguishable from compaction", and says a damaged `H` refuses (R6.4, G-14(a)).
 Under this design:
 - `H` is durable and checksummed, because each record and header has a CRC.
@@ -187,18 +203,11 @@ Under this design:
   - a gap between segments or a bad header refuses today;
   - damage inside a segment is today read as the log's end (R-01), and that is D-02's obligation.
 
-The proposed revision of the `H_i` paragraph (safety analysis, Member state) reads:
-
-> `H_i` is the sequence of terms on `i`'s retained, non-void WAL records, with a floor `(prev_term, first_lsn - 1)`
-> in the oldest retained segment's header. It changes only by append, by a recorded truncation, or by reclaim of
-> covered segments. A member whose end, or whose truncation point, is below the answering member's floor, or whose
-> last term is below its floor term, is reseeded (R6.4). Damage to `H_i` is WAL damage and refuses as G-14(a)
-> requires; detecting damage inside a segment, and the loss of a middle segment or of a truncation's new segment
-> (which would revive a void tail), is part of AFR-D-02. Losing the oldest retained segments cannot be told from
-> reclaim; it leads only to a reseed.
-
-This replaces the frozen sentence that rebuilding `H` from term stamps is an operator action: there is nothing left
-to rebuild.
+The revised `H_i` paragraph is in `docs/AFR_001_SAFETY_ANALYSIS.md` (Member state), with the owner's four conditions
+written in. Damage that leaves nothing to detect stays with D-02:
+- damage inside a segment, read as the log's end (R-01);
+- a write or directory entry that was acknowledged and then lost, for example the truncation's new segment `L+1`, which
+  would revive a void tail, or a metadata rollback (R-23).
 
 **Alternative considered: a separate `H` in the record, as in KIP-101.** It was drafted and reviewed (section 9). It
 detects only damage that crosses a term boundary, which is more than this design detects, but not all damage. It also
@@ -209,8 +218,7 @@ added five failure modes:
 - an entry cap forces checkpoints that deadlock with promotion;
 - a checkpoint-based floor forces reseeds.
 
-That breaks KISS for a partial gain. If the owner keeps the frozen wording, that alternative and its fixes are the
-fallback.
+That breaks KISS for a partial gain. The owner chose the derived history.
 
 ### 4.3 Truncation and completion (2.2 items 1-5)
 
@@ -257,7 +265,7 @@ fallback.
 
 **Recovery, per stream.** In order:
 1. read the record;
-2. if the slot is PENDING, run completion, then the clear;
+2. if the slot is PENDING, run completion, then the clear; unlink any leftover `TMP` file;
 3. adopt a spare;
 4. scan with the void rule;
 5. build `H_s`.
@@ -318,7 +326,7 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 ## 7. Not changed
 
 - **`DIR/role`** stays as it is (section 2).
-- **The checkpoint manifest** stays where it is. It gains each stream's `max_lsn` (4.3 step 1).
+- **The checkpoint manifest** stays where it is. It gains each stream's `max_lsn` (4.3 step 1) and `retain_from` (4.2).
 
 ## 8. Left out, on purpose
 
@@ -336,12 +344,14 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 ## 9. Unresolved, proposed checks, review record
 
 **UNRESOLVED:**
-- **Silent fallback of the record.** A lost or misdirected write of a record copy, or later damage to the current copy
-  (AFR-R-23), silently falls back to the previous generation. The term or an intent can then roll back. A/B copies and
+- **BLOCKER for D-06 acceptance (Codex's review of #157): metadata rollback.** A lost or misdirected write of a record
+  copy, or later damage to the current copy (AFR-R-23), silently falls back to the previous generation. It hits R4
+  fencing and the reconciliation guarantees, and the format does not solve it. The term or an intent can then roll back. A/B copies and
   the CRC detect neither case.
   - The P7 boot read against the witness record catches a rolled-back term on the promotion path only.
   - This is the same class of fault as D-02's silent loss, and it stays with D-02 and R-23.
-- **Damage inside a segment** (R-01, D-02). The term history inherits it, under the proposed revision of 4.2.
+- **Damage inside a segment** (R-01, D-02), and a lost acknowledged directory entry such as segment `L+1`. The term
+  history inherits both under the revision of 4.2 (condition 4).
 - **Costs, none measured** (O8, X-1):
   - the 8 KiB write;
   - the 8 bytes per record;
@@ -351,18 +361,12 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 - **TEXT ONLY clauses.** The incarnation and the answering-side clauses stay TEXT ONLY. This document realizes them; it
   does not check them.
 
-**Proposed, not run: a small model.** It would cover:
-- completion's steps 2.1 to 3 as separate actions, with a crash anywhere;
-- the writer's reopen;
-- the void rule with two truncations before a checkpoint;
-- spare adoption;
-- reclaim order;
-- A/B selection with a torn write;
-- recovery's order.
-
-Properties: I5, and no void record is ever scanned, shipped or acknowledged. `ReconBlockers.tla` makes `ApplyIntent`
-and `Crash` atomic, so it covers none of this. Once C++ work is authorized, O3's crash-consistency test covers the
-same cases.
+**Crash model of completion: run.** Codex authorized it in the review of #157. Plan and results are in
+`docs/AFR_001_COMPLETION_CRASH.md` (`spec/tla/Completion.tla`):
+- Within its bounds, a crash at any step leaves the scan and the catch-up reader exact.
+- Every guarded step except the first directory fsync is shown necessary by a failing mutation.
+- Torn WAL writes, lost writes, reclaim and concurrency are outside the model.
+- The procedure is not accepted until Codex and cody review this evidence.
 
 **Review record.** Three rounds were told to break the design: three independent reviewers, then one on each
 revision. All were read-only. Round 3's fixes have not been re-reviewed.
@@ -373,7 +377,7 @@ revision. All were read-only. Round 3's fixes have not been re-reviewed.
 | 2 | One slot per stream let a second truncation revive void records (G-15) | BLOCKER | fixed: the void rule, no marker |
 | 3 | Unlinking a spare whose rename was lost deleted acknowledged records | BLOCKER | fixed: step 2.2 |
 | 4 | Catch-up reads shipped void records; the marker cleared too early | BLOCKER | fixed: the void rule in both readers; reclaim order |
-| 5 | A derived `H` dropped G-14(a)'s refusal for damaged `H` (frozen text) | BLOCKER | **owner decision**: proposed revision in 4.2. A separate `H` was drafted in round 1 and broke in round 2 (finding 13) |
+| 5 | A derived `H` dropped G-14(a)'s refusal for damaged `H` (frozen text) | BLOCKER | **owner decision**: recorded revision (4.2; `docs/handoff/PR157_Owner_Decision.md`). A separate `H` was drafted in round 1 and broke in round 2 (finding 13) |
 | 6 | Writing term and role together skipped the start barrier | MAJOR | fixed: `DIR/role` unchanged |
 | 7 | Completion ran against a live writer and a held spare | MAJOR | fixed: step 2.1 |
 | 8 | No floor check after waiting for a checkpoint | MAJOR | fixed: step 1 |
