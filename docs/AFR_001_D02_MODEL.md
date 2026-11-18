@@ -1,7 +1,8 @@
 # MetaWatermark: a crash model for the D-02 crash design (preregistration and results)
 
 Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
-results section 9, conclusions section 10).
+results section 9, conclusions section 10, re-review section 11). Revision 3 **PREREGISTERED** (section 12), not yet
+run.
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -398,3 +399,66 @@ authorized.
 - whether the design serialises data flushes per stream;
 - whether discarding valid records after a format-sector gap is safe against C16b (the model cannot decide);
 - carried over from the first review: a stale watermark slot two generations back, and K1 torn frames.
+
+## 12. Revision 3 (preregistered before any revision-3 run)
+
+**Authority:**
+- Codex's updated review of #163 (`docs/handoff/PR163_Codex_Review.md`): "one narrowly scoped revision 3 covering
+  the persistent nonce binding and the corrected serialization assumptions."
+- Owner decisions OD-1 to OD-4 (`docs/handoff/PR163_Owner_Decisions.md`). OD-3 authorizes this run.
+
+**Question.** With the binding carried in every watermark write (OD-2) and one data flush in flight per stream
+(OD-1), does part `wm` hold its properties? That includes NoBindRevival when the old segment holds a void tail of two
+records, which is the revision-2 review's counterexample. Does the combined behaviour of the watermark as a validator
+only (OD-4) refuse on every disagreement and never accept an alternative reading?
+
+**Model changes (all in part `wm`; part `rec` is unchanged):**
+- `AppWm` writes the binding nonce of `L + 1` in every watermark after the truncation. Revision 2 wrote 0.
+- The check compares the binding with name `L + 1`. Revision 2 compared it with name `W + 1`, which is the same at
+  `W = L`.
+- **Constant `Layout`:**
+  - `"A"` is revision 2's starting state;
+  - `"B"` puts old LSN 1-3 all in segment 1, so at `L = 1` two void records sit in segment 1.
+- **Mutation `BindOnce`:** revision 2's behaviour, where only the lowered watermark carries the binding.
+- New probes:
+  - `PWmOkLostBind`: accepted after a lost binding (a completion rerun repairs it);
+  - `PWmBindRefuse`: refused after a lost binding, with at least one watermark past `L`.
+- **Serialization (OD-1)** is `Pipe = FALSE` in every lane. W0P is not rerun, because OD-1 forbids that case. Its
+  revision-2 result stays as the reason for OD-1.
+
+**Bounds and setup:**
+- the same as revision 2: MaxGen 6, MaxCrash 3, one fault, MaxLsn 4;
+- 1 worker per run, `-deadlock`, a 2-hour cap per run, with NOT COMPLETED on timeout;
+- `states/` deleted after each run.
+
+**Lanes:** every wm lane runs at `Layout` A and B, and at `L` 1 and 2. Each FAIL lane is also run against the named
+property alone, and every lane runs PWmDone (vacuity).
+
+| Lane | A, L 1 | A, L 2 | B, L 1 | B, L 2 |
+|---|---|---|---|---|
+| W0 | PASS | PASS | PASS | PASS |
+| W0n (no fault) | PASS | PASS | PASS | PASS |
+| WM1 LowerAfterClear | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM2 NoDrain | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM3 NoNonceCheck | FAIL, NoBindRevival | PASS | FAIL, NoBindRevival | FAIL, NoBindRevival |
+| WM4 AckBeforeWm | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss |
+| **WM5 BindOnce** | PASS | PASS | **FAIL, NoBindRevival** | PASS |
+
+**Why these expectations:**
+- **WM5:** the revival needs two void records past `L` in the old segment and one append that moves the watermark.
+  Only B with `L = 1` has both. At B with `L = 2`, the one void record is `Old(3)`. An append of `Old(3)` is the
+  identical entry, and an append of `New(3)` mismatches record `W`.
+- **WM3 at B with `L = 2`:** with no binding check at all, the lowered watermark at `L` does not see `Old(3)` come
+  back.
+
+**Probes** (at A and B with `L = 1`): PWmLostBind, PWmOkLostBind and PWmBindRefuse are all reached. PWmStray is not
+reached.
+
+**Regression.** R0 for part `rec` is run once (unchanged part): PASS.
+
+**Smoke runs, which count for nothing:** W0 at A and at B with MaxLsn 3 and MaxCrash 1 showed no violation, and
+PWmDone was reached at B.
+
+**Not covered** (in addition to sections 2 and 8):
+- the floor skip of the binding check (3(e), "below the floor"), because the model has no floor;
+- a reseed's binding.

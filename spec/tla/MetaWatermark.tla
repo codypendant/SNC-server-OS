@@ -21,6 +21,8 @@
 (*  write, a lost watermark write, or one directory operation lost after its  *)
 (*  fsync. Recovery is terminal: completion reruns if PENDING (crashable),    *)
 (*  then the scan and the checks of sections 3-5 decide.                      *)
+(* Revision 3: every watermark after the truncation carries the L + 1 binding *)
+(*  (OD-2); constant Layout adds a void tail of two records in segment 1.     *)
 (* Not modelled: the floor and reclaim (O-FLOOR), torn or misdirected WAL     *)
 (* writes (X-2 cases), several streams, the wire, process-kill I/O (V8).      *)
 EXTENDS Naturals, Sequences, FiniteSets
@@ -51,13 +53,14 @@ VARIABLES slot,    \* slot -> <<g, v>>  (v identifies the bytes)
           refusedR \* recovery refused
 \* ============================== PART wm ===================================
 CONSTANTS L, MaxLsn,
-          Pipe       \* wm: TRUE lets data(x + 1) be in flight with data(x)
+          Pipe,      \* wm: TRUE lets data(x + 1) be in flight with data(x)
+          Layout     \* wm: "A" segment 1 = LSN 1..2, segment 3 = LSN 3; "B" segment 1 = LSN 1..3
 VARIABLES ino,     \* nonce -> [first, prev, recs : [1..MaxLsn -> entry or 0]]
           nIno,
           dirDur,  \* durable bindings: name -> nonce (0 = none)
           dirMem,  \* in-memory view
           pend,    \* pending directory operations (sequence)
-          wm,      \* durable watermark [lsn, e, nonce]
+          wm,      \* durable watermark [lsn, e, nonce]; nonce # 0 binds name L + 1 (3(e), OD-2)
           wmCo,    \* coalesced watermark not yet submitted (or NoWm)
           recSt,   \* record slot: "NONE" or "PENDING"
           bpc,     \* program counter of part wm
@@ -78,7 +81,7 @@ wmVars  == <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextX,
 vars == <<recVars, wmVars, fault, crashes>>
 
 MutOk == MUT \in {"none", "NoRule4", "BootFirst", "Adjacent", "K5", "AB",
-                  "LowerAfterClear", "NoDrain", "NoNonceCheck", "AckBeforeWm"}
+                  "LowerAfterClear", "NoDrain", "NoNonceCheck", "AckBeforeWm", "BindOnce"}
 
 \* ---------------------------- rec: helpers --------------------------------
 Valid == {s \in Slots : slot[s][1] > 0}
@@ -248,7 +251,7 @@ Check(d) ==
   IN IF ~s.ok THEN Ref
      ELSE IF wm.lsn > E THEN Ref
      ELSE IF wm.lsn >= 1 /\ s.log[wm.lsn] # wm.e THEN Ref
-     ELSE IF MUT # "NoNonceCheck" /\ wm.nonce # 0 /\ d[wm.lsn + 1] # wm.nonce THEN Ref
+     ELSE IF MUT # "NoNonceCheck" /\ wm.nonce # 0 /\ d[L + 1] # wm.nonce THEN Ref
      ELSE [st |-> "ok", log |-> s.log]
 
 EmptyRecs == [x \in 1..MaxLsn |-> <<0, 0>>]
@@ -257,13 +260,20 @@ WmInit ==
   /\ IF PART = "wm"
        THEN \* old log: segment 1 holds LSN 1..2, segment 3 holds LSN 3; acknowledged
             \* through 2; the watermark for 3 is coalesced, not yet submitted.
-            /\ ino = [n \in 1..2 |-> IF n = 1
+            \* Layout "B": all three in segment 1, so a truncation leaves a void tail of
+            \* two records in it at L = 1 (revision 2 review, finding 1).
+            /\ IF Layout = "A"
+               THEN /\ ino = [n \in 1..2 |-> IF n = 1
                          THEN [first |-> 1, prev |-> 0,
                                recs |-> [x \in 1..MaxLsn |-> IF x <= 2 THEN Old(x) ELSE <<0, 0>>]]
                          ELSE [first |-> 3, prev |-> 1,
                                recs |-> [x \in 1..MaxLsn |-> IF x = 3 THEN Old(x) ELSE <<0, 0>>]]]
-            /\ nIno = 2
-            /\ dirDur = [n \in Names |-> CASE n = 1 -> 1 [] n = 3 -> 2 [] OTHER -> 0]
+                    /\ nIno = 2
+                    /\ dirDur = [n \in Names |-> CASE n = 1 -> 1 [] n = 3 -> 2 [] OTHER -> 0]
+               ELSE /\ ino = <<[first |-> 1, prev |-> 0,
+                                 recs |-> [x \in 1..MaxLsn |-> IF x <= 3 THEN Old(x) ELSE <<0, 0>>]]>>
+                    /\ nIno = 1
+                    /\ dirDur = [n \in Names |-> IF n = 1 THEN 1 ELSE 0]
             /\ dirMem = dirDur
             /\ wm = [lsn |-> 2, e |-> Old(2), nonce |-> 0]
             /\ wmCo = [lsn |-> 3, e |-> Old(3), nonce |-> 0]
@@ -384,7 +394,7 @@ DataLand == bpc = "app" /\ \E w \in dPend :
 AppWm == bpc = "app" /\ Done(nextW) /\
   LET x == nextW
       e == intended[x]
-  IN /\ \/ wm' = [lsn |-> x, e |-> e, nonce |-> 0] /\ fault' = fault
+  IN /\ \/ wm' = [lsn |-> x, e |-> e, nonce |-> (IF MUT = "BindOnce" THEN 0 ELSE wIno)] /\ fault' = fault
         \/ FaultOn /\ fault = "none" /\ wm' = wm /\ fault' = "lostWm"
      /\ acked' = acked \cup {<<x, e>>}
      /\ nextW' = x + 1
@@ -489,6 +499,8 @@ PWmLostUnlink == PWmFault("lostUnlink")
 PWmLostBind   == PWmFault("lostBind")
 PWmStray      == ~(outcome.st = "refused" /\ fault = "none")  \* expected reached only if Pipe
 PRecActed     == ~(PART = "rec" /\ acted[1] >= 3)              \* vacuity check per rec lane
+PWmOkLostBind == ~(outcome.st = "ok" /\ fault = "lostBind")
+PWmBindRefuse == ~(outcome.st = "refused" /\ fault = "lostBind" /\ nextW > L + 1)
 PWmDone       == ~(outcome.st # "none")                         \* vacuity check per wm lane
 PWmRefused    == ~(outcome.st = "refused")
 PWmRerun      == ~(PART = "wm" /\ crashes > 0 /\ bpc = "c7")
