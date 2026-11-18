@@ -7,8 +7,11 @@ the X-2 harness, a D-02 choice or an R9-F freeze.
 **One recorded revision of frozen text:** the term history `H` is derived from per-record terms instead of being kept
 as a separate structure (section 4.2). cody conditionally approved it on 2026-11-18
 (`docs/handoff/PR157_Owner_Decision.md`), under Codex's four conditions, and final acceptance depends on D-02.
-Everything else realizes frozen text without changing it. D-06 as a whole stays PROPOSED and is not frozen (Codex's
-review, `docs/handoff/PR157_Codex_Review.md`).
+Everything else realizes frozen text without changing it. **Items 4-14 of the format (listed in
+`docs/AFR_001_D06_FORMAT_DECISION.md`) were CONDITIONALLY ACCEPTED by the owner on 2026-11-18**
+(`docs/handoff/PR160_Owner_Decision.md`): final acceptance depends on D-02, R-23 stays a blocker, O-FLOOR before
+checkpoint/reclaim conformance work, costs measured before claims, no freeze, no C++ or Rust. D-06 as a whole is not
+finally accepted and is not frozen.
 
 Labels: [FACT-SNC] means read from this repository at commit 38ad581; [EXT] comes from a cited primary source; [INF]
 is inferred here; [HYP] is a guess not yet checked.
