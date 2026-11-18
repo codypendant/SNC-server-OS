@@ -24,7 +24,8 @@ is inferred here; [HYP] is a guess not yet checked.
 2. **Writes go through `meta_mu`.** Every write of the record is a compare-and-write under one small mutex,
    `meta_mu`, held only while the copy is built and written. All record writes are rare control events.
 3. **A term on every WAL record.** The term history of a stream is what its records say (Raft), with a durable floor
-   named by the checkpoint manifest (`retain_from`, with `prev_term` in that segment's header).
+   named by the checkpoint manifest (`retain_from`, `floor_term`; segment headers carry `prev_term` as a checked link,
+   `docs/AFR_001_D06_BOUNDARY.md` section 3).
 4. **The valid end is implied by segment layout.** After a truncation, records within a segment at or above the next
    segment's first LSN are void, so no marker is needed.
 5. **No split per shard.**
@@ -157,22 +158,27 @@ None of them runs per operation. The latency of one 8 KiB write is not measured.
   - A standby stores the term it receives and never restamps it [EXT: Raft].
   - Cost: 8 bytes per record, not measured (O8).
 - **Floor.** Each checkpoint manifest records, per stream, `retain_from`: the first LSN of the oldest segment that
-  this checkpoint's reclaim keeps. Reclaim keeps segments for lagging standbys (`keep_from`), so members that the
-  retained log can still serve are not reseeded. Each segment header gains `prev_term`, the term of the record at
-  `first_lsn - 1`, protected by the header CRC (Raft's prevLogTerm).
-  - The floor of `H_s` is `(prev_term of segment retain_from, retain_from - 1)`.
+  this checkpoint's reclaim keeps, and `floor_term`, the term of record `retain_from - 1`. Reclaim keeps segments for
+  lagging standbys (`keep_from`), so members that the retained log can still serve are not reseeded. Each segment
+  header gains `prev_term`, the term of the record at `first_lsn - 1`, protected by the header CRC (Raft's
+  prevLogTerm). The manifest is the floor's only authority; the header is a link checked against it (check FL, the
+  rules and the crash table are in `docs/AFR_001_D06_BOUNDARY.md` section 3).
+  - The floor of `H_s` is `(floor_term, retain_from - 1)`.
   - Recovery refuses if no segment starts at `retain_from`, or if a segment is missing above it, except the newest
     one, which is D-02's (condition 4). So losing the oldest retained segments is damage and is not mistaken for
     reclaim.
   - `retain_from` never exceeds the checkpoint's `start_lsn`. A truncation's `L` is at or above the checkpoint's
     `max_lsn` (4.3 step 1), so completion never deletes the floor segment.
-  - A stream with no checkpoint yet, or one freshly reseeded, has `retain_from` 1 and `prev_term` 0. The reseed
-    writes its first segment with the `prev_term` of the copied state's end.
+  - A stream with no checkpoint yet has the floor `(0, 0)`. A seed copies the primary's manifest, so the receiver
+    rewrites its floor to `(start_term, start_lsn - 1)` and creates segment `start_lsn` before the record write that
+    makes the directory a space (boundary rule 5).
   - Segment `L+1` (4.3 step 4) gets `prev_term` equal to the term of record `L`.
-  - When two segments are both retained, the scan checks `prev_term` against the previous segment's last record
-    term, and a mismatch refuses.
-  - Reclaim deletes only after the manifest that names the new `retain_from` is published. Segments left below
-    `retain_from` by a crash in the middle of a reclaim are ignored and deleted.
+  - When two segments are both retained, the `H` pass checks `prev_term` against the term of the last **non-void**
+    record before it (FL-chain), and a mismatch refuses. After a truncation the straddling segment's last physical
+    record is void, so it is not the one compared.
+  - Reclaim's delete set is computed before the manifest is written, and deleted only after the record write that
+    names the manifest returns. Segments left below `retain_from` by a crash in the middle of a reclaim are ignored
+    and deleted.
 - **`H_s`.** It is the sequence of term changes over stream `s`'s retained records, plus the floor.
   - It is built in memory at recovery by a pass over **every** retained segment, headers and record terms, from the
     floor up, applying the void rule (4.3). The ordinary scan skips segments the checkpoint covers, so this is a
@@ -182,7 +188,7 @@ None of them runs per operation. The latency of one 8 KiB write is not measured.
   - R6.2's `t*` and `end_j(t*)` come from this index.
   - R6.4's "`H_j` no longer covers `t_k`" means `t_k` is below `j`'s floor term, **or** `k`'s end or the truncation
     point is below `j`'s floor LSN. Catch-up finding a segment already reclaimed (`read_stream_range` returns false,
-    `storage.cpp:447`) is the same case and leads to R6.4, not to a retry loop (R6.6).
+    `storage.cpp:449`) is the same case and leads to R6.4, not to a retry loop (R6.6).
   - A term in which a stream wrote nothing leaves no trace. So the crash-loop growth noted in 2.4 does not apply to
     `H`.
 
@@ -226,16 +232,20 @@ That breaks KISS for a partial gain. The owner chose the derived history.
    - The node takes `control_mu_`, which a checkpoint holds throughout, so an intent waits for any in-progress
      checkpoint by construction.
    - Under `control_mu_` it checks R6.3′ item 1 and R6.4: `L` must be at least the active checkpoint's **maximum**
-     LSN for the stream, otherwise the stream is reseeded. The checkpoint is fuzzy: a part holds object images up to
-     `max_lsn`, which can be above `start_lsn` (`shard.cpp:2319`, `:2654`), and a rebuild from it cannot undo an
-     image above `L`. The manifest gains `max_lsn` per stream (section 7).
+     LSN for the stream, otherwise the stream is reseeded. The checkpoint is fuzzy: a part holds object images and
+     omits objects deleted during its walk, so it can reflect operations above `start_lsn` (`shard.cpp:2319`,
+     `:2632-2654`), and a rebuild from it cannot undo them. The manifest gains `max_lsn` per stream (section 7):
+     the stream's last assigned LSN when the part's walk ends. Today's in-memory `max_lsn` (images only, starting at
+     0) is too low for this (`docs/AFR_001_D06_BOUNDARY.md` rule 7).
    - It then takes `meta_mu` and writes `PENDING (t_j, L)`, as a compare-and-write that fails if the term changed.
      That records the logical end before any file changes (item 1).
 2. **Completion.** It runs on a thread of its own that never takes `control_mu_` and never turns replies into
    intents, and never on a shard thread. So R4 and a promotion can proceed while it runs, and a promotion that holds
    `control_mu_` while it waits for completion cannot deadlock against it.
-   1. Close the stream's WAL writer and its spare slot, so that nothing is in flight. No flush can then complete above
-      `L`.
+   1. Close the stream's WAL writer and its spare slot, and stop the stream's catch-up reads, waiting for any in
+      flight (`read_stream_range` lists segments once, `storage.cpp:444`, so a running read would ship the void tail
+      that steps 3-4 expose). No flush can then complete above `L`. Unlink a leftover `TMP` file, so that step 4's
+      create never meets an existing name.
    2. Handle the spare, after any `prepare()` in progress for this stream has finished (`storage.cpp:770-792`).
       If its header is valid and its first LSN is at or below `L`, adopt it, because it holds
       records whose rename was lost. Otherwise unlink it.
@@ -254,21 +264,29 @@ That breaks KISS for a partial gain. The owner chose the derived history.
      open", so no checkpoint sees a closed writer (today it would record `start_lsn = 0`, `shard.cpp:2319`).
    - **No writer open ever unlinks a segment.** Today every open unlinks a segment already at its name and creates it
      again (`storage.cpp:521-527`). A crash in between would revive a void tail, at any boot after a truncation. Instead,
-     an existing segment at the name is truncated to its header block, `fdatasync`ed, `fallocate`d again and opened
-     without `O_EXCL`. Truncating it drops any CRC-valid block left from an earlier torn flush.
-4. **Valid end (item 5).** Within any segment, records at or above the next segment's first LSN are void.
-   - `scan_stream` and `read_stream_range` both apply this rule, so catch-up never ships a void record.
-   - Segment `L+1` exists durably before the clear, and after it no step removes it while an older segment remains.
-     Reclaim deletes oldest first, with a directory fsync after each unlink.
+     an existing segment at the name is truncated to one block, **its header rewritten** (with the same `prev_term`,
+     taken from `H`), `fdatasync`ed, `fallocate`d again and opened without `O_EXCL`. Truncating it drops any CRC-valid block left from an earlier torn flush.
+     Rewriting the header matters: a crash inside segment creation can leave a zero header, and keeping it breaks the
+     log at the first append (review of revision 2, `docs/AFR_001_D06_BOUNDARY.md` section 4, finding 1).
+4. **Valid end (item 5).** Within any segment, records at or above the next segment's first LSN are void. The next
+   segment's first LSN is taken from its **name** (`list_segments`), not its header, so a zero-header next segment
+   still voids.
+   - `scan_stream` and `read_stream_range` both apply this rule, and a PENDING stream serves no catch-up read (step
+     2.1), so catch-up never ships a void record.
+   - Segment `L+1` exists durably before the clear, and after it no step removes it while an older segment above the
+     floor remains. Reclaim deletes oldest first, then fsyncs the directory once; whatever a crash leaves of the
+     delete set is below the durable floor and ignored (boundary rule 3).
    - So the old segment's tail stays void through any number of later truncations.
    - This realizes TEXT ONLY item 5 without a marker in the record. The owner decision left the realization to D-06.
 
 **Recovery, per stream.** In order:
 1. read the record;
-2. if the slot is PENDING, run completion, then the clear; unlink any leftover `TMP` file;
+2. if the slot is PENDING, run completion (which unlinks a leftover `TMP` first), then the clear; otherwise unlink
+   any leftover `TMP` file;
 3. adopt a spare;
-4. scan with the void rule;
-5. build `H_s`.
+4. delete segments below `retain_from` and check FL (boundary rule 4);
+5. scan with the void rule;
+6. build `H_s`.
 
 Every completion step is idempotent, so a crash at any point repeats completion and converges (I5) [INF; not
 modelled, section 9].
@@ -279,6 +297,7 @@ until the clear. Positioning takes `control_mu_`, so the intent step is serializ
 - it does not position the stream;
 - it does not count toward an acknowledgement or READY;
 - it grants no standby lease;
+- it serves no catch-up read;
 - it starts no checkpoint.
 
 The control path checks these against its copy of the record. Shard threads check them against the published atomic
@@ -326,7 +345,8 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 ## 7. Not changed
 
 - **`DIR/role`** stays as it is (section 2).
-- **The checkpoint manifest** stays where it is. It gains each stream's `max_lsn` (4.3 step 1) and `retain_from` (4.2).
+- **The checkpoint manifest** stays where it is. It gains each stream's `max_lsn` (4.3 step 1), `retain_from`,
+  `floor_term` and `start_term` (4.2; `docs/AFR_001_D06_BOUNDARY.md` section 3).
 
 ## 8. Left out, on purpose
 
@@ -363,7 +383,10 @@ Per-shard stores buy write parallelism for writes that happen once per control e
 
 **Crash model of completion: run.** Codex authorized it in the review of #157. Plan and results are in
 `docs/AFR_001_COMPLETION_CRASH.md` (`spec/tla/Completion.tla`):
-- Within its bounds, a crash at any step leaves the scan and the catch-up reader exact.
+- Within its bounds, a crash at any step leaves the scan exact, and the catch-up reader exact **while serving**. The
+  independent review of revision 2 (`docs/AFR_001_D06_BOUNDARY.md` section 4) found that readers during completion
+  were not checked (now gated, 4.3 step 2.1) and that the model's reopen rewrote the header where this text did not
+  (text fixed).
 - Every guarded step except the first directory fsync is shown necessary by a failing mutation.
 - Torn WAL writes, lost writes, reclaim and concurrency are outside the model.
 - The procedure is not accepted until Codex and cody review this evidence.

@@ -234,4 +234,7 @@ The reviewers also probed these cases and could not break them:
 - the frozen text of 2026-11-17, which is untouched;
 - whether anything claims D-06 is accepted, and nothing does.
 
-Revision 2 was not reviewed again.
+Revision 2 was reviewed independently after #158 merged. That review narrows the conclusion above: the catch-up
+reader is exact **while the node serves**, and readers during completion were not checked. The model's reopen
+rewrites the header, which the design text did not say. Both are fixed in the design text; the findings and a
+bounded rerun proposal are in `docs/AFR_001_D06_BOUNDARY.md` section 4.
