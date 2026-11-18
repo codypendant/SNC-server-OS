@@ -66,7 +66,29 @@ Each member `i` keeps:
 - a term history `H_i`, mapping each term to its first LSN in `i`'s log [EXT: Kafka KIP-101 "Leader Epoch
   Sequence File"].
 
-`H_i` must be durable, with a checksum and a durable compaction floor, so that damage is distinguishable from compaction. If it is damaged, the member refuses with a named error (G-14(a)); rebuilding it from the log's term stamps or reseeding is an explicit operator action (R6.4). [Revised after Codex's PR #146 review; previously: "If it is lost, the member is reseeded."]
+**[RECORDED REVISION, CONDITIONALLY APPROVED: owner decision 2026-11-18, `docs/handoff/PR157_Owner_Decision.md`;
+final acceptance depends on AFR-D-02.]** `H_i` is derived, not stored separately. It is the sequence of terms on
+`i`'s retained, validated, non-void WAL records (each record carries its term), above a durable compaction floor. The
+floor of each stream is the CRC-protected `retain_from` in the active checkpoint manifest, and the floor term is the
+`prev_term` field in the header of the segment that starts there (`docs/AFR_001_D06_STORAGE_METADATA.md` 4.2).
+
+Conditions:
+1. `H_i` is reconstructible from validated, retained records and that floor alone.
+2. WAL damage never silently becomes an acceptable truncation of the history. A missing segment at or above the floor,
+   a gap between segments, or a record that cannot be validated makes the member refuse.
+3. G-14(a) holds unchanged. A member whose term history cannot be reconstructed refuses with a named error.
+   Rebuilding or reseeding it is an explicit operator action (R6.4).
+4. Damage that leaves nothing to detect is AFR-D-02's to close, and so is final acceptance. That covers damage inside a
+   segment read as the log's end (R-01), and a write or directory entry that was acknowledged and then lost, including
+   a metadata rollback (R-23).
+
+A member is reseeded (R6.4) when its end or its truncation point is below the answering member's floor, or when its last
+term is below the answering member's floor term.
+
+[Earlier text, frozen 2026-11-17: "`H_i` must be durable, with a checksum and a durable compaction floor, so that damage
+is distinguishable from compaction. If it is damaged, the member refuses with a named error (G-14(a)); rebuilding it
+from the log's term stamps or reseeding is an explicit operator action (R6.4)." Revised after Codex's PR #146 review;
+previously: "If it is lost, the member is reseeded."]
 
 ### Ack set A and lease
 
@@ -184,8 +206,9 @@ Each member `i` keeps:
   - `H_j` cannot answer because it no longer covers `t_k` (compacted). A damaged `H_j` is not this case: `j` refuses
     like any member.
 
-  If `H_k` is damaged, `k` refuses with a named error instead (G-14(a)). Reseeding it then is an explicit operator
-  action. [Revised after Codex's PR #146 review.]
+  If `H_k` cannot be reconstructed (Member state, condition 2), `k` refuses with a named error instead (G-14(a)).
+  Reseeding it then is an explicit operator action. [Revised after Codex's PR #146 review; wording follows the
+  `H_i` revision of 2026-11-18.]
 - **R6.5 Incomplete.** A durable `incomplete` flag is set before `k` discards anything, and cleared only once the
   copied state is durable and positioned at a `(term, lsn)` of `j`'s log.
   - While the flag is set, `k` acknowledges no entries, is not counted in A, cannot be added to S, and cannot be
