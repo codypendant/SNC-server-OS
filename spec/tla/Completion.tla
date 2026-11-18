@@ -26,7 +26,9 @@ CONSTANTS MaxLsn,     \* highest LSN written
           MSpareUnlink,  \* completion unlinks the spare unconditionally
           MNoNewSeg,     \* completion does not create segment L+1 before the clear
           MClearEarly,   \* the intent is cleared before the files are changed
-          MNoVoid        \* the scan reads every record of a segment (no void rule)
+          MNoVoid,       \* the scan reads every record of a segment (no void rule)
+          MNoVoidRange,  \* rev 2: only the catch-up reader (read_stream_range) lacks the void rule
+          MNoCrc         \* rev 2: recovery picks the higher generation without checking the CRC
 
 SPARE == MaxLsn + 2
 TMP   == MaxLsn + 3
@@ -54,7 +56,8 @@ vars == <<ino, nIno, dNames, pend, meta, phase, pc, tL, wIno, wEnd, logical, nTr
 ApplyOp(n, op) ==
   CASE op.k = "create" -> [n EXCEPT ![op.to] = op.i]
     [] op.k = "unlink" -> [n EXCEPT ![op.to] = 0]
-    [] op.k = "rename" -> [n EXCEPT ![op.to] = n[op.from], ![op.from] = 0]
+    [] op.k = "rename" -> IF n[op.from] = 0 THEN n          \* ENOENT: nothing changes
+                          ELSE [n EXCEPT ![op.to] = n[op.from], ![op.from] = 0]
 
 RECURSIVE ApplySel(_, _, _, _)
 ApplySel(n, ops, S, k) ==
@@ -77,13 +80,14 @@ NextSeg(n, s) == LET later == {x \in Segs(n) : x > s}
                  IN IF later = {} THEN 0 ELSE CHOOSE x \in later : \A y \in later : x <= y
 
 \* Records of segment s that the scan may read: below the next segment's first LSN.
-Readable(n, s) ==
+ReadableV(n, s, novoid) ==
   LET r == ino[n[s]].recs
       nx == NextSeg(n, s)
-      keep(i) == MNoVoid \/ nx = 0 \/ r[i].l < nx
+      keep(i) == novoid \/ nx = 0 \/ r[i].l < nx
       RECURSIVE pre(_)
       pre(i) == IF i > Len(r) \/ ~keep(i) THEN i - 1 ELSE pre(i + 1)
   IN SubSeq(r, 1, pre(1))
+Readable(n, s) == ReadableV(n, s, MNoVoid)
 
 RECURSIVE ScanFrom(_, _, _)
 \* Returns [f |-> TRUE] for a fatal stop, else [f |-> FALSE, a |-> records read].
@@ -107,8 +111,26 @@ Scan(n) == LET first == IF Segs(n) = {} THEN 0
                         ELSE CHOOSE x \in Segs(n) : \A y \in Segs(n) : x <= y
            IN ScanFrom(n, first, <<>>)
 
+\* Catch-up reader (storage.cpp read_stream_range, with the void rule of 4.3): the records
+\* f..t, segment by segment from the segment that holds f.
+RECURSIVE RangeFrom(_, _, _, _, _)
+RangeFrom(n, s, nxt, t, acc) ==
+  IF s = 0 \/ nxt > t THEN acc
+  ELSE LET r == ReadableV(n, s, MNoVoid \/ MNoVoidRange)
+           RECURSIVE take(_, _, _)
+           take(i, a, x) == IF i > Len(r) \/ x > t THEN <<a, x>>
+                            ELSE IF r[i].l = x THEN take(i + 1, Append(a, r[i]), x + 1)
+                            ELSE IF r[i].l < x THEN take(i + 1, a, x)
+                            ELSE <<a, x>>
+           res == take(1, acc, nxt)
+       IN RangeFrom(n, NextSeg(n, s), res[2], t, res[1])
+SegOf(n, f) == LET c == {s \in Segs(n) : s <= f}
+               IN IF c = {} THEN 0 ELSE CHOOSE s \in c : \A y \in c : y <= s
+Range(n, f, t) == RangeFrom(n, SegOf(n, f), f, t, <<>>)
+
 \* ---- Metadata record --------------------------------------------------------
-Best == IF meta.a.ok /\ (~meta.b.ok \/ meta.a.g > meta.b.g) THEN meta.a ELSE meta.b
+Valid(c) == c.ok \/ MNoCrc
+Best == IF Valid(meta.a) /\ (~Valid(meta.b) \/ meta.a.g > meta.b.g) THEN meta.a ELSE meta.b
 Other == IF Best = meta.a THEN "b" ELSE "a"
 MetaWrite(s) == meta' = [meta EXCEPT ![Other] = [ok |-> TRUE, g |-> Best.g + 1, slot |-> s]]
 
@@ -127,7 +149,7 @@ Init == /\ ino = [i \in 1 .. MaxIno |-> IF i = 1 THEN [hdr |-> 1, recs |-> <<>>]
 Ghost == UNCHANGED <<logical, nTrunc, nCrash>>
 
 \* ---- Writer (phase "up") -----------------------------------------------------
-Append1 == /\ phase = "up" /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) < Cap
+Append1 == /\ phase = "up" /\ pc = 0 /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) < Cap
            /\ LET r == [l |-> wEnd + 1, v |-> nTrunc]
               IN /\ ino' = [ino EXCEPT ![wIno].recs = Append(@, r)]
                  /\ logical' = Append(logical, r)
@@ -135,7 +157,7 @@ Append1 == /\ phase = "up" /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) < Cap
            /\ UNCHANGED <<nIno, dNames, pend, meta, phase, pc, tL, wIno, nTrunc, nCrash>>
 
 \* Rollover onto a prepared spare: header written with the first record, rename not synced.
-TakeSpare == /\ phase = "up" /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
+TakeSpare == /\ phase = "up" /\ pc = 0 /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
              /\ Cur[SPARE] # 0 /\ ino[Cur[SPARE]].hdr = 0
              /\ LET sp == Cur[SPARE]
                     r == [l |-> wEnd + 1, v |-> nTrunc]
@@ -147,20 +169,27 @@ TakeSpare == /\ phase = "up" /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
              /\ UNCHANGED <<nIno, dNames, meta, phase, pc, tL, nTrunc, nCrash>>
 
 \* Rollover without a spare: create the segment, header, fsync, directory fsync (open_segment).
-NewSegment == /\ phase = "up" /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
+\* Rev 2: the create and the header write are two steps (open_segment, storage.cpp:536-566);
+\* a crash between them leaves a zero file at the name. pc 20 = header pending in "up".
+NewSegment == /\ phase = "up" /\ pc = 0 /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
               /\ Cur[wEnd + 1] = 0
-              /\ NewIno(wEnd + 1, <<>>)
-              /\ DoSync([k |-> "create", to |-> wEnd + 1, i |-> nIno + 1])
-              /\ wIno' = nIno + 1
-              /\ UNCHANGED <<meta, phase, pc, tL, wEnd>> /\ Ghost
+              /\ NewIno(0, <<>>)
+              /\ Do([k |-> "create", to |-> wEnd + 1, i |-> nIno + 1])
+              /\ wIno' = nIno + 1 /\ pc' = 20
+              /\ UNCHANGED <<meta, phase, tL, wEnd>> /\ Ghost
 
-Prepare == /\ phase = "up" /\ Cur[SPARE] = 0
+SegHeader == /\ phase = "up" /\ pc = 20
+             /\ ino' = [ino EXCEPT ![wIno].hdr = wEnd + 1]
+             /\ Fsync /\ pc' = 0
+             /\ UNCHANGED <<nIno, meta, phase, tL, wIno, wEnd>> /\ Ghost
+
+Prepare == /\ phase = "up" /\ pc = 0 /\ Cur[SPARE] = 0
            /\ NewIno(0, <<>>)
            /\ DoSync([k |-> "create", to |-> SPARE, i |-> nIno + 1])
            /\ UNCHANGED <<meta, phase, pc, tL, wIno, wEnd>> /\ Ghost
 
 \* ---- Truncation: intent (4.3 step 1) ----------------------------------------
-Intent == /\ phase = "up" /\ nTrunc < MaxTrunc
+Intent == /\ phase = "up" /\ pc = 0 /\ nTrunc < MaxTrunc
           /\ \E L \in 0 .. wEnd - 1 :
                /\ MetaWrite([st |-> "P", L |-> L])
                /\ logical' = SubSeq(logical, 1, L)
@@ -224,7 +253,8 @@ CClear == /\ phase \in {"trunc", "rec"} /\ Best.slot = [st |-> "P", L |-> tL]
 TornCrash == /\ phase \in {"up", "trunc", "rec"} /\ nCrash < MaxCrash
              /\ \/ phase = "up" /\ nTrunc < MaxTrunc
                 \/ phase \in {"trunc", "rec"} /\ pc = ClearStep /\ Best.slot.st = "P"
-             /\ meta' = [meta EXCEPT ![Other] = [ok |-> FALSE, g |-> 0, slot |-> NoSlot]]
+             /\ \E junk \in {NoSlot, [st |-> "P", L |-> 0]} :
+                  meta' = [meta EXCEPT ![Other] = [ok |-> FALSE, g |-> Best.g + 1, slot |-> junk]]
              /\ \E S \in SUBSET DOMAIN pend : dNames' = ApplySel(dNames, pend, S, 1)
              /\ pend' = <<>>
              /\ phase' = "down" /\ pc' = 0 /\ wIno' = 0 /\ nCrash' = nCrash + 1
@@ -241,19 +271,19 @@ Reopen == /\ phase \in {"trunc", "rec"} /\ pc = 8
              ELSE IF Cur[n] # 0
                THEN Do([k |-> "unlink", to |-> n]) /\ pc' = 9
                     /\ UNCHANGED <<ino, nIno, wIno, phase>>
-             ELSE /\ NewIno(n, <<>>) /\ DoSync([k |-> "create", to |-> n, i |-> nIno + 1])
-                  /\ wIno' = nIno + 1 /\ phase' = "up" /\ pc' = 0
+             ELSE /\ NewIno(0, <<>>) /\ Do([k |-> "create", to |-> n, i |-> nIno + 1])
+                  /\ wIno' = nIno + 1 /\ phase' = "up" /\ pc' = 20
           /\ UNCHANGED <<meta, tL, wEnd>> /\ Ghost
 
 ReopenCreate == /\ phase \in {"trunc", "rec"} /\ pc = 9
-                /\ NewIno(wEnd + 1, <<>>)
+                /\ NewIno(0, <<>>)
                 /\ Do([k |-> "create", to |-> wEnd + 1, i |-> nIno + 1])
                 /\ pc' = 10 /\ wIno' = nIno + 1
                 /\ UNCHANGED <<meta, phase, tL, wEnd>> /\ Ghost
 
-ReopenSync == /\ phase \in {"trunc", "rec"} /\ pc = 10 /\ Fsync
-              /\ phase' = "up" /\ pc' = 0
-              /\ UNCHANGED <<ino, nIno, meta, tL, wIno, wEnd>> /\ Ghost
+ReopenSync == /\ phase \in {"trunc", "rec"} /\ pc = 10
+              /\ phase' = "up" /\ pc' = 20                        \* header, fsync, dir fsync (SegHeader)
+              /\ UNCHANGED <<ino, nIno, dNames, pend, meta, tL, wIno, wEnd>> /\ Ghost
 
 \* ---- Crash and recovery -------------------------------------------------------
 Crash == /\ phase \in {"up", "trunc", "rec"} /\ nCrash < MaxCrash
@@ -289,7 +319,7 @@ RecScan == /\ phase = "rec" /\ pc = 12
 
 Next == \/ Append1 \/ TakeSpare \/ NewSegment \/ Prepare \/ Intent
         \/ CSpare \/ CDelete \/ CFsync1 \/ CTmp \/ CRename \/ CFsync2 \/ CClear
-        \/ Reopen \/ ReopenCreate \/ ReopenSync
+        \/ SegHeader \/ Reopen \/ ReopenCreate \/ ReopenSync
         \/ Crash \/ TornCrash \/ RecStart \/ RecSpare \/ RecScan
 
 Spec == Init /\ [][Next]_vars
@@ -299,11 +329,16 @@ Spec == Init /\ [][Next]_vars
 \* the acknowledged, non-truncated log. No void record is read (no revival) and no
 \* acknowledged record is lost.
 ServedLogExact == phase = "up" => Scan(Cur) = [f |-> FALSE, a |-> logical]
+\* Rev 2: the catch-up reader returns exactly the acknowledged records for every range.
+ServedRangeExact == phase = "up" =>
+  \A f \in 1 .. Len(logical) : \A t \in f .. Len(logical) :
+     Range(Cur, f, t) = SubSeq(logical, f, t)
 NoFatal == phase # "fatal"
-Safety == ServedLogExact /\ NoFatal
+Safety == ServedLogExact /\ ServedRangeExact /\ NoFatal
 
 \* Reachability probes (each is expected to be VIOLATED, which shows the case is reached).
 PRecComplete == ~(phase = "rec" /\ pc = 2)          \* recovery completes a pending intent
 PTwoTrunc    == ~(phase = "up" /\ nTrunc = 2)       \* serving after two truncations
 PInoBound    == nIno < MaxIno                       \* expected HELD: the inode bound is never hit
+PZeroHdr     == ~(\E s \in Segs(Cur) : ino[Cur[s]].hdr # s)  \* rev 2: a zero-header segment is reached
 =============================================================================

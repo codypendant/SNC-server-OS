@@ -104,6 +104,44 @@ After the runs, reviewers who did not write the model are told to break it. They
 
 Their findings and outcomes go in section 6.
 
+## 4a. Revision 2 (preregistered after the first independent review, before any revision-2 run)
+
+Revision 1 (commit 554ec32) is the model the lanes of section 3 ran against. Its results are kept in section 5 as
+recorded. The first model review ran in parallel with those lanes. It found two gaps where the model cannot see a whole
+class of bugs, plus smaller faithfulness gaps. Revision 2 fixes them. It is committed and pushed before any revision-2
+run.
+
+| Review finding | Revision 2 |
+|---|---|
+| The catch-up reader (`read_stream_range`) was never checked. A design with the void rule in `scan_stream` only would pass | `ServedRangeExact` added to `Safety`: for every range `f..t`, the reader returns exactly the acknowledged records. New mutation `MNoVoidRange` (void rule missing in the reader only) |
+| The A/B record's CRC check was vacuous: a torn copy had generation 0, so picking by generation alone also passed | A torn copy now has generation `Best.g + 1` and a junk slot (`NoSlot` or `PENDING(0)`). New mutation `MNoCrc` (pick by generation, ignore the CRC) |
+| The scan's header cases could not be reached, because create and header write were one step | `NewSegment` and the writer's create are split into a create (zero file) and a header write with fsync and directory fsync (`SegHeader`, `open_segment`). Probe `PZeroHdr` checks that a zero-header segment is reached |
+| A rename whose source is missing cleared the target | Rename with a missing source is a no-op (ENOENT) |
+
+**Known differences, kept and disclosed:**
+- The model clears before it reopens the writer; the design text reopens first (2.6, then 3). Appends are gated in
+  both orders, and the review found no consequence.
+- The reopen truncation never drops a record, because torn WAL writes are not modelled.
+- The first directory fsync (after the deletions) is not needed in the model: the second one makes every pending
+  operation durable before the clear. The design keeps it. The model cannot show whether it is needed.
+- A stale `TMP` file is not cleaned up in the model. The design should unlink a leftover `TMP` at recovery.
+
+**Revision-2 lanes** (the same rules as section 3; D2's size is not repeated, see section 5):
+
+| Lane | Constants | Invariant | Expected |
+|---|---|---|---|
+| R2-D1 | `Completion.cfg` (D1 bounds) | Safety | PASS |
+| R2-D3 | MaxLsn 5, Cap 3, MaxIno 20 | Safety | PASS |
+| R2-M1 to R2-M5 | D1 + one of MUnlinkReopen, MSpareUnlink, MNoNewSeg, MClearEarly, MNoVoid | Safety | FAIL |
+| R2-M6 | D1 + MNoVoidRange | Safety | FAIL: the reader ships a voided record |
+| R2-M7 | D1 + MNoCrc | Safety | FAIL: a torn copy is chosen |
+| R2-P1, R2-P2 | D1 | PRecComplete, PTwoTrunc | VIOLATED |
+| R2-P3 | D1 | PInoBound | HELD |
+| R2-P4 | D1 | PZeroHdr | VIOLATED |
+
+Correction to section 3's wording, made before the revision-2 runs: M2 may fail as a fatal gap (the spare's records
+are gone, and a later segment follows) instead of as a silently lost record. Both are Safety violations.
+
 ## 5. Results
 
 (Filled in after the runs.)
