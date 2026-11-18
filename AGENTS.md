@@ -3795,3 +3795,16 @@ or source comments.
     void entries (recommend refusing segments above `L` with a nonce older than the binding; not modelled).
 -   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** revision 4, X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): obsolete-segment rule specified (docs only)
+
+-   **Trigger:** Codex's review of #164 (`docs/handoff/PR164_Codex_Review.md`); #164 merged (f48aa34). Codex items 3-4:
+    specify the obsolete-segment rule precisely and check it.
+-   **Output:** `docs/AFR_001_D02_OBSOLETE_SEGMENT.md`; design 3(b), 3(e) updated.
+-   **Results:** first rule (order by record generation) broken in review (1 BLOCKER, 3 MAJOR) and dropped. Second
+    rule R-CHAIN: each segment header carries `prev_nonce` next to `prev_term`, checked against the directory; no
+    ordering, no new authority. Re-review: no BLOCKER; one carried MAJOR (spare header torn from its first frame, U2,
+    pre-existing for `prev_term`; fix proposed). Written check [INF] only.
+-   **Proposed, NOT started:** revision 4 of `MetaWatermark.tla` (section 7). Needs cody's yes.
+-   **Not accepted:** R-CHAIN, D-02, R-23, O-FLOOR. **Not authorized:** revision 4, X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.
