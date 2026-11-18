@@ -124,6 +124,11 @@ CTRL's "have" and "dontHave" votes. For SNC [INF]:
   (`docs/AFR_001_PROTOCOL_ACCEPTANCE_R2P_R9.md` sections 4-5, obligation O4).
 - The Raft dissertation's rule, that a server which lost state cannot rejoin under its old identity, is the same
   requirement stated as a rule. Detection must come first.
+- **Scope of this conclusion (Codex's review of #161, `docs/handoff/PR161_Codex_Review.md`).** It follows from SNC's
+  currently frozen promotion and reconciliation rules (P5, R6.3′), not from an inherent limitation of all replicated
+  systems. A rule like Raft's election restriction could let peers repair the `|S| ≥ 3` case [INF]. It would not remove
+  the need for a local detector: G-14(b) is per node, and with `|S| = 2` no peer holds a second copy
+  (`docs/AFR_001_D02_CRASH_DESIGN.md` section 1). Keep this distinction when the final architectural decision is made.
 
 ## 5. Candidate approaches SNC could adapt
 

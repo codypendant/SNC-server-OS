@@ -3735,3 +3735,16 @@ or source comments.
     findings fixed in the text or recorded as UNRESOLVED (U3, U11, U12).
 -   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** X-2, R640, C++ or Rust, migration.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): crash-consistent design for U3, U10, U11, U12 (docs only)
+
+-   **Trigger:** Codex's review of #161 (`docs/handoff/PR161_Codex_Review.md`, transcribed from screenshots; only the
+    end was provided): merge #161 (74a297a), keep D-02 on HOLD with (c) leading, design U3/U10/U11/U12, keep the
+    peer-argument distinction.
+-   **Output:** `docs/AFR_001_D02_CRASH_DESIGN.md`: four-slot mirrored node record with a duplicate-before-advance
+    rule (U3); whole-segment creation, reopen by rename, void bytes not judged (U10); watermark drained and lowered
+    inside the intent window, with the `L + 1` nonce (U11); watermark versus floor rules (U12). Section 7 lists
+    every proposed revision; none accepted.
+-   **Review:** three independent reviewers; 1 BLOCKER and 8 MAJOR fixed; fixes not re-reviewed; V1-V7 open.
+-   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** X-2, models, R640, C++ or Rust, migration.
+-   **Next action:** STOP for Codex and cody.
