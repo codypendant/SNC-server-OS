@@ -1,7 +1,10 @@
 # Obsolete-segment rule for a lost unlink (D-02 crash design): specification and written check
 
-Status: **PROPOSED.** Docs only. Nothing here is accepted, and nothing is model-checked. A revision 4 of
-`MetaWatermark.tla` (section 7) would need the owner's yes.
+Status: **PROPOSED.** Docs only. Nothing here is accepted. The owner ruled a lost-unlink revival harmful and took
+R-CHAIN as the direction to verify, not frozen (OD-5, OD-6, `docs/handoff/PR165_Owner_Decisions.md`). Revision 4
+(`MetaWatermark.tla`) and revision 5 (`SegChain.tla`) check it within small bounds (`docs/AFR_001_D02_MODEL.md`
+sections 15-20). Statements below that call the ruling open, or the model not started, describe the state when
+this document was written.
 
 Authority:
 - Codex's review of #164 (`docs/handoff/PR164_Codex_Review.md`), recommendations 3 and 4:
@@ -201,7 +204,7 @@ A second independent reviewer (Opus) tried to break R-CHAIN.
 
 Nothing here is modelled.
 
-## 7. Proposed revision 4 scope (NOT started; needs the owner's yes)
+## 7. Proposed revision 4 scope (since run: revision 4, then revision 5; `docs/AFR_001_D02_MODEL.md` sections 15-20)
 
 One narrow change to `spec/tla/MetaWatermark.tla`, part `wm` only:
 - Each inode gets `pn`, the nonce of the inode the writer appended after. Old inode 3 has 1, and the new `L + 1`
