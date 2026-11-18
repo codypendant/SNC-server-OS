@@ -1,7 +1,7 @@
 # Crash consistency of truncation completion (AFR-D-06 4.3): preregistration and results
 
-Status: revisions 1 and 2 **COMPLETED** (results section 5, review section 6). Revision 3 **PREREGISTERED**
-(section 7), not yet run.
+Status: revisions 1 and 2 **COMPLETED** (results section 5, review section 6). Revision 3 **COMPLETED**
+(preregistration section 7, results and review section 8).
 
 How this document was built:
 - Sections 1-4, the model `spec/tla/Completion.tla` and `spec/tla/Completion.cfg` were committed and pushed before any
@@ -285,4 +285,58 @@ The relationship of `AFR_001_D06_BOUNDARY.md` section 3 (one floor authority in 
 delete, recovery's orphan and below-floor deletes, the seed floor, `max_lsn`) rests on the argued crash table only. It
 interacts with checkpoint retention, replication catch-up and stream remapping. Revision 3 does not model reclaim, and
 nothing here claims the storage lifecycle is proven.
+
+## 8. Revision 3 results and review
+
+All lanes ran against the committed model of 988faa8 (`-workers 4 -deadlock`, 2-hour cap, TLC state deleted after
+each run). A first launch of the lane script was stopped by hand within about a minute, before any lane finished,
+because the 2-hour limit applied to the whole background script rather than to each run; its partial logs were
+deleted unread and every lane was run again from the start. No bound was changed.
+
+| Lane | Result | Distinct states | Time | Expected? |
+|---|---|---|---|---|
+| R3-D1 | PASS (Safety and PInoBound hold) | 4,882,297 | 2 min 33 s | yes |
+| R3-D2 (MaxCrash 3) | PASS | 31,502,068 | 19 min 49 s | yes |
+| R3-T3 (MaxTrunc 3) | PASS | 210,723,596 | 1 h 50 min | yes (within the cap) |
+| R3-M1 MUnlinkReopen | FAIL: a voided tail revived after a crash in the reopen | — | 2 s | yes |
+| R3-M2 MSpareUnlink | FAIL: fatal scan, the spare's records gone | — | 2 s | yes |
+| R3-M3 MNoNewSeg | FAIL: a voided tail revived | — | 1 s | yes |
+| R3-M4 MClearEarly | FAIL: a voided tail revived | — | 1 s | yes |
+| R3-M5 MNoVoid | FAIL: a voided record read, no crash needed | — | 2 s | yes |
+| R3-M6 MNoVoidRange | FAIL: the reader ships a voided record | — | 1 s | yes |
+| R3-M7 MNoCrc | FAIL: a torn copy chosen | — | 1 s | yes |
+| R3-M8 MZeroHdrReopen | FAIL: bad header after the reopen, with no truncation at all | — | 1 s | yes |
+| R3-M9 MNoTmpClean | FAIL: fatal `TMP` create during recovery's completion | — | 2 s | yes |
+| R3-P1, P2, P4, P5 | VIOLATED (each case reached) | — | ≤ 2 s | yes |
+
+**Conclusion, within the bounds.** Every lane matched its preregistered expectation. While the node serves, a crash
+at any step of completion, including a crash inside the two-step spare rollover, leaves the scan and the catch-up
+reader exact, now also for reads past the end. Each new design step (header rewrite on reopen, `TMP` cleanup) is
+shown necessary by a failing mutation. Truncations are now checked up to three, and crashes up to three, each at
+MaxLsn 4.
+
+**Independent review of revision 3.** One reviewer (Opus), told to break it, read-only, with its own probe runs
+(`-workers 1`, each under 10 minutes, state deleted). It found no defect in the model. It confirmed: the run copy is
+byte-identical to 988faa8; each mutation fails for its named defect; P5 is reached by the intended path; the crash
+inside the spare split is reachable (its own probe); no stuck states; a rollover never finds its name occupied.
+
+| # | Finding | Severity | Outcome |
+|---|---|---|---|
+| 1 | The decision draft recommended before D2/T3 finished and cited a missing section | MAJOR | fixed: this section; the draft final only after T3 |
+| 2 | The decision draft left out the revision 2 review's UNRESOLVED list | MAJOR | fixed: listed in the draft's open items |
+| 3-5 | "Reviewed" and "checked" labels for items 6-9 overstated | MINOR | fixed: qualified per item |
+| 6 | The past-end range check can catch only voided records: in the model every written record is acknowledged | MINOR | disclosed here |
+| 7 | The void rule "by name" is never exercised: a zero-header segment that is not last is unreachable | MINOR | disclosed here |
+| 8 | The model removes `TMP` after the spare, the design before it; `Prepare` is disabled between the spare rename and the header write, while the code may fsync the directory there (`storage.cpp:707`) | MINOR | disclosed; harmless in the model because a crash already keeps any subset of pending operations |
+| 9 | "Works with each D-02 option" restated an inference | MINOR | fixed in the draft |
+| 10 | Item 14 is wire fields, bundled with storage | MINOR | justified in the draft |
+
+**UNRESOLVED:**
+- MaxLsn ≥ 5 with MaxCrash 3; truncation at `L` = the end, or inside a `kRecGroupNext` group;
+- a torn tail in a segment that is not last, followed by a zero last segment;
+- concurrent record writes while PENDING; the `prepare()`/`take()` race on the spare;
+- liveness: convergence of repeated completion is argued, not checked;
+- catch-up reads during completion (gated by design, not modelled);
+- **O-FLOOR** (section 7): floor/reclaim crash consistency, not model-checked;
+- D-02, R-23, torn and lost writes, more than one stream.
 

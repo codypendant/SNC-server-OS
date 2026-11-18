@@ -389,7 +389,11 @@ Per-shard stores buy write parallelism for writes that happen once per control e
   (text fixed).
 - Every guarded step except the first directory fsync is shown necessary by a failing mutation.
 - Torn WAL writes, lost writes, reclaim and concurrency are outside the model.
-- The procedure is not accepted until Codex and cody review this evidence.
+- Revision 3 (`docs/AFR_001_COMPLETION_CRASH.md` sections 7-8) checks the fixed text: header rewrite on reopen,
+  `TMP` cleanup, the two-step spare rollover, reads past the end, up to three truncations and three crashes. Every
+  lane matched its preregistered expectation. Floor/reclaim (O-FLOOR) is still not model-checked.
+- The procedure is not accepted until Codex and cody review this evidence (decision package:
+  `docs/AFR_001_D06_FORMAT_DECISION.md`).
 
 **Review record.** Three rounds were told to break the design: three independent reviewers, then one on each
 revision. All were read-only. Round 3's fixes have not been re-reviewed.
