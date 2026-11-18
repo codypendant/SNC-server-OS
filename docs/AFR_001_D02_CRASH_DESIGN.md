@@ -188,7 +188,8 @@ Why [INF, SRC]:
 **(b) The reopen (item 9).**
 - A segment at the writer's name that holds only its valid header and format sectors of its own nonce is opened as
   is.
-- Any other segment at that name, such as one with a CRC-valid frame left by a torn flush, is replaced by (a).
+- Any other segment at that name (under OD-1, one with a torn frame) is replaced by (a), keeping its nonce
+  (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md` section 4).
 - Why [INF]:
   - D-06's truncation in place would leave zeros that R0 refuses.
   - `rename` never leaves the name missing, which preserves item 9's purpose: no window in which a void tail revives.
@@ -232,8 +233,10 @@ remaining question is whether completion's effects survive one fault. Two cases:
   - **After a restart**, the writer loads the binding from the newest valid slot when it opens the stream and
     carries it forward [not modelled].
   - **Open (revision-3 review, finding 1):** a lost unlink can bring back the same void entries with the binding
-    intact. The proposed rule is to refuse any segment named above `L` whose nonce is older than the binding's. It
-    is not modelled, and it awaits the owner (`docs/AFR_001_D02_MODEL.md` section 14).
+    intact. ~~The proposed rule is to refuse any segment named above `L` whose nonce is older than the binding's.~~
+    That rule is superseded, because nonces have no order. The proposal is now R-CHAIN: each segment header carries
+    `prev_nonce`, and recovery checks it against the directory
+    (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md`). It is not modelled, and it awaits the owner.
 - **The unlink of a segment `M > L` is lost**, so the old segment `M` reappears.
   - If the new log reaches past `M`, recovery refuses: the watermark falls above the recovered end, or the record at
     the watermark has another CRC, or FL-chain fails.
@@ -249,6 +252,8 @@ remaining question is whether completion's effects survive one fault. Two cases:
     - by G-15, each revived record is an entry that really existed under its `(term, LSN)`;
     - the member re-reconciles on rejoin (R6.2), which handles an unacknowledged tail.
     The argument does not need "`L` is exactly the divergence point", which is not always true (section 1 there).
+    **Superseded if the owner rules this revival harmful** (OD-2 ruled the same for a lost binding). R-CHAIN then
+    refuses it (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md`). Until that ruling, both readings stay on record.
 
 ## 4. U11: the watermark, and lowering it on a legitimate truncation
 
