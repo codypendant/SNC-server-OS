@@ -1,10 +1,9 @@
-# AFR-D-06: storage-format decision package, items 4-14 (for the owner; PROPOSED)
+# AFR-D-06: storage-format decision package, items 4-14 (CONDITIONALLY ACCEPTED by the owner, 2026-11-18)
 
-Status: **PROPOSED, for an owner decision.** Codex's review of #159 (`docs/handoff/PR159_Codex_Review.md`): "After the
-results, review D-06 items 4–14 as one coherent storage-format decision." Revision 3 ran as
-preregistered and every lane matched its expectation (`docs/AFR_001_COMPLETION_CRASH.md` section 8): design lanes
-PASS up to 210.7M states (three truncations, three crashes), all nine mutations FAIL. Nothing here is accepted until cody decides. Nothing here authorizes
-C++ or Rust work, an R640 run, D-02 acceptance or migration design.
+Status: **CONDITIONALLY ACCEPTED** by cody on 2026-11-18 (`docs/handoff/PR160_Owner_Decision.md`), under Codex's six
+mandatory conditions (`docs/handoff/PR160_Codex_Review.md` section 2): final acceptance depends on D-02; R-23 stays an
+unresolved safety blocker; O-FLOOR is discharged before checkpoint/reclaim conformance work; costs are measured before
+performance claims; no final freeze; no C++ or Rust implementation. The package text below is as proposed.
 
 ## 1. The question
 

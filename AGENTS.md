@@ -3718,3 +3718,20 @@ or source comments.
     waits on D-02; R-23 blocker; O-FLOOR open.
 -   **Not accepted:** D-06, D-02. **Not authorized:** C++ or Rust, R640, migration design.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): D-06 conditional acceptance recorded; storage-system comparison for D-02, R-23, O-FLOOR (docs only)
+
+-   **Trigger:** Codex's review of #160 (`docs/handoff/PR160_Codex_Review.md`): merge #160 (b24fe20), then a focused
+    source-level comparison of RocksDB, etcd, CockroachDB, TiKV, PostgreSQL, LMDB, Kafka and Raft.
+-   **Owner decision recorded:** D-06 items 4-14 CONDITIONALLY ACCEPTED under Codex's six conditions
+    (`docs/handoff/PR160_Owner_Decision.md`).
+-   **Output:** `docs/AFR_001_STORAGE_COMPARISON.md` (mechanism and failure-coverage matrices, candidates K1-K8,
+    compatibility, costs, a promising D-02 direction, U1-U13); evidence notes in `docs/prior_art/`.
+-   **Finding:** none of the systems researched detects a lost newest acknowledged flush, or a metadata rollback, from
+    local evidence. Under frozen R2′ peers cannot repair a loss on the promoted member for any `|S|`.
+-   **Direction (promising, not accepted):** (c) frames plus a pre-ack watermark, with a truncation rule still to be
+    designed. For R-23, a mirrored A-then-B write was broken in review (lost write plus crash); R-23 stays a blocker.
+-   **Review:** three independent reviewers (source fidelity, architecture, adversarial); 1 BLOCKER and 15 MAJOR
+    findings fixed in the text or recorded as UNRESOLVED (U3, U11, U12).
+-   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** X-2, R640, C++ or Rust, migration.
+-   **Next action:** STOP for Codex and cody.
