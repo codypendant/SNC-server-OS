@@ -3782,3 +3782,16 @@ or source comments.
         strict ruling, carrying `(L + 1, nonce)` in every watermark write; not checked).
 -   **Not accepted:** D-02, R-23, O-FLOOR, D-06 revisions. **Not authorized:** revision 3, X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): owner decisions OD-1..OD-4; MetaWatermark revision 3 (spec/tla, docs)
+
+-   **Trigger:** Codex's updated review of #163 (`docs/handoff/PR163_Codex_Review.md`); #163 merged (377598f); cody's
+    yeses recorded in `docs/handoff/PR163_Owner_Decisions.md` (OD-1 one data flush in flight per stream; OD-2
+    persistent `(L + 1, nonce)` binding; OD-3 revision 3; OD-4 watermark as a validator only, conditionally).
+-   **Output:** design 3(e), 4, 5 updated; `MetaWatermark.tla` revision 3 (prereg 37c8b14), results and review in
+    `docs/AFR_001_D02_MODEL.md` sections 12-14.
+-   **Results:** all 85 runs as preregistered; the persistent binding closes the revision-2 counterexample (W0 PASS,
+    BindOnce FAIL at layout B, L 1). Review: no BLOCKER; MAJOR open for the owner: a lost unlink revives the same
+    void entries (recommend refusing segments above `L` with a nonce older than the binding; not modelled).
+-   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** revision 4, X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.

@@ -213,13 +213,27 @@ frame left after `E` in the old segment is then void under (d). This replaces R0
 acts by segment name. So frames never have to tell a half-done completion from damage. After the clear, the
 remaining question is whether completion's effects survive one fault. Two cases:
 
-- **The directory entry for `L + 1` is lost**, after the clear and before any acknowledged append.
+- **The directory entry for `L + 1` is lost**, at any time after the clear, until the next truncation.
   - Without a check, `S` is scanned to its old end, the void tail revives, and a watermark at `L` still passes.
     **That would be silent.**
-  - **Rule:** the watermark lowered by step 2.7 (section 4) also records segment `L + 1`'s nonce. For such a slot,
-    recovery refuses unless a segment named `L + 1` with that nonce exists.
+  - **Rule (OD-2, `docs/handoff/PR163_Owner_Decisions.md`):** the watermark lowered by step 2.7 (section 4)
+    records the binding `(L + 1, nonce of L + 1)`. **Every later watermark write carries the same binding until the
+    next truncation or reseed replaces it.** Recovery refuses unless a segment named `L + 1` with that nonce exists.
   - The check produces no refusal from a crash alone, because step 2.4 fsyncs the directory before 2.7.
-  - Once appends move the watermark above `L`, the next case covers it.
+  - The earlier text said that once appends move the watermark above `L`, the next case covers it. That was wrong.
+    The revision-2 review of `MetaWatermark.tla` found the case: `S` holds two or more void records, one append, and
+    a crash. The watermark at `L + 1` then matches `S`'s old record if the entry is identical, and the rest of the
+    void tail returns unrefused (`docs/AFR_001_D02_MODEL.md` section 11).
+  - **Below the floor.** If reclaim has removed segment `L + 1`, the check is skipped. Reclaim removes segments from
+    the front, so `S`, which holds the void tail, went first. This holds on two conditions:
+    - the floor is published durably before any delete;
+    - "below" means that `L + 1` is less than the floor segment's name.
+    [INF; part of O-FLOOR, not modelled]
+  - **After a restart**, the writer loads the binding from the newest valid slot when it opens the stream and
+    carries it forward [not modelled].
+  - **Open (revision-3 review, finding 1):** a lost unlink can bring back the same void entries with the binding
+    intact. The proposed rule is to refuse any segment named above `L` whose nonce is older than the binding's. It
+    is not modelled, and it awaits the owner (`docs/AFR_001_D02_MODEL.md` section 14).
 - **The unlink of a segment `M > L` is lost**, so the old segment `M` reappears.
   - If the new log reaches past `M`, recovery refuses: the watermark falls above the recovered end, or the record at
     the watermark has another CRC, or FL-chain fails.
@@ -241,7 +255,8 @@ remaining question is whether completion's effects survive one fault. Two cases:
 **Format.** Each stream has a file of its own, as in X-2:
 - two 4 KiB slots, alternating by generation;
 - each slot holds generation, `space_uuid`, stream index, LSN `W`, **record `W`'s own term** (not the writer's
-  current term), the CRC of record `W`, an optional segment nonce (4(e)), and the slot CRC.
+  current term), the CRC of record `W`, the truncation binding `(L + 1, nonce)` from the last truncation or reseed, if any (3(e)), and
+  the slot CRC.
 
 **Writing the slots [SRC].**
 - At creation, every slot is written and the file and directory are fsynced. Later writes use
@@ -264,6 +279,9 @@ crash alone, so it is changed here.
 4. **anything that reports a durable end outside the node waits for its watermark.** This covers a standby's
    acknowledgement to the primary, the `end_lsn` in R6.2, positioning, and SYNC_READINESS's durable LSN for READY and
    admission to `S`. Those reports are what I4 and P5 rely on.
+5. **at most one data flush is in flight per stream** (OD-1). The code already does this (`src/core/storage.cpp:643`,
+   `!inflight_`). With two in flight, a crash can land the later one without the earlier one, and the rule "above
+   the watermark" below then refuses after a crash alone (`docs/AFR_001_D02_MODEL.md`, lane W0P).
 
 **Rule for a truncation: lower the watermark inside the intent window.**
 - Completion step 2.1 also drains the stream's watermark writer and drops coalesced writes it has not submitted.
@@ -314,7 +332,7 @@ A watermark can name a record that is no longer retained:
 | `W ≥ retain_from` | record `W` must be retained and non-void, with the slot's CRC and term; otherwise **refuse** |
 | `W = retain_from − 1` | the slot's term must equal the manifest's `floor_term`; otherwise **refuse** |
 | `W < retain_from − 1` | **accept** |
-| the slot carries a segment nonce | segment `W + 1` must exist with that nonce; otherwise **refuse** (4(e)) |
+| the slot carries a binding `(B, nonce)` | a segment named `B` with that nonce must exist, unless `B` is below the floor segment; otherwise **refuse** (3(e)) |
 
 **Why [INF]:**
 - FL-floor requires the segment `retain_from` to exist, so `E ≥ retain_from − 1`.
@@ -351,7 +369,9 @@ Codex and the owner rule on it.
 | Item 7 (incarnation) | the boot write moves to the start of recovery, after rule 4's duplicate | 2 |
 | Item 8 (completion, void rule) | 2.1 drains the watermark writer; 2.4 creates a whole formatted segment; new step 2.7 with its refusal; void bytes not judged | 3, 4 |
 | Item 9 (reopen) | open as is, or replace by `TMP` + `rename` + directory `fsync` | 3 |
-| D-06 section 8 note | the watermark lives outside the record, is read only for NONE streams, and is lowered in 2.7 | 4 |
+| D-06 section 8 note | the watermark lives outside the record, is read only for NONE streams, and is lowered in 2.7. Owner decision OD-4 conditionally accepts it as a durability validator only: any disagreement refuses | 4 |
+| Write path (new) | at most one data flush in flight per stream (owner decision OD-1) | 4 |
+| Watermark slot (new) | the `(L + 1, nonce)` binding is carried in every write until the next truncation (owner decision OD-2, direction only; revision 3 of the model checks it) | 3(e), 4, 5 |
 | Boundary rule 4 (recovery order) | rule 4 of section 2 and the boot write first; the watermark check after FL and the scan | 2, 5 |
 | Boundary rules 4.2 and 5 (orphans, seed) | an orphan stream's watermark file is removed with its directory; a seed writes its own watermark before the clear and never copies the primary's | 4 |
 | R0 (`docs/X2_PREREG.md` 8.1) | the void rule for void bytes (3(d)); rule 4's marker replaced by opening `E + 1` (3(c)); rule 5 under (c) above `W`; the below-floor rows; slot identity and initial value | 3, 4, 5 |
