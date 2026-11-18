@@ -3764,3 +3764,21 @@ or source comments.
     needs cody's explicit yes.
 -   **Not accepted:** D-02, R-23, O-FLOOR, D-06 revisions. **Not authorized:** the model, X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): MetaWatermark crash model (spec/tla, docs)
+
+-   **Trigger:** cody's yes (18:00 UTC) to the one small preregistered model of `docs/AFR_001_D02_FOLLOWUP.md`
+    section 4 (Codex's item 4 on #162).
+-   **Output:** `spec/tla/MetaWatermark.tla`, `.cfg`; `docs/AFR_001_D02_MODEL.md` (preregistration 3aa39d6,
+    revision 2 preregistration 8104678, results, two independent reviews).
+-   **Results (bounded; MaxGen 6, MaxCrash 3, one fault, MaxLsn 4, L 1 and 2):**
+    -   U3 four-slot record with rule 4 and spacing: PASS; NoRule4, BootFirst, Adjacent, K5, A/B all roll back.
+    -   U10-U12, serial data writes: PASS; removing the drain, the lowering-before-clear, the nonce check (L 1) or
+        ack-after-watermark each breaks a property.
+    -   Revision 1 K5 lane was vacuous (model defect), fixed in revision 2.
+    -   Design gaps for cody and Codex: two data writes in flight make a crash alone refuse (recommend stating one
+        flush in flight per stream, as the code does); a lost `L + 1` binding revives voided entries above `W` once
+        one append moves the watermark, and 3(e) is self-contradictory on whether that is harmful (recommend the
+        strict ruling, carrying `(L + 1, nonce)` in every watermark write; not checked).
+-   **Not accepted:** D-02, R-23, O-FLOOR, D-06 revisions. **Not authorized:** revision 3, X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.

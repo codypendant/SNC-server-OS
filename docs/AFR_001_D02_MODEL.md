@@ -1,7 +1,7 @@
 # MetaWatermark: a crash model for the D-02 crash design (preregistration and results)
 
-Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **PREREGISTERED** (section 8),
-not yet run.
+Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
+results section 9, conclusions section 10).
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -293,4 +293,108 @@ Smoke runs for revision 2, made while fixing the model and counting for nothing:
 
 ## 9. Revision 2 results
 
-Not yet run.
+The setup was the same as for revision 1, with the model as committed in 8104678. All 77 runs finished in under 6
+seconds each, so none hit the cap. `states/` was deleted after each run. Every lane's PRecActed or PWmDone probe was
+reached, so no lane is vacuous in that sense.
+
+**Every result matched its preregistered expectation.**
+
+| Lane | L = 1 | Distinct states (depth) | L = 2 | Distinct states (depth) |
+|---|---|---|---|---|
+| R0 | PASS | 97,903 (33) | n/a | |
+| R0n | PASS | 4,749 (32) | n/a | |
+| RM1 NoRule4 | FAIL, NoRollback | 26,053 (14) | n/a | |
+| RM2 BootFirst | FAIL, NoRollback | 23,282 (13) | n/a | |
+| RM3 Adjacent | FAIL, NoRollback | 4,120 (10) | n/a | |
+| RM4 K5 | FAIL, NoRollback | 4,381 (11) | n/a | |
+| RM5 AB | FAIL, NoRollback | 466 (7) | n/a | |
+| W0 | PASS | 9,384 (37) | PASS | 4,186 (34) |
+| W0n | PASS | 1,278 (36) | PASS | 706 (33) |
+| W0P (pipelined data, crashes only) | FAIL, WmNoCrashRefusal | 217 (13) | FAIL, WmNoCrashRefusal | 208 (13) |
+| WM1 LowerAfterClear | FAIL, WmNoCrashRefusal | 258 (10) | FAIL, WmNoCrashRefusal | 301 (11) |
+| WM2 NoDrain | FAIL, WmNoCrashRefusal | 517 (12) | FAIL, WmNoCrashRefusal | 515 (12) |
+| WM3 NoNonceCheck | FAIL, NoBindRevival | 370 (11) | PASS | 4,186 (34) |
+| WM4 AckBeforeWm | FAIL, NoSilentLoss | 693 (13) | FAIL, NoSilentLoss | 668 (13) |
+
+For each FAIL, the lane was also run against the named property alone, and it broke that property.
+
+**Probes:**
+- All rec probes were reached except PRecTie, as preregistered.
+- All wm probes were reached. PWmStray was not reached with `Pipe = FALSE` and was reached in W0P, as preregistered.
+
+**Weak probes.** PWmDone and PWmOldReturn are reached at depth 3, by a crash before the intent. This was seen after
+the runs. A diagnostic that was not preregistered asked for an old entry acknowledged at `L + 1` after the truncation,
+recovered, with no fault. It was reached (948 distinct states, depth 14). The NoFault lanes R0n and W0n, and the
+per-lane PRecActed probes, are reached at depth 9 or more.
+
+## 10. What this shows, and what it does not
+
+Within these bounds and the limits in sections 2 and 8 [FACT for the model, INF for the design]:
+- **Section 2 (U3):**
+  - the four-slot record with rule 4 and spaced slots did not roll back under three crashes and any one listed media
+    fault;
+  - each of the five weaker variants did roll back, including K5 and D-06's A/B.
+  - The tie refusal was never needed, so that branch is untested.
+- **Sections 3-5 (U10-U12), one stream, `L` = 1 or 2, serial data writes:**
+  - no acknowledged entry was lost without a refusal;
+  - crashes alone never refused;
+  - revived entries stayed above the watermark;
+  - a lost `L + 1` binding never brought back a voided entry. **This holds only for the initial layout.** The
+    re-review (section 11, finding 1) shows that it breaks when the old segment holds two or more records past `L`.
+  - Each ordering rule that was removed (lowering before the clear, the drain, the nonce check at `L = 1`, the
+    acknowledgement after the watermark) broke a property. The nonce check matters only where the old segment holds
+    bytes past `L`.
+- **A design gap found (W0P).** If a stream can have two data writes in flight, a crash can land the later one
+  without the earlier one. Design section 4 then refuses after a crash alone, which breaks requirement 2. The design
+  must say one of two things, and that choice is cody's, with Codex:
+  - **(i)** one data write in flight per stream; or
+  - **(ii)** valid records after a format-sector gap above `W` are discarded, not refused.
+
+  I recommend (i). Today's code already keeps one flush in flight (`src/core/storage.cpp:643`, `!inflight_`), so (i)
+  only writes down what exists. The model cannot rule on (ii): with the gap rule removed, it still passes, because
+  C16b is outside its fault set (section 11, finding 3).
+
+**What it does not show:**
+- anything at larger bounds, or with several streams, the floor and reclaim (O-FLOOR), torn or misdirected WAL
+  writes, two-slot watermark files, process-kill I/O (V8), or the wire;
+- that R6.2 re-reconciliation repairs a revived tail (the model's recovery is terminal);
+- the revival after a lost `L + 1` binding once `W > L` (section 11);
+- any selection of D-02, any resolution of R-23 or O-FLOOR, or any acceptance of a D-06 revision.
+
+## 11. Revision 2 re-review
+
+A second independent reviewer (Opus) re-checked the revision-2 changes and reran the lanes in their own copies. Their
+results matched section 9. They also found that NoBindRevival is not vacuous: "ok with a lostBind" is reached at both
+values of `L`.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| 1 | MAJOR | W0 passes NoBindRevival only because segment 1 holds exactly one record past `L = 1`, and none past `L = 2`. With `Old(3)` also in segment 1, W0 at `L = 1` **fails NoBindRevival** in 14 steps. The binding of name 2 is lost, `Old(2)` is appended, the watermark is written as `(2, Old(2), nonce 0)`, and then a crash. The scan of segment 1 returns `Old(1) Old(2) Old(3)`. The watermark at 2 matches, so recovery accepts and `Old(3)` comes back. After the first append, the watermark no longer carries the nonce | **open design question, below.** This was the reviewer's run, not a preregistered lane. It is recorded here and not rerun |
+| 2 | MAJOR | Design 3(e) contradicts itself. It calls the revival after a lost binding "silent" only at `W = L`. Then it says that once appends move `W` above `L`, the lost-unlink case covers it, and that case accepts a revived tail above `W` (V4, G-15, R6.2). The model reads the binding case strictly and the unlink case leniently | open design question, below |
+| 3 | MINOR | The gap rule ("Stray") has no safety effect in the model. With it removed, `Pipe = TRUE` plus faults passes all of Safety | section 10 changed: the model cannot rule on option (ii) |
+| 4 | NOTE | Stray is a fair literal reading of design 4. W0P is a gap in the design text: the code keeps one flush in flight (`src/core/storage.cpp:643`). A coalesced multi-record flush that tears is a torn frame; two separate frames are not | section 10 now recommends (i) |
+| 5 | MINOR | The RM4 counterexample TLC found is: the `b0` write at init is lost (the fault), then a crash tears `a0`. That differs from the section 8 story, though the result is the same | noted; section 8 is not edited after the runs |
+| 6 | NOTE | At `L = 2`, a lost unlink of name 3 is overwritten by the bind of 3, so the unlink-revival case does not arise there | disclosed |
+| 7 | NOTE | PWmStray means "refused without a fault", not "refused by the gap rule" | noted |
+| 8 | NOTE | `nextW` is listed twice in `wmVars`. It does no harm | left as run |
+
+**The open question (findings 1 and 2), for cody with Codex.** A lost `L + 1` binding lets voided term-1 entries
+come back above `W`, unrefused, once one append has moved the watermark. Two rulings are possible:
+- **Lenient.** This is the same as the lost-unlink case. The entries are identical by G-15, they are above `W`, and
+  re-reconciliation on rejoin removes them. Then 3(e)'s "that would be silent" is wrong, and the nonce check is
+  defense in depth.
+- **Strict.** It is harmful at any `W`. Then the nonce check must survive the first append.
+
+**My recommendation: the strict ruling, enforced by carrying `(L + 1, nonce)` in every watermark write until the next
+truncation.**
+- It is a small field.
+- It stops this case depending on the R6.2 argument, which no model checks.
+
+This recommendation has not been model-checked. Revision 3 would need its own preregistration and is not
+authorized.
+
+**Reviewer's UNRESOLVED items:**
+- the 3(e) ruling above;
+- whether the design serialises data flushes per stream;
+- whether discarding valid records after a format-sector gap is safe against C16b (the model cannot decide);
+- carried over from the first review: a stale watermark slot two generations back, and K1 torn frames.
