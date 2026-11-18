@@ -2,7 +2,7 @@
 
 Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
 results section 9, conclusions section 10, re-review section 11). Revision 3 **COMPLETED** (preregistration section 12,
-results section 13, review section 14). Revision 4 **COMPLETED** (preregistration section 15, results section 16, review section 17).
+results section 13, review section 14). Revision 4 **COMPLETED** (preregistration section 15, results section 16, review section 17). Revision 5 **PREREGISTERED** (section 18), not yet run.
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -706,3 +706,177 @@ on PWmDone. Left as run, so the committed model is the one that produced these r
 - NoVoidRevival is not vacuous: accepted logs longer than `L` are reached in all four lanes.
 - `Pred` is only evaluated when `1` is present, so it always has a candidate.
 - WmNoCrashRefusal is in Safety and is live: two of the variants trip it.
+
+## 18. Revision 5 (preregistered before any revision-5 run)
+
+**Authority.** Codex's review of #166 (`docs/handoff/PR166_Codex_Review.md`): "YES to Revision 5", with three
+conditions: keep the scope bounded, require the incorrect variants to be distinguishable, and stop for review after
+the results. cody answered the coordinator's request to authorize revision 5 by pasting that review. This is a
+closure exercise: a design defect found by a run is reported, not redesigned in the same PR. No R640, no
+implementation.
+
+**Model.** A new module, `spec/tla/SegChain.tla`, so that part `wm` stays as run. It reuses part `wm`'s
+abstractions:
+- entries `<<term, lsn>>`, the inode index as the segment nonce;
+- directory operations pending until a directory fsync, one media fault per run;
+- the scan with the void rule by name, FL-chain, R-CHAIN, the watermark check and the OD-2 binding check.
+
+What is new:
+- **Recovery is not terminal.** After an accepted recovery the writer reopens `E + 1` by design 3(b) and 3(c), and
+  runs on.
+- **Rollover** by `open_segment` (design 3(a)).
+- **Truncation** to any `L` as one step: completion's unlinks, `L + 1` created whole, one fsync, the watermark
+  lowered with the binding. Crashes inside completion are part `wm`'s job (revisions 1-4).
+- **A term per truncation**, and the V4 re-append of identical entries. Log matching holds: an old entry can be
+  re-appended only while everything since the truncation is identical.
+- `AREA` selects one narrow lane set, following Codex's "separate bounded configurations":
+
+| AREA | What it adds | Fault |
+|---|---|---|
+| `life` | rollover, truncation, reopen at `E + 1` | one lost directory operation |
+| `spare` | a prepared spare (unnamed header) taken at rollover, in order `Order`; adoption by header with `RENAME_NOREPLACE` | one lost directory operation (the rename too) |
+| `c15` | 3(b)'s replacement keeping the nonce | one lost format write under the replacement |
+| `seed` | a per-stream reseed under C-S: every name unlinked, the seed's first segment at the new floor `f` (link 0, not checked), the checkpoint below `f` | one lost directory operation |
+
+`Order` (spare only):
+- `Code`: today's code. The rename, then the header in the same write as the first frame (`storage.cpp:672`).
+- `RenameFirst`: the U2 fix with the code's order. The rename, then the header in its own DSYNC write, then the
+  first frame.
+- `HeaderFirst`: the U2 fix with the header first. The header is written to `spare.tmp` (DSYNC), then the rename.
+
+**Model readings to be checked by the review (not design decisions):**
+- An unnamed prepared header holding no valid frame, at the newest name, is unwritten and is not read. This is
+  today's all-zero rule (`storage.cpp:379`). Mutation `UnnamedDamage` removes it.
+- At adoption, an unnamed spare holding a valid frame refuses; one holding none is unlinked.
+- A lost format write under a replacement leaves either the replaced file's own old sectors (this nonce) or a freed
+  file's sectors. A freed file's frames carry another nonce, so they read as damage.
+- Names below the floor are not read (O-FLOOR, not modelled).
+
+**Properties**, all in `Safety`:
+- `WmNoCrashRefusal`: crashes alone never refuse.
+- `NoVoidRevival`: an accepted log is a prefix of the node's current log.
+- `NoSilentLoss`: every acknowledged entry of the current log survives.
+
+**Configurations.** Each run uses 1 worker, `-deadlock` and a 2-hour cap; a run that hits the cap is NOT COMPLETED.
+`states/` is deleted after each run.
+
+| Config | AREA | MaxLsn | MaxTrunc | MaxCrash |
+|---|---|---|---|---|
+| life-A | life | 5 | 1 | 2 |
+| life-B | life | 4 | 2 | 1 |
+| spare | spare (each `Order`) | 5 | 0 | 2 |
+| c15 | c15 | 4 | 1 | 2 |
+| seed | seed | 4 | 1 | 2 |
+
+One config with every area would not finish. A smoke run of `life` with `MaxLsn` 4, two truncations and one crash
+found 3,399,336 states in 79 s.
+
+**Expected results.** Each FAIL lane also runs against its named property alone.
+
+| Lane | MUT | life-A | life-B | spare: Code / RenameFirst / HeaderFirst | c15 | seed |
+|---|---|---|---|---|---|---|
+| L0 | none | PASS | PASS | **FAIL WmNoCrashRefusal** / PASS / PASS | PASS | PASS |
+| L1 | NoChain | FAIL NoVoidRevival | FAIL NoVoidRevival | | | FAIL NoVoidRevival |
+| L2 | ConstPn (writer's link is always segment 1) | FAIL WmNoCrashRefusal | FAIL WmNoCrashRefusal | FAIL / FAIL / FAIL, WmNoCrashRefusal | | |
+| L3 | PnZero | FAIL WmNoCrashRefusal | FAIL WmNoCrashRefusal | | | |
+| L4 | CmpMinus1 (compares with name `n − 1`) | FAIL WmNoCrashRefusal | FAIL WmNoCrashRefusal | | | |
+| L5 | LastOnly (R-CHAIN on the newest only) | **PASS** | **PASS** | | | |
+| L6 | AboveL1 (R-CHAIN only above `L + 1`) | **PASS** | **PASS** | | | |
+| L7 | NoFL (no FL-chain) | PASS | PASS | | | |
+| L8 | NoFLLastOnly | FAIL NoVoidRevival | PASS | | | |
+| L9 | NoFLAboveL1 | PASS | FAIL NoVoidRevival | | | |
+| L10 | NoNonceCheck | FAIL NoVoidRevival | FAIL NoVoidRevival | | | |
+| S1 | UnnamedDamage | | | FAIL / FAIL / PASS, WmNoCrashRefusal | | |
+| S2 | SparePnAtPrepare (link fixed when prepared) | | | FAIL / FAIL / FAIL, WmNoCrashRefusal | | |
+| C1 | NoFrameNonce (stale frames of another file read as valid) | | | | FAIL NoVoidRevival | |
+| C2 | ReplaceNewNonce | | | | FAIL WmNoCrashRefusal | |
+| D1 | SeedNoClear (C-S broken: no unlink before the seed) | | | | | FAIL WmNoCrashRefusal |
+| D2 | SeedKeepBind (the seed keeps the old binding) | | | | | FAIL WmNoCrashRefusal |
+| D3 | SeedNoBind (the seed writes no binding) | | | | | PASS |
+
+**Codex's item 5, stated before the runs.** Of revision 4's three surviving variants:
+- **"Writer sets a constant link" (L2)** is expected to fail here: rollover from a segment other than 1 makes it
+  refuse after a crash alone.
+- **"Check only the newest" (L5) and "check only above `L + 1`" (L6) are expected to PASS again** [INF]. FL-chain
+  checks every segment's `prev_term` against the term of the record before it. Under log matching (G-15), an equal
+  term at `n − 1` means the revived segment's records equal the current log's. So a revived segment followed by any
+  current segment is already caught, or is harmless. R-CHAIN adds something only at the newest segment, and both
+  variants check the newest one (above `L + 1`, a revived newest segment is always above the binding's name).
+- To make the difference visible, L8 and L9 remove FL-chain as well. Each is then expected to FAIL on a revived
+  segment in the middle, and L7 (FL-chain removed, full R-CHAIN) is expected to PASS. **If this holds, these two
+  variants are not defects while FL-chain stands. R-CHAIN on every segment is a second line behind FL-chain.**
+  Whether to keep it is a question for cody and Codex, not for this revision.
+
+**Expected failure traces.**
+- **L1 NoChain** (life-A; seed similar, with the reseed in place of the truncation):
+  1. Truncation to 1; the unlink of old segment 3 is lost.
+  2. Append the identical `<1,2>`. Crash.
+  3. The scan accepts `<1,1> <1,2> <1,3>`, longer than the current log.
+- **L2 ConstPn, L3 PnZero:** rollover from segment 3 to 4 writes link 1 (or 0); a crash; R-CHAIN refuses at 4.
+- **L4 CmpMinus1:** the first crash refuses at name 3, whose predecessor is name 1, not 2.
+- **L8 NoFLLastOnly** (life-A):
+  1. Truncation to 1, the unlink of 3 lost.
+  2. Append `<2,2>` and `<2,3>` in segment 2, roll over to 4, append, roll over to 5, append. Crash.
+  3. The directory holds 1, 2, 3 (old), 4, 5. Only 5's link is checked, and it is right.
+  4. The log is accepted with `<1,3>` at LSN 3.
+- **L9 NoFLAboveL1** (life-B):
+  1. Truncation to 1, the unlink of 3 lost.
+  2. Append `<2,2>` and `<2,3>`, roll over to 4, append `<2,4>`.
+  3. A second truncation, to 4, creates 5. Crash.
+  4. Nothing above 5 exists, so nothing is checked. The log is accepted with `<1,3>` at LSN 3.
+- **L10 NoNonceCheck:** truncation to 1 with the bind of 2 lost. The void `<1,2>` in segment 1 returns.
+- **L0 at Code order (U2 as it stands):** take the spare at 4 and append 4. A crash lands the frame without the
+  header sector. Recovery refuses: an unnamed header holding a valid frame, at name 4 or as `spare.tmp`.
+- **S1 at RenameFirst:** the rename lands, and the crash comes before the header write. Name 4 holds an unnamed
+  header and no frame, and without the unwritten rule it refuses. At HeaderFirst a named entry always has a named
+  header, so the lane passes.
+- **S2:** `open_segment` rolls over to 4, then the spare is taken at 5 with the link fixed at prepare time (segment
+  3). A crash; R-CHAIN refuses at 5.
+- **C1:**
+  1. Truncation to 2 frees old segment 3, which holds `<1,3>`.
+  2. The first frame of the new segment 3 is torn. Crash; recovery accepts `E = 2`.
+  3. The reopen replaces segment 3, keeping its nonce, and the format write is lost.
+  4. The freed file's `<1,3>` reappears and is read as valid. A second crash accepts `<1,3>`.
+  - Under the design that sector is damage, so recovery refuses, after a fault.
+- **C2:** the same up to the replacement, which takes a new nonce. The next crash fails the binding check.
+- **D1:** a reseed at `f = 2` without unlinks leaves old segment 3. The crash's scan finds a gap.
+- **D2:** truncation to 1 (binding name 2), then a reseed at `f = 2`. The binding names the old nonce, so the
+  crash refuses.
+
+**Probes** (each expected reached, i.e. violated, where listed):
+
+| Probe | Where reached |
+|---|---|
+| PRoll2 (two rollovers, then accepted) | life-A, spare (all orders) |
+| PTrunc2 | life-B |
+| PReopenNew, PSecondRec | life-A, spare, c15, seed |
+| PReplace | life-A, spare (all orders), c15 |
+| PUnlinkRefuse | life-A, life-B, seed |
+| PBindRefuse | life-A, life-B, spare, seed |
+| POkAfterDirFault | life-A, life-B, spare, seed |
+| PSpare, PAdopt | spare (all orders) |
+| PIgnore | spare Code and RenameFirst; **not** HeaderFirst |
+| PStale (accepted after a lost format write) | c15 |
+| PSeed | seed |
+
+**Codex's items 2-4, as covered here:**
+- **U2:** L0 and S1 at the three orders.
+- **O-R:** the seed lanes, under the assumption that R6.5 writes its own segments from an empty directory (C-S).
+  Whether R6.5 does that is a question about R6.5, which the model cannot answer. It stays UNRESOLVED.
+- **C15:** the c15 lanes.
+
+**Smoke runs, which count for nothing.** All found no violation:
+- `life`, `MaxLsn` 4: one truncation and one crash; one truncation and two crashes; and two truncations with one
+  crash. The last is life-B's bound, run with MUT none.
+- `spare` HeaderFirst at `MaxLsn` 4 with one crash;
+- `c15` at `MaxLsn` 3;
+- `seed` at `MaxLsn` 3 with one crash.
+
+**Outside revision 5 (listed as UNRESOLVED with the results):**
+- crashes inside completion or a seed (abstracted as one step);
+- a lost rename of a replacement;
+- several streams;
+- reclaim and the floor (O-FLOOR);
+- lost writes of a whole directory block;
+- watermark and data-write faults in this model (part `wm` covers them);
+- the bounds.
