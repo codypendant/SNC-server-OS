@@ -1,6 +1,7 @@
 # Crash consistency of truncation completion (AFR-D-06 4.3): preregistration and results
 
-Status: **COMPLETED.** Results are in section 5 and the review in section 6.
+Status: revisions 1 and 2 **COMPLETED** (results section 5, review section 6). Revision 3 **PREREGISTERED**
+(section 7), not yet run.
 
 How this document was built:
 - Sections 1-4, the model `spec/tla/Completion.tla` and `spec/tla/Completion.cfg` were committed and pushed before any
@@ -238,3 +239,50 @@ Revision 2 was reviewed independently after #158 merged. That review narrows the
 reader is exact **while the node serves**, and readers during completion were not checked. The model's reopen
 rewrites the header, which the design text did not say. Both are fixed in the design text; the findings and a
 bounded rerun proposal are in `docs/AFR_001_D06_BOUNDARY.md` section 4.
+
+## 7. Revision 3 (preregistered before any revision-3 run)
+
+Authority: Codex's review of #159 (`docs/handoff/PR159_Codex_Review.md`) recommends "the narrowly scoped revision 3
+verification already proposed" before accepting the D-06 format; cody pasted it, which under the standing rule
+starts it. The proposal is `docs/AFR_001_D06_BOUNDARY.md` section 4. This section, the model and `Completion.cfg` are
+committed and pushed before any counted revision-3 run.
+
+**Changes to the model** (each answers a finding of the revision 2 review, `AFR_001_D06_BOUNDARY.md` section 4):
+
+| Finding | Revision 3 |
+|---|---|
+| 1: the design text kept a zero header on reopen | The design reopen rewrites the header (unchanged from revision 2). New mutation `MZeroHdrReopen`: truncate, keep the old header |
+| 3: `ServedRangeExact` did not check reads past the end | It also requires `Range(Cur, f, MaxLsn)` to equal the acknowledged tail from `f`, for every `f` up to `Len(logical) + 1` |
+| 4: stale `TMP`; creates use `O_EXCL` | Completion unlinks a leftover `TMP` first (`CTmpClean`, D-06 4.3 step 2.1). `CTmp` on an existing `TMP` is fatal. New mutation `MNoTmpClean` (beyond the #159 proposal, added here so the step is shown necessary) |
+| 5: P4 reached only on a trivial path | `PZeroHdr` replaced by `PScanZero`: recovery's scan meets a zero-header segment. New probe `PStaleTmp`: completion meets a leftover `TMP` |
+| 7: `TakeSpare` was one step | Split as `take_spare` (`storage.cpp:697-711`): the rename, then the header with the first record (`TakeSpareWrite`). A crash between them is reachable |
+
+**Not changed, and still not modelled:** reclaim, checkpoints and the floor (obligation below); catch-up reads during
+completion (the design gates them, step 2.1; the model checks readers only while serving); torn WAL writes; truncation
+inside an atomic group; more than one stream; D-02 and R-23.
+
+**Lanes** (the rules of section 3: one TLC run each, `-workers 4 -deadlock`, 2-hour cap, a cap hit is NOT COMPLETED,
+TLC state deleted after each run, no bound changed after a result is seen). Design lanes check `Safety` and
+`PInoBound` together, so a run whose inode bound cut the search does not count as a PASS.
+
+| Lane | Constants (others as `Completion.cfg`) | Invariants | Expected |
+|---|---|---|---|
+| R3-D1 | `Completion.cfg` (MaxLsn 4, Cap 2, MaxTrunc 2, MaxCrash 2, MaxIno 18) | Safety, PInoBound | PASS |
+| R3-D2 | MaxCrash 3, MaxIno 22 | Safety, PInoBound | PASS |
+| R3-T3 | MaxTrunc 3, MaxIno 22 | Safety, PInoBound | PASS, or NOT COMPLETED at the cap |
+| R3-M1 to R3-M7 | D1 + one of MUnlinkReopen, MSpareUnlink, MNoNewSeg, MClearEarly, MNoVoid, MNoVoidRange, MNoCrc | Safety | FAIL |
+| R3-M8 | D1 + MZeroHdrReopen | Safety | FAIL: a bad header after the reopen, or a lost record |
+| R3-M9 | D1 + MNoTmpClean | Safety | FAIL: fatal create of `TMP` |
+| R3-P1, R3-P2 | D1 | PRecComplete, PTwoTrunc | VIOLATED |
+| R3-P4 | D1 | PScanZero | VIOLATED |
+| R3-P5 | D1 | PStaleTmp | VIOLATED |
+
+**Smoke runs** (not counted): MaxLsn 3, MaxTrunc 1, MaxCrash 2. The design passed (6,152 states). M6, M8 and M9
+failed (M9 fatal at the `TMP` create). P4 and P5 were violated.
+
+**Obligation kept open (Codex's review of #159): floor/reclaim crash consistency is UNVERIFIED by model checking.**
+The relationship of `AFR_001_D06_BOUNDARY.md` section 3 (one floor authority in the manifest, FL, publish before
+delete, recovery's orphan and below-floor deletes, the seed floor, `max_lsn`) rests on the argued crash table only. It
+interacts with checkpoint retention, replication catch-up and stream remapping. Revision 3 does not model reclaim, and
+nothing here claims the storage lifecycle is proven.
+
