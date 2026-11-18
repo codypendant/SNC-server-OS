@@ -90,7 +90,8 @@ itself issues.
    - Unchanged from D-06 4.1: `meta_mu`, the compare-and-write, the publish rules, and the rule that a failure is
      fatal. **Added:** after a failed write, the writer reaps every write still in flight before the process exits.
      Otherwise a write from the dead process could land after the next boot's write of the same generation, and
-     produce a tie with no media fault (re-review B3). A process killed from outside is UNRESOLVED (V8).
+     produce a tie with no media fault (re-review B3). A process killed from outside is UNRESOLVED (V8; answered
+     by source, rule proposed in `docs/AFR_001_D02_ACCEPTANCE_REVIEW.md` section 5).
    - In normal operation the invariant holds automatically: `g − 1` was acted on, so both copies of it are durable.
 2. **Init and seed.**
    - Create both files at `2M`, and `fsync` each file after sizing it. On xfs, a directory fsync does not persist a
@@ -236,7 +237,9 @@ remaining question is whether completion's effects survive one fault. Two cases:
     intact. ~~The proposed rule is to refuse any segment named above `L` whose nonce is older than the binding's.~~
     That rule is superseded, because nonces have no order. The proposal is now R-CHAIN: each segment header carries
     `prev_nonce`, and recovery checks it against the directory
-    (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md`). It is not modelled, and it awaits the owner.
+    (`docs/AFR_001_D02_OBSOLETE_SEGMENT.md`). The owner ruled the revival harmful and took R-CHAIN as the direction to
+    verify, not frozen (OD-5, OD-6, `docs/handoff/PR165_Owner_Decisions.md`). Revisions 4 and 5 of the model check it
+    within small bounds (`docs/AFR_001_D02_MODEL.md` sections 15-20).
 - **The unlink of a segment `M > L` is lost**, so the old segment `M` reappears.
   - If the new log reaches past `M`, recovery refuses: the watermark falls above the recovered end, or the record at
     the watermark has another CRC, or FL-chain fails.
@@ -392,7 +395,7 @@ Codex and the owner rule on it.
 | V5 | O-FLOOR | unchanged: the bounded reclaim model, or an equivalent argument, before checkpoint or reclaim conformance work |
 | V6 | D-02 selection, and the detector's role alongside a possible change to P5 or R6.3′ (section 1) | owner decision after X-2 |
 | V7 | Carried over from review, not addressed here: whether incarnations stay unique across a wipe and reseed (generations restart at 1); the seed crash before its record write, which needs an operator (boundary rule 5, as today); standalone LSN-reservation gaps against R0 rule 6; carrying watermark files over a remap | design follow-up |
-| V8 | Can a write still in flight from a process killed from outside land after the next boot's write? (Whether the kernel drains io_uring or AIO writes on exit was not settled) | kernel source check, or a process-lifetime lock |
+| V8 | Can a write still in flight from a process killed from outside land after the next boot's write? **Answered from the Linux v6.12 source** (`docs/AFR_001_D02_ACCEPTANCE_REVIEW.md` section 5): yes for `O_DIRECT` writes already submitted through io_uring; io-wq work and AIO are drained. Today's directory lock is released before such writes land. Exposed: the in-place record and watermark files, and (**BLOCKER**) the newest segment that 3(b) opens as is after a restart | rules proposed there (replace the newest segment after every restart; V8-L `flock` on the I/O descriptor, or V8-A synchronous writes), not yet written into this design |
 
 ## 9. Review record
 

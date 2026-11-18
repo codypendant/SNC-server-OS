@@ -3839,3 +3839,21 @@ or source comments.
 -   **Not accepted:** R-CHAIN (OD-6), D-02, R-23, O-FLOOR. **Not started:** the consolidated D-02 acceptance review.
     **Not authorized:** X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): consolidated D-02 architectural acceptance review (docs)
+
+-   **Trigger:** Codex's review of #167 (`docs/handoff/PR167_Codex_Review.md`, filed verbatim): #167 approved and
+    merged (9cc7514); section 3 asks for a consolidated D-02 acceptance review, docs and analysis only, then STOP.
+-   **Output:** `docs/AFR_001_D02_ACCEPTANCE_REVIEW.md` (Codex's 10 items); stale lines fixed on site in
+    `docs/AFR_001_D02_CRASH_DESIGN.md` (3(e), V8) and `docs/AFR_001_D02_OBSOLETE_SEGMENT.md` (status, section 7).
+-   **Results:** D-02 not ready. V8 answered from Linux v6.12 source: async `O_DIRECT` io_uring writes outlive a dead
+    process, io-wq and AIO are drained, today's directory lock does not cover it. Review BLOCKER: 3(b) reopens the
+    newest segment as is after a kill. O-R: no per-stream reseed procedure exists (RS-0..RS-6 proposed). Rule 4 vs
+    R9-A/R9-B is a choice for the owner. Ten blockers, B1-B10.
+-   **Review:** two independent Opus break-it reviews (storage mechanics; contracts and D-06): 1 BLOCKER, 12 MAJOR,
+    all taken up; fixes not re-reviewed.
+-   **Recommendation:** one text-only design note (V8 rules, TMP naming, RS-0..RS-6, rule 4 re-review, missing
+    design-7 rows), three-way review, no model; then an owner-decision package (Y1-Y6).
+-   **Not accepted / not authorized:** D-02 (HOLD), R-23, O-FLOOR, Y1-Y6 (Codex recommendations or proposals only),
+    any model revision, X-2, R640, C++, Rust, migration.
+-   **Next action:** STOP for Codex and cody.
