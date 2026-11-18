@@ -3808,3 +3808,17 @@ or source comments.
 -   **Proposed, NOT started:** revision 4 of `MetaWatermark.tla` (section 7). Needs cody's yes.
 -   **Not accepted:** R-CHAIN, D-02, R-23, O-FLOOR. **Not authorized:** revision 4, X-2, R640, C++ or Rust.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): owner decisions OD-5, OD-6; MetaWatermark revision 4 (spec/tla, docs)
+
+-   **Trigger:** Codex's review of #165 (`docs/handoff/PR165_Codex_Review.md`); #165 merged (e61f1ba). cody: "Yes, on
+    both." recorded in `docs/handoff/PR165_Owner_Decisions.md` (OD-5 lost-unlink revival is harmful, recovery refuses;
+    OD-6 R-CHAIN is the direction to verify, not frozen). Revision 4 started under the standing rule for pasted reviews.
+-   **Output:** `MetaWatermark.tla` revision 4 (prereg 47f8ce4: `pn`, R-CHAIN check, NoChain, NoVoidRevival); results
+    and review in `docs/AFR_001_D02_MODEL.md` sections 15-17.
+-   **Results:** all 113 runs as preregistered; NoChain fails NoVoidRevival at A/L1 only. Review: no BLOCKER; MAJOR:
+    only one link is exercised, and three wrong variants of the rule survive, so the claim is narrowed to that trace.
+-   **UNRESOLVED:** U2 spare header, O-R reseed, C15 same-nonce (Codex: before final acceptance); rollover, spare and
+    `E + 1` links; `S` other than segment 1; two-fault cases. A revision 5 is proposed, NOT authorized.
+-   **Not accepted:** R-CHAIN (OD-6), D-02, R-23, O-FLOOR. **Not authorized:** revision 5, X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.

@@ -2,8 +2,7 @@
 
 Status: revision 1 **COMPLETED** (results section 6, review section 7). Revision 2 **COMPLETED** (preregistration section 8,
 results section 9, conclusions section 10, re-review section 11). Revision 3 **COMPLETED** (preregistration section 12,
-results section 13, review section 14). Revision 4 **PREREGISTERED** (section 15), not yet
-run.
+results section 13, review section 14). Revision 4 **COMPLETED** (preregistration section 15, results section 16, review section 17).
 
 How this document is built:
 - Sections 1-5, `spec/tla/MetaWatermark.tla` and `spec/tla/MetaWatermark.cfg` are committed and pushed before any
@@ -601,3 +600,109 @@ after crashes alone?
   name above `L`. R-CHAIN does not depend on timing.
 - **A revival left over from an earlier truncation.** It needs two truncations.
 - **The spare header, the per-stream reseed, and the same-nonce C15 case.** None of them is in the model.
+
+## 16. Revision 4 results
+
+**Runs.** 113 TLC runs: 32 Safety runs, 24 single-property runs (one per FAIL lane), 32 PWmDone runs, 24 probe runs and
+R0. Every run finished in under 5 seconds. None reached the 2-hour cap. Each used 1 worker and `-deadlock`, and
+`states/` was deleted after each run.
+
+**Lanes (FACT). Every cell is as preregistered in section 15.** Distinct states are shown for the Safety run.
+
+| Lane | A, L 1 | A, L 2 | B, L 1 | B, L 2 |
+|---|---|---|---|---|
+| W0 | PASS, 9,384 | PASS, 4,186 | PASS, 8,430 | PASS, 3,834 |
+| W0n | PASS, 1,278 | PASS, 706 | PASS, 1,254 | PASS, 682 |
+| WM6 NoChain | **FAIL, NoVoidRevival** | PASS | PASS | PASS |
+| WM1 LowerAfterClear | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM2 NoDrain | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal | FAIL, WmNoCrashRefusal |
+| WM3 NoNonceCheck | FAIL, NoBindRevival | PASS | FAIL, NoBindRevival | FAIL, NoBindRevival |
+| WM4 AckBeforeWm | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss | FAIL, NoSilentLoss |
+| WM5 BindOnce | PASS | PASS | FAIL, NoBindRevival | PASS |
+
+Each FAIL lane failed the same named property when run against it alone. PWmDone was reached in every lane, so every
+lane reaches a terminal recovery.
+
+**Probes (FACT).**
+
+| Probe | A, L 1 | A, L 2 | B, L 1 | B, L 2 | Preregistered |
+|---|---|---|---|---|---|
+| PWmUnlinkRefuse | reached | not reached | not reached | not reached | reached at A, L 1 |
+| PWmOkLostUnlink | reached | reached | reached | reached | reached at A, L 2 |
+| PWmLostBind | reached | reached | reached | reached | reached at A and B, L 1 |
+| PWmOkLostBind | reached | reached | reached | reached | reached at A and B, L 1 |
+| PWmBindRefuse | reached | reached | reached | reached | reached at A and B, L 1 |
+| PWmStray | not reached | not reached | not reached | not reached | not reached |
+
+Every probe the preregistration named was reached where it said. Some were also reached in configurations it did not
+name. The preregistration did not say "only", so this is not a deviation, but it is disclosed.
+
+**Regression (FACT).** R0 (part `rec`): PASS, 97,903 distinct states.
+
+**What this shows (INF), narrowed by the review in section 17.** In this bounded model, with one media fault per run:
+- The revision-3 review's lost-unlink trace (old segment 3 at A, `L = 1`) is refused by R-CHAIN. Without the chain
+  check (WM6) it is accepted with a voided entry. This is the **only** configuration where the chain check refuses
+  anything, so the results do not show that R-CHAIN refuses every voided log in general.
+- No accepted log holds a voided entry (NoVoidRevival), for a lost binding or a lost unlink, within these bounds.
+- R-CHAIN never refuses after crashes alone **for the one link the model has: `L + 1` written by step 2.4 or by a
+  completion rerun** (WmNoCrashRefusal, in Safety). Rollover, a taken spare and `E + 1` are not modelled.
+- Every accepted run after a lost unlink is harmless: the completion rerun unlinks again, or a later bind replaces the
+  name. PWmOkLostUnlink shows the fault is used, not that anything risky is accepted.
+
+**UNRESOLVED (not covered by revision 4):**
+- **U2, the spare header torn from its first frame.** Not in the model. Codex lists it before final acceptance.
+- **O-R, the per-stream reseed.** Not in the model. Codex lists it before final acceptance.
+- **C15, the same-nonce case.** Not in the model. Codex lists it before final acceptance.
+- **The 3(b) replacement that keeps the nonce (`ReplaceNewNonce`).** It happens after recovery, the model's last step.
+- **The two binding-dependent cases** (a lost rename over an old `L + 1`; a lost `L + 1` entry with an old segment
+  directly after `S`). Each needs two lost directory operations, and the model allows one fault.
+- **A revival left over from an earlier truncation.** It needs two truncations.
+- **Crash-only refusal for links other than `L + 1`** (OBSOLETE_SEGMENT 3.2): a segment named by rollover or by
+  taking a spare, the segment `E + 1` opened after recovery (3(c)), the `pn = 0` rule and the truncation at
+  `L = retain_from - 1`. None is modelled.
+- **A writer that records the wrong predecessor when `S` is not segment 1.** `S` is segment 1 in every layout, so the
+  model cannot tell "the segment holding `L`" from "always segment 1" (section 17, MAJOR 1).
+- **"Check every retained segment" versus "check only the last".** The model cannot tell them apart.
+- **A lost write of a whole directory block** (several operations at once).
+- **O-FLOOR, V8, and D-02, R-23 as a whole.** Unchanged.
+- **Bounds.** One stream, one truncation, `MaxLsn` 4, `MaxCrash` 3, one media fault. Nothing here holds beyond them.
+
+## 17. Revision 4 independent review
+
+An Opus reviewer was told to break the revision. It reproduced every section 16 result and ran 50 runs of its own.
+**No BLOCKER.**
+
+**MAJOR 1. Only one link is tested; wrong variants of the rule survive (FACT, reviewer's runs, Safety, MUT none, four
+lanes each).**
+
+| Variant | Result |
+|---|---|
+| check only `n = L + 1` | FAIL NoVoidRevival at A/L1 |
+| check only `n > L + 1` | **PASS all four (survives)** |
+| check only `n = Last` | **PASS all four (survives)** |
+| `pn` equal to any present nonce below `n` | FAIL NoVoidRevival at A/L1 |
+| compare against `d[n - 1]` | FAIL WmNoCrashRefusal at A/L1, A/L2, B/L2 |
+| writer sets `pn = 0` | FAIL WmNoCrashRefusal in all four |
+| writer sets `pn = 1` (a constant) | **PASS all four (survives)** |
+
+Taken up: section 16's conclusion is narrowed to the A/L1 trace, and the uncovered parts are UNRESOLVED. A model that
+tells these variants apart needs `S` other than segment 1, a rollover and a link other than `L + 1`. That is a
+revision 5, which is **not authorized**.
+
+**MAJOR 2. The out-of-scope list missed crash-only rows of OBSOLETE_SEGMENT 3.2** (rollover, spare, `E + 1`,
+`pn = 0`, `L = retain_from - 1`) and O-FLOOR. Taken up: added to section 16's UNRESOLVED list.
+
+**MINOR 3. Every accepted run after a lost unlink is harmless, and the B hits were not foreseen.** Traces:
+- A/L1: the rerun unlinks 3 again;
+- A/L2: the new bind replaces old 3;
+- B: the lost unlink is the rerun's unlink of the previous completion's own `L + 1`, which the next bind replaces.
+
+The one dangerous lost unlink is refused (PWmUnlinkRefuse, A/L1). Taken up in section 16.
+
+**MINOR 4. Cosmetic.** `nextW` appears twice in `wmVars`, and a "vacuity check" comment sits on PWmOkLostUnlink, not
+on PWmDone. Left as run, so the committed model is the one that produced these results.
+
+**Checked and sound (FACT):**
+- NoVoidRevival is not vacuous: accepted logs longer than `L` are reached in all four lanes.
+- `Pred` is only evaluated when `1` is present, so it always has a candidate.
+- WmNoCrashRefusal is in Safety and is live: two of the variants trip it.

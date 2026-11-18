@@ -55,5 +55,5 @@ C15 scenario.
 **Status of Codex's items** (recorded by Claude; see `PR163_Owner_Decisions.md` for the format):
 - Item 4, revision 4: started under cody's standing rule for pasted reviews. cody answered the coordinator's request
   to authorize revision 4 by pasting this review.
-- Items 2 and 3 (lost-unlink revival is harmful; R-CHAIN as the direction to verify): **Codex's recommendations,
-  pending cody's own yes.** They are not yet owner decisions.
+- Items 2 and 3 (lost-unlink revival is harmful; R-CHAIN as the direction to verify): **owner decisions since
+  2026-11-18 20:44 UTC**, recorded in `PR165_Owner_Decisions.md`.
