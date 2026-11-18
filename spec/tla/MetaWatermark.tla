@@ -50,7 +50,8 @@ VARIABLES slot,    \* slot -> <<g, v>>  (v identifies the bytes)
           chosen,  \* ghost: value recovery read last (for the invariant)
           refusedR \* recovery refused
 \* ============================== PART wm ===================================
-CONSTANTS L, MaxLsn
+CONSTANTS L, MaxLsn,
+          Pipe       \* wm: TRUE lets data(x + 1) be in flight with data(x)
 VARIABLES ino,     \* nonce -> [first, prev, recs : [1..MaxLsn -> entry or 0]]
           nIno,
           dirDur,  \* durable bindings: name -> nonce (0 = none)
@@ -62,17 +63,18 @@ VARIABLES ino,     \* nonce -> [first, prev, recs : [1..MaxLsn -> entry or 0]]
           bpc,     \* program counter of part wm
           wIno,    \* writer's inode
           nextX,   \* next LSN to append
+          nextW,   \* next LSN to watermark
           intended,\* ghost: the node's current log (sequence of entries)
           acked,   \* ghost: acknowledged <<x, e>> that must survive
-          pendAck, \* AckBeforeWm: acked entry whose watermark is not yet written
+          dPend,   \* data writes in flight: set of [x, e]
           outcome  \* [st: "none" "refused" "ok", log: the recovered log]
 \* ============================== shared ====================================
 VARIABLES fault,   \* "none" or the kind used
           crashes
 
 recVars == <<slot, pw, queue, stage, rpc, target, acted, nv, chosen, refusedR>>
-wmVars  == <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextX,
-             intended, acked, pendAck, outcome>>
+wmVars  == <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextX, nextW,
+             nextW, intended, acked, dPend, outcome>>
 vars == <<recVars, wmVars, fault, crashes>>
 
 MutOk == MUT \in {"none", "NoRule4", "BootFirst", "Adjacent", "K5", "AB",
@@ -96,7 +98,8 @@ Issue(val, st) ==
   /\ stage' = st /\ target' = val /\ rpc' = "write"
 
 RecInit ==
-  /\ slot = [s \in Slots |-> Bad] /\ queue = {} /\ acted = Bad /\ chosen = Bad
+  /\ slot = [s \in Slots |-> Bad] /\ acted = Bad /\ chosen = Bad
+  /\ queue = (IF PART = "rec" /\ MUT = "K5" THEN {[s |-> "b0", val |-> <<1, 1>>]} ELSE {})
   /\ refusedR = FALSE
   /\ IF PART = "rec"
        THEN /\ pw = {[s |-> t, val |-> <<1, 1>>] : t \in Targets(<<1, 1>>)}
@@ -132,8 +135,7 @@ Synced == rpc = "write" /\ pw = {} /\
   IF queue # {}
   THEN /\ pw' = queue /\ queue' = {}
        /\ UNCHANGED <<slot, stage, rpc, target, acted, nv, chosen, refusedR, fault>>
-  ELSE /\ queue' = {}
-       /\ CASE stage = "init1" ->
+  ELSE /\ CASE stage = "init1" ->
                  /\ pw' = {[s |-> t, val |-> <<2, nv>>] : t \in Targets(<<2, nv>>)}
                  /\ queue' = (IF MUT = "K5" THEN {[s |-> "b0", val |-> <<2, nv>>]} ELSE {})
                  /\ stage' = "init2" /\ target' = <<2, nv>> /\ nv' = nv + 1
@@ -141,19 +143,19 @@ Synced == rpc = "write" /\ pw = {} /\
             [] stage = "bootFirst" ->  \* BootFirst: rule-4 copies of the chosen value next
                  /\ pw' = {[s |-> t, val |-> chosen] : t \in
                            {SlotOf(f, chosen[1]) : f \in {"a", "b"}} \ {s \in Slots : slot[s] = chosen}}
-                 /\ stage' = "boot"
+                 /\ queue' = {} /\ stage' = "boot"
                  /\ UNCHANGED <<rpc, acted, target, nv>>
             [] stage = "r4" ->  \* rule 4 done: boot write next
                  /\ LET c == target IN
                     IF c[1] + 1 > MaxGen
-                    THEN /\ rpc' = "stop" /\ acted' = c
+                    THEN /\ rpc' = "stop" /\ acted' = c /\ queue' = {}
                          /\ UNCHANGED <<pw, stage, target, nv>>
                     ELSE /\ pw' = {[s |-> t, val |-> <<c[1] + 1, nv>>] : t \in Targets(<<c[1] + 1, nv>>)}
                          /\ queue' = (IF MUT = "K5" THEN {[s |-> "b0", val |-> <<c[1] + 1, nv>>]} ELSE {})
                          /\ stage' = "boot" /\ target' = <<c[1] + 1, nv>> /\ nv' = nv + 1
                          /\ UNCHANGED <<rpc, acted>>
             [] OTHER -> \* init2, rt, boot: act on the target
-                 /\ acted' = target /\ rpc' = "run"
+                 /\ acted' = target /\ rpc' = "run" /\ queue' = {}
                  /\ UNCHANGED <<pw, stage, target, nv>>
        /\ UNCHANGED <<slot, chosen, refusedR, fault>>
 
@@ -230,10 +232,13 @@ Scan(d) ==
       E == RunEnd(Last, MaxLsn + 1)
       GapFree == \A n \in P : Next(n) # 0 => RunEnd(n, Next(n)) = Next(n) - 1
       LogE == [x \in 1..E |-> Recs(SegOf(d, x))[x]]
+      \* design 4, "above the watermark": only format sectors may be discarded, so a
+      \* valid record after the tail's first gap refuses
+      Stray == \E y \in (E + 1) .. MaxLsn : Recs(Last)[y] # <<0, 0>>
       Chain == \A n \in P : n > 1 => ino[d[n]].prev = Term(Recs(SegOf(d, n - 1))[n - 1])
   IN IF P = {} \/ 1 \notin P \/ ino[d[1]].prev # 0 THEN [ok |-> FALSE, log |-> <<>>]
      ELSE IF ~GapFree THEN [ok |-> FALSE, log |-> <<>>]
-     ELSE IF ~Chain THEN [ok |-> FALSE, log |-> <<>>]
+     ELSE IF ~Chain \/ Stray THEN [ok |-> FALSE, log |-> <<>>]
      ELSE [ok |-> TRUE, log |-> LogE]
 
 Check(d) ==
@@ -266,14 +271,11 @@ WmInit ==
             /\ acked = {<<1, Old(1)>>, <<2, Old(2)>>}
        ELSE /\ ino = <<>> /\ nIno = 0 /\ dirDur = <<>> /\ dirMem = <<>> /\ wm = NoWm
             /\ wmCo = NoWm /\ bpc = "stop" /\ intended = <<>> /\ acked = {}
-  /\ pend = <<>> /\ recSt = "NONE" /\ wIno = 0 /\ nextX = L + 1
-  /\ pendAck = {} /\ outcome = [st |-> "none", log |-> <<>>]
+  /\ pend = <<>> /\ recSt = "NONE" /\ wIno = 0 /\ nextX = L + 1 /\ nextW = L + 1
+  /\ dPend = {} /\ outcome = [st |-> "none", log |-> <<>>]
 
 \* What must survive: every end reported in the current history.
 Required == acked
-
-WmUnch == UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno,
-                      nextX, intended, acked, pendAck, outcome>>
 
 \* The coalesced watermark is submitted and lands (it carries the newest generation).
 WmCoLand == wmCo # NoWm /\ bpc \notin {"rec", "done", "stop"} /\
@@ -281,16 +283,16 @@ WmCoLand == wmCo # NoWm /\ bpc \notin {"rec", "done", "stop"} /\
      \/ FaultOn /\ fault = "none" /\ wm' = wm /\ fault' = "lostWm"
   /\ wmCo' = NoWm
   \* its end is reported only before the intent; after it, LSN 3 is above L (void)
-  /\ acked' = (IF recSt = "NONE" THEN acked \cup {<<wmCo.lsn, wmCo.e>>} ELSE acked)
-  /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, recSt, bpc, wIno, nextX, intended,
-                 pendAck, outcome>>
+  /\ acked' = (IF bpc = "intent" THEN acked \cup {<<wmCo.lsn, wmCo.e>>} ELSE acked)
+  /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, recSt, bpc, wIno, nextX, nextW, intended,
+                 dPend, outcome>>
 
 DirSync ==
   /\ \/ dirDur' = ApplySeq(dirDur, pend) /\ fault' = fault
      \/ /\ FaultOn /\ fault = "none" /\ Len(pend) > 0
         /\ \E i \in 1..Len(pend) :
-             dirDur' = ApplySeq(dirDur, SubSeq(pend, 1, i - 1) \o SubSeq(pend, i + 1, Len(pend)))
-        /\ fault' = "lostDirOp"
+             /\ dirDur' = ApplySeq(dirDur, SubSeq(pend, 1, i - 1) \o SubSeq(pend, i + 1, Len(pend)))
+             /\ fault' = (IF pend[i].nonce = 0 THEN "lostUnlink" ELSE "lostBind")
   /\ pend' = <<>>
 
 \* Steps of the truncation and the new appends.
@@ -298,12 +300,15 @@ Intent == bpc = "intent" /\ recSt' = "PENDING" /\ bpc' = "c1"
           /\ intended' = SubSeq(intended, 1, L)
           \* entries above L were never HA_DURABLE (V4): their local ends are void
           /\ acked' = {a \in acked : a[1] <= L}
-          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, wIno, nextX,
-                         pendAck, outcome, fault>>
+          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, wIno, nextX, nextW,
+                         dPend, outcome, fault>>
 
-C1 == bpc = "c1" /\ (MUT = "NoDrain" \/ wmCo = NoWm) /\ bpc' = "c3"
-      /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX, intended,
-                     acked, pendAck, outcome, fault>>
+\* 2.1: wait for the in-flight watermark (WmCoLand), or drop it while unsubmitted.
+C1 == bpc = "c1" /\ bpc' = "c3"
+      /\ \/ MUT = "NoDrain" /\ wmCo' = wmCo
+         \/ MUT # "NoDrain" /\ wmCo' = NoWm
+      /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, recSt, wIno, nextX, nextW, intended,
+                     acked, dPend, outcome, fault>>
 
 C3 == bpc = "c3" /\
   LET del == {n \in Present(dirMem) : n > L}
@@ -312,12 +317,12 @@ C3 == bpc = "c3" /\
   IN /\ pend' = pend \o ops
      /\ dirMem' = [n \in Names |-> IF n \in del THEN 0 ELSE dirMem[n]]
      /\ bpc' = "c3s"
-     /\ UNCHANGED <<ino, nIno, dirDur, wm, wmCo, recSt, wIno, nextX, intended, acked,
-                    pendAck, outcome, fault>>
+     /\ UNCHANGED <<ino, nIno, dirDur, wm, wmCo, recSt, wIno, nextX, nextW, intended, acked,
+                    dPend, outcome, fault>>
 
 C3s == bpc = "c3s" /\ DirSync /\ bpc' = "c4"
-       /\ UNCHANGED <<ino, nIno, dirMem, wm, wmCo, recSt, wIno, nextX, intended, acked,
-                      pendAck, outcome>>
+       /\ UNCHANGED <<ino, nIno, dirMem, wm, wmCo, recSt, wIno, nextX, nextW, intended, acked,
+                      dPend, outcome>>
 
 \* Create segment L+1 whole (TMP, fdatasync), then rename it to its name.
 C4 == bpc = "c4" /\
@@ -330,11 +335,11 @@ C4 == bpc = "c4" /\
      /\ pend' = Append(pend, [name |-> L + 1, nonce |-> n])
      /\ dirMem' = [dirMem EXCEPT ![L + 1] = n]
      /\ wIno' = n /\ bpc' = "c4s"
-     /\ UNCHANGED <<dirDur, wm, wmCo, recSt, nextX, intended, acked, pendAck, outcome, fault>>
+     /\ UNCHANGED <<dirDur, wm, wmCo, recSt, nextX, nextW, intended, acked, dPend, outcome, fault>>
 
 C4s == bpc = "c4s" /\ DirSync /\ bpc' = (IF MUT = "LowerAfterClear" THEN "c8" ELSE "c7")
-       /\ UNCHANGED <<ino, nIno, dirMem, wm, wmCo, recSt, wIno, nextX, intended, acked,
-                      pendAck, outcome>>
+       /\ UNCHANGED <<ino, nIno, dirMem, wm, wmCo, recSt, wIno, nextX, nextW, intended, acked,
+                      dPend, outcome>>
 
 \* Step 2.7: read record L from the media, lower the watermark.
 C7 == bpc = "c7" /\
@@ -342,40 +347,49 @@ C7 == bpc = "c7" /\
       low  == [lsn |-> L, e |-> lrec, nonce |-> wIno]
   IN IF lrec = <<0, 0>>
      THEN /\ outcome' = [st |-> "refused", log |-> <<>>] /\ bpc' = "done"
-          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX,
-                         intended, acked, pendAck, fault>>
+          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX, nextW,
+                         intended, acked, dPend, fault>>
      ELSE /\ \/ wm' = low /\ fault' = fault
              \/ FaultOn /\ fault = "none" /\ wm' = wm /\ fault' = "lostWm"
           /\ bpc' = (IF MUT = "LowerAfterClear" THEN "app" ELSE "c8")
-          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wmCo, recSt, wIno, nextX,
-                         intended, acked, pendAck, outcome>>
+          /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wmCo, recSt, wIno, nextX, nextW,
+                         intended, acked, dPend, outcome>>
 
 C8 == bpc = "c8" /\ recSt' = "NONE"
       /\ bpc' = (IF MUT = "LowerAfterClear" THEN "c7" ELSE "app")
-      /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, wIno, nextX, intended,
-                     acked, pendAck, outcome, fault>>
+      /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, wIno, nextX, nextW, intended,
+                     acked, dPend, outcome, fault>>
 
-\* Append x: data durable (or lost), then the watermark, then the acknowledgement.
-\* The entry is the new primary's, or (V4) the identical old entry returning.
-AppData == bpc = "app" /\ nextX <= MaxLsn /\ pendAck = {} /\
-  \E e \in {New(nextX), Old(nextX)} :
+\* Appends. Data(x) is issued, then completes (lands, or is lost by the fault); the
+\* watermark for x follows its completion and that of every earlier write; then the
+\* acknowledgement. The entry is the new primary's, or (V4) the identical old entry.
+Done(x) == x < nextX /\ ~\E w \in dPend : w.x <= x
+
+AppData == bpc = "app" /\ nextX <= MaxLsn /\ (IF Pipe THEN Cardinality(dPend) < 2 ELSE dPend = {}) /\
+  \E e \in {New(nextX)} \cup (IF nextX <= 3 THEN {Old(nextX)} ELSE {}) :
     /\ (Len(intended) > L /\ Term(intended[Len(intended)]) = 2) => e = New(nextX)
-    /\ \/ ino' = [ino EXCEPT ![wIno].recs[nextX] = e] /\ fault' = fault
-       \/ FaultOn /\ fault = "none" /\ ino' = ino /\ fault' = "lostData"
-    /\ intended' = Append(intended, e)
-    /\ bpc' = "appWm"
-    /\ pendAck' = (IF MUT = "AckBeforeWm" THEN {<<nextX, e>>} ELSE {})
-    /\ acked' = (IF MUT = "AckBeforeWm" THEN acked \cup {<<nextX, e>>} ELSE acked)
-    /\ UNCHANGED <<nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX, outcome>>
+    /\ dPend' = dPend \cup {[x |-> nextX, e |-> e]}
+    /\ intended' = Append(intended, e) /\ nextX' = nextX + 1
+    /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextW,
+                   acked, outcome, fault>>
 
-AppWm == bpc = "appWm" /\
-  LET x == nextX
+DataLand == bpc = "app" /\ \E w \in dPend :
+  /\ \/ ino' = [ino EXCEPT ![wIno].recs[w.x] = w.e] /\ fault' = fault
+     \/ FaultOn /\ fault = "none" /\ ino' = ino /\ fault' = "lostData"
+  /\ dPend' = dPend \ {w}
+  /\ acked' = (IF MUT = "AckBeforeWm" THEN acked \cup {<<w.x, w.e>>} ELSE acked)
+  /\ UNCHANGED <<nIno, dirDur, dirMem, pend, wm, wmCo, recSt, bpc, wIno, nextX, nextW,
+                 intended, outcome>>
+
+AppWm == bpc = "app" /\ Done(nextW) /\
+  LET x == nextW
       e == intended[x]
   IN /\ \/ wm' = [lsn |-> x, e |-> e, nonce |-> 0] /\ fault' = fault
         \/ FaultOn /\ fault = "none" /\ wm' = wm /\ fault' = "lostWm"
      /\ acked' = acked \cup {<<x, e>>}
-     /\ nextX' = x + 1 /\ bpc' = "app" /\ pendAck' = {}
-     /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wmCo, recSt, wIno, intended, outcome>>
+     /\ nextW' = x + 1
+     /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wmCo, recSt, bpc, wIno, nextX, intended,
+                    dPend, outcome>>
 
 BCrash(crashOk) == crashOk /\ bpc \notin {"done", "stop"} /\
   \E k \in 0..Len(pend) : \E K \in SUBSET (1..Len(pend)) :
@@ -383,18 +397,24 @@ BCrash(crashOk) == crashOk /\ bpc \notin {"done", "stop"} /\
     /\ LET sub == [i \in 1..k |-> pend[CHOOSE j \in K : Cardinality({m \in K : m < j}) = i - 1]]
        IN dirDur' = ApplySeq(dirDur, sub)
     /\ dirMem' = dirDur'
-    /\ pend' = <<>> /\ wmCo' = NoWm /\ bpc' = "rec" /\ pendAck' = {}
-    /\ UNCHANGED <<ino, nIno, wm, recSt, wIno, nextX, intended, acked, outcome, fault>>
+    /\ \E D \in SUBSET dPend :
+         ino' = [i \in DOMAIN ino |-> IF i = wIno
+                   THEN [ino[i] EXCEPT !.recs = [x \in 1..MaxLsn |->
+                           IF \E w \in D : w.x = x THEN (CHOOSE w \in D : w.x = x).e
+                           ELSE ino[i].recs[x]]]
+                   ELSE ino[i]]
+    /\ pend' = <<>> /\ wmCo' = NoWm /\ bpc' = "rec" /\ dPend' = {}
+    /\ UNCHANGED <<nIno, wm, recSt, wIno, nextX, nextW, intended, acked, outcome, fault>>
 
 \* Recovery: rerun completion while PENDING, else scan and check (terminal).
 BRecover == bpc = "rec" /\
   IF recSt = "PENDING"
   THEN /\ bpc' = "c1"
-       /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX,
-                      intended, acked, pendAck, outcome, fault>>
+       /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX, nextW,
+                      intended, acked, dPend, outcome, fault>>
   ELSE /\ outcome' = Check(dirDur) /\ bpc' = "done"
-       /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX,
-                      intended, acked, pendAck, fault>>
+       /\ UNCHANGED <<ino, nIno, dirDur, dirMem, pend, wm, wmCo, recSt, wIno, nextX, nextW,
+                      intended, acked, dPend, fault>>
 
 \* ============================== spec ======================================
 Init == MutOk /\ RecInit /\ WmInit /\ fault = "none" /\ crashes = 0
@@ -411,7 +431,7 @@ RecNext ==
   \/ Recover /\ UNCHANGED <<wmVars, crashes>>
 
 WmNext ==
-  \/ WmCoLand \/ Intent \/ C1 \/ C3 \/ C3s \/ C4 \/ C4s \/ C7 \/ C8 \/ AppData \/ AppWm
+  \/ WmCoLand \/ Intent \/ C1 \/ C3 \/ C3s \/ C4 \/ C4s \/ C7 \/ C8 \/ AppData \/ DataLand \/ AppWm
   \/ BRecover
 
 Next ==
@@ -444,8 +464,13 @@ RevivalAboveW == outcome.st = "ok" =>
                    \A x \in 1..Len(outcome.log) :
                      (x > Len(intended) \/ outcome.log[x] # intended[x]) => x > wm.lsn
 
+\* wm: a lost L + 1 binding never brings back a voided entry unrefused (design 3(e):
+\* "That would be silent"; the nonce check closes it).
+NoBindRevival == outcome.st = "ok" /\ fault = "lostBind" =>
+                   \A x \in 1..Len(outcome.log) : x <= Len(intended) /\ outcome.log[x] = intended[x]
+
 Safety == NoRollback /\ RecNoCrashRefusal /\ NoSilentLoss /\ WmNoCrashRefusal
-          /\ CrashOnlyExact /\ RevivalAboveW
+          /\ CrashOnlyExact /\ RevivalAboveW /\ NoBindRevival
 
 \* Reachability probes (each expected to be violated, i.e. reached).
 PRecRule4     == ~(PART = "rec" /\ stage = "r4" /\ pw # {})
@@ -460,7 +485,11 @@ PRecTop       == ~(PART = "rec" /\ acted[1] = MaxGen)
 PWmFault(k)   == ~(fault = k /\ outcome.st # "none")
 PWmLostData   == PWmFault("lostData")
 PWmLostWm     == PWmFault("lostWm")
-PWmLostDirOp  == PWmFault("lostDirOp")
+PWmLostUnlink == PWmFault("lostUnlink")
+PWmLostBind   == PWmFault("lostBind")
+PWmStray      == ~(outcome.st = "refused" /\ fault = "none")  \* expected reached only if Pipe
+PRecActed     == ~(PART = "rec" /\ acted[1] >= 3)              \* vacuity check per rec lane
+PWmDone       == ~(outcome.st # "none")                         \* vacuity check per wm lane
 PWmRefused    == ~(outcome.st = "refused")
 PWmRerun      == ~(PART = "wm" /\ crashes > 0 /\ bpc = "c7")
 PWmRevived    == ~(outcome.st = "ok" /\
