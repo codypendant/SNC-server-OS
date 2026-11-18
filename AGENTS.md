@@ -3653,3 +3653,18 @@ or source comments.
 -   **Not authorized:** C++ or Rust, R640, X-2, D-02 acceptance, R9-F freeze, m = 2 change.
 -   **Next action:** the D-06 storage-format and metadata-atomicity design, as a separate docs-only PR.
 
+
+### 2026-11-17 UTC --- Claude (Claude Code): AFR-D-06 storage format and node metadata atomicity design (docs only, PROPOSED)
+
+-   **Trigger:** owner decision of 2026-11-17 (`docs/handoff/PR155_Owner_Decision.md`), "Next, authorized"; #156 merged
+    (38ad581).
+-   **Output:** `docs/AFR_001_D06_STORAGE_METADATA.md`. Prior art from primary sources (Raft, KIP-101, Kafka
+    checkpoints, LMDB, PostgreSQL, CockroachDB, TiKV raft-engine). Recommendation: one node-wide A/B metadata record
+    (today's superblock, 8 KiB) holding term, per-stream intent and reseed state; per-record WAL terms; void rule
+    instead of a valid-end marker; completion steps with a state rebuild; no per-shard split.
+-   **Owner question:** a recorded revision of the frozen `H_i` paragraph (term history derived from per-record terms
+    with a floor in the oldest retained segment's header; damage to it is WAL damage, D-02).
+-   **Review:** three adversarial rounds (3 + 1 + 1 reviewers), 8 blockers found and fixed or put to the owner; round 3's
+    fixes not re-reviewed. A small model of completion is proposed, not run.
+-   **Not authorized:** C++ or Rust, R640, X-2, D-02 acceptance, R9-F freeze, m = 2 change.
+-   **Next action:** STOP for Codex and cody.
