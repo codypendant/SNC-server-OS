@@ -3703,3 +3703,18 @@ or source comments.
 -   **Proposed, not run:** a bounded revision 3 of the completion model (section 4).
 -   **Not accepted:** D-06, D-02. **Not authorized:** C++ or Rust, R640, migration design.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): completion model revision 3 run; D-06 items 4-14 decision package (docs/model only)
+
+-   **Trigger:** Codex's review of #159 (`docs/handoff/PR159_Codex_Review.md`): merge #159 (a739f31), run the bounded
+    revision 3 verification, keep floor/reclaim as an explicit obligation, then review items 4-14 as one decision.
+-   **Output:** `spec/tla/Completion.tla` revision 3, preregistered in 988faa8 before any counted run
+    (`docs/AFR_001_COMPLETION_CRASH.md` sections 7-8); `docs/AFR_001_D06_FORMAT_DECISION.md`.
+-   **Results:** every lane matched its preregistered expectation. Design lanes PASS: D1 4.9M, D2 (MaxCrash 3) 31.5M,
+    T3 (MaxTrunc 3) 210.7M states in 1 h 50 min. All 9 mutations FAIL; 4 probes reached. One independent reviewer
+    found no model defect; 2 MAJOR and 8 MINOR wording/scope findings, fixed or disclosed.
+-   **Obligation O-FLOOR:** floor/reclaim crash consistency is argued, not model-checked.
+-   **Recommendation (for the owner):** conditionally accept items 4-14 as D-06's storage format; final acceptance
+    waits on D-02; R-23 blocker; O-FLOOR open.
+-   **Not accepted:** D-06, D-02. **Not authorized:** C++ or Rust, R640, migration design.
+-   **Next action:** STOP for Codex and cody.

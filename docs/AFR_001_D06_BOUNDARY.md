@@ -202,7 +202,7 @@ reopen truncation never drops a record; the first directory fsync and the clear/
 evidence for "both readers exact" or for the design text as written, because of findings 1 and 2. Both are fixed in
 the text above.
 
-**Proposed bounded rerun (revision 3), not run.** One preregistered PR, the same rules as #158:
+**Bounded rerun (revision 3): run since, every lane as expected (`docs/AFR_001_COMPLETION_CRASH.md` section 8).** As proposed: one preregistered PR, the same rules as #158:
 - changes: findings 3, 5 and 7; `create` on an existing name is fatal (finding 4); one new mutation that keeps the
   zero header on reopen (finding 1);
 - lanes: R3-D1 at the R2-D1 bounds; R3-D2 with `MaxCrash 3`; R3-T3 with `MaxTrunc 3` at `MaxLsn 4`; the eight

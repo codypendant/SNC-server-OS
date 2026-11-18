@@ -28,7 +28,9 @@ CONSTANTS MaxLsn,     \* highest LSN written
           MClearEarly,   \* the intent is cleared before the files are changed
           MNoVoid,       \* the scan reads every record of a segment (no void rule)
           MNoVoidRange,  \* rev 2: only the catch-up reader (read_stream_range) lacks the void rule
-          MNoCrc         \* rev 2: recovery picks the higher generation without checking the CRC
+          MNoCrc,        \* rev 2: recovery picks the higher generation without checking the CRC
+          MZeroHdrReopen, \* rev 3: the writer reopen truncates but keeps the old (possibly zero) header
+          MNoTmpClean    \* rev 3: completion does not unlink a leftover TMP before creating it
 
 SPARE == MaxLsn + 2
 TMP   == MaxLsn + 3
@@ -156,17 +158,22 @@ Append1 == /\ phase = "up" /\ pc = 0 /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) < C
            /\ wEnd' = wEnd + 1
            /\ UNCHANGED <<nIno, dNames, pend, meta, phase, pc, tL, wIno, nTrunc, nCrash>>
 
-\* Rollover onto a prepared spare: header written with the first record, rename not synced.
+\* Rollover onto a prepared spare, rename not synced. Rev 3: two steps, as take_spare
+\* (storage.cpp:697-711): the rename first, then the header with the first flush. A crash
+\* between them can leave a zero file at the new name. pc 21 = header and first record pending.
 TakeSpare == /\ phase = "up" /\ pc = 0 /\ wEnd < MaxLsn /\ Len(ino[wIno].recs) = Cap
              /\ Cur[SPARE] # 0 /\ ino[Cur[SPARE]].hdr = 0
-             /\ LET sp == Cur[SPARE]
-                    r == [l |-> wEnd + 1, v |-> nTrunc]
-                IN /\ ino' = [ino EXCEPT ![sp] = [hdr |-> wEnd + 1, recs |-> <<r>>]]
-                   /\ logical' = Append(logical, r)
-                   /\ wIno' = sp
-                   /\ Do([k |-> "rename", from |-> SPARE, to |-> wEnd + 1])
-             /\ wEnd' = wEnd + 1
-             /\ UNCHANGED <<nIno, dNames, meta, phase, pc, tL, nTrunc, nCrash>>
+             /\ wIno' = Cur[SPARE]
+             /\ Do([k |-> "rename", from |-> SPARE, to |-> wEnd + 1])
+             /\ pc' = 21
+             /\ UNCHANGED <<ino, nIno, meta, phase, tL, wEnd>> /\ Ghost
+
+TakeSpareWrite == /\ phase = "up" /\ pc = 21
+                  /\ LET r == [l |-> wEnd + 1, v |-> nTrunc]
+                     IN /\ ino' = [ino EXCEPT ![wIno] = [hdr |-> wEnd + 1, recs |-> <<r>>]]
+                        /\ logical' = Append(logical, r)
+                  /\ wEnd' = wEnd + 1 /\ pc' = 0
+                  /\ UNCHANGED <<nIno, dNames, pend, meta, phase, tL, wIno, nTrunc, nCrash>>
 
 \* Rollover without a spare: create the segment, header, fsync, directory fsync (open_segment).
 \* Rev 2: the create and the header write are two steps (open_segment, storage.cpp:536-566);
@@ -200,9 +207,9 @@ Intent == /\ phase = "up" /\ pc = 0 /\ nTrunc < MaxTrunc
           /\ UNCHANGED <<ino, nIno, dNames, pend, nCrash>>
 
 \* ---- Completion steps, shared by "trunc" and "rec" --------------------------
-\* pc: 1 spare, 2 delete above L, 3 fsync, 4 create tmp, 5 rename tmp, 6 fsync,
+\* pc: 1 spare, 13 leftover TMP (rev 3), 2 delete above L, 3 fsync, 4 create tmp, 5 rename tmp, 6 fsync,
 \*     7 clear, 8 reopen (rec: then adopt spare and scan).
-InComp == phase \in {"trunc", "rec"} /\ pc \in 1 .. 7
+InComp == phase \in {"trunc", "rec"} /\ pc \in (1 .. 7) \cup {13}
 Next1(p) == pc' = p
 
 ClearStep == IF MClearEarly THEN 1 ELSE 7
@@ -214,8 +221,16 @@ CSpare == /\ InComp /\ pc = 1 /\ ~(MClearEarly /\ Best.slot.st = "P")
              ELSE IF ~MSpareUnlink /\ ino[sp].hdr # 0 /\ ino[sp].hdr <= tL
                     THEN DoSync([k |-> "rename", from |-> SPARE, to |-> ino[sp].hdr])  \* adopt
                     ELSE Do([k |-> "unlink", to |-> SPARE])
-          /\ Next1(2)
+          /\ Next1(13)
           /\ UNCHANGED <<ino, nIno, meta, phase, tL, wIno, wEnd>> /\ Ghost
+
+\* Rev 3 (D-06 4.3 step 2.1): unlink a leftover TMP so that step 4's create never meets it.
+CTmpClean == /\ InComp /\ pc = 13
+             /\ IF Cur[TMP] # 0 /\ ~MNoTmpClean
+                  THEN Do([k |-> "unlink", to |-> TMP])
+                  ELSE UNCHANGED <<dNames, pend>>
+             /\ Next1(2)
+             /\ UNCHANGED <<ino, nIno, meta, phase, tL, wIno, wEnd>> /\ Ghost
 
 CDelete == /\ InComp /\ pc = 2
            /\ LET above == {s \in Segs(Cur) : s > tL} IN
@@ -228,11 +243,14 @@ CFsync1 == /\ InComp /\ pc = 3 /\ Fsync
            /\ Next1(IF MNoNewSeg THEN 7 ELSE 4)
            /\ UNCHANGED <<ino, nIno, meta, phase, tL, wIno, wEnd>> /\ Ghost
 
+\* Rev 3: every create uses O_EXCL (storage.cpp:541, :777), so an existing TMP is fatal.
 CTmp == /\ InComp /\ pc = 4
-        /\ NewIno(tL + 1, <<>>)
-        /\ Do([k |-> "create", to |-> TMP, i |-> nIno + 1])
-        /\ Next1(5)
-        /\ UNCHANGED <<meta, phase, tL, wIno, wEnd>> /\ Ghost
+        /\ IF Cur[TMP] # 0
+             THEN phase' = "fatal" /\ UNCHANGED <<ino, nIno, dNames, pend, pc>>
+             ELSE /\ NewIno(tL + 1, <<>>)
+                  /\ Do([k |-> "create", to |-> TMP, i |-> nIno + 1])
+                  /\ Next1(5) /\ UNCHANGED phase
+        /\ UNCHANGED <<meta, tL, wIno, wEnd>> /\ Ghost
 
 CRename == /\ InComp /\ pc = 5
            /\ Do([k |-> "rename", from |-> TMP, to |-> tL + 1])
@@ -265,7 +283,8 @@ TornCrash == /\ phase \in {"up", "trunc", "rec"} /\ nCrash < MaxCrash
 Reopen == /\ phase \in {"trunc", "rec"} /\ pc = 8
           /\ LET n == wEnd + 1 IN
              IF Cur[n] # 0 /\ ~MUnlinkReopen
-               THEN /\ ino' = [ino EXCEPT ![Cur[n]] = [hdr |-> n, recs |-> <<>>]]  \* truncate to header
+               THEN /\ ino' = [ino EXCEPT ![Cur[n]] =                 \* truncate, rewrite the header
+                                     [hdr |-> IF MZeroHdrReopen THEN ino[Cur[n]].hdr ELSE n, recs |-> <<>>]]
                     /\ wIno' = Cur[n] /\ phase' = "up" /\ pc' = 0
                     /\ UNCHANGED <<nIno, dNames, pend>>
              ELSE IF Cur[n] # 0
@@ -318,6 +337,7 @@ RecScan == /\ phase = "rec" /\ pc = 12
            /\ UNCHANGED <<ino, nIno, dNames, pend, meta, tL, wIno>> /\ Ghost
 
 Next == \/ Append1 \/ TakeSpare \/ NewSegment \/ Prepare \/ Intent
+        \/ TakeSpareWrite \/ CTmpClean
         \/ CSpare \/ CDelete \/ CFsync1 \/ CTmp \/ CRename \/ CFsync2 \/ CClear
         \/ SegHeader \/ Reopen \/ ReopenCreate \/ ReopenSync
         \/ Crash \/ TornCrash \/ RecStart \/ RecSpare \/ RecScan
@@ -330,9 +350,12 @@ Spec == Init /\ [][Next]_vars
 \* acknowledged record is lost.
 ServedLogExact == phase = "up" => Scan(Cur) = [f |-> FALSE, a |-> logical]
 \* Rev 2: the catch-up reader returns exactly the acknowledged records for every range.
+\* Rev 3: also a range that asks past the end returns exactly the acknowledged tail.
 ServedRangeExact == phase = "up" =>
-  \A f \in 1 .. Len(logical) : \A t \in f .. Len(logical) :
-     Range(Cur, f, t) = SubSeq(logical, f, t)
+  /\ \A f \in 1 .. Len(logical) : \A t \in f .. Len(logical) :
+       Range(Cur, f, t) = SubSeq(logical, f, t)
+  /\ \A f \in 1 .. Len(logical) + 1 :
+       Range(Cur, f, MaxLsn) = SubSeq(logical, f, Len(logical))
 NoFatal == phase # "fatal"
 Safety == ServedLogExact /\ ServedRangeExact /\ NoFatal
 
@@ -340,5 +363,8 @@ Safety == ServedLogExact /\ ServedRangeExact /\ NoFatal
 PRecComplete == ~(phase = "rec" /\ pc = 2)          \* recovery completes a pending intent
 PTwoTrunc    == ~(phase = "up" /\ nTrunc = 2)       \* serving after two truncations
 PInoBound    == nIno < MaxIno                       \* expected HELD: the inode bound is never hit
-PZeroHdr     == ~(\E s \in Segs(Cur) : ino[Cur[s]].hdr # s)  \* rev 2: a zero-header segment is reached
+\* Rev 3: P4 replaced. Recovery's scan meets a zero-header segment.
+PScanZero    == ~(phase = "rec" /\ pc = 12 /\ \E s \in Segs(Cur) : ino[Cur[s]].hdr # s)
+\* Rev 3: completion meets a leftover TMP.
+PStaleTmp    == ~(InComp /\ pc = 13 /\ Cur[TMP] # 0)
 =============================================================================
