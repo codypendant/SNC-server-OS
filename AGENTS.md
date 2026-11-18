@@ -3748,3 +3748,19 @@ or source comments.
 -   **Review:** three independent reviewers; 1 BLOCKER and 8 MAJOR fixed; fixes not re-reviewed; V1-V7 open.
 -   **Not accepted:** D-02, R-23, O-FLOOR. **Not authorized:** X-2, models, R640, C++ or Rust, migration.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): V4, four-slot re-review, watermark/atomicity analysis (docs only)
+
+-   **Trigger:** Codex's review of #162 (`docs/handoff/PR162_Codex_Review.md`): merge #162 (7b05c71), verify V4,
+    re-review the four-slot rules, analyse the watermark against the node-wide atomicity condition.
+-   **Output:** `docs/AFR_001_D02_FOLLOWUP.md`; fixes to `docs/AFR_001_D02_CRASH_DESIGN.md` sections 2 and 3(e).
+-   **Results:**
+    -   V4 answered: no truncation below the answering primary's divergence point, but yes by design after a term
+        change (unacknowledged entries only), and an identical entry can return. 3(e)'s FL-chain claim was too strong;
+        its safety now rests on the watermark and G-15 [INF].
+    -   Re-review: 1 BLOCKER (slot adjacency) and 1 MAJOR (init crash) fixed; V8 (process-kill in-flight I/O) open.
+    -   Atomicity: a proposed four-part test; the ruling is cody's.
+-   **Proposed, NOT started:** one small preregistered model (`MetaWatermark.tla`, section 4), Codex's item 4. It
+    needs cody's explicit yes.
+-   **Not accepted:** D-02, R-23, O-FLOOR, D-06 revisions. **Not authorized:** the model, X-2, R640, C++ or Rust.
+-   **Next action:** STOP for Codex and cody.
