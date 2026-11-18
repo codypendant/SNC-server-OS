@@ -68,34 +68,51 @@ detector and no detector. This document designs the detector and leaves that cho
   write, leaves only the older B.
 - The cause is the same in both: a write that overwrites the only good copy of the newest generation.
 
-**Invariant.** No write overwrites a slot pair unless the other pair holds two valid, byte-identical copies of the
-newest generation.
+**Invariant** (restated after the re-review, `docs/AFR_001_D02_FOLLOWUP.md` section 2). The newest acted-on
+generation always has a valid copy outside the slots that the next write targets. While no media fault has occurred,
+it has two.
 
 **Design: two mirrored pairs in two files.** The files `superblock.a` and `superblock.b` each hold two 8 KiB slots,
-at offsets 0 and 8 KiB. Each slot's CRC covers all 8 KiB: generation, `space_uuid`, padding, everything.
+at offsets 0 and `M`, and each file is preallocated to `2M`. Each slot's CRC covers all 8 KiB: generation,
+`space_uuid`, padding, everything.
+
+**Slot spacing.** `M` is at least 8 KiB plus the largest single write the node issues (WAL flush, checkpoint part,
+segment format). Nothing ever writes the space between the slots. This rule exists because of a finding in the
+re-review: with adjacent slots, one large misdirected or zeroing write can cover three slots in a row, and three
+adjacent slots always contain a whole pair. With the gap, one such write touches at most one slot, however the two
+files are placed on the device [INF]. The fault model's "one misdirected write" is then any write that the node
+itself issues.
 
 1. **Write generation `g`.**
    - It goes to slot `g mod 2` in both files.
    - Both writes use `O_DIRECT` and are submitted together (io_uring or AIO). Then both files are `fdatasync`ed.
    - The node acts on `g` only after both syncs return.
    - Unchanged from D-06 4.1: `meta_mu`, the compare-and-write, the publish rules, and the rule that a failure is
-     fatal.
+     fatal. **Added:** after a failed write, the writer reaps every write still in flight before the process exits.
+     Otherwise a write from the dead process could land after the next boot's write of the same generation, and
+     produce a tie with no media fault (re-review B3). A process killed from outside is UNRESOLVED (V8).
    - In normal operation the invariant holds automatically: `g − 1` was acted on, so both copies of it are durable.
 2. **Init and seed.**
-   - Create both files at 16 KiB.
+   - Create both files at `2M`, and `fsync` each file after sizing it. On xfs, a directory fsync does not persist a
+     new file's size.
    - `fsync` the directory.
    - Write generation 1 to slot 1 in both files, then generation 2 to slot 0 in both files, each synced.
    - All four slots then hold a real record, so later writes are pure overwrites.
 3. **Read.**
    - Read all four slots with `O_DIRECT`.
-   - A missing file, or a file of the wrong size: **refuse** (damage).
+   - **No CRC-valid slot in either file: init is incomplete**, and init restarts (a seed follows boundary rule 5). A
+     missing or wrong-size file is not damage in this case, so a crash during init does not refuse.
+   - Once any valid slot exists, both files were durably created, because generation 1 is written only after the
+     fsyncs. From then on, a missing file or a file of the wrong size is damage: **refuse**.
    - Take the highest generation among the CRC-valid slots. The slot position is not trusted, because a CRC-valid
      copy found in the wrong slot still counts by its generation.
    - Two valid slots with the same generation and different bytes: **refuse**. Only damage can produce that state
      under this fault model [INF].
 4. **Recovery restores the invariant before acting.**
    - If the chosen generation `g` has fewer than two valid copies, recovery writes `g` again, with the same bytes,
-     into the copy that is missing it in its own pair, and syncs it. The tie rule allows the duplicate.
+     to slot `g mod 2` of each file whose slot `g mod 2` does not hold a valid `g`, and syncs it. The tie rule allows
+     the duplicate.
+   - Rule 4 and the boot write run under `meta_mu`. No other writer in D-06 4.1's table runs until both are done.
    - Only then does recovery write anything newer (the boot write, D-06 4.1), and only then does it act, for example
      by running a PENDING completion.
    - The boot write moves to the start of recovery, before completion. Recovery's first action is therefore always a
@@ -111,7 +128,7 @@ was acted on.
 | One copy of `G` lost, torn, zeroed or misdirected | the other copy of `G` |
 | One copy of `G` lost, then a crash during `G + 1` | `G + 1` touches only the other pair: `G` |
 | One copy of `G` lost, `G + 1` completed, then a crash during `G + 2` | `G + 1` has two copies and the fault is already spent: `G + 1` |
-| Another write, such as WAL data, misdirected onto a slot | at most one copy of any generation is destroyed. The lost WAL write is D-02's case (section 4) |
+| Another write, such as WAL data, misdirected onto a slot | with the slot spacing, it touches at most one slot, so at most one copy of any generation is destroyed. The lost WAL write is D-02's case (section 4) |
 | Rule 4 skipped (the review's counterexample) | a crash leaves `G + 1` in one copy. A boot write `G + 2` into `G`'s pair is torn by a second crash, and one fault then destroys the lone `G + 1`, leaving `G − 1`. **Rule 4 exists to prevent exactly this** |
 
 **What it does not cover:**
@@ -208,11 +225,16 @@ remaining question is whether completion's effects survive one fault. Two cases:
     the watermark has another CRC, or FL-chain fails.
   - If the new log ends below `M − 1`: a gap, **refuse**.
   - If the new log ends exactly at `M − 1`: FL-chain compares `M`'s `prev_term` with the term of the new record
-    `M − 1`, and **refuses**.
-  - Why these terms differ [INF]: G-15 says the same `(term, LSN)` never identifies different content. R6.3′ replaces
-    an entry only with the primary's entry at that LSN. So equal terms at `M − 1` would mean an identical record,
-    which only a truncation below the real divergence point could produce.
-  - **Premise:** `L` is exactly the divergence point. Whether R6.2 can ever truncate lower is open (V4).
+    `M − 1`. It **refuses** when the terms differ. They can be equal, after later failovers, and then the revived
+    records are accepted (V4 below).
+  - **V4 result** (`docs/AFR_001_D02_FOLLOWUP.md` section 1). The terms at `M − 1` can be equal after later
+    failovers, but only when the entries are the identical entry (G-15). So FL-chain is not what makes this case
+    safe. What makes it safe [INF]:
+    - every acknowledged record is at or below the watermark `W`;
+    - when FL-chain passes, `W ≤ M − 1`, so the revived records are above `W` and unacknowledged;
+    - by G-15, each revived record is an entry that really existed under its `(term, LSN)`;
+    - the member re-reconciles on rejoin (R6.2), which handles an unacknowledged tail.
+    The argument does not need "`L` is exactly the divergence point", which is not always true (section 1 there).
 
 ## 4. U11: the watermark, and lowering it on a legitimate truncation
 
@@ -341,10 +363,11 @@ Codex and the owner rule on it.
 | V1 | Every argument here is [INF]. They survived one round of attack (section 9), which is not proof | Codex's judgment; a small model only if Codex asks |
 | V2 | Is a watermark outside the record, read only for NONE streams, compatible with the owner's authority condition? | Codex and owner |
 | V3 | The cost of four slots, of the watermark and its gating of reported ends, and of whole-segment creation | X-1 / X-2 (not authorized) |
-| V4 | Can R6.2 truncate below the exact divergence point? 3(e) depends on it not doing so | check against R6.2 and R6.3′ |
+| V4 | Can R6.2 truncate below the exact divergence point? | **answered** in `docs/AFR_001_D02_FOLLOWUP.md` section 1. Yes, by design after a term change; 3(e) was reworded so that it does not depend on it |
 | V5 | O-FLOOR | unchanged: the bounded reclaim model, or an equivalent argument, before checkpoint or reclaim conformance work |
 | V6 | D-02 selection, and the detector's role alongside a possible change to P5 or R6.3′ (section 1) | owner decision after X-2 |
 | V7 | Carried over from review, not addressed here: whether incarnations stay unique across a wipe and reseed (generations restart at 1); the seed crash before its record write, which needs an operator (boundary rule 5, as today); standalone LSN-reservation gaps against R0 rule 6; carrying watermark files over a remap | design follow-up |
+| V8 | Can a write still in flight from a process killed from outside land after the next boot's write? (Whether the kernel drains io_uring or AIO writes on exit was not settled) | kernel source check, or a process-lifetime lock |
 
 ## 9. Review record
 
