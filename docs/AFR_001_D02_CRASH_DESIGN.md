@@ -35,7 +35,9 @@ the comparison. This is an extension, labelled as such.
 1. **No silent loss.** Every acknowledged write, and every node-record state the node acted on, is recovered, or
    recovery refuses (G-14).
 2. **No refusal from crashes alone.** A crash with no media fault always recovers without an operator (G-48). A
-   refusal is allowed only when a media fault occurred: the G-14(a) exception to G-48.
+   refusal is allowed only when a media fault occurred: the G-14(a) exception to G-48. [2026-11-19: the fault model
+   is now `docs/AFR_001_DURABILITY_CONTRACT.md` section 1, which supersedes this section where they differ. Two
+   crash-only refusals exist in today's code and violate this requirement: contract section 3, rows C1 and C2.]
 3. **One authority.** The owner's condition, quoted: "The durable term, the term history, every stream's truncation
    intents and the incomplete flag form one logical, atomic metadata authority per node"
    (`docs/handoff/PR155_Owner_Decision.md`). This design adds a watermark outside the record. The claim that the

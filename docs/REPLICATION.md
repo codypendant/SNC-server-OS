@@ -334,8 +334,11 @@ lease** from a sync primary, and answers `E_STALE` without one.
   (`snc_server --seed-port P`) serves its active checkpoint's files. A
   standby started on an empty directory with `seed_from`
   (`--seed-from host:P`) fetches them during recovery, syncs them, and only
-  then writes a superblock naming that checkpoint, so a crash mid-seed
-  leaves no space and the next start fetches again. It then recovers from
+  then writes a superblock naming that checkpoint. A crash mid-seed
+  leaves data and no superblock, and the next start refuses ("has data but
+  no superblock; clear it first"): the operator clears the directory. This
+  is an open defect, not intended behaviour
+  (`docs/AFR_001_DURABILITY_CONTRACT.md` section 3, row C1). It then recovers from
   the checkpoint like any engine and connects at the checkpoint's LSNs;
   the primary sends the rest from its WAL files and memory. While a seed
   is sent, its checkpoint is not deleted, and the WAL from its LSNs is kept

@@ -287,11 +287,14 @@ header (`:797-812`). HeaderFirst changes all three.
 
 ### C.2 The procedure (revised after the reseed review)
 
-[Amended 2026-11-19 by `docs/AFR_001_DURABILITY_CONTRACT.md` 6.5 (term binding, `next_lease`, pins, RS-6's compare and floor) and 6.6 (R6.5).
-The package recommends running these steps over every stream at once, as a whole-node reseed in place.]
+[Amended 2026-11-19 by `docs/AFR_001_DURABILITY_CONTRACT.md` 6.5 (preconditions, RS-0's lease drop, term binding,
+`next_lease`, pins, RS-6's compare and floor, failure branches) and 6.6 (R6.5: RS-6 clears the flag but does **not**
+position the stream; an ordinary R6.2 round follows). Where this section differs, 6.5 and 6.6 win. The package
+recommends running these steps over every stream at once, as a whole-node reseed in place.]
 
 Preconditions, checked under `control_mu_`:
-- **the node** has left S by a chosen shrink (R2′ rule 3), and is not in A;
+- **the node** has left S by a chosen shrink (R2′ rule 3), and is not in A [amended: "not in A" is not checked by
+  `k`, contract 6.5];
 - the stream is NONE: not PENDING (a PENDING stream sends no R6.2 request, so R6.4 cannot pick it; completion owns
   the directory until the clear, R6.3′ item 3), and **no other stream is RESEEDING** (one reseed per node at a time);
 - the node and the primary agree on the slot map's epoch for the stream. It is checked again at RS-6.
@@ -304,7 +307,8 @@ Preconditions, checked under `control_mu_`:
 | RS-3 | Ask the primary for its part of the stream, **bound to the primary's term and this node's incarnation**. The primary **pins** that checkpoint and its WAL from the part's `start_lsn`, as the whole-node seed does (`seed.cpp:141-149`). Receive `start_lsn`, `max_lsn` and `start_term` (the term of record `start_lsn − 1`), and **load the part into memory**, as a whole-node recovery loads a part. Nothing of the part is written to disk here | memory only |
 | RS-4 | Create segment `start_lsn` by B.3: new nonce, `prev_nonce` 0, `prev_term = start_term`. Create `watermark` through `wm.tmp` with every slot `(start_lsn − 1, start_term, binding (start_lsn, nonce))`, then open and lock it (V8-2) | first segment and watermark |
 | RS-5 | Catch up the stream's WAL from the primary, from `start_lsn` through at least `max_lsn` (C5's wait, boundary rule 7). The stream acknowledges nothing. If the primary can no longer serve `start_lsn` (its pin expired), go back to RS-2 | WAL to `max_lsn`, watermarked |
-| RS-6 | Run **one ordinary node checkpoint** (`control_mu_`, no other stream PENDING). Its walk covers every stream from memory, this one included. Its manifest gives this stream `retain_from = start_lsn`, `floor_term = start_term`. Its commit is **one record write**: `active_ckpt = c + 1`, `next_lease` raised from every shard's `max_lease_seen` (as `engine.cpp:1524-1534` does today, which now sees the loaded part's IDs), and the stream's state `NONE`. Then reclaim `c` (boundary rules 1-3), and position the stream on `j`'s log | the record |
+| RS-6 | Run **one ordinary node checkpoint** (`control_mu_`, no other stream PENDING). Its walk covers every stream from memory, this one included. Its manifest gives this stream `retain_from = start_lsn`, `floor_term = start_term`. Its commit is **one record write**: `active_ckpt = c + 1`, `next_lease` raised from every shard's `max_lease_seen` (as `engine.cpp:1524-1534` does today, which now sees the loaded part's IDs), and the stream's state `NONE`. Then reclaim `c` (boundary rules 1-3), and position the stream on `j`'s log [amended: not positioned here; an
+ordinary R6.2 round follows, contract 6.6] | the record |
 
 Why this shape [INF]:
 - **Memory is discarded in RS-2 and rebuilt from the part in RS-3**, as completion step 2.5 rebuilds. Without it,
@@ -334,8 +338,9 @@ Why this shape [INF]:
 | Stream remapping | refused while any stream is RESEEDING, as for PENDING. A reseed across slot-map epochs is refused (checked at the start and at RS-6). A remap on the primary during the transfer is **UNRESOLVED**. Carrying watermark files over a remap stays open (V7) |
 | Leases | the loaded part's lease IDs reach `next_lease` through RS-6's commit (`engine.cpp:1524-1534`) |
 
-**Recorded conflicts with existing text** [2026-11-19: resolved as proposals in
-`docs/AFR_001_DURABILITY_CONTRACT.md` section 6: RS-6 is read there as a positioning, with a fallback revision of R6.5]:
+**Recorded conflicts with existing text** [2026-11-19: answered as proposals in
+`docs/AFR_001_DURABILITY_CONTRACT.md` section 6. Reading RS-6 as a positioning was rejected there; the proposal is a
+revision of R6.5 (6.6, Y6c-2): clear at RS-6, then an ordinary R6.2 round]:
 - **R6.5's order.** R6.5 clears the flag "only once the copied state is durable and positioned". RS-6 clears it at
   publication, before positioning. [2026-11-19: this is a revision of R6.5, proposed in `docs/AFR_001_DURABILITY_CONTRACT.md` 6.6 (Y6c-2); after
   RS-6, `k` is positioned by an ordinary R6.2 round.]
