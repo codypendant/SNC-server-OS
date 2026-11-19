@@ -7,7 +7,8 @@ revision of R9-A); Y6a, Y6b, Y8 yes as design directions (OD-11, OD-12, OD-14); 
 (OD-13); **Y6c-2 CONDITIONAL, not accepted**, pending the I2-I5 re-argument (`docs/AFR_001_R65_INVARIANTS.md`); Y4
 and Y7 HOLD. Codex's targeted final review of this text is section 7. After Codex's #172 review
 (`docs/handoff/PR172_Codex_Review.md`): premise P's evidence is section 8, Y9 is `docs/AFR_001_REPORT_IDENTITY.md`
-(Y9-T recommended), round 5 is section 9. Y6c-2 and Y9 are not accepted.**]**
+(Y9-T recommended), round 5 is section 9. After Codex's #173 review (`docs/handoff/PR173_Codex_Review.md`): round 6, the code
+changes P-2, P-3 and E30 need, and the updated owner questions are section 10. Y6c-2 and Y9 are not accepted.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
 initial-seed question, and "a concise final owner-decision package" in five parts. Codex's section 3 items are
@@ -259,8 +260,8 @@ all four hold [INF]:
 | # | Rule | Where it stands | Evidence that discharges it |
 |---|---|---|---|
 | P-1 | `max_lsn` is the stream's last assigned LSN when the part's walk ends, so the part reflects nothing above it | D-06 4.3 step 1 and boundary rule 7: proposed, inside the conditionally accepted D-06 items 4-14 | text: already argued (boundary review finding 1); final with Y4 |
-| P-2 | the part is published only once every record up to P-1's `max_lsn` is locally durable (C5) | **does not hold today**: C5 waits on today's `max_lsn`, the highest visited image's `last_lsn` (`shard.cpp:2654`), which misses deletes (`:2636`; boundary rule 7) [FACT, round 5] | a C5 change to wait on P-1's value (an implementation change, not authorized), then review; with `wal_sync=none` it never holds (outside every guarantee) |
-| P-3 | recovery refuses when a stream's valid end `E` is below the active checkpoint's `max_lsn` | **not written**: contract 2.4's NONE check reads the part but does not compare `E` with `max_lsn` | the check in contract 2.4 (this PR), which needs D-06 section 7's manifest `max_lsn` (proposed; stored nowhere today), P-2, and a seed that copies the WAL through `max_lsn` before its record write (E30, round 5: otherwise a freshly seeded node refuses with no fault); then review. With those, the refusal follows only a fault (G-14(a)), never a silently shorter log |
+| P-2 | the part is published only once every record up to P-1's `max_lsn` is locally durable (C5) | **does not hold today**: C5 waits on today's `max_lsn`, the highest visited image's `last_lsn` (`shard.cpp:2654`), which misses deletes (`:2637`; boundary rule 7) [FACT, round 5], **and on a standby misses every replicated record**: `apply_replicated` installs each image with `last_lsn = 0` (`shard.cpp:2189-2192`, `:1812`), so a standby's C5 waits on nothing, as does any node for objects untouched since boot [FACT, round 6] | a C5 change to wait on P-1's value (an implementation change, not authorized), then review; with `wal_sync=none` it never holds (outside every guarantee) |
+| P-3 | recovery refuses when a stream's valid end `E` is below the active checkpoint's `max_lsn` | **not written**: contract 2.4's NONE check reads the part but does not compare `E` with `max_lsn` | the check in contract 2.4, with `E = max(last valid LSN, retain_from − 1)` (round 6: an idle stream has no last LSN), which needs D-06 section 7's manifest `max_lsn` (proposed; stored nowhere today), P-2, and a seed that copies the WAL through `max_lsn` before its record write (E30, round 5: otherwise a freshly seeded node refuses with no fault); then review. With those, the refusal follows only a fault (G-14(a)), never a silently shorter log |
 | P-4 | no entry at or below `max_lsn` is replaced while that checkpoint is active: a primary never truncates its own log (SA I4 step 2), and a member whose truncation point is below `max_lsn` is reseeded instead (R6.4; D-06 4.3 step 1, `L ≥ max_lsn`) | frozen (R6.4) and proposed (D-06 4.3) | text: holds now |
 
 **The composition.** P-1 and P-2's defects were facts about the code, not interleavings (boundary review), so a
@@ -309,3 +310,85 @@ grant wait adds `W` to every reseed.
   until premise P is discharged** (section 8), as Codex requires.
 - Y4, Y7: HOLD. The V8-L experiment (E-1, E-1b), the watermark-cost experiment (E-2) and E-3 stay proposals with exact
   safeguards (contract 9), each for separate authorization; not started.
+
+## 10. Round 6: targeted review of the round-5 corrections (Codex #173)
+
+Codex's #173 review (`docs/handoff/PR173_Codex_Review.md`) asked for one targeted independent review of six areas.
+Three reviewers, each told to break the work: **h1** Y9-T and the RS-0 grant wait; **h2** premise P (P-2, P-3) and
+the seed's WAL ordering, with the exact code changes; **h3** orphan directories, the RS-1 incarnation and the write-
+error budget. **4 BLOCKER, 6 MAJOR**, all new; each fixed on site as below, **not re-reviewed**. [INF unless marked.]
+
+| # | Finding | Now |
+|---|---|---|
+| h1 B | a report sent before an in-place reseed counts once `k` is grown back and grants again; `(term, lsn)` alone does not stop it, and U4 had no effect on counting (REPORT_IDENTITY B-6a) | the report carries the reporter's incarnation; `p` counts it only under the incarnation it positioned (Y9-T revised) |
+| h1 B, h3 B | RS-0's wait does not survive a crash: the grant time is in memory, and step 11 discarded at once (B-6b) | RS-1 is written only after `W` from the later of the last grant and the boot; RESEEDING grants nothing; granting resumes after RS-6 and R6.2 |
+| h3 B | a grow remap's crash refused after crashes alone: `finish_recovery` (writers, re-seal, resume, links) runs before the remap checkpoint (`engine.cpp:1235-1254`, `shard.cpp:1844-1853` [FACT]), so a follow-up record lands in a new stream; "start with the old shard count" did not clear it | new step 9a: no record reaches any stream until the record write naming the remap's checkpoint; the orphan refusal is reachable only by FM-15; today's order recorded as a nonconformance |
+| h2 | P-2 understated: a standby's C5 waits on nothing (`last_lsn = 0` on every replicated install [FACT]) | P-2 row; tests must cover a standby checkpoint |
+| h2 | `E` undefined for a stream with no retained record: the 2.4 check, read literally, refused a clean restart of an idle stream | `E = max(last valid LSN, retain_from − 1)` |
+| h2 | boundary rule 5 and D-06 4.2 ("an empty segment `start_lsn`") contradicted E30 | E30 states the segment, the manifest and a contiguity check; both texts marked amended |
+| h2 | RS-6's `max_lsn` had no source with no writer open (0 would pass `L ≥ max_lsn`) | RS-6: at least RS-5's copied end |
+| h3 | the buffered WAL spent the one-fault budget silently: after a write error, a restart reads cached pages, step 9's sync succeeds (the dead process consumed the error), and the node reports them | the buffered WAL is outside every guarantee, as `wal_sync = none` is, proposed refused at start for a group member; the round-5 "counts as the media fault" clause removed |
+| h1 | RS-0 named no end for "stops granting" | granting resumes after RS-6 and R6.2 in the new incarnation |
+
+**MINOR fixes:** E30 says "durably"; no checkpoint before step 9 ends for every stream; `shard.cpp:2637`, not
+`:2636`; `runtime.cpp:231` is the synchronous fallback, not the buffered path; E32 lists R6.3′ item 1 and SA's
+"boot incarnation" and restarts the request number; stale "closed" claims in the R6.5 analysis and REPORT_IDENTITY
+corrected; `ENOSPC` on `O_DIRECT` spends no budget.
+
+**Partly resolved:** round 5's "P-1 for a checkpoint taken as a replica". LSNs are assigned on the owning shard's
+thread (`include/snc/storage.h:201` [FACT]), a standby appends before it installs (`shard.cpp:2189-2192` [FACT]), and deletes
+are logged, so with P-1 defined as `next_lsn − 1` sampled when the walk ends, the part reflects nothing above it
+[INF]. Its validity after a promotion stays with P-4.
+
+**UNRESOLVED from round 6:** whether "caught up" is judged from reports (then the incarnation check applies there
+too); whether a resume follow-up always writes before today's remap checkpoint (h3's B holds if any record path runs
+in that window); which field defines "covers the remap"; whether ext4 can fall back from `O_DIRECT` to buffered
+within a write (would put the buffered case on the default path) [HYP]; adding `max_lsn` to the manifest bumps
+`kFormatVersion`, and `read_manifest` rejects other versions (`storage.cpp:332` [FACT]; D-06 section 6). Carried:
+everything in section 9's list not resolved above; no model covers U, Y9-T or delayed reports.
+
+### 10.1 The code changes P-2, P-3 and E30 will need (identified, not written, not authorized)
+
+P-2 (C5 waits on the last assigned LSN):
+1. `shard.cpp:2654` uses the largest image `last_lsn`. Sample `c.max_lsn = wal_ ? wal_->next_lsn() − 1 : 0` once
+   where the walk ends (`c.visited = true`, `shard.cpp:2686`); keep the image maximum only as an assertion `≤` it; do
+   not re-sample at the wait.
+2. The wait at `shard.cpp:2727` (`lsn_local_durable(c.max_lsn)`) keeps its form. `wal_ == nullptr` is acceptable
+   only without a data directory (RS-6 sets its own value, contract 6.5).
+3. `CheckpointResult` (`shard.h:316-318`) gains `max_lsn`, filled at `shard.cpp:2560`.
+4. `Manifest` (`include/snc/storage.h:55-72`) gains a per-stream `max_lsn` (with D-06 section 7's fields), written and read in
+   `write_manifest`/`read_manifest` (`storage.cpp:286-358`) with a `kFormatVersion` change, filled at
+   `engine.cpp:1490-1495`.
+5. Tests: a delete during the walk with its WAL flush held, asserting no SYNC until `durable_lsn` reaches it; the
+   same on a standby; a manifest round trip.
+
+P-3 (recovery refuses `E < max_lsn`):
+6. After the scans (`engine.cpp:1124-1129`, remap path `:1187-1194`), `E_s = max(last_lsn, retain_from_s − 1)`
+   (`from_lsn − 1` until `retain_from` exists); refuse by name when `E_s` is below the manifest's `max_lsn[s]`. It
+   runs in phase 1, before any write, so the order before `engine.cpp:1074` moves (E27).
+7. Tests (`test_crash.cpp`): a WAL tail cut below `max_lsn` refuses; an idle stream left with a header-only segment
+   `start_lsn` recovers; a standby checkpoint then a cut tail.
+
+E30 (seed copies the WAL through `max_lsn`):
+8. Sender (`seed.cpp:141-160`): after the parts, send records `start_lsn..max_lsn` per stream (`read_stream_range`,
+   `storage.cpp:439`).
+9. Receiver (`seed.cpp:236-273`), before `write_superblock` (`:273`): the marker; segment `start_lsn` with the
+   records, `fdatasync` and directory `fsync`; last LSN equals `max_lsn`; watermark and links-generation files; the
+   manifest keeps `max_lsn`. The SEED outcome replaces `engine.cpp:943-946`.
+10. Test: kill after the record write and before the marker unlink; the restart proceeds with `E ≥ max_lsn`.
+
+Step 9a (remap order) and the buffered-WAL refusal are further code changes of the same kind, also not written.
+
+### 10.2 Owner questions (none recorded)
+
+- **Y9 (proposed: Y9-T as revised in round 6).** Replace R9-A′'s report clause with
+  `docs/AFR_001_REPORT_IDENTITY.md` section 3: a report names its entry `(term, lsn)` and carries the reporter's
+  incarnation; `p` counts it only if its own log holds that entry and the incarnation is the one `p` positioned; no
+  report while an intent is pending or the flag is set. Together with RS-0's revised wait (contract 6.5), which is
+  part of Y6c-2's text. **Recommendation: yes, as a design direction, after Codex's review of round 6.** It revises
+  frozen R9-A′ (OD-10) and the replication `Ack` frame (a wire-format item); argument only, no model.
+- **Buffered WAL outside every guarantee (new, round 6).** **Recommendation: yes**: it removes a silent budget
+  spend and costs nothing on the default configuration (`wal_direct = true`).
+- **Y6c-2:** still **hold until premise P is discharged** (section 8), as Codex requires. Its text now also carries
+  RS-0's revised wait and the RS-6 `max_lsn` rule.
+- Y4, Y7: HOLD. E-1, E-1b, E-2, E-3 and any M-1 change stay proposals, each needing separate authorization.

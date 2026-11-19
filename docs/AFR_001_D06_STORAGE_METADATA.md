@@ -174,7 +174,8 @@ None of them runs per operation. The latency of one 8 KiB write is not measured.
     `max_lsn` (4.3 step 1), so completion never deletes the floor segment.
   - A stream with no checkpoint yet has the floor `(0, 0)`. A seed copies the primary's manifest, so the receiver
     rewrites its floor to `(start_term, start_lsn - 1)` and creates segment `start_lsn` before the record write that
-    makes the directory a space (boundary rule 5).
+    makes the directory a space (boundary rule 5; amended by contract E30, round 6, proposed: that segment holds the WAL
+    copied through `max_lsn`).
   - Segment `L+1` (4.3 step 4) gets `prev_term` equal to the term of record `L`.
   - When two segments are both retained, the `H` pass checks `prev_term` against the term of the last **non-void**
     record before it (FL-chain), and a mismatch refuses. After a truncation the straddling segment's last physical

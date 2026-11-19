@@ -1,6 +1,7 @@
 # AFR-001: Y9, what makes an acknowledgement report countable (PROPOSED)
 
-Status: **PROPOSED, for Codex and owner review.** Docs only. Y9 is a proposed change to frozen text (R9-A′, OD-10)
+Status: **PROPOSED, for Codex and owner review.** Docs only. Revised in round 6 (Codex #173 review): the report also
+carries the reporter's incarnation (section 4). Y9 is a proposed change to frozen text (R9-A′, OD-10)
 and is **not accepted**; nothing here is an owner decision. Every claim is **[INF]**, argued on paper, not
 model-checked, unless marked FACT.
 
@@ -54,7 +55,8 @@ stays true while `p` is primary with authority, because the replica loses an ent
   earlier sentence relied on R3 fencing `p` first, which is false: `p`'s grant can outlive the replica's term change
   by up to `d`.]
 - Completing a pending intent: excluded by R6.3′ item 3, below.
-- A reseed: the replica left S first (R2′ rule 3), RS-0 drops its leases, and U4 changes its incarnation.
+- A reseed: the replica left S first (R2′ rule 3), RS-0 drops its leases, and U4 changes its incarnation, **which `p`
+  sees only because the report carries it** (round 6; without that, U4 has no effect on counting, section 4).
 - A media fault: within the budget, its recovery refuses. This depends on D-02 (a lost newest flush is D-02's to
   detect) and is on HOLD with it.
 
@@ -73,14 +75,15 @@ stays true while `p` is primary with authority, because the replica loses an ent
   acknowledges at HA_DURABLE with one real copy. Neither positioning alone nor Y9-B stops it.] **Closed by a reseed
   rule (contract 6.5, RS-0):** `k` stops granting and does not discard until `W` has passed since its last grant, so
   by then `p` has no authority from `k` or has dropped it from A. A Grow that would re-add `k` fails its
-  compare-and-set, because the shrink changed R's version.
+  compare-and-set, because the shrink changed R's version. [Round 6: this closes only grants from before the reseed,
+  and only if the wait survives a crash; a later, legitimate Grow and new grants reopen it. Section 4.]
 - `p` restarts and reuses LSNs (R6.0, new term): an old `(t, x)` against new `(t + 1, x)` does not match.
 - Promotion: a new primary counts only reports that match its own log, so reports addressed to the old primary
   count only for entries the new primary also holds.
 
 **Y9-B: an explicit binding** of each report to `(p's term, p's incarnation, the replica's incarnation, a positioning
-number)`, as R6.3′ does for replies. It closes the same cases as Y9-T, plus the reseed residue. It costs state on
-both sides and a new rule for every positioning. Not needed for safety under the cases above [INF].
+number)`, as R6.3′ does for replies. It closes the same cases as Y9-T, plus the reseed residue. [Round 6: its replica-incarnation part **is**
+needed (section 4); its primary term and incarnation and its positioning number are not.]
 
 ## 3. Recommendation
 
@@ -90,7 +93,8 @@ of R9-A′:
 > Every replica (a member of A, or one catching up to join it) reports an entry as acknowledged only once it has
 > applied it and its durable watermark (D-02) covers it, whether or not it holds a lease at that moment, and never
 > while it has a pending truncation intent or the incomplete flag is set. **A report names the entry by its
-> `(term, lsn)`. p counts a report only if p's own log holds that entry, and then counts it as covering `lsn`.** p
+> `(term, lsn)` and carries the replica's incarnation. p counts a report only if p's own log holds that entry and the
+> incarnation is the one under which p positioned that replica, and then counts it as covering `lsn`.** p
 > counts no other report. …(the lease sentence unchanged)
 
 Positioning stays where frozen text already requires it: R2′ rule 2 for survivors, and R9-B for leases. It is not
@@ -111,7 +115,7 @@ and Y9-T does.
   comes from Lemma C, which depends on premise P (B9); without P a node in U could report a matching `(t′, y)` while
   its state reflects `(s, y)`. Y9-T's soundness for such reporters depends on P.
 
-**Cost:** one term field per report (8 bytes), and a lookup of `p`'s entry term at `lsn`. `p` keeps its term history
+**Cost:** a term field and an incarnation field per report (16 bytes), and a lookup of `p`'s entry term at `lsn`. `p` keeps its term history
 `H_p`, so the lookup is `term_e ∈ H_p` together with `end_p(term_e) ≥ lsn ≥ start_p(term_e)` [INF]. No new state.
 
 **What a yes changes:** R9-A′'s report clause (frozen, OD-10); G-30 (A) in meaning; the replication `Ack` frame (a
@@ -123,5 +127,58 @@ D-06/wire format item, not authorized).
 - No model checks Y9-T. `Log.tla`'s `Ack` compares entries by identity (`dlog[m][i] = dlog[p][i]`), which is Y9-T's
   rule written as an oracle, so the models assumed it.
 - Degraded mode with `m = 1`.
+- Whether "caught up" (SA R1.1, the Grow condition) is judged from reports or only from the R6.2 request's end. If
+  from reports, the incarnation check is needed there too (round 6).
 - Whether the reseed residue (a stale report counted for a member of A outside S) matters for anything beyond
   section 0's sentence.
+
+## 4. Round 6: what a report must carry, and the grant wait (Codex #173 review)
+
+Codex asked whether a report must also carry an incarnation or a positioning identity, "without a demonstrated need",
+and whether RS-0's wait covers every grant path. One independent reviewer, told to break it, found two BLOCKERs
+[INF; not model-checked].
+
+**B-6a: a report sent before an in-place reseed counts after `k` is grown back.** `m = 2`, term `t`.
+1. S = A = {p, k}. `p` writes `(t, 1..10)`; `k` watermarks them and sends "(t, 10)", which is delayed. 7..10 are
+   not yet acknowledged.
+2. A shrink to {p} is chosen; `p` drops `k` from A. Clients wait on 7..10.
+3. `k` is reseeded in place from `p`: the checkpoint has `max_lsn = 6`, RS-5 copies through 6, RS-6 publishes.
+4. R6.2 positions `k` at 6; `k` is caught up to `max(inh_p, ack_p) = 6`, a Grow re-adds it to S at a new version,
+   and `k` grants to `p` again.
+5. The delayed report arrives. `(t, 10)` is in `p`'s log, so Y9-T without incarnation counts it, and `p`
+   acknowledges 7..10 at HA_DURABLE while `k` lacks them. `p` crashes; `k` is promoted; 7..10 are lost. G-11 and I4
+   break.
+
+RS-0's wait covers only grants given before the reseed, and the Grow compare-and-set only `p`'s stale Grow.
+**Fix:** the report carries the reporter's incarnation (D-06 item 7 with E32), and `p` counts it only under the
+incarnation in which it positioned that replica. Why enough [INF]: within one incarnation a watermarked entry is lost
+only by R6.2 truncation (Y9-T's A ⊇ S argument, section 2) or a media fault (D-02, on HOLD); an in-place reseed
+always takes a new incarnation at RS-1 (U4) and a restart a new boot write. A positioning number is not needed: a new
+positioning within one incarnation removes no common entry (I3). `p`'s term in the report is not needed: Y9-T's entry
+term already rejects a report across a term change.
+
+**B-6b: RS-0's wait does not survive a crash of `k`.** The last grant's time is in memory only (SA, R3), and
+recovery with RESEEDING resumes at RS-2 (contract 2.2 step 11). `k` grants `p` a renewal, writes RS-1, crashes and
+restarts within `W`, and discards at once; a delayed pre-reseed report, still under the old incarnation that `p`
+holds as positioned, then counts with a still-valid grant and one real copy. The incarnation check does not help:
+`p` has not seen the new incarnation yet. **Fix (contract 6.5 RS-0):** `k` writes RS-1 only once `W` has passed since
+the later of its last grant and its current boot, so RESEEDING on disk implies the wait is done; a node whose record
+says RESEEDING grants nothing; granting resumes only after RS-6 and R6.2 in the new incarnation (round 6: RS-0 named
+no end).
+
+**Codex's grant paths, checked [INF]:**
+
+| Path | Covered by |
+|---|---|
+| initial grant, renewal, a grant in flight at RS-0 | `last_grant` is set before the reply is sent; the holder's validity `d(1−ρ)` ends within `d` real seconds, and `W = d(1+ρ)` lasts at least `d` |
+| a grant to a newer-term primary, or to one `k` has not heard from | RS-0 stops every grant; the wait covers all of them |
+| a grant by an earlier process of `k` (crash during RS-0..RS-2) | the wait runs from the later of last grant and boot, and precedes RS-1 (B-6b) |
+| a grant after the reseed | incarnation check (B-6a) |
+| delayed or duplicated reports within one incarnation | stay true (I3; Y9-T section 2) |
+| a report across a term change and truncation | Y9-T's entry term |
+| promotion | a new primary counts only entries its own log holds, and only under its own positioning's incarnation |
+| R9-B, `ack_p`, lease eligibility | a counted report is a true fact about the incarnation `p` positioned, so R9-B's "position `m` reports" and `ack_p` move no faster than before; R9-C unchanged |
+
+No path below two watermarked copies was found beyond B-6a and B-6b, under premise P and with D-02's media-fault
+exception. **Today's code** is not exposed: a new connection replaces the old (`replication.cpp:697-705` [FACT]), so
+TCP binds a report to one positioning; the protocol text did not.

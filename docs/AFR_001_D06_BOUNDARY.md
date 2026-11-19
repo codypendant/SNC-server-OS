@@ -91,7 +91,8 @@ cost is 8 bytes per stream.
 
    Completion runs before FL-floor because it may legitimately recreate the floor segment (rule 7). It touches only
    segments above `L`, so on a damaged floor it changes nothing below `L`, and FL-floor still refuses afterwards.
-5. **Seed writes its own floor.** After the files are received and before the record write that makes the directory a
+5. **Seed writes its own floor.** [Amended by contract E30, round 6, proposed: segment `start_lsn` holds the WAL
+   copied through `max_lsn`, not an empty segment, and the manifest keeps the primary's `max_lsn`.] After the files are received and before the record write that makes the directory a
    space, the receiver:
    - creates an empty segment `start_lsn` with `prev_term = start_term`, durably (temp file, sync, rename, directory
      fsync);
