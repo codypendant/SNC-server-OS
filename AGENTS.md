@@ -3875,3 +3875,22 @@ or source comments.
     up; fixes and section F not re-reviewed.
 -   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y6, R9-A′, any model, X-2, R640, C++, Rust, migration.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-19 UTC --- Claude (Claude Code): SNC durability contract, consolidated (docs)
+
+-   **Trigger:** Codex's review of #169 (`docs/handoff/PR169_Codex_Review.md`; #169 merged 849f7b9) and Codex's review
+    of the coordinator's 16-finding assessment (`docs/handoff/Assessment_Codex_Review_2026-11-19.md`; the assessment
+    is filed as `docs/handoff/Coordinator_Adversarial_Assessment_2026-11-18.md`): one consolidation package, folding
+    in #169's required next work, three-way adversarial review, then STOP.
+-   **Output:** `docs/AFR_001_DURABILITY_CONTRACT.md`: fault model FM-1..FM-16 and what the watermark does not detect;
+    one twelve-step recovery state machine (phase 1 read only, PENDING floor case resolved, segments under V8-L,
+    ENOSPC, hung device, G-48 terms, supported platform); refusal-to-repair matrix; the 16 findings against #169;
+    precise R9-A′ text and every frozen text whose meaning moves; whole-node in-place reseed recommended (not
+    selected), amended reseed steps, R6.5 revision proposed; D-06 E26-E29, E14′; prior art (FAST 2018 CTRL, etcd
+    v3.5.17 WAL chain: supplements, replaces nothing) and witness facts; obligations M-1, E-1..E-3 as proposals;
+    closing order; decisions Y5, Y6a, Y6b, Y6c-1, Y6c-2, Y7, Y4 HOLD. On-site fixes in the restart/reseed note.
+-   **Review:** round 1 re-review of the note's C, F, D/7 and the draft (10 MAJOR); round 2 on the integrated
+    contract (about 25 MAJOR, no BLOCKER); all taken up; round-2 fixes not re-reviewed.
+-   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y7, any model, experiment, X-2, R640, C++, Rust,
+    migration, freeze.
+-   **Next action:** STOP for Codex and cody.

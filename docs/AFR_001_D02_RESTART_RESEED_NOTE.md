@@ -24,11 +24,11 @@ Prerequisite reading: `docs/AFR_001_D02_ACCEPTANCE_REVIEW.md` sections 4-6 (the 
 
 ### A.1 What the kernel does [FACT-SRC, from the acceptance review section 5 and its storage review]
 
-- At exit, io_uring drains its io-wq workers (`io_uring_clean_tctx`, `io_uring/io_uring.c:3220`, then
+- At exit, io_uring drains its io-wq workers (`io_uring_clean_tctx`, `io_uring/io_uring.c:3219`, then
   `io_wq_put_and_exit`, `io_uring/tctx.c:193`), so buffered writes, `fdatasync` and synchronous `O_DIRECT` finish
   before `exit_files` (`kernel/exit.c:934`).
 - **`O_DIRECT` writes already submitted asynchronously are not waited for.** The tracked-inflight wait
-  (`io_uring/io_uring.c:3170`) counts only requests whose target is an io_uring file (`:1907-1915`).
+  (`io_uring/io_uring.c:3174`) counts only requests whose target is an io_uring file (`:1907-1915`).
 - AIO is drained in `exit_aio` (`fs/aio.c:925-928`) from `exit_mm`, unless another task holds the address space.
 - Each io_uring request on a non-registered file holds a reference to that open file description (`fget` in
   `io_file_get_normal`, `io_uring/io_uring.c:1907`). `flock` locks are dropped in `__fput` by `locks_remove_file`
@@ -40,7 +40,7 @@ Prerequisite reading: `docs/AFR_001_D02_ACCEPTANCE_REVIEW.md` sections 4-6 (the 
 
 | File | How it is written | Exposed to a stray write? |
 |---|---|---|
-| WAL segment | `sri_write`, io_uring `writev2`, `O_DIRECT` when the file system allows it (`storage.cpp:541-546`, `:687`; `runtime.cpp:211-233`) | **yes** |
+| WAL segment | `sri_write`, io_uring `writev2`, `O_DIRECT` when the file system allows it (`storage.cpp:541-546`, `:687`; `src/native/runtime.cpp:211-233`) | **yes** |
 | checkpoint part | `sri_write`, buffered (`shard.cpp:2326`, `:2426`) | no: drained at exit |
 | manifest, role, spare format, segment header today | synchronous `write`/`pwrite` (`storage.cpp:286-321`, `:560`; `engine.cpp:204`) | no |
 | node record (design 2) | proposed: two `O_DIRECT` writes, "io_uring or AIO" | **yes**, if io_uring is used |
@@ -62,7 +62,8 @@ the two facts]. **It does not protect against V8, and this note does not rely on
   with `rename` so the name never goes missing (D-06 item 9's purpose).
 
 **V8-2. Every file that is overwritten in place (the two record files and each stream's watermark file) is protected
-by V8-L.** Recommended over V8-A; the reason is in A.4.
+by V8-L.** [Widened 2026-11-19 to every file written by async `O_DIRECT`, segments included, with a sync before
+the recovery raise: `docs/AFR_001_DURABILITY_CONTRACT.md` 2.3, E26.] Recommended over V8-A; the reason is in A.4.
 - **One open file description per file per process.** The file is opened once, with `O_CLOEXEC`, and that
   descriptor issues every read and write. A second `open` of the same file by the same process is forbidden, because
   `flock` on a second description would deadlock against the first.
@@ -80,18 +81,20 @@ by V8-L.** Recommended over V8-A; the reason is in A.4.
   RS-4, while the stream is RESEEDING. From then on, **a NONE stream with no watermark file is damage: refuse.** A
   crash during creation leaves either no valid record (init restarts) or a RESEEDING stream (the reseed restarts), so
   this refusal never follows a crash alone [INF] (review of this note, MAJOR 1).
-- **Today's recovery reads the record before any lock**, through separate descriptions (`engine.cpp:912`, `:928`,
-  `:937`). Under V8-L those reads move behind the locks. That is an implementation change, listed in E10.
+- **Today's recovery reads the record before any lock**, through separate descriptions (`engine.cpp:919`, `:933`,
+  `:941`, after the directory lock at `:900`). Under V8-L those reads move behind the locks. That is an implementation change, listed in E10.
 - **No registered files** (`IORING_REGISTER_FILES`) for these descriptors: a registered file's reference lives in the
-  ring's table, not in the request [FACT-SRC for the `fget` path; SNC registers none, `runtime.cpp:211-233`].
+  ring's table, not in the request [FACT-SRC for the `fget` path; SNC registers none, `src/native/runtime.cpp:211-233`].
 - **No `fork` while the descriptors are open.** SNC does not fork [FACT-SNC: no `fork` in `src/`].
 
 **V8-3. No other in-place file is written by asynchronous `O_DIRECT`.** Checkpoint parts stay buffered, or are
 created fresh (`O_EXCL` after an `unlink`) if they ever become `O_DIRECT`. Today's `O_TRUNC` reopen of a part
 (`shard.cpp:2325-2326`) is safe only because parts are buffered.
 
-**Space [HYP].** V8-1 allocates `seg.tmp` before the rename frees the old file, so every recovery needs one free
-segment per stream; today's `unlink` + `O_EXCL` needs none (`storage.cpp:526-527`). On a nearly full disk a kill
+**Space [HYP].** V8-1 allocates `seg.tmp` before the rename frees the old file, so a replacement needs one free
+segment at that moment; today's `unlink` + `O_EXCL` needs none (`storage.cpp:526-527`). [2026-11-19: usually no `E + 1`
+exists, so V8-1 creates one new segment per stream and recovery needs one segment per stream beyond the state before
+the crash; `docs/AFR_001_DURABILITY_CONTRACT.md` 2.5.] On a nearly full disk a kill
 could become a recovery that fails with `ENOSPC`, which is a G-48 question. Reserving that space is left open.
 
 **Other files, for completeness [FACT-SNC]:** `links_generation` and its `.tmp` (`links_generation.cpp:117-134`),
@@ -284,6 +287,9 @@ header (`:797-812`). HeaderFirst changes all three.
 
 ### C.2 The procedure (revised after the reseed review)
 
+[Amended 2026-11-19 by `docs/AFR_001_DURABILITY_CONTRACT.md` 6.5 (term binding, `next_lease`, pins, RS-6's compare and floor) and 6.6 (R6.5).
+The package recommends running these steps over every stream at once, as a whole-node reseed in place.]
+
 Preconditions, checked under `control_mu_`:
 - **the node** has left S by a chosen shrink (R2′ rule 3), and is not in A;
 - the stream is NONE: not PENDING (a PENDING stream sends no R6.2 request, so R6.4 cannot pick it; completion owns
@@ -316,7 +322,7 @@ Why this shape [INF]:
 | Codex's point | Answer [INF unless marked] |
 |---|---|
 | Node-wide metadata authority | RS-1 and RS-6 are record writes. The flag and `active_ckpt` live only in the record. The watermark is a validator only (OD-4) and is not read while RESEEDING |
-| The RESEEDING intent | restricting before the write, permitting after (D-06 4.1). While set the stream sends no R6.2 request, is not positioned, acknowledges nothing, holds no lease, serves no catch-up, cannot be added to S and cannot be promoted (R6.5; P6 attests it). The node as a whole is already out of S and A (precondition) |
+| The RESEEDING intent | restricting before the write, permitting after (D-06 4.1). While set the stream sends no R6.2 request, is not positioned, acknowledges nothing, holds no lease, serves no catch-up, cannot be added to S and cannot be promoted (R6.5; P6 attests it). The node has left S by a chosen shrink (precondition); `p` drops it from A after the shrink, and `k` drops any lease and stops lease reads in RS-0 [2026-11-19, `docs/AFR_001_DURABILITY_CONTRACT.md` 6.5] |
 | WAL and watermark writers | drained in RS-0; recreated in RS-4. The watermark file is a new inode, so no stray write from an earlier process can reach it |
 | Durable deletion | RS-2 unlinks every name and fsyncs once. A lost unlink (a fault) revives an old segment: below `start_lsn` the below-floor rule deletes it; above it, its `prev_nonce` names an old nonce and R-CHAIN refuses (OD-7); at `start_lsn` itself, RS-4's rename replaces it, and if that rename is also lost, the binding's nonce refuses |
 | Segment identity and links | every segment of the stream after RS-2 is new: new nonces. The first has `prev_nonce` 0 and is the first retained segment, which R-CHAIN does not check. FL-floor checks it against the manifest (`floor_term = prev_term = start_term`) |
@@ -328,15 +334,16 @@ Why this shape [INF]:
 | Stream remapping | refused while any stream is RESEEDING, as for PENDING. A reseed across slot-map epochs is refused (checked at the start and at RS-6). A remap on the primary during the transfer is **UNRESOLVED**. Carrying watermark files over a remap stays open (V7) |
 | Leases | the loaded part's lease IDs reach `next_lease` through RS-6's commit (`engine.cpp:1524-1534`) |
 
-**Recorded conflicts with existing text (not frozen-text revisions unless Codex rules so; whether R6.5 and R6.3′ item 3
-are inside the frozen R2′ is UNRESOLVED):**
+**Recorded conflicts with existing text** [2026-11-19: resolved as proposals in
+`docs/AFR_001_DURABILITY_CONTRACT.md` section 6: RS-6 is read there as a positioning, with a fallback revision of R6.5]:
 - **R6.5's order.** R6.5 clears the flag "only once the copied state is durable and positioned". RS-6 clears it at
-  publication, before positioning. [INF] This is safe: positioning is a separate gate, and a later R6.2 that cuts below
-  `c + 1`'s `max_lsn` leads back to R6.4. The wording difference is recorded, not hidden.
+  publication, before positioning. [2026-11-19: this is a revision of R6.5, proposed in `docs/AFR_001_DURABILITY_CONTRACT.md` 6.6 (Y6c-2); after
+  RS-6, `k` is positioned by an ordinary R6.2 round.]
 - **The node leaves S for a stream's reseed** (C.1). The per-stream procedure's only gain over a whole-node reseed is
   less data transferred.
 
-**Question for Codex and the owner [INF]:** given that the node leaves S anyway, is a per-stream reseed worth having,
+**Question for Codex and the owner [INF]** (answered as a recommendation, whole node in place, in
+`docs/AFR_001_DURABILITY_CONTRACT.md` 6.4; not selected): given that the node leaves S anyway, is a per-stream reseed worth having,
 or should R6.4 always reseed the whole node in place (the same steps over every stream at once, RS-1 setting every
 stream RESEEDING in one write)? The procedure above is written so that both readings use it.
 
@@ -394,8 +401,8 @@ One kind of report, used for both counts:
 - **R6.3′ item 1:** "`k`'s durable end LSN" is reported as its watermarked end. Recovery raises the watermark to the
   recovered end (D.4) before any R6.2 request, so at that moment the two are equal [INF].
 - **Section 0's acknowledgement rule** (not frozen): "has `e` durably" becomes "has `e` durably, under its watermark".
-  p's own copy already waits for p's watermark (design write-path rule 3). Frozen `ack_p` never covered p's own copy,
-  and R9-A′ does not change that.
+  p's own copy already waits for p's watermark (design write-path rule 3). Whether frozen `ack_p` covers p's own copy is
+  debatable, since section 0 counts p in A [INF]; R9-A′ does not change it.
 - **Unchanged:** R9-C to R9-E, `m = 2`, the `m = 1` LOCAL_DURABLE rule, P1-P4, P6, P7, S1-S5.
 - **Evidence:** argument only. PR155 says frozen text changes "through a recorded revision with new evidence"; no model
   run checks R9-A′, and none is authorized.
@@ -430,11 +437,11 @@ applied. The accepted text is quoted so that nothing is replaced silently. Y4 st
 | E7 | 8 (completion 2.4) | "Create segment `L+1` with a header and no records: write a temp file, `fdatasync`, rename" | the temp file is formatted whole (K1) and named `seg.tmp`; new step 2.7 lowers the watermark with its binding | design 3(a), 4; OD-2 |
 | E8 | 8 (void rule) | "records at or above the next segment's first LSN are void" (4.3 item 4) | void bytes are not judged, frames or damage (3(d)); R-CHAIN on every retained segment after the first | design 3(d); OD-7 |
 | E9 | 9 (reopen) | "an existing segment at the name is truncated to one block, its header rewritten ... and opened without `O_EXCL`" (4.3 step 3) | **replaced** by `seg.tmp` + `rename`, keeping its nonce; after a restart always replaced, never opened as is | design 3(b); OD-9; V8-1 |
-| E10 | 8 / boundary 4 (recovery order) | "1. read the record; 2. ... completion ... 3. adopt a spare; 4. delete segments below `retain_from` and check FL; 5. scan; 6. build `H_s`" | 0. directory lock, V8-L locks; the record's rule 4 duplicate (design 2) and the boot write first; RESEEDING streams restart the reseed; `seg.tmp`/`wm.tmp` unlinked; spare by B.4; after the scan, R-CHAIN, the binding and the watermark check; the watermark raised to `E` (D.4); then V8-1 at `E + 1`; the preparer starts last | design 2, 5; A, B, C |
-| E11 | boundary 4 note | "The spare is adopted before the check because the floor segment can be the newest one, whose rename is not directory-fsynced" | under HeaderFirst the rename is fsynced before any frame; adoption before the check is still needed, after a lost rename (a fault) | OD-8 |
+| E10 | 8 / boundary 4 (recovery order) | "1. read the record; 2. ... completion ... 3. adopt a spare; 4. delete segments below `retain_from` and check FL; 5. scan; 6. build `H_s`" | 0. directory lock, V8-L locks; the record's rule 4 duplicate (design 2) and the boot write as the first writes, after a read-only validation of every stream (superseded by E27 in `docs/AFR_001_DURABILITY_CONTRACT.md` 7, the order of its 2.2); RESEEDING streams restart the reseed; `seg.tmp`/`wm.tmp` unlinked; spare by B.4; after the scan, R-CHAIN, the binding and the watermark check; the watermark raised to `E` (D.4); then V8-1 at `E + 1`; the preparer starts last | design 2, 5; A, B, C |
+| E11 | boundary 4 note | "The spare is adopted before the check because the floor segment can be the newest one, whose rename is not directory-fsynced" | under HeaderFirst the rename is fsynced before any frame; adoption before the check is still needed, after a lost rename (a fault) | OD-8 [2026-11-19: wrong, adoption is also needed after crashes alone; `docs/AFR_001_DURABILITY_CONTRACT.md` 7] |
 | E12 | boundary 6 | "FL-floor accepts no segment at all, or a single all-zero segment 1" | under K1, segment 1 is created whole; an all-zero named segment is damage. Rule 6 accepts no segment, or a valid header-only segment 1 [INF; O-FLOOR] | design 3(a) |
 | E13 | boundary 4.2 (orphans) | "remove every stream directory that the manifest does not list" | the stream's `watermark` goes with its directory | design 7 |
-| E14 | boundary 5 (seed floor) | "creates an empty segment `start_lsn` with `prev_term = start_term`, durably (temp file, sync, rename, directory fsync)" | whole-node: unchanged, plus its own `watermark` (never the primary's). Per stream: C.2 | design 4; C |
+| E14 | boundary 5 (seed floor) | "creates an empty segment `start_lsn` with `prev_term = start_term`, durably (temp file, sync, rename, directory fsync)" | whole-node: unchanged, plus its own `watermark` (never the primary's). Per stream: C.2 | design 4; C [2026-11-19: superseded by E14′, `docs/AFR_001_DURABILITY_CONTRACT.md` 7] |
 | E15 | 10 (floor) | manifest `retain_from`, `floor_term`, `start_term`, `max_lsn` | per-stream reseed publishes one stream's floor in a node-wide manifest at RS-6; FL is not checked for a RESEEDING stream | C.3 |
 | E16 | 11 (checkpoints) | "refuses to start one while any stream is PENDING" (4.3) | also while any stream is RESEEDING, except RS-6's checkpoint | C.3 |
 | E17 | 12 | (paraphrase) a copy with a valid CRC and an unknown format is refused | "exact copy size" read as "exact file size" | design 7 |
@@ -466,7 +473,10 @@ Every other row adds to the accepted text without contradicting it [INF].
 The coordinator raised six points as claims to check, not as decisions (`/mnt/project-files/snc/` review of
 2026-11-18). Each answer stays inside sections A-E; what does not fit is listed as unresolved.
 
-**F.1 Two-phase recovery (E10) [INF].** Recovery is split:
+**F.1 Two-phase recovery (E10) [INF].** [Superseded 2026-11-19 by `docs/AFR_001_DURABILITY_CONTRACT.md`
+section 2, which reconciles it with D-06 boundary rule 4. Two errors below are corrected there: the watermark is read
+only for NONE streams, and a PENDING stream whose floor segment completion recreates cannot have FL-floor checked
+before completion.] Recovery is split:
 - **Phase 1, read only:** directory lock and V8-L locks; read all record slots; read the manifest; for each stream
   read `spare.tmp` (as if adopted), FL, the scan with the void rule, R-CHAIN, the binding and the watermark. A PENDING
   stream is validated up to `L` only (its tail above `L` is void by the intent). The phase ends with one outcome per
@@ -491,8 +501,7 @@ The coordinator raised six points as claims to check, not as decisions (`/mnt/pr
 So V8-L's premise holds upstream at v6.8. **Ubuntu's patched 6.8.0-149 source was not read; UNRESOLVED.**
 
 **Truncate as a barrier [FACT-SRC v6.8]:** ext4 waits for direct I/O only when the size **shrinks**
-(`fs/ext4/inode.c:5363-5375`, `inode_dio_wait`); xfs waits on a size change (`fs/xfs/xfs_iops.c:832`), and an
-unchanged size takes the non-size path (`:815-818`). So truncate is a barrier only by destroying or changing the file;
+(`fs/ext4/inode.c:5363-5375`, `inode_dio_wait`); xfs calls `inode_dio_wait` for any size change, even to the same size (`fs/xfs/xfs_iops.c:832`); `:815-818` is only the empty-file short cut (corrected after review r2 of 2026-11-19). So truncate is a barrier only by destroying or changing the file;
 it cannot guard an in-place file without rewriting it. Not used.
 
 **"Never reuse an inode the dead process could write" (V8-R) [INF].** V8-1 already does this for segments. For the
@@ -508,8 +517,9 @@ record and watermark files it would mean: at every boot, after phase 1 reads the
   kernel or a later one breaks V8-L's premise. The choice is the owner's (Y6a).
 
 **F.3 When is a replaced segment not the newest? (OD-9 unchanged) [INF].**
-- Replacement happens in 3(b) after completion (segment `L + 1`, after 2.3 deleted every name above `L`) and in V8-1
-  (segment `E + 1`). **Both make the newest segment. No path replaces a segment that has a successor.**
+- Replacement happens in V8-1 (segment `E + 1`), including segment `L + 1` after a later restart with `E = L`.
+  [Corrected 2026-11-19: completion does not replace `L + 1`; step 2.3 deletes it and 2.4 creates a new segment with a
+  new nonce.] **Both make the newest segment. No path replaces a segment that has a successor.**
 - So R-CHAIN's successor link is not the reason to keep the nonce. **The reason is OD-2's binding:** the watermark
   carries `(L + 1, nonce of L + 1)` until the next truncation, and a new nonce fails it (SegChain C2). Changing the
   nonce would need a new binding written in order with the rename, which adds a crash window in which the binding
@@ -519,8 +529,8 @@ record and watermark files it would mean: at every boot, after phase 1 reads the
   fresh ones, which is why C15 had to be modelled (it passed, `docs/AFR_001_D02_MODEL.md` section 19).
 - Finding reported, OD-9 not changed.
 
-**F.4 What the watermark detects [INF, plainly].** It detects **one** lost, torn, zeroed or misdirected write, of the
-data or of the watermark. It does **not** detect a fault that drops both: a device or cache that acknowledges a
+**F.4 What the watermark detects [INF, plainly].** It detects **one** lost, torn, zeroed or misdirected write of the
+data, and a damaged watermark slot; a lost watermark write is tolerated, not detected (recovery uses the older slot and loses no coverage of records still present). It does **not** detect a fault that drops both: a device or cache that acknowledges a
 flush and loses it, together with the later watermark write. The watermark then agrees with the shortened log, and
 acknowledged writes are lost silently. That is outside design 0's fault model (one media fault), and rests on the
 premise that the device honours FLUSH and FUA (F.6). Peers hold the replicated copy, but recovering it is R6/P5's
@@ -532,8 +542,9 @@ then judges the files). Today's C++ mostly does this: WAL flush errors and short
 `write_all_sync` and its `fdatasync` (`:60-71`), directory fsync (`:128-133`), the manifest and spare renames
 (`:319`, `:699-701`), checkpoint part writes (`shard.cpp:2458-2465`) all call `storage_fatal`. **Exception:**
 `links_generation` returns `false` on a failed write, fsync, rename or directory fsync (`links_generation.cpp:125-136`)
-and leaves the decision to its caller; whether every caller treats that as fatal was not checked (UNRESOLVED). A
-failed `fsync` that later "succeeds" on retry cannot happen under this rule, because nothing retries.
+and leaves the decision to its caller. [Answered 2026-11-19, `docs/AFR_001_DURABILITY_CONTRACT.md` 4.1: at startup the caller throws; at run time
+`Shard::start_links` keeps the links closed and a later call retries the store, which does not conform to this rule.]
+Under the rule a failed `fsync` is never retried; today's `links_generation` is the exception.
 
 **F.6 What the storage steps depend on (pinned premises).**
 
@@ -549,10 +560,10 @@ failed `fsync` that later "succeeds" on retry cannot happen under this rule, bec
 
 ## 6. Independent review
 
-Three Opus reviewers, each told to break one part, working independently: **A** on sections A-B (kernel and code;
+Three reviewers, each told to break one part, working independently: **A** on sections A-B (kernel and code;
 they fetched Linux v6.12 sources), **C** on section C, **D/E** on sections D-E and the header. Every finding was taken
 up in the text above. The fixes have not been re-reviewed. **Section F was added after the three reviews**, from the coordinator's checks,
-and has had no independent review.
+and has had no independent review. [2026-11-19: C, F and D/7 were re-reviewed independently; findings and outcomes in `docs/AFR_001_DURABILITY_CONTRACT.md` 12.1.]
 
 | Reviewer | Severity | Finding | Outcome |
 |---|---|---|---|
@@ -587,12 +598,14 @@ and has had no independent review.
 - V8-L's wait bound on a hung device;
 - recovery reading a sector while a stray write lands on it (treated as a torn write, argued);
 - the reclaim stall of other streams during a reseed, and a remap on the primary mid-transfer;
-- whether R6.5 and R6.3′ item 3 are inside the frozen R2′ (this decides whether C.3's R6.5 note is a revision);
+- whether R6.5 and R6.3′ item 3 are inside the frozen R2′ [2026-11-19: R6.5's change is treated as a revision of frozen
+  meaning, `docs/AFR_001_DURABILITY_CONTRACT.md` 6.6; R6.3′ item 3 is not changed by the reseed, whose precondition is NONE];
 - whether a per-stream reseed should exist at all (the C.3 question).
 
 ## 7. What needs Codex and the owner
 
-Each is a proposal. None is recorded as decided.
+Each is a proposal. None is recorded as decided. [2026-11-19: the compact package after Codex's #169 review is
+`docs/AFR_001_DURABILITY_CONTRACT.md` section 11, which supersedes this table where they differ.]
 
 | # | Decision | Recommendation |
 |---|---|---|
@@ -607,6 +620,6 @@ Each is a proposal. None is recorded as decided.
 - The block-reuse path of A.6, argued and not modelled.
 - The reclaim stall of other streams while one reseeds; a remap on the primary mid-transfer (C.3).
 - Watermark files over a remap; incarnations after a whole-node wipe (V7).
-- The coordinator's items not fitted here (F.1 floor case, F.2 Ubuntu patches, F.5 `links_generation` callers, F.6
-  power-loss protection).
+- The coordinator's items not fitted here (F.2 Ubuntu patches, F.6 power-loss protection). [2026-11-19: the F.1 floor
+  case and the F.5 callers are answered in `docs/AFR_001_DURABILITY_CONTRACT.md` 2.4 and 4.1; its section 11 holds the one open list.]
 - D-02, R-23, O-FLOOR, Y4, Y5, Y6: unchanged, on HOLD.
