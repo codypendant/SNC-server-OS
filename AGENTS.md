@@ -3997,3 +3997,19 @@ or source comments.
     W-2, Y6c-2, E32, Y4, Y7, D-02, R-23, O-FLOOR, experiments, X-2, R640, C++, Rust, wire format, migration, freeze.
     The buffered-WAL exclusion stays.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): ReportReseed model stopped at the fidelity check (model, docs)
+
+-   **Trigger:** the owner's GO for the campaign (2026-11-19 16:06 UTC) and Codex's review of #177
+    (`docs/handoff/PR177_Codex_Review.md`; #177 merged b2dbede).
+-   **Output:** `spec/tla/ReportReseed.tla`, `report_reseed_cfg.sh`; `docs/AFR_001_REPORT_MODEL_PREREG.md` sections
+    11-12. Writing the model found F-1 (Grow during a reseed). The three-way fidelity check broke the correct
+    protocol with every rule on: F-2 (R7 outside S, a truncation inside a live grant) and F-3 (a wipe seeded from a
+    deposed primary), both TLC-confirmed and replayable (`ReportReseedTrR7`, `ReportReseedTrW`), plus H-1 (a delayed
+    R6.2 request, not expressible in the model). By the stop rule this blocks Y9-T as written. No counted run was made.
+-   **Recommendation (needs the owner's yes, architectural):** P1 grants name the granter's incarnation and counts
+    need a matching live grant; P2 nothing is discarded under a live grant; P3 RS-1 is preceded by a version-bumping
+    compare-and-set on R. Then a re-preregistered model.
+-   **Not accepted / not authorized:** Y9, Y10, W-1, W-2, W-3, P1-P3, Y6c-2, E32, Y4, Y7; D-02, R-23, O-FLOOR open; no
+    X-2, R640, C++, Rust, wire format, migration, freeze. The buffered-WAL exclusion stays.
+-   **Next action:** STOP for Codex and the owner.
