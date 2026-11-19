@@ -102,7 +102,7 @@ WGrant(n) ==   \* W1 against the chosen record
   /\ wl' = [wl EXCEPT ![n] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, hg, logv, nRestarts>>
 
-NewS(j) == IF R2p /\ j \in rec.S THEN rec.S \ {rec.prim} ELSE {j}
+NewS(j) == IF R2p /\ j \in rec.S /\ j # rec.prim THEN rec.S \ {rec.prim} ELSE {j}
 
 Promote(j) ==  \* R2: j in S and READY; new S = {j}, degraded. R2': new S = S \ {old primary};
                \* the sole member of S re-promotes itself after a restart (4.2)
