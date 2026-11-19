@@ -13,7 +13,7 @@
   bounds, and a defect in the Revision 2 Log model is disclosed.
 - **Owner decisions, 2026-11-16** (`docs/handoff/PR148_Owner_Decisions.md`): the authority mechanism here (R3, R4, R5,
   R8, the lease from A) is conditionally accepted as AFR-D-01. The in-sync-set direction is selected for AFR-D-03, but
-  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 was revised after its targeted model (R9-A to R9-E, 2026-11-17). **Owner decision 2026-11-17** (`docs/handoff/PR155_Owner_Decision.md`): R2′ and R9-A to R9-E are conditionally frozen, with the exclusions and conditions stated there; R9-F is not. This is not a proof.
+  R2 is not frozen (`docs/AFR_001_R2_AND_SINGLE_COPY.md`). R9 was revised after its targeted model (R9-A to R9-E, 2026-11-17). **Owner decision 2026-11-17** (`docs/handoff/PR155_Owner_Decision.md`): R2′ and R9-A to R9-E are conditionally frozen, with the exclusions and conditions stated there; R9-F is not. **Owner decision 2026-11-19** (`docs/handoff/PR171_Owner_Decisions.md`, OD-10): R9-A is replaced by R9-A′, a recorded revision in R9's set. This is not a proof.
 - **Nothing here authorizes implementation.** AFR-D-02 is on HOLD. R1, R2, R6 and R7 are not accepted as a complete
   protocol; they are the D-03 direction's current candidates.
 - **Method.** This follows `docs/ENGINEERING_PRINCIPLES.md` (research before reinvention). Each claim carries a
@@ -290,20 +290,24 @@ R9-E), from the targeted model `spec/tla/StandbyLease.tla` (`spec/tla/RESULTS_R9
 CONDITIONALLY FROZEN (owner decision 2026-11-17, `docs/handoff/PR155_Owner_Decision.md`)**, with G-46's clock
 assumptions and R9-E's argued formulas accepted. R9-F is not frozen. This is the contract only: not C++ conformance,
 not a Rust authorization.]
-- **R9-A. Apply before acknowledging.** Every replica (a member of A, or one catching up to join it) reports an
-  entry as acknowledged only once it has applied it, whether or not it holds a lease at that moment. p counts no
-  other report. An acknowledgement sent before a lease was granted can be counted
-  while that lease is valid (RESULTS_R9 M_ackLeased, M_ackDurable).
+- **R9-A′. Apply and cover before acknowledging.** Every replica (a member of A, or one catching up to join it)
+  reports an entry as acknowledged only once it has applied it **and its durable watermark (D-02) covers it**, whether
+  or not it holds a lease at that moment. p counts no other report. [RECORDED REVISION, owner decision 2026-11-19
+  (Y5, `docs/handoff/PR171_Owner_Decisions.md`); every changed text and meaning is listed there. It does not close
+  P5's excluded silent-loss clause. Earlier text, frozen 2026-11-17: "**R9-A. Apply before acknowledging.** … reports
+  an entry as acknowledged only once it has applied it, whether …"] An acknowledgement sent before a lease was granted can be counted
+  while that lease is valid (RESULTS_R9 M_ackLeased, M_ackDurable; those runs checked R9-A, not R9-A′).
 - **R9-B. Who may hold a lease.** p grants a standby lease to `m` only if `m`:
   - belongs to A;
   - has persisted p's current term (R4);
   - is positioned on p's log (R6.2, R6.3; under R2′ this is rule 2);
   - has no pending truncation intent (R6.3′ item 3);
-  - has applied every entry up to `max(inh_p, ack_p)`, judged by the applied position `m` reports (R9-A). `inh_p` is
+  - has applied and covered every entry up to `max(inh_p, ack_p)`, judged by the position `m` reports (R9-A′). [Y5, 2026-11-19;
+    earlier: "has applied every entry up to … judged by the applied position `m` reports (R9-A)".] `inh_p` is
     p's log end after its quiescence and drain (S2′). The Grow test of R1, applied to the applied state.
   - **Definition of `ack_p`** (added 2026-11-17 for the conditional freeze, `docs/handoff/PR155_Owner_Decision.md`):
     `ack_p` is the highest LSN that `p` has recorded as HA_DURABLE in its current term. That means every member of A
-    has reported every entry up to it as applied (R9-A), and `p` held authority when it recorded it. It is 0 when `p`
+    has reported every entry up to it as acknowledged (R9-A′; Y5, 2026-11-19; earlier: "as applied (R9-A)"), and `p` held authority when it recorded it. It is 0 when `p`
     starts serving its term. It is never set from `inh_p`, because the inherited log is covered by the `inh_p` term of
     the max. The durability class a client asked for (APPLIED or LOCAL_DURABLE, G-11) does not move it: such a reply
     can be sent before the entry is HA_DURABLE. "Acknowledged" in G-30 means acknowledged at HA_DURABLE.
@@ -350,7 +354,7 @@ not a Rust authorization.]
     truncated. It never answers with a version older than an acknowledged one, which would break G-30. Later writes
     to the same key cannot starve a read, because the target was fixed at execution.
   - A multi-object read waits for each object it read. It is not a snapshot at one LSN; G-29 says what it promises.
-  - The wait is needed because of R9-A: `m` applies an entry before it reports it, so an entry already acknowledged
+  - The wait is needed because of R9-A (now R9-A′, OD-10): `m` applies an entry before it reports it, so an entry already acknowledged
     to a client can be applied at `m` before `m` learns that it was acknowledged.
   - Cost: nothing on the acknowledgement path. A read of a just-written object may wait up to the frame bound.
   - Prior art [EXT]: Raft followers learn the commit index from `leaderCommit` in every AppendEntries (Ongaro and

@@ -37,7 +37,8 @@ Revised after the three-way review (section 6). Every rule here is PROPOSED.
    - the group and stream it concerns;
    - `k`'s boot incarnation, a durable counter incremented and persisted at every start, before the first request;
    - a request number, counted within the incarnation;
-   - `k`'s last term and durable end LSN when it sent the request.
+   - `k`'s last term and durable end LSN when it sent the request. [2026-11-19, OD-10: the durable end reported is the
+     watermarked end (write-path rule 4, R9-A′).]
 
    The reply echoes these and adds the answering primary's term `t_j`. `k` uses the reply only if all five hold:
    - `t_j` equals `k`'s durable highest term;

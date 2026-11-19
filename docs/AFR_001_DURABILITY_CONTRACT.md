@@ -10,8 +10,10 @@ Authority:
 - Codex's review of #169 (`docs/handoff/PR169_Codex_Review.md`), section 4, "Required next work", items 1-6, folded in
   here.
 
-Unchanged and not touched: D-02 (HOLD), R-23, O-FLOOR, final D-06 acceptance, Y4, Y5, Y6 (pending). Not authorized
-and not done: a new model, X-2, R640, C++, Rust, migration, any freeze, any change to R2′ or R9. `m = 2` and the
+Unchanged and not touched: D-02 (HOLD), R-23, O-FLOOR, final D-06 acceptance. [2026-11-19: the owner has since
+decided Y5 (R9-A′ recorded in place), Y6a, Y6b, Y6c-1 and Y8 as Codex worded them; Y6c-2 is conditional; Y4 and Y7
+HOLD (`docs/handoff/PR171_Owner_Decisions.md`). Everything else here stays a proposal.] Not authorized and not done:
+a new model, X-2, R640, C++, Rust, migration, any freeze, any other change to R2′ or R9. `m = 2` and the
 current guarantees are preserved.
 
 Labels: **[FACT-SNC]** read in this repository at `849f7b9` (the code is unchanged at `1558aa6`, where round 3
@@ -78,7 +80,7 @@ replication (`m = 2`, HA_DURABLE) is what covers the loss of a node.
 | FM-7 | one lost directory operation (create, rename, unlink) **on the WAL, record and watermark files** | yes | one media fault; a lost journal commit that drops several operations at once is out of scope | crashes | R-CHAIN, the OD-2 binding and `EEXIST` refuse every revival; never silent (OD-5) | G-14 | `SegChain.tla` rev 5 [FACT-MODEL] | directory `fsync` honoured. Not covered: `links_generation.tmp` and `role.tmp`, where a lost rename brings back the old value unrefused, and O-FLOOR's revived front segment (UNRESOLVED, 11) |
 | FM-8 | metadata rollback: a whole node-record file returns to older valid content | **partly**: one lost slot write is FM-3 and covered; a restored or swapped file is not | — | — | four slots and rule 4 cover the one-write case; a file-level rollback is **R-23, open** | G-02, G-04, G-14 | `MetaWatermark.tla` record part [FACT-MODEL] | — |
 | FM-9 | the device acknowledges FLUSH or FUA and later loses several related writes (volatile cache without power-loss protection, firmware fault) | **no** | — | — | none possible locally: the watermark and the log can agree on a shortened history (1.1) | — | — | FLUSH/FUA honoured; power-loss protection or cache off. R640: **not verified** |
-| FM-10 | loss of a whole device or node | per node: no. Group: yes, **provided the surviving copy had no media fault on that write**; if it had (FM-3 on node A, FM-10 on node B, both within budget), the entry is lost, detected only when A restarts, and not at all while A is live and promoted (5.3) | — | independent across nodes | the group keeps every HA_DURABLE write on another member of S (P5) | G-11, P5 | R2′ models | `m = 2` |
+| FM-10 | loss of a whole device or node | per node: no. Group: yes, **provided the surviving copy had no media fault on that write**, counting as that copy's media fault an FM-12 write or sync error that left the write only in the page cache (step 9); if it had (FM-3 on node A, FM-10 on node B, both within budget), the entry is lost, detected only when A restarts, and not at all while A is live and promoted (5.3) | — | independent across nodes | the group keeps every HA_DURABLE write on another member of S (P5) | G-11, P5 | R2′ models | `m = 2` |
 | FM-11 | the same entry lost on two nodes | no | — | — | none | — | — | independent node faults |
 | FM-12 | an I/O error returned on a durability **write** path (`EIO`, `ENOSPC` and others) | yes | unbounded | anything | fatal to the process, never retried; recovery then judges the files (2.5, note F.5). Read errors at recovery: FM-5. With the buffered fallback (`storage.cpp:541-546`), a write or `fsync` error can leave pages cached but not on media, which a restart without a reboot reads: UNRESOLVED; step 9's sync (2.2) only reports the error again if the kernel still holds it | G-14 | code check (note F.5); one nonconformance (4.1) | — |
 | FM-13 | full disk | environmental | — | — | fatal (FM-12); a recovery that needs space loops without loss until space is freed (2.5) | none: an operator step | argued | disk budget (2.5) |
@@ -127,9 +129,9 @@ section 8).
 |---|---|---|
 | 1. Own | directory lock, `LOCK_NB` (`engine.cpp:897-905`) | held: exit with a named error; the supervisor retries |
 | 2. Lock the record | open `superblock.a` and `superblock.b` once each, without `O_CREAT`, `flock(LOCK_EX)` blocking (V8-L) | a missing file: step 3 decides |
-| 3. Read the record | read all four slots and, for generation `g`, the manifest it names (design 2 rule 3) | no valid slot and only init artefacts (record files, watermark files, empty stream directories, temporary files), with `init` configured: **INIT** (init restarts; phase 2 is init's own sequence, which creates the watermark files and the links generation before the record write; without `init` configured such a directory refuses, `engine.cpp:956`, as today). No valid slot but segments or `ckpt` present: **REFUSE** (C13, `engine.cpp:943-946` with `--seed-from`, `:954-959` otherwise; section 3, row C1). Tie, or a missing or wrong-size file once a slot is valid: **REFUSE**. A seed has no outcome of its own today (row C1; the correction proposed in the decisions package adds one) |
+| 3. Read the record | read all four slots and, for generation `g`, the manifest it names (design 2 rule 3) | no valid slot and the `seeding` marker present (E30): **SEED** (phase 2 removes only the seed's own files, `ckpt/`, stream directories, the record files, and fetches again; `links_generation*`, `role` and the lock file are kept). No valid slot and only init artefacts (record files, watermark files, empty stream directories, temporary files, `links_generation*`, `role`, the lock file), with `init` configured: **INIT** (init restarts; phase 2 is init's own sequence, which creates the watermark files and the links generation before the record write; without `init` configured such a directory refuses, `engine.cpp:956`, as today). No valid slot but segments or `ckpt` present: **REFUSE** (C13, `engine.cpp:943-946` with `--seed-from`, `:954-959` otherwise; section 3, row C1). Tie, or a missing or wrong-size file once a slot is valid: **REFUSE**. Today's code has no SEED outcome (row C1); it is the Y8 correction (E30) |
 | 4. Lock the streams | for each stream of the record (its per-stream slots, so this works with no checkpoint yet), in stream order: open `watermark` without `O_CREAT` and lock it, keeping the descriptor; then, for `spare.tmp` and every segment, open, take the lock and close again (2.3) | any stream named by the record without `watermark`, NONE, PENDING or RESEEDING: **REFUSE** (V8-2 creates it before the record write that names the stream) |
-| 5. Validate and classify | every stream, by its record state (2.4), and the links generation file, read only. Orphan stream directories are not read | any failure: **REFUSE**. Else **PROCEED**, plus **COMPLETE** for each PENDING stream and **RESEED** if any stream is RESEEDING. Under Y6c-1 RESEEDING covers every stream, so the two do not mix; under per-stream reseed they can |
+| 5. Validate and classify | every stream, by its record state (2.4), and the links generation file, read only. Orphan stream directories are not read; any that step 8 would not remove (no checkpoint, or a checkpoint whose manifest's stream count differs from the record's) is a **REFUSE** here, so a stream directory is never left unreplayed and unrefused | any failure: **REFUSE**. Else **PROCEED**, plus **COMPLETE** for each PENDING stream and **RESEED** if any stream is RESEEDING. Under Y6c-1 RESEEDING covers every stream, so the two do not mix; under per-stream reseed they can |
 
 **Phase 2: writes, each idempotent; a crash anywhere restarts at step 1.**
 
@@ -137,8 +139,8 @@ section 8).
 |---|---|
 | 6. Repair the record | rule 4's duplicate of `g` if it has one copy, then the boot write (new incarnation), under `meta_mu`. The first write recovery makes |
 | 7. Node files | open the links generation (`engine.cpp:1080`); write `DIR/role` through `role.tmp`. Today both happen elsewhere (E27). A links generation missing here, with a valid record, is a refusal; today a crash between `engine.cpp:1074` and `:1080` on a fresh boot produces exactly that (section 3, row C2) |
-| 8. Clean and complete | remove orphan stream directories: a directory whose index is not below the record's stream count, removed only when the record names a checkpoint whose manifest has that count (boundary 4.2). With no checkpoint (`active_ckpt = 0`) such a directory is not removed: step 5 refuses, because today's code would have replayed it (`engine.cpp:1136-1195`). Per stream that is not RESEEDING (RS-2 alone touches those): unlink `seg.tmp` and `wm.tmp`; resolve `spare.tmp` (note B.4); for a PENDING stream run completion 2.1-2.7 and the clear, then validate it again as a NONE stream, watermark included; delete segments below `retain_from` |
-| 9. Cover the end | per NONE stream, one stream at a time: `fdatasync` every segment holding records in `(W, E]`, then raise the watermark to `E` (note D.4), then V8-1 at `E + 1`. Step 4's barrier means no write of the dead process is still in flight. The sync is needed because `RWF_DSYNC` is set only when `wal_sync` is on (`src/native/runtime.cpp:213`): a previous boot with `wal_sync=none`, or the buffered fallback, can leave records complete but in the device cache, and the FUA raise would make only itself durable (round 3, rr1 M1). A failed sync is fatal (FM-12). A segment created during this boot (completion's `L + 1`) is not replaced again |
+| 8. Clean and complete | remove orphan stream directories: a directory whose index is not below the record's stream count, removed only when the record names a checkpoint whose manifest has that count (boundary 4.2). With no checkpoint (`active_ckpt = 0`) such a directory is not removed: step 5 refuses, because today's code would have replayed it (`engine.cpp:1136-1195`). After a SEED outcome's record write, and on any boot that finds a valid record and a `seeding` marker: unlink the marker and `fsync` the directory, before step 10. Per stream that is not RESEEDING (RS-2 alone touches those): unlink `seg.tmp` and `wm.tmp`; resolve `spare.tmp` (note B.4); for a PENDING stream run completion 2.1-2.7 and the clear, then validate it again as a NONE stream, watermark included; delete segments below `retain_from` |
+| 9. Cover the end | per NONE stream, one stream at a time: `fdatasync` every segment holding records in `(W, E]`, then raise the watermark to `E` (note D.4), then V8-1 at `E + 1`. Step 4's barrier means no write of the dead process is still in flight. With `wal_sync` on, every WAL write carries `RWF_DSYNC`, on the `O_DIRECT` and the buffered path alike (`src/native/runtime.cpp:213`, `:231`), so the sync finds nothing to do; it is a cheap guard for a previous boot with `wal_sync=none`, which stays outside every guarantee (2.7): that boot may already have raised `W` over records that were never durable, which no sync at recovery can repair (round 4). **A failed sync is a named refusal, not FM-12's restart**: the kernel reports a writeback error once, so a restarted process could sync "successfully" over cached bytes that are not on media and raise over them (round 4). A segment created during this boot (completion's `L + 1`) is not replaced again |
 | 10. Writers | for every stream that is not RESEEDING: open the WAL writer; start the preparer |
 | 11. Reseed | if the outcome was RESEED: first the boot read (R7), so that RS-3's term check and the choice of `j` use the current group record; then the reseed (whole node in place under Y6c-1, section 6; note C.2 per stream otherwise), which needs the network and the incarnation of step 6. It ends with RS-6 and continues at step 12 |
 | 12. Authority | the boot read (R7) before the node grants anything to any primary. **A standby** is then positioned by R6.2 in the current term before it counts or holds a lease; its request reports the watermarked end (write-path rule 4). That a restart in the same term needs a new positioning rests on PR155's TEXT ONLY clause ("its positioned record for `k` ends at `k`'s restart"), not on R2′ rule 2 alone. **A primary** never resumes its old term (R6.0): it serves only through a new promotion, including a sole primary's re-promotion (frozen 4.2), and then S1-S5 with S2′ |
@@ -151,7 +153,8 @@ Why validation precedes repair [INF]:
 
 **Refusals that can still come in phase 2** [INF]: the revalidation of a completed PENDING stream in step 8
 (FL-floor, the watermark), which needs a fault; `EEXIST` on spare adoption; a read `EIO` in phase 2 (step 2.7's read
-of record `L`, the completion replay, a replacement header); and an I/O error on a write (FM-12). A restart after either repeats
+of record `L`, the completion replay, a replacement header); a failed step-9 sync (a named refusal); and an I/O error
+on a write (FM-12). A restart after either repeats
 step 6's boot write once per attempt; that changes only the generation and incarnation, and rule 4 keeps the chosen
 generation's two copies.
 
@@ -204,8 +207,9 @@ today's binary, which takes none, gets no barrier; it must follow a clean stop o
   async `O_DIRECT` request holds a reference until its bio completes. The directory lock has no request and goes at
   `exit_files`.
 - **Durable, not just complete:** with `wal_sync` on, WAL writes carry `RWF_DSYNC`, so a write that completed is on
-  stable media (FUA or a flush, as the device honours them, FM-9). Records written with `wal_sync` off, or through the
-  buffered fallback, are complete but not known durable, so step 9 syncs before it raises.
+  stable media (FUA or a flush, as the device honours them, FM-9). The buffered fallback uses the same flag (`runtime.cpp:231`).
+  Records written with `wal_sync` off are complete but not known durable; step 9 syncs before it raises, as a guard
+  only (2.2 step 9).
 - **No deadlock:** a dead process takes no locks, so the new one only waits; a second new process stops at step 1.
   An in-process restart must close its V8-L descriptors only after its rings drained, or it would wait on itself.
 - **Outstanding writes at termination:** buffered writes and synchronous `O_DIRECT` drain at exit (io-wq); AIO drains
@@ -333,6 +337,8 @@ phase 1 leave the data directory as the crash left it (2.2); the few found in ph
 | shard-count mismatch for a cluster member (`engine.cpp:1054`) | slot map | not damage | no reseed: the remap procedure, or start with the group's shard count |
 | manifest, checkpoint directory or part missing or invalid (`engine.cpp:1039`, `storage.cpp:485`) | boundary rule 2 | D | — |
 | read error (`EIO`) during recovery (FM-5), in phase 1 or 2 | G-14(a) | D | if the device is failing, replace it first |
+| step 9's sync fails | G-14 | D (a write error is a media fault, FM-10's proviso) | not restarted: a second sync could report success over bytes not on media; replace the device, then reseed |
+| an orphan stream directory that step 8 may not remove (step 5) | boundary 4.2 | not damage | no reseed: the operator inspects it (a remap before the first checkpoint, or a record and manifest with different stream counts) |
 | FL-floor or FL-chain mismatch | FL | D | — |
 | R-CHAIN mismatch | OD-7 | D | — |
 | WAL gap (`storage.cpp:383-384`); invalid header on a named segment; damage above `W` that is not a torn frame or format sector | G-14(a), K1 | D | — |
@@ -396,14 +402,15 @@ until the kernel's random pool is ready, and a short read is fatal, as `space_uu
 
 ### 5.1 The precise text
 
-Frozen R9-A (`docs/AFR_001_SAFETY_ANALYSIS.md` 293-296) [FACT-SNC]:
+Frozen R9-A, as it stood before OD-10 (`docs/AFR_001_SAFETY_ANALYSIS.md` R9) [FACT-SNC]:
 
 > **R9-A. Apply before acknowledging.** Every replica (a member of A, or one catching up to join it) reports an entry
 > as acknowledged only once it has applied it, whether or not it holds a lease at that moment. p counts no other
 > report. An acknowledgement sent before a lease was granted can be counted while that lease is valid (RESULTS_R9
 > M_ackLeased, M_ackDurable).
 
-Proposed R9-A′, changing only the condition of the first sentence and keeping every other clause:
+R9-A′, changing only the condition of the first sentence and keeping every other clause [proposed here; **recorded
+2026-11-19 as owner decision OD-10**, `docs/handoff/PR171_Owner_Decisions.md`, and now in SA's R9 in place]:
 
 > **R9-A′. Apply and cover before acknowledging.** Every replica (a member of A, or one catching up to join it)
 > reports an entry as acknowledged only once it has applied it **and its durable watermark (D-02) covers it**, whether
@@ -450,8 +457,8 @@ not an interpretation, and needs the owner's yes.
 | R6.3′ durable end | steps 2 and 3 of R6.2 use the reported end only for the binding and the answer; `k` truncates by `end_k(t*)` of its own log, so a reported end below the held end cuts nothing more. A running member that learns a new term may have a watermark write in flight: if `W` rises after its request, the binding no longer matches, the reply is rejected and `k` asks again, which converges. After a restart, step 9 of 2.2 makes the two ends equal before any request |
 | Promotion | every entry acknowledged in a term is covered by the watermark of every member of A that counted it. A member admitted to S later is covered through write-path rule 4 at admission ("caught up"). Under the one-fault budget, a single lost write of such an entry makes that member's **recovery** refuse; a live promoted member with a lost write is detected only when it restarts. So R9-A′ is a necessary part of what P5's excluded silent-loss clause needs, not all of it: a live promoted member with a lost write, and FM-9, stay uncovered. **P5's clause stays outside the freeze while D-02 is on HOLD**: a yes to Y5 does not close it |
 | Reconciliation | `j` answers from its log, not its watermark (R6.2 item 2), unchanged; `k`'s truncation lowers its watermark in step 2.7 |
-| Recovery raise (step 9) | covers only records that recovery validated and synced (2.2 step 9), so it hides no loss and adds no acknowledgement retroactively. A raised `W` over a divergent tail is lowered by the truncation that removes it (step 2.7), or the node is reseeded |
-| HA_DURABLE, `m = 2` | preserved: R9-A′ only removes reports. The raise does not add one, because what it covers is durable |
+| Recovery raise (step 9) | with `wal_sync` on, covers only records that recovery validated and that are durable (2.2 step 9; a failed sync refuses), so it hides no loss and adds no acknowledgement retroactively. A raised `W` over a divergent tail is lowered by the truncation that removes it (step 2.7), or the node is reseeded |
+| HA_DURABLE, `m = 2` | preserved: R9-A′ only removes reports. The raise does not add one, because, with `wal_sync` on and no media fault (FM-10's proviso), what it covers is durable |
 
 Evidence: argument only. No model checks R9-A′, and none is proposed (9).
 
@@ -505,9 +512,9 @@ Review r1's findings change C.2 as follows. The note's C.2 is marked as amended 
 |---|---|---|
 | preconditions | the node has left S by a chosen shrink (R2′ rule 3), which it learns from the witness. "Not in A" is not checked by `k`: `p` drops it after the shrink (R1.2), and `k` sends no report while RESEEDING. Every stream NONE: a PENDING stream completes first | `k` cannot see `p`'s A (r1 F7) |
 | RS-0 | `k` also stops serving lease reads and drops any lease it holds, before RS-1. R9-C keeps `k` in `p`'s A while a lease may be valid, so `k` must not serve from the map RS-2 empties | G-30 (round 2, i2 M5) |
-| RS-1 | a compare-and-write on every stream NONE **and on the durable term** | as D-06 4.3's intent (r1 F2) |
+| RS-1 | a compare-and-write on every stream NONE **and on the durable term**; the same record write takes a **new incarnation**, so every primary's record that `k` is positioned ends (R6.3′ item 1, answering side) | as D-06 4.3's intent (r1 F2); round 4: without a new incarnation a primary that had positioned `k` before the reseed would still count it as positioned |
 | RS-3 | `k` first persists `j`'s term `t` (R4), as a compare-and-write on RESEEDING, serialized like R6.3′ item 2; if `t` is below `k`'s durable term, `j` is not the current primary and `k` asks again. The request is bound to `t`, `k`'s incarnation and `j`'s incarnation; `k` receives the primary's `next_lease` with the parts | today's seed sets the record term from the primary (`seed.cpp:271`) and copies `next_lease`; without it a reseeded node can reissue a lease ID whose objects were deleted before `start_lsn` (r1 F2, F3) |
-| RS-3 to RS-5 | if `k` learns a newer term, it persists it (R4) and returns to RS-2. Repeated term changes restart the whole transfer, with no bound (UNRESOLVED) | otherwise RS-5 stalls. RS-6's compare checks only terms `k` has learned, so a deposed primary's tail is removed by the R6.2 round after the clear (6.6), not by RS-6 (round 3, rr2 m4). A failed compare at RS-1 ends the reseed with nothing changed; at RS-3 to RS-6, or a change of `j`'s incarnation, `k` returns to RS-2 |
+| RS-3 to RS-5 | if `k` learns a newer term, it persists it (R4) and returns to RS-2. Repeated term changes restart the whole transfer, with no bound (UNRESOLVED) | otherwise RS-5 stalls. RS-6's compare checks only terms `k` has learned, so a deposed primary's tail is caught by the R6.2 round after the clear (6.6), not by RS-6 (round 3, rr2 m4): any cut of the copied tail is below `c + 1`'s `max_lsn`, so R6.4 reseeds again (round 4). A failed compare at RS-1 ends the reseed with nothing changed; at RS-3 to RS-6, or a change of `j`'s incarnation, `k` returns to RS-2 |
 | pins | the primary must keep the checkpoint until the parts are sent and the WAL from each `start_lsn` until RS-5 ends or `k` releases it. Today's pins do not do this: the checkpoint pin ends at the standby's "done" (`seed.cpp:166`, `:170-180`), the WAL pin is one global one-hour deadline released once the standby's `keep_from` passes it (`engine.cpp:1514-1519`), and the seed gate forces the primary NOT READY (`seed.cpp:139`). A long transfer can lose its pin and loop RS-5 to RS-2 | UNRESOLVED as a design item (E29) |
 | RS-6 | a compare-and-write on the term `t` and every stream RESEEDING. `next_lease` = max(`k`'s durable `next_lease`, the primary's, every shard's `max_lease_seen + 1`), as the code computes it at a checkpoint (`engine.cpp:1533`); the lease-block case (`lease_hi ≠ 0`) is UNRESOLVED. Each stream's `retain_from` is its `start_lsn` (the first retained segment, as boundary rule 1 computes when nothing is deleted) and `floor_term = start_term`; `c + 1`'s own `start_lsn`, `start_term` and `max_lsn` are those of an ordinary checkpoint. The flag is cleared in this write; `k` is **not** positioned by it, and runs one ordinary R6.2 round next (6.6) | r1 F2, F3, F10; round 2, i2 M1, M2 |
 
@@ -529,15 +536,17 @@ attestation ("not reseeding") and R2′'s promotion evidence; I2 is stated for m
   does: if `j` restarted mid-transfer and lost a tail it had shipped (R6.0), `k` would clear while holding entries in
   no log of `j`.
 - **Clear at RS-6, unpositioned, then one ordinary R6.2 round: recommended.** After RS-6 `k` is a member that is neither
-  incomplete nor reseeding, and not positioned, so R6.3′ item 1 allows the round. If `j` lost a tail, R6.2 truncates it (I3); if the
-  cut is below `c + 1`'s `max_lsn`, R6.4 reseeds again (a liveness cost, UNRESOLVED as a bound).
+  incomplete nor reseeding, and not positioned, so R6.3′ item 1 allows the round. If `j` lost a tail, the round finds the cut, which
+  is below `c + 1`'s `max_lsn`, so R6.4 reseeds again (a liveness cost, UNRESOLVED as a bound).
 
 **What still holds between the clear and positioning:** leases and growth into S need positioning (R9-B, R1; the
 model's `AddA` and `Grow`, `Log.tla` 96-117); promotion inside the contract names a member of S, which `k` is not.
 **Acknowledgements are not held off by the cited rules** (round 3, rr2 M3): R2′ rule 2 binds members of S′, which `k`
 is not, and R1.1 adds a catching-up member to A before it has caught up. If `j` lost a shipped tail and was
-re-promoted, `k` could hold an older-term entry at an LSN `j` reuses, and an LSN-only report would count it. So the
-revision itself must say that `k` sends no acknowledgement report until R6.2 positions it (text below). Whether
+re-promoted, `k` could hold an older-term entry at an LSN `j` reuses, and an LSN-only report would count it. G-12
+keeps a second, real copy in S, so this breaks section 0's "every member of A has `e`", not G-11 (round 4); the
+revision says that `k` sends no acknowledgement report until R6.2 positions it (text below), as defence in depth.
+The analysis of this state is `docs/AFR_001_R65_INVARIANTS.md`. Whether
 reports carry `(term, lsn)` or only an LSN is UNRESOLVED.
 
 **Invariants not re-argued for the new state** (round 3, rr2 M1): I2's induction assumes a member accepts entries
@@ -575,8 +584,8 @@ item is replaced here. This package adds:
 | E27 | recovery order (D-06 4.3, boundary rule 4; supersedes the note's E10) | D-06 4.3's six steps; boundary rule 4's seven | the twelve steps of 2.2; today's earlier writes (`make_dirs`, `role`, `seed_fetch`, lease block, links generation, lease and legacy-flag commits) move to phase 2; a read `EIO` refuses by name | 2.2 |
 | E28 | 4.1 RESEEDING | per stream, "so that two streams reseeding clear independently" (`docs/AFR_001_D06_STORAGE_METADATA.md` 116) | under a whole-node reseed, set and cleared over every stream in one write | 6.3, 6.5 |
 | E29 | seed pins (boundary rule 1 and the seed path) | the checkpoint pin ends with the send; one global WAL deadline | pins held for the transfer, released by `k` or a stated timeout; the NOT READY gate on the primary reconsidered | 6.5 |
-| E30 | seed marker (boundary rule 5; the seed path) | a crash before the seed's record write refuses (C1) | a durable `seeding` marker before the first fetched byte; step 3 classifies "no valid slot and `seeding`" as SEED and fetches again; the marker is removed durably in phase 2 before the node serves (decisions package, Y8) | 3 |
-| E31 | links generation creation order (D.2 2.1) | created after the first record write (`engine.cpp:1074`, `:1080`) | created durably before the first record write, on init and on seed, as V8-2 orders watermark files; missing with a valid record is then a fault (C2, Y8) | 3 |
+| E30 | seed marker (boundary rule 5; the seed path) | a crash before the seed's record write refuses (C1) | a durable `seeding` marker, created and its directory synced before anything else of the seed; step 3 classifies "no valid slot and `seeding`" as SEED, removes only the seed's own files and fetches again; the marker is removed durably in step 8 before the node serves. In the slot-epoch case it covers the seed only once the operator's wipe has finished; V7 stays open. A lost marker create refuses as today; FM-7's scope is not widened (OD-14, design direction) | 3 |
+| E31 | links generation creation order (D.2 2.1) | created after the first record write (`engine.cpp:1074`, `:1080`) | created durably before the first record write, on every init and seed whether or not the node is a cluster member, as V8-2 orders watermark files; missing with a valid record is then a fault, or a node started standalone before this rule (its own row, as today's `--links-generation-min`) (C2; OD-14, design direction) | 3 |
 | E14′ | boundary rule 5 (seed floor) | the note's E14: "whole-node: unchanged" (an empty directory) | whole-node **in place** follows 6.5; the empty-directory seed stays only for a new node and the slot-epoch mismatch case | 6.3 |
 
 **Corrections to the note's E rows (on site):** E10 points to E27; E11's "only after a fault" is wrong, since an
@@ -694,29 +703,39 @@ after Y4.
 
 | # | What | Design | Decides |
 |---|---|---|---|
-| E-1 | V8 restart barrier | a throwaway C program on a scratch ext4 file system over `dm-delay` with **writes only** delayed by several seconds (dm only as a test harness, not a supported stack): a preallocated file; a multi-threaded process opens it, `flock(LOCK_EX)`, submits 4 KiB-aligned, non-extending async `O_DIRECT` writes with `RWF_DSYNC` through io_uring, as SNC does (`src/native/runtime.cpp:213`), then is killed (`SIGKILL`, and `abort()` from another thread). A second process takes `flock` blocking. Pass: the lock is granted only after the write's completion, timed from a block-layer tracepoint (`block_rq_complete`), not from a read. Variants: AIO; the directory lock (expected to be released early); xfs. On the target kernel (Ubuntu `6.8.0-149`) and one upstream kernel | V8-L's premise, beyond source reading (finding 6) |
+| E-1 | V8 restart barrier | a throwaway C program on a scratch ext4 file system over `dm-delay` with **writes only** delayed by several seconds (dm only as a test harness, not a supported stack): a preallocated file; a multi-threaded process opens it, `flock(LOCK_EX)`, submits 4 KiB-aligned, non-extending async `O_DIRECT` writes with `RWF_DSYNC` through io_uring, as SNC does (`src/native/runtime.cpp:213`), then is killed (`SIGKILL`, and `abort()` from another thread). A second process takes `flock` blocking. Pass: the lock is granted only after the write's completion, timed from a block-layer tracepoint (`block_rq_complete`), not from a read. Variants: AIO; the directory lock (expected to be released early); xfs. On the target kernel (Ubuntu `6.8.0-149`); an upstream kernel is E-1b (safeguards) | V8-L's premise, beyond source reading (finding 6) |
 | E-2 | watermark write cost | a throwaway microbenchmark on the target data SSD (not the boot device, which has `fua=0`): N concurrent streams, each per flush an `O_DIRECT | RWF_DSYNC` WAL write, then a 4 KiB `O_DIRECT | RWF_DSYNC` overwrite of a preallocated file, against the WAL write alone; batch sizes and flush rates as in X-2's prereg; latency percentiles and throughput | the device cost only (finding 13): whether a replicated measurement is needed before more design work. **Never** an HA_DURABLE or end-to-end number, and a pass is not acceptance |
 | E-3 | platform facts | read-only: the Ubuntu kernel source package for `6.8.0-149` (the files of note F.2), the device timeouts, the SSD's power-loss protection from its datasheet or mode pages | 2.7's open rows |
 
-E-1 and E-2 run on lab hardware, which means an R640 authorization if run there. **Safeguards before any
-authorization** (round 3; the decisions package checks each experiment against them):
-- **No real block device is written, formatted or remapped.** E-1's ext4 and xfs file systems and its `dm-delay`
-  target sit on a loop device backed by a file in a scratch directory outside `/srv/snc-data`, the boot device and
-  the old HDD; `mkfs` and `dmsetup` are run only on that loop device, by the path `losetup` printed.
+E-1 and E-2 run on lab hardware, which means an R640 authorization if run there. Crash-injection tests of HeaderFirst, the temporary files and `EEXIST` (the coordinator's list) need product code,
+so they belong to the implementation phase, not here.
+
+**Safeguards before any authorization** (rounds 3 and 4). The text is a plan; a run card written from it must keep
+every line:
+- **Before and after:** record `lsblk -o NAME,MODEL,SERIAL,UUID,MOUNTPOINTS`, `findmnt`, `df -h`, `losetup -l` and
+  `dmsetup ls` before the run and compare after; any difference other than the run's own objects stops the run.
 - **Disks are named by model, serial or UUID**, never by `/dev/sdX`, which moved at every reboot
-  (`docs/R640_TOPOLOGY.md` 135, 168, 222).
-- **E-2 uses files, never the raw device**: a dedicated directory on `/srv/snc-data`'s file system, created fresh,
-  with a stated space cap (a few GiB) and a free-space check first; no SNC process running (checked with `pgrep`);
-  everything removed at the end. `O_DIRECT` is an open flag; `RWF_DSYNC` is the per-write flag.
-- **E-3 runs an allowlist** of read-only commands (`uname`, `cat` of sysfs and procfs files, `lsblk`, `smartctl -i`,
-  `sdparm --get`/`--inquiry`, `apt-get source` into scratch). Forbidden: `sdparm --set`, `hdparm -W`, any write to a
-  sysfs `timeout` or `queue` file.
-- **Every run ends with a teardown** (unmount, `dmsetup remove`, `losetup -d`, remove the scratch files) and a
-  `df -h` and `lsblk` check that nothing else changed.
-- **"One upstream kernel" means installing and booting another kernel**, which writes `/boot`: a separate
-  authorization, never implied by E-1's. Crash-injection tests of HeaderFirst,
-the temporary files and `EEXIST` (the coordinator's list) need product code, so they belong to the implementation
-phase, not here.
+  (`docs/R640_TOPOLOGY.md` 135, 168, 222). The old VMFS HDD and the boot (BOSS) device are never written, and no
+  partition is created anywhere.
+- **E-1's place:** a scratch file of at most 8 GiB, created with `mktemp` under a directory made for the run on the
+  root file system, after a check that at least 16 GiB stay free there; never under `/srv/snc-data`, `/boot` or
+  `/boot/efi`. It is attached with `losetup --find --show`, and only the device path printed there is used.
+- **E-1's system changes, all reverted at teardown:** `modprobe dm-delay`; one `dm-delay` target with a name chosen
+  for the run; `mkfs.ext4` / `mkfs.xfs` only on that target; a mount point under the run's directory; the
+  `block_rq_complete` tracepoint enabled, then disabled and the trace buffer cleared. Processes are signalled by
+  the PID the test printed, never by name.
+- **E-1b, another kernel:** installing and booting an upstream kernel writes `/boot`. It is a separate experiment
+  with its own authorization, never implied by E-1.
+- **E-2's place:** files in a directory made with `mktemp -d` on `/srv/snc-data`, after `findmnt` confirms that the
+  mount's source is the Samsung data SSD by model and serial; at most 4 GiB written, and at least 100 GiB left free
+  before it starts. `pgrep -f snc_` must find nothing before each phase, or the run stops. The teardown removes only
+  that directory. `O_DIRECT` is an open flag; `RWF_DSYNC` the per-write flag. Never the raw device.
+- **E-3 runs an allowlist** of read-only commands (`uname -a`, `cat` of sysfs and procfs files, `lsblk`,
+  `smartctl -i`, `sdparm --get`/`--inquiry`, `findmnt`). Forbidden: `sdparm --set`, `hdparm -W`, any sysfs write,
+  and any change to `/etc/apt` (the Ubuntu kernel source package is fetched on another machine).
+- **Teardown, in order:** unmount; `dmsetup remove <the run's name>`; `losetup -d <the printed path>` (never `-D`,
+  which would also detach the system's snap loop devices); disable tracing; remove the run's directory; then the
+  "after" check.
 
 ## 10. Proposed order for closing D-02, R-23 and O-FLOOR
 
@@ -734,7 +753,8 @@ phase, not here.
 
 ## 11. Decisions requiring the owner
 
-Each row is a proposal. **None is recorded.** Each needs the owner's explicit yes, after Codex's review.
+Each row is a proposal. **[2026-11-19: Y5, Y6a, Y6b, Y6c-1 and Y8 decided as Codex worded them; Y6c-2 conditional;
+Y4, Y7 HOLD: `docs/handoff/PR171_Owner_Decisions.md`.]**
 
 | # | Decision asked | Recommendation | What a yes changes |
 |---|---|---|---|

@@ -1,7 +1,11 @@
 # AFR-001: durability owner-decision package (PROPOSED)
 
-Status: **PROPOSED, for Codex and owner review.** Docs only. **Nothing here is an owner decision**, and nothing is
-accepted, frozen or implemented. Each decision below needs the owner's explicit yes.
+Status: **PROPOSED, for Codex and owner review.** Docs only. Nothing is frozen or implemented.
+
+**[2026-11-19, owner decisions recorded in `docs/handoff/PR171_Owner_Decisions.md`:** Y5 yes (OD-10, recorded
+revision of R9-A); Y6a, Y6b, Y8 yes as design directions (OD-11, OD-12, OD-14); Y6c-1 yes as the initial direction
+(OD-13); **Y6c-2 CONDITIONAL, not accepted**, pending the I2-I5 re-argument (`docs/AFR_001_R65_INVARIANTS.md`); Y4
+and Y7 HOLD. Codex's targeted final review of this text is section 7.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
 initial-seed question, and "a concise final owner-decision package" in five parts. Codex's section 3 items are
@@ -57,14 +61,18 @@ every later start throws at `links_generation.cpp:85-90` until the operator pass
 (cluster nodes only). Row C2.
 
 **Smallest corrections (Y8; recommended over an exception)** [INF]:
-- **C1, a seed marker (E30).** Before the first fetched byte, the seed creates an empty `seeding` file and syncs the
-  directory. Step 3 classifies "no valid record slot, and `seeding` present" as **SEED**: everything else in the
-  directory came from the primary and this node never acknowledged any of it, so phase 2 removes it and fetches
-  again. After the record write, phase 2 unlinks the marker and syncs the directory before the node serves. A valid
-  record always wins over a stale marker. A lost marker create (FM-7) refuses as today, which a fault may do. This
-  also covers the slot-epoch mismatch wipe-and-seed (E14′).
-- **C2, creation order (E31).** Create the links generation durably before the first record write, on init and on
-  seed, as V8-2 orders the watermark files. A missing file beside a valid record is then a fault.
+- **C1, a seed marker (E30).** Before anything else of the seed, it creates an empty `seeding` file and syncs the
+  directory. Step 3 classifies "no valid record slot, and `seeding` present" as **SEED**: the seed's own files
+  (`ckpt/`, stream directories, record files) came from the primary and this node never acknowledged any of them, so
+  phase 2 removes those, keeps the node's local files (`links_generation*`, `role`, the lock), and fetches again.
+  After the record write, step 8 unlinks the marker and syncs the directory before the node serves. A valid record
+  always wins over a stale marker. A lost marker create refuses as today; FM-7's scope is not widened. In the
+  slot-epoch mismatch wipe-and-seed (E14′) it covers the seed only once the operator's wipe has finished; V7 stays
+  open. [Corrected in round 4: the first text removed "everything else", which would also have removed a kept
+  `links_generation`.]
+- **C2, creation order (E31).** Create the links generation durably before the first record write, on every init
+  and seed, cluster member or not, as V8-2 orders the watermark files. A missing file beside a valid record is then a
+  fault, or a directory created before this rule (its own row).
 
 Each is one file and one ordering rule; no new protocol. **The alternative** is an owner decision adding both to
 G-48's exception list ("a crash during a node's initial seed, or between its first record write and its links
@@ -94,15 +102,18 @@ generation, needs an operator"). Not recommended: G-48 would then admit an opera
 | R9-A′, the R6.5 revision, the twelve-step order, Y8's corrections | argument only (section 5) |
 | prior art | CTRL (FAST 2018) and etcd v3.5.17's WAL chain: support the direction, replace no mechanism (contract 8) |
 
-**E-1, E-2, E-3 cannot modify or destroy production data, as now written** (round 3 found E-1 and E-2 unsafe as
-#170 wrote them; the contract's section 9 now carries the safeguards) [INF, on paper]:
-- **E-1:** file systems and `dm-delay` only on a loop device backed by a scratch file outside `/srv/snc-data`, the
-  boot device and the old HDD; `mkfs` and `dmsetup` only on that loop device; disks named by serial or UUID; teardown
-  and a `lsblk`/`df` check at the end. Booting another kernel writes `/boot` and is a separate authorization.
-- **E-2:** files in a fresh, capped scratch directory, never the raw device; no SNC process running; removed at the
-  end. It measures the device cost of one extra write only: **not X-2, not an HA_DURABLE or end-to-end result, and a
+**E-1, E-2, E-3 are designed not to modify or destroy production data, once a run card keeps every safeguard of
+contract section 9** [INF, on paper; round 3 found E-1 and E-2 unsafe as #170 wrote them, round 4 made the
+safeguards exact]:
+- **E-1:** a capped scratch file on the root file system (never `/srv/snc-data`, `/boot` or the old HDD), attached as
+  a loop device by the printed path; `modprobe`, `dm-delay`, `mkfs`, the mount and the tracepoint only on it and all
+  reverted; disks named by model, serial or UUID; a before-and-after check. Another kernel is E-1b, a separate
+  authorization.
+- **E-2:** files in a `mktemp -d` directory on the data SSD's file system after its identity is checked, at most
+  4 GiB, never the raw device; no SNC process before each phase; only that directory removed. It measures the device cost of one extra write only: **not X-2, not an HA_DURABLE or end-to-end result, and a
   pass is not acceptance.**
-- **E-3:** an allowlist of read-only commands; `sdparm --set`, `hdparm -W` and sysfs writes forbidden.
+- **E-3:** an allowlist of read-only commands; `sdparm --set`, `hdparm -W`, sysfs writes and `/etc/apt` changes
+  forbidden.
 
 None was run. Each still needs its own authorization (and an R640 authorization if run there).
 
@@ -144,6 +155,8 @@ None of the three models covers the twelve-step order (`MetaWatermark.tla:22`: "
 - **B7** today's code nonconformances, recorded not fixed: the `links_generation` retry, the read-`EIO` loop, the
   early writes (E27).
 - **B8** no G-48 number; the watermark's cost (E-2) and Y7.
+- **B9** (round 4) premise P: a primary's active checkpoint equals its current log applied through `max_lsn`; the
+  reseed's Lemma C depends on it, and it rests on D-02.
 
 ## 6. Round 3: focused re-review of the corrected contract
 
@@ -183,3 +196,54 @@ the model citations and their stated limits.
 
 **UNRESOLVED from round 3:** everything in section 5's blockers, plus whether the owner prefers the exception to
 Y8's corrections.
+
+## 7. Round 4: Codex's targeted final review (after the owner decisions)
+
+Codex's #171 review, section 2, asked for a narrowly scoped final review of the corrected text on seven points, with
+remaining counterexamples recorded. Three independent reviewers, each told to break one part: **f1** step 9, no
+active checkpoint, the seed marker and links-generation order, the fault model's independence; **f2** the state
+after RS-6 (`docs/AFR_001_R65_INVARIANTS.md`, written for Codex's first priority) and the recorded R9-A′; **f3** the
+experiment safeguards, the decision record and the public-repository rules. No BLOCKER; 17 MAJOR. Each was fixed on
+site as below, **not re-reviewed**. Nothing changes an accepted decision: the fixes sit inside the accepted
+directions (OD-10 to OD-14) or in proposals; the fault model is narrowed, never widened.
+
+**Counterexamples found, and what now stops each** [INF]:
+
+| # | Counterexample | Now |
+|---|---|---|
+| 1 | step 9's sync fails with `EIO`; the process restarts; the kernel reports the writeback error only once, so the next sync "succeeds" over cached bytes not on media, and the raise covers them (f1) | a failed step-9 sync is a named refusal, not restarted (contract 2.2 step 9, section 3) |
+| 2 | that case on node A plus FM-10 on node B loses an HA_DURABLE write within each node's budget (f1) | FM-10's proviso counts such a write error as A's media fault |
+| 3 | a checkpoint exists but its manifest's stream count differs from the record's: an orphan holding acknowledged WAL is neither removed, replayed nor refused (f1) | step 5 refuses every orphan step 8 may not remove; section 3 row |
+| 4 | `wal_sync=none`: the old boot already raised `W` over dirty pages, so step 9's sync of `(W, E]` repairs nothing; and the "buffered fallback lacks `RWF_DSYNC`" premise was wrong (`runtime.cpp:231`) (f1) | step 9's sync is a guard only; `wal_sync=none` stays outside every guarantee |
+| 5 | SEED removed "everything else", including a `links_generation` the operator kept for V7: incarnation regresses, peers refuse (f1) | SEED removes only the seed's own files |
+| 6 | a primary that positioned `k` before an in-place reseed still counts it positioned in U (no boot write, so no new incarnation) (f2) | U4: RS-1 takes a new incarnation (contract 6.5) |
+| 7 | `j`'s checkpoint, taken at a fuzzy `max_lsn` not durable on `j`, then a crash and a new `(t′, y)`: the copied state and copied WAL disagree (f2) | premise P stated; Lemma C depends on D-02 (new blocker B9) |
+| 8 | E-1 on the R640 had no permitted place, and `losetup -D` or `/dev/sdX` could hit system or production devices (f3) | contract 9: exact place, caps, identity checks, named teardown, before-and-after check, E-1b |
+
+**Other MAJOR fixes:** Y9 restated as defence in depth (G-12 keeps a second, positioned copy in S, so G-11 holds;
+f2); U defined across restarts (f2); "R6.2 truncates the lost tail" corrected to "R6.4 reseeds again" (f2); the
+record no longer states step 9 as decided in Codex's Y5 wording (f3); G-30 (A)/(B) keep their earlier words (f2, f3);
+section 4's safety claim made conditional (f3); this section written (the dangling pointer, f3).
+
+**MINOR fixes:** E31 for non-cluster directories; the marker in step 3's lists and its unlink in step 8; FM-7 not
+widened for the marker; in-place pointers at R9-B, R9-F, G-11, the HA_DURABLE definition and R6.3′; SA's freeze
+note; the M_ack citation's scope; the contract header; verbatim quotes in OD-12 and OD-14; "the one" labelled as the
+recorder's reading; R9-A′'s freeze status and its dependence on D-02 noted; E-3 fetches the kernel source elsewhere;
+the liveness bound for a member in A before positioning marked UNRESOLVED.
+
+**Checked and found sound:** the decision record matches Codex's wording and strength, with Y6c-2 accepted nowhere;
+the Codex filing has no paste damage; R9-A′ keeps every clause but the condition; nothing claims P5's clause closed,
+FM-9 covered or FM-8 file-level covered; with no checkpoint, nothing deletes acknowledged WAL; the marker never wipes
+a node that served, within the budget; E31's order closes the `engine.cpp:1074`/`:1080` window; within U, I1, I2
+(for the WAL slice), I3, membership, promotion inside S, leases, RS-6's atomicity and U3 hold; no model names,
+secrets or new personal names.
+
+**New blocker B9:** premise P, that a primary's active checkpoint is its current log applied through `max_lsn`,
+rests on D-02. **Y6c-2 recommendation:** accept, with U3 and U4 added to its text, once P is part of D-02's
+acceptance.
+
+**UNRESOLVED from round 4:** premise P; ext4's writeback-error reporting on v6.8 and Ubuntu 6.8.0-149 (not read);
+whether a record can name a stream count different from the active manifest's; the slot-epoch wipe order (V7);
+whether the seed's record files are preallocated before the first slot write; whether `block_rq_complete` times
+completion correctly under a loop-backed `dm-delay`; no model covers U, R1.1's add before positioning, or R7 outside
+S; no bound on reseed loops; whether reports should carry `(term, lsn)`.
