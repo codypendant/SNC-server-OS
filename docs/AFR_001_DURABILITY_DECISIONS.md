@@ -10,7 +10,10 @@ and Y7 HOLD. Codex's targeted final review of this text is section 7. After Code
 (Y9-T recommended), round 5 is section 9. After Codex's #173 review (`docs/handoff/PR173_Codex_Review.md`): round 6, the code
 changes P-2, P-3 and E30 need, and the updated owner questions are section 10. After Codex's #174 review
 (`docs/handoff/PR174_Codex_Review.md`): round 7, the buffered-WAL answers, a convergence table and the current owner
-questions are section 11, which supersedes 10.2. Y6c-2 and Y9 are not accepted.**]**
+questions are section 11, which supersedes 10.2. After Codex's #175 review
+(`docs/handoff/PR175_Codex_Review.md`): the preregistered model plan is `docs/AFR_001_REPORT_MODEL_PREREG.md`, the
+`RWF_DSYNC` analysis is section 12, and the current owner questions are section 13. Y6c-2 and Y9 are not
+accepted.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
 initial-seed question, and "a concise final owner-decision package" in five parts. Codex's section 3 items are
@@ -487,3 +490,64 @@ review alone in the report/reseed/grant area.**
 - **E32 (incarnation = node nonce and generation of the boot or RS-1 write).** With Y6c-2.
 - **Y6c-2:** still **hold until premise P is discharged** (section 8).
 - Y4, Y7: HOLD. E-1, E-1b, E-2, E-3 and any M-1 change stay proposals.
+
+## 12. Can the contract rely on `RWF_DSYNC` whatever path the kernel takes? (Codex #175, section 4)
+
+Codex asked whether the kernel's internal fallback from direct to buffered I/O can be handled by relying on
+`RWF_DSYNC` semantics independent of the I/O path, and not to claim that a start gate proves every write stayed
+direct. One reviewer read the Linux v6.8 sources (`git tag v6.8`, files fetched from the kernel repository); every
+row below is **[FACT-KERNEL]** at v6.8 unless marked, and Ubuntu's 6.8.0-149 patches are **not** checked [HYP that
+they do not change these paths].
+
+| Question | Answer | Source (v6.8) |
+|---|---|---|
+| Does a **successful** `RWF_DSYNC` write reach stable media on the fallback path too? | **Yes.** `RWF_DSYNC` sets `IOCB_DSYNC`; `generic_write_sync` then calls `vfs_fsync_range` and returns its error instead of the byte count. ext4 and xfs both reach it after a `-ENOTBLK` fallback; their fsync writes the data, forces the journal or log, and flushes the device cache | `include/linux/fs.h:2731-2742`; `fs/ext4/file.c:579-580`, `:285-305`; `fs/xfs/xfs_file.c:849-861`; `fs/ext4/fsync.c:158-176` |
+| And on the direct path into a preallocated (unwritten) extent? | **Yes.** No FUA shortcut for unwritten extents; the sync runs after `end_io`, which converts the extent, and `fdatasync` commits that transaction on ext4 (xfs: forces the log; the detail that the conversion is counted is HYP) | `fs/iomap/direct-io.c:617-631`, `:90-126`; `fs/ext4/extents.c:3871-3876` |
+| After a **failed** write on the fallback path, what is cached? | the folios stay **uptodate and clean** in the page cache with bytes not on media; the error goes to the dying descriptor and is marked seen; a **new** descriptor's `fdatasync` then returns 0 and writes nothing | `fs/ext4/page-io.c:118-146`; `fs/iomap/buffered-io.c:1456-1470`; `mm/filemap.c:726-750`; `fs/open.c:912`; `lib/errseq.c:123-131` |
+| Does an `O_DIRECT` **read** return the device's contents? | **Yes** on xfs and on ext4 files that allow direct I/O: it writes back dirty pages in the range, then reads the device; clean cached pages are never the source | `fs/iomap/direct-io.c:584-594`; `mm/filemap.c:2677-2690` |
+| Are there silent fallbacks with no `-ENOTBLK`? | **Yes, on ext4:** a file with verity, inline data, some encryption, or `data=journal` uses buffered I/O for `O_DIRECT` writes and reads alike | `fs/ext4/file.c:55-67`, `:81-91`, `:534-539`; `fs/ext4/inode.c:5487-5500` |
+
+**So [INF from the FACT rows]:**
+- **The success path is path-independent.** A write that returned success with `RWF_DSYNC` is on stable media whichever
+  path the kernel took, given the device honours FLUSH and FUA and barriers are on (FM-9's premise, unchanged).
+  The contract can rely on that.
+- **The failure path is not.** After a fallback write fails, a restart without a reboot can read bytes from the cache
+  that are not on media, and step 9's sync reports nothing. That is the round-6 buffered-WAL hazard, on a descriptor
+  opened `O_DIRECT`.
+- **Smallest rule that makes the contract path-independent (proposed, not accepted):** recovery's scan and every
+  catch-up read of a WAL segment use `O_DIRECT` reads, so what recovery trusts is what the device holds, whatever path
+  any earlier write took; and a WAL file on which ext4 would not do direct I/O at all (verity, inline data, that
+  encryption, `data=journal`) is refused. With that rule:
+  - the round-6 exclusion of the buffered WAL is no longer needed for the failure path;
+  - the start gate (contract 2.7) remains useful as detection, not as proof;
+  - the `-ENOTBLK` residual premise (contract section 1) is discharged.
+- **Residual premises:**
+  - aligned reads (the code already aligns to 4096 bytes);
+  - WAL checksums must reject stale or zero bytes, because ext4 may mark an extent written after a failed writeback
+    (`fs/ext4/page-io.c:175-196` does not check the bio status) [consequence HYP];
+  - no other reader caches a live segment.
+- **Weaker alternatives:** `posix_fadvise(DONTNEED)` is advisory [HYP that it drops these folios]; reboot before
+  restart works but costs operations; a mount-option check alone does not stop `-ENOTBLK`.
+
+**Code facts this rule touches (not changed):** the scan reads through buffered `read_file` (`storage.cpp:37`,
+`:360-420`), and catch-up reads use `read_stream_range` (`storage.cpp:439`, `replication.cpp:163`). Both would read
+with `O_DIRECT`. That is an implementation change, not authorized.
+
+**Owner question (none recorded): Y10, rely on `RWF_DSYNC` plus `O_DIRECT` recovery reads.** Recommendation:
+**yes, as a design direction, in place of the round-6 "buffered WAL outside every guarantee" wording.** It narrows no
+platform. It keeps a buffered-WAL configuration correct on the success path and safe on the failure path, given the
+residual premises. Contract 2.7 already lists `data=journal` as not supported; refusing WAL files with verity, inline
+data or that encryption would add to that list, a platform restriction that needs its own yes.
+
+## 13. Owner questions now (none recorded; supersedes 11.3)
+
+- **Run the report/reseed model plan** (`docs/AFR_001_REPORT_MODEL_PREREG.md`): writing the model, one fidelity
+  review, uncounted sizing runs, 17 counted launches within the stated budget. **Recommendation: yes.** It is the
+  step Codex recommends, and it settles whether Y9-T's rule set is complete. Planning alone already found two text
+  gaps, W-1 (operator wipe window) and W-2 (counted coverage must end with its positioning record), recorded in the
+  plan's section 6 and proposed only.
+- **Y9 (Y9-T as revised in rounds 6-7, plus W-2):** hold the yes until the model has run.
+- **Y10, rely on `RWF_DSYNC` plus `O_DIRECT` recovery and catch-up reads (section 12):** **recommendation yes**, as a
+  design direction, replacing round 6's "buffered WAL outside every guarantee". It narrows no platform. Refusing ext4
+  WAL files with verity, inline data or that encryption is a separate platform restriction, needing its own yes.
+- **E32**, **Y6c-2** (hold until premise P is discharged), **Y4**, **Y7**: unchanged.
