@@ -3926,3 +3926,15 @@ or source comments.
 -   **Not accepted / not authorized:** Y6c-2, Y9, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment (E-1, E-1b, E-2,
     E-3, M-1), X-2, R640, C++, Rust, migration, freeze. Codex's priorities 2-5 not started.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): Y9 report identity, premise P evidence, round-5 review (docs)
+
+-   **Trigger:** Codex's review of #172 (`docs/handoff/PR172_Codex_Review.md`; #172 merged 87513ca).
+-   **Output:** `docs/AFR_001_REPORT_IDENTITY.md` (positioning alone fails under delayed reports and, under `m = 2`,
+    breaks I4 through a Grow; Y9-T recommended: a report names its entry `(term, lsn)` and counts only if the
+    primary's log holds it); `docs/AFR_001_DURABILITY_DECISIONS.md` section 8 (premise P = P-1..P-4; P-2 does not hold
+    in today's code) and section 9 (round 5: 2 BLOCKER, 11 MAJOR, fixed on site, not re-reviewed: seed copies WAL
+    through `max_lsn`, orphan rule, E32 incarnation, budget counting of FM-12, tmpfs for E-1, RS-0 grant wait).
+-   **Not accepted / not authorized:** Y9, Y6c-2, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment, X-2, R640,
+    C++, Rust, migration, freeze.
+-   **Next action:** STOP for Codex and the owner.
