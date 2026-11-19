@@ -3966,3 +3966,18 @@ or source comments.
 -   **Not accepted / not authorized:** Y9, Y6c-2, E32, the buffered-WAL exclusion, Y4, Y7, D-02, R-23, O-FLOOR, any
     model, experiment, X-2, R640, C++, Rust, migration, freeze. G-48 not closed.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): preregistered report/reseed model plan, RWF_DSYNC analysis (docs)
+
+-   **Trigger:** Codex's review of #175 (`docs/handoff/PR175_Codex_Review.md`; #175 merged 20cc2a5).
+-   **Output:** `docs/AFR_001_REPORT_MODEL_PREREG.md`: a plan only (no model written, nothing run) for
+    `spec/tla/ReportReseed.tla` on top of `ReconBlockers.tla`: reports as messages, counting by entry, incarnation
+    and term, untimed grants with the RS-0 wait, reseed with partial copy, wipe, R7 outside S; `AckSound`,
+    `GrowSound`, `AckedPreserved`; seven mutations; lanes A (3 nodes) and B (4 nodes); 17 launches, 2 h caps,
+    fallbacks fixed in advance. One review (6 BLOCKER, 7 MAJOR) taken up. Text gaps W-1 and W-2 found.
+    `docs/AFR_001_DURABILITY_DECISIONS.md` section 12: Linux v6.8 sources show a successful `RWF_DSYNC` write is
+    durable on either path, but a failed fallback write leaves clean cached pages a restart reads; proposed Y10:
+    `O_DIRECT` recovery and catch-up reads. Section 13: owner questions.
+-   **Not accepted / not authorized:** the model campaign itself, Y9, Y10, W-1, W-2, Y6c-2, E32, Y4, Y7, D-02, R-23,
+    O-FLOOR, any experiment, X-2, R640, C++, Rust, wire format, migration, freeze.
+-   **Next action:** STOP for Codex and the owner.

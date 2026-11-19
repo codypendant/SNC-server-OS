@@ -225,3 +225,19 @@ holder's send-time anchor); crashes between RS-0 and RS-1 (the lock-time wait co
 after RS-1 (RESEEDING grants nothing); an ordinary reboot (old-incarnation reports stay true until the new R6.2,
 then are rejected); a primary restart (its records are volatile and R6.0 forces a new term); lease eligibility and
 Grow (covered by the incarnation and term checks); liveness under `m = 2` (no deadlock found).
+
+## 6. Gaps found while planning the model (Codex #175)
+
+Planning the bounded model (`docs/AFR_001_REPORT_MODEL_PREREG.md`, sections 6 and 8) found two more items [INF],
+proposed only:
+- **W-2.** Y9-T checks identity only when a report is counted. A coverage counted before a reseed would survive the
+  end of the positioning record. It would then count again once `k` grants after RS-6, with no delayed message
+  involved. Proposed text: "`p`'s counted coverage of `m` belongs to its positioning record of `m` and ends with it;
+  it also ends when `p` learns a newer term."
+- **W-1.** An operator wipe within `d` of the node's process stopping lets `p` count a pre-wipe report under a grant
+  that is still valid, whatever the nonce. There is no rule yet. The candidate is that a fresh seed waits `W` after
+  taking the lock before its first R6.2 request.
+
+The same review showed that the entry-term check and the sender rule are both needed. A report sent while
+unpositioned can pass the term and incarnation checks. Completing an intent changes neither the term nor the
+incarnation.
