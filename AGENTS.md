@@ -4013,3 +4013,20 @@ or source comments.
 -   **Not accepted / not authorized:** Y9, Y10, W-1, W-2, W-3, P1-P3, Y6c-2, E32, Y4, Y7; D-02, R-23, O-FLOOR open; no
     X-2, R640, C++, Rust, wire format, migration, freeze. The buffered-WAL exclusion stays.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): live-grant revision package P1-P3 (docs)
+
+-   **Trigger:** Codex's review of #178 (`docs/handoff/PR178_Codex_Review.md`; #178 merged 3f07bc4).
+-   **Output:** `docs/AFR_001_LIVE_GRANT_PROPOSAL.md`: rules LG-1..LG-6 and an R1.1 change (count a member only
+    under a live grant naming its incarnation; a new incarnation at every boot and marker write; no destructive action
+    until `W` after the last grant and the process start; a version-only CAS on R before a reseed, wipe or empty-disk
+    boot; append continuity), messages and state transitions, a safety argument, cases F-1, F-2, F-3, H-1 and C1-C11,
+    answers to Codex's section 3 (F-2 is an additional G-11 violation, not inside G-35), changes to frozen and
+    accepted texts, redundancies (W-1, W-2, W-3, the reporter-term check), costs (at most one `W` per destructive
+    action), prior art (KIP-903, KIP-966, VR Revisited 4.3), and a model plan with mandatory regression traces and
+    mutations N1-N16. Two independent reviewers: 2 BLOCKER and about 15 MAJOR, all fixed in text, not re-reviewed.
+    New pre-existing gap L-1: R7 case 1 after a missed shrink lets two primaries hold authority; open, outside this
+    package.
+-   **Not accepted / not authorized:** LG-1..LG-6, the R1.1 change, Y9 (BLOCKED), Y10, W-1, W-2, W-3, Y6c-2, E32, Y4,
+    Y7; D-02, R-23, O-FLOOR open; no model, no run, no X-2, R640, C++, Rust, wire format, migration, freeze.
+-   **Next action:** STOP for Codex and the owner.
