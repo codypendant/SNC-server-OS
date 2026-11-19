@@ -3,7 +3,9 @@
 Status: **PROPOSED plan, for Codex and owner review.** Docs only. **No model file is written and nothing is run.**
 Writing the model, any sizing run and every counted run need the owner's explicit yes. Asked by Codex's review of
 #175 (`docs/handoff/PR175_Codex_Review.md`, section 3). Nothing here accepts Y9, Y6c-2 or E32. Revised once after an
-independent review told to break it (section 8).
+independent review told to break it (section 8), and again for Codex's #176 corrections A-C (sections 9-10).
+**Codex recommends a yes to the campaign, but that is not the owner's go; nothing is written or run until the owner's
+explicit yes.**
 
 **Why a model.** Rounds 5-7 found a counterexample in each previous round's version of the report, reseed and
 grant rules (`docs/AFR_001_DURABILITY_DECISIONS.md` 11.2). Those are interleavings of delayed messages, crashes and
@@ -19,13 +21,14 @@ its binding, pending intents (R6.3′ item 3), crashes, standby leases (untimed)
 stay on. New module: `spec/tla/ReportReseed.tla`. `MaxIds` is the base's bound on entries ever created (called
 "LSNs" by Codex). Changes:
 
-1. **Reports are messages.** A replica `m` sends a report to any node; it joins a set `msgs` and stays there, so it
-   can be delivered to any node, any number of times, in any order, or dropped, before or after any crash. A report
-   carries `[e_t, e_l, inc, term]`: the term and LSN of the last entry `m` holds durably, `m`'s incarnation and
+1. **Reports are messages.** A replica `m` sends a report; it joins the set `msgs` and stays there, so it can be
+   delivered to any node, any number of times, in any order, or dropped, before or after any crash. A report is an
+   immutable record `[from, e_t, e_l, inc, term]` whose `from` names its sender (Codex #176 B); nothing ever edits a
+   report in `msgs`. It carries: the term and LSN of the last entry `m` holds durably, `m`'s incarnation and
    `m`'s durable term at send. At most `MaxMsgs` reports are outstanding. Reports may come from unpositioned
    replicas (`docs/AFR_001_REPORT_IDENTITY.md` section 2).
-2. **Counting.** A primary `p` records `cov[p][m] = e_l` on delivery only if `m` has a positioning record at `p`
-   (`pinc[p][m] ≠ NONE`) and:
+2. **Counting.** A primary `p` delivered a report `r` with `r.from = m` records `cov[p][m] = r.e_l` only if `m` has
+   a positioning record at `p` (`pinc[p][m] ≠ NONE`) and:
    - `FixEntry`: `p`'s log holds an entry of term `e_t` at `e_l`;
    - `FixInc`: `inc = pinc[p][m]`;
    - `FixTerm`: `term = T[p]`.
@@ -33,11 +36,21 @@ stay on. New module: `spec/tla/ReportReseed.tla`. `MaxIds` is the base's bound o
    incarnation in that request. It ends (`NONE`) when a request from `m` arrives under another incarnation (RS-3, a
    new boot), and when `p` crashes, learns a newer term or is promoted. **`cov[p][m]` is reset to 0 whenever
    `pinc[p][m]` is set or ends** (W-2, section 6: the text does not yet say this).
-4. **Decisions by `p` read only `pinc` and `cov`,** never `m`'s state: AddA, Grow (`cov[p][k] ≥ max(inh_p, pack_p)`,
+4. **Decisions by `p` read only `pinc` and `cov`,** never `m`'s state: AddA, Grow (`cov[p][k] ≥ max(inh_p, pack_p)`, with the Grow's chosen S joining `sv[p]` only when `p` learns it,
    the pessimistic reading of "caught up", UNRESOLVED in the text), SGrant (R9-B, the same test) and Ack.
-5. **Acknowledgement** (R9-A′, R9-C): `p` acknowledges entry `i` if `p` is primary (not necessarily current, so a
-   deposed primary that still holds grants is modelled), `|A[p]| ≥ 2` (a permissive form of `p`'s view that
-   `|S| ≥ m = 2`), every member `m ≠ p` of `A[p]` has `cov[p][m] ≥ i` and `p ∈ gr[m]`, and `p` holds `i`.
+5. **Acknowledgement at HA_DURABLE, faithful to the text** (SA "Ack set A and lease", R1, G-12, R9-A′; Codex #176
+   A). `p` acknowledges entry `i` only if all of:
+   - `p` is primary (not necessarily current: a deposed primary that still holds grants is modelled);
+   - **normal-mode authority:** `p ∈ gr[m]` for every `m ∈ A[p] \ {p}`;
+   - **`p`'s own view of S**, `sv[p]`, has `|sv[p]| ≥ m = 2` and `sv[p] ⊆ A[p]`;
+   - every `m ∈ A[p] \ {p}` has `pinc[p][m] ≠ NONE` and `cov[p][m] ≥ i`;
+   - `p` holds `i` durably.
+
+   `sv[p]` is set to the chosen S at `p`'s promotion and changes only when `p` learns a chosen version: the reply to
+   its own Grow or Shrink, or a read of R at its own term (R1.2). A lost reply leaves `sv[p]` unchanged, which is how
+   a primary "misses a shrink". `Drop(p, c)` needs `c ∉ sv[p]` and R9-C. Degraded-mode acknowledgements (`|S| = 1`,
+   witness authority, R8) are not HA_DURABLE and are not modelled. **There is no permissive lane**: every lane is
+   the faithful one, so every counterexample is one the text allows.
 6. **Grants (authority, R3, R4) untimed.** `gr[k]` is the set of primaries holding a valid grant from `k`.
    `Grant(k, p)` requires `T[k] = T[p]`, `k` not RESEEDING, and a boot read (R7) since `k`'s last crash.
    `Expire(k, p)` removes `p` at any time. `p` drops `k` from `A` only after `p ∉ gr[k]` (R9-C). A grant survives
@@ -126,6 +139,25 @@ only decides which fallback a run uses:
 
 A fallback result is reported as the smaller check it is.
 
+**Message bounds and delivery (Codex #176 B).** Sending is enabled at any time the sender rules allow, delivery
+never consumes a report, and `DropMsg` removes any report, so a full `msgs` never blocks a needed send: TLC can drop
+an unneeded report first. The bound only limits how many are in flight at once. Each expected counterexample, walked
+by hand [INF], needs at most this many stale reports in flight at the moment they count, against the lane's bound:
+
+| Run | Reports in flight needed | Lane bound |
+|---|---|---|
+| M1 (B-6a) | 1 stale (before the reseed) + 0 fresh (the Grow and ack use it) | 2 |
+| M2 (B-7a) | 1 stale (term 1) | 1 (lane B), 2 (lane A) |
+| M3 (B-6b) | 1 stale | 2 |
+| M4 | 1 stale (sent while unpositioned) | 2 |
+| M5p | 1 stale (sent with an intent pending) | 1 |
+| M5r | 1 (sent between RS-1 and RS-2) | 2 |
+| M6 (B-7b) | 1 stale (before the wipe) | 2 |
+
+Fresh reports needed for the ack itself come from the same sender and replace nothing, since the stale report is
+the one that counts. If the fidelity review finds a trace needing more, the plan is corrected **before** any counted
+run, never after a result.
+
 ## 4. Abstractions (limits stated before any run)
 
 - **Time:** grants and leases are untimed. The RS-0 wait is the guard `gr[k] = {}`. That `W = d·(1+ρ)` achieves it
@@ -140,6 +172,21 @@ A fallback result is reported as the smaller check it is.
   covered only through the counting rule, not as a separate guard.
 - **A PASS** covers only these bounds and this scope. It is evidence for the owner decision on Y9, not proof.
 
+### 4.1 Assumption register: everything a PASS depends on (Codex #176 B)
+
+| # | Assumption | Status in the text | If false |
+|---|---|---|---|
+| AS-1 | **W-2:** counted coverage ends with its positioning record and when `p` learns a newer term | **proposed, not accepted** | a PASS says nothing about Y9-T without W-2 |
+| AS-2 | **W-1:** no wipe while a grant from the node may be valid | **proposed, not accepted** (no rule yet) | M6 and any wipe trace are unchecked against an early wipe |
+| AS-3 | the RS-0 wait achieves "no grant from `k` valid at any holder" before RS-1 | argued (R3; contract 6.5); untimed here | **the real-time wait, including across crashes, is not checked** |
+| AS-4 | premise P: a reseed copies a prefix of one primary's log | B9, open | Lemma C and the copy model fail |
+| AS-5 | no media faults, torn tails or buffered-WAL failures | D-02 on HOLD | out of scope |
+| AS-6 | witness Paxos is one atomic record; R6.2's binding is the base's log snapshot | as the base (`docs/AFR_001_RECON_BLOCKERS.md` 2.1) | as the base |
+| AS-7 | grants need `T[k] = T[p]` and a boot read since the last crash | frozen R3, R4, R7 | a model defect, not a protocol finding |
+| AS-8 | "caught up" (Grow, R9-B) judged from counted reports | UNRESOLVED in the text; pessimistic reading | a PASS holds under either reading |
+| AS-9 | only HA_DURABLE acknowledgements; `sv[p]` as in section 1 item 5 | SA, R1, G-12 | degraded acknowledgements unchecked |
+| AS-10 | one stream; at most `MaxIds` entries ever created; the stated bounds | scope | a PASS covers these bounds only |
+
 ## 5. Stop rules and run budget
 
 As `docs/AFR_001_RECON_BLOCKERS.md` 2.5, with these:
@@ -153,10 +200,12 @@ As `docs/AFR_001_RECON_BLOCKERS.md` 2.5, with these:
 - **What may change after a result:** bounds are never raised. Invariants and expectations are not changed except
   through a recorded model-defect or protocol finding, and each such rerun is counted.
 - **When the budget runs out:** the rest is NOT RUN, and the work stops for Codex and the owner.
-- **Before counted runs:**
+- **Before counted runs (Codex #176 C):**
   1. Write the model and its `.cfg` files.
-  2. Have one independent reviewer, told to break the model's fidelity to section 1, review it.
-  3. Run the sizing runs.
+  2. **Three-way fidelity check of the `.tla` text itself**, not a summary: the author and **two** independent
+     reviewers, each told to break it, check every action and invariant against sections 1-2 and the register.
+     Each finding is fixed and recorded, and a disagreement is recorded as UNRESOLVED.
+  3. Then the sizing runs.
   4. Commit this file's final text and the model before the first counted launch.
 
 ## 6. Text gaps found while planning (protocol items, not model items)
@@ -180,7 +229,7 @@ As `docs/AFR_001_RECON_BLOCKERS.md` 2.5, with these:
 
 **Asked: yes or no to running this plan as written.** A yes covers:
 1. writing the model;
-2. one fidelity review;
+2. the three-way fidelity check;
 3. the uncounted sizing runs;
 4. the 17 counted launches, with fallbacks and reruns within the budget.
 
@@ -208,3 +257,19 @@ It does not accept Y9, Y6c-2, E32, W-1 or W-2, and changes no wire format or cod
 
 **MINOR fixes:** `MaxIds` defined, `r7T` the highest R7 term, OpOutside on in both lanes, U1 stated as not a
 separate guard, `gen = 1` at Init and after a wipe, `|A| ≥ 2` stated as permissive.
+
+## 9. Codex's #176 corrections
+
+| Item | Correction |
+|---|---|
+| A | Ack is now the text's rule: normal-mode authority from every member of A, and `p`'s own view of S with `|sv[p]| ≥ 2` and `sv[p] ⊆ A[p]`. A missed shrink is a lost reply that leaves `sv[p]` stale. Degraded acknowledgements are excluded. There is no permissive lane. |
+| B | Reports are immutable records naming `from`; coverage is keyed by sender and reset with its positioning record (W-2, AS-1); message bounds are checked against every expected trace (table in section 3); every assumption a pass depends on is in 4.1, with W-1 and W-2 marked proposed. |
+| C | The `.tla` text gets a three-way fidelity check (author plus two reviewers) before sizing and before any counted run, and is committed with this file first. |
+
+The untimed RS-0 guard's limit is AS-3: it does not check the real-time wait or the wait across crashes.
+
+## 10. What is not changed
+
+The scope, bounds, lanes, the 17 launches, mutations, probes, invariants (`AckSound`, `GrowSound`,
+`AckedPreserved`, `EntryUnique`, `LogMatching`, `HistoryUnique`), caps, fallbacks and stop rules are as in sections
+1-5. Nothing is written or run until the owner's explicit yes.

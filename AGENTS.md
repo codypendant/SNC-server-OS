@@ -3981,3 +3981,19 @@ or source comments.
 -   **Not accepted / not authorized:** the model campaign itself, Y9, Y10, W-1, W-2, Y6c-2, E32, Y4, Y7, D-02, R-23,
     O-FLOOR, any experiment, X-2, R640, C++, Rust, wire format, migration, freeze.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): model preregistration corrections A-C, Y10 verification list (docs)
+
+-   **Trigger:** Codex's review of #176 (`docs/handoff/PR176_Codex_Review.md`; #176 merged 4c7035a).
+-   **Output:** `docs/AFR_001_REPORT_MODEL_PREREG.md` sections 9-10 and in place: Ack faithful to the text (authority
+    from every member of A, `p`'s own view of S with `|S| ≥ 2`, a missed shrink as a lost reply; no permissive lane);
+    reports as immutable records naming the sender; coverage reset with its positioning record; message bounds
+    checked against every expected trace; assumption register AS-1..AS-10 (W-1, W-2 proposed); three-way fidelity
+    check of the `.tla` before sizing. `docs/AFR_001_DURABILITY_DECISIONS.md` section 14: Y10's six checks against
+    Ubuntu 6.8.0-149 source (package diff applied to v6.8): success path durable on both paths; failed fallback
+    writes leave clean cached pages; `O_DIRECT` reads go to the device on the supported configuration; a direct
+    read writes back dirty pages (phase-1 choice UNRESOLVED); `adopt_spare` is a third read path.
+-   **Not accepted / not authorized:** the model campaign (no owner go yet; nothing written or run), Y9, Y10, W-1,
+    W-2, Y6c-2, E32, Y4, Y7, D-02, R-23, O-FLOOR, experiments, X-2, R640, C++, Rust, wire format, migration, freeze.
+    The buffered-WAL exclusion stays.
+-   **Next action:** STOP for Codex and the owner.
