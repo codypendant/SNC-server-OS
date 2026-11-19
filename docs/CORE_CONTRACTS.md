@@ -145,7 +145,7 @@ Notes:
 | --- | --- | --- |
 | **APPLIED** | in-memory change only | nothing; lost on crash |
 | **LOCAL_DURABLE** | crossed this node's persistence boundary (`RWF_DSYNC`) | process crash (P1); host crash (H1, **UNPROVEN** at host level); **not** loss of this node or its disk; not power loss without honest storage (H3, UNPROVEN) |
-| **HA_DURABLE** | crossed the persistence boundary that the automatic-failover contract requires: durable on the primary and on every member a witness may promote | any covered single-member failure: P1; H1 and S4 **UNPROVEN** |
+| **HA_DURABLE** | crossed the persistence boundary that the automatic-failover contract requires: durable on the primary and on every member a witness may promote [2026-11-19, OD-10: a member's copy counts once its durable watermark covers it, R9-A′] | any covered single-member failure: P1; H1 and S4 **UNPROVEN** |
 | **SETTLED** | all durable distributed obligations of the operation completed | — |
 
 Verified against the code and tests (work order Part III):

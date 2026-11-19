@@ -3911,3 +3911,18 @@ or source comments.
 -   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y8, R9-A′, the R6.5 revision, any model, experiment,
     X-2, R640, C++, Rust, migration, freeze.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): owner decisions on #171; targeted final review; I2-I5 for R6.5 (docs)
+
+-   **Trigger:** Codex's review of #171 (`docs/handoff/PR171_Codex_Review.md`; #171 merged 32c040f) and the owner's
+    decision to follow it exactly.
+-   **Recorded:** `docs/handoff/PR171_Owner_Decisions.md`: OD-10 (Y5, R9-A′, recorded revision, written in place in
+    SA R9 and G-30 with the earlier text kept), OD-11 (Y6a), OD-12 (Y6b), OD-14 (Y8) design directions, OD-13
+    (Y6c-1) initial direction; Y6c-2 CONDITIONAL, not accepted; Y4, Y7 HOLD.
+-   **Output:** `docs/AFR_001_R65_INVARIANTS.md` (I2-I5 for the complete-but-unpositioned state U; rules U1-U4;
+    premise P on D-02; Y9 as defence in depth); round 4 of the review in `docs/AFR_001_DURABILITY_DECISIONS.md`
+    section 7 (17 MAJOR, no BLOCKER, eight counterexamples recorded, all fixed on site, not re-reviewed); exact
+    experiment safeguards in contract section 9.
+-   **Not accepted / not authorized:** Y6c-2, Y9, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment (E-1, E-1b, E-2,
+    E-3, M-1), X-2, R640, C++, Rust, migration, freeze. Codex's priorities 2-5 not started.
+-   **Next action:** STOP for Codex and the owner.
