@@ -8,7 +8,9 @@ revision of R9-A); Y6a, Y6b, Y8 yes as design directions (OD-11, OD-12, OD-14); 
 and Y7 HOLD. Codex's targeted final review of this text is section 7. After Codex's #172 review
 (`docs/handoff/PR172_Codex_Review.md`): premise P's evidence is section 8, Y9 is `docs/AFR_001_REPORT_IDENTITY.md`
 (Y9-T recommended), round 5 is section 9. After Codex's #173 review (`docs/handoff/PR173_Codex_Review.md`): round 6, the code
-changes P-2, P-3 and E30 need, and the updated owner questions are section 10. Y6c-2 and Y9 are not accepted.**]**
+changes P-2, P-3 and E30 need, and the updated owner questions are section 10. After Codex's #174 review
+(`docs/handoff/PR174_Codex_Review.md`): round 7, the buffered-WAL answers, a convergence table and the current owner
+questions are section 11, which supersedes 10.2. Y6c-2 and Y9 are not accepted.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
 initial-seed question, and "a concise final owner-decision package" in five parts. Codex's section 3 items are
@@ -353,8 +355,9 @@ P-2 (C5 waits on the last assigned LSN):
 1. `shard.cpp:2654` uses the largest image `last_lsn`. Sample `c.max_lsn = wal_ ? wal_->next_lsn() − 1 : 0` once
    where the walk ends (`c.visited = true`, `shard.cpp:2686`); keep the image maximum only as an assertion `≤` it; do
    not re-sample at the wait.
-2. The wait at `shard.cpp:2727` (`lsn_local_durable(c.max_lsn)`) keeps its form. `wal_ == nullptr` is acceptable
-   only without a data directory (RS-6 sets its own value, contract 6.5).
+2. The wait at `shard.cpp:2727` (`lsn_local_durable(c.max_lsn)`) keeps its form. [Round 7: a checkpoint taken with
+   no writer open (step 9a, RS-6) takes `start_lsn` and `max_lsn` as parameters, `E + 1` and `E`, not from `wal_`;
+   `begin_checkpoint`'s `c.start_lsn = wal_ ? … : 0` (`shard.cpp:2319`) changes too.]
 3. `CheckpointResult` (`shard.h:316-318`) gains `max_lsn`, filled at `shard.cpp:2560`.
 4. `Manifest` (`include/snc/storage.h:55-72`) gains a per-stream `max_lsn` (with D-06 section 7's fields), written and read in
    `write_manifest`/`read_manifest` (`storage.cpp:286-358`) with a `kFormatVersion` change, filled at
@@ -363,8 +366,9 @@ P-2 (C5 waits on the last assigned LSN):
    same on a standby; a manifest round trip.
 
 P-3 (recovery refuses `E < max_lsn`):
-6. After the scans (`engine.cpp:1124-1129`, remap path `:1187-1194`), `E_s = max(last_lsn, retain_from_s − 1)`
-   (`from_lsn − 1` until `retain_from` exists); refuse by name when `E_s` is below the manifest's `max_lsn[s]`. It
+6. `E_s = max(last valid LSN of the H pass from retain_from, retain_from_s − 1)` (round 7: not the replay scan of
+   `engine.cpp:1124-1129`, which starts at `start_lsn`; and not `from_lsn − 1`, which assumes records it never
+   read); refuse by name when `E_s` is below the manifest's `max_lsn[s]`. It
    runs in phase 1, before any write, so the order before `engine.cpp:1074` moves (E27).
 7. Tests (`test_crash.cpp`): a WAL tail cut below `max_lsn` refuses; an idle stream left with a header-only segment
    `start_lsn` recovers; a standby checkpoint then a cut tail.
@@ -392,3 +396,94 @@ Step 9a (remap order) and the buffered-WAL refusal are further code changes of t
 - **Y6c-2:** still **hold until premise P is discharged** (section 8), as Codex requires. Its text now also carries
   RS-0's revised wait and the RS-6 `max_lsn` rule.
 - Y4, Y7: HOLD. E-1, E-1b, E-2, E-3 and any M-1 change stay proposals, each needing separate authorization.
+
+## 11. Round 7: re-review of the round-6 fixes (Codex #174)
+
+Codex's #174 review asked for one focused adversarial review of six areas. Three reviewers, each told to break the
+work: **k1** reporter incarnation and RS-0 timing; **k2** P-2, P-3, E30 and step 9a; **k3** the buffered WAL,
+answering Codex's five questions. **2 BLOCKER, 6 MAJOR**, all new; each fixed on site, **not re-reviewed**. [INF
+unless marked.]
+
+| # | Finding | In text from | Now |
+|---|---|---|---|
+| k2 B | the step-9a and RS-6 checkpoints, taken with no writer, record `start_lsn = 0` (`shard.cpp:2319` [FACT]); the next clean boot reads every old segment and stops on "record in the wrong shard's stream" (`engine.cpp:1104` [FACT]); reclaim never runs; `retain_from − 1` wraps | round 6 (9a, RS-6) | `start_lsn = E + 1`, `max_lsn = E`, set explicitly; 10.1 item 2 |
+| k2 B | a grow remap's record names new streams that have no segment until step 10; a crash in between makes FL-floor refuse | round 6 (9a) | each added stream gets its watermark file and an empty segment 1 durably first, with its floor values |
+| k1 | a delayed report counts across two term changes within one incarnation (truncated against `j′`, counted by `j″` after an R7 promotion); round 6's "the reporter's term is not needed" was false | round 6 (Y9-T) | the report carries the reporter's durable term; counted only if equal to `p`'s (REPORT_IDENTITY B-7a) |
+| k1 | the incarnation is not unique across a wipe and a fresh seed, which restart the generation | older (D-06 4.1), load-bearing since round 6 | incarnation = (node nonce drawn at every init and seed, generation); E32 and D-06 4.1 marked |
+| k2 | `E`'s "last valid LSN" came from the replay scan, which starts at `start_lsn`: an idle stream with a pinned old segment refused a clean restart | round 6 (2.4) | from the H pass over every retained segment |
+| k2 | the step-9a checkpoint runs session expiry, whose deletes go unlogged with no writer (`shard.cpp:533-534` [FACT]): primary and standby diverge | round 6 (9a) | step 9a's checkpoint mutates nothing and reclaims nothing |
+| k3 | "the `O_DIRECT` WAL leaves nothing cached" is false when the kernel falls back to buffered inside the call (`-ENOTBLK`, ext4 and xfs, v6.8 [FACT-KERNEL, read by the reviewer]) | round 6 (budget) | named as a residual premise (rare [HYP], needs cached pages of the active segment, which catch-up reads create) |
+| k3 | "refused at start" refused nothing that can happen: the server cannot set `wal_direct`, the `EINVAL` fallback is silent, no file-system check exists [FACT] | round 6 (budget, 2.7) | a concrete proposed gate (2.7): statfs check, `EINVAL` fatal, latched counter |
+
+**MINOR fixes:** RS-0's "grant only after R6.2" (unenforceable after a crash, and not needed: U4 and R4) replaced;
+"current boot" defined as the directory lock's time on `CLOCK_BOOTTIME`; the errseq wording; `ENOSPC` with a
+preallocated segment; the `pwritev2` fallback's other triggers; RS-6's durability rests on RS-5's sync; step 9a's
+triggers; reclaim skipped in step 9a.
+
+**Recorded, not fixed:** `tools/control.h:153-156` ignores a directory `fsync` result (nonconformance [FACT]); E30's
+"fetch again" depends on E29's pins (`engine.cpp:1516`), so a seed of a busy primary can loop.
+
+**UNRESOLVED from round 7:** whether acknowledgements in terms after an R7 promotion outside S fall under I4 (decides
+B-7a's severity; the field is added either way); whether watermark files are written `O_DIRECT`; the kernel
+`-ENOTBLK` path's real frequency; what field defines "covers the remap"; R-23 can still reuse a generation. G-48 is
+**not** closed: step 9a and E30 are argued, not checked.
+
+### 11.1 The buffered WAL: Codex's five questions
+
+| Question | Answer |
+|---|---|
+| Can every supported platform guarantee direct I/O? | **No, not fully.** Alignment holds (4096-byte blocks and buffers, `include/snc/wal_format.h:9`, `storage.cpp:30` [FACT]). But ext4 and xfs complete an `O_DIRECT` write through the page cache when invalidation fails (`-ENOTBLK`), and ext4 also for data=journal, inline data, verity or some encryption [FACT-KERNEL]. Only the first can occur on the supported defaults, and only with cached pages of the active segment [HYP: rare] |
+| Can the code fall back silently? | **Yes.** `EINVAL` at open reopens buffered with no log and no counter (`storage.cpp:543-550`, spares `:779-784`); a spare can be buffered while the segment is direct; the gauge shows only the current segment [FACT]. The kernel's own fallback is invisible to the code |
+| Is an unsupported configuration refused at start? | **No.** No file-system check exists; the server does not expose `wal_direct` or `wal_sync` and always runs the defaults (`tools/snc_server.cpp`, `include/snc/snc.h:373-374`); only the bench and tests change them [FACT] |
+| Does the `pwritev2` fallback keep the flags? | **Yes**: the same `RWF_DSYNC` and kernel write flags as io_uring (`runtime.cpp:213`, `:231`); short or failed writes are fatal (`storage.cpp:821-824`); headers are written and `fdatasync`ed; padding is in the same write [FACT] |
+| Does the exclusion change an accepted guarantee? | **No accepted guarantee mentions buffered I/O** [FACT, search]. SNC_GUARANTEES 1.3 already requires a weaker configuration to be refused at start unless the operator explicitly accepts it; the proposed gate applies that rule. It narrows no product guarantee [INF]; earlier tmpfs runs were never durability evidence |
+
+So the exclusion is **stated as an owner decision**, not applied silently: today's text is a proposal, and nothing
+in the code enforces it.
+
+### 11.2 Is the contract converging? Findings per review round
+
+Counts are from each round's own table. "From the previous round's fixes" means the finding sits in text written to
+fix the round before; "new this round" means a proposal first written in that round; "older" means earlier text or
+the code. Rounds 1-4 were not classified at the time and are not reclassified here.
+
+| Round (PR) | Scope | BLOCKER | MAJOR | From previous fixes | New this round | Older |
+|---|---|---|---|---|---|---|
+| 1 (#170) | first draft of the contract, the corrected reseed note | 0 | 10 | not classified | | |
+| 2 (#170) | the integrated contract | 0 | 23 | not classified | | |
+| 3 (#171) | round-2 fixes | 0 | 12 | not classified (by scope, mostly fix text) | | |
+| 4 (#172) | corrected sections after the owner decisions, the R6.5 analysis | 0 | 17 | not classified | | |
+| 5 (#173) | round-4 fixes, Y9, premise P | 2 | 11 | 4 | 7 (1 B) | 2 (1 B) |
+| 6 (#174) | round-5 fixes | 4 | 6 | 7 (3 B) | 0 | 3 (1 B) |
+| 7 (this) | round-6 fixes | 2 | 6 | 7 (2 B) | 0 | 1 |
+
+**Reading [INF, the recorder's].** The MAJOR count is falling (23, 12, 17, 11, 6, 6), but BLOCKERs appeared only once
+reviews were narrowed to counterexamples (rounds 5-7), and in rounds 6 and 7 most findings sit in text the previous
+round added. Each fix to a protocol interaction (the grant wait, the incarnation, the report's fields) or to the
+recovery order (step 9a) has added a rule with its own surface. On the storage side the defects were facts about
+the code that a reader found once pointed at them; on the replication side they were interleavings (delayed
+messages, crashes, term changes) that prose review finds one at a time. **The contract is not converging by text
+review alone in the report/reseed/grant area.**
+
+### 11.3 Owner questions (none recorded; supersedes 10.2)
+
+- **Y9 (proposed: Y9-T as revised in rounds 6 and 7).** A report names its entry `(term, lsn)` and carries the
+  reporter's incarnation (node nonce and generation) and durable term; `p` counts it only if its own log holds the
+  entry, the incarnation is the one `p` positioned, and the terms are equal; no report while an intent is pending or
+  the flag is set; applied and watermarked as R9-A′ requires. With RS-0's revised wait (part of Y6c-2's text).
+  **Recommendation: hold the yes until the bounded model below has run**, because rounds 6 and 7 each found a
+  counterexample in the previous round's version. It revises frozen R9-A′ (OD-10) and the `Ack` wire format; no
+  wire change is made.
+- **A bounded model of the report/reseed protocol (new, my recommendation for the next step).** Extend the existing
+  log and authority models only as far as Y9-T needs: reports as delayed and duplicated messages carrying (entry,
+  incarnation, term), the RS-0 wait and RS-1, R6.2 positioning, a Grow, crashes, and an R7 promotion; small bounds
+  (3-4 nodes, terms ≤ 3, LSN ≤ 3), preregistered, with mutations that must fail (no incarnation, no term, no wait).
+  It would settle whether the rule set is complete, which three rounds of prose have not. **Needs your explicit
+  go** (no model is authorized). Storage-side items (step 9a, `E`, `start_lsn`, E30) are code facts, better settled
+  later by the 10.1 changes under crash tests, also needing a go.
+- **Buffered WAL outside every guarantee, with the gate in 2.7.** **Recommendation: yes**, as a design direction:
+  it applies SNC_GUARANTEES 1.3 and narrows no accepted guarantee; the kernel `-ENOTBLK` path stays a named residual
+  premise.
+- **E32 (incarnation = node nonce and generation of the boot or RS-1 write).** With Y6c-2.
+- **Y6c-2:** still **hold until premise P is discharged** (section 8).
+- Y4, Y7: HOLD. E-1, E-1b, E-2, E-3 and any M-1 change stay proposals.

@@ -1,7 +1,8 @@
 # AFR-001: Y9, what makes an acknowledgement report countable (PROPOSED)
 
 Status: **PROPOSED, for Codex and owner review.** Docs only. Revised in round 6 (Codex #173 review): the report also
-carries the reporter's incarnation (section 4). Y9 is a proposed change to frozen text (R9-A′, OD-10)
+carries the reporter's incarnation (section 4). Revised again in round 7 (Codex #174 review): it also carries the
+reporter's durable term, and the incarnation includes a node nonce (section 5). Y9 is a proposed change to frozen text (R9-A′, OD-10)
 and is **not accepted**; nothing here is an owner decision. Every claim is **[INF]**, argued on paper, not
 model-checked, unless marked FACT.
 
@@ -93,8 +94,9 @@ of R9-A′:
 > Every replica (a member of A, or one catching up to join it) reports an entry as acknowledged only once it has
 > applied it and its durable watermark (D-02) covers it, whether or not it holds a lease at that moment, and never
 > while it has a pending truncation intent or the incomplete flag is set. **A report names the entry by its
-> `(term, lsn)` and carries the replica's incarnation. p counts a report only if p's own log holds that entry and the
-> incarnation is the one under which p positioned that replica, and then counts it as covering `lsn`.** p
+> `(term, lsn)` and carries the replica's incarnation and its durable term. p counts a report only if p's own log
+> holds that entry, the incarnation is the one under which p positioned that replica, and the replica's term equals
+> p's term, and then counts it as covering `lsn`.** p
 > counts no other report. …(the lease sentence unchanged)
 
 Positioning stays where frozen text already requires it: R2′ rule 2 for survivors, and R9-B for leases. It is not
@@ -115,7 +117,7 @@ and Y9-T does.
   comes from Lemma C, which depends on premise P (B9); without P a node in U could report a matching `(t′, y)` while
   its state reflects `(s, y)`. Y9-T's soundness for such reporters depends on P.
 
-**Cost:** a term field and an incarnation field per report (16 bytes), and a lookup of `p`'s entry term at `lsn`. `p` keeps its term history
+**Cost:** an entry term, the reporter's term and an incarnation (nonce and generation) per report (32 bytes), and a lookup of `p`'s entry term at `lsn`. `p` keeps its term history
 `H_p`, so the lookup is `term_e ∈ H_p` together with `end_p(term_e) ≥ lsn ≥ start_p(term_e)` [INF]. No new state.
 
 **What a yes changes:** R9-A′'s report clause (frozen, OD-10); G-30 (A) in meaning; the replication `Ack` frame (a
@@ -123,7 +125,7 @@ D-06/wire format item, not authorized).
 
 **UNRESOLVED:**
 - Premise P (B9), for reporters that copied their log under R6.5.
-- Whether a reporter must also have persisted `p`'s term (the model has `T[m] = T[p]`; no break found without it).
+- ~~Whether a reporter must also have persisted `p`'s term~~: yes (round 7, section 5).
 - No model checks Y9-T. `Log.tla`'s `Ack` compares entries by identity (`dlog[m][i] = dlog[p][i]`), which is Y9-T's
   rule written as an oracle, so the models assumed it.
 - Degraded mode with `m = 1`.
@@ -154,8 +156,8 @@ RS-0's wait covers only grants given before the reseed, and the Grow compare-and
 incarnation in which it positioned that replica. Why enough [INF]: within one incarnation a watermarked entry is lost
 only by R6.2 truncation (Y9-T's A ⊇ S argument, section 2) or a media fault (D-02, on HOLD); an in-place reseed
 always takes a new incarnation at RS-1 (U4) and a restart a new boot write. A positioning number is not needed: a new
-positioning within one incarnation removes no common entry (I3). `p`'s term in the report is not needed: Y9-T's entry
-term already rejects a report across a term change.
+positioning within one incarnation removes no common entry (I3). [Round 7: the next sentence is false; see section 5.] `p`'s
+term in the report is not needed: Y9-T's entry term already rejects a report across a term change.
 
 **B-6b: RS-0's wait does not survive a crash of `k`.** The last grant's time is in memory only (SA, R3), and
 recovery with RESEEDING resumes at RS-2 (contract 2.2 step 11). `k` grants `p` a renewal, writes RS-1, crashes and
@@ -179,6 +181,47 @@ no end).
 | promotion | a new primary counts only entries its own log holds, and only under its own positioning's incarnation |
 | R9-B, `ack_p`, lease eligibility | a counted report is a true fact about the incarnation `p` positioned, so R9-B's "position `m` reports" and `ack_p` move no faster than before; R9-C unchanged |
 
-No path below two watermarked copies was found beyond B-6a and B-6b, under premise P and with D-02's media-fault
+[Round 7 found B-7a and B-7b, section 5.] No path below two watermarked copies was found beyond B-6a and B-6b, under premise P and with D-02's media-fault
 exception. **Today's code** is not exposed: a new connection replaces the old (`replication.cpp:697-705` [FACT]), so
 TCP binds a report to one positioning; the protocol text did not.
+
+## 5. Round 7: the reporter's term, and a reusable incarnation (Codex #174 review)
+
+One independent reviewer re-checked round 6's two fixes, told to break them [INF; not model-checked].
+
+**B-7a (MAJOR): a stale report counts across two term changes within one incarnation.** Four nodes, `m = 2`, no
+reboots, so `k` keeps incarnation `i`.
+1. Term 1: S = {p, j′}; `k` and `j″` are in A, catching up. `p` writes `(1, 1..10)`; `k` and `j″` watermark them,
+   `j′` holds 1..6. `k` sends "(1, 10), inc i", delayed. 7..10 are not acknowledged.
+2. `p` crashes; `j′` is promoted to term 2, degraded (S = {j′}). `k` runs R6.2 against `j′`, truncates to 6, and is
+   positioned by `j′` in term 2.
+3. `j′` is lost; the operator promotes `j″` (R7 case 1, degraded and READY), which holds `(1, 1..10)`: term 3.
+4. `k` runs R6.2 against `j″` and is positioned at 6, still incarnation `i`.
+5. The delayed report reaches `j″`: `(1, 10)` is in its log and the incarnation matches, so `j″` counts `k` as
+   covering 10 while `k` holds 6. R9-B grants `k` a lease past what it holds, `ack_p` reaches 10, and if "caught up"
+   is judged from reports `k` is grown into S and 7..10 become HA_DURABLE with one real copy.
+
+Round 6's I3 argument holds only against the primary that positioned `k`; here `k` was truncated against `j′` and
+counted by `j″`. **Fix:** the report carries `k`'s durable term at send, and `p` counts it only if that term equals
+`p`'s term. Within one (term, incarnation) every positioning is against the term's one primary, so I3 applies.
+Whether this reaches G-11 depends on whether acknowledgements in terms after an R7 promotion outside S fall under I4
+(SA lists "R7 outside S" as an exception): UNRESOLVED; the field is cheap either way.
+
+**B-7b (MAJOR): the incarnation is not unique across a wipe and a fresh seed.** D-06 4.1 says the incarnation "is
+unique and grows with every boot", but init and seed start the generation again (D-06 4.1's record writes), so a node
+that is wiped and seeded (an operator reseed after a refusal, or E14′'s slot-epoch case) can reach the same
+incarnation number again, and a delayed report from before the wipe matches entry and incarnation: B-6a again.
+**Fix:** the incarnation is the pair (a 64-bit node nonce drawn with `getrandom` at every init and seed, the
+generation), compared for equality. R-23's metadata rollback could still reuse a generation; that stays with R-23.
+
+**Wording (MINOR):** RS-0's "grants again only after RS-6 and R6.2" was not enforceable after a crash between RS-6
+and R6.2 (the record then says NONE). It is not needed: RS-3's request ended `p`'s positioning of the old
+incarnation (U4), and RS-3 persisted any newer term (R4), so a grant before positioning counts no stale report. RS-0
+now says so. "Current boot" meant machine boot to one reader; it now means "since this process took the directory
+lock", measured on `CLOCK_BOOTTIME`.
+
+**Checked, not broken:** delayed renewals (a request arriving after RS-0 is refused; one in flight is bounded by the
+holder's send-time anchor); crashes between RS-0 and RS-1 (the lock-time wait covers the earlier process); crashes
+after RS-1 (RESEEDING grants nothing); an ordinary reboot (old-incarnation reports stay true until the new R6.2,
+then are rejected); a primary restart (its records are volatile and R6.0 forces a new term); lease eligibility and
+Grow (covered by the incarnation and term checks); liveness under `m = 2` (no deadlock found).

@@ -118,7 +118,9 @@ parity. The CRC covers both blocks, so a tear between them fails it.
 Total: 96 + 256 × 24 = 6,240 bytes, within 8,192.
 
 **Incarnation** (R6.3′ item 1) is the generation of the record write that each boot makes before its first R6.2
-request. It is unique and grows with every boot, so it needs no field of its own.
+request. It is unique and grows with every boot, so it needs no field of its own. [Round 7, proposed with E32: not unique across a
+wipe and a fresh seed, which restart the generation; the incarnation becomes (a node nonce drawn at every init and
+seed, the generation).]
 
 **Write rule.** Under `meta_mu`:
 1. check the step's precondition against the in-memory copy (a compare-and-write);
