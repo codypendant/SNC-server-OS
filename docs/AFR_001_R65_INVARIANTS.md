@@ -35,7 +35,10 @@ here as part of the same Y6c-2 text:
 admits writes only while `|S| ≥ m = 2`, and every member of S other than `p` is positioned on `p`'s log (a survivor
 by R2′ rule 2, a grown member through "caught up"). `k` is not in S. So even a wrongly counted report from `k` could
 not make an acknowledged entry have fewer than two real copies: it would break section 0's "every member of A has
-`e`", not G-11. U1 and U4 keep that statement true; the I4 argument for S does not depend on them.
+`e`", not G-11. U1 and U4 keep that statement true; the I4 argument for S does not depend on them. [Round 5: too strong. A
+**delayed** report can still break G-11 when the primary has missed a shrink, and a stale report can let a member be
+grown into S without the entry; see `docs/AFR_001_REPORT_IDENTITY.md` section 2. Y9-T and RS-0's grant wait close
+both.]
 
 ## 2. The invariants in U
 
@@ -52,7 +55,8 @@ it during one incarnation as primary of `t`.
   log applied through `max_lsn` only if `j`'s own recovery refused whenever its WAL ended below that checkpoint's
   `max_lsn`, which is D-02's to close (boundary rule 7, C5). Counterexample without it: `j` checkpoints through `y`
   holding `(s, y)` only in memory, crashes, and later holds `(t′, y)`; `k`'s state then reflects `(s, y)` while its
-  WAL holds `(t′, y)`. **Lemma C, and everything below that uses it, depends on P.**
+  WAL holds `(t′, y)`. **Lemma C, and everything below that uses it, depends on P.** [The evidence that discharges P is listed in
+  `docs/AFR_001_DURABILITY_DECISIONS.md` section 8 (P-1 to P-4).]
 
 **I1 (uniqueness)** is untouched: it follows from R6.0 for every node.
 
@@ -111,7 +115,8 @@ case.
 
 ## 3. A counterexample outside U (found while checking U1)
 
-**Finding Y9 [INF, not model-checked]: defence in depth, not a break of G-11 (round 4).** R9-A′, like R9-A, speaks
+**Finding Y9 [INF, not model-checked]** (round 4 called it defence in depth; round 5 found delayed-report cases that
+break I4 and G-11, `docs/AFR_001_REPORT_IDENTITY.md`). R9-A′, like R9-A, speaks
 of "an entry", but reports carry an **LSN** (`shard.cpp:2234` sends `durable_lsn()` with no term), and nothing in the
 frozen text says a report may be sent only while the replica is positioned. R2′ rule 2 says so for survivors in S′; R1.1 puts a new member `c` in A **before** it has caught up.
 Scenario: `c` restarts holding `(s, x)`, an unacknowledged tail entry of an older term; `p`, primary of `t > s`, puts
@@ -121,7 +126,8 @@ keeps another positioned member of S that holds `(t, x)` (section 2). In `Log.tl
 `R2p ∧ FixPosAck`, compares entries by identity (`dlog[m][i] = dlog[p][i]`), and `AddA` requires `pos[c] = T[p]`,
 stricter than R1.1's text; so the models never explored it.
 
-**Proposed correction (needs the owner's yes, Y9):** add to R9-A′ "… and only while it is positioned on p's log in
+[Superseded 2026-11-19 by `docs/AFR_001_REPORT_IDENTITY.md`: positioning alone fails under a delayed report; the
+recommendation there is Y9-T, a report that names its entry `(term, lsn)`.] **First proposal (needs the owner's yes, Y9):** add to R9-A′ "… and only while it is positioned on p's log in
 p's term (R6.2); p counts no report from a replica it has not positioned." This writes the model's guard into the text, and
 gives U1's report clause a general rule. With U4, `p`'s side holds across an in-place reseed too. Not applied: R9-A′ is a recorded revision, and changing it
 needs the owner.
@@ -130,7 +136,7 @@ needs the owner.
 
 Under premise P and U1-U4, I1-I5 hold for a node in U, with one disclosed change: R7 outside S may promote `k` in U, where R6.5's
 current text forbids promoting an incomplete node; that loss is already accepted under G-35. **Recommendation:** accept
-Y6c-2 with U3 and U4 added to its text, once premise P is part of D-02's acceptance; Y9 as defence in depth. All rest
+Y6c-2 with U3 and U4 added to its text, once premise P is part of D-02's acceptance; Y9 as revised in `docs/AFR_001_REPORT_IDENTITY.md` (Y9-T). All rest
 on argument only.
 
 **What a yes changes:** R6.5's first sentence (contract 6.6, with U3 and U4; RS-1's new incarnation, contract 6.5); SA I2's "accepts entries" sentence; I4 step 6

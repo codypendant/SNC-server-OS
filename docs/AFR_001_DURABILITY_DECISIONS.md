@@ -5,7 +5,9 @@ Status: **PROPOSED, for Codex and owner review.** Docs only. Nothing is frozen o
 **[2026-11-19, owner decisions recorded in `docs/handoff/PR171_Owner_Decisions.md`:** Y5 yes (OD-10, recorded
 revision of R9-A); Y6a, Y6b, Y8 yes as design directions (OD-11, OD-12, OD-14); Y6c-1 yes as the initial direction
 (OD-13); **Y6c-2 CONDITIONAL, not accepted**, pending the I2-I5 re-argument (`docs/AFR_001_R65_INVARIANTS.md`); Y4
-and Y7 HOLD. Codex's targeted final review of this text is section 7.**]**
+and Y7 HOLD. Codex's targeted final review of this text is section 7. After Codex's #172 review
+(`docs/handoff/PR172_Codex_Review.md`): premise P's evidence is section 8, Y9 is `docs/AFR_001_REPORT_IDENTITY.md`
+(Y9-T recommended), round 5 is section 9. Y6c-2 and Y9 are not accepted.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
 initial-seed question, and "a concise final owner-decision package" in five parts. Codex's section 3 items are
@@ -247,3 +249,63 @@ whether a record can name a stream count different from the active manifest's; t
 whether the seed's record files are preallocated before the first slot write; whether `block_rq_complete` times
 completion correctly under a loop-backed `dm-delay`; no model covers U, R1.1's add before positioning, or R7 outside
 S; no bound on reseed loops; whether reports should carry `(term, lsn)`.
+
+## 8. Premise P: the exact evidence needed (Codex #172, section 5 item 2)
+
+**P:** a primary's active checkpoint is its current log applied through the manifest's `max_lsn` for each stream.
+`docs/AFR_001_R65_INVARIANTS.md` (Lemma C) and so Y6c-2 depend on it (B9). It decomposes into four rules; P holds if
+all four hold [INF]:
+
+| # | Rule | Where it stands | Evidence that discharges it |
+|---|---|---|---|
+| P-1 | `max_lsn` is the stream's last assigned LSN when the part's walk ends, so the part reflects nothing above it | D-06 4.3 step 1 and boundary rule 7: proposed, inside the conditionally accepted D-06 items 4-14 | text: already argued (boundary review finding 1); final with Y4 |
+| P-2 | the part is published only once every record up to P-1's `max_lsn` is locally durable (C5) | **does not hold today**: C5 waits on today's `max_lsn`, the highest visited image's `last_lsn` (`shard.cpp:2654`), which misses deletes (`:2636`; boundary rule 7) [FACT, round 5] | a C5 change to wait on P-1's value (an implementation change, not authorized), then review; with `wal_sync=none` it never holds (outside every guarantee) |
+| P-3 | recovery refuses when a stream's valid end `E` is below the active checkpoint's `max_lsn` | **not written**: contract 2.4's NONE check reads the part but does not compare `E` with `max_lsn` | the check in contract 2.4 (this PR), which needs D-06 section 7's manifest `max_lsn` (proposed; stored nowhere today), P-2, and a seed that copies the WAL through `max_lsn` before its record write (E30, round 5: otherwise a freshly seeded node refuses with no fault); then review. With those, the refusal follows only a fault (G-14(a)), never a silently shorter log |
+| P-4 | no entry at or below `max_lsn` is replaced while that checkpoint is active: a primary never truncates its own log (SA I4 step 2), and a member whose truncation point is below `max_lsn` is reseeded instead (R6.4; D-06 4.3 step 1, `L ≥ max_lsn`) | frozen (R6.4) and proposed (D-06 4.3) | text: holds now |
+
+**The composition.** P-1 and P-2's defects were facts about the code, not interleavings (boundary review), so a
+code and text check finds them, not a model. The interleavings (publication against crashes, truncation and reclaim)
+would need M-1 **extended** with object state, the fuzzy walk and deletes (`Completion.tla` has none): a change of
+M-1's scope, needing its own authorization. Not proposed now.
+
+**So P is discharged by:** P-1 accepted (Y4), P-2 written as a C5 rule and later implemented, P-3's check and
+E30's WAL copy reviewed, P-4 as it stands, and D-02's acceptance including them; a model only if the owner extends
+M-1. Until then Y6c-2 stays conditional. Nothing here is run.
+
+## 9. Round 5: focused review of the round-4 corrections, Y9 and premise P
+
+Codex's #172 review asked for one focused review of the round-4 corrections, reporting only new substantive
+findings. Three independent reviewers: **g1** the corrected contract sections; **g2** Y9
+(`docs/AFR_001_REPORT_IDENTITY.md`); **g3** premise P's evidence and package consistency. **2 BLOCKER, 11 MAJOR**,
+all new; each fixed on site as below, **not re-reviewed**.
+
+| # | Finding | Now |
+|---|---|---|
+| g1 B | the new `E ≥ max_lsn` check refuses a freshly seeded node with no fault: the seed copies no WAL | E30: the seed copies the WAL through `max_lsn` before its record write; recovery restarts at step 1 after a SEED or INIT record write |
+| g3 B | P-2 does not hold today: C5 waits on today's `max_lsn`, which misses deletes | P-2 marked "does not hold today", a C5 change (not authorized); the 2.4 check names D-06's proposed manifest field |
+| g1 | the orphan refusal followed crashes alone (a remap's crash before its record write; a boot write that changes `n_streams`) | orphans with no record are removed; `n_streams` changes only with the remap's checkpoint; a record-holding orphan is a configuration refusal, never after crashes alone |
+| g1 | RS-1's new incarnation changes conditionally accepted D-06 item 7 without saying so | E32, an owner decision with Y6c-2 |
+| g1 | the budget counted FM-12 in one place and not another | budget paragraph and FM-12 row: an error that can leave a write only in the page cache is the node's media fault |
+| g1 | E-1's scratch file on `/` writes the boot device | `tmpfs` for the run; no disk written |
+| g2 | **a delayed report from a node that then reseeds, counted by a primary that missed the shrink, breaks G-11**; positioning alone and Y9-B both fail | RS-0: `k` stops granting and RS-2 waits `W` after its last grant (contract 6.5) |
+| g2 | Y9-T's soundness relied on R3 fencing `p` first, which is false | replaced by the A ⊇ S argument |
+| g2, g3 | Y9-T for a node in U depends on premise P; U1's report clause must stay | U1 kept verbatim; dependency stated |
+| g2, g3 | positioning alone was shown broken without a stated severity | under `m = 2` it breaks I4 through a Grow (REPORT_IDENTITY section 2) |
+| g3 | "one more property in M-1" understated the scope | M-1 would need extending (objects, the walk, deletes); not proposed |
+
+**MINOR fixes:** status lines in this package and the R6.5 analysis; the media-fault bullet marked D-02-dependent; no
+check with no checkpoint.
+
+**UNRESOLVED from round 5:** what `n_streams` today's boot write carries during a remap; whether the links generation
+must advance when RS-2 discards memory in place; whether a reporter must have persisted `p`'s term; P-1 for a
+checkpoint taken while the node was a replica in an earlier term; writeback-error reporting on Ubuntu 6.8.0-149; RS-0's
+grant wait adds `W` to every reseed.
+
+**Updated owner questions (none recorded):**
+- **Y9 (proposed: Y9-T).** Replace R9-A′'s report clause as in `docs/AFR_001_REPORT_IDENTITY.md` section 3: a report
+  names its entry `(term, lsn)`; `p` counts it only if its own log holds that entry; no report while an intent is
+  pending or the flag is set. **Recommendation: yes**, after Codex's review; argument only.
+- **Y6c-2 (still conditional).** Its text now carries U3, U4 (E32), and RS-0's grant wait. **Recommendation: hold
+  until premise P is discharged** (section 8), as Codex requires.
+- Y4, Y7: HOLD. The V8-L experiment (E-1, E-1b), the watermark-cost experiment (E-2) and E-3 stay proposals with exact
+  safeguards (contract 9), each for separate authorization; not started.
