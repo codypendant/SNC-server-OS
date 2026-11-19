@@ -320,3 +320,10 @@ distinct states); C3 (case 3, two entries, a crash and self re-promotion) also P
 pending-intent block (MI) or the new term (MNH), the predicted counterexamples come back. The probes show self
 re-promotion, LSN reuse under the new term and a carried older-term intent are reachable. The bounds are narrow
 (section 5 there), and the standby read rule R9-F is text only.
+
+## 12. Report identity and reseed (`ReportReseed.tla`)
+
+Preregistered in `docs/AFR_001_REPORT_MODEL_PREREG.md`. **Stopped before any counted run** (section 12 there): the
+fidelity check found two `AckSound` counterexamples to the correct protocol, reproduced by `ReportReseedTrR7` (R7
+outside S, a truncation inside a live grant) and `ReportReseedTrW` (a wipe seeded from a deposed primary). Y9-T as
+written is blocked.

@@ -1,11 +1,15 @@
-# AFR-001: report/reseed model, preregistered plan (PROPOSED, NOT AUTHORIZED TO RUN)
+# AFR-001: report/reseed model, preregistered plan
 
-Status: **PROPOSED plan, for Codex and owner review.** Docs only. **No model file is written and nothing is run.**
-Writing the model, any sizing run and every counted run need the owner's explicit yes. Asked by Codex's review of
-#175 (`docs/handoff/PR175_Codex_Review.md`, section 3). Nothing here accepts Y9, Y6c-2 or E32. Revised once after an
-independent review told to break it (section 8), and again for Codex's #176 corrections A-C (sections 9-10).
-**Codex recommends a yes to the campaign, but that is not the owner's go; nothing is written or run until the owner's
-explicit yes.**
+**Result (section 12): STOPPED before any counted run.** The three-way fidelity check broke the correct protocol
+with every rule on: two TLC-confirmed `AckSound` counterexamples, F-1 found while writing, and one hole the model
+cannot express. By the stop rule (section 5) this **blocks Y9-T as written**. No counted launch was made, so none of
+the 18 is spent. Section 12.4 recommends a redesign, which needs the owner's yes.
+
+Status of the plan text below: **AUTHORIZED and FINAL before the counted runs.** The owner gave the explicit GO on 2026-11-19 16:06 UTC;
+Codex's #177 review (`docs/handoff/PR177_Codex_Review.md`) approved the plan. Section 11 records what writing the
+model found before any counted run: one protocol finding (F-1), a proposed rule W-3 with one more mutation (M7, 18
+launches), and the modelling choices. Nothing here accepts Y9, Y6c-2, E32, W-1, W-2 or W-3. The model is
+`spec/tla/ReportReseed.tla`; `spec/tla/report_reseed_cfg.sh RUN` prints each run's config.
 
 **Why a model.** Rounds 5-7 found a counterexample in each previous round's version of the report, reseed and
 grant rules (`docs/AFR_001_DURABILITY_DECISIONS.md` 11.2). Those are interleavings of delayed messages, crashes and
@@ -75,7 +79,7 @@ stay on. New module: `spec/tla/ReportReseed.tla`. `MaxIds` is the base's bound o
 10. **Sender rule.** `FixSendP`: no report while an intent is pending. `FixSendR`: no report while RESEEDING.
 
 **Mutations** turn one rule off, every other rule on: M1 `FixInc`, M2 `FixTerm`, M3 `FixWait`, M4 `FixEntry`,
-M5p `FixSendP`, M5r `FixSendR`, M6 `FixNonce`.
+M5p `FixSendP`, M5r `FixSendR`, M6 `FixNonce`, and M7 `FixGrow` (W-3, section 11).
 
 ## 2. Invariants and probes
 
@@ -124,10 +128,11 @@ stated.
 | M5p | B | `FixSendP` off | violated: an intent is still pending when `k` reports in term 3. The intent then truncates `k`, and the new primary positions `k` under the same incarnation and counts the report |
 | M5r | A | `FixSendR` off | violated: between RS-1 and RS-2 `k` reports under its new incarnation. The partial copy and R6.2 follow, and the report counts |
 | M6 | A | `FixNonce` off | violated: B-7b. A wipe and fresh seed reuse `(nonce, 1)`, and a pre-wipe report counts after the new positioning |
+| M7 | A | `FixGrow` off (W-3 (a), section 11) | violated: F-1. A report counted before RS-1 lets `p` grow `k` into S after RS-2 discarded the entry (`GrowSound`) |
 | P1-P6 | A | none | `NoRejectByInc`, `NoRejectByTerm`, `NoRejectByEntry`, `NoShortReseed`, `NoWipe`, `NoCrashInReseed` violated (reachable) |
 | P7, P8 | B | none | `NoRejectByTerm`, `NoAckAfterR7` violated (reachable) |
 
-That is 17 launches.
+That is 18 launches (17 planned, plus M7 from section 11).
 
 **Sizing** is a 6-minute run of each lane at its counted bounds, not counted and listed with the results. The base
 model's own lanes needed 29 minutes to 89 minutes at smaller scopes (`docs/AFR_001_RECON_BLOCKERS.md`, C2 and C3), so
@@ -153,6 +158,7 @@ by hand [INF], needs at most this many stale reports in flight at the moment the
 | M5p | 1 stale (sent with an intent pending) | 1 |
 | M5r | 1 (sent between RS-1 and RS-2) | 2 |
 | M6 (B-7b) | 1 stale (before the wipe) | 2 |
+| M7 (F-1) | 1 stale (before RS-1) | 2 |
 
 Fresh reports needed for the ack itself come from the same sender and replace nothing, since the stale report is
 the one that counts. If the fidelity review finds a trace needing more, the plan is corrected **before** any counted
@@ -195,7 +201,7 @@ As `docs/AFR_001_RECON_BLOCKERS.md` 2.5, with these:
   An unexplained one is a blocker.
 - **Mutations that do not fail:** a completed mutation run that finds nothing is reported as **not shown
   necessary**. A run that hits the cap is **NOT COMPLETED**, never "not shown necessary" and never a pass.
-- **Budget:** 17 counted launches, at most 3 fallback launches and at most 6 reruns. The cap is **2 h** of wall
+- **Budget:** 18 counted launches (section 11), at most 3 fallback launches and at most 6 reruns. The cap is **2 h** of wall
   clock per run.
 - **What may change after a result:** bounds are never raised. Invariants and expectations are not changed except
   through a recorded model-defect or protocol finding, and each such rerun is counted.
@@ -273,3 +279,122 @@ The untimed RS-0 guard's limit is AS-3: it does not check the real-time wait or 
 The scope, bounds, lanes, the 17 launches, mutations, probes, invariants (`AckSound`, `GrowSound`,
 `AckedPreserved`, `EntryUnique`, `LogMatching`, `HistoryUnique`), caps, fallbacks and stop rules are as in sections
 1-5. Nothing is written or run until the owner's explicit yes.
+
+## 11. Writing the model (before any counted run)
+
+The model was written, then exercised with uncounted random simulation (`tlc2.TLC -simulate -depth 80`, 90-150 s
+per config) to debug it. Simulation is not part of the campaign and proves nothing; it found one protocol problem
+and two modelling defects, all before the fidelity review and before any counted launch.
+
+**F-1 (protocol finding, against the text).** Simulation of CA as first written violated `GrowSound`, and with
+that fixed, `AckedPreserved`:
+- *Shape 1.* `k` reports entry `(1, 1)` under incarnation `(0, 1)` while positioned at `p`. `k` starts a reseed:
+  RS-0, the grant wait, RS-1 (new incarnation `(0, 2)`), RS-2 discards the log. `p`'s positioning record of `k`
+  still names `(0, 1)`, because it ends only when a request under the new incarnation reaches `p` (RS-3). `p`
+  delivers the old report (it matches the record), counts coverage 1, and grows `k` into S with an empty log.
+- *Shape 2.* `k` passes RS-0's check `k ∉ S`, and `p` grows `k` into S under a grant `k` gave before RS-0. The wait
+  then ends, RS-1 and RS-2 run, and a member of S has discarded acknowledged entries.
+
+The grant wait protects acknowledgements, because an ack needs a valid grant from every member of A. **S admission
+(Grow, "caught up") needs no grant in the text,** so neither Y9-T nor RS-0's wait covers it. This contradicts the
+round-5 note in `docs/AFR_001_R65_INVARIANTS.md` section 0, which says Y9-T and the grant wait close the
+stale-report Grow case. It holds under AS-8's pessimistic reading ("caught up" judged from counted reports); under
+the other reading (judged at the end of the R6.2 request) the stale positioning record has the same effect.
+
+**W-3 (proposed rule, not accepted).** (a) `p` grows `k` into S only while it holds a valid authority grant from
+`k`, as for an acknowledgement. (b) RS-1 checks `k ∉ S` after the grant wait, not only at RS-0. With (a), no grant is
+valid from RS-1 on (FixWait), and RESEEDING grants nothing, so no Grow of `k` can happen between RS-1 and RS-3.
+With (b), a Grow before the wait ends is seen. The model's correct protocol now includes W-3. **M7** turns (a) off
+(`FixGrow`); (b) stays on in every run. M7 adds one counted launch (18). Fallback and rerun budgets are unchanged.
+
+**Modelling choices fixed while writing (for the fidelity review):**
+
+| # | Choice | Why |
+|---|---|---|
+| FD-1 | Grow adds `c` to `sv[p]` at once; a lost reply can still leave a Shrink unseen | the first draft let a lost Grow reply make `p` drop a member of S from A and ack without it. A primary must treat its own Grow as possibly chosen; that is the text's Drop rule, `c ∉ S` |
+| FD-2 | A wipe and fresh seed from `j` ends `j`'s record of `k` | the seed is a transfer from `j` under `k`'s new incarnation, as RS-3 |
+| FD-3 | SGrant uses only `CaughtUp` (section 1 item 4), not the base's `Follows` | `p`'s decisions read only `pinc` and `cov` |
+| FD-4 | Promotion skips a node holding the reseed lock; the lock survives a crash | the lock is durable (contract 6.5) |
+| FD-5 | R6.2 ends `p`'s record only when it positions `k` or the request names another incarnation | section 1 item 3 |
+| FD-6 | RS-5 and RS-6 need the source still primary of `k`'s term, else back to RS-2 | U2 |
+| FD-7 | `MaxReps = 2` in both lanes | the base's value; section 3 did not name it |
+| FD-8 | A rejected report changes only the probe record | the report stays in `msgs` |
+
+**Uncounted simulation after these fixes** (random, not exhaustive, so absence means nothing): CA and CB found no
+violation in 150 s. M1, M3, M4, M5r and M7 violated `Safety`; M2, M5p and M6 found none in 150 s. Probes P1-P4 and
+P6-P8 were reached; P5 was reached earlier. M1's trace is B-6a.
+
+## 12. Fidelity check result: the campaign stops before counted runs
+
+The author's pass, then two independent reviewers told to break the `.tla` text (one on plan vs model, one on model
+vs protocol text). Both reviewers replayed traces in TLC on fixed action sequences over the unmodified model; I
+replayed both again (FACT, `spec/tla/ReportReseedTrR7.tla` and `ReportReseedTrW.tla`, each `.cfg` beside it, every
+`Fix*` TRUE). A fixed sequence of the model's own actions is a behaviour of the full model, so each violation is a
+counterexample to CA.
+
+### 12.1 The correct protocol fails
+
+| # | Shape | Evidence | Rule the text lacks |
+|---|---|---|---|
+| F-1 | `k` is grown into S during or just before a reseed, on coverage counted before RS-1 (section 11) | simulation while writing [FACT] | S admission needs no grant; nothing re-checks `k ∉ S` after RS-0 |
+| F-2 | **R7 outside S.** `n1` (term 1) misses its shrink of `n2`, so its view of S stays `{n1, n2}`. The operator promotes `n3` outside S. `n2` grants to `n1` in term 1, reports entry 2, and `n1` counts it. `n2` learns term 2 and R6.2 against `n3` truncates entry 2. `n1` still holds `n2`'s grant and acknowledges entry 2, held by `n1` alone | `ReportReseedTrR7`, 21 steps, no crash, `AckSound` violated [FACT] | `n2` discards an entry while a grant it gave may be valid. R6.2 needs no grant, and W-2 resets coverage when `p` learns a term, not when the reporter does |
+| F-3 | **Wipe seeded from a deposed primary.** `n2` (term 2) positions `n3` and counts its report of entry 1. `n3` is wiped and seeded empty from `n1`, still primary of term 1 (`gr[n3] = {}`, so W-1 holds). `n3` learns term 2, boot-reads and grants to `n2`. `n2`'s positioning record of `n3` was never ended, so `n2` acknowledges entry 1 with `n3` holding nothing | `ReportReseedTrW`, 16 steps, `AckSound` violated [FACT] | a wipe ends no primary's record except the seed source's; a grant says nothing about the incarnation that gives it |
+| H-1 | **Delayed R6.2 request.** A request sent under incarnation `i` before RS-1 arrives after RS-3. `p` answers "positioned" and records `i` again; reports under `i` count, and after RS-6 `k` grants legitimately | argued [INF]: the model answers requests atomically, so it cannot express this | incarnations are compared only for equality (B-7b), so `p` cannot tell old from new |
+
+Section 6's claim that `AckSound` is unaffected by R7 outside S is wrong (F-2). The round-5 note in
+`docs/AFR_001_R65_INVARIANTS.md` section 0, that Y9-T and the grant wait close the stale-report Grow case, is wrong
+(F-1).
+
+### 12.2 W-3 does not survive the real protocol
+
+W-3 holds in the model only because Grow and RS-1 are each one atomic step. In the real protocol a Grow
+compare-and-set proposed while `p` still held `k`'s grant can be chosen after `k`'s wait, after `k` read `k ∉ S`, and
+after RS-1. So W-3 (b) as a read is a check-then-act race [INF, reviewer B].
+
+### 12.3 Model defects the reviews found (recorded, not fixed, since no counted run follows)
+
+- Requests are not messages (H-1). RS-5 and Wipe copy the source's durable log, not its shipped log, and RS-6 checks
+  that the source still serves, which `k` cannot see; the text's RS-6 compares only the term. So a deposed source's
+  lost tail cannot happen.
+- SGrant is a decision in scope but no property checks it (the base's `StandbyFresh` and `LeasedPrefix` were
+  dropped), and it can grant a lease after RS-0.
+- Mf did nothing in lane B, which already has `MaxMsgs 1`. The generator now uses `MaxCrashes 0` there and refuses
+  unknown run names.
+- Minor: Promote dropped the base's `rec.ready ∨ OpInside` (equal under `OpInside = TRUE`); Drop's `p ∉ gr[c]` is
+  model-added, not R9-C; the R6.4 trigger is covered by RS-0 for any `k ∉ S`, so section 1 item 7's "stays" is wrong;
+  `okE` reads `p`'s in-memory log.
+
+Mutation reachability, as far as checked: M2, M5p and M6 were each reproduced by reviewer A in TLC on fixed
+sequences; M1, M3, M4, M5r and M7 by uncounted simulation. With CA failing, a counted mutation run would mostly
+re-find F-1 to F-3, so none was run.
+
+### 12.4 Why the identity approach keeps leaking, and the recommendation
+
+Every finding since round 5 has the same root. `p` decides from a **cached belief about `k`** (a positioning record
+plus counted coverage), and `k` can invalidate that belief by an event `p` does not see: a reseed, a wipe, learning a
+term and truncating, or a request arriving late. Each patch (incarnation, term, W-1, W-2, W-3) closes one event and
+leaves the next.
+
+**Recommendation [INF]: tie every count to a live promise, not to a cache.** Two rules:
+- **P1. Grants name the granter's incarnation.** `p` counts `m` for an acknowledgement or a Grow only under a valid
+  grant from `m` whose incarnation equals the one on the counted report and positioning record.
+- **P2. Nothing is discarded under a live promise.** A node removes no durable entry (R6.2 truncation, RS-2, a wipe)
+  while a grant it gave may still be valid. RS-0's wait and W-1 become two cases of this one rule.
+
+P1 closes F-3 and H-1 (an old-incarnation record needs an old-incarnation grant, and none is valid after the wait).
+P2 closes F-2 (`n2` cannot truncate inside its term-1 grant) and F-1's first shape. F-1's second shape and 12.2 need
+one more rule: **P3.** RS-1 is preceded by a compare-and-set on R by `k` that bumps R's version, so a Grow proposed on
+an older version cannot be chosen.
+
+**Cost.** The grant message gains a field (a wire change). A node rejoining after a term change waits up to `W`
+before truncating (rejoin latency, not acknowledgement latency). Grow gains a grant precondition (an R1.1 change),
+and RS-1 gains a witness write. An uncounted 4-minute random simulation of P1 and P2 in a scratch copy found nothing,
+which proves nothing: random simulation also missed F-2 and F-3.
+
+**This is an architectural change** (wire format, R1.1, the reseed and truncation rules), so it needs the owner's yes
+and Codex's review. The next step proposed is a re-preregistered model of P1-P3 that fixes 12.3's defects, models
+requests as messages, and is fidelity-checked the same way before any counted run.
+
+**What stays as it was:** Y9, Y10, W-1, W-2, W-3, Y6c-2 and E32 are not accepted. D-02, R-23 and O-FLOOR stay open.
+The assumptions Codex named (W-1, W-2, AS-3, premise P, D-02 outside the model, bounded witness and reconciliation
+abstractions) stand; nothing here proves any of them.
