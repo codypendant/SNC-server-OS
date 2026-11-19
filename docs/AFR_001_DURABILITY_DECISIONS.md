@@ -12,7 +12,8 @@ changes P-2, P-3 and E30 need, and the updated owner questions are section 10. A
 (`docs/handoff/PR174_Codex_Review.md`): round 7, the buffered-WAL answers, a convergence table and the current owner
 questions are section 11, which supersedes 10.2. After Codex's #175 review
 (`docs/handoff/PR175_Codex_Review.md`): the preregistered model plan is `docs/AFR_001_REPORT_MODEL_PREREG.md`, the
-`RWF_DSYNC` analysis is section 12, and the current owner questions are section 13. Y6c-2 and Y9 are not
+`RWF_DSYNC` analysis is section 12, and the current owner questions are section 13. After Codex's #176 review
+(`docs/handoff/PR176_Codex_Review.md`): the Y10 verification list on the target kernel is section 14. Y6c-2 and Y9 are not
 accepted.**]**
 
 Authority: Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`), section 4: the focused re-review, the G-48
@@ -547,7 +548,41 @@ data or that encryption would add to that list, a platform restriction that need
   gaps, W-1 (operator wipe window) and W-2 (counted coverage must end with its positioning record), recorded in the
   plan's section 6 and proposed only.
 - **Y9 (Y9-T as revised in rounds 6-7, plus W-2):** hold the yes until the model has run.
-- **Y10, rely on `RWF_DSYNC` plus `O_DIRECT` recovery and catch-up reads (section 12):** **recommendation yes**, as a
+- **Y10, rely on `RWF_DSYNC` plus `O_DIRECT` recovery and catch-up reads (section 12):** [Superseded by section 14:
+  conditional direction only; the buffered-WAL exclusion stays until the owner decides.] **recommendation yes**, as a
   design direction, replacing round 6's "buffered WAL outside every guarantee". It narrows no platform. Refusing ext4
   WAL files with verity, inline data or that encryption is a separate platform restriction, needing its own yes.
 - **E32**, **Y6c-2** (hold until premise P is discharged), **Y4**, **Y7**: unchanged.
+
+## 14. Y10 verification list (Codex #176, section 3)
+
+Codex supports Y10 only as a conditional direction and asked for six checks before acceptance. One reviewer read
+the sources. **The buffered-WAL exclusion (contract section 1, round 6) stays in place;** Y10 does not replace it
+until the owner decides.
+
+**Target kernel source.** git.launchpad.net is blocked here, so the reviewer used Ubuntu's source package for
+`6.8.0-149.149` from `archive.ubuntu.com` (`linux_6.8.0-149.149.diff.gz`). Its SHA-256 matches the `.dsc`; the
+`.dsc` signature was **not** verified. The diff was applied to the v6.8 files, and every hunk applied without offset
+or fuzz. Rows marked (U149) are that tree [INF that it equals the original tarball for these files].
+
+| Check | Result |
+|---|---|
+| 1. A successful `RWF_DSYNC` write, direct and fallback | **Durable on both paths; unchanged on the target.** `generic_write_sync` (fs.h:2750-2761), `iomap_dio_complete` (direct-io.c:83-126), the `-ENOTBLK` source (:653-660), the ext4 fallback ending in `generic_write_sync` (file.c:285-313, :586, :610), the xfs paths (:816, :845-854) and the ext4 journal fsync path (fsync.c:170-183) are identical to v6.8 apart from an added `inode_dio_wait` (ordering only) [FACT (U149)] |
+| 2. Can a failed buffered write leave clean, non-durable cached data? | **Yes, on the target too.** `ext4_finish_bio` (page-io.c:118-146) and iomap (buffered-io.c:1495-1510) end writeback without redirtying; errseq unchanged (filemap.c:726-750, open.c:911) [FACT (U149)]. **One target difference:** ext4 does not convert an unwritten extent after a failed writeback (`EXT4_IO_END_FAILED`, page-io.c:189-196, :358), so a failed write into preallocated WAL space reads back as zeros from the device. That removes section 12's "extent marked written" residual for preallocated segments; xfs already skipped it |
+| 3. Do `O_DIRECT` reads bypass that cache on the supported configuration? | **Yes**, for ext4 `data=ordered` with extents and no verity, inline data, encryption or per-inode `chattr +j`, and for xfs defaults: the read goes to the device; clean cached pages are never the source (ext4 file.c:55-95, inode.c:5647-5660; xfs_file.c:248-269) [FACT (U149)]. Misaligned reads fail with `EINVAL`, never fall back (direct-io.c:302-304). Per-inode `+j` and encryption are invisible to mount options, so a runtime check is needed (for example `statx` `STATX_DIOALIGN`) |
+| 4. Does a direct read start writeback of dirty pages, and what does that do to read-only classification? | **Yes:** it writes back and waits on dirty pages in the range, then tests and clears the mapping's error (direct-io.c:597-609, filemap.c:667-692, :344-355) [FACT (U149)]. A failed writeback makes the read return `EIO`, which today is fatal (`storage.cpp:48-52`); nothing stale is returned silently. **When can pages be dirty at recovery?** Only with `wal_sync = none`, through a buffered or fallback descriptor, or a writable shared mapping by another process; a `RWF_DSYNC` write syncs inside the same call [INF; the window under SIGKILL is HYP]. **Classification:** the writeback is not a write by recovery, and it writes only bytes the kernel had already accepted, which the background flusher would write within about 30 s anyway, so phase 1 is no less read-only than today's buffered scan [INF]. **UNRESOLVED (a design choice):** whether phase 1 must require "no dirty pages", for example by refusing after a `wal_sync = none` run without a reboot, or by flushing before phase 1 |
+| 5. Every WAL recovery and catch-up read path | All read through the page cache today [FACT]: `read_file` (storage.cpp:37-56, unaligned buffer); `scan_stream` (:363-436, from engine.cpp:1124, :1187); `read_stream_range` (:439-451, from replication.cpp:163); **`adopt_spare`'s header read** (:797-812, from engine.cpp:1087), which section 12 missed. The seed sender sends checkpoint files only (seed.cpp:70-90, :156-163); no tool reads segments; the only mmap is anonymous (pages.cpp:34-56). Under `O_DIRECT`, `read_file` needs an aligned buffer (`aligned_block`, storage.cpp:30) |
+| 6. Actual target-kernel behaviour | Items 1-4 are confirmed from source only. **Not confirmable without running:** that the device honours FLUSH and FUA, that the R640 runs exactly this build with no livepatch, the WAL directory's file system and per-inode flags, and whether `-ENOTBLK` fallbacks happen there. A minimal later experiment (described only, **not authorized**) would use a dm-flakey or dm-error scratch loop device on the target kernel: write through the fallback path, inject an error, kill, restart without reboot, compare buffered and `O_DIRECT` reads; repeat with dirty pages; check `STATX_DIOALIGN`; trace `iomap_dio_invalidate_fail` |
+
+**So Y10 as it now stands [INF, proposal only]:**
+- the recovery scan, catch-up reads and `adopt_spare`'s header read use aligned `O_DIRECT` reads;
+- a WAL file on which ext4 would not do direct I/O, checked at runtime, is refused;
+- the success path relies on `RWF_DSYNC`, whatever the I/O path.
+
+**Open before acceptance:**
+- the phase-1 dirty-page choice in check 4;
+- the target-system facts in check 6;
+- the `.dsc` signature.
+
+**Recommendation:** keep Y10 a conditional design direction, as Codex says. Ask the owner for the decision only
+after the phase-1 choice is written, and keep the buffered-WAL exclusion until then.
