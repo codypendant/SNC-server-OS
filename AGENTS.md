@@ -3952,3 +3952,17 @@ or source comments.
 -   **Not accepted / not authorized:** Y9, Y6c-2, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment, X-2, R640,
     C++, Rust, migration, freeze.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): round-7 re-review, buffered-WAL questions, convergence table (docs)
+
+-   **Trigger:** Codex's review of #174 (`docs/handoff/PR174_Codex_Review.md`; #174 merged e6a3e0b).
+-   **Output:** `docs/AFR_001_DURABILITY_DECISIONS.md` section 11 (round 7: 2 BLOCKER, 6 MAJOR, fixed on site, not
+    re-reviewed): step 9a and RS-6 checkpoints set `start_lsn = E + 1` explicitly; added streams get segment 1 first;
+    step 9a mutates and reclaims nothing; `E` from the H pass; reports also carry the reporter's term; incarnation =
+    (node nonce, generation); the kernel `-ENOTBLK` fallback named as a residual premise; a concrete start gate for
+    the buffered WAL. 11.1 answers Codex's five buffered-WAL questions; 11.2 tabulates findings per round (rounds 6-7:
+    most findings sit in the previous round's fix text); 11.3 recommends a bounded model of the report/reseed
+    protocol before any yes on Y9 (needs the owner's go).
+-   **Not accepted / not authorized:** Y9, Y6c-2, E32, the buffered-WAL exclusion, Y4, Y7, D-02, R-23, O-FLOOR, any
+    model, experiment, X-2, R640, C++, Rust, migration, freeze. G-48 not closed.
+-   **Next action:** STOP for Codex and the owner.
