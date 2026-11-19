@@ -359,6 +359,9 @@ segment's nonce, and neither is model-checked (O-FLOOR stays open).
   - Rule 4 of the write path makes the durable ends that I4, P5 and SYNC_READINESS read mean "watermarked". The
     frozen text already requires that every such report be durable, so this reads the frozen text; it does not
     change it [INF].
+    **Corrected 2026-11-18** (`docs/AFR_001_D02_RESTART_RESEED_NOTE.md` section D): no frozen text requires
+    watermark coverage. R9-A and R9-B count applied reports, and R6.3′ item 1 binds the durable end. Rule 4 therefore
+    needs a recorded revision (R9-A′ there), with the owner's yes.
   - P5's silent-loss clause and 4.2 stay excluded from the freeze (O4, comparison section 7).
   - R9-F stays out.
 - **G-14:** not weakened.

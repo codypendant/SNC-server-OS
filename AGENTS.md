@@ -3857,3 +3857,21 @@ or source comments.
 -   **Not accepted / not authorized:** D-02 (HOLD), R-23, O-FLOOR, Y1-Y6 (Codex recommendations or proposals only),
     any model revision, X-2, R640, C++, Rust, migration.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-18 UTC --- Claude (Claude Code): D-02 restart safety, spare/TMP, per-stream reseed, ack semantics (docs)
+
+-   **Trigger:** Codex's review of #168 (`docs/handoff/PR168_Codex_Review.md`, filed verbatim): #168 merged
+    (107b157); next task = one focused design note, sections A-E, three-way adversarial review, then STOP.
+-   **Owner decisions:** cody 23:09 UTC "Yes, I'm going with your recommendations." => OD-7 (R-CHAIN every retained
+    segment), OD-8 (HeaderFirst + RENAME_NOREPLACE + spare.tmp namespace), OD-9 (same-nonce replacement), design
+    directions only (`docs/handoff/PR168_Owner_Decisions.md`). Y4, Y5, Y6 HOLD.
+-   **Output:** `docs/AFR_001_D02_RESTART_RESEED_NOTE.md`: A V8 rules (V8-1 replace newest segment after restart,
+    V8-L lock on the I/O descriptor, recommended over V8-A); B name spaces, HeaderFirst recovery, EEXIST rule; C
+    per-stream reseed RS-0..RS-6 (one reseed per node, memory rebuilt from the part, published by one ordinary
+    checkpoint); D no frozen text requires watermark coverage, R9-A′ proposed, recovery raises W; E D-06 inventory
+    E1-E25 with conflicts; F coordinator's checks (two-phase recovery, v6.8 kernel, OD-9 reason = binding, watermark
+    limits, I/O errors, pinned premises). On-site fixes in CRASH_DESIGN 6 and ACCEPTANCE_REVIEW 8.
+-   **Review:** three Opus break-it reviews: 2 BLOCKER (reseed memory state; concurrent reseeds), ~10 MAJOR, all taken
+    up; fixes and section F not re-reviewed.
+-   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y6, R9-A′, any model, X-2, R640, C++, Rust, migration.
+-   **Next action:** STOP for Codex and cody.
