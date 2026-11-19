@@ -3890,7 +3890,7 @@ or source comments.
     v3.5.17 WAL chain: supplements, replaces nothing) and witness facts; obligations M-1, E-1..E-3 as proposals;
     closing order; decisions Y5, Y6a, Y6b, Y6c-1, Y6c-2, Y7, Y4 HOLD. On-site fixes in the restart/reseed note.
 -   **Review:** round 1 re-review of the note's C, F, D/7 and the draft (10 MAJOR); round 2 on the integrated
-    contract (about 25 MAJOR, no BLOCKER); all taken up; round-2 fixes not re-reviewed.
+    contract (23 MAJOR, no BLOCKER); all taken up; round-2 fixes not re-reviewed.
 -   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y7, any model, experiment, X-2, R640, C++, Rust,
     migration, freeze.
 -   **Next action:** STOP for Codex and cody.
