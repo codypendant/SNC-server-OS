@@ -3894,3 +3894,20 @@ or source comments.
 -   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y7, any model, experiment, X-2, R640, C++, Rust,
     migration, freeze.
 -   **Next action:** STOP for Codex and cody.
+
+### 2026-11-19 UTC --- Claude (Claude Code): durability re-review and owner-decision package (docs)
+
+-   **Trigger:** Codex's review of #170 (`docs/handoff/PR170_Codex_Review.md`; #170 merged 1558aa6), section 4:
+    focused three-way re-review of the corrected contract, the G-48 initial-seed question, a concise owner-decision
+    package, then STOP.
+-   **Output:** `docs/AFR_001_DURABILITY_DECISIONS.md` (decisions Y5, Y6a, Y6b, Y6c-1, Y6c-2, new Y8; Y7 and Y4
+    HOLD; effects on frozen texts; evidence; E-1..E-3 data-safety check; argument-only invariants; blockers B1-B8;
+    round 3 record). The seed crash refusal is an **unresolved violation** of G-48, not an exception; a second
+    crash-only refusal found (links generation after the first record write); seed marker (E30) and creation order
+    (E31) proposed. Contract fixed on site: step 9 syncs before the raise, orphan rule, FM-10 conditional, R6.5
+    revision text and I2-I5 gap, section 3 kind C, section 9 safeguards. Superseded markers in the note, boundary
+    rule 5, crash design 0 and REPLICATION.md.
+-   **Review:** round 3, 12 MAJOR, no BLOCKER, all fixed; the fixes are not re-reviewed.
+-   **Not accepted / not authorized:** D-02, R-23, O-FLOOR, Y4-Y8, R9-A′, the R6.5 revision, any model, experiment,
+    X-2, R640, C++, Rust, migration, freeze.
+-   **Next action:** STOP for Codex and the owner.

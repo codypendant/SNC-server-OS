@@ -99,7 +99,10 @@ cost is 8 bytes per stream.
 
    A crash before the record write leaves no superblock but leaves data, so the next start refuses with "has data but
    no superblock; clear it first" (`engine.cpp:943-946`). That is fail-closed and needs the operator. It is today's
-   behaviour; the comment at `seed.cpp:264-266` says "the next start fetches again", which is wrong.
+   behaviour; the comment at `seed.cpp:264-266` says "the next start fetches again", which is wrong. [2026-11-19: this
+   is a crash-only refusal, not a G-14(a) detection, and no accepted text makes it a G-48 exception. It is an
+   unresolved violation; a seed marker is proposed (`docs/AFR_001_DURABILITY_CONTRACT.md` section 3 row C1, E30;
+   `docs/AFR_001_DURABILITY_DECISIONS.md`, Y8). Rule 4's order is superseded, as a proposal, by contract 2.2.]
 6. **No checkpoint yet.** A fresh start takes a checkpoint before READY (`engine.cpp:1252`), but `fresh` holds only on
    the boot that creates the superblock, so a crash before that checkpoint leaves this state on later boots. The floor
    is `(0, 0)`, and FL-floor accepts no segment at all, or a single all-zero segment 1 (a crash before its header
@@ -130,7 +133,7 @@ cost is 8 bytes per stream.
 | record durable, during deletes | any subset of the delete set is gone; all of it is below the new floor | rule 4.5 removes the rest; exact |
 | record durable, during a remap's orphan deletes | an orphan stream directory, partly emptied | rule 4.2 removes it. Today this boot is fatal (review finding 2) |
 | completion deleted the floor segment (`L = retain_from - 1`), crash before step 4 | PENDING; floor segment missing | rule 4.3 recreates it, then FL-floor holds |
-| seed, before its record write | data, no superblock | refuse, operator clears (as today) |
+| seed, before its record write | data, no superblock | refuse, operator clears (as today; an unresolved G-48 violation, see rule 5's note) |
 | floor segment's rename lost (newest segment) | the spare holds it | rule 4.4 adopts it |
 | floor segment lost or damaged | FL-floor fails | refuse (fail closed, G-14(a)) |
 | crash during recovery's own deletes | the same record and manifest | recovery repeats them; every step is idempotent |
