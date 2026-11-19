@@ -17,9 +17,12 @@ run on the R640. Claims are labelled FACT, EXT, INF or HYP.
     grants from every member of A **and** from a majority of witnesses under W1).
   - `p` stays in that mode until it learns that a version later than the request's base is chosen.
 
-  The shrink request names its base version and can be chosen only as the next version.
+  Every request `p` sends to change R names its base version and can be chosen only as the next version, and `p`
+  has at most one such request outstanding. "Would make R degraded" is judged against that base. Binding only the
+  degrading request is not enough: two rebased non-degrading shrinks, each chosen on the other's result, can leave
+  S = {p} with no degrading request ever sent (found by an independent review of this package).
 - **Bounded check, uncounted** [FACT, this PR, scratch runs]:
-  - With A-1 off, TLC finds the overlap in 10 steps.
+  - With A-1 off, TLC finds the overlap in 9 steps.
   - Each of the two other parts, removed alone, also yields an overlap.
   - The corrected model shows no overlap at the bounds tried. Those runs were sizing, not preregistered, so they are
     not evidence. The counted runs in section 6 wait for the owner.
@@ -29,20 +32,20 @@ run on the R640. Claims are labelled FACT, EXT, INF or HYP.
 The model is `spec/tla/L1Authority.tla`, the authority part of `Combined.tla`. Three nodes are used: `n1` is primary
 at term 1 with S = A = {n1, n2}, `n3` is outside S, D = 2, and `OpOutsideDeg` (R7 case 1) is on.
 
-TLC with `FixA1 = FALSE` gives this shortest trace (BFS):
+TLC with `FixA1 = FALSE` gives this shortest trace (BFS, MaxTerm 2, MaxVer 5):
 
 | # | Step | State after it |
 |---|---|---|
-| 1-2 | Tick, Tick | `n1`'s grant from `n2` runs down |
-| 3 | `ShrinkSend(n1, n2)` | `n1` asks the witnesses to drop `n2`; the result would be S = {n1}, degraded |
-| 4 | `ShrinkChosen(n1)` | R at term 1 reads S = {n1}, degraded, READY. The reply to `n1` is lost, so `n1` still runs in normal mode |
-| 5 | `Promote(n3)` | R7 case 1 applies (outside S, degraded, READY), so R moves to term 2 with `n3` as primary |
-| 6 | `Learn(n3)` | `n3` starts its `learned + W` barrier |
-| 7, 9 | Tick, Tick | the barrier ends |
+| 1 | Tick | time passes |
+| 2 | `ShrinkSend(n1, n2)` | `n1` asks the witnesses to drop `n2`; the result would be S = {n1}, degraded |
+| 3 | `ShrinkChosen(n1)` | R at term 1 reads S = {n1}, degraded, READY. The reply to `n1` is lost, so `n1` still runs in normal mode |
+| 4 | `Promote(n3)` | R7 case 1 applies (outside S, degraded, READY), so R moves to term 2 with `n3` as primary |
+| 5 | `Learn(n3)` | `n3` starts its `learned + W` barrier |
+| 6-7 | Tick, Tick | the barrier ends |
 | 8 | `WGrant(n3)` | `n3` holds degraded witness authority |
-| 10 | `Grant(n2, n1)` | `n2` has not learned term 2, and `n1` still counts it in A, so `n1` holds normal authority |
+| 9 | `Grant(n2, n1)` | `n2` has not learned term 2, and `n1` still counts it in A, so `n1` holds normal authority |
 
-At step 10, `Auth(n1)` and `Auth(n3)` hold together, which violates `OneAuthority`.
+At step 9, `Auth(n1)` and `Auth(n3)` hold together, which violates `OneAuthority`.
 
 In real time this is the trace from `docs/AFR_001_LIVE_GRANT_PROPOSAL.md` 5.1: `n3` serves from 2.2, and `n2`'s
 grant at 2.0 carries `n1` to about 3.8.
@@ -67,12 +70,12 @@ So only a promotion of a node outside A while R reads degraded is exposed, and t
 
 ### 3.1 Rule text (proposed; it would be a new R8.0, nothing else is reworded)
 
-> **R8.0 Degraded from the send.** When `p` sends a request that would leave S = {p}, it records the request's base
-> version `v`. From then on, `p` serves only under degraded authority: grants from every member of A, as before, and
+> **R8.0 Degraded from the send.** Every request `p` sends to change R names its base version `v`, can be chosen
+> only as version `v + 1`, and is `p`'s only outstanding change until `p` reads a version above `v` chosen. When the
+> request would leave S = {p} as applied to version `v`, `p` records `v`. From then on, `p` serves only under degraded authority: grants from every member of A, as before, and
 > from a majority of witnesses under W1. It stays in that mode until a linearizable read shows that some version
 > above `v` is chosen. Then it uses the mode recorded in the latest chosen version. If the read shows only `v`, `p`
-> proposes a version-only change at `v + 1` (as in LG-5) and reads again. A degrading request names `v` and can be
-> chosen only as version `v + 1`.
+> proposes a version-only change at `v + 1` (as in LG-5) and reads again.
 
 ### 3.2 Answers to Codex's questions
 
@@ -82,7 +85,7 @@ So only a promotion of a node outside A while R reads degraded is exposed, and t
 | When can it acquire degraded witness authority? | When a majority of witnesses grant under W1, which each witness can do only after it has accepted the degraded version at `p`'s term (R8). A witness could carry the grant in its ACCEPTED reply, so the quiet window is about one witness round trip [HYP: that piggyback is not in today's wire format] |
 | How does the R3 barrier exclude overlapping authority? | See 3.3 |
 | Delayed shrink replies | A lost or late reply changes nothing. `p` leaves the mode only on a read that shows a version above `v` chosen, never on a reply. Reply-loss steps are in every trace of section 2 |
-| Repeated CAS attempts | Retries of one request all name the same base `v`, so they are attempts in one Paxos instance, and at most one value is chosen at `v + 1`. A retry on a new base after `v + 1` was decided is a new send, and the rule starts again |
+| Repeated CAS attempts, and several changes in flight | `p` has one change outstanding. Retries of it all name the same base `v`, so they are attempts in one Paxos instance, and at most one value is chosen at `v + 1`. A retry on a new base after `v + 1` was decided is a new send, and the rule starts again |
 | A delayed request chosen after `p` has resumed | Impossible once a version above `v` is chosen, because the request names `v`. Today's DEGRADE request does not name its base [FACT, `tools/snc_witness.cpp:423-512`: it carries the space uuid and term, and `propose` re-reads the base and re-applies the change on every attempt, `tools/paxos.h:323-345`]. Without the binding, TLC finds the overlap again (`mVer`, section 5) |
 | A "NO" reply or a timeout | Not a decision. Minority acceptances can still be adopted at `v + 1` by a later ballot [FACT, `tools/paxos.h:262-305`: phase 1 adopts the highest accepted value]. `p` stays in degraded mode until it reads a version above `v` |
 | Witness grants before the shrink is chosen | Possible in real Paxos: a majority can have the degraded value as its highest accepted while another value is still chosen at `v + 1` later, with mixed ballots [INF]. That is safe, because during the pending window `p` still needs the grants of every member of A as well (3.3) |
@@ -98,8 +101,9 @@ real time `c`, with new primary `j`. `j` serves no earlier than `learned_j + W �
    needs a live grant from `j`. `j` stops granting to `t` when it persists `t+1` (R4), which happens before
    `learned_j`. Every grant `j` gave `p` was given before `learned_j`, so R3's `learned_j + W` bound already covers it.
 2. **`P` names `j ∉ A_p`.** This is R7 case 1, so `P`'s base is a chosen degraded version of term `t`. In term `t`,
-   only `p` sends degrading requests (R6.0, and only the current primary proposes membership changes). So that
-   degraded version comes from a request `p` sent at some `s < c`.
+   only `p` proposes changes to R (R6.0, and only the current primary proposes membership changes). Each is chosen
+   only on the base it names, so a chosen version is degraded only if `p` judged that request degrading when it sent
+   it. So that degraded version comes from a degrading request `p` sent at some `s < c`.
    - From `s`, under A-1, `p` needs witness grants under W1 until it reads a later chosen version.
    - If that read shows a degraded mode, `p` stays degraded. If it shows a normal one, a later degraded version needs
      a new send, and the same argument applies to that send.
@@ -139,7 +143,7 @@ it is committed [EXT, NOT VERIFIED: our fetch got only a summary of chapter 4, n
 | Text | Status | Impact |
 |---|---|---|
 | R8 | proposed text, D-01's leases CONDITIONALLY ACCEPTED | Adds R8.0 (3.1). W1, the holder rule, the barrier and "Leaving degraded mode" are unchanged |
-| Degrading request (today's DEGRADE) | today's wire format | It names its base version, and the witness chooses it only as base + 1. This is a wire-format change, PROPOSED only and NOT authorized. Which of today's requests degrade R in the model's sense is a C++ mapping question, UNRESOLVED: NOTREADY also sets the witness's `degraded` field (`tools/snc_witness.cpp:460`, `:505`) |
+| Every R-changing request (today's DEGRADE, NOTREADY, membership changes) | today's wire format | It names its base version, the witness chooses it only as base + 1, and `p` keeps one outstanding. This is a wire-format change, PROPOSED only and NOT authorized. Which of today's requests degrade R in the model's sense is a C++ mapping question, UNRESOLVED: NOTREADY also sets the witness's `degraded` field (`tools/snc_witness.cpp:460`, `:505`) |
 | R1.2 | proposed | Unchanged. A drop still needs a chosen shrink, or a read at `p`'s own term. The read also tells `p` the mode, and `p` adopts it |
 | R7 | proposed; case 1 and case 2 kept | Unchanged. A-1 makes case 1's premise ("the degraded primary has taken over") true by construction. Case 5c stays forbidden |
 | G-35, R2′, R9-A..E, LG-1..LG-6 | various | Unchanged. L-1 stays a Claim L obligation, not a data-loss exception |
@@ -151,19 +155,29 @@ Scratch runs, MaxTerm 2, MaxVer 5, MaxRestarts 1, `OpOutsideDeg` on, shortest BF
 
 | Mutation | Switch | Trace |
 |---|---|---|
-| `mA1`: the mode changes only on learning | `FixA1 = FALSE` | section 2 (10 steps after Init) |
-| `mVer`: the request is rebased, as DEGRADE is today | `FixVerCAS = FALSE` | ShrinkSend, Bump, LearnOut (normal), ShrinkChosen (late, rebased), Promote(n3), Learn(n3), Tick, WGrant(n3), Tick, Grant(n2,n1) |
-| `mDec`: a read showing only `v` ends the pending state | `FixDecide = FALSE` | ShrinkSend, LearnOut, ShrinkChosen, Promote(n3), Learn(n3), Tick, WGrant(n3), Tick, Grant(n2,n1) |
+| `mA1`: the mode changes only on learning | `FixA1 = FALSE` | section 2 (9 steps after Init) |
+| `mVer`: the request is rebased, as DEGRADE is today | `FixVerCAS = FALSE` | ShrinkSend, Bump, LearnOut (normal), ShrinkChosen (late, rebased), Promote(n3), Learn(n3), Tick, Tick, Grant(n2,n1), WGrant(n3) |
+| `mDec`: a read showing only `v` ends the pending state | `FixDecide = FALSE` | ShrinkSend, LearnOut, ShrinkChosen, Promote(n3), Learn(n3), Tick, Tick, WGrant(n3), Grant(n2,n1) |
+
+The model already keeps one outstanding change: `ShrinkSend`, `Grow` and `Ready` all need `~pend[p]`. So the
+two-rebased-shrinks case that review B found against the earlier rule text is excluded by the model, not checked
+by it. A mutation that lets two changes be outstanding at once is not modelled [UNRESOLVED as a control].
 
 **A model defect found and fixed while building these.** `Drop` first left `pdeg` unchanged. That let `p` drop its
 last member, keep normal mode with A = {p}, and hold authority with no grants. A read of R at `p`'s term shows the
 mode, so `Drop` now adopts it. This is R1.2's read, not a new rule.
 
+**A second model defect, found by an independent review.** `NewS(j)` under `R2p` gave the old primary's own re-promotion the set
+S \ {prim}, which removed `j` from its own S. It now applies only when `j ≠ prim`. `spec/tla/Combined.tla:105`
+(merged) has the same defect; it is recorded here and not fixed in this PR. Combined.tla's R2′ lane results stand
+as recorded and should be re-checked once it is fixed [UNRESOLVED].
+
 ## 6. Minimum verification (preregistered here; counted runs need the owner's GO)
 
 `spec/tla/L1Authority.tla` and `spec/tla/L1Authority.cfg`. Every lane uses Nodes {n1, n2, n3}, P0 = n1, Q0 = n2,
-D = 2, MaxTerm 3, MaxVer 6 and MaxRestarts 1, and checks `OneAuthority`. The probe `NoL1Window` must be violated in
-every lane, because it shows the shrink-then-outside-promotion window is reached.
+D = 2, MaxTerm 3, MaxVer 6 and MaxRestarts 1, and checks `OneAuthority`. Run L1-P checks the probe `NoL1Window`
+with the same switches as L1-F. It must be violated, which shows the corrected model reaches the
+shrink-then-outside-promotion window and the PASS of L1-F is not vacuous.
 
 | Run | Switches | Expected |
 |---|---|---|
@@ -176,7 +190,8 @@ every lane, because it shows the shrink-then-outside-promotion window is reached
 Each run has a 2 h cap, and a timeout is NOT COMPLETED. Bounds do not change after results.
 
 Sizing [FACT, uncounted]:
-- At MaxTerm 2 and MaxVer 5, the fixed model has 743,986 distinct states, takes 12 s, and reaches depth 27.
+- At MaxTerm 2 and MaxVer 5, the fixed model has 743,986 distinct states and reaches depth 27 (rechecked after the
+  `NewS` fix, same counts; that fix touches only `R2p`).
 - A 60 s sizing launch at MaxTerm 3 and MaxVer 5 completed with no error, and its counts were not kept. It is
   disclosed here and is not evidence.
 
@@ -193,6 +208,9 @@ Sizing [FACT, uncounted]:
   [INF].
 - **L1-AS-5.** A Grow reply loss is not modelled: Grow is atomic. Losing that reply leaves `p` degraded while R is
   normal, so `p` loses witness grants and stops, which is the safe direction [INF].
+- **L1-AS-6.** Composition is not checked. `LiveGrant.tla` models the log side with its own Shrink, which is not
+  version-bound and has no pending state, and this model has no logs. Neither model checks A-1 and LG-1..LG-6
+  together [UNRESOLVED].
 - MaxVer bounds the number of R changes in a run.
 - Premise P, D-02, R-23, incarnation uniqueness and the real-time grant-expiration argument are unaffected and stay
   open.

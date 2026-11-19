@@ -54,7 +54,7 @@ WGrant(n) ==
   /\ wl' = [wl EXCEPT ![n] = D]
   /\ UNCHANGED <<rec, T, isPrim, learnW, A, pdeg, hg, pend, prop, nRestarts, l1>>
 
-NewS(j) == IF R2p /\ j \in rec.S THEN rec.S \ {rec.prim} ELSE {j}
+NewS(j) == IF R2p /\ j \in rec.S /\ j # rec.prim THEN rec.S \ {rec.prim} ELSE {j}
 
 Promote(j) ==
   /\ rec.term < MaxTerm
