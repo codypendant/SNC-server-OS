@@ -38,7 +38,10 @@ not make an acknowledged entry have fewer than two real copies: it would break s
 `e`", not G-11. U1 and U4 keep that statement true; the I4 argument for S does not depend on them. [Round 5: too strong. A
 **delayed** report can still break G-11 when the primary has missed a shrink, and a stale report can let a member be
 grown into S without the entry; see `docs/AFR_001_REPORT_IDENTITY.md` section 2. Y9-T and RS-0's grant wait close
-both.]
+both.] [Round 6: they do so only with two further rules: a report carries the reporter's incarnation and counts only
+under the incarnation `p` positioned (Y9-T, `docs/AFR_001_REPORT_IDENTITY.md`), since a report sent before an in-place
+reseed otherwise counts once `k` is grown back and grants again; and RS-0's wait precedes RS-1 and runs from the later
+of the last grant and the boot, since the grant time does not survive a crash (contract 6.5).]
 
 ## 2. The invariants in U
 

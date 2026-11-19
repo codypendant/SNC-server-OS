@@ -3938,3 +3938,17 @@ or source comments.
 -   **Not accepted / not authorized:** Y9, Y6c-2, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment, X-2, R640,
     C++, Rust, migration, freeze.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): round-6 targeted review, Y9-T revised, P-2/P-3 code changes (docs)
+
+-   **Trigger:** Codex's review of #173 (`docs/handoff/PR173_Codex_Review.md`; #173 merged a975517).
+-   **Output:** `docs/AFR_001_DURABILITY_DECISIONS.md` section 10 (round 6: 4 BLOCKER, 6 MAJOR, fixed on site, not
+    re-reviewed): reports also carry the reporter's incarnation (a pre-reseed report otherwise counts after a Grow);
+    RS-0's wait precedes RS-1 and runs from the later of last grant and boot; new recovery step 9a (no record before
+    the remap checkpoint's record write; today's order is a nonconformance); the buffered WAL is outside every
+    guarantee; P-2 also fails on standbys (`last_lsn = 0` on replicated installs); `E` defined for idle streams;
+    E30 states the copied segment; RS-6 `max_lsn`. Section 10.1 lists the code changes P-2, P-3 and E30 need (not
+    written). `docs/AFR_001_REPORT_IDENTITY.md` section 4.
+-   **Not accepted / not authorized:** Y9, Y6c-2, Y4, Y7, D-02, R-23, O-FLOOR, any model, experiment, X-2, R640,
+    C++, Rust, migration, freeze.
+-   **Next action:** STOP for Codex and the owner.
