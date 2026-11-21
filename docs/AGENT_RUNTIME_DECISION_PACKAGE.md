@@ -1,6 +1,6 @@
 # SNC Agent Runtime: Strategic Architecture Decision Package (PROPOSED, revision 2)
 
-Status: **PROPOSED, for Codex and the owner.** Docs only.
+Status: **PROPOSED.** Merged as documentation after Codex approved revision 2 (`docs/handoff/PR183_Rev2_Codex_Review.md`). That approval accepts nothing: OD-P1 to OD-P8 each need cody's explicit yes. Docs only.
 - Revision 1 answered section 11 of Codex's review of PRs #181/#182 (`docs/handoff/PR181_PR182_Codex_Review.md`).
 - Revision 2 answers Codex's HOLD review of PR #183 (`docs/handoff/PR183_Codex_Review.md`).
 
@@ -483,6 +483,40 @@ The guarantee in (d) does not rely on (b) or (c) [INF].
 
    **This is not SNC's HA_DURABLE**, which is unchanged.
 
+**(f) Open item OI-1, required before AR-1** (Codex review of revision 2, `docs/handoff/PR183_Rev2_Codex_Review.md`
+section 4). This item is not resolved. It is recorded here, and it goes into the AR-1 preregistration.
+
+1. **Physical rows versus agent-visible authoritative state.**
+   - A *physical row* is anything PostgreSQL holds, including a row whose commit is local but not yet established
+     (C-1 to C-3).
+   - *Agent-visible authoritative state* is only rows whose commit is established (step 2), or is covered by a
+     later established commit (step 4).
+   - The runtime's state API, its reconstruction API, the policy gate and the gateway read only authoritative state,
+     either by waiting (step 3) or by refusing.
+   - The AR-1 recovery test must allow unestablished physical rows to exist after a crash or restart, while
+     proving three things:
+     - they are not returned as authoritative state;
+     - they authorize no effect, model dispatch or acknowledgement;
+     - they become authoritative only once established. On a timeline change they are resolved as in step 5.
+2. **Verify the exact timeline mechanism** before relying on it [all UNVERIFIED]:
+   - `pg_control_checkpoint().timeline_id` reports the last checkpoint's timeline. It may lag right after a
+     promotion that has not yet checkpointed, so it is a suspect source.
+   - The timeline embedded in `pg_walfile_name(pg_current_wal_insert_lsn())` [INF from WAL file naming].
+   - The replication protocol's `IDENTIFY_SYSTEM`.
+
+   AR-1 must pick one and test it across a restart and a simulated promotion of the standby.
+3. **Verify how an unknown transaction's durable identity and establishment bound are recovered** [UNVERIFIED]:
+   - **Identity.**
+     - The transaction id is taken before COMMIT. However, `pg_xact_status(xid)` may be unsafe after a promotion:
+       a transaction id from a lost tail can be issued again on the new timeline to a different transaction
+       [INF, to be tested].
+     - The proposal is therefore that each consequential transaction writes an SNC-generated commit token in a
+       row. The token lookup, not the transaction id, decides "committed or not".
+   - **Bound.** If the bound was never read, the insert LSN read at recovery time, on the same timeline, is a
+     looser but valid upper bound [INF, to be tested]. After a timeline change, step 5 applies.
+
+No durability class is accepted until OI-1 and C-1 to C-7 are verified.
+
 **(e) Required checks before the class is accepted** (specified, not run; each needs authorization):
 
 | Check | Scenario | Pass condition | Where |
@@ -495,7 +529,7 @@ The guarantee in (d) does not rely on (b) or (c) [INF].
 | C-5 standby loss, strict mode | Stop the synchronous standby; separately, power-fail a standby just after it acknowledges | Writes block and nothing is acknowledged. Writes recover when a standby returns. An acknowledged flush survives the standby's power loss | S2 |
 | C-6 promotion | Under the chosen Patroni mode, including a partitioned old primary | The promoted standby holds every commit that had been established | S2 |
 
-The class is a proposed direction until C-1 to C-7 pass. AR-1 runs C-1, C-2, C-3 and C-7 only.
+The class is a proposed direction until OI-1 and C-1 to C-7 pass. AR-1 runs OI-1, C-1, C-2, C-3 and C-7 only.
 
 ## 3. Build versus reuse
 
@@ -859,7 +893,7 @@ Each needs cody's explicit yes. None is requested as a bundle.
    - Effects, model dispatch and acknowledgements wait for it.
    - A `synchronous_commit` bypass is **not prevented**, and the gating takes the place of a prohibition.
 
-   It becomes a contract only after C-1 to C-7 pass. S1 establishes nothing about failover. It is **not
+   It becomes a contract only after OI-1 (2.6 f) and C-1 to C-7 pass. S1 establishes nothing about failover. It is **not
    HA_DURABLE**.
 7. **OD-P7 AR-1.** Authorize AR-1 as rescoped in 7.1, with these set before any run:
    - the matrix;
@@ -1008,6 +1042,7 @@ They raised 31 defects. All are applied:
 - evidence volume and PostgreSQL capacity at scale (S2);
 - Patroni promotion under the chosen mode (C-6);
 - whether a database-enforced restriction on `synchronous_commit` exists that is worth its cost;
+- OI-1: the timeline-id mechanism, and the recovery of an unknown transaction's identity and bound (2.6 f);
 - whether DBOS will publish Rust transactional steps, and when;
 - engineering effort for each arm (not estimated);
 - where an S3 anchor would live and who holds the signing key;
