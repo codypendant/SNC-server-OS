@@ -327,3 +327,17 @@ Preregistered in `docs/AFR_001_REPORT_MODEL_PREREG.md`. **Stopped before any cou
 fidelity check found two `AckSound` counterexamples to the correct protocol, reproduced by `ReportReseedTrR7` (R7
 outside S, a truncation inside a live grant) and `ReportReseedTrW` (a wipe seeded from a deposed primary). Y9-T as
 written is blocked.
+
+## 13. L-1 authority (`L1Authority.tla`)
+
+Preregistered in `docs/AFR_001_L1_AUTHORITY.md` section 6. **No counted run.** Uncounted scratch runs: with A-1
+off, `OneAuthority` fails in 9 steps (a degrading shrink chosen with its reply lost, then R7 case 1 outside S);
+each of the other two parts of A-1, removed alone, fails too; the corrected model completes at MaxTerm 2 and MaxVer
+5 with no error (743,986 distinct states). L-1 stays UNRESOLVED. `Combined.tla:105` has the `NewS` self
+re-promotion defect fixed here; it is recorded there, not fixed.
+
+## 14. Live grants (`LiveGrant.tla`)
+
+Preregistered in `docs/AFR_001_LIVE_GRANT_PREREG.md`. **No counted run; the owner's GO is needed.** The twelve
+regression traces pass their four checks with `live_grant_traces.sh` (uncounted). Writing and reviewing the model
+found four protocol gaps (LG-F1 to LG-F4, section 2 there).

@@ -4030,3 +4030,23 @@ or source comments.
 -   **Not accepted / not authorized:** LG-1..LG-6, the R1.1 change, Y9 (BLOCKED), Y10, W-1, W-2, W-3, Y6c-2, E32, Y4,
     Y7; D-02, R-23, O-FLOOR open; no model, no run, no X-2, R640, C++, Rust, wire format, migration, freeze.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-19 UTC --- Claude (Claude Code): L-1 analysis and LiveGrant model package (model, docs)
+
+-   **Trigger:** Codex's review of #179, section 8 (`docs/handoff/PR179_Codex_Review.md`), and the owner's decision
+    OD-15 (`docs/handoff/PR179_Owner_Decisions.md`: LG-1..LG-6 and R1.1 are design directions only).
+-   **Output, part A:** `docs/AFR_001_L1_AUTHORITY.md`, `spec/tla/L1Authority.tla` and `.cfg`. L-1 is real: a
+    degrading shrink chosen with its reply lost, then R7 case 1 outside S, gives two authority holders (9-step TLC
+    trace). Proposed R8.0 (A-1): every R change names its base version, one outstanding, and `p` needs degraded
+    authority from the send of a degrading request until a later version is read. Controls for each part, exclusion
+    argument, contract impact, preregistered runs. `Combined.tla:105` has a `NewS` self re-promotion defect; recorded,
+    not fixed.
+-   **Output, part B:** `spec/tla/LiveGrant.tla`, `live_grant_cfg.sh`, `live_grant_traces.sh`, twelve
+    `LiveGrantTr*` traces (all 4/4, uncounted), and `docs/AFR_001_LIVE_GRANT_PREREG.md`. Four new protocol gaps
+    LG-F1..LG-F4 with proposed rules. Two independent reviews; every finding fixed or recorded (prereg section 9).
+    The first lanes did not complete in sizing; the counted plan uses nine single-feature lanes with a fixed
+    depth-bounded fallback.
+-   **Not accepted / not authorized:** A-1 and R8.0, LG-F1..LG-F4, the counted runs of both models, Y9-T (BLOCKED),
+    Y10, Y6c-2, E32, Y4, Y7, W-1, W-2, W-3; D-02, R-23, O-FLOOR open; no X-2, R640, C++, Rust, wire format,
+    migration, freeze. L-1 stays UNRESOLVED.
+-   **Next action:** STOP for Codex and the owner.
