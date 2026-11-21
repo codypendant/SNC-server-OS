@@ -4050,3 +4050,15 @@ or source comments.
     Y10, Y6c-2, E32, Y4, Y7, W-1, W-2, W-3; D-02, R-23, O-FLOOR open; no X-2, R640, C++, Rust, wire format,
     migration, freeze. L-1 stays UNRESOLVED.
 -   **Next action:** STOP for Codex and the owner.
+
+### 2026-11-21 UTC --- Claude (Claude Code): Combined.tla NewS fix and the counted L-1 runs (model, docs)
+
+-   **Trigger:** Codex's review of #180 (`docs/handoff/PR180_Codex_Review.md`; #180 merged 6289580), sections 1 and 3;
+    the L-1 runs under the owner's standing instruction of 2026-11-19 16:06 UTC.
+-   **Output:** `Combined.tla` `NewS` fixed (R2′ self re-promotion gave S = {}); V3 and M2b withdrawn and rerun: V3
+    PASS (20.3 M), M2b no violation (22.1 M). Seven L-1 runs: L1-F, L1-Fi, L1-Fr PASS; three controls and the
+    probe violated as expected. Evidence docs annotated; composition boundary recorded. Two independent reviews of
+    the fix: no blocker. `docs/AFR_001_COMBINED_NEWS_FIX.md`, `spec/tla/l1_authority_cfg.sh`.
+-   **Not accepted / not authorized:** A-1, LG-F1..LG-F4, the LiveGrant campaign and any composition model (wait for
+    the build-versus-reuse decision), and everything Codex's section 9 lists.
+-   **Next action:** STOP for Codex and the owner.

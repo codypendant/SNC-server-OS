@@ -357,7 +357,7 @@ state.
   truncation point cannot proceed until it is shrunk (rule 3).
 - **Not in the model:** damage, torn tails or silent loss. The D-02 dependency of 4.2 is unchanged and
   **UNRESOLVED**. Durable cancellation is not checked either.
-- **Unchanged from RESULTS section 9:** M2 and M2b still stand (positioned counting is not shown necessary for
+- **Unchanged from RESULTS section 9:** M2 and M2b (M2b as rerun after the 2026-11-19 `Combined.tla` `NewS` fix) still stand (positioned counting is not shown necessary for
   durability), and M3 still does not distinguish KIP-101 from KIP-279.
 
 ## 6. Three-way independent review (2026-11-17)

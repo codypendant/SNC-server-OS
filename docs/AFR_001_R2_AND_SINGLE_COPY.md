@@ -148,7 +148,7 @@ automatically promotable.
 | M2b | as V3 | an unpositioned survivor grants j a lease | `StaleAuthBounded` | violated |
 | M3 | as V1 | KIP-101 single answer instead of KIP-279 | `PositionedPrefix` | violated (as L_keepS_kip101) |
 | V3 | `Combined.tla` | R2′ promotion, leases from positioned members of A | `Safety`, `StaleAuthBounded` | PASS |
-| M4 | as V3 | READY before every survivor is positioned | `Safety` | records whether rule 4 is necessary or only conservative |
+| M4 | as V3 (run as V1, on `Log.tla`; `spec/tla/RESULTS.md` section 9) | READY before every survivor is positioned | `Safety` | records whether rule 4 is necessary or only conservative |
 
 **Cost.** Not estimated from evidence: the closest existing run (`KeepS`, MaxIds 2) reached 28.6 M states, against
 5.1 M under R2, so R2′ runs may be several times larger than H_fixed. Proposed bound: each run gets a preset
@@ -168,6 +168,7 @@ earlier launch of V2 was killed by a container restart and rerun, which is discl
 | Run | Expected | Result |
 |---|---|---|
 | V1, V2 (Log), V3 (Combined) | PASS | **PASS** (14.2 M, 38.8 M and 19.2 M distinct states) |
+| V3, M2b rerun after the `NewS` fix (2026-11-19) | PASS, record | **PASS** (20.3 M) and **no violation** (22.1 M); the first V3 and M2b ran on a defective model, `docs/AFR_001_COMBINED_NEWS_FIX.md` |
 | M1 (no rule 3) | violated | **violated**: a survivor still in S reseeds and drops an acknowledged entry |
 | M4 (no rule 4) | record | **violated**: rule 4 is necessary, not only conservative |
 | M2, M2b (no rule 2) | uncertain, violated | **no violation**: rule 2 is not shown necessary in these models |
@@ -175,7 +176,7 @@ earlier launch of V2 was killed by a container restart and rerun, which is discl
 
 **What it means for the freeze.** No V run violated, so the stop rule is not triggered. Rules 1, 3 and 4 have model
 evidence within bounds. Rule 2 stays argued only (the models have no standby read leases), and self re-promotion
-(4.2) is in the models but not shown reachable. R2′ is **not frozen**: the results still need cody's and an
+(4.2) is in the models; it is shown reachable in `Combined.tla` (2026-11-19, `docs/AFR_001_COMBINED_NEWS_FIX.md`), not in `Log.tla`. R2′ is **not frozen**: the results still need cody's and an
 independent review.
 
 **Finding from M4.** Now addressed as a proposal by S2′, R6.3′ and P6′ (`docs/AFR_001_PROMOTION_DURING_RECON.md`,
