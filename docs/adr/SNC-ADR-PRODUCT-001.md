@@ -1,7 +1,9 @@
 # SNC-ADR-PRODUCT-001: First product is a focused state-native runtime for persistent AI agents
 
-- **Status:** PROPOSED, revision 2. Not accepted until cody says yes. No product pivot is accepted, and nothing here
-  authorizes implementation, a proof of concept, a dependency, or an override of the scope freeze.
+- **Status:** ACCEPTED by cody on 2026-11-21 (OD-P1, `docs/handoff/PR183_Owner_Decisions.md`), in the limited form:
+  the focused agent runtime is SNC's proposed first product, and enterprise governance is an optional later
+  expansion. Acceptance authorizes nothing else. Implementation, dependencies, the durability class, the language
+  and S3 each need their own decision. The scope-freeze change is OD-P2, recorded in the same file.
 - **Proposed:** 2026-11-21, by Claude. Revision 1 came from Codex's review of PRs #181/#182
   (`docs/handoff/PR181_PR182_Codex_Review.md`). Revision 2 follows Codex's HOLD review of PR #183
   (`docs/handoff/PR183_Codex_Review.md`).

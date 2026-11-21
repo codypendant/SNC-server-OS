@@ -79,6 +79,18 @@ the usual reviewed slice (AGENTS.md).
 The reference-architecture research lane ([research/](research/README.md))
 continues in parallel.
 
+**Owner change, 2026-11-21 (OD-P2,
+[handoff/PR183_Owner_Decisions.md](handoff/PR183_Owner_Decisions.md)):**
+- The freeze is lifted for the focused agent runtime (S1 in
+  [AGENT_RUNTIME_DECISION_PACKAGE.md](AGENT_RUNTIME_DECISION_PACKAGE.md))
+  only.
+- Multi-tenancy, the security/capability subsystem and every other item
+  above stay frozen.
+- S1's basic policy gate lives in the AR-1 experiment code. It is not the
+  production security/capability subsystem.
+- The section 14 decision for general SNC is suspended, not concluded, and
+  its evidence stays valid.
+
 ## 4. Core question and pre-registered criteria
 
 **Does SNC provide enough measurable advantage over simpler or existing

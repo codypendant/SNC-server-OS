@@ -523,6 +523,16 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **Agent runtime, the focused first product (decided 2026-11-21, limited):**
+  cody accepted OD-P1 to OD-P7 with one "yes" to the limited forms, per the reading recorded in
+  [handoff/PR183_Owner_Decisions.md](handoff/PR183_Owner_Decisions.md).
+  - The focused agent runtime (S1) is the proposed first product
+    ([adr/SNC-ADR-PRODUCT-001.md](adr/SNC-ADR-PRODUCT-001.md),
+    [AGENT_RUNTIME_DECISION_PACKAGE.md](AGENT_RUNTIME_DECISION_PACKAGE.md)).
+  - The scope freeze above is lifted for S1 only. Multi-tenancy and security stay frozen.
+  - General-SNC falsification is suspended, not concluded.
+  - PostgreSQL and DBOS Python are AR-1 experiment tools only.
+  - **Now:** the AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md)). No AR-1 code until cody approves it.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event
