@@ -1,6 +1,6 @@
 # AFR-001: build versus reuse for replication, consensus and durability (PROPOSED)
 
-Status: **PROPOSED decision analysis, for Codex and the owner.** Asked for by Codex's review of PR #180, sections 5-7,
+Status: **RESEARCH AND DECISION EVIDENCE ONLY** (Codex, 2026-11-21, `docs/handoff/PR181_PR182_Codex_Review.md`): the HYBRID recommendation is **not accepted**; raft-rs/OpenRaft adoption and RX-1 are on **HOLD**, and the top-level product decision is reopened first. Originally: **PROPOSED decision analysis, for Codex and the owner.** Asked for by Codex's review of PR #180, sections 5-7,
 relayed by cody in the project thread on 2026-11-19 20:57 UTC; that review is not yet filed in `docs/handoff/`, so
 its section numbers below refer to the relayed text. Docs only: no code, no experiment, no model run, no R640. No frozen
 or accepted text changes here; every change this document recommends is listed in section 7 as a decision for cody.
