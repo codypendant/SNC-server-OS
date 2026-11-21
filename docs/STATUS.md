@@ -532,7 +532,11 @@ Decided by cody on 2026-11-04.
   - The scope freeze above is lifted for S1 only. Multi-tenancy and security stay frozen.
   - General-SNC falsification is suspended, not concluded.
   - PostgreSQL and DBOS Python are AR-1 experiment tools only.
-  - **Now:** the AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md)). No AR-1 code until cody approves it.
+  - The AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md), revision 2) is merged with Codex's G1 sign-off
+    ([handoff/PR184_Rev2_Codex_Review.md](handoff/PR184_Rev2_Codex_Review.md)). Nothing has run.
+  - **Now:** waiting for cody's decision on G1 and G2 (AR-1 code, uncounted bring-up, checker adequacy), and on the
+    PROPOSED numbers and where runs go (prereg section 14). Codex recommends G2. No AR-1 code until cody says yes.
+    G3, the counted runs, needs a separate GO after the G2 evidence.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event
