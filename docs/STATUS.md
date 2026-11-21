@@ -523,6 +523,20 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **Agent runtime, the focused first product (decided 2026-11-21, limited):**
+  cody accepted OD-P1 to OD-P7 with one "yes" to the limited forms, per the reading recorded in
+  [handoff/PR183_Owner_Decisions.md](handoff/PR183_Owner_Decisions.md).
+  - The focused agent runtime (S1) is the proposed first product
+    ([adr/SNC-ADR-PRODUCT-001.md](adr/SNC-ADR-PRODUCT-001.md),
+    [AGENT_RUNTIME_DECISION_PACKAGE.md](AGENT_RUNTIME_DECISION_PACKAGE.md)).
+  - The scope freeze above is lifted for S1 only. Multi-tenancy and security stay frozen.
+  - General-SNC falsification is suspended, not concluded.
+  - PostgreSQL and DBOS Python are AR-1 experiment tools only.
+  - The AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md), revision 2) is merged with Codex's G1 sign-off
+    ([handoff/PR184_Rev2_Codex_Review.md](handoff/PR184_Rev2_Codex_Review.md)). Nothing has run.
+  - **Now:** waiting for cody's decision on G1 and G2 (AR-1 code, uncounted bring-up, checker adequacy), and on the
+    PROPOSED numbers and where runs go (prereg section 14). Codex recommends G2. No AR-1 code until cody says yes.
+    G3, the counted runs, needs a separate GO after the G2 evidence.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event

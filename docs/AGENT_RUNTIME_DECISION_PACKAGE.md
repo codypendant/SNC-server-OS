@@ -1,6 +1,6 @@
 # SNC Agent Runtime: Strategic Architecture Decision Package (PROPOSED, revision 2)
 
-Status: **PROPOSED.** Merged as documentation after Codex approved revision 2 (`docs/handoff/PR183_Rev2_Codex_Review.md`). That approval accepts nothing: OD-P1 to OD-P8 each need cody's explicit yes. Docs only.
+Status: **OD-P1 to OD-P7 decided by cody on 2026-11-21 in limited form** (`docs/handoff/PR183_Owner_Decisions.md`); OD-P8 noted. Merged as documentation after Codex approved revision 2 (`docs/handoff/PR183_Rev2_Codex_Review.md`). Codex's approval accepted nothing by itself. Docs only.
 - Revision 1 answered section 11 of Codex's review of PRs #181/#182 (`docs/handoff/PR181_PR182_Codex_Review.md`).
 - Revision 2 answers Codex's HOLD review of PR #183 (`docs/handoff/PR183_Codex_Review.md`).
 
@@ -459,8 +459,8 @@ The guarantee in (d) does not rely on (b) or (c) [INF].
    cancelled-wait and restart-marked commits.
 5. **Timeline change.** Any check still pending when the timeline changes becomes **in doubt**. Comparing LSNs
    across timelines is wrong: a promoted standby's new writes can pass an old bound while the old commit was lost.
-   The check is resolved on the new primary by transaction id (`pg_xact_status`) or a row lookup. It is never
-   resolved by an LSN comparison.
+   The check is resolved on the new primary by commit-token row lookup only (OI-1). It is never resolved by an LSN
+   comparison, and never by transaction id, because a lost transaction id can be issued again.
 6. **What waits for establishment:**
    - external effects (each dispatched attempt, E-10);
    - model dispatch (E-11);
@@ -470,7 +470,12 @@ The guarantee in (d) does not rely on (b) or (c) [INF].
    data. Commits whose establishment lags beyond the expected synchronous latency are logged, so a bypass is
    visible, not silent.
 7. **Lost connection.** If the connection drops after COMMIT is sent but before the bound is read, the outcome is
-   unknown. Recovery looks up the transaction id or the row, then applies steps 2 and 5.
+   unknown.
+   - Recovery first makes the transaction final. On the same timeline it waits until `pg_xact_status(xid)` is no
+     longer `in progress`, or it terminates that backend and waits for it to exit.
+   - This matters because a commit waiting for the standby is already committed internally but not yet visible, so
+     an early token lookup would wrongly say "not committed" [EXT-SRC: PostgreSQL 18 xact.c, per the AR-1 review].
+   - Only then does it look up the commit token and apply steps 2 and 5.
 8. **What S1 establishes, and what it does not:**
    - S1 establishes a second durable copy before any effect.
    - It establishes **nothing about failover**. Survival of the primary's loss depends on promoting a standby that
