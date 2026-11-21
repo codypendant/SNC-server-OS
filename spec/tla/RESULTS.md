@@ -245,6 +245,10 @@ of this file: `-workers 2`, `-Xmx6g`, two runs at a time, `states/` deleted afte
 Nothing from it is reported. It was run again from the start at the same configuration, so nine launches were
 made for eight completed runs.
 
+**Correction (2026-11-19, Codex review of #180 section 3).** `Combined.tla`'s `NewS` gave the empty set on R2′
+self re-promotion, so the first V3 and M2b ran on a defective model. Both are rerun on the fixed model below; the
+Log runs and M1-M4 are unaffected. Details: `docs/AFR_001_COMBINED_NEWS_FIX.md`.
+
 **Model changes** (all behind switches; with `R2p = FALSE` and `InitAll = FALSE` the models behave as before):
 - `InitAll`: S starts as all three nodes, so that S′ = S \ {old primary} has two members.
 - `R2p` (both models): `Promote` sets S′ (rule 1), or {j} when j is the sole member and re-promotes itself at its
@@ -260,10 +264,10 @@ made for eight completed runs.
 |---|---|---|---|---|
 | V1 | Log, MaxTerm 3, MaxIds 2, one crash | R2′, all rules | PASS | **PASS**, 14,186,264 distinct states, depth 42, 20 min |
 | V2 | Log, MaxTerm 2, MaxIds 3, one crash | R2′, all rules | PASS | **PASS**, 38,833,104 distinct states, depth 41, 64 min (rerun, see disclosure) |
-| V3 | Combined, MaxTerm 3, MaxIds 2, one restart, `Safety` and `StaleAuthBounded` | R2′, all rules | PASS | **PASS**, 19,225,779 distinct states, depth 42, 17 min |
+| V3 | Combined, MaxTerm 3, MaxIds 2, one restart, `Safety` and `StaleAuthBounded` | R2′, all rules | PASS | ~~PASS, 19,225,779 distinct states, depth 42, 17 min~~ (defective model, withdrawn). **Rerun on the fixed model: PASS**, 20,264,050 distinct states, depth 42, 28 min |
 | M1 | as V1 | `FixLeaveS = FALSE` (no rule 3) | violated | **violated**, depth 14 (`AckedPreserved`) |
 | M2 | as V1 | `FixPosAck = FALSE` (no rule 2) | uncertain | **no violation**, 14,469,966 distinct states |
-| M2b | as V3 | `FixPosGrant = FALSE`, `FixPosAck = FALSE` | violated | **no violation**, 21,048,786 distinct states, depth 43 |
+| M2b | as V3 | `FixPosGrant = FALSE`, `FixPosAck = FALSE` | violated | ~~no violation, 21,048,786 distinct states, depth 43~~ (defective model, withdrawn). **Rerun: no violation**, 22,125,137 distinct states, depth 43, 21 min |
 | M3 | as V1 | `FixM1 = FALSE` (KIP-101 single answer) | violated | **no violation**, 14,186,264 distinct states: the same count as V1 |
 | M4 | as V1 | `FixReadyPos = FALSE` (READY before survivors are positioned) | record | **violated**, depth 12 (`AckedPreserved`) |
 
@@ -297,8 +301,9 @@ old intent, which deletes it.
   standby-lease clause has nothing to protect here. Rule 2 stays argued, not checked.
 - **M3 does not discriminate.** Its state count equals V1's, so `FixM1` changes no behaviour at MaxIds 2 under R2′, as
   with L_M1_ids2 earlier. It says nothing about KIP-101 against KIP-279 under R2′.
-- **Self re-promotion (4.2) is unconfirmed.** The branch is in both models, but no run shows it is reachable at these
-  bounds (no coverage run was made within the budget).
+- **Self re-promotion (4.2):** reachable in `Combined.tla` at V3's constants (five steps; probes in
+  `docs/AFR_001_COMBINED_NEWS_FIX.md` section 5). The first V3 reached it with the `NewS` defect, so the statement
+  "every Combined invariant" above rests on the rerun. In `Log.tla` it is still not shown reachable.
 - Standby read leases, silent loss (D-02), torn tails, a standby's volatile tail, `m = 2` admission and operator
   promotion are not modelled. Rule 5 (shrink of a survivor that never positions) is covered only as the existing
   shrink action.
@@ -330,14 +335,20 @@ written is blocked.
 
 ## 13. L-1 authority (`L1Authority.tla`)
 
-Preregistered in `docs/AFR_001_L1_AUTHORITY.md` section 6. **No counted run.** Uncounted scratch runs: with A-1
+Preregistered in `docs/AFR_001_L1_AUTHORITY.md` section 6; counted runs below. Earlier uncounted scratch runs: with A-1
 off, `OneAuthority` fails in 9 steps (a degrading shrink chosen with its reply lost, then R7 case 1 outside S);
 each of the other two parts of A-1, removed alone, fails too; the corrected model completes at MaxTerm 2 and MaxVer
-5 with no error (743,986 distinct states). L-1 stays UNRESOLVED. `Combined.tla:105` has the `NewS` self
-re-promotion defect fixed here; it is recorded there, not fixed.
+5 with no error (743,986 distinct states). L-1 stays UNRESOLVED. The same `NewS` defect in `Combined.tla:105` is
+now fixed there too (section 9). **Counted runs (2026-11-21): L1-F, L1-Fi, L1-Fr PASS** (3,726,353, 8,342,571 and 4,138,849 distinct states,
+exhaustive); L1-mA1, L1-mVer, L1-mDec and L1-P violated as expected. `docs/AFR_001_COMBINED_NEWS_FIX.md` section 5.
 
 ## 14. Live grants (`LiveGrant.tla`)
 
 Preregistered in `docs/AFR_001_LIVE_GRANT_PREREG.md`. **No counted run; the owner's GO is needed.** The twelve
 regression traces pass their four checks with `live_grant_traces.sh` (uncounted). Writing and reviewing the model
 found four protocol gaps (LG-F1 to LG-F4, section 2 there).
+
+**Evidence boundary (Codex review of #180, section 4).** `L1Authority.tla` and `LiveGrant.tla` are not composed.
+LiveGrant models Shrink atomically, and L1Authority has no replicated log, so neither shows exclusive authority and
+acknowledgement safety together under the joint protocol. Final acceptance of a custom protocol would need a
+composition argument or an integrated model. A depth-bounded LiveGrant check is evidence for that depth only.

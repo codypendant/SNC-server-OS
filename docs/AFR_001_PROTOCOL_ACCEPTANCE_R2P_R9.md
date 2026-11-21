@@ -67,12 +67,12 @@ No run checks liveness. No run combines timed leases with R2′. "Checked" never
 
 | Rule | Class | Evidence | Limits |
 |---|---|---|---|
-| **R2′ rule 1** S′ = S \ {old primary}, or {p} for a sole member's self re-promotion | CHECKED, sufficiency only | V1-V3 PASS (R2); X1, X2 (PR); C1-C3 (RB) | Today's R2 (S′ = {j}) also passes. Rule 1 is an availability choice, not a safety rule |
-| **Rule 2** a survivor counts, and is leased, only once positioned | CHECKED, sufficiency only | Acknowledgements: M2 and M2b find nothing (R2). Lease: MP violates only `LeasedPrefix`, which is stronger than G-30 (PR) | MP was not rerun after `6307554`; it was checked by replay (PR 5, deviation 3). The lease clause is kept whatever R9-F decides |
+| **R2′ rule 1** S′ = S \ {old primary}, or {p} for a sole member's self re-promotion | CHECKED, sufficiency only | V1-V3 PASS (R2); X1, X2 (PR); C1-C3 (RB) | Today's R2 (S′ = {j}) also passes. Rule 1 is an availability choice, not a safety rule (V3 rerun 2026-11-19 after the `Combined.tla` `NewS` fix: PASS, `docs/AFR_001_COMBINED_NEWS_FIX.md`) |
+| **Rule 2** a survivor counts, and is leased, only once positioned | CHECKED, sufficiency only | Acknowledgements: M2 and M2b find nothing (R2; M2b rerun after the `NewS` fix, still nothing). Lease: MP violates only `LeasedPrefix`, which is stronger than G-30 (PR) | MP was not rerun after `6307554`; it was checked by replay (PR 5, deviation 3). The lease clause is kept whatever R9-F decides |
 | **Rule 3** leave S before reseeding | CHECKED | M1 (R2) | MaxIds 2, one crash |
 | **Rule 4** READY only after the survivors are positioned | CHECKED | M4 (R2). MQa: READY alone covers automatic promotion (PR) | `FixReadyPos` removes four conditions together |
 | **Rule 5** shrink a survivor that never positions | ARGUED | Only as the existing `Shrink` action | — |
-| **P1-P5, P7** | As the earlier review's R2 and R7 rows, with S′ | V3 for P2 and P5 (R2); U_noBootRead for P7 (earlier review) | P5 relies on I4, which a silent loss breaks (O4) |
+| **P1-P5, P7** | As the earlier review's R2 and R7 rows, with S′ | V3 for P2 and P5 (R2); U_noBootRead for P7 (earlier review) | P5 relies on I4, which a silent loss breaks (O4) (V3 rerun 2026-11-19 after the `Combined.tla` `NewS` fix: PASS, `docs/AFR_001_COMBINED_NEWS_FIX.md`) |
 | **P6** incomplete flag, recovery barrier, G-14(a) attestation; **P6′** not reseeding | ARGUED | Every run keeps `~Busy(j)` on `Promote` (PR 5) | — |
 | **S1, S3, S4** persist and wait; placement re-seal (MS-3) and expiry of older source leases; mint lease | As the earlier review (R3, R4 rows; G-37 ARGUED) | No run in #151-154 | — |
 | **S2′** complete any pending intent before serving | CHECKED | MQ (operator promotion inside S), MD (cancellation in memory is lost in a crash) (PR) | Needed only when READY is waived (MQa) |
@@ -98,7 +98,7 @@ C++ statuses are unchanged by this review (`docs/SNC_GUARANTEES.md`).
 
 | Guarantee | Class | Evidence and gap |
 |---|---|---|
-| **I4** acknowledged writes kept under R2′ (Claim D) | CHECKED | `AckedPreserved` passes in V1-V3, X1-X2 and C1-C3. The rules it needs are shown by M1, M4, MQ, MD, MR (PR) and MB, MI (RB). Outside-S promotion stays out (G-35). Silent loss: O4 |
+| **I4** acknowledged writes kept under R2′ (Claim D) | CHECKED | `AckedPreserved` passes in V1-V3, X1-X2 and C1-C3. The rules it needs are shown by M1, M4, MQ, MD, MR (PR) and MB, MI (RB). Outside-S promotion stays out (G-35). Silent loss: O4 (V3 rerun 2026-11-19 after the `Combined.tla` `NewS` fix: PASS, `docs/AFR_001_COMBINED_NEWS_FIX.md`) |
 | **G-15** `(term, LSN)` never names two contents | CHECKED, narrow | `HistoryUnique` passes in V1, V2, X2 and C3, and MNH makes it non-vacuous. Runs with MaxIds 1 check it only trivially. The completion end marker is TEXT ONLY. Torn tails and D-02: UNRESOLVED |
 | **G-30** standby read under a valid lease | A-E: as R9 above. F: TEXT ONLY | Timed runs use today's R2; R2′ runs have untimed leases. **Without F, a lease read may return an unacknowledged change that reconciliation later truncates.** Until O1, standby reads stay outside the Rust scope, or are labelled weaker under G-29 |
 | **G-29** read guarantees by read type | F: TEXT ONLY | Under R9-F, a multi-object standby read is not a snapshot |
