@@ -22,7 +22,7 @@ run on the R640. Claims are labelled FACT, EXT, INF or HYP.
   degrading request is not enough: two rebased non-degrading shrinks, each chosen on the other's result, can leave
   S = {p} with no degrading request ever sent (found by an independent review of this package).
 - **Bounded check, uncounted** [FACT, this PR, scratch runs]:
-  - With A-1 off, TLC finds the overlap in 9 steps.
+  - With A-1 off, TLC finds the overlap in 9 steps (8 at the counted bounds).
   - Each of the two other parts, removed alone, also yields an overlap.
   - The corrected model shows no overlap at the bounds tried. Those runs were sizing, not preregistered, so they are
     not evidence. The counted runs in section 6 wait for the owner.
@@ -169,8 +169,8 @@ mode, so `Drop` now adopts it. This is R1.2's read, not a new rule.
 
 **A second model defect, found by an independent review.** `NewS(j)` under `R2p` gave the old primary's own re-promotion the set
 S \ {prim}, which removed `j` from its own S. It now applies only when `j ≠ prim`. `spec/tla/Combined.tla:105`
-(merged) has the same defect; it is recorded here and not fixed in this PR. Combined.tla's R2′ lane results stand
-as recorded and should be re-checked once it is fixed [UNRESOLVED].
+had the same defect. It is fixed there too, and the affected runs (V3, M2b) are rerun on the fixed model:
+`docs/AFR_001_COMBINED_NEWS_FIX.md`.
 
 ## 6. Minimum verification (preregistered here; counted runs need the owner's GO)
 
@@ -188,6 +188,9 @@ shrink-then-outside-promotion window and the PASS of L1-F is not vacuous.
 | L1-P | fixes on, invariant `NoL1Window` | violated (reachability) |
 
 Each run has a 2 h cap, and a timeout is NOT COMPLETED. Bounds do not change after results.
+
+**Counted results (2026-11-21):** L1-F, L1-Fi and L1-Fr PASS (3.7 M, 8.3 M and 4.1 M distinct states); the three
+controls and L1-P are violated as expected. Table and inspected traces: `docs/AFR_001_COMBINED_NEWS_FIX.md` section 5.
 
 Sizing [FACT, uncounted]:
 - At MaxTerm 2 and MaxVer 5, the fixed model has 743,986 distinct states and reaches depth 27 (rechecked after the
