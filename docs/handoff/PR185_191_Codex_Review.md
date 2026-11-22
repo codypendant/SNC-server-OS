@@ -29,7 +29,7 @@ Always verify, never assume. Fix on site. Preserve independent verification and 
 ---
 
 ## Disposition (this thread: items 3 to 6; items 1 and 2 belong to the AR-1 thread)
-- 3: `dlw.py run` now runs a negative control at every mark. The check runs on the previous mark's replay image, which is disposable and lacks every update acknowledged in between, and it must reject it. If no acknowledged update is missing, it exits 3 and the control counts as void, not passed. test_net_bench_verify `stale` does the same without device-mapper, using a copy of the data taken between two runs.
+- 3: `dlw.py run` takes a second mark 10 ms after each mark. The check of that later mark runs on the earlier mark's replay image, which is disposable and lacks the few updates acknowledged in the 10 ms between, and it must reject that image. If nothing acknowledged is missing, it exits 3 and the control is void, not passed. At least half of the 20 controls must be non-void. A first version judged each image against the next 0.5 s mark, which removed about 900 updates at once; that was too coarse to count as targeted. test_net_bench_verify `stale` does the same without device-mapper, using a copy of the data taken between two runs.
 - 4: `bench/results/dc1-trackb/TB0_RESULT.md` is corrected. Measurements are kept. Power-loss protection is marked UNVERIFIED. Each system's flush and FUA overhead is measured for its own configuration.
 - 5: thresholds are unchanged. CRITERIA.md stays APPROVED, not FROZEN. It is completed and frozen before any comparative run.
 - 6: baseline preparation continues. There is no engine change, no replication work and no raft-rs work. Harness results are not comparative results.
