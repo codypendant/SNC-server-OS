@@ -1,4 +1,4 @@
-# SNC direction comparison plan (PROPOSED revision 2, authorizes nothing)
+# SNC direction comparison plan (PROPOSED revision 3, authorizes nothing)
 
 ## 0. Status, authority and labels
 
@@ -6,6 +6,8 @@
   It is filed verbatim in `docs/handoff/SNC_Next_Research_Direction_20261122.txt`.
 - **Revision 2** applies Codex's HOLD review of revision 1 (`docs/handoff/PR186_Codex_Review.md`), items 1 to 6, and
   a focused review told to break the corrections (section 8).
+- **Revision 3** changes only the settlement probe (4.1), after Codex's HOLD review of revision 2
+  (`docs/handoff/PR186_Codex_Review_rev2.md`), and a focused review of that change (section 8).
 - **What this is.** A bounded plan for owner and Codex approval. It is not a result and not a decision.
 - **What it authorizes.** Nothing. These boundaries hold throughout:
   - no harness code, no runs, and no dependency adoption;
@@ -269,7 +271,8 @@ raft-rs. SNC's engine is unchanged. Each baseline is an established system used 
   the intended send time, and runs on the same client cores. The pilot's client-limit check (C3) applies to every
   system. A client found limited makes the point invalid, not slow.
 - **Capacity at SLO.**
-  - It is the highest offered rate at which three 120 s runs each meet all of:
+  - It is the highest offered rate at which three runs each meet all of (120 s, or longer where the probe minimum
+    of this section needs it):
     - p99 at or below the SLO;
     - zero errors;
     - application rejections (no funds, account busy) at or below 0.1% of operations;
@@ -300,12 +303,13 @@ raft-rs. SNC's engine is unchanged. Each baseline is an established system used 
     no sync must fail it. If either control misbehaves, the test is invalid on that host.
   - **Run.** Each system runs at about 25% of its capacity, so group commit is exercised. The harness reads
     `CLOCK_MONOTONIC`, then inserts a mark (`dmsetup message`) every 0.5 s. The client logs every acknowledgement on
-    the same clock.
+    the same clock, and so does every settlement-probe read that showed a credit.
   - **Check.** For each of 20 marks per configuration (PROPOSED), the log is replayed from "mkfs" to the last flush
     before the mark, which models losing every volatile cache at that instant. The system recovers from that image.
     Then, for every account, the recovered balance is at least the start plus every deposit acknowledged before the
     mark, and at most that plus the deposits in doubt. Transfers are checked the same way on both accounts, and
-    money is conserved.
+    money is conserved. Every credit a probe read showed before the mark is in the recovered image, so a read that
+    counts as settled is shown to be durable, for sagas as well as atomic systems.
   - **Pass** means no violation at any mark.
   - **Order with tuning.** Only configurations that passed this test may be screened or counted. So every candidate
     configuration of the tuning budget is tested on the VM before the R640 session.
@@ -327,23 +331,71 @@ raft-rs. SNC's engine is unchanged. Each baseline is an established system used 
   - sagas and outboxes (SNC, Restate, the PostgreSQL outbox) settle later.
 
   The earlier **debit acknowledgement** is reported for every system, but it never decides anything.
-- **Settlement probe (harness code, the same method for every system).**
-  - **Share:** 1% of transfers (PROPOSED) go to probe accounts that receive nothing else.
-  - **Pool:** at least the probe rate × p99.9 settlement time × 10 accounts. They are spread evenly across shards
-    and partitions, and they follow the benchmark's locality rule, so B2's probes cross shards. Each probe account
-    has at most one probed transfer outstanding.
-  - **Poll:** every system polls on the same grid from the transfer's intended send time. The interval is SLO/20:
-    100 µs in B1 and 500 µs in B2. There is one outstanding poll per target; the next one goes at the later of the
-    next grid tick and the previous reply. A poll succeeds when the balance equals the earlier balance plus the
-    amount.
-  - **Durable reads:** SNC's default read, which waits for durability; PostgreSQL's committed read; Garnet's read,
-    where the observation time is the later of the first successful poll and the transfer's commit-waited
-    acknowledgement; for Restate, the cheapest read shown durable in bring-up (a shared handler or SQL state
-    introspection, both UNRESOLVED). If neither qualifies, Restate's exclusive handler is used. Each poll is then a
-    journaled invocation, which is labelled "favours SNC, used for decisions".
-  - **Cost:** probe reads are counted and reported, and capped at 1% of all operations.
-  - **Result:** full-settlement latency is the time from the intended send to the successful poll. It is an upper
-    bound for every system.
+- **Settlement probe (harness code, the same method for every system).** The gate on settlement is "p99 at or below
+  the SLO". That is the same statement as "at most 1% of transfers are not settled at send + SLO". So the probe does
+  not poll. It makes **one durable read per probed transfer, at its deadline**, and counts the misses.
+  - **Deadline read.** All times are on the intended timeline. The read is issued at intended send + SLO, on the
+    shared scheduler, and its reply must arrive by **intended send + SLO + g**, with grace **g = SLO/10** (200 µs in
+    B1, 1 ms in B2). A client running late therefore gains nothing. A read that replies later, errors, or shows no
+    credit is a **miss**. The effective bound is "settled by SLO + g", the same for every system.
+  - **Settled at the deadline** means, for every system:
+    - the deadline read shows the target's balance at least its **expected balance**: the start balance plus every
+      probe credit ever sent to that account, earlier missed ones included. A late earlier credit can then never
+      pass for the current one. Missed probes can only add misses, which is conservative and the same for every
+      system; and
+    - for any step that is a PostgreSQL or Garnet commit (the atomic transfer in B1, the outbox worker's credit in
+      B2), its issuer, client or worker, has seen that commit return by intended send + SLO + g. Garnet readers may
+      see writes not yet in the AOF (UNVERIFIED), and PostgreSQL's visibility after the local WAL flush is
+      UNVERIFIED, so a read alone never proves durability there. For SNC and Restate the read itself must be durable,
+      and the durability check above tests that.
+  - **Durable reads:** SNC's default read, which waits for durability; PostgreSQL's committed read; Garnet's read with
+    the condition above; for Restate, the cheapest read shown durable in bring-up (a shared handler or SQL state
+    introspection, both UNRESOLVED), otherwise its exclusive handler. If that read is slower than g, Restate takes
+    misses, which is labelled "favours SNC, used for decisions".
+  - **Decision quantity:** the miss fraction m = misses / probed transfers. The run meets the settlement SLO when
+    m ≤ 1%. The report also gives m's 95% Wilson interval. No settlement latency value is estimated, only whether p99
+    is within the SLO. The debit acknowledgement keeps its full latency distribution (reported only).
+  - **Pool:** the probe accounts are added to the 1M workload accounts, and the workload never targets them. Each has
+    at most one probed transfer outstanding, which lasts SLO + g. The pool has at least max(1,024, probe rate ×
+    (SLO + g) × 10) accounts, spread evenly across shards and partitions. The floor binds at every plausible rate:
+    4,000 probes/s × 2.2 ms × 10 is 88. Probes follow the benchmark's locality rule, so B2's probes cross shards. A probe with no free
+    account is skipped and counted.
+  - **Budget, the same for every system.** Probe reads are a fixed share **B = 0.2%** (PROPOSED) of the run's
+    workload operations, for every system and every point. If x is the transfer share of operations, the probed
+    share of transfers is f = B / x. Each probed transfer costs exactly one read, so overhead is B by construction:
+
+    | | x | f = B / x | reads per probed transfer | probe reads per workload operation |
+    |---|---|---|---|---|
+    | B1, 0% transfers | 0 | no probes | | 0 |
+    | B1, 20% transfers | 0.20 | 1% of transfers | 1 | 0.2 × 0.01 × 1 = **0.2%** |
+    | B2 (all transfers) | 1.00 | 0.2% of transfers | 1 | 1.0 × 0.002 × 1 = **0.2%** |
+
+  - **How the overhead is charged.** Probe reads go through the same clients, cores and scheduler as the workload,
+    in the same window. The system does the work, but probe reads are not counted as served operations, are kept out
+    of the read p99 gate, and are reported separately. They count toward errors and toward the client-limit check.
+  - **Minimum observations: n_min = 3,000 probed transfers per confirmation run** (PROPOSED). At the boundary (true
+    miss fraction 1%) that gives about 30 expected misses, a standard deviation of √(3,000 × 0.01 × 0.99) ≈ 5.4, and
+    a 95% Wilson interval of about 0.7% to 1.4%. With a nearest-rank p99, "p99 ≤ SLO" is exactly "misses ≤
+    floor(0.01 n)". Bisection steps run 120 s and need **n ≥ 600**; only the three confirmation runs at the chosen
+    rate need n_min.
+  - **Window length.** A run yields n = B × R × T probed transfers at workload rate R (operations per second) and
+    measured window T. For confirmation runs, **T = max(120 s, n_min / (B × R))**, capped at **600 s**, and every
+    system in a benchmark point uses the same T: the largest any of them needs. So no system gets longer windows,
+    with more compaction, checkpoints or vacuum, than another. Bisection steps need R ≥ 600 / (0.002 × 120) =
+    2,500 ops/s.
+    - 120 s suffices when R ≥ 3,000 / (0.002 × 120) = **12,500 ops/s**. For scale, B1 at 600,000 ops/s gives
+      0.002 × 600,000 × 120 = 144,000 probes;
+    - between 2,500 and 12,500 ops/s the window grows, up to 600 s at R = 3,000 / (0.002 × 600) = **2,500 ops/s**.
+  - **When the budget or the minimum cannot be met:**
+    - **R below 2,500 ops/s:** that system's capacity is recorded as "below 2,500 ops/s", and no rate under it is
+      measured. The verdict stands only if it holds for every value of that capacity from 0 to 2,500 ops/s;
+      otherwise that benchmark is UNRESOLVED (section 6's last Track B row). If both systems are below, it is
+      UNRESOLVED.
+    - **A run fails a probe check:** more than 1% of probes skipped, probe reads more than 5% away from B (relative,
+      against offered workload operations), or n below the run's minimum. That run is invalid, not slow. It is
+      rerun once. A step that is invalid twice counts as failing in bisection; if the verdict would change had it
+      passed, the benchmark is UNRESOLVED.
+    - B, g and n_min never change per system or after results.
 - **Backlog at the end of a window, counted the same way for every system:**
   - SNC: outbox entries summed over shards;
   - Restate: pending invocations, from SQL introspection;
@@ -410,8 +462,8 @@ that runs the same logic next to the data, at the same durability.
 
 - **SLOs (PROPOSED):**
   - p99 at most 1 ms for reads and deposits, the same edge as CP-1A;
-  - p99 full-settlement latency at most 2 ms for probed transfers, for every system. It is wider because the probe
-    adds a poll interval and one read.
+  - p99 full-settlement latency at most 2 ms for probed transfers, for every system. It is wider because a transfer
+    touches two accounts: an SNC cross-shard saga needs two serial group commits.
 - **Capacity** at the 20% point needs both SLOs, plus the bounded backlog, which includes unsettled transfers. So the
   sustained rate is also a settled rate.
 - **Thresholds against the gating baseline (PROPOSED):**
@@ -433,7 +485,8 @@ run better on owner-local state than on infrastructure built for durable work be
 RAM. So B2 tests event-driven durable messaging, not general scheduling. RAM per entity is reported because it is
 the price of that design.
 
-- **Workload:** 1M entities, uniform and Zipf 0.99. Open-loop events: entity A debits itself and durably sends a
+- **Workload:** 1M entities. Credit targets are uniform at the gated point; Zipf 0.99 is reported, not gating,
+  because the cold probe accounts cannot see contended-target settlement. Open-loop events: entity A debits itself and durably sends a
   credit to a random entity B on another shard, and B applies it exactly once. This is SNC's existing transfer saga
   (`docs/TRANSFERS.md`).
 - **SNC:** `net_bench --transfer 100 --xfer-local 0`, with `--rate`, the settlement probe and the conservation check
@@ -462,7 +515,8 @@ the price of that design.
   - outbox: the outbox table is empty.
 - **All three are sagas**, so they share one completion boundary: full settlement, measured by the probe.
 - **Metrics:**
-  - **capacity at SLO on full settlement** (decides): the probe's p99, with the settlement backlog bounded;
+  - **capacity at SLO on full settlement** (decides): the probe's miss fraction at most 1%, with the settlement backlog
+    bounded;
   - debit-acknowledgement latency (reported only);
   - settlement throughput: the drain rate after the load stops, and the settle lag (reported);
   - **recovery:** `SIGKILL` of every process of the system (Restate: server and SDK) at 80% of its own capacity,
@@ -477,7 +531,7 @@ the price of that design.
   | Restate's handlers run in a separate SDK process over HTTP/2, which is how Restate is deployed | **SNC** | yes, stated. One sensitivity run moves the SDK to spare cores |
   | Restate journals every invocation and retries arbitrary code | Restate, in function; SNC, in cost | yes, stated |
   | Acknowledgement points differ: SNC and the outbox acknowledge at the debit, ahead of Restate at the handler's end | SNC and the outbox, at acknowledgement | **no**: reported only; only full settlement decides |
-  | Restate's durable probe read may be a journaled invocation | **SNC** | yes, if no cheaper durable read qualifies (4.1) |
+  | Restate's durable deadline read may be a journaled invocation slower than g | **SNC** | yes, if no cheaper durable read qualifies (4.1) |
   | SNC keeps every entity in RAM; Restate and PostgreSQL keep them on disk with a cache | **SNC** in latency, the others in density | RAM and disk per million entities are reported beside every result |
 
 - **SLO (PROPOSED):** p99 full settlement at most 10 ms, the same for every system. Event-driven work between
@@ -574,7 +628,7 @@ explicit decision.
 | B1 baselines: Garnet commands and transfer procedure (C#), a RESP client and a libpq pipelined client on the shared scheduler, a PL/pgSQL transfer | 2 days | cloud VM | none |
 | B1 runs: tuning screens, 4 systems × 2 gated points × bisection plus 3 confirmations, and the Zipf point | 0.5 day | R640, one session of about 6 h | start it from a prompt card, relay the output |
 | B2 baselines: Restate Rust Virtual Object, an HTTP/2 client on the shared scheduler, the PostgreSQL outbox and worker, the recovery script | 2-3 days | cloud VM | none |
-| B2 runs | 0.5 day | R640, one session of about 5 h | as B1 |
+| B2 runs | 0.5 day | R640, one session of up to 7 h: about 8 bisection steps of 120 s for each of three systems, then 3 confirmations of up to 600 s each, plus warm-up, drain, tuning screens and recovery | as B1 |
 | Track A: checker port to O-1 to O-5, the services' generic APIs, up to four competitor arms with review, the matrix | 8-10 days | one dedicated cloud VM (8 vCPU, 32 GB, local SSD), up to 8 h of matrix runs | none |
 | Report and review | 2 days | none | read and decide |
 | **Total** | **about 19-22 agent-days** | | **two R640 sessions, plus decisions** |
@@ -675,11 +729,36 @@ Then two independent reviewers (Opus) were told to break revision 2:
     `fua = 0`, so a flush is the only durability point;
   - a virtual disk can drop flushes; fio controls must pass and fail as expected first.
 
-  Applied as well: one PostgreSQL rule for both benchmarks, the probe's poll grid, pool and cost cap, the durable
+  Applied as well: one PostgreSQL rule for both benchmarks, the probe's poll grid, pool and cost cap (the polling
+  design was replaced in revision 3), the durable
   read for each system, backlog counted per system with one limit, the outbox worker in the tuning budget, Garnet's
   memory sizing, and two quiet rounds before the B1 correctness check.
 
 The review is filed in `docs/handoff/PR186_Focused_Review_rev2.md`.
+
+### Revision 3
+
+Codex accepted the revision 2 fixes and held on one blocker (`docs/handoff/PR186_Codex_Review_rev2.md`): the probe
+polled every SLO/20 for up to SLO, about 20 reads per probed transfer, so a 1% sample could not stay inside a 1% cap
+(about 4% of operations in B1 at 20% transfers, about 20% in B2). Revision 3 changes only the probe (4.1):
+- one durable read per probed transfer at intended send + SLO, so "p99 ≤ SLO" becomes "misses ≤ 1%";
+- a fixed budget B = 0.2% of operations for every system, with f = B / x (1% of transfers in B1, 0.2% in B2);
+- n_min = 3,000 per confirmation run, with the window and the rules for when it cannot be met;
+- probe reads charged the same way everywhere; one settled-at-deadline rule for every system.
+
+One reviewer (Opus) was told to break it. They recomputed every number and found them correct, and raised no blocker,
+4 MAJOR and 4 MINOR findings, and 1 UNRESOLVED point. All are applied:
+- the expected balance counts every earlier probe credit, so a late credit cannot pass for a new one;
+- the grace is measured on the intended timeline;
+- any PostgreSQL or Garnet commit step needs its issuer to see the commit by the deadline, the outbox worker
+  included, and the durability check now also tests that a credit a probe read showed survives a crash;
+- every system at a point uses the same window, bisection steps need n ≥ 600, and the B2 session estimate is up to
+  7 h;
+- the low-rate rule holds over the whole interval, and an invalid bisection step counts as failing;
+- the B1 SLO reason no longer cites the probe; the probe pool is outside the 1M accounts;
+- B2's gated point is uniform; Zipf is reported only.
+
+The review is filed in `docs/handoff/PR186_Focused_Review_rev3.md`.
 
 **UNRESOLVED:**
 - Whether `replay-log` builds on the bring-up VM (4.1).
@@ -687,7 +766,7 @@ The review is filed in `docs/handoff/PR186_Focused_Review_rev2.md`.
   unverified. Both are the same for every system, and neither is settled by this plan.
 - Whether Garnet's `FileStream` device flushes, and whether its readers can see writes not yet in the AOF.
 - Whether Restate acknowledges a completed invocation only after its log fsync, and whether it has a durable read
-  cheaper than an exclusive handler.
+  that replies within g. If not, Restate takes probe misses, labelled "favours SNC".
 - The PostgreSQL outbox worker's best knobs, found only inside the tuning budget.
 - The 1.5 factor between Python and Rust limits, and the limits themselves: cody's choice, with no measured basis.
 - The time per Track A run with real takeover timeouts. It is measured in bring-up.
@@ -704,8 +783,9 @@ The review is filed in `docs/handoff/PR186_Focused_Review_rev2.md`.
      PASS against PostgreSQL capped at NARROW;
    - **B2:** SLO 10 ms on probed full settlement; PASS at 3.0x and recovery no slower; FAIL below 1.5x or recovery
      more than 2x slower; the gating order Restate, PostgreSQL outbox, with a PASS against the outbox capped at NARROW;
-   - **Shared:** 20 durability marks per configuration at about 25% capacity, a 1% probe share polled every SLO/20
-     with probe reads capped at 1% of operations, one absolute backlog limit, rejections at most 0.1%,
+   - **Shared:** 20 durability marks per configuration at about 25% capacity; the settlement probe's budget
+     B = 0.2% of operations, grace g = SLO/10, n_min = 3,000 probes per run, and windows of 120-600 s; one absolute
+     backlog limit; rejections at most 0.1%;
      starting balances of 10^12, 12 configurations per baseline, and the caps in section 7.
 3. **P-B:** start Track B, B1 then B2, and agree to two R640 sessions.
 4. **P-A, later:** start Track A once PR #185's G2 gaps are closed and reviewed.
