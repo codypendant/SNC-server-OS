@@ -18,7 +18,8 @@ hold, or nothing has moved for 5 s. Exit 0 iff every account and the sum hold.
 
 $DLW_IMAGE_END_NS (negative control): the image is from an earlier mark that
 ended then. Acknowledged ops sent after it cannot be on the image ("removed");
-if there are none, exit 3 (the control proves nothing).
+if there are none, exit 3 (the control proves nothing). Exit 2 if the system
+cannot be started or read.
 
 Usage: snc.py load BUILD ACKS SHARDS OBJECTS NET_BENCH_ARG...
        snc.py check BUILD ACKS SHARDS OBJECTS START_BALANCE
@@ -126,7 +127,8 @@ def server(build, shards, objects, *extra):
                             stderr=log)
     if not all(wait_port(port + i, proc) for i in range(int(shards))):
         proc.kill()
-        sys.exit("snc_server did not start")
+        print("snc_server did not start", file=sys.stderr)
+        sys.exit(2)
     return proc, port
 
 
@@ -156,27 +158,35 @@ def judge(acc, total, got, start):
     return bad
 
 
-def check(build, acks, shards, objects, start):
+def check_with(acks, start, serve):
+    """The mark check against a system: serve() starts it on the replayed data
+    and returns (stop, read), read(ids) giving {id: balance or None}."""
     start_ns, end_ns, start = int(os.environ["DLW_MARK_NS"]), int(os.environ["DLW_MARK_END_NS"]), int(start)
     image_end_ns = int(os.environ.get("DLW_IMAGE_END_NS", end_ns))
     acc, total, removed = bounds(acks, start_ns, end_ns, start, image_end_ns)
-    proc, port = server(build, shards, objects)
+    stop, read = serve()
     try:
-        ids, prev, reads = sorted(acc), None, 0
-        t0 = moved = time.time()
-        while True:
-            got = read_all(port, ids)
-            reads += 1
-            bad = judge(acc, total, got, start)
-            if got != prev:
-                moved = time.time()
-            elif not bad or time.time() - moved > 5 or time.time() - t0 > 60:
-                break
-            prev = got
-            time.sleep(0.1)
+        return judge_marks(acc, total, removed, start, start_ns, end_ns, image_end_ns, read)
+    except (OSError, RuntimeError) as e:
+        print(f"check could not read: {e}", file=sys.stderr)
+        return 2
     finally:
-        proc.terminate()
-        proc.wait()
+        stop()
+
+
+def judge_marks(acc, total, removed, start, start_ns, end_ns, image_end_ns, read):
+    ids, prev, reads = sorted(acc), None, 0
+    t0 = moved = time.time()
+    while True:
+        got = read(ids)
+        reads += 1
+        bad = judge(acc, total, got, start)
+        if got != prev:
+            moved = time.time()
+        elif not bad or time.time() - moved > 5 or time.time() - t0 > 60:
+            break
+        prev = got
+        time.sleep(0.1)
     print(json.dumps({"mark_ns": start_ns, "mark_window_us": (end_ns - start_ns) // 1000, "accounts": len(acc),
                       "exist": sum(v is not None for v in got.values()), "must": sum(v[0] for v in acc.values()),
                       "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "reads": reads, "removed": removed,
@@ -184,6 +194,17 @@ def check(build, acks, shards, objects, start):
     if image_end_ns != end_ns and not removed:
         return 3
     return 1 if bad else 0
+
+
+def check(build, acks, shards, objects, start):
+    def serve():
+        proc, port = server(build, shards, objects)
+
+        def stop():
+            proc.terminate()
+            proc.wait()
+        return stop, lambda ids: read_all(port, ids)
+    return check_with(acks, start, serve)
 
 
 if __name__ == "__main__":

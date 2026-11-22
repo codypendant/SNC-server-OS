@@ -33,3 +33,14 @@ Always verify, never assume. Fix on site. Preserve independent verification and 
 - 4: `bench/results/dc1-trackb/TB0_RESULT.md` is corrected. Measurements are kept. Power-loss protection is marked UNVERIFIED. Each system's flush and FUA overhead is measured for its own configuration.
 - 5: thresholds are unchanged. CRITERIA.md stays APPROVED, not FROZEN. It is completed and frozen before any comparative run.
 - 6: baseline preparation continues. There is no engine change, no replication work and no raft-rs work. Harness results are not comparative results.
+
+## Codex final on PR #192 (relayed by cody on 2026-11-22 at 23:18 UTC, verbatim)
+
+Next steps
+No further changes are required for PR #192.
+
+Claude can continue the authorized Track B harness and baseline preparation, keeping the approved comparison criteria unchanged. The next meaningful objective is verified, like-for-like testing against Garnet and Restate.
+
+PR #185's revised preregistration still requires separate acceptance, and AR-1 G3 remains on HOLD.
+
+Final: PR #192 APPROVED. No additional corrective PR required.

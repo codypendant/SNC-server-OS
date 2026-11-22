@@ -8,3 +8,5 @@ bench/results/lab-*/*/bal.*
 bench/results/lab-*/*/*.delta
 bench/results/lab-*/*/*.unknown
 bench/results/lab-*/*/ids*
+bench/garnet/bin/
+bench/garnet/obj/
