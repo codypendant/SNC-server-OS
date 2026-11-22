@@ -36,6 +36,18 @@
   4.established flags it from that log in all 20 of the new Ac runs.
 - **Clean runs:** no adequacy run was unresolved, invalid or over the run cap.
 
+## Refreshed verification after merging main (2026-11-22)
+
+Codex's review of #185 and #187-#191 asked for verification after integration. PR #185 merges main cleanly, and the
+AR-1 code is byte-identical afterwards (same code hash). The whole set was rerun on the merged tree anyway:
+- the checker's 74 unit tests pass;
+- Phase 0 passes every check, including C-7b;
+- SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every clause;
+- the plain arm again has 148 violations and 108 unreachable points;
+- 14 of 14 mutations are flagged at every seed over 265 runs, with M1 flagged by 4.established in all 20 Ac runs.
+
+The longest run took 91 s. Every number matches the summaries in `results/`.
+
 ## What changed since the HOLD, item by item
 
 **2A, M5.**

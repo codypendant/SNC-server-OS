@@ -33,3 +33,14 @@ Always verify, never assume. Fix on site. Preserve independent verification and 
 - 4: `bench/results/dc1-trackb/TB0_RESULT.md` is corrected. Measurements are kept. Power-loss protection is marked UNVERIFIED. Each system's flush and FUA overhead is measured for its own configuration.
 - 5: thresholds are unchanged. CRITERIA.md stays APPROVED, not FROZEN. It is completed and frozen before any comparative run.
 - 6: baseline preparation continues. There is no engine change, no replication work and no raft-rs work. Harness results are not comparative results.
+
+## Disposition (AR-1 thread: items 1 and 2)
+- 1: PR #185 merges main cleanly, and the AR-1 code is byte-identical afterwards (code hash `1e385c68af4e12a0`).
+  Rerun on the merged tree, with the checker's 74 unit tests passing:
+  - Phase 0 passes every check, including C-7b;
+  - SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every clause;
+  - 14 of 14 mutations are flagged at every seed over 265 runs.
+
+  These match the reported evidence exactly.
+- 2: cody accepted A-1 to A-12 and the U-7 ruling on 2026-11-22 at 21:52 UTC (`PR185_Rev3_Owner_Decision.md`). G3
+  counted runs stay on HOLD for a separate GO.
