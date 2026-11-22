@@ -17,7 +17,12 @@ there.
                          exits, then check each mark with --check (it gets
                          $DLW_MNT, and $DLW_MARK_NS and $DLW_MARK_END_NS, the
                          times just before and after the mark was written);
-                         CMD must outlast the marks
+                         CMD must outlast the marks. Negative control: a
+                         second mark --tight-ms after each; the check of that
+                         later mark runs on the earlier mark's image
+                         ($DLW_IMAGE_END_NS its end), which lacks the few
+                         updates acknowledged in between, and must exit 1 (at
+                         least half must be non-void)
 
 Needs root, dmsetup, the dm-log-writes module and replay-log (xfstests
 src/log-writes, built by --build-replay-log).
@@ -97,7 +102,7 @@ class Rig:
             sh("mount", dev, mnt)
             try:
                 env = dict(os.environ, DLW_MNT=mnt, **check_env)
-                return subprocess.run(check_cmd, env=env, timeout=600).returncode == 0
+                return subprocess.run(check_cmd, env=env, timeout=600).returncode
             finally:
                 sh("umount", mnt, check=False)
         finally:
@@ -110,13 +115,17 @@ class Rig:
             sh("losetup", "-d", d, check=False)
 
 
-def marks_while(rig, proc, n, interval):
-    out = []
+def marks_while(rig, proc, n, interval, tight=None):
+    """n marks, interval apart; with tight, each followed by a mark that much later."""
+    out, after = [], []
     time.sleep(interval)
     while len(out) < n and proc.poll() is None:
         out.append((f"m{len(out)}", rig.mark(f"m{len(out)}")))
+        if tight is not None:
+            time.sleep(tight)
+            after.append((f"m{len(after)}t", rig.mark(f"m{len(after)}t")))
         time.sleep(interval)
-    return out
+    return (out, after) if tight is not None else out
 
 
 def writer(path, blocks, sync, acks):
@@ -170,8 +179,7 @@ def controls(args):
             failed = 0
             for mark, t in marks:
                 env = {"DLW_MARK_NS": str(t[0])}
-                ok = rig.replay(mark, env, [sys.executable, __file__, "_check", "w.dat", str(args.blocks), acks])
-                failed += not ok
+                failed += rig.replay(mark, env, [sys.executable, __file__, "_check", "w.dat", str(args.blocks), acks]) != 0
             result[name] = {"marks": len(marks), "failed": failed, "queue": rig.queue}
             rig.down()
             rig.loops = []
@@ -187,13 +195,30 @@ def run(args):
     try:
         rig.up()
         p = subprocess.Popen(args.cmd, env=dict(os.environ, DLW_MNT=rig.mnt))
-        marks = marks_while(rig, p, args.marks, args.interval)
+        marks, tight = marks_while(rig, p, args.marks, args.interval, args.tight_ms / 1000)
         rc = p.wait(timeout=600)
         rig.stop_logging()
-        env = lambda t: {"DLW_MARK_NS": str(t[0]), "DLW_MARK_END_NS": str(t[1])}
-        failed = [m for m, t in marks if not rig.replay(m, env(t), shlex.split(args.check))]
-        print(json.dumps({"marks": len(marks), "failed": failed, "rc": rc, "queue": rig.queue}))
-        return 0 if len(marks) == args.marks and not failed and rc == 0 else 1
+        check = shlex.split(args.check)
+
+        def env(t, image):
+            return {"DLW_MARK_NS": str(t[0]), "DLW_MARK_END_NS": str(t[1]), "DLW_IMAGE_END_NS": str(image[1])}
+        failed = [m for m, t in marks if rig.replay(m, env(t, t), check) != 0]
+        # Negative control: each mark's image judged at a mark taken
+        # --tight-ms later lacks the few updates acknowledged in between. The
+        # check must exit 1; 3 means none was acknowledged (void, not passed).
+        rejected, void, missed = 0, 0, []
+        for (m, t), (_, tt) in zip(marks, tight):
+            r = rig.replay(m, env(tt, t), check)
+            rejected += r == 1
+            void += r == 3
+            if r not in (1, 3):
+                missed.append(m)
+        good = (len(marks) == args.marks and not failed and not missed and rejected >= len(marks) // 2
+                and rc == 0)
+        print(json.dumps({"marks": len(marks), "failed": failed, "negative": {"rejected": rejected, "void": void,
+                          "not_rejected": missed}, "rc": rc, "queue": rig.queue,
+                          "result": "ok" if good else "FAILED"}))
+        return 0 if good else 1
     finally:
         rig.down()
 
@@ -221,6 +246,7 @@ def main():
     ap.add_argument("--size-mb", type=int, default=512)
     ap.add_argument("--marks", type=int, default=20)
     ap.add_argument("--interval", type=float, default=0.5)
+    ap.add_argument("--tight-ms", type=float, default=10)
     ap.add_argument("--blocks", type=int, default=256)
     ap.add_argument("--replay-log", default="replay-log")
     ap.add_argument("--build-replay-log", action="store_true")

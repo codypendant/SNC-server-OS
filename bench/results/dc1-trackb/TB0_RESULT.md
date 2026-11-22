@@ -29,9 +29,10 @@ FACT: a FUA write costs the same as a plain write at the median, and the flush c
   - the vendor family documents;
   - the device reports NV_SUP=1;
   - the flush timings above. A 0.1 ms flush and a free FUA are what a protected cache looks like, while an unprotected NAND flush takes milliseconds.
-- **Status: INF, not FACT.** Only a power cut during acknowledged writes would prove it. That test is not planned, because it risks the lab's only data disk.
+- **Status: UNVERIFIED.** The above is inference only. Only a power cut during acknowledged writes would prove it, and that test is not planned, because it risks the lab's only data disk. The plan's UNRESOLVED item stays UNRESOLVED.
 
 ## What it means for Track B (`docs/DIRECTION_COMPARISON_PLAN.md` 4.1)
 - The durability test does not depend on this result. dm-log-writes models losing every volatile cache at each mark, whatever the drive does. So the VM `fua=0` path and the R640 `fua=1` path are judged by the same rule.
-- Performance: a durable acknowledgement on the R640 costs about 0.1 ms per flush, or nothing extra with FUA. The cost is the same for every system, so it biases no comparison. B1's 1 ms p99 bound leaves room for it.
-- The 4.1 UNRESOLVED item "whether the SSD has power-loss protection" becomes INF (above). The `fua=1` versus `fua=0` path difference stays as stated, and it is the same for every system.
+- These are device costs for one fio pattern (4 KiB, QD1), not a system's cost. Each system issues its own mix and size of writes, flushes and FUA writes, and batches them in its own way: the same disk does not give the same overhead. Each system's flush and FUA behaviour is measured on the R640 for its own configuration (4.1: a `blktrace` sample per configuration), and none is assumed from this table.
+- The 4.1 UNRESOLVED items are unchanged: whether the SSD has power-loss protection, and the `fua=1` versus `fua=0` path difference.
+- Correction, 2026-11-22 (Codex review, `docs/handoff/PR185_191_Codex_Review.md`): the first version said the flush cost "is the same for every system, so it biases no comparison", and marked power-loss protection INF. Both are withdrawn. The measurements are unchanged.

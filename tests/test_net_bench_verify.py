@@ -14,6 +14,9 @@ real durable snc_server (2 shards):
   flags      the probe needs --rate and an SLO.
   kill       (own server) SIGKILL mid-run: every acknowledged write is there
              after restart, once owed cross-shard credits arrive.
+  stale      negative control: a copy of the data from before a second run
+             is rejected against both runs' acks (exit 3 if nothing
+             acknowledged is missing).
   acks       --ack-log, read back by bench/durability/snc.py check on the
              stopped server's data: a mark after the run holds; a mark at
              the start fails (the run's writes cannot be there yet), and so
@@ -44,8 +47,13 @@ class Server:
     def __init__(self):
         self.work = tempfile.mkdtemp(prefix="snc-verify-")
         self.port = af.free_ports(1)[0]
-        self.proc = af.Proc([f"{BUILD}/snc_server", "--shards", "2", "--port", str(self.port), "--objects",
-                             "40000", "--data-dir", os.path.join(self.work, "data")])
+        self.cmd = [f"{BUILD}/snc_server", "--shards", "2", "--port", str(self.port), "--objects", "40000",
+                    "--data-dir", os.path.join(self.work, "data")]
+        self.proc = af.Proc(self.cmd)
+        assert af.wait_port(self.port) and af.wait_port(self.port + 1), self.proc.text()
+
+    def restart(self):
+        self.proc = af.Proc(self.cmd)
         assert af.wait_port(self.port) and af.wait_port(self.port + 1), self.proc.text()
 
     def bench(self, extra, ok=True, during=None):
@@ -169,8 +177,41 @@ def kill_run(s):
     print(f"kill: every write acknowledged before SIGKILL is there after restart ({out.strip()})")
 
 
-def snc_check(work, acks, t0, t1, start=BIG):
+def scenario_stale(_):
+    """Negative control on a disposable image: a copy of the data taken
+    between two runs lacks every update the second run acknowledged; the
+    check must reject it, and accept the live data."""
+    s = Server()
+    try:
+        ids, a1, a2 = (os.path.join(s.work, x) for x in ("ids", "a1", "a2"))
+        common = ["--rate", "3000", "--seconds", "2", "--transfer", "50", "--reads", "0", "--xfer-local", "0",
+                  "--start-balance", BIG]
+        s.bench(["--objects", "2000", "--ids", ids, "--ack-log", a1] + common)
+        s.proc.stop()
+        stale = os.path.join(s.work, "stale")
+        shutil.copytree(os.path.join(s.work, "data"), os.path.join(stale, "data"))
+        cut = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+        s.restart()
+        s.bench(["--objects", "2000", "--ids", ids, "--ack-log", a2] + common)
+        s.proc.stop()
+        acks = os.path.join(s.work, "acks")
+        with open(acks, "w") as f:
+            f.write(open(a1).read() + open(a2).read())
+        rc, out = snc_check(s.work, acks, 1 << 62, 1 << 62)
+        assert rc == 0, out
+        rc, out = snc_check(stale, acks, 1 << 62, 1 << 62, image_end=cut)
+        assert rc == 1 and '"removed": 0' not in out, out
+        rc, out = snc_check(stale, a1, 1 << 62, 1 << 62, image_end=cut)
+        assert rc == 3, out
+        print(f"stale: the pre-run copy is rejected ({out.strip()[:60]}...), the live data accepted")
+    finally:
+        s.close()
+
+
+def snc_check(work, acks, t0, t1, start=BIG, image_end=None):
     env = dict(os.environ, DLW_MNT=work, DLW_MARK_NS=str(t0), DLW_MARK_END_NS=str(t1))
+    if image_end:
+        env["DLW_IMAGE_END_NS"] = str(image_end)
     p = subprocess.run([sys.executable, os.path.join(ROOT, "bench/durability/snc.py"), "check", BUILD, acks, "2",
                         "40000", start], env=env, capture_output=True, text=True, timeout=180)
     return p.returncode, p.stdout + p.stderr
@@ -178,7 +219,8 @@ def snc_check(work, acks, t0, t1, start=BIG):
 
 def main():
     scenarios = [("flags", scenario_flags), ("conserve", scenario_conserve), ("rejected", scenario_rejected),
-                 ("mismatch", scenario_mismatch), ("late", scenario_late), ("kill", scenario_kill), ("acks", scenario_acks)]
+                 ("mismatch", scenario_mismatch), ("late", scenario_late), ("kill", scenario_kill), ("stale", scenario_stale),
+                 ("acks", scenario_acks)]
 
     s = Server()
     try:

@@ -16,6 +16,10 @@ alone, since a transfer moves no money. Cross-shard credits are re-delivered
 after recovery, so the accounts are read until two reads in a row agree and
 hold, or nothing has moved for 5 s. Exit 0 iff every account and the sum hold.
 
+$DLW_IMAGE_END_NS (negative control): the image is from an earlier mark that
+ended then. Acknowledged ops sent after it cannot be on the image ("removed");
+if there are none, exit 3 (the control proves nothing).
+
 Usage: snc.py load BUILD ACKS SHARDS OBJECTS NET_BENCH_ARG...
        snc.py check BUILD ACKS SHARDS OBJECTS START_BALANCE
 """
@@ -31,9 +35,10 @@ import time
 GET_BALANCE, EXEC, OK, NOT_FOUND, OVERLOADED = 1006, 1, 0, 1, 9
 
 
-def bounds(acks, start_ns, end_ns, start):
-    """{id: [must exist, base, down, up]}, and the sum's [base, up]."""
-    acc, total = {}, [0, 0]
+def bounds(acks, start_ns, end_ns, start, image_end_ns):
+    """{id: [must exist, base, down, up]}, the sum's [base, up], and how many
+    ops acknowledged before the mark were sent after the image's end."""
+    acc, total, removed = {}, [0, 0], 0
 
     def at(x):
         return acc.setdefault(x, [False, start, 0, 0])
@@ -47,6 +52,7 @@ def bounds(acks, start_ns, end_ns, start):
         if kind == "n" or sent >= end_ns:
             continue
         sure = kind == "a" and acked < start_ns
+        removed += sure and sent >= image_end_ns
         src = at(a)
         if int(b, 16) == 0:
             total[not sure] += 1
@@ -63,7 +69,7 @@ def bounds(acks, start_ns, end_ns, start):
         else:
             src[2] += 1
             dst[3] += 1
-    return acc, total
+    return acc, total, removed
 
 
 def read_all(port, ids):
@@ -152,7 +158,8 @@ def judge(acc, total, got, start):
 
 def check(build, acks, shards, objects, start):
     start_ns, end_ns, start = int(os.environ["DLW_MARK_NS"]), int(os.environ["DLW_MARK_END_NS"]), int(start)
-    acc, total = bounds(acks, start_ns, end_ns, start)
+    image_end_ns = int(os.environ.get("DLW_IMAGE_END_NS", end_ns))
+    acc, total, removed = bounds(acks, start_ns, end_ns, start, image_end_ns)
     proc, port = server(build, shards, objects)
     try:
         ids, prev, reads = sorted(acc), None, 0
@@ -172,8 +179,10 @@ def check(build, acks, shards, objects, start):
         proc.wait()
     print(json.dumps({"mark_ns": start_ns, "mark_window_us": (end_ns - start_ns) // 1000, "accounts": len(acc),
                       "exist": sum(v is not None for v in got.values()), "must": sum(v[0] for v in acc.values()),
-                      "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "reads": reads, "bad": len(bad),
-                      "first": bad[:3]}))
+                      "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "reads": reads, "removed": removed,
+                      "bad": len(bad), "first": bad[:3]}))
+    if image_end_ns != end_ns and not removed:
+        return 3
     return 1 if bad else 0
 
 
