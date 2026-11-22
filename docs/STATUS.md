@@ -528,8 +528,12 @@ Decided by cody on 2026-11-04.
   The bounded comparison plan, Track A (agent runtime against DBOS, Restate, Temporal, LangGraph) and Track B (two
   decisive state-native benchmarks), is [DIRECTION_COMPARISON_PLAN.md](DIRECTION_COMPARISON_PLAN.md). Codex
   approved revision 3 for documentation merge ([handoff/PR186_Codex_Review_rev3.md](handoff/PR186_Codex_Review_rev3.md)).
-  It authorizes nothing: P-G1, P-B and P-A each await cody's own decision, Codex's six before-testing conditions
-  (plan section 9) apply, and G3 stays on HOLD.
+  Merged as #186. **cody decided P-G1 and P-B on 2026-11-22 03:16 UTC**
+  ([handoff/PR186_Owner_Decisions.md](handoff/PR186_Owner_Decisions.md)): the thresholds and scope are approved, and
+  the Track B harness and R640 runs may proceed, starting with durability and equivalence checks. Criteria:
+  [bench/results/dc1-trackb/CRITERIA.md](../bench/results/dc1-trackb/CRITERIA.md), approved but not yet frozen. First
+  R640 card: [r640/TB0_DEVICE_FACTS.md](r640/TB0_DEVICE_FACTS.md). P-A, G3, engine changes, replication, raft-rs and
+  production dependencies are not decided; Codex's six before-testing conditions apply.
 - **Agent runtime, the focused first product (decided 2026-11-21, limited):**
   cody accepted OD-P1 to OD-P7 with one "yes" to the limited forms, per the reading recorded in
   [handoff/PR183_Owner_Decisions.md](handoff/PR183_Owner_Decisions.md).
