@@ -1,0 +1,72 @@
+[
+ {
+  "vary": {
+   "dummy_writes": 229,
+   "checkpoint": true,
+   "pad": 298
+  },
+  "ar1_established": true,
+  "nomon_row": [
+   [
+    null,
+    null
+   ]
+  ],
+  "nomon_not_established": true,
+  "s2_row": [
+   [
+    "s2",
+    "0/404B188",
+    "async"
+   ]
+  ],
+  "s2_not_established": true,
+  "async_row": [
+   [
+    "s1",
+    "0/404B668",
+    "async"
+   ]
+  ],
+  "async_not_established": true,
+  "restored_established": true,
+  "pass": true,
+  "run": 0,
+  "seconds": 8.9
+ },
+ {
+  "vary": {
+   "dummy_writes": 370,
+   "checkpoint": true,
+   "pad": 590
+  },
+  "ar1_established": true,
+  "nomon_row": [
+   [
+    null,
+    null
+   ]
+  ],
+  "nomon_not_established": true,
+  "s2_row": [
+   [
+    "s2",
+    "0/404B468",
+    "async"
+   ]
+  ],
+  "s2_not_established": true,
+  "async_row": [
+   [
+    "s1",
+    "0/404B948",
+    "async"
+   ]
+  ],
+  "async_not_established": true,
+  "restored_established": true,
+  "pass": true,
+  "run": 1,
+  "seconds": 9.3
+ }
+]

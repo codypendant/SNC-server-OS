@@ -1,0 +1,617 @@
+[
+ {
+  "variant": "off",
+  "gated": true,
+  "vary": {
+   "dummy_writes": 591,
+   "checkpoint": true,
+   "pad": 971
+  },
+  "xid": "1353",
+  "physical": true,
+  "held": {
+   "state": true,
+   "reconstruct": true,
+   "ack": true,
+   "policy": true,
+   "gateway_send": true
+  },
+  "tool_entries_before_resume": 0,
+  "gateway_before_resume": [
+   "waiting"
+  ],
+  "pre_resume_insert_lsn": "0/40CA698",
+  "dispatch_commit_start": "0/40CA858",
+  "live": true,
+  "gateway": {
+   "read": [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ],
+   "xid": "1354",
+   "sent": 200
+  },
+  "ack": {
+   "r": "0/40CA698"
+  },
+  "policy_read": [
+   [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ]
+  ],
+  "state_after_resume": [
+   {
+    "id": "m1",
+    "version": 1,
+    "content_hash": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+   },
+   {
+    "id": "m1",
+    "version": 2,
+    "content_hash": "h2"
+   }
+  ],
+  "oracle": {
+   "class": "R",
+   "at_cuts": {
+    "pre-api": "L"
+   },
+   "end_lsn": "0/40BA7E0",
+   "tli": 1
+  },
+  "oracle_unresolved": [],
+  "oracle_invalid": [],
+  "violation_evidence": {
+   "dispatch_commit_below_resume": false,
+   "tool_entry_before_resume": false,
+   "established_before_resume": false
+  },
+  "checks": {
+   "no_effect": true,
+   "succeeded": true,
+   "off_ok": true,
+   "xid": true,
+   "oracle_ok": true,
+   "after": true
+  },
+  "pass": true,
+  "run": 0,
+  "seconds": 6.4
+ },
+ {
+  "variant": "local",
+  "gated": true,
+  "vary": {
+   "dummy_writes": 857,
+   "checkpoint": true,
+   "pad": 12
+  },
+  "xid": "1619",
+  "physical": true,
+  "held": {
+   "state": true,
+   "reconstruct": true,
+   "ack": true,
+   "policy": true,
+   "gateway_send": true
+  },
+  "tool_entries_before_resume": 0,
+  "gateway_before_resume": [
+   "waiting"
+  ],
+  "pre_resume_insert_lsn": "0/40D6308",
+  "dispatch_commit_start": "0/40D64C8",
+  "live": true,
+  "gateway": {
+   "read": [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ],
+   "xid": "1620",
+   "sent": 200
+  },
+  "ack": {
+   "r": "0/40D6308"
+  },
+  "policy_read": [
+   [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ]
+  ],
+  "state_after_resume": [
+   {
+    "id": "m1",
+    "version": 1,
+    "content_hash": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+   },
+   {
+    "id": "m1",
+    "version": 2,
+    "content_hash": "h2"
+   }
+  ],
+  "oracle": {
+   "class": "R",
+   "at_cuts": {
+    "pre-api": "L"
+   },
+   "end_lsn": "0/40C6450",
+   "tli": 1
+  },
+  "oracle_unresolved": [],
+  "oracle_invalid": [],
+  "violation_evidence": {
+   "dispatch_commit_below_resume": false,
+   "tool_entry_before_resume": false,
+   "established_before_resume": false
+  },
+  "checks": {
+   "no_effect": true,
+   "succeeded": true,
+   "off_ok": true,
+   "xid": true,
+   "oracle_ok": true,
+   "after": true
+  },
+  "pass": true,
+  "run": 1,
+  "seconds": 7.8
+ },
+ {
+  "variant": "cancel",
+  "gated": true,
+  "vary": {
+   "dummy_writes": 4,
+   "checkpoint": false,
+   "pad": 6527
+  },
+  "client": {
+   "returned": true,
+   "error": null,
+   "notices": [
+    "canceling wait for synchronous replication due to user request"
+   ]
+  },
+  "xid": "766",
+  "physical": true,
+  "held": {
+   "state": true,
+   "reconstruct": true,
+   "ack": true,
+   "policy": true,
+   "gateway_send": true
+  },
+  "tool_entries_before_resume": 0,
+  "gateway_before_resume": [
+   "waiting"
+  ],
+  "pre_resume_insert_lsn": "0/40954A8",
+  "dispatch_commit_start": "0/4095668",
+  "live": true,
+  "gateway": {
+   "read": [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ],
+   "xid": "767",
+   "sent": 200
+  },
+  "ack": {
+   "r": "0/40954A8"
+  },
+  "policy_read": [
+   [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ]
+  ],
+  "state_after_resume": [
+   {
+    "id": "m1",
+    "version": 1,
+    "content_hash": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+   },
+   {
+    "id": "m1",
+    "version": 2,
+    "content_hash": "h2"
+   }
+  ],
+  "oracle": {
+   "class": "R",
+   "at_cuts": {
+    "pre-api": "L"
+   },
+   "end_lsn": "0/4095430",
+   "tli": 1
+  },
+  "oracle_unresolved": [],
+  "oracle_invalid": [],
+  "violation_evidence": {
+   "dispatch_commit_below_resume": false,
+   "tool_entry_before_resume": false,
+   "established_before_resume": false
+  },
+  "checks": {
+   "no_effect": true,
+   "succeeded": true,
+   "off_ok": true,
+   "xid": true,
+   "oracle_ok": true,
+   "after": true
+  },
+  "pass": true,
+  "run": 2,
+  "seconds": 6.1
+ },
+ {
+  "variant": "restart-immediate",
+  "gated": true,
+  "vary": {
+   "dummy_writes": 633,
+   "checkpoint": false,
+   "pad": 1409
+  },
+  "off_xid": "1396",
+  "client": {
+   "returned": false,
+   "error": "OperationalError('consuming input failed: server closed the connection unexpectedly\\n\\tThis probably means the server terminated abnormally\\n\\tbefore or while processing the request.')"
+  },
+  "off_after_restart": {
+   "row": false,
+   "token": false
+  },
+  "xid": "1395",
+  "physical": true,
+  "held": {
+   "state": true,
+   "reconstruct": true,
+   "ack": true,
+   "policy": true,
+   "gateway_send": true
+  },
+  "tool_entries_before_resume": 0,
+  "gateway_before_resume": [
+   "waiting"
+  ],
+  "pre_resume_insert_lsn": "0/40D1D00",
+  "dispatch_commit_start": "0/40D1F10",
+  "live": true,
+  "gateway": {
+   "read": [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ],
+   "xid": "1396",
+   "sent": 200
+  },
+  "ack": {
+   "r": "0/40D1D00"
+  },
+  "policy_read": [
+   [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ]
+  ],
+  "state_after_resume": [
+   {
+    "id": "m1",
+    "version": 1,
+    "content_hash": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+   },
+   {
+    "id": "m1",
+    "version": 2,
+    "content_hash": "h2"
+   }
+  ],
+  "oracle": {
+   "class": "R",
+   "at_cuts": {
+    "pre-api": "L"
+   },
+   "end_lsn": "0/40AE5F0",
+   "tli": 1
+  },
+  "oracle_unresolved": [],
+  "oracle_invalid": [],
+  "violation_evidence": {
+   "dispatch_commit_below_resume": false,
+   "tool_entry_before_resume": false,
+   "established_before_resume": false
+  },
+  "checks": {
+   "no_effect": true,
+   "succeeded": true,
+   "off_ok": true,
+   "xid": true,
+   "oracle_ok": true,
+   "after": true
+  },
+  "pass": true,
+  "run": 3,
+  "seconds": 7.9
+ },
+ {
+  "variant": "restart-fast",
+  "gated": true,
+  "vary": {
+   "dummy_writes": 285,
+   "checkpoint": false,
+   "pad": 7409
+  },
+  "off_xid": "1048",
+  "client": {
+   "returned": false,
+   "error": "OperationalError('consuming input failed: server closed the connection unexpectedly\\n\\tThis probably means the server terminated abnormally\\n\\tbefore or while processing the request.')"
+  },
+  "off_after_restart": {
+   "row": true,
+   "token": true
+  },
+  "xid": "1047",
+  "physical": true,
+  "held": {
+   "state": true,
+   "reconstruct": true,
+   "ack": true,
+   "policy": true,
+   "gateway_send": true
+  },
+  "tool_entries_before_resume": 0,
+  "gateway_before_resume": [
+   "waiting"
+  ],
+  "pre_resume_insert_lsn": "0/40B75D0",
+  "dispatch_commit_start": "0/40B77F8",
+  "live": true,
+  "gateway": {
+   "read": [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m2",
+     2,
+     "h2"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ],
+   "xid": "1049",
+   "sent": 200
+  },
+  "ack": {
+   "r": "0/40B75D0"
+  },
+  "policy_read": [
+   [
+    [
+     "m1",
+     1,
+     "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+    ],
+    [
+     "m1",
+     2,
+     "h2"
+    ],
+    [
+     "m2",
+     1,
+     "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa"
+    ],
+    [
+     "m2",
+     2,
+     "h2"
+    ],
+    [
+     "m3",
+     1,
+     "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8"
+    ]
+   ]
+  ],
+  "state_after_resume": [
+   {
+    "id": "m1",
+    "version": 1,
+    "content_hash": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e"
+   },
+   {
+    "id": "m1",
+    "version": 2,
+    "content_hash": "h2"
+   }
+  ],
+  "oracle": {
+   "class": "R",
+   "at_cuts": {
+    "pre-api": "L"
+   },
+   "end_lsn": "0/40A2070",
+   "tli": 1
+  },
+  "oracle_unresolved": [],
+  "oracle_invalid": [],
+  "violation_evidence": {
+   "dispatch_commit_below_resume": false,
+   "tool_entry_before_resume": false,
+   "established_before_resume": false
+  },
+  "checks": {
+   "no_effect": true,
+   "succeeded": true,
+   "off_ok": true,
+   "xid": true,
+   "oracle_ok": true,
+   "after": true
+  },
+  "pass": true,
+  "run": 4,
+  "seconds": 67.2
+ }
+]

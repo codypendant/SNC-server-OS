@@ -1,0 +1,233 @@
+# manifest ar1-g2-cloud
+date_utc: 2026-11-21T20:58:35Z
+snc_commit: dddb11331261b540c50cdc330b8feb16faa61f0a
+
+### uname -a
+Linux vm 6.18.44-fc-v726 #1 SMP PREEMPT_DYNAMIC @0 x86_64 x86_64 x86_64 GNU/Linux
+
+### /etc/os-release
+PRETTY_NAME="Ubuntu 24.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.5 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+
+### lscpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           52 bits physical, 57 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  4
+On-line CPU(s) list:                     0-3
+Vendor ID:                               GenuineIntel
+Model name:                              Intel(R) Xeon(R) Processor @ 2.30GHz
+CPU family:                              6
+Model:                                   173
+Thread(s) per core:                      1
+Core(s) per socket:                      4
+Socket(s):                               1
+Stepping:                                1
+BogoMIPS:                                4600.00
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch cpuid_fault ssbd ibrs ibpb stibp ibrs_enhanced fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm avx512f avx512dq rdseed adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 wbnoinvd arat avx512vbmi umip pku ospke avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq rdpid bus_lock_detect cldemote movdiri movdir64b fsrm md_clear serialize tsxldtrk amx_bf16 avx512_fp16 amx_tile amx_int8 flush_l1d arch_capabilities
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               192 KiB (4 instances)
+L1i cache:                               256 KiB (4 instances)
+L2 cache:                                8 MiB (4 instances)
+L3 cache:                                504 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-3
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI Vulnerable
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+
+### lscpu -e
+CPU NODE SOCKET CORE L1d:L1i:L2:L3 ONLINE
+  0    0      0    0 0:0:0:0          yes
+  1    0      0    1 1:1:1:0          yes
+  2    0      0    2 2:2:2:0          yes
+  3    0      0    3 3:3:3:0          yes
+
+### numactl --hardware
+(numactl not installed)
+
+### free -h
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       1.5Gi        12Gi       342Mi       2.1Gi        14Gi
+Swap:             0B          0B          0B
+
+### memory and huge pages (/proc/meminfo)
+MemTotal:       16473744 kB
+MemAvailable:   14886228 kB
+SwapTotal:             0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+
+Node 0 MemTotal:        6645960 kB
+Node 0 HugePages_Total:     0
+
+### lsblk -o NAME,MODEL,SIZE,ROTA,TYPE,MOUNTPOINT,FSTYPE
+NAME  MODEL   SIZE ROTA TYPE MOUNTPOINT           FSTYPE
+zram0           0B    0 disk                      
+vda           256G    1 disk /                    
+vdb           9.5M    1 disk /opt/rclone          
+vdc         397.6M    1 disk /opt/claude-code     
+vdd          49.5M    1 disk /opt/env-runner      
+vde           752K    1 disk /mnt/skills/public   
+vdf           5.9M    1 disk /mnt/skills/examples 
+
+### lspci -nn
+(lspci not installed)
+
+### cpufreq governor (per CPU, unique)
+
+### cpufreq driver, limits, turbo
+scaling_driver: (n/a)
+scaling_min_freq: (n/a)
+scaling_max_freq: (n/a)
+cpuinfo_max_freq: (n/a)
+energy_performance_preference: (n/a)
+intel_pstate no_turbo: (n/a)
+intel_pstate status: (n/a)
+boost: (n/a)
+### cpuidle states (cpu0)
+cpuidle driver: none
+
+### transparent hugepages
+always [madvise] never
+always defer defer+madvise [madvise] never
+
+### kernel command line and scheduling knobs
+mitigations=auto,no_guest_host,no_guest_guest console=ttyS0 quiet reboot=k panic=1 nomodule random.trust_cpu=1 swiotlb=noforce psi=1 nvproxy.enable=1 page_reporting.page_reporting_order=11 deferred_init=lazy ipv6.disable=1 dhash_entries=131072 ihash_entries=65536 rdinit=/process_api -- --firecracker-init --addr 0.0.0.0:2024 --max-ws-buffer-size 32768 --block-local-connections --log-vsock-port 5002 --control-vsock-port 5001 --listen-vsock-port 2024 --tcp-readiness-only
+kernel/numa_balancing: 0
+vm/swappiness: 60
+vm/dirty_ratio: 20
+vm/dirty_background_ratio: 10
+kernel/sched_autogroup_enabled: 1
+isolated cpus: 
+nohz_full: (n/a)
+
+### BIOS and memory DIMMs (dmidecode; needs root)
+(run as root with dmidecode for BIOS and DIMM details)
+
+### data dir: /tmp
+### df -hT /tmp
+Filesystem     Type  Size  Used Avail Use% Mounted on
+/dev/vda       ext4  252G   12G   57G  18% /
+
+### findmnt -T /tmp -o TARGET,SOURCE,FSTYPE,OPTIONS
+TARGET SOURCE   FSTYPE OPTIONS
+/      /dev/vda ext4   rw,relatime,discard,no_prefetch_block_bitmaps,resv_strict,resuid=65534,resgid=65534
+
+### block devices: scheduler, write cache, queue (per disk)
+vda: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write back nr_requests=256 fua=0
+vdb: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write through nr_requests=256 fua=0
+vdc: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write through nr_requests=256 fua=0
+vdd: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write through nr_requests=256 fua=0
+vde: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write through nr_requests=256 fua=0
+vdf: rotational=1 scheduler=none [mq-deadline] kyber bfq  write_cache=write through nr_requests=256 fua=0
+
+### nvme list
+(nvme not installed)
+
+### ethtool lo
+(ethtool not installed)
+
+### ethtool -i lo
+(ethtool not installed)
+
+### ethtool -l lo
+(ethtool not installed)
+
+### ethtool -x lo
+(ethtool not installed)
+
+### ethtool -k lo
+(ethtool not installed)
+
+### ethtool -c lo
+(ethtool not installed)
+
+### ethtool -g lo
+(ethtool not installed)
+
+### lo: NUMA node , MTU 65536
+### lo: interrupts (count of IRQ lines, and their CPU affinity)
+0
+
+
+irqbalance: unknown
+
+### ip -br link
+(ip not installed)
+
+### virtualization
+### systemd-detect-virt
+docker
+
+### build environment
+### c++ --version
+c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
+### cmake --version
+cmake version 3.28.3
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+### ninja --version
+1.11.1
+
+### python3 --version
+Python 3.13.18
+
+### ldd --version
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.12) 2.39
+Copyright (C) 2024 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Ulrich Drepper.
+
+### experiment network topology
+(fill in by hand: which hosts share which switch or link, link speeds, and the role of each host)
+
+### AR-1 G2 (uncounted bring-up and checker adequacy)
+role: correctness bring-up for docs/AR1_PREREG.md section 14 item 1. Not performance evidence, not counted runs.
+toolchain: experiments/ar1/setup.sh into /opt/ar1 (micromamba 2.9.0, conda-forge postgresql 18.7, python 3.12.16;
+  pip dbos 3.6.0, psycopg[binary] 3.3.9, sqlalchemy 2.1.9, black 25.11.0)
+database pair: primary and one synchronous physical standby (FIRST 1 (s1)) on 127.0.0.1, same host (prereg AS-4),
+  data checksums on, wal_keep_size 8GB, data under /tmp on the root filesystem above
+users: runs as a non-root user (initdb refuses root)
+code: the commit that adds this file; experiments/ar1 at that commit is what ran
+counted G3 runs: not on this host; the dedicated VM gets its own manifest before its first run

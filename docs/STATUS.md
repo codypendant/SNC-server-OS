@@ -534,9 +534,12 @@ Decided by cody on 2026-11-04.
   - PostgreSQL and DBOS Python are AR-1 experiment tools only.
   - The AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md), revision 2) is merged with Codex's G1 sign-off
     ([handoff/PR184_Rev2_Codex_Review.md](handoff/PR184_Rev2_Codex_Review.md)). Nothing has run.
-  - **Now:** waiting for cody's decision on G1 and G2 (AR-1 code, uncounted bring-up, checker adequacy), and on the
-    PROPOSED numbers and where runs go (prereg section 14). Codex recommends G2. No AR-1 code until cody says yes.
-    G3, the counted runs, needs a separate GO after the G2 evidence.
+  - cody said "go" to G2 on 2026-11-21 ([handoff/PR184_G2_Owner_Decision.md](handoff/PR184_G2_Owner_Decision.md)).
+    The G2 evidence is in [experiments/ar1/results/G2_REPORT.md](../experiments/ar1/results/G2_REPORT.md). Phase 0
+    passes at bring-up scale. SNC passes 246 of 246 bring-up runs. 12 of 14 mutations are flagged at every seed.
+    Still UNRESOLVED: M5 and part of M13 are never exercised, four clauses are unexercised, and the prereg needs
+    amendments A-1 and A-2.
+  - **Now:** waiting for review of the G2 report. G3, the counted runs, stays on HOLD for a separate GO.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event

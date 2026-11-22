@@ -1,0 +1,181 @@
+{
+ "runs": 2,
+ "freezes": 1000,
+ "subchecks": {
+  "1": "pass",
+  "1-negative-control": "pass",
+  "2": "pass",
+  "3": "pass"
+ },
+ "detail": [
+  {
+   "1": {
+    "vary": {
+     "dummy_writes": 137,
+     "checkpoint": false,
+     "pad": 13144
+    },
+    "classes": {
+     "on": {
+      "class": "D",
+      "at_cuts": {
+       "k1": "D"
+      },
+      "end_lsn": "0/403E220",
+      "tli": 1
+     },
+     "local": {
+      "class": "R",
+      "at_cuts": {
+       "k1": "L"
+      },
+      "end_lsn": "0/403E2D0",
+      "tli": 1
+     }
+    },
+    "old_rule": "0/403E2D0",
+    "unresolved": [],
+    "invalid": [],
+    "pass": true,
+    "negative_control_fired": true
+   },
+   "3": {
+    "freezes": 500,
+    "overdue": 0,
+    "fails": [],
+    "n_fails": 0,
+    "l_then_r": 1968,
+    "load_commits": 57614,
+    "unresolved": [],
+    "freeze_ms_p50": 101.846302,
+    "freeze_ms_max": 124.024042,
+    "pass": true
+   },
+   "2": {
+    "vary": {
+     "dummy_writes": 782,
+     "checkpoint": true,
+     "pad": 1931
+    },
+    "classes": {
+     "X": {
+      "class": "X",
+      "end": "0/405EFA8",
+      "tli": 1,
+      "switchpoint": "0/405EEF8"
+     },
+     "on0": {
+      "class": "kept",
+      "end": "0/405ED98",
+      "tli": 1,
+      "switchpoint": "0/405EEF8"
+     },
+     "on1": {
+      "class": "kept",
+      "end": "0/405EE48",
+      "tli": 1,
+      "switchpoint": "0/405EEF8"
+     },
+     "on2": {
+      "class": "kept",
+      "end": "0/405EEF8",
+      "tli": 1,
+      "switchpoint": "0/405EEF8"
+     }
+    },
+    "present": [
+     "on0",
+     "on1",
+     "on2"
+    ],
+    "lost_below_switchpoint": [],
+    "pass": true
+   }
+  },
+  {
+   "1": {
+    "vary": {
+     "dummy_writes": 507,
+     "checkpoint": false,
+     "pad": 7737
+    },
+    "classes": {
+     "on": {
+      "class": "D",
+      "at_cuts": {
+       "k1": "D"
+      },
+      "end_lsn": "0/404F438",
+      "tli": 1
+     },
+     "local": {
+      "class": "R",
+      "at_cuts": {
+       "k1": "L"
+      },
+      "end_lsn": "0/404F4E8",
+      "tli": 1
+     }
+    },
+    "old_rule": "0/404F4E8",
+    "unresolved": [],
+    "invalid": [],
+    "pass": true,
+    "negative_control_fired": true
+   },
+   "3": {
+    "freezes": 500,
+    "overdue": 0,
+    "fails": [],
+    "n_fails": 0,
+    "l_then_r": 1960,
+    "load_commits": 56277,
+    "unresolved": [],
+    "freeze_ms_p50": 101.839193,
+    "freeze_ms_max": 194.235283,
+    "pass": true
+   },
+   "2": {
+    "vary": {
+     "dummy_writes": 667,
+     "checkpoint": true,
+     "pad": 3439
+    },
+    "classes": {
+     "X": {
+      "class": "X",
+      "end": "0/4058C78",
+      "tli": 1,
+      "switchpoint": "0/4058BC8"
+     },
+     "on0": {
+      "class": "kept",
+      "end": "0/4058A68",
+      "tli": 1,
+      "switchpoint": "0/4058BC8"
+     },
+     "on1": {
+      "class": "kept",
+      "end": "0/4058B18",
+      "tli": 1,
+      "switchpoint": "0/4058BC8"
+     },
+     "on2": {
+      "class": "kept",
+      "end": "0/4058BC8",
+      "tli": 1,
+      "switchpoint": "0/4058BC8"
+     }
+    },
+    "present": [
+     "on0",
+     "on1",
+     "on2"
+    ],
+    "lost_below_switchpoint": [],
+    "pass": true
+   }
+  }
+ ],
+ "overall": "pass"
+}

@@ -1,0 +1,4 @@
+dbos==3.6.0
+psycopg[binary]==3.3.9
+sqlalchemy==2.1.9
+black==25.11.0

@@ -1,0 +1,68 @@
+[
+ {
+  "mode": "on",
+  "vary": {
+   "dummy_writes": 966,
+   "checkpoint": false,
+   "pad": 5826
+  },
+  "commits": 10000,
+  "missing": 0,
+  "bound_below_end": 0,
+  "current_lsn_below_end": 0,
+  "bounds_past_page_boundary": 7,
+  "bound_below_next_record_start": 7,
+  "establish_ns": {
+   "p50": 164135,
+   "p99": 462989,
+   "max": 4895693
+  },
+  "establish_ns_past_page": [
+   141616,
+   145004,
+   145513,
+   161118,
+   210805,
+   227105,
+   228588
+  ],
+  "negative_control_fired": null,
+  "pass": true,
+  "run": 0,
+  "seconds": 14.2
+ },
+ {
+  "mode": "off",
+  "vary": {
+   "dummy_writes": 335,
+   "checkpoint": true,
+   "pad": 4516
+  },
+  "commits": 10000,
+  "missing": 0,
+  "bound_below_end": 0,
+  "current_lsn_below_end": 10000,
+  "bounds_past_page_boundary": 9,
+  "bound_below_next_record_start": 9,
+  "establish_ns": {
+   "p50": 1134,
+   "p99": 3324,
+   "max": 18371381596
+  },
+  "establish_ns_past_page": [
+   1009,
+   1043,
+   1062,
+   1101,
+   1127,
+   1156,
+   1218,
+   1587,
+   1641
+  ],
+  "negative_control_fired": true,
+  "pass": true,
+  "run": 1,
+  "seconds": 23.8
+ }
+]

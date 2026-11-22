@@ -1,0 +1,188 @@
+{
+ "M1": {
+  "clauses": [
+   "4.established",
+   "4.gateway"
+  ],
+  "detected": 20,
+  "exercised": 20,
+  "flagged": {
+   "4.gateway": 20
+  },
+  "not_scored": {},
+  "runs": 20
+ },
+ "M10": {
+  "clauses": [
+   "1.stale_epoch"
+  ],
+  "detected": 10,
+  "exercised": 10,
+  "flagged": {
+   "1.stale_epoch": 10
+  },
+  "not_scored": {},
+  "runs": 10
+ },
+ "M11": {
+  "clauses": [
+   "6.outstanding"
+  ],
+  "detected": 85,
+  "exercised": 85,
+  "flagged": {
+   "6.outstanding": 85
+  },
+  "not_scored": {},
+  "runs": 85
+ },
+ "M12": {
+  "clauses": [
+   "3.recall",
+   "3.late_marked"
+  ],
+  "detected": 10,
+  "exercised": 10,
+  "flagged": {
+   "3.recall": 10
+  },
+  "not_scored": {},
+  "runs": 10
+ },
+ "M13": {
+  "clauses": [
+   "6.derive"
+  ],
+  "detected": 10,
+  "exercised": 10,
+  "flagged": {
+   "6.derive": 10
+  },
+  "not_scored": {},
+  "runs": 20
+ },
+ "M14": {
+  "clauses": [
+   "5.conflict"
+  ],
+  "detected": 5,
+  "exercised": 5,
+  "flagged": {
+   "2.no_repeat": 5,
+   "5.TN_no_retry": 5,
+   "5.conflict": 5
+  },
+  "not_scored": {},
+  "runs": 5
+ },
+ "M2": {
+  "clauses": [
+   "1.stale_epoch"
+  ],
+  "detected": 20,
+  "exercised": 20,
+  "flagged": {
+   "1.stale_epoch": 20,
+   "2.no_repeat": 8,
+   "5.TN_duplicate_recorded": 8,
+   "5.conflict": 7,
+   "6.derive": 7
+  },
+  "not_scored": {},
+  "runs": 20
+ },
+ "M3": {
+  "clauses": [
+   "3.no_regenerate",
+   "3.crash_unknown"
+  ],
+  "detected": 10,
+  "exercised": 10,
+  "flagged": {
+   "3.crash_unknown": 10,
+   "3.recall": 10
+  },
+  "not_scored": {},
+  "runs": 10
+ },
+ "M4": {
+  "clauses": [
+   "5.TN_no_retry",
+   "2.no_repeat"
+  ],
+  "detected": 10,
+  "exercised": 10,
+  "flagged": {
+   "2.no_repeat": 10,
+   "5.TN_no_retry": 10
+  },
+  "not_scored": {},
+  "runs": 10
+ },
+ "M5": {
+  "clauses": [
+   "4.policy_read"
+  ],
+  "detected": 0,
+  "exercised": 0,
+  "flagged": {},
+  "not_scored": {},
+  "runs": 10
+ },
+ "M6": {
+  "clauses": [
+   "6.prepared_rejected"
+  ],
+  "detected": 20,
+  "exercised": 20,
+  "flagged": {
+   "6.prepared_rejected": 20
+  },
+  "not_scored": {},
+  "runs": 20
+ },
+ "M7": {
+  "clauses": [
+   "7.executed"
+  ],
+  "detected": 5,
+  "exercised": 5,
+  "flagged": {
+   "7.executed": 5
+  },
+  "not_scored": {},
+  "runs": 5
+ },
+ "M8": {
+  "clauses": [
+   "5.recorded",
+   "6.outcome_exempt"
+  ],
+  "detected": 20,
+  "exercised": 20,
+  "flagged": {
+   "5.TF_stale_rejected": 5,
+   "5.TN_duplicate_recorded": 3,
+   "5.recorded": 5,
+   "6.outcome_exempt": 15
+  },
+  "not_scored": {},
+  "runs": 20
+ },
+ "M9": {
+  "clauses": [
+   "5.TI_same_key",
+   "5.TI_one_effect",
+   "2.no_repeat"
+  ],
+  "detected": 5,
+  "exercised": 5,
+  "flagged": {
+   "2.no_repeat": 5,
+   "5.TI_one_effect": 5,
+   "5.TI_same_key": 5
+  },
+  "not_scored": {},
+  "runs": 5
+ }
+}
