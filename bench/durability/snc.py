@@ -156,16 +156,18 @@ def judge(acc, total, got, start):
     return bad
 
 
-def check(build, acks, shards, objects, start):
+def check_with(acks, start, serve):
+    """The mark check against a system: serve() starts it on the replayed data
+    and returns (stop, read), read(ids) giving {id: balance or None}."""
     start_ns, end_ns, start = int(os.environ["DLW_MARK_NS"]), int(os.environ["DLW_MARK_END_NS"]), int(start)
     image_end_ns = int(os.environ.get("DLW_IMAGE_END_NS", end_ns))
     acc, total, removed = bounds(acks, start_ns, end_ns, start, image_end_ns)
-    proc, port = server(build, shards, objects)
+    stop, read = serve()
     try:
         ids, prev, reads = sorted(acc), None, 0
         t0 = moved = time.time()
         while True:
-            got = read_all(port, ids)
+            got = read(ids)
             reads += 1
             bad = judge(acc, total, got, start)
             if got != prev:
@@ -175,8 +177,7 @@ def check(build, acks, shards, objects, start):
             prev = got
             time.sleep(0.1)
     finally:
-        proc.terminate()
-        proc.wait()
+        stop()
     print(json.dumps({"mark_ns": start_ns, "mark_window_us": (end_ns - start_ns) // 1000, "accounts": len(acc),
                       "exist": sum(v is not None for v in got.values()), "must": sum(v[0] for v in acc.values()),
                       "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "reads": reads, "removed": removed,
@@ -184,6 +185,17 @@ def check(build, acks, shards, objects, start):
     if image_end_ns != end_ns and not removed:
         return 3
     return 1 if bad else 0
+
+
+def check(build, acks, shards, objects, start):
+    def serve():
+        proc, port = server(build, shards, objects)
+
+        def stop():
+            proc.terminate()
+            proc.wait()
+        return stop, lambda ids: read_all(port, ids)
+    return check_with(acks, start, serve)
 
 
 if __name__ == "__main__":

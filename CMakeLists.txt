@@ -187,6 +187,8 @@ target_link_libraries(baseline_server PRIVATE snc_core)
 
 add_executable(net_bench bench/net_bench.cpp)
 target_link_libraries(net_bench PRIVATE snc_core)
+add_executable(resp_bench bench/resp_bench.cpp)
+target_include_directories(resp_bench PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 # The lab's load and checker (docs/REAL_MACHINES.md).
 add_executable(stage_stall bench/stage_stall.cpp)
