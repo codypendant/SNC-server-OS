@@ -1,0 +1,27 @@
+# Durable-acknowledgement checks through the block layer (bench/durability/dlw.py,
+# docs/DIRECTION_COMPARISON_PLAN.md 4.1). GitHub-hosted VMs have device-mapper;
+# the cloud dev containers do not. Runs when the harness changes, or on demand.
+name: durability
+
+on:
+  pull_request:
+    paths: ["bench/durability/**", ".github/workflows/durability.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controls:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Device-mapper and tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q dmsetup "linux-modules-extra-$(uname -r)" || sudo apt-get install -y -q dmsetup
+          sudo modprobe dm-log-writes
+          uname -r; sudo dmsetup targets
+      - name: Controls (positive must pass, negative must fail)
+        run: sudo python3 bench/durability/dlw.py controls --build-replay-log
