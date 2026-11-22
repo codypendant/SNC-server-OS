@@ -31,7 +31,8 @@ def server(garnet, device, *extra):
                              "--index", "64m", *extra], stdout=log, stderr=log)
     if not snc.wait_port(port, proc, 120):
         proc.kill()
-        sys.exit("garnet did not start")
+        print("garnet did not start", file=sys.stderr)
+        sys.exit(2)
     return proc, port
 
 

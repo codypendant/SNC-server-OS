@@ -4,6 +4,7 @@
 //   ACCT.DEP key cents        add cents in place; replies the new balance
 //   ACCT.XFER src dst cents   transaction on both keys; -ERR NOFUNDS if short
 using System.Buffers.Binary;
+using System.Buffers.Text;
 using Garnet;
 using Garnet.common;
 using Garnet.server;
@@ -21,7 +22,7 @@ Thread.Sleep(Timeout.Infinite);
 
 sealed class Deposit : CustomRawStringFunctions
 {
-    static long Cents(ref StringInput input) => long.Parse(System.Text.Encoding.ASCII.GetString(GetFirstArg(ref input)));
+    static long Cents(ref StringInput input) => Utf8Parser.TryParse(GetFirstArg(ref input), out long c, out _) ? c : 0;
 
     public override bool NeedInitialUpdate(scoped ReadOnlySpan<byte> key, ref StringInput input, ref RespMemoryWriter writer) => false;
     public override int GetInitialLength(ref StringInput input) => throw new InvalidOperationException();
@@ -65,22 +66,33 @@ sealed class Transfer : CustomTransactionProcedure
         int offset = 0;
         var src = GetNextArg(ref procInput, ref offset);
         var dst = GetNextArg(ref procInput, ref offset);
-        long cents = long.Parse(System.Text.Encoding.ASCII.GetString(GetNextArg(ref procInput, ref offset).ReadOnlySpan));
-        if (api.GET(src, out PinnedSpanByte s) != GarnetStatus.OK || api.GET(dst, out PinnedSpanByte d) != GarnetStatus.OK)
+        Utf8Parser.TryParse(GetNextArg(ref procInput, ref offset).ReadOnlySpan, out long cents, out _);
+        if (src.ReadOnlySpan.SequenceEqual(dst.ReadOnlySpan))
+        {
+            WriteError(ref output, "ERR SAMEACCOUNT");
+            return;
+        }
+        // Copy each value out before the next GET can reuse its buffer.
+        if (api.GET(src, out PinnedSpanByte s) != GarnetStatus.OK)
         {
             WriteError(ref output, "ERR NOACCOUNT");
             return;
         }
-        long sb = BinaryPrimitives.ReadInt64LittleEndian(s.ReadOnlySpan);
+        Span<byte> a = stackalloc byte[s.Length];
+        s.ReadOnlySpan.CopyTo(a);
+        if (api.GET(dst, out PinnedSpanByte d) != GarnetStatus.OK)
+        {
+            WriteError(ref output, "ERR NOACCOUNT");
+            return;
+        }
+        Span<byte> b = stackalloc byte[d.Length];
+        d.ReadOnlySpan.CopyTo(b);
+        long sb = BinaryPrimitives.ReadInt64LittleEndian(a);
         if (sb < cents)
         {
             WriteError(ref output, "ERR NOFUNDS");
             return;
         }
-        Span<byte> a = stackalloc byte[s.Length];
-        Span<byte> b = stackalloc byte[d.Length];
-        s.ReadOnlySpan.CopyTo(a);
-        d.ReadOnlySpan.CopyTo(b);
         BinaryPrimitives.WriteInt64LittleEndian(a, sb - cents);
         BinaryPrimitives.WriteInt64LittleEndian(b, BinaryPrimitives.ReadInt64LittleEndian(b) + cents);
         api.SET(src, PinnedSpanByte.FromPinnedSpan(a));

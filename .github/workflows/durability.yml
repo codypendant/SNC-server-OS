@@ -67,10 +67,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [Native, FileStream, RandomAccess]
-    # A device that loses acknowledged writes is a finding about Garnet, not a
-    # harness failure: each device's result is reported, none blocks the others.
-    continue-on-error: true
+        # Expected from bench/results/dc1-trackb/GARNET_DURABILITY.md: Native and
+        # RandomAccess never flush, so they must fail (a second negative control);
+        # FileStream writes O_SYNC and must pass. Any other outcome fails the job.
+        include:
+          - {device: Native, expect: lose}
+          - {device: FileStream, expect: pass}
+          - {device: RandomAccess, expect: lose}
     steps:
       - uses: actions/checkout@v4
       - name: Device-mapper, .NET and build dependencies
@@ -84,13 +87,24 @@ jobs:
           dotnet build -c Release bench/garnet
           cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
           cmake --build build -j "$(nproc)" --target resp_bench
-      - name: Garnet ${{ matrix.device }} acknowledged writes survive every mark
+      - name: Garnet ${{ matrix.device }} durability (expected ${{ matrix.expect }})
         run: |
           G="$PWD/bench/garnet/bin/Release/net10.0/SncGarnet"; S=bench/durability/garnet.py; A=/var/tmp/dlw/acks
+          set +e
           sudo python3 bench/durability/dlw.py run --build-replay-log --size-mb 1024 \
             --check "python3 $S check $G $A ${{ matrix.device }} 1000000000" -- \
             python3 $S load "$G" "$PWD/build/resp_bench" $A ${{ matrix.device }} --threads 2 --conns 2 \
-            --objects 3000 --rate 2000 --seconds 16 --warmup 2 --transfer 50 --reads 20 --start-balance 1000000000
+            --objects 3000 --rate 2000 --seconds 16 --warmup 2 --transfer 50 --reads 20 --start-balance 1000000000 \
+            | tee /var/tmp/dlw-result.txt
+          rc=${PIPESTATUS[0]}
+          r=$(tail -1 /var/tmp/dlw-result.txt)
+          echo "$r"
+          if [ "${{ matrix.expect }}" = pass ]; then
+            [ "$rc" = 0 ]
+          else
+            # Must lose writes at some mark, with every negative control still rejected.
+            echo "$r" | python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r["failed"] and not r["negative"]["not_rejected"] and r["rc"] == 0 else 1)'
+          fi
       - name: Keep the ack log and server log
         if: failure()
         run: sudo chmod -R a+rX /var/tmp/dlw || true

@@ -12,11 +12,13 @@
 //                   [--seconds S] [--drain-s S] [--transfer PCT] [--reads PCT]
 //                   [--start-balance C] [--verify] [--ack-log FILE] [--no-load]
 // --transfer PCT of ops are transfers; --reads PCT of the rest are reads; the
-// others deposit. --depth bounds each thread's ops in flight over its C
-// connections. --no-load uses existing accounts 0..N-1.
+// others deposit. Each thread holds C connections for writes and C for reads,
+// so a read never waits behind a write's AOF commit. --depth bounds each
+// thread's ops in flight. --no-load uses existing accounts 0..N-1.
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <pthread.h>
 #include <sys/socket.h>
@@ -149,8 +151,9 @@ struct Shared {
 struct Thread {
   u16 index = 0;
   Shared* sh = nullptr;
-  std::vector<Conn> conns;
-  std::size_t next_conn = 0;
+  std::vector<Conn> conns;  // the first half carry writes, the second half reads
+  std::size_t next_write = 0, next_read = 0;
+  std::vector<pollfd> pf;
   std::mt19937_64 rng;
   RateSchedule sched;
   u64 next_k = 0, outstanding = 0;
@@ -167,7 +170,7 @@ struct Thread {
 
 bool connect_all(Thread& t) {
   const Args& a = t.sh->a;
-  for (u16 i = 0; i < a.conns; ++i) {
+  for (u16 i = 0; i < 2 * a.conns; ++i) {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in sa{};
     sa.sin_family = AF_INET;
@@ -179,6 +182,7 @@ bool connect_all(Thread& t) {
     }
     int one = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
     t.conns.push_back({});
     t.conns.back().fd = fd;
   }
@@ -186,7 +190,8 @@ bool connect_all(Thread& t) {
 }
 
 void send_op(Thread& t, const Op& op) {
-  Conn& c = t.conns[t.next_conn++ % t.conns.size()];
+  const std::size_t half = t.conns.size() / 2;
+  Conn& c = op.kind == kRead ? t.conns[half + t.next_read++ % half] : t.conns[t.next_write++ % half];
   char k1[16], k2[16];
   key(k1, op.from);
   switch (op.kind) {
@@ -270,7 +275,8 @@ void on_reply(Thread& t, const Op& op, const Reply& r, u64 now) {
 // Sends what is buffered and handles every complete reply; waits up to
 // wait_ms for the first. False on a connection error.
 bool poll_conns(Thread& t, int wait_ms) {
-  std::vector<pollfd> pf(t.conns.size());
+  std::vector<pollfd>& pf = t.pf;
+  pf.resize(t.conns.size());
   for (std::size_t i = 0; i < t.conns.size(); ++i) {
     pf[i] = {t.conns[i].fd, static_cast<short>(POLLIN | (t.conns[i].out.empty() ? 0 : POLLOUT)), 0};
   }
@@ -280,12 +286,12 @@ bool poll_conns(Thread& t, int wait_ms) {
     Conn& c = t.conns[i];
     if (pf[i].revents & POLLOUT) {
       ssize_t n = ::send(c.fd, c.out.data(), c.out.size(), MSG_NOSIGNAL);
-      if (n < 0 && errno != EAGAIN) return t.error = "send failed", false;
+      if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) return t.error = "send failed", false;
       if (n > 0) c.out.erase(0, static_cast<std::size_t>(n));
     }
     if (pf[i].revents & (POLLIN | POLLERR | POLLHUP)) {
-      ssize_t n = ::recv(c.fd, buf, sizeof(buf), MSG_DONTWAIT);
-      if (n == 0 || (n < 0 && errno != EAGAIN)) return t.error = "connection closed", false;
+      ssize_t n = ::recv(c.fd, buf, sizeof(buf), 0);
+      if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) return t.error = "connection closed", false;
       if (n > 0) c.in.append(buf, static_cast<std::size_t>(n));
       const u64 now = now_ns();
       Reply r;
@@ -394,8 +400,12 @@ bool verify(std::vector<Thread>& threads, const Args& a, bool undrained) {
   r.scan = nullptr;
   for (u64 j = 0; j < a.objects; ++j) {
     doubt += down[j] + up[j] > 0;
-    sum += got[j];
     expected += want[j];
+    if (got[j] == INT64_MIN) {
+      ++bad;
+      continue;
+    }
+    sum += got[j];
     bad += got[j] < want[j] - static_cast<i64>(down[j]) || got[j] > want[j] + static_cast<i64>(up[j]);
   }
   const bool ok = !bad && !undrained;
@@ -417,7 +427,7 @@ bool write_acks(const std::vector<Thread>& threads, const Args& a) {
     for (const auto& x : t.acks) put(x.from, x.to, x.sent, x.acked, x.kind);
     for (const auto& c : t.conns) {
       for (const auto& op : c.pending) {
-        if (op.kind != kRead) put(op.from, op.to, op.kind == kCreate ? 0 : op.start, 0, 'd');
+        if (op.kind == kDeposit || op.kind == kTransfer) put(op.from, op.to, op.start, 0, 'd');
       }
     }
   }

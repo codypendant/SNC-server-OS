@@ -20,6 +20,8 @@ FACT, from the run logs:
 
 INF: Native and RandomAccess acknowledge a commit before any flush or FUA covers it, so the data can sit in a volatile cache. This matches the source reading in `docs/research/TRACKB_PREREQUISITES.md`, which found that Native never flushes and FileStream opens its files with O_SYNC.
 
+Since this run, Native and RandomAccess are expected to lose writes in CI, and they serve as a second negative control (`.github/workflows/durability.yml`). resp_bench also sends reads on their own connections, so a read never waits behind a write's AOF commit (review finding 1, `docs/handoff/DC1_Harness_Slice4_Review.md`).
+
 ## Consequence (plan 4.2 gating order, unchanged)
 - Garnet Native fails the durability test, so its numbers are diagnostic only.
 - Garnet FileStream is the gating Garnet configuration, and only configurations that pass this test may be screened or counted.
