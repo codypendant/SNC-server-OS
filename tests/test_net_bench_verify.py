@@ -12,6 +12,10 @@ real durable snc_server (2 shards):
   late       the server stopped 500 ms mid-window: probes due in the stall
              miss, because each read must answer by intended send + SLO + g.
   flags      the probe needs --rate and an SLO.
+  acks       --ack-log, read back by bench/durability/snc.py check on the
+             stopped server's data: a mark after the run holds; a mark at
+             the start fails (the run's writes cannot be there yet), and so
+             does a wrong start balance.
 
 Usage: test_net_bench_verify.py BUILD_DIR [scenario ...]
 """
@@ -31,6 +35,7 @@ import test_async_failover as af  # noqa: E402
 BUILD = sys.argv[1] if len(sys.argv) > 1 else "build"
 ONLY = sys.argv[2:]
 BIG = str(10**12)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Server:
@@ -120,9 +125,30 @@ def scenario_flags(s):
     print("flags: bad probe settings refused")
 
 
+def scenario_acks(s):
+    acks = os.path.join(s.work, "acks")
+    s.bench(["--objects", "2000", "--rate", "3000", "--seconds", "2", "--transfer", "50", "--reads", "20",
+             "--xfer-local", "0", "--start-balance", BIG, "--ack-log", acks])
+    s.proc.stop()
+    kinds = [line[0] for line in open(acks)]
+    assert kinds.count("c") == 2000 and kinds.count("a") > 3000 and set(kinds) <= {"c", "a"}, set(kinds)
+
+    def check(mark, start=BIG):
+        env = dict(os.environ, DLW_MNT=s.work, DLW_MARK_NS=str(mark))
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "bench/durability/snc.py"), "check", BUILD, acks, "2",
+                            "40000", start], env=env, capture_output=True, text=True, timeout=120)
+        return p.returncode, p.stdout + p.stderr
+    rc, out = check(1 << 62)
+    assert rc == 0 and '"bad": 0' in out, out
+    for mark, start in ((1, BIG), (1 << 62, str(10**12 + 1))):
+        rc, out = check(mark, start)
+        assert rc == 1, out
+    print("acks: the ack log reads back exact after the run; early marks and wrong starts fail")
+
+
 def main():
     scenarios = [("flags", scenario_flags), ("conserve", scenario_conserve), ("rejected", scenario_rejected),
-                 ("mismatch", scenario_mismatch), ("late", scenario_late)]
+                 ("mismatch", scenario_mismatch), ("late", scenario_late), ("acks", scenario_acks)]
     s = Server()
     try:
         for name, fn in scenarios:

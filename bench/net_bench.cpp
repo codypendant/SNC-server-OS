@@ -26,6 +26,11 @@
 // answer by + G (default S/10) with at least every probe credit sent to it,
 // else the probe is a miss (docs/DIRECTION_COMPARISON_PLAN.md 4.1). Probe
 // reads are not counted as ops.
+// --ack-log FILE: after the run, one line per create, deposit and transfer:
+// "KIND FROM TO SENT ACKED", KIND c (create acknowledged), a (applied), n (not
+// applied), d (in doubt, or never answered: ACKED is 0); ids as 32 hex digits
+// (hi, lo), TO 0 for creates and deposits; SENT the intended send time and
+// ACKED when the reply was read, CLOCK_MONOTONIC ns (bench/durability).
 // --retry-claim-ttl-s S (with --session): the run claims session
 // deduplication against a server session TTL of S seconds. It is valid only
 // if every in-doubt resend happened well before session expiry:
@@ -125,6 +130,7 @@ struct Args {
   u64 probe_slo_ns = 0, probe_grace_ns = 0;
   u32 probe_accounts = 1024;
   u64 retry_claim_ttl_s = 0;  // --retry-claim-ttl-s (0: no claim)
+  std::string ack_log;
 };
 
 enum Phase : int { kLoad, kRun, kDrain };
@@ -175,6 +181,12 @@ struct Thread {
   std::vector<i64> delta;
   std::vector<u32> doubt_down, doubt_up;
   std::vector<u64> from_j, to_j;  // per slot: account indexes the op changes
+  struct Ack {
+    ObjectID from, to;
+    u64 sent, acked;
+    char kind;
+  };
+  std::vector<Ack> acks;  // --ack-log
   // --probe-pct: one record per probed transfer, in intended order.
   struct Probe {
     u64 read_at, due_by;
@@ -213,6 +225,7 @@ void on_load(void* ctx, const wire::RespHeader& h, ByteView) {
   t->free_slots.push_back(static_cast<u32>(h.req_id));
   if (h.status == static_cast<u16>(Status::OK)) {
     t->created.push_back(h.id);
+    if (!t->sh->args.ack_log.empty()) t->acks.push_back({h.id, {}, 0, now_ns(), 'c'});
   } else if (h.status == static_cast<u16>(Status::E_OVERLOADED)) {
     ++t->overloaded;
     // Resend this same account number, so every email user<i>.<n> with
@@ -225,6 +238,11 @@ void on_load(void* ctx, const wire::RespHeader& h, ByteView) {
 
 constexpr u32 kNoProbe = ~0u;
 constexpr u64 kNone = ~0ull;
+
+ObjectID account_id(const Shared& sh, u64 j) {
+  if (j == kNone) return {};
+  return j < sh.ids.size() ? sh.ids[j] : sh.probe_ids[j - sh.ids.size()];
+}
 
 // Whether an answered op changed its accounts. E_REPLAYED_OLD says a resend
 // was already applied, but not with what result, except that a deposit
@@ -281,6 +299,9 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
     if (ap == kNotApplied) --t->probe_expected[r.p];
     if (st == Status::E_APP) r.rejected = true;  // nothing to settle: not a probe
     probe_done(t, r);
+  }
+  if (!sh.args.ack_log.empty() && t->from_j[slot] != kNone) {
+    t->acks.push_back({account_id(sh, t->from_j[slot]), account_id(sh, t->to_j[slot]), t->start[slot], now, "and"[ap]});
   }
   if (!t->delta.empty() && t->from_j[slot] != kNone && ap != kNotApplied) {
     const u64 f = t->from_j[slot], to = t->to_j[slot];
@@ -814,6 +835,7 @@ Args parse(int argc, char** argv) {
     else if (k == "--probe-slo-us") a.probe_slo_ns = std::strtoull(val(), nullptr, 10) * 1000;
     else if (k == "--probe-grace-us") a.probe_grace_ns = std::strtoull(val(), nullptr, 10) * 1000;
     else if (k == "--probe-accounts") a.probe_accounts = static_cast<u32>(std::strtoul(val(), nullptr, 10));
+    else if (k == "--ack-log") a.ack_log = val();
     else if (k == "--retry-claim-ttl-s") a.retry_claim_ttl_s = std::strtoull(val(), nullptr, 10);
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
@@ -847,6 +869,23 @@ Args parse(int argc, char** argv) {
 }
 
 }  // namespace
+
+bool write_acks(std::vector<Thread>& threads, const Shared& sh) {
+  FILE* f = std::fopen(sh.args.ack_log.c_str(), "w");
+  if (!f) return false;
+  auto put = [&](const Thread::Ack& x) {
+    std::fprintf(f, "%c %016llx%016llx %016llx%016llx %llu %llu\n", x.kind, (unsigned long long)x.from.hi,
+                 (unsigned long long)x.from.lo, (unsigned long long)x.to.hi, (unsigned long long)x.to.lo,
+                 (unsigned long long)x.sent, (unsigned long long)x.acked);
+  };
+  for (auto& t : threads) {
+    for (const auto& x : t.acks) put(x);
+    for (u32 s = 0; s < t.from_j.size(); ++s) {
+      if (t.from_j[s] != kNone) put({account_id(sh, t.from_j[s]), account_id(sh, t.to_j[s]), t.start[s], 0, 'd'});
+    }
+  }
+  return std::fclose(f) == 0;
+}
 
 int main(int argc, char** argv) {
   Shared sh;
@@ -991,6 +1030,7 @@ int main(int argc, char** argv) {
     run_s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t1).count();
   }
 
+  if (!a.ack_log.empty() && !write_acks(threads, sh)) return 1;
   Histogram all;
   u64 ops = 0, errors = 0, overloaded = 0, misrouted = 0, forwarded = 0, stale = 0, replayed = 0,
       failovers = 0, timeouts = 0, resends = 0, max_resend_age_ms = 0;

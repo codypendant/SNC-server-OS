@@ -5,7 +5,7 @@ name: durability
 
 on:
   pull_request:
-    paths: ["bench/durability/**", ".github/workflows/durability.yml"]
+    paths: ["bench/durability/**", "bench/net_bench.cpp", ".github/workflows/durability.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,3 +25,26 @@ jobs:
           uname -r; sudo dmsetup targets
       - name: Controls (positive must pass, negative must fail)
         run: sudo python3 bench/durability/dlw.py controls --build-replay-log
+
+  snc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Device-mapper, tools and build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q dmsetup libmimalloc-dev libxxhash-dev liburing-dev "linux-modules-extra-$(uname -r)" \
+            || sudo apt-get install -y -q dmsetup libmimalloc-dev libxxhash-dev liburing-dev
+          sudo modprobe dm-log-writes
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build -j "$(nproc)" --target snc_server net_bench
+      - name: snc_server acknowledged writes survive every mark
+        run: |
+          B="$PWD/build"; S=bench/durability/snc.py; A=/var/tmp/dlw/acks
+          sudo python3 bench/durability/dlw.py run --build-replay-log --size-mb 1024 \
+            --check "python3 $S check $B $A 2 20000 1000000000" -- \
+            python3 $S load "$B" $A 2 20000 --threads 2 --objects 3000 --rate 2000 --seconds 14 \
+            --transfer 50 --reads 20 --xfer-local 0 --start-balance 1000000000

@@ -13,8 +13,9 @@ there.
 
   dlw.py controls        positive (O_DIRECT + fdatasync) must pass, negative
                          (O_DIRECT only) must fail; exit 0 iff both behave
-  dlw.py run -- CMD...   run CMD with $DLW_MNT as its data mount, then check
-                         each mark with --check (it gets $DLW_MNT, $DLW_MARK_NS)
+  dlw.py run -- CMD...   run CMD with $DLW_MNT as its data mount until it
+                         exits, then check each mark with --check (it gets
+                         $DLW_MNT, $DLW_MARK_NS); CMD must outlast the marks
 
 Needs root, dmsetup, the dm-log-writes module and replay-log (xfstests
 src/log-writes, built by --build-replay-log).
@@ -183,12 +184,11 @@ def run(args):
         rig.up()
         p = subprocess.Popen(args.cmd, env=dict(os.environ, DLW_MNT=rig.mnt))
         marks = marks_while(rig, p, args.marks, args.interval)
-        p.terminate()
-        p.wait()
+        rc = p.wait()
         rig.stop_logging()
         failed = [m for m, t in marks if not rig.replay(m, {"DLW_MARK_NS": str(t)}, args.check.split())]
-        print(json.dumps({"marks": len(marks), "failed": failed, "queue": rig.queue}))
-        return 0 if marks and not failed else 1
+        print(json.dumps({"marks": len(marks), "failed": failed, "rc": rc, "queue": rig.queue}))
+        return 0 if len(marks) == args.marks and not failed and rc == 0 else 1
     finally:
         rig.down()
 
