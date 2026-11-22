@@ -318,6 +318,18 @@ raft-rs. SNC's engine is unchanged. Each baseline is an established system used 
     data device. The R640 device reports `fua=1` [FACT `docs/R640_TOPOLOGY.md`], so its I/O path is not the VM's
     `fua=0` path. That gap, and whether the SSD has power-loss protection, are UNRESOLVED and the same for every
     system.
+- **Erratum, 2026-11-22 (source research, `docs/research/TRACKB_PREREQUISITES.md`; no threshold changes).**
+  - `dm-log-writes` advertises FUA itself, so the log holds both FLUSH and FUA entries. A write enters the log only
+    once a flush covers it or, for FUA, when it completes. Replaying from the log's start through mark M
+    (`replay-log --end-mark M`, which is inclusive) therefore gives the "volatile cache lost at M" image. That
+    replaces "to the last flush before the mark", and "a flush is the only durability point" no longer holds.
+  - A loop device already reports `write back` and `fua = 0`, and its `fua` is read-only. The manifest checks both
+    values; nothing is set.
+  - FACT now, no longer UNVERIFIED:
+    - Garnet `FileStream` opens with `O_SYNC` on every log, the main log included;
+    - Garnet `Native` never flushes;
+    - Garnet readers can see writes before their AOF commit;
+    - PostgreSQL makes a commit visible only after its local WAL flush.
 - **Only a verified configuration can gate.** Each benchmark has a gating order, fixed now. The gating baseline is the
   first system in the order whose best verified configuration passed. The others run as diagnostics, labelled as
   such. If SNC fails the test, that benchmark stops and the defect is recorded; no fix is made inside this plan.
