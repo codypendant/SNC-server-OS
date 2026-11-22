@@ -6,11 +6,15 @@
   check  (the dlw.py --check) snc_server on the replayed $DLW_MNT/data, and a
          read of every account in ACKS
 
-At the mark ($DLW_MARK_NS), an account whose create or any applied op was
-acknowledged before it must exist, with a balance of its start plus every
-change acknowledged before the mark, moved by at most one cent per op sent
-before the mark and not yet acknowledged (in doubt). Ops sent after the mark
-cannot be there. Exit 0 iff every account holds.
+The mark lies between $DLW_MARK_NS and $DLW_MARK_END_NS (the times taken
+around writing it). An account whose create or any applied op was
+acknowledged before the start must exist, with its start balance plus every
+change acknowledged by then, moved by at most one cent per op sent before the
+end and not acknowledged before the start (in doubt). Ops sent after the end
+cannot be there. The sum of all balances is bounded the same way by deposits
+alone, since a transfer moves no money. Cross-shard credits are re-delivered
+after recovery, so the accounts are read until two reads in a row agree and
+hold, or nothing has moved for 5 s. Exit 0 iff every account and the sum hold.
 
 Usage: snc.py load BUILD ACKS SHARDS OBJECTS NET_BENCH_ARG...
        snc.py check BUILD ACKS SHARDS OBJECTS START_BALANCE
@@ -27,8 +31,9 @@ import time
 GET_BALANCE, EXEC, OK, NOT_FOUND, OVERLOADED = 1006, 1, 0, 1, 9
 
 
-def bounds(acks, mark, start):
-    acc = {}  # id: [must exist, base, down, up]
+def bounds(acks, start_ns, end_ns, start):
+    """{id: [must exist, base, down, up]}, and the sum's [base, up]."""
+    acc, total = {}, [0, 0]
 
     def at(x):
         return acc.setdefault(x, [False, start, 0, 0])
@@ -37,13 +42,14 @@ def bounds(acks, mark, start):
         kind, a, b, sent, acked = line.split()
         sent, acked = int(sent), int(acked)
         if kind == "c":
-            at(a)[0] |= acked < mark
+            at(a)[0] |= acked < start_ns
             continue
-        if kind == "n" or sent >= mark:
+        if kind == "n" or sent >= end_ns:
             continue
-        sure = kind == "a" and acked < mark
+        sure = kind == "a" and acked < start_ns
         src = at(a)
         if int(b, 16) == 0:
+            total[not sure] += 1
             if sure:
                 src[0], src[1] = True, src[1] + 1
             else:
@@ -57,7 +63,7 @@ def bounds(acks, mark, start):
         else:
             src[2] += 1
             dst[3] += 1
-    return acc
+    return acc, total
 
 
 def read_all(port, ids):
@@ -121,21 +127,14 @@ def server(build, shards, objects, *extra):
 def load(build, acks, shards, objects, *bench):
     proc, port = server(build, shards, objects, "--checkpoint-s", "1")
     try:
-        return subprocess.run([f"{build}/net_bench", "--port", str(port), "--ack-log", acks, *bench]).returncode
+        return subprocess.run([f"{build}/net_bench", "--port", str(port), "--ack-log", acks, *bench],
+                              timeout=600).returncode
     finally:
         proc.terminate()
         proc.wait()
 
 
-def check(build, acks, shards, objects, start):
-    mark = int(os.environ["DLW_MARK_NS"])
-    acc = bounds(acks, mark, int(start))
-    proc, port = server(build, shards, objects)
-    try:
-        got = read_all(port, sorted(acc))
-    finally:
-        proc.terminate()
-        proc.wait()
+def judge(acc, total, got, start):
     bad = []
     for x, (must, base, down, up) in acc.items():
         b = got[x]
@@ -144,8 +143,37 @@ def check(build, acks, shards, objects, start):
                 bad.append((x, "missing"))
         elif not base - down <= b <= base + up:
             bad.append((x, b, base - down, base + up))
-    print(json.dumps({"mark_ns": mark, "accounts": len(acc), "exist": sum(v is not None for v in got.values()),
-                      "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "bad": len(bad), "first": bad[:3]}))
+    base = start * sum(v is not None for v in got.values()) + total[0]
+    s = sum(v for v in got.values() if v is not None)
+    if not base <= s <= base + total[1]:
+        bad.append(("sum", s, base, base + total[1]))
+    return bad
+
+
+def check(build, acks, shards, objects, start):
+    start_ns, end_ns, start = int(os.environ["DLW_MARK_NS"]), int(os.environ["DLW_MARK_END_NS"]), int(start)
+    acc, total = bounds(acks, start_ns, end_ns, start)
+    proc, port = server(build, shards, objects)
+    try:
+        ids, prev, reads = sorted(acc), None, 0
+        t0 = moved = time.time()
+        while True:
+            got = read_all(port, ids)
+            reads += 1
+            bad = judge(acc, total, got, start)
+            if got != prev:
+                moved = time.time()
+            elif not bad or time.time() - moved > 5 or time.time() - t0 > 60:
+                break
+            prev = got
+            time.sleep(0.1)
+    finally:
+        proc.terminate()
+        proc.wait()
+    print(json.dumps({"mark_ns": start_ns, "mark_window_us": (end_ns - start_ns) // 1000, "accounts": len(acc),
+                      "exist": sum(v is not None for v in got.values()), "must": sum(v[0] for v in acc.values()),
+                      "in_doubt": sum(v[2] + v[3] > 0 for v in acc.values()), "reads": reads, "bad": len(bad),
+                      "first": bad[:3]}))
     return 1 if bad else 0
 
 

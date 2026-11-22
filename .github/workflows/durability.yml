@@ -27,6 +27,7 @@ jobs:
         run: sudo python3 bench/durability/dlw.py controls --build-replay-log
 
   snc:
+    needs: controls
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -48,3 +49,13 @@ jobs:
             --check "python3 $S check $B $A 2 20000 1000000000" -- \
             python3 $S load "$B" $A 2 20000 --threads 2 --objects 3000 --rate 2000 --seconds 14 \
             --transfer 50 --reads 20 --xfer-local 0 --start-balance 1000000000
+      - name: Keep the ack log and server log
+        if: failure()
+        run: sudo chmod -R a+rX /var/tmp/dlw || true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: snc-durability
+          path: |
+            /var/tmp/dlw/acks
+            /var/tmp/dlw/server.log
