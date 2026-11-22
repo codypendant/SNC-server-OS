@@ -523,6 +523,13 @@ Decided by cody on 2026-11-04.
 - **Future architecture vision (not authorized):** cody's and Codex's
   v2 vision is filed with a core review in
   [FUTURE_ARCHITECTURE.md](FUTURE_ARCHITECTURE.md).
+- **Direction question reopened (cody, 2026-11-22):** full OS, agent runtime, SDK or hybrid is open again, and
+  evidence comes first ([handoff/SNC_Next_Research_Direction_20261122.txt](handoff/SNC_Next_Research_Direction_20261122.txt)).
+  The bounded comparison plan, Track A (agent runtime against DBOS, Restate, Temporal, LangGraph) and Track B (two
+  decisive state-native benchmarks), is [DIRECTION_COMPARISON_PLAN.md](DIRECTION_COMPARISON_PLAN.md). Codex
+  approved revision 3 for documentation merge ([handoff/PR186_Codex_Review_rev3.md](handoff/PR186_Codex_Review_rev3.md)).
+  It authorizes nothing: P-G1, P-B and P-A each await cody's own decision, Codex's six before-testing conditions
+  (plan section 9) apply, and G3 stays on HOLD.
 - **Agent runtime, the focused first product (decided 2026-11-21, limited):**
   cody accepted OD-P1 to OD-P7 with one "yes" to the limited forms, per the reading recorded in
   [handoff/PR183_Owner_Decisions.md](handoff/PR183_Owner_Decisions.md).

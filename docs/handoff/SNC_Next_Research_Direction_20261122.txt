@@ -1,0 +1,34 @@
+SNC — Next Research and Testing Direction
+(cody, project thread, 2026-11-22 02:09:34 UTC; written with Codex. Filed verbatim.)
+
+The owner is reconsidering the long-term choice between the original full state-native operating system and the focused agent runtime.
+Do not prematurely settle this architectural question.
+Our next objective is evidence, not another major implementation commitment.
+Track A — Agent Runtime
+Finish PR #185's G2 verification gaps first.
+Then prepare a narrowly scoped comparative evaluation against:
+
+* DBOS Transact
+* Restate, including its Rust SDK and virtual objects
+* Temporal
+* LangGraph
+
+Use equivalent observable guarantees and idiomatic implementations. Compare recovery, persistent memory, tool-effect safety, decision reconstruction, durable events, operational complexity and performance.
+Do not use missing SNC-specific schema fields as evidence that competing systems cannot provide equivalent functionality.
+Track B — Original State-Native OS
+Preserve the original SNC architecture and research.
+Identify two decisive benchmarks testing whether state-native object execution and scheduling provide meaningful advantages over established infrastructure.
+Use competent baselines, equivalent durability and explicit performance thresholds.
+Do not resume custom replication or begin raft-rs integration merely to perform these comparisons.
+Decision criteria
+Report separately:
+
+1. What existing systems already solve.
+2. What SNC demonstrably improves.
+3. What SNC provides that competitors cannot readily reproduce.
+4. Engineering effort required to deliver each direction.
+5. Whether the observed benefits justify additional implementation complexity.
+
+Keep G3 on HOLD pending the completed G2 review and separate authorization.
+Prepare a bounded comparison plan for owner and Codex approval before expanding implementation.
+The goal is to find the strongest technical and commercial direction for SNC, whether that ultimately means a full operating system, an agent runtime, an SDK, or a hybrid.
