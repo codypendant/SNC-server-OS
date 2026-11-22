@@ -16,8 +16,16 @@
 // and resend unanswered requests with per-shard sequences (docs/RETRIES.md).
 // --request-timeout-ms MS (default 5000, 0 = off): with --session, fail over
 // when a node leaves a request unanswered that long (a hung primary).
-// --verify: after the run, read every account and check its balance is its
-// start plus the deposits sent to it (no transfers, one client process).
+// --verify: after the run, read every account until two scans in a row show
+// its start plus the deposits and transfers acknowledged OK (one client
+// process). Fails if the run did not drain.
+// --start-balance C: each created account's starting balance (default 1000).
+// --probe-pct P --probe-slo-us S [--probe-grace-us G] [--probe-accounts K]
+// (with --rate): P% of transfers credit one of K extra probe accounts that
+// nothing else touches. One read of the target at intended send + S must
+// answer by + G (default S/10) with at least every probe credit sent to it,
+// else the probe is a miss (docs/DIRECTION_COMPARISON_PLAN.md 4.1). Probe
+// reads are not counted as ops.
 // --retry-claim-ttl-s S (with --session): the run claims session
 // deduplication against a server session TTL of S seconds. It is valid only
 // if every in-doubt resend happened well before session expiry:
@@ -112,6 +120,10 @@ struct Args {
   u64 session = 0;
   int request_timeout_ms = 5000;
   bool verify = false;
+  i64 start_balance = 1000;
+  double probe_pct = 0;
+  u64 probe_slo_ns = 0, probe_grace_ns = 0;
+  u32 probe_accounts = 1024;
   u64 retry_claim_ttl_s = 0;  // --retry-claim-ttl-s (0: no claim)
 };
 
@@ -128,7 +140,8 @@ struct Shared {
   u64 t0_ns = 0, measure_ns = 0, end_ns = 0, deadline_ns = 0;
   std::vector<ObjectID> ids;  // all accounts, filled between load and run
   bench::Zipf zipf;           // used when args.zipf > 0; ids is then in rank order
-  std::vector<std::vector<ObjectID>> by_owner;  // --xfer-local: ids by owning shard
+  std::vector<std::vector<u64>> by_owner;  // --xfer-local: indexes into ids, by owning shard
+  std::vector<ObjectID> probe_ids;         // --probe-pct targets, after ids in verify's order
 };
 
 struct Thread {
@@ -155,7 +168,29 @@ struct Thread {
   u64 scheduled_in_window = 0;  // due in [warm-up end, window end): the measured ops
   u64 served_all = 0;           // every served op, measured or not (for per-op costs)
   bool drained = false;
-  std::vector<u32> deposits;  // --verify: deposits sent, by index into ids
+  u64 rejected = 0;            // E_APP: refused by the handler (no funds)
+  u64 deposits_sent = 0;
+  // --verify, per account (ids, then probe_ids): the acknowledged change, and
+  // how far an op in doubt could move it down or up.
+  std::vector<i64> delta;
+  std::vector<u32> doubt_down, doubt_up;
+  std::vector<u64> from_j, to_j;  // per slot: account indexes the op changes
+  // --probe-pct: one record per probed transfer, in intended order.
+  struct Probe {
+    u64 read_at, due_by;
+    u32 p;
+    u16 shard;
+    i64 want;
+    bool measured, rejected = false, done = false;
+    u8 pending = 2;  // the transfer's reply and the read's; p is reused after both
+  };
+  std::vector<Probe> probes;
+  std::size_t probe_head = 0;                  // next probe read to issue
+  std::vector<std::vector<u32>> probe_free;    // this thread's idle probe accounts, by shard
+  std::vector<i64> probe_expected;             // start plus every probe credit sent
+  std::vector<u8> is_probe;                    // per slot: a probe read
+  std::vector<u32> probe_of;                   // per slot: its probe record, or kNoProbe
+  u64 probe_n = 0, probe_miss = 0, probe_skipped = 0, probe_reads = 0;
   u32 outstanding = 0;
   std::vector<u64> start;  // per slot
   std::vector<u32> free_slots;
@@ -188,6 +223,42 @@ void on_load(void* ctx, const wire::RespHeader& h, ByteView) {
   }
 }
 
+constexpr u32 kNoProbe = ~0u;
+constexpr u64 kNone = ~0ull;
+
+// Whether an answered op changed its accounts. E_REPLAYED_OLD says a resend
+// was already applied, but not with what result, except that a deposit
+// cannot be refused.
+enum Applied { kApplied, kNotApplied, kInDoubt };
+Applied applied(Status st, bool deposit) {
+  if (st == Status::OK || (deposit && st == Status::E_REPLAYED_OLD)) return kApplied;
+  if (st == Status::E_APP || st == Status::E_OVERLOADED || st == Status::E_STALE) return kNotApplied;
+  return kInDoubt;
+}
+
+void probe_done(Thread* t, Thread::Probe& r) {
+  if (--r.pending == 0) t->probe_free[r.shard].push_back(r.p);
+}
+
+// A probe read counts toward errors and refusals like an op, but never as one.
+void probe_reply(Thread* t, u32 slot, u64 now, Status st, ByteView body) {
+  Thread::Probe& r = t->probes[t->probe_of[slot]];
+  t->is_probe[slot] = 0;
+  t->probe_of[slot] = kNoProbe;
+  if (st == Status::E_OVERLOADED) ++t->overloaded;
+  else if (st == Status::E_STALE) ++t->stale;
+  else if (st != Status::OK) ++t->errors;
+  BalanceResult b{};
+  if (st == Status::OK && body.len == sizeof(b)) std::memcpy(&b, body.data, sizeof(b));
+  const bool hit = now <= r.due_by && st == Status::OK && body.len == sizeof(b) && b.balance_cents >= r.want;
+  r.done = true;
+  if (r.measured && !r.rejected) {
+    ++t->probe_n;
+    t->probe_miss += !hit;
+  }
+  probe_done(t, r);
+}
+
 void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
   auto* t = static_cast<Thread*>(ctx);
   const u32 slot = static_cast<u32>(h.req_id);
@@ -198,6 +269,30 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
   --t->outstanding;
   t->free_slots.push_back(slot);
   auto st = static_cast<Status>(h.status);
+  if (t->is_probe[slot]) {
+    probe_reply(t, slot, now, st, body);
+    return;
+  }
+  const bool deposit = t->to_j[slot] == kNone;
+  const Applied ap = applied(st, deposit);
+  if (t->probe_of[slot] != kNoProbe) {
+    Thread::Probe& r = t->probes[t->probe_of[slot]];
+    t->probe_of[slot] = kNoProbe;
+    if (ap == kNotApplied) --t->probe_expected[r.p];
+    if (st == Status::E_APP) r.rejected = true;  // nothing to settle: not a probe
+    probe_done(t, r);
+  }
+  if (!t->delta.empty() && t->from_j[slot] != kNone && ap != kNotApplied) {
+    const u64 f = t->from_j[slot], to = t->to_j[slot];
+    if (ap == kApplied) {
+      if (deposit) ++t->delta[f];
+      else --t->delta[f], ++t->delta[to];
+    } else {
+      if (deposit) ++t->doubt_up[f];
+      else ++t->doubt_down[f], ++t->doubt_up[to];
+    }
+  }
+  t->from_j[slot] = t->to_j[slot] = kNone;
   // Errors and refusals count whether or not the op is measured: a warm-up
   // error still fails the run.
   if (t->is_index[slot]) {
@@ -235,7 +330,8 @@ void on_run(void* ctx, const wire::RespHeader& h, ByteView body) {
     if (measured) ++t->ops;
     // E_APP: no funds. E_REPLAYED_OLD: a resent request already applied.
     if (st == Status::E_REPLAYED_OLD) ++t->replayed;
-    else if (st != Status::OK && st != Status::E_APP) ++t->errors;
+    else if (st == Status::E_APP) t->rejected += measured;
+    else if (st != Status::OK) ++t->errors;
   }
   if (measured) {
     t->hist.add(lat);
@@ -261,7 +357,7 @@ bool load(Thread& t) {
       }
       t.load_num[slot] = num;
       CreateArgs a{};
-      a.balance_cents = 1000;
+      a.balance_cents = t.sh->args.start_balance;
       a.created_ns = num;
       int len = std::snprintf(a.email, sizeof(a.email), "user%u.%llu@example.com", t.index,
                               (unsigned long long)num);
@@ -350,21 +446,40 @@ void issue(Thread& t, u32 slot, u64 start, bool measured) {
   if (transfer) {
     q.op = kOpTransfer;
     t.kind[slot] = kTransfer;
-    ObjectID to;
-    if (a.xfer_local >= 0 && n > 1) {
+    const bool local_rule = a.xfer_local >= 0 && n > 1;
+    u16 d = 0;
+    if (local_rule) {
       // Same owner with probability xfer_local, else another shard's account.
       u16 o = t.client.owner_of(id);
-      u16 d = static_cast<int>(t.rng() % 100) < a.xfer_local
-                  ? o
-                  : static_cast<u16>((o + 1 + t.rng() % (n - 1)) % n);
+      d = static_cast<int>(t.rng() % 100) < a.xfer_local ? o : static_cast<u16>((o + 1 + t.rng() % (n - 1)) % n);
+    }
+    u64 k;
+    if (local_rule) {
       const auto& v = sh.by_owner[d];
-      std::size_t k = t.rng() % v.size();
-      if (v[k] == id) k = (k + 1) % v.size();
-      to = v[k];
+      std::size_t i = t.rng() % v.size();
+      if (v[i] == j) i = (i + 1) % v.size();
+      k = v[i];
     } else {
-      u64 k = t.rng() % n_ids;
-      if (sh.ids[k] == id) k = (k + 1) % n_ids;
-      to = sh.ids[k];
+      k = t.rng() % n_ids;
+      if (k == j) k = (k + 1) % n_ids;
+    }
+    ObjectID to = sh.ids[k];
+    t.from_j[slot] = j;
+    t.to_j[slot] = k;
+    if (a.probe_pct > 0 && static_cast<double>(t.rng() % 1000000) < a.probe_pct * 10000) {
+      if (!local_rule) d = static_cast<u16>(t.rng() % n);
+      auto& free = t.probe_free[d];
+      if (free.empty()) {
+        t.probe_skipped += measured;
+      } else {
+        const u32 p = free.back();
+        free.pop_back();
+        t.probe_of[slot] = static_cast<u32>(t.probes.size());
+        t.probes.push_back({start + a.probe_slo_ns, start + a.probe_slo_ns + a.probe_grace_ns, p, d,
+                            ++t.probe_expected[p], measured});
+        to = sh.probe_ids[p];
+        t.to_j[slot] = n_ids + p;
+      }
     }
     TransferArgs x{to, 1, start};
     t.client.send(dst, q, ByteView(&x, sizeof(x)));
@@ -375,7 +490,8 @@ void issue(Thread& t, u32 slot, u64 start, bool measured) {
   } else {
     q.op = kOpDeposit;
     t.kind[slot] = kDeposit;
-    if (a.verify) ++t.deposits[j];
+    t.from_j[slot] = j;
+    ++t.deposits_sent;
     AmountArgs d{1, start};
     t.client.send(dst, q, ByteView(&d, sizeof(d)));
   }
@@ -399,6 +515,21 @@ void run(Thread& t) {
   }
 }
 
+// The probe read of record r: a get_balance of its probe account, not an op.
+void issue_probe_read(Thread& t, u32 slot) {
+  const Thread::Probe& r = t.probes[t.probe_head];
+  t.is_probe[slot] = 1;
+  t.probe_of[slot] = static_cast<u32>(t.probe_head++);
+  ++t.outstanding;
+  t.probe_reads += r.measured;
+  wire::ReqHeader q{};
+  q.kind = wire::Kind::EXEC;
+  q.op = kOpGetBalance;
+  q.req_id = slot;
+  q.target = t.sh->probe_ids[r.p];
+  t.client.send(r.shard, q, {});
+}
+
 // Open loop (--rate): issue each op when it is due, or as soon as a slot
 // frees after that; never skip one. Ops due before the end of the window are
 // all issued, during the drain if need be, until the drain limit.
@@ -417,6 +548,11 @@ void run_rate(Thread& t) {
       t.outstanding_at_end = t.outstanding;
     }
     const u64 due = past_end ? total : now <= t0 ? 0 : t.sched.due_before(now - t0);
+    while (t.probe_head < t.probes.size() && t.probes[t.probe_head].read_at <= now && !t.free_slots.empty()) {
+      const u32 slot = t.free_slots.back();
+      t.free_slots.pop_back();
+      issue_probe_read(t, slot);
+    }
     while (t.next_k < due && !t.free_slots.empty()) {
       const u32 slot = t.free_slots.back();
       t.free_slots.pop_back();
@@ -427,7 +563,7 @@ void run_rate(Thread& t) {
       issue(t, slot, intended, intended >= sh.measure_ns);
       ++t.next_k;
     }
-    if (past_end && t.next_k == total && t.outstanding == 0) {
+    if (past_end && t.next_k == total && t.probe_head == t.probes.size() && t.outstanding == 0) {
       t.drained = true;
       return;
     }
@@ -440,6 +576,7 @@ void run_rate(Thread& t) {
         t0 + t.sched.at(t.next_k) <= now + 1500000) {
       wait_ms = 0;
     }
+    if (t.probe_head < t.probes.size() && t.probes[t.probe_head].read_at <= now + 1500000) wait_ms = 0;
     if (t.client.poll(on_run, &t, wait_ms) < 0) {
       t.error = t.client.error();
       return;
@@ -491,6 +628,129 @@ void parse_mix(const char* text, Args& a) {
   }
   if (a.mix_read + a.mix_deposit + a.mix_transfer + a.mix_index != 100) fail("the shares must add up to 100");
   a.mix_set = true;
+}
+
+// --verify: every account (workload, then probes) must read its start plus
+// the acknowledged deposits and transfers in two scans in a row. Credits may
+// still be in flight after the run, so scans repeat every 50 ms, for up to
+// 60 s, or until the balances have not moved for 5 s.
+bool verify(std::vector<Thread>& threads, const Shared& sh, bool undrained) {
+  if (undrained) {
+    std::printf("  verify: run not drained, some ops in doubt: FAILED\n");
+    return false;
+  }
+  std::vector<ObjectID> all = sh.ids;
+  all.insert(all.end(), sh.probe_ids.begin(), sh.probe_ids.end());
+  std::vector<i64> want(all.size(), sh.args.start_balance);
+  u64 deposits = 0, in_doubt = 0;
+  for (auto& t : threads) {
+    for (std::size_t j = 0; j < all.size(); ++j) want[j] += t.delta[j];
+    deposits += t.deposits_sent;
+  }
+  std::vector<i64> lo = want, hi = want;
+  for (auto& t : threads) {
+    for (std::size_t j = 0; j < all.size(); ++j) {
+      lo[j] -= t.doubt_down[j], hi[j] += t.doubt_up[j];
+      in_doubt += t.doubt_up[j];
+    }
+  }
+  net::Client& c = threads[0].client;
+  struct V {
+    std::vector<i64> bal;
+    u64 got = 0;
+  } v{std::vector<i64>(all.size(), -1)};
+  auto on = [](void* ctx, const wire::RespHeader& h, ByteView body) {
+    auto* x = static_cast<V*>(ctx);
+    BalanceResult b{};
+    if (static_cast<Status>(h.status) == Status::OK && body.len == sizeof(b)) {
+      std::memcpy(&b, body.data, sizeof(b));
+      x->bal[h.req_id] = b.balance_cents;
+    }
+    ++x->got;
+  };
+  using clock = std::chrono::steady_clock;
+  const auto stop = clock::now() + std::chrono::seconds(60);
+  auto moved = clock::now();
+  std::vector<i64> prev;
+  u64 bad = 0;
+  int clean = 0, scans = 0;
+  while (clean < 2) {
+    if (scans) std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    v.got = 0;
+    std::fill(v.bal.begin(), v.bal.end(), -1);
+    for (u64 k = 0; k < all.size();) {
+      const u64 end = std::min<u64>(all.size(), k + 512);
+      for (u64 j = k; j < end; ++j) {
+        wire::ReqHeader q{};
+        q.kind = wire::Kind::EXEC;
+        q.op = kOpGetBalance;
+        q.req_id = j;
+        q.target = all[j];
+        c.send(c.owner_of(all[j]), q, {});
+      }
+      while (v.got < end) {
+        if (c.poll(on, &v, 100) < 0) {
+          std::fprintf(stderr, "verify: %s\n", c.error().c_str());
+          return false;
+        }
+      }
+      k = end;
+    }
+    ++scans;
+    bad = 0;
+    for (std::size_t j = 0; j < all.size(); ++j) bad += v.bal[j] < lo[j] || v.bal[j] > hi[j];
+    clean = bad ? 0 : clean + 1;
+    if (v.bal != prev) moved = clock::now(), prev = v.bal;
+    if (clean < 2 && (clock::now() > stop || clock::now() - moved > std::chrono::seconds(5))) break;
+  }
+  i64 total = 0, expect = 0;
+  for (std::size_t j = 0; j < all.size(); ++j) total += v.bal[j], expect += want[j];
+  for (std::size_t j = 0, shown = 0; j < all.size() && shown < 5; ++j) {
+    if (v.bal[j] < lo[j] || v.bal[j] > hi[j]) {
+      ++shown;
+      std::printf("  verify: account %zu has %lld, expected %lld\n", j, (long long)v.bal[j], (long long)want[j]);
+    }
+  }
+  std::printf("  verify: %zu accounts, %llu deposits, %llu mismatches  scans %d  in_doubt %llu  sum %lld expected %lld: %s\n",
+              all.size(), (unsigned long long)deposits, (unsigned long long)bad, scans, (unsigned long long)in_doubt,
+              (long long)total, (long long)expect, bad ? "FAILED" : "ok");
+  return bad == 0;
+}
+
+// --probe-pct: creates the probe accounts, which no workload op targets.
+bool create_probes(net::Client& c, const Args& a, std::vector<ObjectID>& out, std::string& why) {
+  struct Ctx {
+    std::vector<ObjectID>* out;
+    u32 got = 0, retry = 0;
+    u16 bad = 0;
+  } x{&out};
+  auto on = [](void* p, const wire::RespHeader& h, ByteView) {
+    auto* x = static_cast<Ctx*>(p);
+    ++x->got;
+    if (h.status == static_cast<u16>(Status::OK)) x->out->push_back(h.id);
+    else if (h.status == static_cast<u16>(Status::E_OVERLOADED)) ++x->retry;
+    else x->bad = h.status;
+  };
+  const u64 tag = now_ns();
+  for (u32 sent = 0; !x.bad && out.size() < a.probe_accounts;) {
+    for (; sent - x.got < 64 && sent - x.retry < a.probe_accounts; ++sent) {
+      CreateArgs ca{};
+      ca.balance_cents = a.start_balance;
+      ca.email_len = static_cast<u8>(
+          std::snprintf(ca.email, sizeof(ca.email), "probe.%llu.%u@x", (unsigned long long)tag, sent));
+      wire::ReqHeader q{};
+      q.kind = wire::Kind::CREATE;
+      q.op = kTypeId;
+      q.req_id = sent;
+      c.send(static_cast<u16>(sent % c.shard_count()), q, ByteView(&ca, sizeof(ca)));
+    }
+    if (c.poll(on, &x, 100) < 0) {
+      why = c.error();
+      return false;
+    }
+  }
+  if (x.bad) why = "create refused with status " + std::to_string(x.bad);
+  return !x.bad;
 }
 
 Args parse(int argc, char** argv) {
@@ -549,6 +809,11 @@ Args parse(int argc, char** argv) {
     } else if (k == "--session") a.session = std::strtoull(val(), nullptr, 10);
     else if (k == "--request-timeout-ms") a.request_timeout_ms = std::atoi(val());
     else if (k == "--verify") a.verify = true;
+    else if (k == "--start-balance") a.start_balance = std::strtoll(val(), nullptr, 10);
+    else if (k == "--probe-pct") a.probe_pct = std::atof(val());
+    else if (k == "--probe-slo-us") a.probe_slo_ns = std::strtoull(val(), nullptr, 10) * 1000;
+    else if (k == "--probe-grace-us") a.probe_grace_ns = std::strtoull(val(), nullptr, 10) * 1000;
+    else if (k == "--probe-accounts") a.probe_accounts = static_cast<u32>(std::strtoul(val(), nullptr, 10));
     else if (k == "--retry-claim-ttl-s") a.retry_claim_ttl_s = std::strtoull(val(), nullptr, 10);
     else {
       std::fprintf(stderr, "unknown flag %s\n", k.c_str());
@@ -571,6 +836,13 @@ Args parse(int argc, char** argv) {
     if (pct < 0 || pct > 100) bad("percentages must be 0..100");
   }
   if (a.threads == 0 || a.depth == 0) bad("--threads and --depth must be at least 1");
+  if (a.start_balance < 0) bad("--start-balance must not be negative");
+  if (a.probe_pct < 0 || a.probe_pct > 100) bad("--probe-pct must be 0..100");
+  if (a.probe_pct > 0) {
+    if (!a.rate || !a.probe_slo_ns) bad("--probe-pct needs --rate and --probe-slo-us");
+    if (!given("--probe-grace-us")) a.probe_grace_ns = a.probe_slo_ns / 10;
+    if (a.probe_slo_ns + a.probe_grace_ns >= a.drain_s * 1e9) bad("--probe-slo-us plus grace must be under --drain-s");
+  }
   return a;
 }
 
@@ -600,6 +872,10 @@ int main(int argc, char** argv) {
     t.kind.assign(a.depth, kRead);
     t.measured.assign(a.depth, 1);
     t.load_num.assign(a.depth, 0);
+    t.from_j.assign(a.depth, kNone);
+    t.to_j.assign(a.depth, kNone);
+    t.is_probe.assign(a.depth, 0);
+    t.probe_of.assign(a.depth, kNoProbe);
     if (a.rate) t.sched = RateSchedule(a.rate, a.threads, i);
     for (u32 s = 0; s < a.depth; ++s) t.free_slots.push_back(s);
     t.load_target = given.empty() ? a.objects / a.threads + (i < a.objects % a.threads) : 0;
@@ -653,10 +929,44 @@ int main(int argc, char** argv) {
   if (a.xfer_local >= 0) {
     const net::Client& c = threads[0].client;
     sh.by_owner.resize(c.shard_count());
-    for (const ObjectID& id : sh.ids) sh.by_owner[c.owner_of(id)].push_back(id);
+    for (u64 j = 0; j < sh.ids.size(); ++j) sh.by_owner[c.owner_of(sh.ids[j])].push_back(j);
+  }
+  if (a.probe_pct > 0) {
+    net::Client& c = threads[0].client;
+    std::string why;
+    if (!create_probes(c, a, sh.probe_ids, why)) {
+      std::fprintf(stderr, "probe accounts: %s\n", why.c_str());
+      sh.phase = kDrain;
+      ready.arrive_and_wait();
+      for (auto& th : ts) th.join();
+      return 1;
+    }
+    for (auto& t : threads) {
+      t.probe_free.resize(c.shard_count());
+      t.probe_expected.assign(sh.probe_ids.size(), a.start_balance);
+      t.probes.reserve(1 << 16);
+    }
+    for (u32 p = 0; p < sh.probe_ids.size(); ++p) {
+      threads[p % a.threads].probe_free[c.owner_of(sh.probe_ids[p])].push_back(p);
+    }
+    bool empty = false;
+    for (auto& t : threads) {
+      for (auto& f : t.probe_free) empty |= f.empty();
+    }
+    if (empty) {
+      std::fprintf(stderr, "--probe-accounts %u leaves a thread with none on some shard\n", a.probe_accounts);
+      sh.phase = kDrain;
+      ready.arrive_and_wait();
+      for (auto& th : ts) th.join();
+      return 2;
+    }
   }
   if (a.verify) {
-    for (auto& t : threads) t.deposits.assign(sh.ids.size(), 0);
+    for (auto& t : threads) {
+      t.delta.assign(sh.ids.size() + sh.probe_ids.size(), 0);
+      t.doubt_down.assign(t.delta.size(), 0);
+      t.doubt_up.assign(t.delta.size(), 0);
+    }
   }
   double run_s;
   if (a.rate) {
@@ -723,6 +1033,12 @@ int main(int argc, char** argv) {
   }
   std::printf("  ops/s %.0f  errors %llu  overloaded %llu  stale %llu\n", exec_shown / run_s,
               (unsigned long long)errors, (unsigned long long)overloaded, (unsigned long long)stale);
+  {
+    u64 rejected = 0;
+    for (auto& t : threads) rejected += t.rejected;
+    std::printf("  rejected %llu (%.4f%% of ops)\n", (unsigned long long)rejected,
+                100.0 * rejected / std::max<u64>(1, ops));
+  }
   std::printf("  latency ns  p50 %.0f  p95 %.0f  p99 %.0f  p99.9 %.0f\n", all.percentile(50),
               all.percentile(95), all.percentile(99), all.percentile(99.9));
   std::printf("  sent to non-owner %.1f%%  forwarded by server %.1f%%\n",
@@ -823,6 +1139,23 @@ int main(int argc, char** argv) {
     std::printf("  drained %s  remaining_unissued %llu  remaining_in_flight %llu\n", undrained ? "no" : "yes",
                 (unsigned long long)unissued, (unsigned long long)left);
   }
+  if (a.probe_pct > 0) {
+    u64 n_probe = 0, miss = 0, skipped = 0, reads = 0, unread = 0;
+    for (auto& t : threads) {
+      for (const auto& r : t.probes) unread += r.measured && !r.rejected && !r.done;
+      n_probe += t.probe_n;
+      miss += t.probe_miss;
+      skipped += t.probe_skipped;
+      reads += t.probe_reads;
+    }
+    n_probe += unread;  // never read before the drain limit: a miss
+    miss += unread;
+    std::printf("probe: pct %.4f  slo_us %llu  grace_us %llu  accounts %zu  probed %llu  misses %llu  "
+                "miss_pct %.4f  skipped %llu  reads %llu\n",
+                a.probe_pct, (unsigned long long)(a.probe_slo_ns / 1000), (unsigned long long)(a.probe_grace_ns / 1000),
+                sh.probe_ids.size(), (unsigned long long)n_probe, (unsigned long long)miss,
+                100.0 * miss / std::max<u64>(1, n_probe), (unsigned long long)skipped, (unsigned long long)reads);
+  }
   if (a.session) {
     std::printf("  failovers %llu  replayed %llu  timeouts %llu  resends %llu  max_resend_age_ms %llu\n",
                 (unsigned long long)failovers, (unsigned long long)replayed, (unsigned long long)timeouts,
@@ -841,58 +1174,7 @@ int main(int argc, char** argv) {
                 (unsigned long long)a.retry_claim_ttl_s,
                 retry_claim_invalid ? (a.session ? "INVALID" : "INVALID (no --session)") : "valid");
   }
-  if (a.verify) {
-    // Every account's balance is its start (1000) plus the deposits sent.
-    net::Client& c = threads[0].client;
-    struct V {
-      const std::vector<ObjectID>* ids;
-      std::vector<i64> bal;
-      u64 got = 0;
-    } v{&sh.ids, std::vector<i64>(sh.ids.size(), -1)};
-    auto on = [](void* ctx, const wire::RespHeader& h, ByteView body) {
-      auto* x = static_cast<V*>(ctx);
-      BalanceResult b{};
-      if (static_cast<Status>(h.status) == Status::OK && body.len == sizeof(b)) {
-        std::memcpy(&b, body.data, sizeof(b));
-        x->bal[h.req_id] = b.balance_cents;
-      }
-      ++x->got;
-    };
-    for (u64 k = 0; k < sh.ids.size();) {
-      u64 end = std::min<u64>(sh.ids.size(), k + 512);
-      for (u64 j = k; j < end; ++j) {
-        wire::ReqHeader q{};
-        q.kind = wire::Kind::EXEC;
-        q.op = kOpGetBalance;
-        q.req_id = j;
-        q.target = sh.ids[j];
-        c.send(c.owner_of(sh.ids[j]), q, {});
-      }
-      while (v.got < end) {
-        if (c.poll(on, &v, 100) < 0) {
-          std::fprintf(stderr, "verify: %s\n", c.error().c_str());
-          return 1;
-        }
-      }
-      k = end;
-    }
-    u64 bad = 0, sent = 0;
-    for (u64 j = 0; j < sh.ids.size(); ++j) {
-      i64 want = 1000;
-      for (auto& t : threads) want += t.deposits[j];
-      sent += static_cast<u64>(want - 1000);
-      if (v.bal[j] != want) {
-        if (bad < 5) {
-          std::printf("  verify: account %llu has %lld, expected %lld\n", (unsigned long long)j,
-                      (long long)v.bal[j], (long long)want);
-        }
-        ++bad;
-      }
-    }
-    std::printf("  verify: %zu accounts, %llu deposits, %llu mismatches\n", sh.ids.size(),
-                (unsigned long long)sent, (unsigned long long)bad);
-    if (bad) return 1;
-  }
+  if (a.verify && !verify(threads, sh, undrained)) return 1;
   if (retry_claim_invalid) return 3;
   // An undrained --rate run is a result (the rate was not sustained), not a
   // tool failure: it exits 0 and says "drained no".

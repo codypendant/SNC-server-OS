@@ -173,6 +173,8 @@ if(PYTHON3)
   # net_bench --rate (open loop) and --mix (PR #61 review).
   add_test(NAME test_net_bench_rate COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_net_bench_rate.py
            ${CMAKE_BINARY_DIR})
+  add_test(NAME test_net_bench_verify COMMAND ${PYTHON3} ${CMAKE_SOURCE_DIR}/tests/test_net_bench_verify.py
+           ${CMAKE_BINARY_DIR})
   # CI tiers (docs/CI.md). "slow" = about a minute or more serially on a
   # 4-core runner; CI runs `ctest -LE slow` on every pull request and the
   # whole suite (slow tests included) on pushes to main, nightly and on demand.
