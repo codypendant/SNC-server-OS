@@ -17,7 +17,10 @@ there.
                          exits, then check each mark with --check (it gets
                          $DLW_MNT, and $DLW_MARK_NS and $DLW_MARK_END_NS, the
                          times just before and after the mark was written);
-                         CMD must outlast the marks
+                         CMD must outlast the marks. Then, as a negative
+                         control, each mark's check runs on the previous
+                         mark's image ($DLW_IMAGE_END_NS that mark's end) and
+                         must exit 1
 
 Needs root, dmsetup, the dm-log-writes module and replay-log (xfstests
 src/log-writes, built by --build-replay-log).
@@ -97,7 +100,7 @@ class Rig:
             sh("mount", dev, mnt)
             try:
                 env = dict(os.environ, DLW_MNT=mnt, **check_env)
-                return subprocess.run(check_cmd, env=env, timeout=600).returncode == 0
+                return subprocess.run(check_cmd, env=env, timeout=600).returncode
             finally:
                 sh("umount", mnt, check=False)
         finally:
@@ -170,8 +173,7 @@ def controls(args):
             failed = 0
             for mark, t in marks:
                 env = {"DLW_MARK_NS": str(t[0])}
-                ok = rig.replay(mark, env, [sys.executable, __file__, "_check", "w.dat", str(args.blocks), acks])
-                failed += not ok
+                failed += rig.replay(mark, env, [sys.executable, __file__, "_check", "w.dat", str(args.blocks), acks]) != 0
             result[name] = {"marks": len(marks), "failed": failed, "queue": rig.queue}
             rig.down()
             rig.loops = []
@@ -190,10 +192,23 @@ def run(args):
         marks = marks_while(rig, p, args.marks, args.interval)
         rc = p.wait(timeout=600)
         rig.stop_logging()
-        env = lambda t: {"DLW_MARK_NS": str(t[0]), "DLW_MARK_END_NS": str(t[1])}
-        failed = [m for m, t in marks if not rig.replay(m, env(t), shlex.split(args.check))]
-        print(json.dumps({"marks": len(marks), "failed": failed, "rc": rc, "queue": rig.queue}))
-        return 0 if len(marks) == args.marks and not failed and rc == 0 else 1
+        check = shlex.split(args.check)
+
+        def env(t, image):
+            return {"DLW_MARK_NS": str(t[0]), "DLW_MARK_END_NS": str(t[1]), "DLW_IMAGE_END_NS": str(image[1])}
+        failed = [m for m, t in marks if rig.replay(m, env(t, t), check) != 0]
+        # Negative control: the image at the previous mark, judged at this one,
+        # lacks every update acknowledged in between. The check must exit 1;
+        # 3 means nothing acknowledged was missing, so the control is void.
+        missed = {}
+        for (prev, tp), (m, t) in zip(marks, marks[1:]):
+            r = rig.replay(prev, env(t, tp), check)
+            if r != 1:
+                missed[m] = r
+        good = len(marks) == args.marks and not failed and not missed and rc == 0
+        print(json.dumps({"marks": len(marks), "failed": failed, "stale_not_rejected": missed, "rc": rc,
+                          "queue": rig.queue, "result": "ok" if good else "FAILED"}))
+        return 0 if good else 1
     finally:
         rig.down()
 
