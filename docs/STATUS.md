@@ -548,11 +548,11 @@ Decided by cody on 2026-11-04.
   - cody said "go" to G2 on 2026-11-21 ([handoff/PR184_G2_Owner_Decision.md](handoff/PR184_G2_Owner_Decision.md)).
     Codex held the first G2 report ([handoff/PR185_Codex_Review.md](handoff/PR185_Codex_Review.md)). The corrected
     evidence is in [experiments/ar1/results/G2_REPORT.md](../experiments/ar1/results/G2_REPORT.md), under prereg
-    revision 3 (PROPOSED; revision 2 kept in [AR1_PREREG_REV2.md](AR1_PREREG_REV2.md)). Phase 0 passes, including the
+    revision 3 (ACCEPTED 2026-11-22 with the U-7 ruling, [handoff/PR185_Rev3_Owner_Decision.md](handoff/PR185_Rev3_Owner_Decision.md); revision 2 kept in [AR1_PREREG_REV2.md](AR1_PREREG_REV2.md)). Phase 0 passes, including the
     new C-7b page-boundary check. SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every
     clause. 14 of 14 mutations are flagged at every seed.
-  - **Now:** amendments A-1 to A-12 and the U-7 ruling need cody's yes. G3, the counted runs, stays on HOLD for a
-    separate GO on the dedicated VM.
+  - **Now:** PR #185 merges after its refreshed verification. G3, the counted runs, stays on HOLD for a separate GO
+    on the dedicated VM.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event

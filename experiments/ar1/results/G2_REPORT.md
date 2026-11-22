@@ -6,10 +6,9 @@
   Codex's HOLD review of this PR (`docs/handoff/PR185_Codex_Review.md`, pasted by cody on 2026-11-22 at 02:00 UTC)
   says that authority also covers the corrective work and the uncounted reruns reported here.
 - **Counted runs.** None. G3 stays on HOLD until cody authorizes it separately.
-- **Prereg.** These runs follow `docs/AR1_PREREG.md` revision 3, which is PROPOSED.
+- **Prereg.** These runs follow `docs/AR1_PREREG.md` revision 3, which cody ACCEPTED on 2026-11-22 with the U-7 ruling (`docs/handoff/PR185_Rev3_Owner_Decision.md`).
   - Revision 2 is preserved in `docs/AR1_PREREG_REV2.md`.
   - Section 16 of revision 3 lists amendments A-1 to A-12, with what changed and why.
-  - None of the amendments is accepted until cody says yes.
 - **Discarded data.** Bring-up and adequacy rows are uncounted, so only their summaries are kept (prereg section 14):
   `results/bringup_summary.json` and `results/adequacy_score.json`. Phase 0 output is in `results/phase0/`.
 - **Code.** `experiments/ar1/` contains:
@@ -207,11 +206,10 @@ The adequacy table is complete: 14 of 14 mutations are flagged at every seed of 
 
 ## Open issues from the first report (Codex section 4)
 
-**U-7: model output replayed from the DBOS step checkpoint.** This needs a prereg ruling (PROPOSED).
+**U-7: model output replayed from the DBOS step checkpoint.** Ruled by cody on 2026-11-22 (ACCEPTED).
 - The output is replayed, not regenerated: no second physical request goes out.
 - A-6 checks that the recorded output carries the first request's id and hash.
-- The proposed ruling: a replay of a checkpointed output is the same output, which is consistent with prereg section
-  3 and E-11. cody decides.
+- The ruling: a replay of a checkpointed output is the same output, consistent with prereg section 3 and E-11.
 
 **U-8: snapshot order versus LSN-prefix order.** Classified as safe for establishment; the checker now handles it.
 - A snapshot can include a commit above an earlier commit that was still in progress, and that earlier commit is
@@ -267,10 +265,9 @@ The checker's 64 unit tests pass.
 - **Thin correct-run coverage at bring-up scale.** 4.policy_read, 5.TF_stale_rejected and 5.TN_duplicate_recorded
   each have one schedule and 1 or 2 runs. The counted campaign runs 20 seeds per point.
 - **Geometry.** The bound's constants assume 8 KiB pages and 16 MiB segments (asserted at setup).
-- **U-7** needs cody's ruling.
 - **Location:** cloud session (U-13). Counted runs go on the dedicated VM, installed from the locks.
-- **Approval:** all amendments A-1 to A-12 are PROPOSED. G3 cannot start until cody accepts them and separately
-  authorizes counted execution.
+- **Approval:** A-1 to A-12 and the U-7 ruling are ACCEPTED. G3 still needs cody's separate GO for counted
+  execution.
 
 ## Previous round (kept as history)
 

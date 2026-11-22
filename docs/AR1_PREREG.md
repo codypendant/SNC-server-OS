@@ -1,4 +1,4 @@
-# AR-1 focused agent runtime proof of concept: preregistration (revision 3, PROPOSED; no counted runs)
+# AR-1 focused agent runtime proof of concept: preregistration (revision 3, ACCEPTED 2026-11-22; no counted runs)
 
 ## 0. Authority, status and labels
 
@@ -11,7 +11,7 @@
 - **Revision 2.** Codex's HOLD review of PR #184 (`docs/handoff/PR184_Codex_Review.md`) found two blockers: the
   durability oracle (7.1) and mutation M2's schedule (5.1 C, 7.3). Only those, and what they touch, change (section
   15).
-- **Revision 3 (PROPOSED).** Codex's HOLD review of PR #185 (`docs/handoff/PR185_Codex_Review.md`) asked for
+- **Revision 3 (ACCEPTED by cody 2026-11-22, `docs/handoff/PR185_Rev3_Owner_Decision.md`).** Codex's HOLD review of PR #185 (`docs/handoff/PR185_Codex_Review.md`) asked for
   schedules that exercise M5, M13 at T-F and T-N, four unexercised clauses and M1 without the gateway's own log,
   plus amendments A-1 and A-2. Section 16 lists every change and why. Revision 2 is preserved unchanged in
   `docs/AR1_PREREG_REV2.md`. Revision 3 needs review and cody's yes before G3.
@@ -692,7 +692,7 @@ change (I-acc's role, and a dispatch timeout under a held reply, which C-s no lo
 - the time estimates in section 10 (HYP);
 - whether any provider-side id lookup exists for E-11 (not tested here; the stub only).
 
-## 16. Revision 3 amendments (PROPOSED, need review and cody's yes)
+## 16. Revision 3 amendments (ACCEPTED by cody on 2026-11-22, with the U-7 ruling)
 
 Each change answers Codex's HOLD review of PR #185. Revision 2 stays in `docs/AR1_PREREG_REV2.md`.
 
@@ -757,3 +757,6 @@ Each change answers Codex's HOLD review of PR #185. Revision 2 stays in `docs/AR
     installs only from them.
   - A clean reinstall reproduced the environment exactly.
   - Counted runs use the dedicated VM, installed from these locks.
+- **U-7 ruling (accepted with A-1 to A-12).** Model output replayed from a DBOS step checkpoint is the same output,
+  not a regeneration (section 3, E-11). No second physical request goes out, and A-6 checks that the recorded output
+  carries the first request's id and hash.
