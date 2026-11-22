@@ -13,8 +13,11 @@ there.
 
   dlw.py controls        positive (O_DIRECT + fdatasync) must pass, negative
                          (O_DIRECT only) must fail; exit 0 iff both behave
-  dlw.py run -- CMD...   run CMD with $DLW_MNT as its data mount, then check
-                         each mark with --check (it gets $DLW_MNT, $DLW_MARK_NS)
+  dlw.py run -- CMD...   run CMD with $DLW_MNT as its data mount until it
+                         exits, then check each mark with --check (it gets
+                         $DLW_MNT, and $DLW_MARK_NS and $DLW_MARK_END_NS, the
+                         times just before and after the mark was written);
+                         CMD must outlast the marks
 
 Needs root, dmsetup, the dm-log-writes module and replay-log (xfstests
 src/log-writes, built by --build-replay-log).
@@ -22,6 +25,7 @@ src/log-writes, built by --build-replay-log).
 import argparse
 import json
 import mmap
+import shlex
 import os
 import shutil
 import struct
@@ -71,9 +75,10 @@ class Rig:
         sh("mount", f"/dev/mapper/{DM}", self.mnt)
 
     def mark(self, name):
+        """The CLOCK_MONOTONIC times just before and after the mark is written."""
         t = now_ns()
         sh("dmsetup", "message", DM, "0", "mark", name)
-        return t
+        return t, now_ns()
 
     def stop_logging(self):
         sh("umount", self.mnt, check=False)
@@ -92,7 +97,7 @@ class Rig:
             sh("mount", dev, mnt)
             try:
                 env = dict(os.environ, DLW_MNT=mnt, **check_env)
-                return subprocess.run(check_cmd, env=env).returncode == 0
+                return subprocess.run(check_cmd, env=env, timeout=600).returncode == 0
             finally:
                 sh("umount", mnt, check=False)
         finally:
@@ -164,7 +169,7 @@ def controls(args):
             rig.stop_logging()
             failed = 0
             for mark, t in marks:
-                env = {"DLW_MARK_NS": str(t)}
+                env = {"DLW_MARK_NS": str(t[0])}
                 ok = rig.replay(mark, env, [sys.executable, __file__, "_check", "w.dat", str(args.blocks), acks])
                 failed += not ok
             result[name] = {"marks": len(marks), "failed": failed, "queue": rig.queue}
@@ -183,12 +188,12 @@ def run(args):
         rig.up()
         p = subprocess.Popen(args.cmd, env=dict(os.environ, DLW_MNT=rig.mnt))
         marks = marks_while(rig, p, args.marks, args.interval)
-        p.terminate()
-        p.wait()
+        rc = p.wait(timeout=600)
         rig.stop_logging()
-        failed = [m for m, t in marks if not rig.replay(m, {"DLW_MARK_NS": str(t)}, args.check.split())]
-        print(json.dumps({"marks": len(marks), "failed": failed, "queue": rig.queue}))
-        return 0 if marks and not failed else 1
+        env = lambda t: {"DLW_MARK_NS": str(t[0]), "DLW_MARK_END_NS": str(t[1])}
+        failed = [m for m, t in marks if not rig.replay(m, env(t), shlex.split(args.check))]
+        print(json.dumps({"marks": len(marks), "failed": failed, "rc": rc, "queue": rig.queue}))
+        return 0 if len(marks) == args.marks and not failed and rc == 0 else 1
     finally:
         rig.down()
 
@@ -220,14 +225,17 @@ def main():
     ap.add_argument("--replay-log", default="replay-log")
     ap.add_argument("--build-replay-log", action="store_true")
     ap.add_argument("--check", default="")
-    ap.add_argument("cmd", nargs="*")
-    args = ap.parse_args()
+    argv = sys.argv[1:]
+    cut = argv.index("--") if "--" in argv else len(argv)
+    args = ap.parse_args(argv[:cut])
+    args.cmd = argv[cut + 1:]
     os.makedirs(args.work, exist_ok=True)
     if args.build_replay_log:
         args.replay_log = os.path.join(args.work, "replay-log")
         build_replay_log(args.replay_log)
     rc = controls(args) if args.mode == "controls" else run(args)
-    shutil.rmtree(args.work, ignore_errors=True)
+    if rc == 0:
+        shutil.rmtree(args.work, ignore_errors=True)
     return rc
 
 

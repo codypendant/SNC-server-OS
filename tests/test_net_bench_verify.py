@@ -12,6 +12,12 @@ real durable snc_server (2 shards):
   late       the server stopped 500 ms mid-window: probes due in the stall
              miss, because each read must answer by intended send + SLO + g.
   flags      the probe needs --rate and an SLO.
+  kill       (own server) SIGKILL mid-run: every acknowledged write is there
+             after restart, once owed cross-shard credits arrive.
+  acks       --ack-log, read back by bench/durability/snc.py check on the
+             stopped server's data: a mark after the run holds; a mark at
+             the start fails (the run's writes cannot be there yet), and so
+             does a wrong start balance.
 
 Usage: test_net_bench_verify.py BUILD_DIR [scenario ...]
 """
@@ -31,6 +37,7 @@ import test_async_failover as af  # noqa: E402
 BUILD = sys.argv[1] if len(sys.argv) > 1 else "build"
 ONLY = sys.argv[2:]
 BIG = str(10**12)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Server:
@@ -120,9 +127,59 @@ def scenario_flags(s):
     print("flags: bad probe settings refused")
 
 
+def scenario_acks(s):
+    acks = os.path.join(s.work, "acks")
+    s.bench(["--objects", "2000", "--rate", "3000", "--seconds", "2", "--transfer", "50", "--reads", "20",
+             "--xfer-local", "0", "--start-balance", BIG, "--ack-log", acks])
+    s.proc.stop()
+    kinds = [line[0] for line in open(acks)]
+    assert kinds.count("c") == 2000 and kinds.count("a") > 3000 and set(kinds) <= {"c", "a"}, set(kinds)
+    rc, out = snc_check(s.work, acks, 1 << 62, 1 << 62)
+    assert rc == 0 and '"bad": 0' in out, out
+    for t0, t1, start in ((1, 1, BIG), (1 << 62, 1 << 62, str(10**12 + 1))):
+        rc, out = snc_check(s.work, acks, t0, t1, start)
+        assert rc == 1, out
+    print("acks: the ack log reads back exact after the run; early marks and wrong starts fail")
+
+
+def scenario_kill(_):
+    """SIGKILL mid-run, the mark around it: cross-shard credits still owed at
+    the kill are re-delivered after restart, and the check waits for them."""
+    s = Server()
+    try:
+        kill_run(s)
+    finally:
+        s.close()
+
+
+def kill_run(s):
+    acks = os.path.join(s.work, "acks")
+    mark = []
+
+    def kill():
+        time.sleep(1.5)
+        mark.append(time.clock_gettime_ns(time.CLOCK_MONOTONIC))
+        s.proc.signal(signal.SIGKILL)
+        mark.append(time.clock_gettime_ns(time.CLOCK_MONOTONIC))
+    s.bench(["--objects", "2000", "--rate", "3000", "--seconds", "4", "--transfer", "60", "--reads", "0",
+             "--xfer-local", "0", "--start-balance", BIG, "--ack-log", acks, "--drain-s", "1"], ok=False, during=kill)
+    s.proc.stop()
+    rc, out = snc_check(s.work, acks, *mark)
+    assert rc == 0 and '"bad": 0' in out, out
+    print(f"kill: every write acknowledged before SIGKILL is there after restart ({out.strip()})")
+
+
+def snc_check(work, acks, t0, t1, start=BIG):
+    env = dict(os.environ, DLW_MNT=work, DLW_MARK_NS=str(t0), DLW_MARK_END_NS=str(t1))
+    p = subprocess.run([sys.executable, os.path.join(ROOT, "bench/durability/snc.py"), "check", BUILD, acks, "2",
+                        "40000", start], env=env, capture_output=True, text=True, timeout=180)
+    return p.returncode, p.stdout + p.stderr
+
+
 def main():
     scenarios = [("flags", scenario_flags), ("conserve", scenario_conserve), ("rejected", scenario_rejected),
-                 ("mismatch", scenario_mismatch), ("late", scenario_late)]
+                 ("mismatch", scenario_mismatch), ("late", scenario_late), ("kill", scenario_kill), ("acks", scenario_acks)]
+
     s = Server()
     try:
         for name, fn in scenarios:
