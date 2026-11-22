@@ -1,0 +1,158 @@
+    /dev/sdb: SAMSUNG   ARFX3840S5xnFTRI  3P00
+    Direct access device specific parameters: WP=0  DPOFUA=1
+Read write error recovery [rw] mode page:
+  AWRE          1  [cha: y, def:  1, sav:  1]  Automatic write reallocation enabled
+  ARRE          1  [cha: y, def:  1, sav:  1]  Automatic read reallocation enabled
+  TB            0  [cha: y, def:  0, sav:  0]  Transfer block
+  RC            0  [cha: y, def:  0, sav:  0]  Read continuous
+  EER           0  [cha: n, def:  0, sav:  0]  Enable early recovery (obsolete)
+  PER           1  [cha: y, def:  1, sav:  1]  Post error
+  DTE           0  [cha: y, def:  0, sav:  0]  Data terminate on error
+  DCR           0  [cha: n, def:  0, sav:  0]  Disable correction (obsolete)
+  RRC           -1  [cha: y, def: -1, sav: -1]  Read retry count
+  COR_S         0  [cha: n, def:  0, sav:  0]  Correction span (obsolete)
+  HOC           0  [cha: n, def:  0, sav:  0]  Head offset count (obsolete)
+  DSOC          0  [cha: n, def:  0, sav:  0]  Data strobe offset count (obsolete)
+  LBPERE        0  [cha: n, def:  0, sav:  0]  Logical block provisioning error reporting enabled
+  MWR           0  [cha: n, def:  0, sav:  0]  Misaligned write reporting
+  WRC           -1  [cha: y, def: -1, sav: -1]  Write retry count
+  RTL           5000  [cha: n, def:5000, sav:5000]  Recovery time limit (ms)
+Disconnect-reconnect (SPC + transports) [dr] mode page:
+  BFR           0  [cha: n, def:  0, sav:  0]  Buffer full ratio
+  BER           0  [cha: n, def:  0, sav:  0]  Buffer empty ratio
+  BIL           0  [cha: y, def:  0, sav:  0]  Bus inactivity limit
+  DTL           0  [cha: n, def:  0, sav:  0]  Disconnect time limit
+  CTL           0  [cha: y, def:  0, sav:  0]  Connect time limit
+  MBS           0  [cha: y, def:  0, sav:  0]  Maximum burst size (512 bytes)
+  EMDP          0  [cha: n, def:  0, sav:  0]  Enable modify data pointers
+  FA            0  [cha: n, def:  0, sav:  0]  Fair arbitration
+  DIMM          0  [cha: n, def:  0, sav:  0]  Disconnect immediate
+  DTDC          0  [cha: n, def:  0, sav:  0]  Data transfer disconnect control
+  FBS           0  [cha: n, def:  0, sav:  0]  First burst size (512 bytes)
+Format (SBC) [fo] mode page:
+  TPZ           0  [cha: n, def:  0, sav:  0]  Tracks per zone
+  ASPZ          0  [cha: n, def:  0, sav:  0]  Alternate sectors per zone
+  ATPZ          0  [cha: n, def:  0, sav:  0]  Alternate tracks per zone
+  ATPLU         0  [cha: n, def:  0, sav:  0]  Alternate tracks per logical unit
+  SPT           0  [cha: n, def:  0, sav:  0]  Sectors per track
+  DBPPS         512  [cha: n, def:  0, sav:  0]  Data bytes per physical sector
+  INTLV         0  [cha: n, def:  0, sav:  0]  Interleave
+  TSF           0  [cha: n, def:  0, sav:  0]  Track skew factor
+  CSF           0  [cha: n, def:  0, sav:  0]  Cylinder skew factor
+  SSEC          0  [cha: n, def:  0, sav:  0]  Soft sector
+  HSEC          0  [cha: n, def:  0, sav:  0]  Hard sector
+  RMB           0  [cha: n, def:  0, sav:  0]  Removable
+  SURF          0  [cha: n, def:  0, sav:  0]  Surface
+Rigid disk (SBC) [rd] mode page:
+  NOC           0  [cha: n, def:  0, sav:  0]  Number of cylinders
+  NOH           0  [cha: n, def:  0, sav:  0]  Number of heads
+  SCWP          0  [cha: n, def:  0, sav:  0]  Starting cylinder for write precompensation
+  SCRWC         0  [cha: n, def:  0, sav:  0]  Starting cylinder for reduced write current
+  DSR           0  [cha: n, def:  0, sav:  0]  Device step rate
+  LZC           0  [cha: n, def:  0, sav:  0]  Landing zone cylinder
+  RPL           0  [cha: n, def:  0, sav:  0]  Rotational position locking
+  ROTO          0  [cha: n, def:  0, sav:  0]  Rotational offset
+  MRR           1  [cha: n, def:  1, sav:  1]  Medium rotation rate (rpm)
+Verify error recovery (SBC) [ve] mode page:
+  V_EER         0  [cha: n, def:  0, sav:  0]  Enable early recovery (obsolete) 
+  V_PER         1  [cha: y, def:  1, sav:  1]  Post error
+  V_DTE         0  [cha: y, def:  0, sav:  0]  Data terminate on error
+  V_DCR         0  [cha: n, def:  0, sav:  0]  Disable correction (obsolete)
+  V_RC          -1  [cha: y, def: -1, sav: -1]  Verify retry count
+  V_COR_S       0  [cha: n, def:  0, sav:  0]  Verify correction span (obsolete)
+  V_RTL         5000  [cha: n, def:5000, sav:5000]  Verify recovery time limit (ms)
+Caching (SBC) [ca] mode page:
+  IC            0  [cha: y, def:  0, sav:  0]  Initiator control
+  ABPF          0  [cha: y, def:  0, sav:  0]  Abort pre-fetch
+  CAP           0  [cha: y, def:  0, sav:  0]  Caching analysis permitted
+  DISC          0  [cha: y, def:  0, sav:  0]  Discontinuity
+  SIZE          0  [cha: y, def:  0, sav:  0]  Size enable
+  WCE           1  [cha: y, def:  1, sav:  1]  Write cache enable
+  MF            0  [cha: y, def:  0, sav:  0]  Multiplication factor
+  RCD           0  [cha: y, def:  0, sav:  0]  Read cache disable
+  DRRP          0  [cha: y, def:  0, sav:  0]  Demand read retention priority
+  WRP           0  [cha: y, def:  0, sav:  0]  Write retention priority
+  DPTL          -1  [cha: y, def: -1, sav: -1]  Disable pre-fetch transfer length
+  MIPF          0  [cha: y, def:  0, sav:  0]  Minimum pre-fetch
+  MAPF          -1  [cha: y, def: -1, sav: -1]  Maximum pre-fetch
+  MAPFC         -1  [cha: y, def: -1, sav: -1]  Maximum pre-fetch ceiling
+  FSW           0  [cha: y, def:  0, sav:  0]  Force sequential write
+  LBCSS         0  [cha: y, def:  0, sav:  0]  Logical block cache segment size
+  DRA           0  [cha: y, def:  0, sav:  0]  Disable read ahead
+  SYNC_PROG     0  [cha: n, def:  0, sav:  0]  Synchronous cache progress indication
+  NV_DIS        0  [cha: y, def:  0, sav:  0]  Non-volatile cache disable
+  NCS           -1  [cha: y, def: -1, sav: -1]  Number of cache segments
+  CSS           255  [cha: y, def:255, sav:255]  Cache segment size
+Control [co] mode page:
+  TST           0  [cha: n, def:  0, sav:  0]  Task set type
+  TMF_ONLY      0  [cha: y, def:  0, sav:  0]  Task management functions only
+  DPICZ         0  [cha: y, def:  0, sav:  0]  Disable protection information check if protect field zero
+  D_SENSE       0  [cha: y, def:  0, sav:  0]  Descriptor format sense data
+  GLTSD         0  [cha: y, def:  0, sav:  0]  Global logging target save disable
+  RLEC          0  [cha: n, def:  0, sav:  0]  Report log exception condition
+  QAM           1  [cha: y, def:  1, sav:  1]  Queue algorithm modifier
+  NUAR          0  [cha: y, def:  0, sav:  0]  No unit attention on release
+  QERR          0  [cha: n, def:  0, sav:  0]  Queue error management
+  VS_CTL        0  [cha: n, def:  0, sav:  0]  Vendor specific [byte 4, bit 7]
+  RAC           0  [cha: n, def:  0, sav:  0]  Report a check
+  UA_INTLCK     0  [cha: n, def:  0, sav:  0]  Unit attention interlocks control
+  SWP           0  [cha: n, def:  0, sav:  0]  Software write protect
+  ATO           1  [cha: y, def:  1, sav:  1]  Application tag owner
+  TAS           0  [cha: y, def:  0, sav:  0]  Task aborted status
+  ATMPE         0  [cha: n, def:  0, sav:  0]  Application tag mode page enabled
+  RWWP          0  [cha: y, def:  0, sav:  0]  Reject write without protection
+  SBLP          0  [cha: y, def:  0, sav:  0]  Supported block lengths and protection information
+  AUTOLOAD      0  [cha: n, def:  0, sav:  0]  Autoload mode
+  BTP           0  [cha: n, def:  0, sav:  0]  Busy timeout period (100us)
+  ESTCT         3600  [cha: n, def:3600, sav:3600]  Extended self test completion time (sec)
+Control extension [coe] mode page:
+  DLC           0  [cha: n, def:  0, sav:  0]  Device life control
+  TCMOS         0  [cha: n, def:  0, sav:  0]  Timestamp changeable by methods outside standard
+  SCSIP         0  [cha: n, def:  0, sav:  0]  SCSI timestamp commands take precedence over other methods
+  IALUAE        0  [cha: n, def:  0, sav:  0]  Implicit asymmetric logical unit access enabled
+  INIT_PR       0  [cha: n, def:  0, sav:  0]  Initial command priority
+  MSDL          0  [cha: n, def:  0, sav:  0]  Maximum sense data length
+  NSQCC         0  [cha: n, def:  0, sav:  0]  Non-sequestered command count
+  SQCO          0  [cha: n, def:  0, sav:  0]  Sequestered command order
+Protocol specific logical unit [pl] mode page:
+  LUPID         6  [cha: n, def:  6, sav:  6]  Logical unit's (transport) protocol identifier
+Protocol specific port [pp] mode page:
+  PPID          6  [cha: n, def:  6, sav:  6]  Port's (transport) protocol identifier
+Power condition [po] mode page:
+  PM_BG         0  [cha: n, def:  0, sav:  0]  Power management, background functions, precedence
+  STANDBY_Y     0  [cha: y, def:  0, sav:  0]  Standby_y timer enable
+  IDLE_C        0  [cha: y, def:  0, sav:  0]  Idle_c timer enable
+  IDLE_B        0  [cha: y, def:  0, sav:  0]  Idle_b timer enable
+  IDLE_A        0  [cha: y, def:  0, sav:  0]  Idle_a timer enable
+  STANDBY_Z     0  [cha: y, def:  0, sav:  0]  Standby_z timer enable
+  IACT          0  [cha: y, def:  0, sav:  0]  Idle_a condition timer (100 ms)
+  SZCT          0  [cha: y, def:  0, sav:  0]  Standby_z condition timer (100 ms)
+  IBCT          0  [cha: y, def:  0, sav:  0]  Idle_b condition timer (100 ms)
+  ICCT          0  [cha: y, def:  0, sav:  0]  Idle_c condition timer (100 ms)
+  SYCT          0  [cha: y, def:  0, sav:  0]  Standby_y condition timer (100 ms)
+  CCF_IDLE      0  [cha: n, def:  0, sav:  0]  check condition if from idle_c
+  CCF_STAND     0  [cha: n, def:  0, sav:  0]  check condition if from a standby
+  CCF_STOPP     0  [cha: n, def:  0, sav:  0]  check condition if from stopped
+Power consumption [ps] mode page:
+  ACT_LEV       0  [cha: n, def:  0, sav:  0]  Active level
+  PC_ID         5  [cha: y, def:  5, sav:  5]  Power consumption identifier
+Informational exceptions control [ie] mode page:
+  PERF          0  [cha: y, def:  0, sav:  0]  Performance (impact of ie operations)
+  EBF           0  [cha: y, def:  1, sav:  0]  Enable background function
+  EWASC         1  [cha: y, def:  1, sav:  1]  Enable warning
+  DEXCPT        0  [cha: y, def:  0, sav:  0]  Disable exceptions
+  TEST          0  [cha: y, def:  0, sav:  0]  Test (simulate device failure)
+  EBACKERR      0  [cha: y, def:  0, sav:  0]  Enable background (scan + self test) error reporting
+  LOGERR        0  [cha: y, def:  1, sav:  0]  Log informational exception errors
+  MRIE          6  [cha: y, def:  4, sav:  6]  Method of reporting informational exceptions
+  INTT          0  [cha: y, def:600, sav:  0]  Interval timer (100 ms)
+  REPC          1  [cha: y, def:  0, sav:  1]  Report count (or Test flag number [SSC-3])
+Background control (SBC) [bc] mode page:
+  S_L_FULL      0  [cha: y, def:  0, sav:  0]  Suspend on log full
+  LOWIR         0  [cha: y, def:  0, sav:  0]  Log only when intervention required
+  EN_BMS        1  [cha: y, def:  1, sav:  1]  Enable background medium scan
+  EN_PS         0  [cha: y, def:  0, sav:  0]  Enable pre-scan
+  BMS_I         168  [cha: y, def:168, sav:168]  Background medium scan interval time (hour)
+  BPS_TL        0  [cha: y, def:  0, sav:  0]  Background pre-scan time limit (hour)
+  MIN_IDLE      0  [cha: y, def:  0, sav:  0]  Minumum idle time before background scan (ms)
+  MAX_SUSP      0  [cha: y, def:  0, sav:  0]  Maximum time to suspend background scan (ms)

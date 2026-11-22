@@ -1,0 +1,6 @@
+Sun Nov 22 09:23:47 PM UTC 2026
+6.8.0-149-generic
+write_cache: write back
+fua: 1
+rotational: 0
+scheduler: none [mq-deadline] 
