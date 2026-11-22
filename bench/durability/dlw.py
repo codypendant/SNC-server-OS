@@ -220,8 +220,10 @@ def main():
     ap.add_argument("--replay-log", default="replay-log")
     ap.add_argument("--build-replay-log", action="store_true")
     ap.add_argument("--check", default="")
-    ap.add_argument("cmd", nargs="*")
-    args = ap.parse_args()
+    argv = sys.argv[1:]
+    cut = argv.index("--") if "--" in argv else len(argv)
+    args = ap.parse_args(argv[:cut])
+    args.cmd = argv[cut + 1:]
     os.makedirs(args.work, exist_ok=True)
     if args.build_replay_log:
         args.replay_log = os.path.join(args.work, "replay-log")
