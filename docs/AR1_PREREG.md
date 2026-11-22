@@ -1,15 +1,20 @@
-# AR-1 focused agent runtime proof of concept: preregistration (PROPOSED revision 2, NOT RUN)
+# AR-1 focused agent runtime proof of concept: preregistration (revision 3, PROPOSED; no counted runs)
 
 ## 0. Authority, status and labels
 
 - **Authority.** cody's OD-P7, 2026-11-21 16:11 UTC (`docs/handoff/PR183_Owner_Decisions.md`): "Authorizes writing
   and reviewing the AR-1 preregistration only. No code until you approve that document."
-- **Status.** Nothing has run, and no AR-1 code exists.
+- **Status.** Revision 2 was approved (G1) and G2 ran: code, uncounted bring-up and checker adequacy
+  (`experiments/ar1/results/G2_REPORT.md`). No counted run has happened.
 - **Revision 1.** A three-way review was told to break the first draft and raised 48 findings. All are applied
   (section 15).
 - **Revision 2.** Codex's HOLD review of PR #184 (`docs/handoff/PR184_Codex_Review.md`) found two blockers: the
   durability oracle (7.1) and mutation M2's schedule (5.1 C, 7.3). Only those, and what they touch, change (section
   15).
+- **Revision 3 (PROPOSED).** Codex's HOLD review of PR #185 (`docs/handoff/PR185_Codex_Review.md`) asked for
+  schedules that exercise M5, M13 at T-F and T-N, four unexercised clauses and M1 without the gateway's own log,
+  plus amendments A-1 and A-2. Section 16 lists every change and why. Revision 2 is preserved unchanged in
+  `docs/AR1_PREREG_REV2.md`. Revision 3 needs review and cody's yes before G3.
 - **Three separate gates:**
   - **G1:** approve this document;
   - **G2:** write the AR-1 code and run uncounted bring-up and the checker-adequacy runs;
@@ -205,6 +210,17 @@ That is 13 points.
 **E. PostgreSQL restart.** The standby is stopped and a dispatched COMMIT is blocking. Restart the primary with
 `-m immediate` at the 4 dispatched commits, and with `-m fast` at TI-disp. Then resume the standby. That is 5 points.
 
+**Ac. Unestablished dispatch (revision 3, A-3)**, at the 4 dispatched commits (I-disp, TI-disp, TF-disp,
+TN-disp), with no kill. The standby is stopped before COMMIT. The harness then cancels every SyncRep wait of the
+activation's backends, app and DBOS system database (C-2: the commit is local and the client sees success), until
+the receiver logs a request or 3 s pass. Then a pre-resume cut, then the standby resumes and the run goes to its
+end. That is 4 points.
+
+**P. Policy read of unestablished state (revision 3, A-3).** At named point `pre-policy`, just before the state
+read that feeds the policy decision: the standby is stopped, and a foreign writer commits one memory row (agent B)
+under `synchronous_commit = local`. The SyncRep cancel loop runs; resume follows P-dec becoming visible or 3 s,
+after a pre-resume cut. That is 1 point.
+
 **R. Recovery points:**
 - a kill during the takeover commit itself;
 - a kill during the recovery commits (result unknown at I-out, in doubt at TN-out, outstanding set at takeover).
@@ -220,13 +236,15 @@ That is 9 points.
 
 ### 5.3 Totals and seeds
 
-- **Total: 123 points.**
-  - S-M: 64 + 12 + 16 + 13 + 5 + 4 = 114.
+- **Total: 128 points** (revision 2: 123).
+  - S-M: 64 + 12 + 16 + 13 + 5 + 4 + 4 (Ac) + 1 (P) = 119.
   - S-AP: 9.
-- **Seeds. PROPOSED: 20 per point**, so 2,460 counted runs for SNC's arm.
+- **Seeds. PROPOSED: 20 per point**, so 2,560 counted runs for SNC's arm.
 - **What a seed varies:**
   - the block delay before the point acts (0-100 ms);
-  - the release order in C b2;
+  - the release order in C b2: bit 1 of the seed picks before or after; at T-F and T-N, bit 2 picks, for an
+    after seed, whether the old *request* reaches the receiver after the new epoch ("after") or the receiver answers
+    before the takeover and the old reply is held until after it ("after-outcome", revision 3, A-4);
   - the approver and owner answers by parity.
 
   For performance runs, stub and tool jitter is **off**.
@@ -275,7 +293,9 @@ That is 9 points.
 | **OI-1d unknown commit** | **Deterministic case:** stop the standby, so COMMIT blocks; kill the client; then recover. Also random kills after COMMIT is sent and before the bound is read | Recovery waits for `pg_xact_status(xid)` to leave `in progress`, or terminates the backend and waits for it to exit, before the token lookup (package 2.6 d7). The lookup never says "not committed" for a transaction that later commits. Every recovered bound is ≥ the commit record's end LSN |
 | **OI-1e oracle self-test** | (1) With the standby stopped, commit with `SET LOCAL synchronous_commit TO local` and take a kill cut; a commit with `on` made before the stop is in the same run. Kill the client, resume, take a final cut after catch-up. Then apply the old rule: `pg_last_wal_receive_lsn()` read after the catch-up. (2) Classify OI-1c's runs for X. (3) Freeze and thaw 1,000 times (PROPOSED) under streaming load, reading `flushed_lsn` twice 100 ms apart inside each freeze | (1) The `local` commit is L at the kill cut and R at the final cut. The `on` commit is D and passes the presence check. **Negative control:** the old rule calls the `local` commit established at the kill. (2) OI-1c's X commit is X, and every commit at or below the switchpoint survives. (3) The two reads inside each freeze are equal. Every load commit that returned before a freeze is D at that cut. At least one commit is L at a cut and R at the final cut. Every cut has the primary's reported flush at or below the standby's. After each thaw the walreceiver keeps its pid and replication resumes within 5 s (PROPOSED). Any failure, or a negative control that does not fire, is an instrument failure: the outcome is UNRESOLVED until the oracle is fixed and re-reviewed, not REFINE (design) |
 | **C-1, C-2, C-3** | As in package 2.6 (e). C-3 runs with both `-m immediate` and `-m fast` | As defined there, including C-1's liveness. For C-2, the client's COMMIT success with only a WARNING is **not** treated as established |
-| **C-7 bound** | 10,000 commits each under `on`, and under `off` with `wal_writer_delay = 10s`. Each run also reads `pg_current_wal_lsn()` in the same query as the bound. Find the commit record with `pg_waldump --rmgr=Transaction --xid=<xid>`, and its end as the next record's start in an unfiltered dump | The bound is ≥ the commit end in every case. **Negative control:** `pg_current_wal_lsn()` falls below the commit end in some `off` runs, which shows the risk was exercised; otherwise C-7 is UNRESOLVED. Report establishment latency, and the count of bounds that land past a page boundary |
+| **C-7 bound** | 10,000 commits each under `on`, and under `off` with `wal_writer_delay = 10s`. Each run also reads `pg_current_wal_lsn()` in the same query as the bound. Find the commit record with `pg_waldump --rmgr=Transaction --xid=<xid>`, and its end as the record's own end, XactLastRecEnd: its start plus its MAXALIGNed length, advanced over page headers (revision 3, A-1; revision 2 said "the next record's start in an unfiltered dump") | The bound is ≥ the commit end in every case. **Negative control:** `pg_current_wal_lsn()` falls below the commit end in some `off` runs, which shows the risk was exercised; otherwise C-7 is UNRESOLVED. Report establishment latency, and the count of bounds that land past a page boundary |
+
+| **C-7b page and segment boundaries** (revision 3, A-2) | Land commit records, by sizing a transactional `pg_logical_emit_message`, so that they end exactly at a page start (short header), end exactly at a segment start (long header), cross a page, and cross a segment; and read the bound right after `pg_switch_wal()` | In every case the bound is ≥ the commit end and is established within 1 s. At page and segment starts the raw insert LSN is the end plus 24 or 40 and the bound equals the end. **Negative control:** the raw insert LSN fails to establish within 2 s on the idle server in some case, otherwise C-7b is UNRESOLVED |
 
 OI-1 uses a manual `pg_promote` on one VM. It tests mechanisms, not Patroni (C-4 to C-6 stay in S2). A same-host
 standby is sufficient for this [INF, per review].
@@ -374,19 +394,19 @@ Each mutation runs only at the points where it is observable. All 5 seeds at eac
 
 | Mutation | Observable at |
 |---|---|
-| M1 send before establishment | a3 of each *-disp |
+| M1 send before establishment | a3 of each *-disp, and Ac (revision 3): at Ac the receiver logs the request while the dispatch commit is unestablished, so 4.established must flag it from the receiver-side read alone |
 | M2 decision commits without the epoch check (the row lock stays) | C-s. At C-s of T-I and T-F the old activation goes on from its stale prepare to a stale dispatch and send, and the checker must report that dispatched record too |
 | M3 lost output regenerated as the original | b2 and b3 of the model |
 | M4 automatic T-N retry | b2 and b3 of T-N |
-| M5 a policy read of an unestablished row | a3 of C-acc and of the memory reads, with P-dec following |
+| M5 the state read that feeds the policy decision, and the policy's memory read, skip the establishment wait (revision 3, A-5) | P (revision 3). Revision 2 listed a3 of C-acc and of the memory reads; there M5 cannot arise (section 16, A-5) |
 | M6 takeover without rejecting prepared calls | C-p (item 6: the takeover commit holds no rejection of the prepared call) |
 | M7 reconstruction drops an attempt | b2 of T-I |
 | M8 outcome blocked by the epoch check | C b2, on seeds that release the old reply after the takeover |
 | M9 re-send with a new key | b2 of T-I |
 | M10 epoch check removed from policy and memory decisions only (P-dec, M-done) | C-s of the model and of T-N |
-| M11 no outstanding set recorded | C a1, C b2, and D b1 to b3 |
+| M11 no outstanding set recorded | C a1, C b2 on after seeds (revision 3, A-8), and D b1 to b3 |
 | M12 re-call without `retry_of`, or late output not marked late | b2 and b3 of the model |
-| M13 dependent transitions not derived from a stale outcome | C b2, on seeds that release the old reply after the takeover |
+| M13 dependent transitions not derived from a stale outcome | C b2, on seeds that release the old reply after the takeover; at T-F and T-N, "after-outcome" seeds (revision 3, A-4) |
 | M14 conflict rule ignored (E-10 step 9) | C b2 of T-N, with the old reply held until the new activation commits TN-disp or reaches the escalation timeout |
 
 Under M2 and M10 the C-s positive control turns into `stale-decision-committed`. The checker must flag the run from
@@ -479,9 +499,9 @@ that applies, in this order:
 |---|---|---|
 | Phase 0 | 420, plus 40 rebuilds | 8 h |
 | Checker adequacy | about 400 | 6 h |
-| SNC arm | 2,460 | 16 h |
-| Plain step 1 | 2,460 | 16 h |
-| Plain step 2 | 2,460 | 16 h |
+| SNC arm | 2,560 | 16 h |
+| Plain step 1 | 2,560 | 16 h |
+| Plain step 2 | 2,560 | 16 h |
 | Performance | 2 × 1,000 tasks | 4 h |
 
 A phase that hits its cap reports what completed. The rest is UNRESOLVED.
@@ -671,3 +691,69 @@ change (I-acc's role, and a dispatch timeout under a held reply, which C-s no lo
 - whether DBOS Python's `@ds.transaction()` allows everything section 3 needs (AS-3, checked during bring-up);
 - the time estimates in section 10 (HYP);
 - whether any provider-side id lookup exists for E-11 (not tested here; the stub only).
+
+## 16. Revision 3 amendments (PROPOSED, need review and cody's yes)
+
+Each change answers Codex's HOLD review of PR #185. Revision 2 stays in `docs/AR1_PREREG_REV2.md`.
+
+- **A-1, commit end (7.1, C-7).**
+  - The end of a commit record is its own end, XactLastRecEnd, which is what SyncRep waits for.
+  - Revision 2 used the next record's start. The two differ exactly when a record ends at a page start, where the
+    next record starts after the page header.
+  - Under revision 2's definition, the only bound that passes is one that can wait forever on an idle server.
+  - Codex supports this direction.
+- **A-2, the bound (package 2.6 d1).**
+  - The bound is `pg_current_wal_insert_lsn()` minus the page header when the insert position sits exactly at a
+    page start (24 bytes) or a segment start (40 bytes), and the raw value otherwise.
+  - The header is not written until more WAL arrives, so a standby cannot report a flush at the raw value.
+  - G2 saw waits of 4.7 to 24.4 s in 23 of 10,000 commits.
+  - C-7b (section 6) is the focused check Codex asked for. It passes, and its negative control fires.
+- **A-3, points Ac and P (5.1).**
+  - The revision 2 matrix had no schedule in which an unestablished dispatch commit lets the activation run on, so
+    M1 was flagged only by the gateway's own log.
+  - It also had no schedule in which unestablished state reaches the policy read.
+  - Ac uses C-2 (a cancelled SyncRep wait): the commit is local and the client sees success. A correct runtime
+    still waits on its own establishment read.
+  - P adds a foreign writer, because S1 has none of its own (A-5).
+- **A-4, the after-outcome release (5.3, 7.3).**
+  - In revision 2's after order at T-F and T-N, the old request reaches the receiver only after the new epoch's
+    request (T-F) or dispatch (T-N).
+  - Its reply is then a rejection (T-F) or a late attempt (T-N), and neither is a completed outcome. M13's
+    obligation, deriving the dependent transitions of a stale *completed* outcome, cannot arise there.
+  - The new after-outcome order lets the receiver answer before the takeover and holds the reply from the old
+    activation until after it, which is the model and T-I schedule. The stale completed outcome then exists.
+  - The after order stays, since it is what exercises 5.TF_stale_rejected, 5.TN_duplicate_recorded and M14.
+- **A-5, M5 and why its revision 2 points cannot expose it (7.3).**
+  - In S1 the policy reads only `snc.memory`.
+  - Memory is written by setup, which is established before the activation starts, and by M-done, which comes after
+    P-dec.
+  - Every decision of the activation waits for its own bound, and the state read just before the policy decision
+    waits for a bound taken after its snapshot. Insert LSNs only grow, and standby flush is a prefix.
+  - So every row in the policy snapshot written by the activation, or before its last wait, is established before
+    the policy read [INF, from 2.6 d4].
+  - At a3 of C-acc or of any memory read, the run's own later waits therefore always cover the unestablished row
+    first. G2 saw this in 10 of 10 runs.
+  - The state read that feeds the policy is part of the policy decision, so M5 now removes both waits. A foreign
+    writer (point P) is the only way unestablished state can reach that read.
+- **A-6, the provider request id (7.2 item 3).**
+  - The stub gives each physical request a fresh random request id, and its output depends on that id.
+  - The checker requires a recorded output to carry the first physical request's id, with an output hash equal to
+    that request's reply (3.no_regenerate). A regenerated reply is then told apart from the original.
+- **A-7, delivery.** Receivers log `delivered` after flushing a reply. The checker's "received" uses it.
+- **A-8, M11 at C b2.** M11 is observable only on after seeds, because a before release leaves no outstanding call
+  at the takeover.
+- **A-9, 1.upper exercised (7.1).**
+  - The clause counts as exercised when an unestablished commit exists at a kill or pre-resume cut and the state
+    request started before the standby resumed.
+  - That is the situation 7.1 describes. The cut after the answer can never show it for a correct runtime.
+- **A-10, the pre-resume cut (7.1).**
+  - At a3, Ac and P, a cut is taken just before the standby resumes. It reads the standby through the oracle's open
+    connection; only the postmaster and walreceiver are stopped.
+  - The run is invalid unless the walreceiver's pid is unchanged and its process state is stopped.
+- **A-11, the run cap (10).** The 5-minute cap runs from setup to the end of the check. Each run records its wall
+  time.
+- **A-12, the environment (2).**
+  - `experiments/ar1/conda-linux-64.lock` and `requirements.lock` pin every package by sha256, and `setup.sh`
+    installs only from them.
+  - A clean reinstall reproduced the environment exactly.
+  - Counted runs use the dedicated VM, installed from these locks.

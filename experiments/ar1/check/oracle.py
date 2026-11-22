@@ -252,14 +252,14 @@ class Oracle:
         return rec
 
     def pre_resume_cut(self, label="pre-resume"):
-        rec = {"kind": "pre-resume", "label": label, "unresolved": [], "invalid": []}
-        try:
-            rec["primary"], rec["insert_lsn"], rec["primary_tli"] = self.primary_read()
-            rec["t_cut"] = now()
-        except ReadFailed as e:
-            rec["invalid"].append(f"read failed: {e}")
-        if self.last_standby:
-            rec["standby"] = {**self.last_standby, "source": "last read, standby stopped"}
+        prev = (self.last_standby or {}).get("walreceiver_pid")
+        rec = self._cut("pre-resume", label)
+        pid = (rec.get("standby") or {}).get("walreceiver_pid")
+        if not rec["invalid"]:
+            if pid is None or (prev is not None and pid != prev):
+                rec["invalid"].append(f"walreceiver pid {pid} is not the stopped one {prev}")
+            elif _proc_state(pid) != "T":
+                rec["invalid"].append(f"walreceiver {pid} not stopped")
         self.invalid += rec["invalid"]
         return self.write(rec)
 

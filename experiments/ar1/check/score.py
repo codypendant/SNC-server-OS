@@ -6,13 +6,22 @@ from check.check import MUTATION_CLAUSES
 
 
 def score(rows):
-    out = defaultdict(lambda: {"runs": 0, "exercised": 0, "detected": 0, "flagged": Counter(), "not_scored": Counter()})
+    out = defaultdict(
+        lambda: {
+            "runs": 0,
+            "exercised": 0,
+            "detected": 0,
+            "flagged": Counter(),
+            "not_scored": Counter(),
+            "by_clause": Counter(),
+        }
+    )
     for r in rows:
         m = r.get("mutation") or "none"
         s = out[m]
         s["runs"] += 1
         c = r.get("check") or {}
-        if "clauses" not in c:
+        if r.get("unresolved") or "clauses" not in c:
             s["not_scored"][
                 r.get("harness_error") and "harness_error" or r.get("unresolved") and "unresolved" or "no check"
             ] += 1
@@ -25,8 +34,16 @@ def score(rows):
         want = MUTATION_CLAUSES.get(m, ())
         s["exercised"] += any(k in (c.get("exercised") or []) for k in want)
         s["detected"] += bool(set(want) & set(bad)) if want else bool(bad)
+        for k in want:
+            s["by_clause"][k] += k in bad
     return {
-        m: {**s, "flagged": dict(s["flagged"]), "not_scored": dict(s["not_scored"]), "clauses": MUTATION_CLAUSES.get(m)}
+        m: {
+            **s,
+            "flagged": dict(s["flagged"]),
+            "not_scored": dict(s["not_scored"]),
+            "by_clause": {k: s["by_clause"][k] for k in MUTATION_CLAUSES.get(m, ())},
+            "clauses": MUTATION_CLAUSES.get(m),
+        }
         for m, s in sorted(out.items())
     }
 

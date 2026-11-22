@@ -7,17 +7,26 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .matrix import points, seed
+from .matrix import points, release, seed
 
 PY = sys.executable
 HERE = Path(__file__).resolve().parent.parent
 
 ADEQUACY = {
-    "M1": ["A/a3:I-disp", "A/a3:TI-disp", "A/a3:TF-disp", "A/a3:TN-disp"],
+    "M1": [
+        "A/a3:I-disp",
+        "A/a3:TI-disp",
+        "A/a3:TF-disp",
+        "A/a3:TN-disp",
+        "Ac/I-disp",
+        "Ac/TI-disp",
+        "Ac/TF-disp",
+        "Ac/TN-disp",
+    ],
     "M2": ["C-s/I-out", "C-s/TI-out", "C-s/TF-out", "C-s/TN-out"],
     "M3": ["B/b2:model", "B/b3:model"],
     "M4": ["B/b2:T-N", "B/b3:T-N"],
-    "M5": ["A/a3:C-acc", "A/a3:I-out"],
+    "M5": ["P/pre-policy"],
     "M6": ["C-p/I-prep", "C-p/TI-prep", "C-p/TF-prep", "C-p/TN-prep"],
     "M7": ["B/b2:T-I"],
     "M8": ["C-b2/model", "C-b2/T-I", "C-b2/T-F", "C-b2/T-N"],
@@ -38,16 +47,31 @@ ADEQUACY = {
     "M13": ["C-b2/model", "C-b2/T-I", "C-b2/T-F", "C-b2/T-N"],
     "M14": ["C-b2/T-N"],
 }
-AFTER_ONLY = ("M8", "M13", "M14")
+OUTCOME = {"C-b2/model": "after", "C-b2/T-I": "after", "C-b2/T-F": "after-outcome", "C-b2/T-N": "after-outcome"}
+WANT = {
+    "M8": lambda p, s: release(p, s) != "before",
+    "M11": lambda p, s: release(p, s) != "before",
+    "M13": lambda p, s: release(p, s) == OUTCOME[p],
+    "M14": lambda p, s: release(p, s) == "after",
+}
+BRINGUP = {
+    "C-b2/model": [lambda p, s: release(p, s) == "after", lambda p, s: release(p, s) == "before"],
+    "C-b2/T-I": [lambda p, s: release(p, s) == "after", lambda p, s: release(p, s) == "before"],
+    "C-b2/T-F": [lambda p, s: release(p, s) == "after", lambda p, s: release(p, s) == "after-outcome"],
+    "C-b2/T-N": [lambda p, s: release(p, s) == "after" and s % 2 == 0, lambda p, s: release(p, s) == "after-outcome"],
+}
 
 
-def seeds(point_id, n, prefix, after=False):
+def seeds(point_id, n, prefix, want=None):
+    wants = want if isinstance(want, list) else [want] * n
     out, i = [], 0
-    while len(out) < n:
-        s = seed(point_id, i, prefix)
-        if not after or (s >> 1) & 1 == 0:
-            out.append(s)
-        i += 1
+    for w in wants:
+        while True:
+            s = seed(point_id, i, prefix)
+            i += 1
+            if w is None or w(point_id, s):
+                out.append(s)
+                break
     return out
 
 
@@ -64,13 +88,13 @@ def jobs(kind):
             (p["id"], s, "none", arm)
             for arm in ("snc", "plain1")
             for p in points()
-            for s in seeds(p["id"], 2, "bringup")
+            for s in seeds(p["id"], 2, "bringup", BRINGUP.get(p["id"]))
         ]
     return [
         (pt, s, m, "snc")
         for m, pts in ADEQUACY.items()
         for pt in pts
-        for s in seeds(pt, 5, f"adequacy:{m}", m in AFTER_ONLY or (m == "M11" and pt.startswith("C-b2")))
+        for s in seeds(pt, 5, f"adequacy:{m}", WANT.get(m) if pt.startswith("C-b2/") else None)
     ]
 
 
@@ -85,7 +109,7 @@ def main():
         }
     env = {
         **os.environ,
-        "AR1_PORT": str(54320 + 100 * worker),
+        "AR1_PORT": str(24320 + 100 * worker),
         "AR1_RUNS": f"{os.environ.get('AR1_RUNS', '/tmp/ar1-runs')}/w{worker}",
     }
     code = code_hash()
@@ -102,7 +126,7 @@ def main():
             start_new_session=True,
         )
         try:
-            so, err = p.communicate(timeout=600)
+            so, err = p.communicate(timeout=420)
         except subprocess.TimeoutExpired:
             so, err = "", "batch timeout"
         subprocess.run(["pkill", "-9", "-s", str(p.pid)], capture_output=True)

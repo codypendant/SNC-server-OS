@@ -20,7 +20,7 @@
   },
   "pass": true,
   "run": 0,
-  "seconds": 3.7
+  "seconds": 4.0
  },
  {
   "vary": {
@@ -30,8 +30,8 @@
   },
   "early_xid": true,
   "xid": "1402",
-  "switchpoint": "0/40B5280",
-  "x_commit_start": "0/40BBD50",
+  "switchpoint": "0/40B5228",
+  "x_commit_start": "0/40BBCF8",
   "before": {
    "xact_status": "aborted",
    "token": false
@@ -43,6 +43,6 @@
   },
   "pass": true,
   "run": 1,
-  "seconds": 4.3
+  "seconds": 4.1
  }
 ]

@@ -1,4 +1,4 @@
-"""The fixed crash-point matrix of prereg section 5 (123 points)."""
+"""The crash-point matrix of prereg section 5 (revision 3: 128 points)."""
 
 import hashlib
 
@@ -58,11 +58,22 @@ def points():
         for a in ("a1", "a2", "a3", "a4"):
             p.append({"id": f"AP/{a}:{c}", "kind": "A", "at": f"{a}:{c}", "scenario": "S-AP"})
     p.append({"id": "AP/cancel", "kind": "D", "at": "a4:AP-req", "scenario": "S-AP"})
+    for c in DISP:
+        p.append({"id": f"Ac/{c}", "kind": "Ac", "at": f"a3:{c}", "scenario": "S-M"})
+    p.append({"id": "P/pre-policy", "kind": "P", "at": "pre-policy", "scenario": "S-M"})
     return p
+
+
+def release(point_id, seed):
+    if not point_id.startswith("C-b2/"):
+        return None
+    if (seed >> 1) & 1:
+        return "before"
+    return "after-outcome" if point_id in ("C-b2/T-F", "C-b2/T-N") and (seed >> 2) & 1 else "after"
 
 
 def seed(point_id, i, prefix="bringup"):
     return int(hashlib.sha256(f"{prefix}:{point_id}:{i}".encode()).hexdigest()[:8], 16)
 
 
-assert len(points()) == 123
+assert len(points()) == 128

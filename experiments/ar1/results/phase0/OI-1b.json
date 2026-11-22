@@ -18,7 +18,7 @@
   },
   "pass": true,
   "run": 0,
-  "seconds": 4.8
+  "seconds": 4.1
  },
  {
   "vary": {
@@ -34,12 +34,12 @@
    "first": 2,
    "identify": 2,
    "pre_session_after": 2,
-   "control_checkpoint": 1,
+   "control_checkpoint": 2,
    "control_after_checkpoint": 2
   },
   "pass": true,
   "run": 1,
-  "seconds": 4.5
+  "seconds": 3.6
  },
  {
   "vary": {
@@ -62,7 +62,7 @@
   },
   "pass": true,
   "run": 2,
-  "seconds": 4.3
+  "seconds": 3.9
  },
  {
   "vary": {
@@ -85,7 +85,7 @@
   },
   "pass": true,
   "run": 3,
-  "seconds": 4.4
+  "seconds": 4.8
  },
  {
   "vary": {
@@ -106,7 +106,7 @@
   },
   "pass": true,
   "run": 4,
-  "seconds": 3.4
+  "seconds": 3.6
  },
  {
   "vary": {
@@ -127,7 +127,7 @@
   },
   "pass": true,
   "run": 5,
-  "seconds": 3.7
+  "seconds": 3.5
  },
  {
   "vary": {
@@ -150,7 +150,7 @@
   },
   "pass": true,
   "run": 6,
-  "seconds": 3.4
+  "seconds": 3.5
  },
  {
   "vary": {
@@ -173,6 +173,6 @@
   },
   "pass": true,
   "run": 7,
-  "seconds": 3.9
+  "seconds": 4.1
  }
 ]

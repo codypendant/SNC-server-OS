@@ -13,7 +13,7 @@ def commits(rows):
 
 
 def state(agent):
-    ag, task, mem, calls, invs, toks = rt.authoritative(
+    ag, task, mem, calls, invs, toks, snap = rt.authoritative(
         [
             ("SELECT id, epoch, version FROM snc.agent WHERE id=%s", (agent,)),
             ("SELECT id, status FROM snc.task WHERE agent=%s", (agent,)),
@@ -21,6 +21,7 @@ def state(agent):
             ("SELECT id, state, attempts, result FROM snc.tool_call WHERE agent=%s ORDER BY id", (agent,)),
             ("SELECT id, state, late, retry_of FROM snc.invocation WHERE agent=%s ORDER BY id", (agent,)),
             COMMITS,
+            ("SELECT pg_current_snapshot()::text", ()),
         ]
     )
     return {
@@ -30,6 +31,7 @@ def state(agent):
         "calls": {c[0]: {"state": c[1], "attempts": c[2], "result": c[3]} for c in calls},
         "invocations": {i[0]: {"state": i[1], "late": i[2], "retry_of": i[3]} for i in invs},
         "commits": commits(toks),
+        "snapshot": snap[0][0],
     }
 
 

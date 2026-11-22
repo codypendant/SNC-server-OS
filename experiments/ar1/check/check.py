@@ -24,7 +24,7 @@ SNC_TABLES = (
     "run_event",
     "history",
 )
-GROUPS = ("A", "B", "C-a1", "C-b2", "C-p", "C-s", "D", "E", "R-takeover", "R-two")
+GROUPS = ("A", "Ac", "P", "B", "C-a1", "C-b2", "C-p", "C-s", "D", "E", "R-takeover", "R-two")
 INV_MOVES = {
     (None, "prepared"),
     ("prepared", "dispatched"),
@@ -39,6 +39,7 @@ INV_MOVES = {
 }
 TERMINAL = ("output", "completed", "rejected")
 DISPATCH_S = 2.0
+MEMORY_WRITERS = ("X-mem", "M-done")
 NON_DECISION_KINDS = ("derive", "attempt")
 MUTATION_CLAUSES = {
     "M1": ("4.established", "4.gateway"),
@@ -162,7 +163,7 @@ class Check:
     def __init__(self, R, db_rows=None, wal_recs=None, standby_recs=None):
         self.R = Path(R)
         self.violations, self.unresolved, self.invalid = [], [], []
-        self.exercised, self.unmet, self.bad = set(), set(), []
+        self.exercised, self.unmet, self.bad, self.exemptions = set(), set(), [], []
         self.run = json.loads((self.R / "run.json").read_text())
         self.arm = self.run.get("arm")
         self.snc = self.arm == "snc"
@@ -367,6 +368,7 @@ class Check:
             if str(e.get(k)) == str(x.get(k))
             and e["t"] <= x["t"]
             and (x.get("attempt") is None or str(e.get("attempt")) == str(x.get("attempt")))
+            and (x.get("request_id") is None or e.get("request_id") is None or e["request_id"] == x["request_id"])
         ]
         return req[-1] if req else None
 
@@ -385,6 +387,7 @@ class Check:
                     or e.get("attempt") is None
                     or str(e.get("attempt")) == str(x.get("attempt"))
                 )
+                and (x.get("request_id") is None or e.get("request_id") in (None, x["request_id"]))
                 and e["t"] >= x["t"]
                 and not self.killed_after(x["t"], ex, e["t"] + 1e9)
                 for e in dl
@@ -480,7 +483,7 @@ class Check:
         want = self.run.get("release") or ("after" if (int(self.run.get("seed") or 0) >> 1) & 1 == 0 else "before")
         rel = [m for m in self.markers_of("released") if (m.get("data") or {}).get("who") != "new"]
         if rel and tc:
-            if (rel[0]["t"] > tc[0]["t"]) != (want == "after"):
+            if (rel[0]["t"] > tc[0]["t"]) != (want != "before"):
                 self.u("wrong interleaving: release order", want=want)
             return
         tk = self.takeovers()
@@ -494,7 +497,7 @@ class Check:
         ]
         if not tk or not old:
             return
-        if want == "after" and old[0]["end"] < tk[0]["end"]:
+        if want != "before" and old[0]["end"] < tk[0]["end"]:
             self.u("wrong interleaving: release order (by commit LSN)", want=want)
 
     def c_s(self):
@@ -547,29 +550,64 @@ class Check:
             self.u("no state answer before the observation cut")
             return
         a = prior[-1]["answer"]
+        self.agent_id = (a.get("agent") or {}).get("id") or "A"
         A = {c["token"] for c in a.get("commits") or []}
+        upper = obs
+        ret = self.markers_of("answer-returned")
+        pre = [c for c in self.cut_list if c["kind"] == "pre-resume" and ret and c["t"] > ret[-1]["t"]]
+        if pre:
+            upper = pre[0]
         lastk = [c for c in self.kill_cuts if c["t"] < prior[-1]["t"]]
         if lastk:
-            lower = {t for t, r in self.tokens.items() if "end" in r and self.at_or_below(r, lastk[-1])}
+            lower = {
+                t
+                for t, r in self.tokens.items()
+                if "end" in r and self.at_or_below(r, lastk[-1]) and not self.foreign(r)
+            }
             self.ex("1.lower", bool(lower))
             for t in sorted(lower - A):
                 self.v(1, "1.lower", token=t, name=self.tokens[t].get("name"), cut=lastk[-1]["label"])
-        f, ins = self.flushed(obs), lsn_int(obs.get("insert_lsn"))
-        self.ex("1.upper", f is not None and any(f < e <= (ins or 0) for e, _ in self.pos))
+        self.ex("1.upper", self.unestablished_at_answer())
         for t in sorted(A):
             r = self.tokens.get(t)
             if r is None or "end" not in r:
                 self.v(1, "1.prefix", token=t, why="answer lists a commit the run does not have")
-            elif not self.at_or_below(r, obs):
-                self.v(1, "1.upper", token=t, name=r.get("name"), end=wal.lsn_str(r["end"]), cut=obs["label"])
+            elif not self.at_or_below(r, upper):
+                self.v(1, "1.upper", token=t, name=r.get("name"), end=wal.lsn_str(r["end"]), cut=upper["label"])
         ends = [self.tokens[t]["end"] for t in A if "end" in self.tokens.get(t, {})]
         self.ex("1.prefix", bool(ends))
         if ends:
             for e, t in self.pos:
-                if e < max(ends) and t not in A:
+                if e < max(ends) and t not in A and not self.foreign(self.tokens[t]):
+                    if self.in_progress(a.get("snapshot"), self.tokens[t].get("xid")):
+                        self.exemptions.append(
+                            {"clause": "1.prefix", "token": t, "xid": self.tokens[t]["xid"], "snapshot": a["snapshot"]}
+                        )
+                        continue
                     self.v(1, "1.prefix", token=t, name=self.tokens[t].get("name"), why="gap in the prefix")
         self.item1_state(a, A)
         self.item1_stale()
+
+    def foreign(self, r):
+        return r.get("agent") is not None and str(r["agent"]) != str(getattr(self, "agent_id", "A"))
+
+    @staticmethod
+    def in_progress(snap, xid):
+        if not snap or xid is None:
+            return False
+        xmin, xmax, xip = (str(snap).split(":") + ["", "", ""])[:3]
+        return int(xid) >= int(xmax) or str(int(xid)) in {x for x in xip.split(",") if x}
+
+    def unestablished_at_answer(self):
+        req, res = self.markers_of("answer-requested"), self.markers_of("standby-resumed")
+        if not req or not res or req[0]["t"] > res[-1]["t"]:
+            return False
+        for c in self.cut_list:
+            ins = lsn_int(c.get("insert_lsn"))
+            if c["kind"] in ("kill", "pre-resume") and c["t"] < res[-1]["t"] and ins is not None:
+                if any(r["end"] <= ins and not self.at_or_below(r, c) for r in self.tokens.values() if "end" in r):
+                    return True
+        return False
 
     def item1_state(self, a, A):
         eps = [self.tokens[t].get("epoch") for t in A if self.tokens.get(t, {}).get("epoch") is not None]
@@ -763,26 +801,47 @@ class Check:
             if late and not row.get("late"):
                 self.v(3, "3.late_marked", invocation=i)
             if row.get("state") == "output":
-                self.ex("3.no_regenerate")
-                rs = replies.get(i, [])
-                if not rs:
-                    self.v(3, "3.no_regenerate", invocation=i, why="output with no stub reply for this id")
-                elif str(row.get("provider_request_id")) not in {str(r.get("request_id")) for r in rs}:
-                    self.v(
-                        3,
-                        "3.no_regenerate",
-                        invocation=i,
-                        provider_request_id=row.get("provider_request_id"),
-                        stub=[r.get("request_id") for r in rs],
-                    )
-                out = row.get("output")
-                if (
-                    isinstance(out, str)
-                    and all(r.get("output_sha256") for r in rs)
-                    and rs
-                    and hashlib.sha256(out.encode()).hexdigest() not in {r["output_sha256"] for r in rs}
-                ):
-                    self.v(3, "3.no_regenerate", invocation=i, why="output hash differs from the stub reply")
+                self.no_regenerate(i, row, replies.get(i, []))
+
+    def no_regenerate(self, i, row, rs):
+        self.ex("3.no_regenerate")
+        reqs = [e for e in self.requests("stub") if str(e.get("invocation_id")) == i]
+        rid = reqs[0].get("request_id") if reqs else None
+        if rid is not None:
+            rs = [r for r in rs if str(r.get("request_id")) == str(rid)]
+            if str(row.get("provider_request_id")) != str(rid):
+                self.v(
+                    3,
+                    "3.no_regenerate",
+                    invocation=i,
+                    why="output not from the first physical request",
+                    provider_request_id=row.get("provider_request_id"),
+                    first_request_id=rid,
+                    requests=[e.get("request_id") for e in reqs],
+                )
+        if not rs:
+            self.v(3, "3.no_regenerate", invocation=i, why="output with no stub reply for its request")
+            return
+        if rid is None and str(row.get("provider_request_id")) not in {str(r.get("request_id")) for r in rs}:
+            self.v(
+                3,
+                "3.no_regenerate",
+                invocation=i,
+                provider_request_id=row.get("provider_request_id"),
+                stub=[r.get("request_id") for r in rs],
+            )
+        out = row.get("output")
+        if isinstance(out, str):
+            try:
+                out = json.loads(out)
+            except ValueError:
+                pass
+        if isinstance(out, dict):
+            out = out.get("output")
+        if not isinstance(out, str):
+            self.v(3, "3.no_regenerate", invocation=i, why="recorded output has no output string")
+        elif hashlib.sha256(out.encode()).hexdigest() not in {r.get("output_sha256") for r in rs}:
+            self.v(3, "3.no_regenerate", invocation=i, why="output hash differs from the stub reply")
 
     # item 4
 
@@ -938,18 +997,20 @@ class Check:
             )
 
     def policy_read(self):
+        rp = [m["t"] for m in self.markers_of("reached") if m.get("point") == "pre-policy"]
+        held = rp[0] if rp else float("inf")
         for p in self.by_name("P-dec"):
-            own = [
+            inputs = [
                 r
                 for r in self.tokens.values()
                 if "end" in r
                 and r["end"] <= p["start"]
-                and (r.get("epoch") == p.get("epoch") or r.get("kind") == "takeover")
+                and (r.get("epoch") == p.get("epoch") or r.get("kind") == "takeover" or r.get("name") in MEMORY_WRITERS)
             ]
             for c in self.cut_list:
                 ins = lsn_int(c.get("insert_lsn"))
-                pend = [r for r in own if not self.at_or_below(r, c) and ins is not None and r["end"] <= ins]
-                self.ex("4.policy_read", bool(pend) and p["start"] <= ins)
+                pend = [r for r in inputs if ins is not None and r["end"] <= ins and not self.at_or_below(r, c)]
+                self.ex("4.policy_read", bool(pend) and c["t"] > held and ins <= p["start"])
                 if pend and p["end"] <= ins:
                     self.v(
                         4, "4.policy_read", policy=p["token"], cut=c["label"], unestablished=[r["token"] for r in pend]
@@ -1490,6 +1551,7 @@ class Check:
             "classes": getattr(self, "classes", {}),
             "clauses": status,
             "exercised": sorted(self.exercised),
+            "exemptions": self.exemptions,
             "verdict": (
                 "unresolved"
                 if self.unresolved

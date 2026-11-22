@@ -44,11 +44,11 @@
     "overdue": 0,
     "fails": [],
     "n_fails": 0,
-    "l_then_r": 1968,
-    "load_commits": 57614,
+    "l_then_r": 1975,
+    "load_commits": 58209,
     "unresolved": [],
-    "freeze_ms_p50": 101.846302,
-    "freeze_ms_max": 124.024042,
+    "freeze_ms_p50": 101.799896,
+    "freeze_ms_max": 178.434586,
     "pass": true
    },
    "2": {
@@ -128,11 +128,11 @@
     "overdue": 0,
     "fails": [],
     "n_fails": 0,
-    "l_then_r": 1960,
-    "load_commits": 56277,
+    "l_then_r": 1970,
+    "load_commits": 55908,
     "unresolved": [],
-    "freeze_ms_p50": 101.839193,
-    "freeze_ms_max": 194.235283,
+    "freeze_ms_p50": 101.696532,
+    "freeze_ms_max": 115.52222,
     "pass": true
    },
    "2": {

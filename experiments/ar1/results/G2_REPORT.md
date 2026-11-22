@@ -1,215 +1,291 @@
-# AR-1 G2 evidence report: bring-up and checker adequacy (uncounted)
+# AR-1 G2 evidence report: bring-up and checker adequacy (uncounted), revision 3
 
 ## Status and authority
 
-- **Authority:** cody's "go" on 2026-11-21 at 19:52 UTC for G2 (`docs/handoff/PR184_G2_Owner_Decision.md`). It
-  covers the AR-1 code, uncounted bring-up and the checker-adequacy runs of `docs/AR1_PREREG.md` revision 2.
-- **Counted runs:** none. G3 stays on HOLD.
-- **Discarded data:** the bring-up and adequacy rows are uncounted, so only the summaries below are kept (prereg
-  section 14). Phase 0 output is kept in `results/phase0/` because it is small and is what the Phase 0 gate reads.
-- **Code:** `experiments/ar1/` contains:
+- **Authority.** cody's "go" on 2026-11-21 at 19:52 UTC for G2 (`docs/handoff/PR184_G2_Owner_Decision.md`).
+  Codex's HOLD review of this PR (`docs/handoff/PR185_Codex_Review.md`, pasted by cody on 2026-11-22 at 02:00 UTC)
+  says that authority also covers the corrective work and the uncounted reruns reported here.
+- **Counted runs.** None. G3 stays on HOLD until cody authorizes it separately.
+- **Prereg.** These runs follow `docs/AR1_PREREG.md` revision 3, which is PROPOSED.
+  - Revision 2 is preserved in `docs/AR1_PREREG_REV2.md`.
+  - Section 16 of revision 3 lists amendments A-1 to A-12, with what changed and why.
+  - None of the amendments is accepted until cody says yes.
+- **Discarded data.** Bring-up and adequacy rows are uncounted, so only their summaries are kept (prereg section 14):
+  `results/bringup_summary.json` and `results/adequacy_score.json`. Phase 0 output is in `results/phase0/`.
+- **Code.** `experiments/ar1/` contains:
   - `ar1/`: the SNC runtime, harness, services, Phase 0 and batch;
-  - `check/`: the oracle and checker, written by a separate implementer;
-  - `plain1/`: the plain DBOS arm, step 1, written by a third implementer.
-- **Location deviation.** The accepted default was a dedicated cloud VM, but these runs used this cloud session
-  (prereg section 14 lists a cloud session as an option). The container:
-  - 4 vCPU, 15 GiB, one virtual disk;
-  - PostgreSQL 18.7, Python 3.12, DBOS 3.6.0, psycopg 3.3.9 and SQLAlchemy 2.1.9 from conda-forge;
-  - manifest in `bench/manifests/ar1-g2-cloud-20261121.txt`.
+  - `check/`: the oracle and checker, from a separate implementer;
+  - `plain1/`: the plain DBOS arm, step 1, from a third implementer.
 
-  G3 counted runs belong on the dedicated VM, with their own manifest and the SHA freeze of prereg 5.5. Nothing here
-  measures performance.
+  Every bring-up and adequacy row in this report comes from one code hash, `1e385c68af4e12a0`.
+- **Location (U-13, unchanged).** These runs used this cloud session, not the dedicated VM:
+  - 4 vCPU and 15 GiB;
+  - PostgreSQL 18.7, Python 3.12 and DBOS 3.6.0, now installed from hash-pinned locks (A-12).
+
+  Counted runs belong on the dedicated VM, installed from the same locks. This step did not need the VM. Nothing
+  here measures performance.
 
 ## Verdict
 
-**Not ready for G3.** Phase 0 passes at bring-up scale. SNC's arm passes all 246 correct bring-up runs. The checker
-flags every mutation that the schedules exercise, at every seed (12 of 14 mutations at all their points). Three items are still UNRESOLVED and must be
-settled before counted runs can mean anything:
+**G2 is complete at bring-up scale. It now waits on cody's decision on the revision 3 amendments.**
 
-1. M5 is never exercised;
-2. M13 is not exercised at T-F and T-N;
-3. four item clauses are exercised by no correct run.
+- **Phase 0:** every check passes, including C-7b, the new focused check for the page-boundary bound.
+- **SNC's arm:** 256 of 256 correct runs pass. All 128 fault points are reached, and every item clause of 7.1 and
+  7.2 is exercised by at least one correct run.
+- **Adequacy:** 14 of 14 mutations are flagged at every seed of every listed point, across 265 runs.
+- **M1:** now detected without relying on the gateway's own claim. The receiver logs the premature request, and
+  4.established flags it from that log in all 20 of the new Ac runs.
+- **Clean runs:** no adequacy run was unresolved, invalid or over the run cap.
 
-The prereg also needs two amendments, and cody or Codex must accept them.
+## What changed since the HOLD, item by item
+
+**2A, M5.**
+- **Root cause.** In S1 the policy reads only memory, and only two things write memory:
+  - setup, before the activation starts;
+  - M-done, after P-dec.
+
+  So the activation's own waits always cover an unestablished row before the policy reads it, and the revision 2
+  points cannot expose M5 (A-5). This was observed in 10 of 10 runs.
+- **Correction.** New point P:
+  - just before the policy phase, a foreign writer commits a memory row locally while the standby is stopped;
+  - a correct runtime waits for that row to be established;
+  - M5 skips both the state-read wait and the policy-read wait.
+- **Evidence.** Correct runs at P pass and exercise 4.policy_read. 4.policy_read flags M5 in 5 of 5 runs.
+
+**2B, M13 at T-F and T-N.**
+- **Root cause.** In revision 2's "after" order, the old request reaches the receiver only after the new epoch has
+  acted. Its reply is then a rejection (T-F) or a late attempt (T-N), not a completed outcome. M13's obligation is
+  to derive from a stale *completed* outcome, so it never arises (A-4).
+- **Correction.** A new "after-outcome" release order: the receiver answers before the takeover, and the reply
+  reaches the old activation only afterwards.
+  - The "after" order stays, because it is what exercises 5.TF_stale_rejected, 5.TN_duplicate_recorded and M14.
+  - A-4 justifies the change to the mutation table.
+- **Evidence.** 6.derive flags M13 in 20 of 20 runs, 5 at each of the four tools.
+
+**2C, unexercised clauses.**
+- **Root causes:**
+  - 1.upper: for a correct runtime, the cut taken after the answer can never show it (A-9);
+  - 4.policy_read: the same cause as 2A;
+  - 5.TF_stale_rejected and 5.TN_duplicate_recorded: bring-up never selected correct runs with the "after" order at
+    those points.
+- **Corrections:**
+  - A-9 states when 1.upper counts as exercised, and adds a detector that compares against the pre-resume cut;
+  - bring-up now selects seeds for every release order at every C-b2 point.
+- **Evidence.** Correct runs exercise all four: 1.upper 46, 4.policy_read 2, 5.TF_stale_rejected 1 and
+  5.TN_duplicate_recorded 1. The last three each have a single schedule (see "Remaining limits").
+
+**2D, M1 independent detection.**
+- **Root cause.** Synchronous commits block while the standby is stopped. So an unestablished dispatch commit never
+  let the activation run on, and only the gateway's own log could show M1.
+- **Correction.** New points Ac, which use C-2:
+  - cancelling the SyncRep wait leaves the commit local, and the client sees success;
+  - a correct runtime still waits on its own establishment read.
+- **Evidence.** At Ac, M1 is flagged in 20 of 20 runs by 4.established, which reads the receiver's log, and by
+  4.gateway as well.
+
+**2E, request ids.**
+- **Root cause.** The stub derived its request id from the invocation id.
+- **Correction (A-6):**
+  - each physical request gets a fresh random id, and the stub's output depends on that id;
+  - 3.no_regenerate requires the recorded output to carry the first request's id and the hash of its reply.
+- **Evidence.** M3 is flagged in 10 of 10 runs by 3.no_regenerate, and also by 3.crash_unknown.
+
+**Section 3, amendments A-1 and A-2.**
+- **Root cause.** See the Phase 0 section.
+- **Corrections:**
+  - A-1 rewrites prereg 7.1 and C-7;
+  - A-2 adds a correction note to package 2.6 d1;
+  - C-7b is a new focused check.
+- **Evidence.** C-7 and C-7b pass, and both negative controls fire.
+
+**Section 4, U-7 to U-12.** See "Open issues from the first report".
 
 ## Phase 0 (prereg section 6), bring-up scale
 
-These are 2 to 8 runs per check, not the 20 the prereg proposes. The 20-run Phase 0 is part of the counted
-campaign on the dedicated VM. Every check below passed on the final code.
+Each check ran 2 to 8 times, not the 20 the prereg proposes. The 20-run Phase 0 is part of the counted campaign.
+Every check passed on the final code.
 
 | Check | Runs | Result |
 |---|---|---|
-| OI-1a (off, local, cancel, restart-immediate, restart-fast) | 5 | Pass. In every variant the rows exist physically, and no API, acknowledgement, policy read or gateway decision treats them as authoritative before resume. The kill cut classes them L. The dispatch commit for the gated attempt lies above the insert LSN read before resume. After resume everything proceeds, including the gateway send. In restart-fast, the `off` commit survives with both its row and its token. In restart-immediate, both are lost, which is accepted. |
-| OI-1a control (gate off, same 5 variants) | 5 | Pass: the violation fires in every variant. The dispatch commit lands below the pre-resume insert LSN. The read gate is what this exercises; the send gate is masked by the synchronous commit blocking, as prereg line 594 already states. |
-| OI-1a-v | 2 | Pass. NULL LSNs without `pg_monitor`, and a standby whose `sync_state` is not `sync`, both count as not established. |
-| OI-1b | 8 | Pass. The candidate timeline id is 2 on the first read after `pg_promote` and agrees with `IDENTIFY_SYSTEM`. The pre-promotion session errors during recovery and is correct afterwards. The variants cover: a restartpoint before promotion, a restart after it, and a standby cut off before promotion. `pg_control_checkpoint().timeline_id` read 1 in all 8 runs, which confirms the a priori rejection; it read 2 only after an explicit CHECKPOINT. |
-| OI-1c | 2 | Pass. Token lookup says not committed in every run. As a result, not a gate: with a late xid, `pg_xact_status` says "in the future" before the counter passes X, and afterwards "committed" by the reissuing transaction. With an early xid logged in a running-xacts record, it says "aborted". X's commit lies above the switchpoint in both runs. |
-| OI-1d | 2 | Pass. The deterministic case finds the commit and its bound is at or above the commit end. The negative control fires: before d7 the token is invisible and the xact is "in progress". There are 20 random kills per run, with no violations. All 39 of 40 random-kill tokens that committed were found. The random case never produced "not committed", so only the deterministic case carries the d7 evidence (UNRESOLVED U-6). |
+| OI-1a (off, local, cancel, restart-immediate, restart-fast) | 5 | Pass, with the same evidence as before: no API, policy read or gateway decision treats a row as authoritative before resume. |
+| OI-1a control (gate off) | 5 | Pass: the violation fires in every variant. |
+| OI-1a-v | 2 | Pass: NULL LSNs and a non-`sync` standby both count as not established. |
+| OI-1b | 8 | Pass: the timeline id is 2 on the first read after promotion, in every variant. |
+| OI-1c | 2 | Pass. |
+| OI-1d | 2 | Pass, and the negative control fires. In 37 of 40 random kills the token had committed; there were no violations. |
 | OI-1e | 2 runs, 1,000 freezes | Pass on all three sub-checks, and the negative control fires. |
-| C-7 | 10,000 commits, `on` and `off` | Pass: the bound is never below the commit end. The `off` negative control fires, with `pg_current_wal_lsn()` below the commit end in 10,000 of 10,000. Establishment under `on`: p50 0.16 ms, p99 0.46 ms, max 4.9 ms. Bounds where the commit ends on a page start: 7 (`on`) and 9 (`off`). Their worst wait was 0.23 ms after the fix described below. |
+| C-7 | 2 × 10,000 commits, `on` and `off` | Pass. The bound is never below the commit end as A-1 defines it. The `off` negative control fires in 10,000 of 10,000. Establishment under `on`: p50 0.16 ms, p99 0.54 ms, max 5.5 ms. 7 bounds fall at a page start, and their worst wait is 0.21 ms. The 18 s maximum under `off` is the single final wait under `wal_writer_delay` = 10 s, by design. |
+| **C-7b** (new) | 2 runs, 26 landed commits each | Pass; details below. |
 
-### Finding F-1: page-boundary stall in the bound (fixed, needs amendment A-2)
+### C-7b: the focused check Codex asked for
 
-- **What happened.** When a commit record ends exactly at an 8 KiB page start, `pg_current_wal_insert_lsn()`
-  returns that position plus the page header (24 bytes, or 40 at a 16 MiB segment start). The standby cannot report
-  a flush there until some other WAL is written.
-- **Effect before the fix.** In C-7, 23 of 10,000 waits took 4.7 to 24.4 s on an idle server.
-- **Fix.** `rt.BOUND` subtracts the header in exactly those two cases. An independent review checked it against
-  short and long page headers, records that cross pages, and XLOG_SWITCH, and found it never below a commit's end
-  (the constants rely on initdb's 8 KiB pages and 16 MiB segments).
+Each case writes a commit sized to land on the boundary under test, using transactional `pg_logical_emit_message`
+and a feedback loop. A case passes only if the commit really landed where intended, and in both runs every case did.
 
-### Amendments the prereg needs (PROPOSED, not accepted)
+| Case | Per run | What it requires | Result |
+|---|---|---|---|
+| Ends exactly at a page start (short header, 24 bytes) | 10 | raw − end = 24 and bound = end | 20 of 20 ok. Waits are at most 5.6 ms. |
+| Ends exactly at a segment start (long header, 40 bytes) | 2 | raw − end = 40 and bound = end | 4 of 4 ok. |
+| Crosses a page | 10 | the record spans the page, and bound = raw = end | 20 of 20 ok. |
+| Crosses a segment | 1 | the record spans the segment, and bound = raw = end | 2 of 2 ok. |
+| Followed by `pg_switch_wal()` | 3 | bound ≥ end, on a segment start | 6 of 6 ok. Waits are at most 21 ms. |
 
-- **A-1, commit end.** The prereg defines a commit's end as "the next record's start in an unfiltered dump". The
-  checker instead uses the record's own end, XactLastRecEnd: start plus length, advanced over page headers. That is
-  the position SyncRep waits for.
+- **In every case** the bound is at or above the commit's end, and establishment takes under 1 s.
+- **Negative control:** waiting on the raw insert position at a page start stalls for the full 2 s.
+  - This happened in 9 of 10 page cases per run.
+  - In the tenth, unrelated WAL released the wait.
+  - The control fired in both runs.
+- **Assumption:** the bound's constants assume initdb's 8 KiB pages and 16 MiB segments, and `rt.setup_db` now
+  asserts both.
 
-  The two differ exactly at page starts. By the prereg's definition, C-7 would count 7 and 9 bounds "below the end",
-  and the only bound that satisfies it is one that can wait forever on an idle server. All three reviewers agree
-  the checker's definition is the right one. It needs cody's or Codex's acceptance as a revision before G3.
-- **A-2, the bound** of F-1, as a design note for package 2.6.
+## Bring-up (prereg 5.3), both arms
 
-## Bring-up (prereg 5.3, at most 2 seeds per point), both arms
+The bring-up covers 128 points, 2 seeds per point and 2 arms: 512 runs. At each C-b2 point, the seeds cover every
+release order that point uses:
+- model and T-I use "before" and "after";
+- T-F and T-N use "after" and "after-outcome".
 
-The run totals 492: 123 points, 2 seeds and 2 arms. All rows come from code hash `ca5fa715825816d1`. Adequacy ran
-on `41328fcc698a2a44`, and the only difference is the M11 seed selection in `ar1/batch.py` (U-3). Summaries:
-`results/bringup_summary.json`, `results/adequacy_score.json`.
+| Arm | Runs | Pass | Violation | Point not reachable | Unresolved |
+|---|---|---|---|---|---|
+| SNC | 256 | 256 | 0 | 0 | 0 |
+| plain DBOS, step 1 | 256 | 0 | 148 | 108 | 0 |
 
-| Arm | Runs | Pass | Violation | Point not reachable | Unresolved | Harness error |
-|---|---|---|---|---|---|---|
-| SNC | 246 | 246 | 0 | 0 | 0 | 0 |
-| plain DBOS, step 1 | 246 | 0 | 148 | 98 | 0 | 0 |
+**SNC: every fault point is reached, and every clause is exercised.** All 128 points were reached at both seeds.
+The table gives the number of correct runs that exercise each clause (also in `results/bringup_summary.json`, whose
+`unexercised` list is empty). Bold marks the four clauses Codex named.
+
+| Item | Clauses and correct runs exercising each |
+|---|---|
+| 1 | 1.lower 214, 1.prefix 254, 1.stale_epoch 32, 1.state 254, **1.upper 46** |
+| 2 | 2.end_state 256, 2.no_lost_output 254, 2.no_repeat 233 |
+| 3 | 3.crash_unknown 6, 3.hash 254, 3.late_marked 2, 3.no_regenerate 254, 3.recall 16, 3.states 256 |
+| 4 | 4.denied 9, 4.established 254, 4.gateway 254, 4.mapped 254, **4.policy_read 2** |
+| 5 | **5.TF_stale_rejected 1**, 5.TI_one_effect 243, 5.TI_same_key 211, **5.TN_duplicate_recorded 1**, 5.TN_no_retry 208, 5.conflict 2, 5.recorded 226 |
+| 6 | 6.TI_status 7, 6.derive 12, 6.in_doubt_owner 17, 6.no_deadlock 8, 6.outcome_exempt 30, 6.outstanding 34, 6.prepared_rejected 14 |
+| 7 | 7.authorized 243, 7.committed 256, 7.executed 256, 7.reconstructed 256, 7.shown 256 |
 
 **Plain arm, step 1.** These results are data, not gates (prereg section 9).
 - **Clauses that fired, counted over runs:**
-  - 4.mapped 473 (the tool sends have no dispatch record);
+  - 4.mapped 474;
   - 7.executed 168;
-  - 2.no_repeat 66;
-  - 5.conflict 40;
+  - 2.no_repeat 68;
+  - 5.conflict 42;
   - 3.recall 26;
   - 5.TI_one_effect 22;
   - 2.end_state 22;
-  - 7.reconstructed 20;
+  - 7.reconstructed 19;
   - 5.recorded 18;
   - 5.TN_no_retry 8;
-  - 1.stale_epoch 6;
+  - 1.stale_epoch 5;
   - 3.crash_unknown 4.
-- **Unreachable points:** the 98 runs that never reached their point are at points that have no plain equivalent: every `*-prep` and `*-disp` of a tool, `I-disp`, `I-acc`, `I-unknown` and `TN-indoubt`. Its implementer chose not to add SNC-style records to fake them (`plain1/TAKEOVER.md`). Each counts as item unmet.
-- **Lines:** plain step 1 is 367 logical lines. SNC's `rt.py`, `app.py` and `iface.py` together are 907 lines.
+- **Unreachable:** 108 runs never reached their point. These points have no plain equivalent, and they now include
+  Ac and P, which need SNC's dispatch and establishment records. Each counts as item unmet.
 
-**SNC's arm: clauses no correct run exercised.** Per prereg 5.4, these are UNRESOLVED for counted runs:
-- 1.upper;
-- 4.policy_read;
-- 5.TF_stale_rejected;
-- 5.TN_duplicate_recorded.
+## Checker adequacy (prereg 7.3, as revised by A-3, A-4, A-5 and A-8)
 
-Some of them are exercised under mutations, for example 5.TF_stale_rejected under M8. A correct run that exercises
-them still needs a schedule.
+The adequacy runs total 265 mutation runs, with 5 seeds at each point. A mutation counts as flagged only when a
+clause it breaks reports it.
 
-## Checker adequacy (prereg 7.3)
-
-250 mutation runs, 5 seeds at each point where 7.3 says the mutation is observable, one code hash. A mutation counts
-as flagged only when a clause it breaks reports it (`check/score.py`, `MUTATION_CLAUSES` in `check/check.py`). No
-adequacy run was unresolved, invalid or a harness error.
-
-| Mutation | Points | Runs | Flagged | Flagging clauses |
+| Mutation | Points | Runs | Flagged | Flagging clauses (runs) |
 |---|---|---|---|---|
-| M1 send before establishment | a3 of I/TI/TF/TN-disp | 20 | 20 | 4.gateway |
-| M2 no epoch check on decisions | C-s of I/TI/TF/TN-out | 20 | 20 | 1.stale_epoch |
-| M3 lost output regenerated | b2, b3 of model | 10 | 10 | 3.crash_unknown, 3.recall |
-| M4 automatic T-N retry | b2, b3 of T-N | 10 | 10 | 2.no_repeat, 5.TN_no_retry |
-| M5 policy read of an unestablished row | a3 of C-acc, I-out | 10 | **0, not exercised** | none (U-1) |
-| M6 takeover keeps prepared calls | C-p of I/TI/TF/TN-prep | 20 | 20 | 6.prepared_rejected |
-| M7 reconstruction drops an attempt | b2 of T-I | 5 | 5 | 7.executed |
-| M8 outcome blocked by the epoch check | C-b2, "after" seeds | 20 | 20 | 6.outcome_exempt, 5.recorded |
-| M9 re-send with a new key | b2 of T-I | 5 | 5 | 5.TI_same_key, 5.TI_one_effect, 2.no_repeat |
-| M10 no epoch check on P-dec, M-done | C-s of I-out, TN-out | 10 | 10 | 1.stale_epoch |
-| M11 no outstanding set | C-a1, C-b2 ("after" seeds), D b1-b3 | 85 | 85 | 6.outstanding |
-| M12 re-call without retry_of | b2, b3 of model | 10 | 10 | 3.recall |
-| M13 no derivation from a stale outcome | C-b2, "after" seeds | 20 | **10** (model 5/5, T-I 5/5; T-F, T-N not exercised) | 6.derive (U-2) |
-| M14 conflict rule ignored | C-b2 of T-N, "after" seeds | 5 | 5 | 5.conflict |
+| M1 send before establishment | a3 of I/TI/TF/TN-disp; **Ac** of the same four | 40 | 40 | 4.gateway 40; **4.established 20 (all Ac runs)** |
+| M2 no epoch check on decisions | C-s of I/TI/TF/TN-out | 20 | 20 | 1.stale_epoch 20 |
+| M3 lost output regenerated | b2, b3 of model | 10 | 10 | **3.no_regenerate 10**, 3.crash_unknown 10 |
+| M4 automatic T-N retry | b2, b3 of T-N | 10 | 10 | 2.no_repeat 10, 5.TN_no_retry 10 |
+| M5 policy read of an unestablished row | **P/pre-policy** | 5 | 5 | **4.policy_read 5** |
+| M6 takeover keeps prepared calls | C-p of I/TI/TF/TN-prep | 20 | 20 | 6.prepared_rejected 20 |
+| M7 reconstruction drops an attempt | b2 of T-I | 5 | 5 | 7.executed 5 |
+| M8 outcome blocked by the epoch check | C-b2 of the four tools, seeds not "before" | 20 | 20 | 6.outcome_exempt 15, 5.recorded 5 |
+| M9 re-send with a new key | b2 of T-I | 5 | 5 | 5.TI_same_key, 5.TI_one_effect, 2.no_repeat (5 each) |
+| M10 no epoch check on P-dec, M-done | C-s of I-out, TN-out | 10 | 10 | 1.stale_epoch 10 |
+| M11 no outstanding set | C-a1 of the four tools; C-b2 of the four tools, seeds not "before"; D b1-b3 of T-I, T-F and T-N | 85 | 85 | 6.outstanding 85 |
+| M12 re-call without retry_of | b2, b3 of model | 10 | 10 | 3.recall 10 |
+| M13 no derivation from a stale outcome | C-b2 of the four tools: "after" for model and T-I, **"after-outcome" for T-F and T-N** | 20 | 20 | **6.derive 20** |
+| M14 conflict rule ignored | C-b2 of T-N, "after" seeds | 5 | 5 | 5.conflict 5 |
 
-So 12 of 14 mutations are flagged at every seed of every listed point. M5 and half of M13's points are never
-exercised: the checker does not miss them, the schedule never creates the situation. Under prereg 7.3 that still
-leaves adequacy UNRESOLVED until the schedules or the table are revised and reviewed. One more limit from the
-review: 3.no_regenerate cannot tell a regenerated reply apart, because the stub's request id is derived from the
-invocation id alone, so M3 is caught only through 3.crash_unknown and 3.recall.
+The adequacy table is complete: 14 of 14 mutations are flagged at every seed of every listed point.
 
-## What was fixed on site, and reviewed
+## Open issues from the first report (Codex section 4)
 
-The runtime, harness, checker and Phase 0 each had an independent review that was told to break them, three in
-all. A fourth review then went over the fixes. Each defect was fixed with the smallest change. The main ones:
+**U-7: model output replayed from the DBOS step checkpoint.** This needs a prereg ruling (PROPOSED).
+- The output is replayed, not regenerated: no second physical request goes out.
+- A-6 checks that the recorded output carries the first request's id and hash.
+- The proposed ruling: a replay of a checkpointed output is the same output, which is consistent with prereg section
+  3 and E-11. cody decides.
 
-- **Runtime:**
-  - state reads now lock (FOR UPDATE), which closes an I-acc race where a compare-and-set passed on changed state;
-  - each prepare and dispatch re-checks authorization;
-  - late tool attempts are recorded as attempts, with no state change;
-  - there is an in-doubt escalation timer;
-  - derive excludes only originals whose re-call was dispatched;
-  - cancel reads its bound after COMMIT, no longer inside its own transaction;
-  - the page-boundary bound (F-1).
-- **Harness:**
-  - the C-b2 schedule was redesigned: the old activation is SIGSTOPped with its reply in flight, and the release order comes from a seed bit independent of the owner and approver answers;
-  - T-F and T-N wait for the new activation, and become UNRESOLVED if it never arrives;
-  - receivers log `delivered` after flushing a reply, and the harness waits for it;
-  - b2 kill releases;
-  - a pre-resume oracle cut for M5;
-  - batch isolation (each run in its own session, killed by session).
-- **Checker:**
-  - received() uses `delivered` entries;
-  - kills are executor-aware;
-  - the M6 epoch comes from the prepared token;
-  - T-F stale rejection is checked in response order;
-  - only decision history counts;
-  - error answers are unresolved;
-  - separate oracle and invariant verdicts, plus a scorer;
-  - the scorer skips unresolved and invalid runs;
-  - the plain arm's stub entries map to its `I-prep` commit;
-  - the release-order seed bit is fixed.
-- **Phase 0:**
-  - controls run every variant and pass on specific evidence;
-  - liveness requires the gateway send to succeed;
-  - C-7 runs both modes and gates on its negative control;
-  - OI-1d gates on its negative control;
-  - padding is incompressible;
-  - OI-1b adds the cut-off and post-checkpoint variants;
-  - OI-1c gates X's commit above the switchpoint;
-  - a predicate bug that made OI-1a fail on correct runs is fixed.
+**U-8: snapshot order versus LSN-prefix order.** Classified as safe for establishment; the checker now handles it.
+- A snapshot can include a commit above an earlier commit that was still in progress, and that earlier commit is
+  invisible to the snapshot.
+- Establishment still holds, because the bound is taken after the snapshot and the standby's flush is a prefix.
+- The state answer now carries its snapshot (`pg_current_snapshot()`).
+- The 1.prefix gap check exempts xids that were in progress in that snapshot, and lists each exemption in the
+  result. No bring-up run needed one.
 
-## UNRESOLVED
+**U-9: the pre-resume cut assumed a stopped walreceiver.** Fixed (A-10).
+- The cut reads the standby through the oracle's open connection.
+- A run is invalid unless the walreceiver's pid is unchanged and its process state is stopped (T).
+- No run was invalid.
 
-- **U-1, M5 is not exercisable** at A/a3:C-acc or A/a3:I-out. Recovery's earlier commits are synchronous, so they
-  block while the standby is stopped, and P-dec never commits before resume. This needs a schedule decision: a point
-  where P-dec has no synchronous commit before it, or a statement that M5 is unobservable in S1.
-- **U-2, M13 is not exercised** at C-b2/T-F and C-b2/T-N.
-  - At T-F, the old reply arrives after the new epoch raised the fence, so it is `rejected_stale` and no stale
-    outcome exists to derive from.
-  - At T-N, the new activation has already settled the call.
-  - M13 is caught at every seed where it can happen (C-b2/model and C-b2/T-I). Prereg 7.3 lists all four tools, so
-    either the schedule or the table must change.
-- **U-3, the M11 seed restriction.** At C-b2 of the tools, M11 is observable only when the old reply is released
-  after the takeover. With "before" seeds there is no outstanding call, and 7 of 40 runs in a first adequacy pass were
-  not exercised. The batch now selects "after" seeds for M11 at C-b2, as it already does for M8 and M13, and the
-  rerun above flags all 85. This is a reading of 7.3's "observable at" and should be confirmed.
-- **U-4, unexercised clauses** of the SNC arm, listed under bring-up.
-- **U-5, `received()` is a heuristic.** It means delivered with no kill of the requester within 1 s. A kill cut
-  longer than 1 s at b3 could make 5.TN_duplicate_recorded flag a correct run. No run did.
-- **U-6, OI-1d's random kills** never hit "not committed".
-- **U-7, model output at a1-a3 of I-out** is replayed from DBOS's step checkpoint. Is that consistent with prereg
-  section 3 and E-11?
-- **U-8, REPEATABLE READ snapshot order vs LSN-prefix order.** The policy and gateway reads take a snapshot, then a
-  bound. Under concurrent commits, a snapshot can include a commit above an earlier one it lacks. No run showed it;
-  no proof either.
-- **U-9, the pre-resume cut** reuses the kill cut's standby read. That is sound only while the walreceiver stays
-  stopped, and nothing asserts that it did.
-- **U-10, the plain arm's takeover model** (a new workflow per epoch) is its implementer's choice. Step 2 decides
-  whether it changes.
-- **U-11, setup reproducibility.** `setup.sh` installs from conda-forge without a lock file or hashes. G3 needs
-  pinned hashes on the VM.
-- **U-12, run caps.** RUN_CAP does not cover setup and check time.
-- **U-13, location** (see the top of this report).
+**U-11: dependency reproducibility.** Fixed (A-12).
+- `conda-linux-64.lock` (43 packages) and `requirements.lock` (16 wheels) pin every package by sha256.
+- `setup.sh` checks the micromamba binary's hash and installs only from the locks.
+- A clean reinstall reproduced the environment exactly.
+
+**U-12: run-cap accounting.** Fixed (A-11).
+- The 5-minute cap covers setup through the end of the check.
+- Each run records its wall time, and a run over the cap is unresolved.
+- The longest of the 777 runs took 89 s.
+
+These items from the first report remain open:
+- **U-5:** received() means delivered with no kill of the requester within 1 s. It now rests on `delivered` log
+  entries (A-7). No run was affected.
+- **U-6:** OI-1d's random kills never produced "not committed".
+- **U-10:** the plain arm's takeover model is its implementer's choice; step 2 revisits it.
+
+## Independent review of the corrections
+
+A separate reviewer was told to break the corrections and their interaction with the checker. It found the issues
+below, and each was fixed on site before the final reruns above.
+- **1.upper had no real detector.** Fixed with the "answer-returned" marker plus a comparison against the
+  pre-resume cut.
+- **4.policy_read could count as exercised too easily.** It now counts only after `pre-policy` is reached.
+- **Scoring did not enforce the run cap.** Fixed (A-11).
+- **U-8 was unhandled.** Fixed with the snapshot exemption.
+- **The canceller could cancel a SyncRep wait twice.** It now cancels once per backend and state change. It also
+  covers DBOS's system database connections, whose commits block on SyncRep too.
+- **The geometry was assumed.** It is now asserted.
+- **C-7b's checks were too loose.** Tightened to the exact header arithmetic above.
+
+The checker's 64 unit tests pass.
+
+## Remaining limits
+
+- **The foreign writer at P is outside S1.** S1 has no writer of its own that can put unestablished state in front
+  of the policy (A-5). So M5 is shown against a schedule that S1's own workload never produces.
+- **M3's first-request branch never fires.** M3 is detected through the output hash and request id. No run had a
+  second request reach the stub before the first reply.
+- **Thin correct-run coverage at bring-up scale.** 4.policy_read, 5.TF_stale_rejected and 5.TN_duplicate_recorded
+  each have one schedule and 1 or 2 runs. The counted campaign runs 20 seeds per point.
+- **Geometry.** The bound's constants assume 8 KiB pages and 16 MiB segments (asserted at setup).
+- **U-7** needs cody's ruling.
+- **Location:** cloud session (U-13). Counted runs go on the dedicated VM, installed from the locks.
+- **Approval:** all amendments A-1 to A-12 are PROPOSED. G3 cannot start until cody accepts them and separately
+  authorizes counted execution.
+
+## Previous round (kept as history)
+
+The first G2 round ran on code hash `ca5fa715825816d1` and the revision 2 matrix, with 123 points and 492 bring-up
+runs:
+- **SNC:** 246 of 246 correct runs passed.
+- **Plain arm, step 1:** 148 violations, and 98 runs at points it cannot reach.
+- **Adequacy:** 250 runs. 12 of 14 mutations were fully flagged. M5, and M13 at T-F and T-N, were not exercised.
+- **Coverage:** four clauses were exercised by no correct run, and only 4.gateway flagged M1.
+
+Codex's review of those results is in `docs/handoff/PR185_Codex_Review.md`. That version of this report is in
+commit `ed4de49`.
 
 ## Scope notes
 
 - `docs/handoff/` and `docs/STATUS.md` are project bookkeeping, outside prereg section 12's code paths.
-- No S2 or S3 work, no custom replication, no R640, no production dependency.
+- This step did no S2 or S3 work, no custom replication, no R640 work and no performance work, and added no
+  production dependency.

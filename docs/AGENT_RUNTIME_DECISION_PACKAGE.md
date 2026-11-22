@@ -445,6 +445,15 @@ The guarantee in (d) does not rely on (b) or (c) [INF].
 
    `pg_current_wal_lsn()` (the *write* position) is not used. Under asynchronous commit it can sit below the commit
    record [EXT: PostgreSQL 18, functions-admin and wal-async-commit].
+
+   **Proposed correction (AR-1 G2 finding F-1, amendment A-2 in `AR1_PREREG.md` section 16; needs cody's yes).**
+   - When the insert position sits exactly at a page start, `pg_current_wal_insert_lsn()` includes that page's
+     header, 24 bytes, or 40 at a segment start. The header is not written until more WAL arrives.
+   - So on an idle server the standby never reports a flush at that value. G2 measured waits of up to 24 s.
+   - The bound is therefore the insert LSN minus the header in exactly those two cases. It is still at or past the
+     commit record's end, which is XactLastRecEnd (A-1).
+   - Prereg check C-7b verifies this for commits that end on page and segment starts, cross pages and segments, and
+     precede an XLOG_SWITCH.
 2. **Established.** A commit is *established* when, on the same timeline, the standbys the commit rule requires
    report `flush_lsn` at or past the bound:
    - S1: the single standby, with `sync_state = 'sync'` read in the same query;
@@ -529,7 +538,7 @@ No durability class is accepted until OI-1 and C-1 to C-7 are verified.
 | C-1 bypass | A transaction runs `SET LOCAL synchronous_commit TO off` and commits while the standby is stopped | It commits locally (expected; this documents the gap). No acknowledgement, and no effect on it or on anything that read it, until it is established. **Liveness:** once the standby returns, it is established and the dependent dispatch proceeds | AR-1 environment |
 | C-2 cancelled commit | Cancel a backend waiting for synchronous acknowledgement. This tests PostgreSQL's cancel behaviour; Patroni's version is covered in S2 | Other sessions, including the gateway, can see the change (expected). The gateway itself reads the row and does not dispatch until it is established | AR-1 environment |
 | C-3 primary restart | Restart the primary while commits wait | Waiting commits show as committed after the restart (expected). Nothing is acknowledged or dispatched on them until they are established | AR-1 environment |
-| C-7 bound | Thousands of commits with `synchronous_commit` set to `on`, `local` and `off`, with a large `wal_writer_delay` | The bound is ≥ the commit record's **end** LSN (the next record's start, from `pg_waldump`) in every case | AR-1 environment |
+| C-7 bound | Thousands of commits with `synchronous_commit` set to `on`, `local` and `off`, with a large `wal_writer_delay` | The bound is ≥ the commit record's **end** LSN in every case. Proposed A-1: the end is the record's own end (XactLastRecEnd), not the next record's start, from `pg_waldump` | AR-1 environment |
 | C-4 failover before establishment | A local commit, then loss of the primary before the standby flushes, including a promoted timeline that later passes the old bound | The commit is lost. No effect was dispatched and no acknowledgement given. The pending check went in doubt at the timeline change and resolved as "not committed" | S2 (Patroni) |
 | C-5 standby loss, strict mode | Stop the synchronous standby; separately, power-fail a standby just after it acknowledges | Writes block and nothing is acknowledged. Writes recover when a standby returns. An acknowledged flush survives the standby's power loss | S2 |
 | C-6 promotion | Under the chosen Patroni mode, including a partitioned old primary | The promoted standby holds every commit that had been established | S2 |

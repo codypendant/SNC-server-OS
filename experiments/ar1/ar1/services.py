@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -119,10 +120,12 @@ class H(BaseHTTPRequestHandler):
         req = json.loads(raw)
         canon = jlog.canonical(req["body"])
         read = flush_read()
+        rid = "req-" + uuid.uuid4().hex
         log(
             "stub",
             {
                 "kind": "request",
+                "request_id": rid,
                 "invocation_id": req["invocation_id"],
                 "retry_of": req.get("retry_of"),
                 "agent": req["agent"],
@@ -133,8 +136,7 @@ class H(BaseHTTPRequestHandler):
             },
         )
         hold("model")
-        rid = "req-" + hashlib.sha256(f"{req['invocation_id']}".encode()).hexdigest()[:16]
-        out = hashlib.sha256(f"{SEED}:{hashlib.sha256(canon.encode()).hexdigest()}".encode()).hexdigest()
+        out = hashlib.sha256(f"{SEED}:{rid}:{hashlib.sha256(canon.encode()).hexdigest()}".encode()).hexdigest()
         self.send_response(200)
         self.send_header("Content-Type", "application/x-ndjson")
         self.send_header("X-Request-Id", rid)
@@ -154,7 +156,7 @@ class H(BaseHTTPRequestHandler):
                 "output_sha256": hashlib.sha256(out.encode()).hexdigest(),
             },
         )
-        log("stub", {"kind": "delivered", "invocation_id": req["invocation_id"]})
+        log("stub", {"kind": "delivered", "invocation_id": req["invocation_id"], "request_id": rid})
 
     def chunk(self, obj):
         b = (json.dumps(obj) + "\n").encode()

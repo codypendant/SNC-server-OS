@@ -12,8 +12,8 @@
   },
   "deterministic": {
    "lookup": true,
-   "bound": "0/40CF9C0",
-   "commit_end": "0/40CB8F0",
+   "bound": "0/40C9560",
+   "commit_end": "0/40C5490",
    "bound_ok": true,
    "ok": true
   },
@@ -25,7 +25,7 @@
   "negative_control_fired": true,
   "pass": true,
   "run": 0,
-  "seconds": 13.6
+  "seconds": 13.4
  },
  {
   "vary": {
@@ -47,12 +47,12 @@
   },
   "random": {
    "kills": 20,
-   "committed": 19,
+   "committed": 17,
    "violations": []
   },
   "negative_control_fired": true,
   "pass": true,
   "run": 1,
-  "seconds": 11.8
+  "seconds": 12.3
  }
 ]

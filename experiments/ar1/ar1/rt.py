@@ -177,6 +177,9 @@ CREATE TABLE snc.commit_token(token text PRIMARY KEY, xid xid8 NOT NULL, epoch i
 def setup_db(blob_dir):
     blob_dir.mkdir(exist_ok=True)
     with psycopg.connect(host="127.0.0.1", port=PORT, user=USER, dbname="ar1", autocommit=False) as c:
+        geo = c.execute("SELECT current_setting('wal_block_size'), current_setting('wal_segment_size')").fetchone()
+        if geo != ("8192", "16MB"):
+            raise RuntimeError(f"BOUND assumes 8 KiB WAL pages and 16 MB segments, server has {geo}")
         c.execute(SCHEMA)
         c.execute("INSERT INTO snc.agent VALUES ('A', 1, 1)")
         for i in (1, 2, 3):
@@ -559,8 +562,8 @@ STATE_SQL = [
 
 
 @DBOS.step()
-def read_state_step():
-    _, task, mem, calls, invs, pol, apr, der = authoritative(STATE_SQL)
+def read_state_step(wait=True):
+    _, task, mem, calls, invs, pol, apr, der = authoritative(STATE_SQL, wait)
     return {
         "task": task[0][1] if task else None,
         "memory": [list(m) for m in mem],
@@ -845,7 +848,8 @@ def activation(epoch, takeover=False):
         derive_phase(epoch, st)
         model_phase(epoch, st)
         derive_phase(epoch, read_state_step())
-        pid, aid = policy_phase(epoch, read_state_step())
+        fault.at("pre-policy")
+        pid, aid = policy_phase(epoch, read_state_step(MUT != "M5"))
         st = read_state_step()
         if st["task"] == "denied":
             return "denied"

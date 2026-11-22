@@ -20,8 +20,8 @@
   "gateway_before_resume": [
    "waiting"
   ],
-  "pre_resume_insert_lsn": "0/40CA698",
-  "dispatch_commit_start": "0/40CA858",
+  "pre_resume_insert_lsn": "0/40CA6C8",
+  "dispatch_commit_start": "0/40CA888",
   "live": true,
   "gateway": {
    "read": [
@@ -50,7 +50,7 @@
    "sent": 200
   },
   "ack": {
-   "r": "0/40CA698"
+   "r": "0/40CA6C8"
   },
   "policy_read": [
    [
@@ -93,7 +93,7 @@
    "at_cuts": {
     "pre-api": "L"
    },
-   "end_lsn": "0/40BA7E0",
+   "end_lsn": "0/40BA810",
    "tli": 1
   },
   "oracle_unresolved": [],
@@ -113,7 +113,7 @@
   },
   "pass": true,
   "run": 0,
-  "seconds": 6.4
+  "seconds": 7.1
  },
  {
   "variant": "local",
@@ -229,7 +229,7 @@
   },
   "pass": true,
   "run": 1,
-  "seconds": 7.8
+  "seconds": 8.4
  },
  {
   "variant": "cancel",
@@ -332,7 +332,7 @@
    "at_cuts": {
     "pre-api": "L"
    },
-   "end_lsn": "0/4095430",
+   "end_lsn": "0/40953F0",
    "tli": 1
   },
   "oracle_unresolved": [],
@@ -352,7 +352,7 @@
   },
   "pass": true,
   "run": 2,
-  "seconds": 6.1
+  "seconds": 6.3
  },
  {
   "variant": "restart-immediate",
@@ -384,8 +384,8 @@
   "gateway_before_resume": [
    "waiting"
   ],
-  "pre_resume_insert_lsn": "0/40D1D00",
-  "dispatch_commit_start": "0/40D1F10",
+  "pre_resume_insert_lsn": "0/40D1BA0",
+  "dispatch_commit_start": "0/40D1DB0",
   "live": true,
   "gateway": {
    "read": [
@@ -414,7 +414,7 @@
    "sent": 200
   },
   "ack": {
-   "r": "0/40D1D00"
+   "r": "0/40D1BA0"
   },
   "policy_read": [
    [
@@ -457,7 +457,7 @@
    "at_cuts": {
     "pre-api": "L"
    },
-   "end_lsn": "0/40AE5F0",
+   "end_lsn": "0/40AE630",
    "tli": 1
   },
   "oracle_unresolved": [],
@@ -477,7 +477,7 @@
   },
   "pass": true,
   "run": 3,
-  "seconds": 7.9
+  "seconds": 8.2
  },
  {
   "variant": "restart-fast",
@@ -509,8 +509,8 @@
   "gateway_before_resume": [
    "waiting"
   ],
-  "pre_resume_insert_lsn": "0/40B75D0",
-  "dispatch_commit_start": "0/40B77F8",
+  "pre_resume_insert_lsn": "0/40BD6C0",
+  "dispatch_commit_start": "0/40BD8E8",
   "live": true,
   "gateway": {
    "read": [
@@ -544,7 +544,7 @@
    "sent": 200
   },
   "ack": {
-   "r": "0/40B75D0"
+   "r": "0/40BD6C0"
   },
   "policy_read": [
    [
@@ -592,7 +592,7 @@
    "at_cuts": {
     "pre-api": "L"
    },
-   "end_lsn": "0/40A2070",
+   "end_lsn": "0/40A8160",
    "tli": 1
   },
   "oracle_unresolved": [],
@@ -612,6 +612,6 @@
   },
   "pass": true,
   "run": 4,
-  "seconds": 67.2
+  "seconds": 68.1
  }
 ]

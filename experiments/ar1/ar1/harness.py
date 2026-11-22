@@ -42,7 +42,8 @@ class Run:
         self.procs = {}
         self.deadline = time.time() + RUN_CAP
         self.mpos = 0
-        self.release_order = ("after" if (seed >> 1) & 1 == 0 else "before") if self.p["kind"] == "C-b2" else None
+        self.release_order = matrix.release(point, seed)
+        self.t0 = time.time()
         self.threads = []
 
     # ---- plumbing ----
@@ -129,6 +130,7 @@ class Run:
     def first_answer(self, standby_stopped=False, started=None):
         """Item 1 observation (prereg 7.1): answer, then a cut. At a3 and E the standby stays stopped until the
         answer or 5 s after recovery starts."""
+        self.mark("answer-requested")
         if standby_stopped:
             proc = subprocess.Popen(
                 [PY, "-m", f"{self.pkg}.iface", str(self.pair.primary.port), "state", "A"],
@@ -141,6 +143,8 @@ class Run:
             end = (started or time.time()) + 5
             while proc.poll() is None and time.time() < end:
                 time.sleep(0.005)
+            if proc.poll() is not None:
+                self.mark("answer-returned")
             self.oracle.pre_resume_cut()
             self.pair.resume_standby()
             self.mark("standby-resumed")
@@ -325,7 +329,7 @@ class Run:
     def run_C(self):
         kind, at = self.p["kind"], self.p["at"]
         self.hold(at)
-        held_new = kind in ("C-p", "C-s") or (kind == "C-b2" and self.release_order == "after")
+        held_new = kind in ("C-p", "C-s") or (kind == "C-b2" and self.release_order != "before")
         self.spawn("e1", "start", 1, [at, "stale-decision"] if kind == "C-s" else [at])
         self.takeover_start(["post-takeover"] if held_new else [])
         self.reached(at)
@@ -338,7 +342,8 @@ class Run:
             self.mark("takeover-committed")
         elif kind == "C-b2":
             if not held_new:
-                self.release(at, "old")
+                self.receiver_release(at)
+                self.mark("released", at, who="old")
                 self.go_takeover()
                 self.wait_takeover_visible()
                 self.mark("takeover-committed")
@@ -366,15 +371,16 @@ class Run:
     def c_b2_after(self, at):
         """The old activation is paused while its reply is in flight, so no client timeout decides the order."""
         svc = at[3:]
+        outcome = svc in ("model", "T-I") or self.release_order == "after-outcome"
         old = self.procs["e1"]
         os.kill(old.pid, signal.SIGSTOP)
         self.mark("old-paused")
-        if svc in ("model", "T-I"):
+        if outcome:
             self.receiver_release(at)
         self.go_takeover()
         self.reached("post-takeover", HOLD_LIMIT)
         self.mark("takeover-committed")
-        if svc in ("T-F", "T-N"):
+        if not outcome:
             self.release("post-takeover", "new")
             if svc == "T-F":
                 ok = self.wait_until(
@@ -395,7 +401,7 @@ class Run:
             old.wait(timeout=HOLD_LIMIT)
         except subprocess.TimeoutExpired:
             raise Unresolved("old activation still running after its reply")
-        if svc in ("model", "T-I"):
+        if outcome:
             self.release("post-takeover", "new")
 
     def receiver_release(self, at):
@@ -417,6 +423,66 @@ class Run:
     def new_tn_dispatch(self):
         with self.pair.primary.conn() as c:
             return bool(c.execute(self.probes["new_tn_dispatch"]).fetchone())
+
+    def cancel_syncrep(self, stop):
+        """Prereg C-2: cancelling a SyncRep wait leaves the commit local and returns success to the client."""
+        done = set()
+        with pg.connect(self.pair.primary.port, pg.ADMIN, "postgres") as c:
+            while not stop.is_set():
+                for pid, sc in c.execute(
+                    "SELECT pid, state_change::text FROM pg_stat_activity"
+                    " WHERE (application_name LIKE 'ar1-e1%%' OR datname = 'ar1_sys_e1') AND wait_event='SyncRep'"
+                ).fetchall():
+                    if (pid, sc) not in done:
+                        done.add((pid, sc))
+                        c.execute("SELECT pg_cancel_backend(%s)", (pid,))
+                time.sleep(0.005)
+        self.mark("syncrep-cancel-off", None, cancelled=len(done))
+
+    def unestablished(self, at, setup, resume_when):
+        self.spawn("e1", "start", 1, [at])
+        self.reached(at)
+        self.pair.stop_standby()
+        self.mark("standby-stopped")
+        setup()
+        stop = threading.Event()
+        t = threading.Thread(target=self.cancel_syncrep, args=(stop,), daemon=True)
+        t.start()
+        self.mark("syncrep-cancel-on")
+        self.ctl(f"release-{at}")
+        self.wait_until(resume_when, 3.0)
+        stop.set()
+        t.join()
+        self.oracle.pre_resume_cut()
+        self.pair.resume_standby()
+        self.mark("standby-resumed")
+
+    def run_Ac(self):
+        svc = {"I-disp": "stub", "TI-disp": "T-I", "TF-disp": "T-F", "TN-disp": "T-N"}[self.p["at"][3:]]
+        log = self.R / "svc" / f"{svc}.jsonl"
+        self.unestablished(self.p["at"], lambda: None, lambda: any(e.get("kind") == "request" for e in jlog.read(log)))
+        self.wait_done()
+        self.first_answer()
+
+    def run_P(self):
+        def inject():
+            with pg.connect(self.pair.primary.port, pg.RUNTIME, pg.DB, app="ar1-inject") as c:
+                with c.transaction():
+                    c.execute("SET LOCAL synchronous_commit TO local")
+                    c.execute("INSERT INTO snc.memory VALUES ('x1', 1, 'B', 'hx', 'inject')")
+                    x = c.execute(
+                        "INSERT INTO snc.commit_token VALUES ('inject', pg_current_xact_id(), 0, 'outcome', 'X-mem', 'B')"
+                        " RETURNING xid::text"
+                    ).fetchone()[0]
+            self.mark("injected", None, xid=x)
+
+        def p_dec():
+            with self.pair.primary.conn() as c:
+                return bool(c.execute(self.probes["policy_committed"]).fetchone())
+
+        self.unestablished("pre-policy", inject, p_dec)
+        self.wait_done()
+        self.first_answer()
 
     def run_D(self):
         at = self.p["at"]
@@ -469,6 +535,8 @@ class Run:
                 "D": self.run_D,
                 "R-two": self.run_R_two,
                 "R-takeover": self.run_R_takeover,
+                "Ac": self.run_Ac,
+                "P": self.run_P,
             }[self.p["kind"]]()
             self.wait_done()
             for t in self.threads:
@@ -493,6 +561,8 @@ class Run:
                 if (self.R / "check.json").exists()
                 else {"error": r.stderr[-3000:]}
             )
+            if time.time() - self.t0 > RUN_CAP:
+                result["unresolved"] = f"run cap: {time.time() - self.t0:.0f} s from setup to check"
         except Unresolved as e:
             if self.arm != "snc" and str(e).endswith("not reached"):
                 result["missing_point"] = str(e).split()[1]
@@ -502,6 +572,7 @@ class Run:
             result["harness_error"] = repr(e)
         finally:
             result["results"] = {p.name: p.read_text() for p in (self.R / "ctl").glob("result-*")}
+            result["seconds"] = round(time.time() - self.t0, 1)
             self.teardown()
         return result
 

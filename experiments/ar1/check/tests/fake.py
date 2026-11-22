@@ -203,6 +203,7 @@ class World:
             epoch=self.epoch,
             body=body,
             body_sha256=bh,
+            request_id=f"req-{iid}",
             read=self.read(),
         )
         if crash == "b2":

@@ -535,11 +535,13 @@ Decided by cody on 2026-11-04.
   - The AR-1 preregistration ([AR1_PREREG.md](AR1_PREREG.md), revision 2) is merged with Codex's G1 sign-off
     ([handoff/PR184_Rev2_Codex_Review.md](handoff/PR184_Rev2_Codex_Review.md)). Nothing has run.
   - cody said "go" to G2 on 2026-11-21 ([handoff/PR184_G2_Owner_Decision.md](handoff/PR184_G2_Owner_Decision.md)).
-    The G2 evidence is in [experiments/ar1/results/G2_REPORT.md](../experiments/ar1/results/G2_REPORT.md). Phase 0
-    passes at bring-up scale. SNC passes 246 of 246 bring-up runs. 12 of 14 mutations are flagged at every seed.
-    Still UNRESOLVED: M5 and part of M13 are never exercised, four clauses are unexercised, and the prereg needs
-    amendments A-1 and A-2.
-  - **Now:** waiting for review of the G2 report. G3, the counted runs, stays on HOLD for a separate GO.
+    Codex held the first G2 report ([handoff/PR185_Codex_Review.md](handoff/PR185_Codex_Review.md)). The corrected
+    evidence is in [experiments/ar1/results/G2_REPORT.md](../experiments/ar1/results/G2_REPORT.md), under prereg
+    revision 3 (PROPOSED; revision 2 kept in [AR1_PREREG_REV2.md](AR1_PREREG_REV2.md)). Phase 0 passes, including the
+    new C-7b page-boundary check. SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every
+    clause. 14 of 14 mutations are flagged at every seed.
+  - **Now:** amendments A-1 to A-12 and the U-7 ruling need cody's yes. G3, the counted runs, stays on HOLD for a
+    separate GO on the dedicated VM.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event

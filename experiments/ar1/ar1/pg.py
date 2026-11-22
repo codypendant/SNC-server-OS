@@ -90,7 +90,7 @@ class Pair:
 
     def __init__(self, root, base_port=None):
         self.root = Path(root)
-        base = base_port or int(os.environ.get("AR1_PORT", "54320"))
+        base = base_port or int(os.environ.get("AR1_PORT", "24320"))
         self.primary = Node(self.root, "primary", base + 1)
         self.standby = Node(self.root, "standby", base + 2)
         self._stopped = False

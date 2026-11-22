@@ -13,23 +13,23 @@
   "bounds_past_page_boundary": 7,
   "bound_below_next_record_start": 7,
   "establish_ns": {
-   "p50": 164135,
-   "p99": 462989,
-   "max": 4895693
+   "p50": 162072,
+   "p99": 537611,
+   "max": 5488549
   },
   "establish_ns_past_page": [
-   141616,
-   145004,
-   145513,
-   161118,
-   210805,
-   227105,
-   228588
+   130146,
+   137035,
+   159842,
+   165065,
+   199121,
+   204742,
+   210865
   ],
   "negative_control_fired": null,
   "pass": true,
   "run": 0,
-  "seconds": 14.2
+  "seconds": 14.6
  },
  {
   "mode": "off",
@@ -45,24 +45,24 @@
   "bounds_past_page_boundary": 9,
   "bound_below_next_record_start": 9,
   "establish_ns": {
-   "p50": 1134,
-   "p99": 3324,
-   "max": 18371381596
+   "p50": 1096,
+   "p99": 2892,
+   "max": 18456096329
   },
   "establish_ns_past_page": [
-   1009,
-   1043,
-   1062,
-   1101,
-   1127,
-   1156,
-   1218,
-   1587,
-   1641
+   1019,
+   1026,
+   1070,
+   1147,
+   1175,
+   1264,
+   1283,
+   1300,
+   1316
   ],
   "negative_control_fired": true,
   "pass": true,
   "run": 1,
-  "seconds": 23.8
+  "seconds": 23.6
  }
 ]

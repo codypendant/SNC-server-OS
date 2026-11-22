@@ -1,2 +1,5 @@
-{"takeover_committed": "SELECT 1 FROM plain.agent WHERE epoch=2",
- "new_tn_dispatch": "SELECT 1 FROM plain.commits WHERE name='TN-out' AND epoch=2"}
+{
+ "takeover_committed": "SELECT 1 FROM plain.agent WHERE epoch=2",
+ "new_tn_dispatch": "SELECT 1 FROM plain.commits WHERE name='TN-out' AND epoch=2",
+ "policy_committed": "SELECT 1 FROM plain.commits WHERE name='P-dec'"
+}

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 import tempfile
@@ -193,14 +194,26 @@ class Mutations(Base):
             epoch=1,
             body=w.logs["stub"][0]["body"],
             body_sha256=w.logs["stub"][0]["body_sha256"],
+            request_id="req-i1-again",
             read=w.read(),
         )
-        w.log("stub", svc="stub", kind="reply", invocation_id="i1", request_id="req-i1-again", output_sha256=None)
+        h = hashlib.sha256(b"output-i1").hexdigest()
+        w.log("stub", svc="stub", kind="reply", invocation_id="i1", request_id="req-i1-again", output_sha256=h)
         inv = w.row("invocation", id="i1")
         inv["provider_request_id"], inv["output"] = "req-i1-again", "output-i1"
         w.commit("I-out", "outcome", moves=[("invocation", "i1", "output")])
         w.policy()
-        self.assertFlags(finish(w), "3.recall", "3.crash_unknown")
+        r = finish(w)
+        self.assertFlags(r, "3.recall", "3.crash_unknown", "3.no_regenerate")
+        self.assertIn("not from the first physical request", json.dumps(r["violations"]))
+
+    def test_output_dict_from_first_request(self):
+        w = happy(self.R)
+        inv = w.row("invocation", id="i1")
+        inv["output"] = {"output": inv["output"], "chunks": 1}
+        self.assertClean(check(w))
+        inv["output"] = {"output": "other"}
+        self.assertIn("output hash differs", json.dumps(check(w)["violations"]))
 
     def test_M3_regenerated_new_id_as_original(self):
         w = self.b3_model("M3")
@@ -281,7 +294,7 @@ class Mutations(Base):
         self.assertTrue(r["mutation"]["exercised"])
         self.assertEqual(r["oracle_verdict"], "violation")
 
-    def test_M5_not_exercised_when_policy_follows_resume(self):
+    def test_M5_positive_control_policy_after_resume(self):
         w = World(self.R, point="A/a3:C-acc", mutation="M5")
         w.sync = False
         w.accept()
@@ -296,17 +309,61 @@ class Mutations(Base):
         self.assertClean(r)
         self.assertFalse(r["mutation"]["exercised"])
 
-    def test_upper_clause(self):
+    def a3_answer(self, early):
         w = World(self.R, point="A/a3:C-acc")
         w.sync = False
         w.accept()
         w.marker("reached", "a3:C-acc")
         w.kill()
-        w.observe()
+        w.marker("answer-requested")
+        if early:
+            w.marker("answer-returned")
+        w.cut("pre-resume", "pre-resume")
         w.resume()
+        w.marker("standby-resumed")
+        w.observe()
         w.model()
         w.policy()
-        self.assertFlags(finish(w, observe=False), "1.upper")
+        return finish(w, observe=False)
+
+    def test_upper_answer_before_establishment(self):
+        r = self.a3_answer(True)
+        self.assertFlags(r, "1.upper")
+        self.assertEqual(r["oracle_flagged"], ["1.upper"])
+
+    def test_upper_answer_after_resume(self):
+        r = self.a3_answer(False)
+        self.assertClean(r)
+        self.assertIn("1.upper", r["exercised"])
+
+    def test_upper_not_exercised_without_unestablished_commit(self):
+        r = check(happy(self.R))
+        self.assertNotIn("1.upper", r["exercised"])
+
+    def test_policy_read_not_exercised_outside_P(self):
+        w = World(self.R, point="A/a3:C-acc")
+        w.sync = False
+        w.accept()
+        w.marker("reached", "a3:C-acc")
+        w.kill()
+        w.cut("pre-resume", "pre-resume")
+        w.resume()
+        w.observe()
+        w.model()
+        w.policy()
+        self.assertNotIn("4.policy_read", finish(w, observe=False)["exercised"])
+
+    def test_prefix_gap_in_snapshot_exempt(self):
+        w = happy(self.R)
+        ans = next(a for a in w.logs["answers"] if a["call"] == "state")["answer"]
+        dropped = ans["commits"].pop(2)
+        x = int(dropped["xid"])
+        ans["snapshot"] = f"{x - 1}:{x + 50}:{x}"
+        r = check(w)
+        self.assertNotIn("1.prefix", clauses(r))
+        self.assertEqual([e["xid"] for e in r["exemptions"]], [dropped["xid"]])
+        ans["snapshot"] = f"{x + 1}:{x + 50}:"
+        self.assertIn("1.prefix", clauses(check(w)))
 
     def cp(self, reject):
         w = start(self.R, "C-p/a4:TI-prep", mutation=None if reject else "M6")
@@ -581,6 +638,75 @@ class Mutations(Base):
         r = check(w)
         self.assertFalse({"3.states", "7.executed", "1.state", "2.no_lost_output"} & clauses(r), r["violations"])
 
+    def p_run(self, mutation):
+        w = World(self.R, point="P/pre-policy", mutation=mutation)
+        w.accept()
+        w.model()
+        w.marker("reached", "pre-policy")
+        w.marker("standby-stopped")
+        w.sync = False
+        x = w.commit("X-mem", "outcome", epoch=0)
+        w.row("commit_token", token=x)["agent"] = "B"
+        w.marker("injected", xid=w.xid)
+        if mutation:
+            w.policy()
+        w.cut("pre-resume", "pre-resume")
+        w.resume()
+        w.marker("standby-resumed")
+        if not mutation:
+            w.policy()
+        return finish(w)
+
+    def test_P_correct_positive_control(self):
+        r = self.p_run(None)
+        self.assertClean(r)
+        self.assertIn("4.policy_read", r["exercised"])
+
+    def test_P_M5(self):
+        r = self.p_run("M5")
+        self.assertFlags(r, "4.policy_read")
+        self.assertEqual(r["mutation"]["detected"], ["4.policy_read"])
+
+    def ac_run(self, mutation):
+        w = World(self.R, point="Ac/I-disp", mutation=mutation)
+        w.accept()
+        w.marker("reached", "a3:I-disp")
+        w.marker("standby-stopped")
+        w.sync = False
+        w.marker("syncrep-cancel-on")
+        if mutation:
+            w.logs["gateway"] = []
+            w.model()
+            w.logs["gateway"] = []
+            w.cut("pre-resume", "pre-resume")
+            w.resume()
+            w.marker("standby-resumed")
+        else:
+            w.commit("I-prep-x", "decision")
+            w.cut("pre-resume", "pre-resume")
+            w.resume()
+            w.marker("standby-resumed")
+            w.model()
+        w.policy()
+        return finish(w)
+
+    def test_Ac_correct(self):
+        self.assertClean(self.ac_run(None))
+
+    def test_Ac_M1_without_gateway_log(self):
+        r = self.ac_run("M1")
+        self.assertFlags(r, "4.established")
+        self.assertIn("4.established", r["mutation"]["detected"])
+
+    def test_release_after_outcome_is_after(self):
+        w, _ = self.cb2("T-I", None, release="after-outcome")
+        w.marker("released", who="old")
+        w.log("T-I", svc="T-I", kind="effect", call_id="c-T-I", key="k-c-T-I", result="ok")
+        w.outcome("T-I", epoch=1)
+        w.derive("c-T-I")
+        w.marker("released", who="new")
+        self.assertClean(finish(w, tools=("T-F", "T-N")))
+
 
 class Conditions(Base):
     def test_missing_marker(self):
@@ -693,3 +819,6 @@ class Robustness(Base):
         s = score([{"mutation": "M5", "check": r}, {"mutation": "", "harness_error": "x"}])
         self.assertEqual((s["M5"]["exercised"], s["M5"]["detected"]), (1, 1))
         self.assertEqual(s["none"]["not_scored"], {"harness_error": 1})
+        self.assertEqual(s["M5"]["by_clause"], {"4.policy_read": 1})
+        s = score([{"mutation": "M5", "check": r, "unresolved": "run cap"}])
+        self.assertEqual((s["M5"]["detected"], s["M5"]["not_scored"]), (0, {"unresolved": 1}))

@@ -12,7 +12,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-os.environ.setdefault("AR1_PORT", "56320")
+os.environ.setdefault("AR1_PORT", "26320")
 
 from check import wal  # noqa: E402
 from check.check import Check  # noqa: E402
@@ -693,6 +693,121 @@ def c7(root, rnd, i):
         p.destroy()
 
 
+def emit(c, n):
+    with c.transaction():
+        c.execute("SELECT pg_logical_emit_message(true, 'p', repeat('x', %s))", (n,))
+        x = c.execute("SELECT pg_current_xact_id()::text").fetchone()[0]
+    raw, cur = c.execute("SELECT pg_current_wal_insert_lsn()::text, pg_current_wal_lsn()::text").fetchone()
+    b, tli = c.execute(rt.BOUND).fetchone()
+    return x, lsn_int(raw), lsn_int(b), tli
+
+
+def land(c, g, target):
+    a = 96
+    for _ in range(40):
+        here = lsn_int(c.execute("SELECT pg_current_wal_insert_lsn()::text").fetchone()[0])
+        n = g.bytepos(target) - g.bytepos(here) - a
+        if n < 0:
+            return None
+        x, raw, b, tli = emit(c, n)
+        got = g.bytepos(raw)
+        if got == g.bytepos(target):
+            return x, raw, b, tli
+        a += got - g.bytepos(target)
+        target = here + 2 * wal.BLCKSZ if target - here < 4 * wal.BLCKSZ else target
+    return None
+
+
+def raw_stalls(port, raw, limit=2.0):
+    end = time.monotonic() + limit
+    while time.monotonic() < end:
+        if admin(
+            port,
+            "SELECT flush_lsn >= %s::pg_lsn FROM pg_stat_replication WHERE application_name='s1'",
+            wal.lsn_str(raw),
+        )[0][0]:
+            return False
+        time.sleep(0.01)
+    return True
+
+
+def c7b(root, rnd, i):
+    """A-2 focused check: commits that end exactly on a page start (short header), on a segment start (long header),
+    commit records that cross a page, and bounds read right after XLOG_SWITCH."""
+    p = new_pair(root)
+    port = p.primary.port
+    g = wal.Geometry()
+    cases = []
+    try:
+        with connect(port, ADMIN, "postgres", app=f"{APP}-c7b") as c:
+            for kind, count in (("page", 10), ("segment", 2), ("cross", 10), ("segcross", 1), ("switch", 3)):
+                for _ in range(count):
+                    here = lsn_int(c.execute("SELECT pg_current_wal_insert_lsn()::text").fetchone()[0])
+                    if kind == "page":
+                        r = land(c, g, (here // wal.BLCKSZ + 2) * wal.BLCKSZ)
+                    elif kind == "segment":
+                        r = land(c, g, (here // g.seg + 1) * g.seg)
+                    elif kind == "segcross":
+                        r = land(c, g, (here // g.seg + 1) * g.seg + wal.LONG + 16)
+                    elif kind == "cross":
+                        r = land(c, g, (here // wal.BLCKSZ + 2) * wal.BLCKSZ + wal.SHORT + 16)
+                    else:
+                        x, _, _, _ = emit(c, rnd.randint(0, 4000))
+                        c.execute("SELECT pg_switch_wal()")
+                        raw = lsn_int(c.execute("SELECT pg_current_wal_insert_lsn()::text").fetchone()[0])
+                        b, tli = c.execute(rt.BOUND).fetchone()
+                        r = x, raw, lsn_int(b), tli
+                    if r is None:
+                        cases.append({"kind": kind, "landed": False})
+                        continue
+                    x, raw, b, tli = r
+                    t0 = time.monotonic_ns()
+                    rt.wait_established(wal.lsn_str(b), tli)
+                    ns = time.monotonic_ns() - t0
+                    stall = raw_stalls(port, raw) if kind in ("page", "segment") and raw != b else None
+                    cases.append(
+                        {"kind": kind, "landed": True, "xid": x, "raw": raw, "bound": b, "ns": ns, "raw_stalls": stall}
+                    )
+        cm, _ = wal.commits(wal.dump(p.primary.wal_dir(), BIN))
+        for k in cases:
+            if not k["landed"]:
+                continue
+            f = cm.get(wal.xid32(k["xid"]))
+            tli_, start, end = max(f)
+            k.update(
+                start=wal.lsn_str(start),
+                end=wal.lsn_str(end),
+                raw_minus_end=k["raw"] - end,
+                bound_minus_end=k["bound"] - end,
+            )
+            hdr = {"page": 24, "segment": 40}.get(k["kind"])
+            span = {"cross": wal.BLCKSZ, "segcross": g.seg}.get(k["kind"])
+            k["ok"] = (
+                k["bound"] >= end
+                and k["ns"] < 1e9
+                and (hdr is None or (k["raw_minus_end"] == hdr and k["bound"] == end))
+                and (span is None or (start // span < (end - 1) // span and k["raw_minus_end"] == 0))
+                and (k["kind"] != "switch" or k["bound"] % g.seg == 0)
+            )
+            k["raw"], k["bound"] = wal.lsn_str(k["raw"]), wal.lsn_str(k["bound"])
+        landed = [k for k in cases if k["landed"]]
+        out = {
+            "cases": cases,
+            "landed": {
+                kd: sum(k["kind"] == kd for k in landed) for kd in ("page", "segment", "cross", "segcross", "switch")
+            },
+            "negative_control_fired": any(k.get("raw_stalls") for k in landed),
+        }
+        out["pass"] = (
+            all(k["ok"] for k in landed)
+            and all(out["landed"][kd] > 0 for kd in out["landed"])
+            and out["negative_control_fired"]
+        )
+        return out
+    finally:
+        p.destroy()
+
+
 CHECKS = {
     "OI-1a": run_oi1a,
     "OI-1a-control": run_oi1a_control,
@@ -701,6 +816,7 @@ CHECKS = {
     "OI-1c": oi1c,
     "OI-1d": oi1d,
     "C-7": c7,
+    "C-7b": c7b,
 }
 
 

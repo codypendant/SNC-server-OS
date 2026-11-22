@@ -13,7 +13,7 @@ from check import wal
 from check.check import Check
 from check.oracle import Oracle, lsn_int, now
 
-PORT = int(os.environ.setdefault("AR1_PORT", "55320"))
+PORT = int(os.environ.setdefault("AR1_PORT", "25320"))
 APP = "oi1e-app"
 RESUME_S = 5.0
 

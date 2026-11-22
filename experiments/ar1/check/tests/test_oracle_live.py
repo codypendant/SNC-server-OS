@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 
-os.environ.setdefault("AR1_PORT", "55320")
+os.environ.setdefault("AR1_PORT", "25320")
 
 from check import oracle as om  # noqa: E402
 from check.oi1e import CLIENT, classes, commit, pair, run_dir  # noqa: E402
@@ -67,6 +67,23 @@ class Live(unittest.TestCase):
         self.assertEqual(self.p.walreceiver_pid(), pid)
         self.assertEqual([c["kind"] for c in self.cuts()], ["cut", "takeover", "final"])
         self.assertEqual(classes(self.R, {"a": x}).classes["a"]["class"], "D")
+
+    def test_pre_resume_cut(self):
+        self.o.cut("before")
+        self.p.stop_standby()
+        try:
+            x = commit(self.p.primary.port, "pr", local=True)
+            c = self.o.pre_resume_cut()
+        finally:
+            self.p.resume_standby()
+        self.assertEqual(c["invalid"], [])
+        self.assertEqual(c["standby"]["source"], "walreceiver")
+        self.assertLess(lsn_int(c["standby"]["flushed_lsn"]), lsn_int(c["insert_lsn"]))
+        self.assertIsNotNone(x)
+
+    def test_pre_resume_cut_running_walreceiver_invalid(self):
+        c = self.o.pre_resume_cut()
+        self.assertTrue(any("not stopped" in r for r in c["invalid"]))
 
     def test_freeze_stops_flush(self):
         f = self.o.freeze("f")

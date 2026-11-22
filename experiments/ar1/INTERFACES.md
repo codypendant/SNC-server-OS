@@ -36,13 +36,14 @@ TF-disp TF-out TN-prep TN-disp TN-out M-done` (plus recovery commits `TAKEOVER`,
 
 Before replying, each receiver logs `{t, svc, kind: "request", ...}` and only then acts:
 
-- stub: `invocation_id, retry_of, agent, epoch, body` (canonical UTF-8 JSON, sorted keys) and `body_sha256`;
-  reply `{kind: "reply", invocation_id, request_id, output_sha256}`.
+- stub: `request_id, invocation_id, retry_of, agent, epoch, body` (canonical UTF-8 JSON, sorted keys) and
+  `body_sha256`; reply `{kind: "reply", invocation_id, request_id, output_sha256}`. `request_id` is fresh and random
+  for every physical request, and the output depends on it, so a second physical request is told apart from the first.
 - tools: `call_id, key, attempt, agent, epoch, args`; then `{kind: "effect" | "duplicate" | "rejected_stale" |
   "status", call_id, key, result}`. T-I and T-F return the first result for a repeated key (`duplicate`). T-F
   rejects an (agent, epoch) below the highest it has seen for the scope (`rejected_stale`). T-N makes a new effect
   for every request. T-I answers `GET /status?key=` (`status`).
-- After the response bytes are flushed to the socket, the receiver logs `{kind: "delivered", invocation_id}` (stub) or
+- After the response bytes are flushed to the socket, the receiver logs `{kind: "delivered", invocation_id, request_id}` (stub) or
   `{kind: "delivered", call_id, key, attempt, epoch}` (tools). It means sent, not read by the client.
 - Every request entry carries `read: {flush_lsn, sync_state, walsender_pid, tli, error}`: the receiver-side read
   of the primary's `pg_stat_replication` for `application_name = 's1'`, taken on receipt, before logging.
