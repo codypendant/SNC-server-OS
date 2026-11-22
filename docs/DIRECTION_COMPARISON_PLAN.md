@@ -791,5 +791,13 @@ The review is filed in `docs/handoff/PR186_Focused_Review_rev3.md`.
 4. **P-A, later:** start Track A once PR #185's G2 gaps are closed and reviewed.
 
 PR #185's G2 gaps remain open, and G3 stays on HOLD. Track B needs its own authorization (P-B), and Track A needs P-A.
-None of these authorizes production dependencies, AR-1's G3, replication, raft-rs, custom replication, any change to
+**Codex's conditions before any testing** (`docs/handoff/PR186_Codex_Review_rev3.md`, as written):
+1. Obtain the owner's approval of the numerical thresholds and experimental scope.
+2. Commit the frozen CRITERIA.md before comparative results.
+3. Verify baseline durability and benchmark equivalence.
+4. Preserve the distinction between measured settlement by SLO plus grace and exact settlement latency.
+5. Report invalid or incomplete results as UNRESOLVED.
+6. Keep all original SNC research and model evidence.
+
+Merging this plan starts no comparative run. None of these authorizes production dependencies, AR-1's G3, replication, raft-rs, custom replication, any change to
 SNC's engine, or any decision about the original OS.
