@@ -338,6 +338,10 @@ class World:
             if c["state"] in ("dispatched", "accepted"):
                 out.append(c["id"])
         tok = self.commit("TAKEOVER", "takeover", moves=moves)
+        data = {oid: to for _, oid, to in moves} | {
+            o: "outstanding" for o in (out if outstanding is None else outstanding)
+        }
+        self.row("commit_token", token=tok)["data"] = data
         self.tables["run_event"].append(
             {
                 "id": len(self.tables["run_event"]) + 1,
@@ -354,7 +358,8 @@ class World:
     # answers
 
     def visible(self):
-        return [{k: r[k] for k in ("token", "xid", "epoch", "kind", "name")} for r in self.tables["commit_token"]]
+        keys = ("token", "xid", "epoch", "kind", "name", "data")
+        return [{k: r[k] for k in keys if k in r} for r in self.tables["commit_token"]]
 
     def state(self, commits=None):
         a = {
@@ -399,7 +404,12 @@ class World:
                 ans = {
                     "shown": shown,
                     "authorized": {"rule_version": "v1", "approval": None},
-                    "executed": {"attempts": att, "states": [h["to_state"] for h in hs if h["kind"] != "derive"]},
+                    "executed": {
+                        "attempts": att,
+                        "states": [h["to_state"] for h in hs if h["kind"] != "derive"],
+                        "provider_request_id": r.get("provider_request_id"),
+                        "output_sha256": r.get("output") and hashlib.sha256(r["output"].encode()).hexdigest(),
+                    },
                     "committed": {"transitions": [{"token": h["token"], "to": h["to_state"]} for h in hs]},
                     "commits": [
                         {k: toks[h["token"]][k] for k in ("token", "xid", "epoch", "kind", "name")} for h in hs

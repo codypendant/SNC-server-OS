@@ -105,8 +105,8 @@ class Mutations(Base):
         e = [v for v in r["violations"] if v["clause"] == "4.established"][0]["evidence"]
         self.assertEqual(e["svc"], "T-I")
 
-    def cs(self, mutation, stale="TF-prep", rejected=None, at="T-I"):
-        w = World(self.R, point=f"C-s/a4:{'I-out' if at == 'model' else 'TI-out'}", mutation=mutation)
+    def cs(self, mutation, stale="TF-prep", rejected=None, at="T-I", arm="snc"):
+        w = World(self.R, point=f"C-s/a4:{'I-out' if at == 'model' else 'TI-out'}", mutation=mutation, arm=arm)
         w.accept()
         w.model()
         if at == "T-I":
@@ -365,11 +365,13 @@ class Mutations(Base):
         ans["snapshot"] = f"{x + 1}:{x + 50}:"
         self.assertIn("1.prefix", clauses(check(w)))
 
-    def cp(self, reject):
-        w = start(self.R, "C-p/a4:TI-prep", mutation=None if reject else "M6")
+    def cp(self, reject, arm="snc", data=True):
+        w = start(self.R, "C-p/a4:TI-prep", mutation=None if reject or arm != "snc" else "M6", arm=arm)
         w.prep("T-I")
         w.marker("reached", "a4:TI-prep")
-        w.takeover(reject=reject)
+        tk = w.takeover(reject=reject)
+        if not data:
+            del w.row("commit_token", token=tk)["data"]
         w.marker("reached", "post-takeover")
         w.marker("stale-decision-attempt", decision="TI-disp", epoch=1)
         w.marker("stale-decision-rejected", reason="epoch")
@@ -495,6 +497,31 @@ class Mutations(Base):
         w.final()
         self.assertFlags(check(w), "6.outstanding")
 
+    def cancel_at_iprep(self, abandon, arm="snc"):
+        w = World(self.R, point="D/a4:I-prep", arm=arm)
+        w.accept()
+        w.tables["invocation"].append(
+            {"id": "i1", "state": None, "late": False, "retry_of": None, "manifest": [], "whole_hash": None}
+        )
+        w.commit("I-prep", "decision", moves=[("invocation", "i1", "prepared")])
+        w.marker("reached", "a4:I-prep")
+        moves = [("task", "T", "cancelled")] + ([("invocation", "i1", "abandoned")] if abandon else [])
+        tok = w.commit("CANCEL", "cancel", moves=moves)
+        w.row("commit_token", token=tok)["data"] = {"i1": "abandoned"} if abandon else {}
+        w.tables["run_event"].append(
+            {"id": 1, "agent": "A", "kind": "cancel", "epoch": 1, "token": tok, "outstanding": []}
+        )
+        w.observe()
+        w.final()
+        return check(w)
+
+    def test_cancel_abandons_prepared_invocation(self):
+        for arm in ("snc", "plain2"):
+            self.R = self.tmp()
+            self.assertClean(self.cancel_at_iprep(True, arm))
+            self.R = self.tmp()
+            self.assertFlags(self.cancel_at_iprep(False, arm), "6.prepared_rejected")
+
     def test_M13_not_derived(self):
         w, _ = self.cb2("T-I", "M13")
         w.marker("released", who="old")
@@ -528,8 +555,9 @@ class Mutations(Base):
         w.outcome("T-N")
         w.log("T-N", svc="T-N", kind="effect", call_id="c-T-N", key="k-c-T-N", attempt=1, result="ok")
         tok = w.commit("TN-dup", "outcome", epoch=1)
-        w.tables["run_event"].append(
-            {"id": 9, "agent": "A", "kind": "duplicate", "epoch": 1, "token": tok, "outstanding": None, "call": "c-T-N"}
+        w.tables["history"].append(
+            {"id": 99, "kind": "attempt", "obj": "c-T-N", "from_state": "dispatched", "to_state": "duplicate"}
+            | {"epoch": 1, "token": tok}
         )
         r = finish(w, tools=())
         self.assertClean(r)
@@ -777,6 +805,181 @@ class Conditions(Base):
         w = happy(self.R, scenario="S-AP")
         w.logs["approver"].append({"t": 1, "task": "T", "call_id": "c-T-I", "answer": "deny"})
         self.assertFlags(check(w), "4.denied")
+
+
+class Iface(Base):
+    """A non-SNC arm judged from the common read interface only: the DB tables passed in are ignored."""
+
+    def test_happy(self):
+        r = check(happy(self.R, arm="plain2"))
+        self.assertClean(r)
+        self.assertTrue({"1.state", "3.states", "3.hash", "4.mapped", "7.executed"} <= set(r["exercised"]))
+
+    def test_db_rows_ignored(self):
+        w = happy(self.R, arm="plain2")
+        w.tables["tool_call"].clear()
+        w.tables["history"].clear()
+        self.assertClean(check(w))
+
+    def test_cp_correct(self):
+        r = Mutations.cp(self, True, arm="plain2")
+        self.assertClean(r)
+        self.assertTrue({"6.prepared_rejected", "1.stale_epoch"} <= set(r["exercised"]))
+
+    def test_cp_prepared_kept(self):
+        self.assertFlags(Mutations.cp(self, False, arm="plain2"), "6.prepared_rejected")
+
+    def test_takeover_without_data_unmet(self):
+        r = Mutations.cp(self, True, arm="plain2", data=False)
+        self.assertEqual(r["clauses"]["6.prepared_rejected"], "unmet")
+        self.assertEqual(r["clauses"]["6.outstanding"], "unmet")
+        self.assertEqual(r["verdict"], "violation")
+
+    def test_cp_without_takeover_unmet(self):
+        w = start(self.R, "C-p/a4:TI-prep", arm="plain2")
+        w.prep("T-I")
+        w.marker("reached", "a4:TI-prep")
+        r = finish(w, tools=("T-F", "T-N"))
+        for c in ("1.stale_epoch", "6.prepared_rejected", "6.outstanding"):
+            self.assertEqual(r["clauses"][c], "unmet", c)
+
+    def test_no_epochs_unmet(self):
+        w = happy(self.R, arm="plain2", point="C-s/a4:TI-out")
+        for x in w.tables["commit_token"]:
+            x["epoch"] = None
+        w.takeover()
+        for x in w.tables["commit_token"]:
+            x["epoch"] = None
+        self.assertEqual(check(w)["clauses"]["1.stale_epoch"], "unmet")
+
+    def test_cs_positive_control(self):
+        w, tools = Mutations.cs(self, None, rejected="epoch check", arm="plain2")
+        r = finish(w, tools=tools)
+        self.assertClean(r)
+        self.assertIn("1.stale_epoch", r["exercised"])
+
+    def stale_unmarked(self, kind="decision"):
+        w, tools = Mutations.cs(self, None, stale="P-dec", at="model", arm="plain2")
+        w.logs["markers"] = [m for m in w.logs["markers"] if m["event"] != "stale-decision-committed"]
+        w.marker("stale-decision-rejected", reason="epoch")
+        w.tables["commit_token"][-1]["kind"] = kind
+        r = finish(w, tools=tools)
+        return [v["evidence"].get("name") for v in r["violations"] if v["clause"] == "1.stale_epoch"]
+
+    def test_cs_stale_commit_from_wal(self):
+        self.assertEqual(self.stale_unmarked(), ["P-dec"])
+
+    def test_stale_decision_labelled_outcome(self):
+        self.assertEqual(self.stale_unmarked("outcome"), ["P-dec"])
+
+    def test_cb2_outstanding_missing(self):
+        w = start(self.R, "C-b2/b2:T-I", release="after", arm="plain2")
+        w.prep("T-I")
+        w.dispatch("T-I")
+        w.send("T-I")
+        w.marker("reached", "b2:T-I")
+        w.marker("released", who="old")
+        w.takeover(outstanding=[])
+        w.outcome("T-I", epoch=1)
+        self.assertFlags(finish(w, tools=("T-F", "T-N")), "6.outstanding")
+
+    def test_stub_without_dispatch_commit(self):
+        w = happy(self.R, arm="plain2")
+        w.logs["answers"] = [a for a in w.logs["answers"] if a["call"] != "reconstruct"]
+        w.tables["history"] = [h for h in w.tables["history"] if h["to_state"] != "dispatched" or h["obj"] != "i1"]
+        w.reconstruct_all()
+        self.assertFlags(check(w), "4.mapped")
+
+    def test_state_differs_from_transitions(self):
+        w = happy(self.R, arm="plain2")
+        w.logs["answers"][0]["answer"]["calls"]["c-T-F"]["state"] = "dispatched"
+        self.assertFlags(check(w), "1.state")
+
+    def test_without_transitions_unmet(self):
+        w = happy(self.R, arm="plain2")
+        for a in w.logs["answers"]:
+            if a["call"] == "reconstruct":
+                a["answer"]["committed"] = None
+        r = check(w)
+        for c in ("1.state", "3.states", "7.committed"):
+            self.assertEqual(r["clauses"][c], "unmet", c)
+
+    def test_without_provider_request_id_unmet(self):
+        w = happy(self.R, arm="plain2")
+        for a in w.logs["answers"]:
+            if a["call"] == "reconstruct":
+                a["answer"]["executed"].pop("provider_request_id")
+        self.assertEqual(check(w)["clauses"]["3.no_regenerate"], "unmet")
+
+    def test_output_hash(self):
+        w = happy(self.R, arm="plain2")
+        ex = [a["answer"]["executed"] for a in w.logs["answers"] if a["call"] == "reconstruct" and a["arg"] == "i1"][0]
+        ex["output_sha256"] = None
+        self.assertEqual(check(w)["clauses"]["3.no_regenerate"], "unmet")
+        ex["output_sha256"] = "0" * 64
+        self.assertFlags(check(w), "3.no_regenerate")
+
+    def after_terminal(self, kind=None, obj="i1", frm="output", to="result_unknown"):
+        w = happy(self.R, arm=self.arm)
+        tok = w.commit("I-unknown", "recovery")
+        w.tables["history"].append(
+            {"id": 99, "kind": kind or "invocation", "obj": obj, "from_state": frm, "to_state": to}
+            | {"epoch": 1, "token": tok}
+        )
+        w.logs["answers"] = [a for a in w.logs["answers"] if a["call"] != "reconstruct"]
+        w.final()
+        if kind:
+            ans = [a["answer"] for a in w.logs["answers"] if a["call"] == "reconstruct" and a["arg"] == obj][0]
+            ans["committed"]["transitions"][-1]["kind"] = kind
+        return check(w)
+
+    def test_transition_after_terminal_judged(self):
+        for self.arm in ("snc", "plain2"):
+            self.R = self.tmp()
+            self.assertFlags(self.after_terminal(), "3.states", "6.derive")
+
+    def test_labelled_record_after_terminal_skipped(self):
+        self.arm = "plain2"
+        self.assertClean(self.after_terminal("record", to="output"))
+        self.R = self.tmp()
+        self.assertClean(self.after_terminal("record", obj="c-T-F", frm="completed", to="rejected"))
+
+    def test_record_label_cannot_hide_reopen(self):
+        self.arm = "plain2"
+        for kind in ("record", "attempt"):
+            self.R = self.tmp()
+            self.assertFlags(self.after_terminal(kind, obj="c-T-I", frm="completed", to="dispatched"), "6.derive")
+
+    def test_duplicate_needs_the_recorded_state(self):
+        w = happy(self.R, arm="plain2", point="B/b2:T-N")
+        w.prep("T-N", call="c2", key="k-c-T-N")
+        w.dispatch("T-N", call="c2")
+        w.send("T-N", call="c2")
+        w.outcome("T-N", call="c2")
+        w.logs["answers"] = [a for a in w.logs["answers"] if a["call"] != "reconstruct"]
+        w.observe()
+        w.final()
+        for a in w.logs["answers"]:
+            if a["call"] == "reconstruct" and a["arg"] == "c2":
+                a["answer"]["executed"]["result"] = {"note": "duplicate"}
+        self.assertIn("5.TN_duplicate_recorded", clauses(check(w)))
+
+    def test_reused_attempt_number(self):
+        w = start(self.R, "B/b2:T-I", arm="plain2")
+        w.prep("T-I")
+        w.dispatch("T-I")
+        w.send("T-I")
+        w.dispatch("T-I", n=2, established=False)
+        w.send("T-I", n=1, kind="duplicate")
+        w.resume()
+        w.outcome("T-I")
+        r = finish(w, tools=("T-F", "T-N"))
+        self.assertIn("4.established", clauses(r))
+
+    def test_deadlock(self):
+        w = happy(self.R, arm="plain2")
+        w.tables["deadlocks"] = 1
+        self.assertFlags(check(w), "6.no_deadlock")
 
 
 if __name__ == "__main__":

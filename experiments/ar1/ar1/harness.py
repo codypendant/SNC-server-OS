@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent.parent
 RUNS = Path(os.environ.get("AR1_RUNS", "/tmp/ar1-runs"))
 HOLD_LIMIT = 10.0
 RUN_CAP = 300.0
-ARMS = {"snc": "ar1", "plain1": "plain1"}
+ARMS = {"snc": "ar1", "plain1": "plain1", "plain2": "plain2"}
 
 TN_HOLD = 2.0 + 2.0 + 10.0 + 5.0
 
@@ -469,11 +469,8 @@ class Run:
             with pg.connect(self.pair.primary.port, pg.RUNTIME, pg.DB, app="ar1-inject") as c:
                 with c.transaction():
                     c.execute("SET LOCAL synchronous_commit TO local")
-                    c.execute("INSERT INTO snc.memory VALUES ('x1', 1, 'B', 'hx', 'inject')")
-                    x = c.execute(
-                        "INSERT INTO snc.commit_token VALUES ('inject', pg_current_xact_id(), 0, 'outcome', 'X-mem', 'B')"
-                        " RETURNING xid::text"
-                    ).fetchone()[0]
+                    c.execute(self.probes["inject_memory"])
+                    x = c.execute(self.probes["inject_token"]).fetchone()[0]
             self.mark("injected", None, xid=x)
 
         def p_dec():

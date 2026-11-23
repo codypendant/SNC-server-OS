@@ -76,8 +76,17 @@ JSON object. Both block until what they return is established (package 2.6 d3), 
   {state, attempts, result}}, invocations: {id: {state, late, retry_of}}, commits: [{token, xid, epoch, kind,
   name}]}`. `commits` lists every consequential commit visible in the answer's snapshot.
 - `reconstruct <effect>` (a tool call id, an invocation id or a memory id): `{shown: {items: [{kind, id, version,
-  sha256}], whole_hash}, authorized: {rule_version, approval}, executed: {attempts: [...], states: [...]},
-  committed: {transitions: [...]}, commits: [{token, xid, epoch, kind, name}]}`.
+  sha256}], whole_hash}, authorized: {rule_version, approval}, executed: {attempts: [...], states: [...],
+  provider_request_id, output_sha256}, committed: {transitions: [...]}, commits: [{token, xid, epoch, kind, name,
+  data}]}`.
+  - `executed.provider_request_id` and `executed.output_sha256` (invocations only) are the stub's `request_id` and
+    `output_sha256` for the recorded output, so 3.no_regenerate can tell a regenerated output from the original.
+  - `commits[].data` on a TAKEOVER or cancel commit is `{object id: "rejected" | "abandoned" | "outstanding"}`: the
+    prepared calls it rejected, the prepared invocations it abandoned, and its outstanding set.
+  - A transition the new epoch derives from a stale outcome (E-10 step 4) has `kind: "derive"`.
+  - A transition that records something without changing state (a late attempt, a stale outcome after the call
+    ended) has `kind: "record"` (SNC also uses `"attempt"`). The checker judges every other transition after a
+    terminal state as a state change. A duplicate reply is recorded as a transition to `duplicate`.
 - `effects`: `{effects: [ids]}`.
 
 The plain arm may answer a field with `null` where it has no such record; the checker scores that as unmet.

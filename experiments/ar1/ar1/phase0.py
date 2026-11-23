@@ -19,6 +19,7 @@ from check.check import Check  # noqa: E402
 from check.oracle import Oracle, lsn_int  # noqa: E402
 
 from . import jlog, rt  # noqa: E402
+from .batch import rows  # noqa: E402
 from .app import end_previous_backends  # noqa: E402
 from .pg import ADMIN, BIN, NOMON, Pair, connect  # noqa: E402
 
@@ -825,30 +826,35 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     work = Path(os.environ.get("AR1_RUNS", "/tmp/ar1-runs")) / "phase0"
     signal.signal(signal.SIGTERM, lambda *a: sys.exit(1))
+    prefix = f"phase0:{os.environ['AR1_FREEZE']}" if os.environ.get("AR1_FREEZE") else "phase0"
     for name in (CHECKS if which == "all" else [which]):
-        results = []
+        log = out_dir / f"{name}.runs.jsonl"
+        tries = {}
+        for r in rows(log):
+            tries.setdefault(r["run"], []).append(r)
         for i in range(runs):
-            rnd = random.Random(f"phase0:{name}:{i}")
-            t0 = time.monotonic()
-            try:
-                r = CHECKS[name](work / f"{name}-{i}", rnd, i)
-            except Exception as e:
-                r = {"pass": False, "error": repr(e)}
-            r["run"], r["seconds"] = i, round(time.monotonic() - t0, 1)
-            results.append(r)
-            print(
-                json.dumps(
-                    {
-                        "check": name,
-                        "run": i,
-                        "pass": r.get("pass"),
-                        "invalid": r.get("invalid"),
-                        "error": r.get("error"),
-                        "seconds": r["seconds"],
-                    }
-                ),
-                flush=True,
-            )
+            while len(tries.get(i, [])) < 2 and all(r.get("invalid") for r in tries.get(i, [])):
+                attempt = len(tries.get(i, []))
+                rnd = random.Random(f"{prefix}:{name}:{i}")
+                t0 = time.monotonic()
+                try:
+                    r = CHECKS[name](work / f"{name}-{i}-{attempt}", rnd, i)
+                except Exception as e:
+                    r = {"pass": False, "error": repr(e)}
+                r["run"], r["attempt"], r["seconds"] = i, attempt, round(time.monotonic() - t0, 1)
+                with open(log, "a") as f:
+                    f.write(json.dumps(r, default=str) + "\n")
+                tries.setdefault(i, []).append(r)
+                print(
+                    json.dumps(
+                        {"check": name, **{k: r.get(k) for k in ("run", "attempt", "pass", "invalid", "error")}}
+                    ),
+                    flush=True,
+                )
+        results = [r for i in range(runs) for r in tries[i] if not r.get("invalid")]
+        invalid = [r for i in range(runs) for r in tries[i] if r.get("invalid")]
+        if invalid:
+            (out_dir / f"{name}.invalid.json").write_text(json.dumps(invalid, indent=1, default=str))
         (out_dir / f"{name}.json").write_text(json.dumps(results, indent=1, default=str))
 
 

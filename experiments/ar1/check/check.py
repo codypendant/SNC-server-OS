@@ -40,7 +40,10 @@ INV_MOVES = {
 TERMINAL = ("output", "completed", "rejected")
 DISPATCH_S = 2.0
 MEMORY_WRITERS = ("X-mem", "M-done")
-NON_DECISION_KINDS = ("derive", "attempt")
+NON_DECISION_KINDS = ("derive", "attempt", "record")
+DECISION_NAMES = {"C-acc", "P-dec", "M-done"} | {f"{p}-{s}" for p in ("I", "TI", "TF", "TN") for s in ("prep", "disp")}
+RECORD_STATES = ("outstanding", "duplicate")
+PFX_TOOL = {"TI": "T-I", "TF": "T-F", "TN": "T-N"}
 MUTATION_CLAUSES = {
     "M1": ("4.established", "4.gateway"),
     "M2": ("1.stale_epoch",),
@@ -176,7 +179,7 @@ class Check:
         self.gateway = jl(self.R / "gateway.jsonl", b)
         self.cuts = jl(self.R / "cuts.jsonl", b)
         self.answers = sorted(jl(self.R / "answers.jsonl", b), key=lambda a: a["t"])
-        self.db = db_rows if db_rows is not None else (self.read_db() if self.snc else {})
+        self.db = db_rows if db_rows is not None else self.read_db()
         self._wal, self._swal = wal_recs, standby_recs
 
     # inputs
@@ -195,7 +198,7 @@ class Check:
             application_name="check-ar1",
         ) as c:
             c.execute("SET default_transaction_read_only = on")
-            for t in SNC_TABLES:
+            for t in SNC_TABLES if self.snc else ():
                 try:
                     rows[t] = [r[0] for r in c.execute(f"SELECT to_jsonb(x) FROM snc.{t} x")]
                 except psycopg.Error:
@@ -257,6 +260,76 @@ class Check:
             r["tli"], r["start"], r["end"] = max(found)
         self.tokens = toks
         self.pos = sorted((r["end"], t) for t, r in toks.items() if "end" in r)
+
+    def recon(self):
+        return {
+            str(a.get("arg")): a["answer"]
+            for a in self.answers
+            if a.get("call") == "reconstruct" and isinstance(a.get("answer"), dict) and "refused" not in a["answer"]
+        }
+
+    def rec_commits(self, obj):
+        cs = [self.tokens.get(c.get("token"), {}) for c in (self.rec.get(str(obj)) or {}).get("commits") or []]
+        return sorted((c for c in cs if "end" in c), key=lambda r: r["end"])
+
+    def iface_db(self):
+        """The common read interface as the record tables the SNC checks read; nothing comes from the arm's own DB."""
+        rec, calls, invs = self.rec, {}, {}
+        for a in self.state_answers():
+            calls.update(a["answer"].get("calls") or {})
+            invs.update(a["answer"].get("invocations") or {})
+        db = {k: [] for k in SNC_TABLES}
+        for t, c in self.tokens.items():
+            if c.get("kind") in ("takeover", "cancel") and isinstance(c.get("data"), dict):
+                out = [o for o, s in c["data"].items() if s == "outstanding"]
+                db["run_event"].append({"token": t, "kind": c["kind"], "outstanding": out})
+        tools = {}
+        for cid in calls:
+            reqs = [s for s in TOOLS for e in self.requests(s) if str(e.get("call_id")) == cid]
+            names = [x.get("name") or "" for x in self.rec_commits(cid)]
+            tools[cid] = reqs[0] if reqs else next((PFX_TOOL[n[:2]] for n in names if n[:2] in PFX_TOOL), None)
+        for oid, r in rec.items():
+            table = "tool_call" if oid in calls else "invocation" if oid in invs else "memory"
+            prev = None
+            for tr in (r.get("committed") or {}).get("transitions") or []:
+                if isinstance(tr, dict):
+                    to = tr.get("to", tr.get("state"))
+                    # a record label may not hide a state change, e.g. a reopening after the outcome
+                    harmless = to in (*RECORD_STATES, prev) or (to == "rejected" and tools.get(oid) == "T-F")
+                    rec_only = to in RECORD_STATES or tr.get("kind") in ("record", "attempt") and harmless
+                    kind = "derive" if tr.get("kind") == "derive" else "record" if rec_only else table
+                    prev = to if kind == table else prev
+                    db["history"].append(
+                        {
+                            "id": len(db["history"]),
+                            "kind": kind,
+                            "obj": oid,
+                            "from_state": tr.get("from"),
+                            "to_state": to,
+                        }
+                        | {"token": tr.get("token"), "epoch": self.tokens.get(tr.get("token"), {}).get("epoch")}
+                    )
+        for cid, c in calls.items():
+            tool = tools[cid]
+            key = (
+                next((e.get("key") for e in self.requests(tool) if str(e.get("call_id")) == cid), None)
+                if tool
+                else None
+            )
+            db["tool_call"].append({"id": cid, "tool": tool, "key": key, **(c or {})})
+            disp = [x for x in self.rec_commits(cid) if tool and x.get("name") == DISP[tool]]
+            for n in sorted(attempt_nums(((rec.get(cid) or {}).get("executed") or {}).get("attempts"))):
+                db["attempt"].append(
+                    {"call_id": cid, "n": n, "token": disp[n - 1]["token"] if 0 < n <= len(disp) else None}
+                )
+        for iid, v in invs.items():
+            r = rec.get(iid) or {}
+            sh, ex = r.get("shown") or {}, r.get("executed") or {}
+            db["invocation"].append(
+                {"id": iid, **(v or {}), "whole_hash": sh.get("whole_hash"), "manifest": sh.get("items")}
+                | {k: ex.get(k) for k in ("provider_request_id", "output_sha256")}
+            )
+        return db
 
     def build_cuts(self):
         self.cut_list = [c for c in self.cuts if c.get("kind") in ("kill", "takeover", "cut", "final", "pre-resume")]
@@ -423,6 +496,8 @@ class Check:
             self.u("unparsable log line", line=b)
 
     def outcome_tokens(self, obj):
+        if not self.snc and not self.hist(obj):
+            return [t for t in self.rec_commits(obj) if t.get("kind") == "outcome"]
         out = []
         for h in self.hist(obj):
             t = self.tokens.get(h.get("token"))
@@ -432,6 +507,7 @@ class Check:
 
     def outcome_any(self, obj):
         toks = {h.get("token") for h in self.hist(obj, True)}
+        toks |= set() if self.snc else {t["token"] for t in self.rec_commits(obj)}
         toks |= {r.get("token") for r in self.db.get("run_event", []) if str(obj) in json.dumps(r, default=str)}
         return [self.tokens[t] for t in toks if t in self.tokens and self.tokens[t].get("kind") == "outcome"]
 
@@ -442,7 +518,10 @@ class Check:
 
     def disp_token(self, svc, e):
         if not self.snc:
-            return None
+            oid = e.get("invocation_id" if svc == "stub" else "call_id")
+            d = [x for x in self.rec_commits(oid) if x.get("name") == DISP["model" if svc == "stub" else svc]]
+            n = 1 if svc == "stub" else int(e.get("attempt") or 0)
+            return d[n - 1] if 0 < n <= len(d) else None
         if svc == "stub":
             for h in self.hist(e.get("invocation_id")):
                 if h.get("to_state") == "dispatched":
@@ -450,6 +529,23 @@ class Check:
             return None
         a = self.rows("attempt", call_id=e.get("call_id"), n=e.get("attempt"))
         return self.tokens.get(a[0].get("token")) if a else None
+
+    def own_disp(self, svc, e):
+        """The entry's own dispatch commit: the k-th request for the object in an epoch maps to that epoch's k-th
+        dispatch commit in WAL order, whatever attempt number the arm sent."""
+        k = "invocation_id" if svc == "stub" else "call_id"
+        oid, ep = str(e.get(k)), e.get("epoch")
+        if not self.snc:
+            ds = [x for x in self.rec_commits(oid) if x.get("name") == DISP["model" if svc == "stub" else svc]]
+        elif svc == "stub":
+            ds = [self.tokens.get(h.get("token"), {}) for h in self.hist(oid) if h.get("to_state") == "dispatched"]
+        else:
+            ds = [self.tokens.get(a.get("token"), {}) for a in self.rows("attempt", call_id=oid)]
+        same = lambda x: ep is None or x.get("epoch") is None or str(x["epoch"]) == str(ep)
+        ds = sorted({x["token"]: x for x in ds if "end" in x and same(x)}.values(), key=lambda x: x["end"])
+        reqs = [x for x in self.requests(svc) if str(x.get(k)) == oid and same(x)]
+        n = next(j for j, x in enumerate(reqs) if x is e)
+        return ds[n] if n < len(ds) else None
 
     # reached-point rule (5.4)
 
@@ -517,11 +613,13 @@ class Check:
         for r in self.by_name(d.get("decision"), d.get("epoch")):
             if tk and r["end"] < tk[0]["end"]:
                 self.u("wrong interleaving: stale decision committed below the takeover", token=r["token"])
-        if not self.snc or self.run.get("mutation"):
+        if self.run.get("mutation"):
             return
         if com:
             if not any(x["clause"] == "1.stale_epoch" for x in self.violations):
                 self.v(1, "1.stale_epoch", source="marker stale-decision-committed", data=d)
+            return
+        if "1.stale_epoch" in self.unmet:
             return
         if not rej:
             self.u("positive control: no stale-decision-rejected")
@@ -616,8 +714,9 @@ class Check:
             self.ex("1.state")
             if int(got) != max(map(int, eps)):
                 self.v(1, "1.state", field="agent.epoch", answer=got, derived=max(eps))
-        if not self.snc:
-            return
+        answered = [o for k in ("calls", "invocations") for o in a.get(k) or {}]
+        if not self.snc and any((self.rec.get(o) or {}).get("committed") is None for o in answered):
+            self.unmet.add("1.state")
         last = {}
         for h in self.hist():
             if h.get("token") in A:
@@ -631,13 +730,17 @@ class Check:
 
     def item1_stale(self):
         tk = self.takeovers()
-        if self.group in ("C-s", "C-p") and not self.snc:
+        cg = self.group in ("C-s", "C-p", "C-a1", "C-b2")
+        no_ep = not tk or any(r.get("epoch") is None for r in self.tokens.values())
+        if cg and no_ep and not self.snc:
             self.unmet.add("1.stale_epoch")
             return
-        self.ex("1.stale_epoch", bool(tk) and self.group in ("C-s", "C-p", "C-a1", "C-b2"))
+        self.ex("1.stale_epoch", bool(tk) and cg)
         for k in tk:
             for r in self.tokens.values():
-                if r.get("kind") in ("outcome", "takeover") or "end" not in r or r.get("epoch") is None:
+                if r.get("kind") in ("outcome", "takeover") and r.get("name") not in DECISION_NAMES:
+                    continue
+                if "end" not in r or r.get("epoch") is None:
                     continue
                 if int(r["epoch"]) < int(k["epoch"]) and r["end"] > k["end"]:
                     self.v(
@@ -716,8 +819,6 @@ class Check:
                             )
                     elif s.get("state") in term:
                         seen[oid] = (s.get("state"), s.get("result"))
-        if not self.snc:
-            return
         for table, term in (("tool_call", ("completed", "rejected")), ("invocation", ("output",))):
             for row in self.db.get(table, []):
                 if self.outcome_tokens(row["id"]):
@@ -741,17 +842,18 @@ class Check:
             body = e.get("body")
             if isinstance(body, str) and hashlib.sha256(body.encode()).hexdigest() != e.get("body_sha256"):
                 self.u("stub log body does not match its body_sha256", invocation=i)
-            if self.snc:
-                wh = (inv.get(i) or {}).get("whole_hash")
-                if wh != e.get("body_sha256"):
-                    self.v(3, "3.hash", invocation=i, whole_hash=wh, stub=e.get("body_sha256"))
+            wh = (inv.get(i) or {}).get("whole_hash")
+            if wh is None and not self.snc:
+                self.unmet.add("3.hash")
+            elif wh != e.get("body_sha256"):
+                self.v(3, "3.hash", invocation=i, whole_hash=wh, stub=e.get("body_sha256"))
             if i in seen:
                 self.v(3, "3.recall", invocation=i, why="invocation id sent twice")
             elif seen:
                 self.ex("3.recall")
                 if e.get("retry_of") is None or str(e.get("retry_of")) not in seen:
                     self.v(3, "3.recall", invocation=i, retry_of=e.get("retry_of"), why="re-call without retry_of")
-                if self.snc and str((inv.get(i) or {}).get("retry_of")) != str(e.get("retry_of")):
+                if str((inv.get(i) or {}).get("retry_of")) != str(e.get("retry_of")):
                     self.v(
                         3,
                         "3.recall",
@@ -761,11 +863,7 @@ class Check:
                     )
             seen[i] = e
             if self.killed_after(e["t"], f"e{e.get('epoch')}") and self.site in ("b2:model", "b3:model"):
-                outs = [
-                    t
-                    for t in (self.outcome_tokens(i) if self.snc else self.by_name("I-out"))
-                    if t.get("name") == "I-out"
-                ]
+                outs = [t for t in self.outcome_tokens(i) if t.get("name") == "I-out"]
                 bounds = [lsn_int(c.get("kill_boundary")) for c in self.kill_cuts if c["t"] > e["t"]]
                 if not any(b is not None and t["end"] <= b for t in outs for b in bounds):
                     self.ex("3.crash_unknown")
@@ -784,6 +882,8 @@ class Check:
         for i, row in inv.items():
             prev = None
             hs = self.hist(i)
+            if not hs and not self.snc and row.get("state") is not None:
+                self.unmet |= {"3.states", "3.late_marked"}
             for h in hs:
                 self.ex("3.states")
                 if (prev, h.get("to_state")) not in INV_MOVES or (h.get("from_state") not in (None, prev)):
@@ -807,6 +907,9 @@ class Check:
         self.ex("3.no_regenerate")
         reqs = [e for e in self.requests("stub") if str(e.get("invocation_id")) == i]
         rid = reqs[0].get("request_id") if reqs else None
+        if not self.snc and row.get("provider_request_id") is None:
+            self.unmet.add("3.no_regenerate")
+            return
         if rid is not None:
             rs = [r for r in rs if str(r.get("request_id")) == str(rid)]
             if str(row.get("provider_request_id")) != str(rid):
@@ -830,6 +933,12 @@ class Check:
                 provider_request_id=row.get("provider_request_id"),
                 stub=[r.get("request_id") for r in rs],
             )
+        if not self.snc:
+            if row.get("output_sha256") is None:
+                self.unmet.add("3.no_regenerate")
+            elif row["output_sha256"] not in {r.get("output_sha256") for r in rs}:
+                self.v(3, "3.no_regenerate", invocation=i, why="output hash differs from the stub reply")
+            return
         out = row.get("output")
         if isinstance(out, str):
             try:
@@ -867,21 +976,18 @@ class Check:
                     self.v(4, "4.denied", tool=s, call_id=e.get("call_id"))
         changed = self.walsender_changed()
         for s in SVC:
-            name = "I-prep" if s == "stub" and not self.snc else DISP["model" if s == "stub" else s]
-            seq = sorted(self.by_name(name), key=lambda r: r["end"])
-            for k, e in enumerate(self.requests(s)):
+            for e in self.requests(s):
                 self.ex("4.mapped")
                 tok = self.disp_token(s, e)
-                if self.snc:
-                    if tok is None:
-                        self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no dispatched record")
-                    elif s != "stub":
-                        self.policy_link(s, e)
-                else:
-                    tok = seq[k] if k < len(seq) else None
-                    if tok is None:
-                        self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why=f"no {name} commit for this entry")
-                self.read_check(s, e, tok, changed)
+                if tok is None:
+                    self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no dispatched record")
+                elif s != "stub":
+                    (self.policy_link if self.snc else self.policy_link_iface)(s, e, tok)
+                own = self.own_disp(s, e)
+                if tok is not None and own is None:
+                    self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="entry has no dispatch commit of its own")
+                cands = [x for x in (tok, own) if x and "end" in x]
+                self.read_check(s, e, max(cands, key=lambda x: x["end"]) if cands else tok, changed)
                 self.gateway_check(s, e, tok)
         self.policy_read()
 
@@ -889,7 +995,21 @@ class Check:
     def entry_id(e):
         return {k: e.get(k) for k in ("invocation_id", "call_id", "attempt", "epoch", "t") if k in e}
 
-    def policy_link(self, s, e):
+    def policy_link_iface(self, s, e, tok):
+        au = (self.rec.get(str(e.get("call_id"))) or {}).get("authorized")
+        if not isinstance(au, dict) or au.get("rule_version") is None:
+            self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no policy decision in reconstruct.authorized")
+        elif not any(p["end"] < tok["end"] for p in self.by_name("P-dec")):
+            self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no P-dec commit below the dispatch")
+        if self.run.get("scenario") == "S-AP":
+            ap = au.get("approval") if isinstance(au, dict) else None
+            ap = ap.get("decision") if isinstance(ap, dict) else ap
+            if not str(ap or "").lower().startswith("approv"):
+                self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no approval", approval=ap)
+            if not any(str(x.get("answer", "")).lower().startswith("approv") for x in self.approver):
+                self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="approver log has no approval")
+
+    def policy_link(self, s, e, tok=None):
         tc = self.rows("tool_call", id=e.get("call_id"))
         if not tc:
             self.v(4, "4.mapped", svc=s, entry=self.entry_id(e), why="no tool_call row")
@@ -1068,12 +1188,7 @@ class Check:
                     self.v(5, "5.TN_duplicate_recorded", key=k, calls=calls, effects=len(effs))
 
     def duplicate_recorded(self, c):
-        if self.snc:
-            rows = self.hist(c, True) + [r for r in self.db.get("run_event", []) if c in json.dumps(r)]
-            rows += self.rows("tool_call", id=c)
-            return any("duplicate" in json.dumps(r).lower() for r in rows)
-        rec = [a["answer"] for a in self.answers if a.get("call") == "reconstruct" and str(a.get("arg")) == c]
-        return any("duplicate" in json.dumps(r).lower() for r in rec)
+        return any(h.get("to_state") == "duplicate" for h in self.hist(c, True))
 
     def tf(self):
         seen = 0
@@ -1087,7 +1202,7 @@ class Check:
                 self.ex("5.TF_stale_rejected")
                 if x.get("kind") != "rejected_stale":
                     self.v(5, "5.TF_stale_rejected", entry=self.entry_id(x), why="tool did not reject a stale request")
-                elif self.received("T-F", x) and self.snc:
+                elif self.received("T-F", x):
                     if not any(h.get("to_state") == "rejected" for h in self.hist(x.get("call_id"), True)):
                         self.v(5, "5.TF_stale_rejected", entry=self.entry_id(x), why="rejection not recorded")
             elif x.get("kind") != "rejected_stale":
@@ -1101,7 +1216,7 @@ class Check:
                 self.ex("5.recorded")
                 self.ex("6.outcome_exempt", self.group in ("C-b2", "D"))
                 c = str(x.get("call_id"))
-                outs = self.outcome_tokens(c) if self.snc else self.by_name(OUT[s])
+                outs = self.outcome_tokens(c)
                 if not outs:
                     self.v(
                         5,
@@ -1119,7 +1234,7 @@ class Check:
                     and (x.get("attempt") is None or str(e.get("attempt")) == str(x.get("attempt")))
                 ]
                 ep = req[-1].get("epoch") if req else None
-                if ep is not None and self.snc and not any(str(o.get("epoch")) == str(ep) for o in self.outcome_any(c)):
+                if ep is not None and not any(str(o.get("epoch")) == str(ep) for o in self.outcome_any(c)):
                     self.v(
                         6,
                         "6.outcome_exempt",
@@ -1133,7 +1248,7 @@ class Check:
                 continue
             self.ex("5.recorded")
             i = str(x.get("invocation_id"))
-            outs = self.outcome_tokens(i) if self.snc else self.by_name("I-out")
+            outs = self.outcome_tokens(i)
             if not any(o.get("name") == "I-out" for o in outs):
                 self.v(5, "5.recorded", svc="stub", invocation=i, why="stub reply with no committed output")
 
@@ -1147,7 +1262,7 @@ class Check:
         ):
             return True
         t2 = self.disp_token(s, r2)
-        if self.snc and t2 and "end" in t2:
+        if t2 and "end" in t2:
             return any(o["end"] < t2["end"] for o in self.outcome_tokens(c))
         return False
 
@@ -1170,9 +1285,9 @@ class Check:
             self.takeovers() + [r for r in self.tokens.values() if r.get("kind") == "cancel" and "end" in r],
             key=lambda r: r["end"],
         )
-        if not self.snc:
-            if marks or self.group in ("C-a1", "C-b2", "C-p", "C-s", "D"):
-                self.unmet |= {"6.prepared_rejected", "6.outstanding"}
+        lacking = any(not isinstance(k.get("data"), dict) for k in marks)
+        if not self.snc and (lacking or not marks and self.group in ("C-a1", "C-b2", "C-p", "C-s", "D")):
+            self.unmet |= {"6.prepared_rejected", "6.outstanding"}
         else:
             for k in marks:
                 self.at_takeover(k)
@@ -1181,7 +1296,7 @@ class Check:
         self.ex("6.no_deadlock", self.group == "C-a1")
         if dl is not None and dl > base:
             self.v(6, "6.no_deadlock", deadlocks=dl, baseline=base)
-        if self.group == "C-a1" and not self.takeovers() and self.snc:
+        if self.group == "C-a1" and not self.takeovers():
             self.v(6, "6.no_deadlock", why="takeover never committed at C a1")
         self.in_doubt()
         self.derive()
@@ -1198,8 +1313,7 @@ class Check:
     def at_takeover(self, k):
         is_tk = k.get("kind") == "takeover"
         objs = [("tool_call", r) for r in self.db.get("tool_call", [])]
-        if is_tk:
-            objs += [("invocation", r) for r in self.db.get("invocation", [])]
+        objs += [("invocation", r) for r in self.db.get("invocation", [])]
         expect = set()
         for table, r in objs:
             oid = str(r["id"])
@@ -1231,12 +1345,13 @@ class Check:
             )
 
     def in_doubt(self):
-        if not self.snc:
-            return
         pending_stop = "M-done" not in {r.get("name") for r in self.tokens.values()}
         for r in self.db.get("tool_call", []):
             c = str(r["id"])
-            if not any(h.get("to_state") == "in_doubt" for h in self.hist(c)):
+            shown = any(
+                ((a["answer"].get("calls") or {}).get(c) or {}).get("state") == "in_doubt" for a in self.state_answers()
+            )
+            if not shown and not any(h.get("to_state") == "in_doubt" for h in self.hist(c)):
                 continue
             self.ex("6.in_doubt_owner")
             if r.get("tool") == "T-I":
@@ -1279,8 +1394,6 @@ class Check:
                     )
 
     def derive(self):
-        if not self.snc:
-            return
         for table in ("tool_call", "invocation"):
             for r in self.db.get(table, []):
                 c = str(r["id"])
@@ -1331,7 +1444,10 @@ class Check:
                     elif not sent and not any(
                         int(self.tokens.get(h.get("token"), {}).get("epoch") or 0) >= cur for h in der
                     ):
-                        self.v(6, "6.derive", obj=c, why="dependent transitions not derived by the current epoch")
+                        if self.snc or any(h.get("kind") == "derive" for h in self.db["history"]):
+                            self.v(6, "6.derive", obj=c, why="dependent transitions not derived by the current epoch")
+                        else:
+                            self.unmet.add("6.derive")
                     for h in self.db.get("history", []):
                         if h.get("token") == x["token"] and str(h.get("obj")) != c and h.get("kind") != "derive":
                             self.v(
@@ -1460,10 +1576,31 @@ class Check:
             extra = {h.get("to_state") for h in self.hist(eid, True) if h.get("kind") == "attempt"} - set(hs)
             if hs and set(hs) != set(states) - extra:
                 self.v(7, "7.executed", effect=eid, why="states differ from the history", db=hs, answer=states)
+        if not self.snc:
+            self.executed_iface(eid, ex, got)
         if any(e.get("invocation_id") == eid for e in self.requests("stub")):
             states = {x.get("state", x.get("to_state")) if isinstance(x, dict) else x for x in ex.get("states") or []}
             if "dispatched" not in states:
                 self.v(7, "7.executed", effect=eid, why="stub received it but no dispatched state")
+
+    def executed_iface(self, eid, ex, got):
+        call = next((c for c in self.db.get("tool_call", []) if c["id"] == eid), None)
+        if call is not None:
+            disp = len([x for x in self.rec_commits(eid) if call.get("tool") and x.get("name") == DISP[call["tool"]]])
+            if got != set(range(1, disp + 1)) or (call.get("attempts") is not None and call["attempts"] != len(got)):
+                self.v(
+                    7,
+                    "7.executed",
+                    effect=eid,
+                    why="attempts differ from the dispatch commits or the state answer",
+                    dispatch_commits=disp,
+                    state_attempts=call.get("attempts"),
+                    answer=sorted(got),
+                )
+        hs = [h.get("to_state") for h in self.hist(eid, True) if h.get("kind") != "derive"]
+        states = [x.get("state", x.get("to_state")) if isinstance(x, dict) else x for x in ex.get("states") or []]
+        if hs and set(hs) != set(states):
+            self.v(7, "7.executed", effect=eid, why="states differ from the transitions", transitions=hs, answer=states)
 
     def committed(self, eid, r):
         cm = r.get("committed")
@@ -1485,6 +1622,12 @@ class Check:
             t = tr.get("token") if isinstance(tr, dict) else None
             if t is not None and self.classes.get(t, {}).get("class") not in ("D", "R"):
                 self.v(7, "7.committed", effect=eid, transition=tr, why="transition not D or R at the final cut")
+        if not self.snc:
+            miss = {tr.get("token") for tr in cm.get("transitions") or [] if isinstance(tr, dict)} - set(toks)
+            if miss:
+                self.v(
+                    7, "7.committed", effect=eid, why="transition tokens not in commits", missing=sorted(map(str, miss))
+                )
         if self.snc:
             hs = {h.get("token") for h in self.hist(eid, True)}
             if hs - set(toks):
@@ -1504,6 +1647,9 @@ class Check:
     def check(self):
         try:
             self.build_tokens()
+            self.rec = self.recon()
+            if not self.snc:
+                self.db = {**self.iface_db(), "deadlocks": self.db.get("deadlocks")}
             self.build_cuts()
             self.classify()
             self.reached()
