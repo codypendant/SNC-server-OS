@@ -551,8 +551,10 @@ Decided by cody on 2026-11-04.
     revision 3 (ACCEPTED 2026-11-22 with the U-7 ruling, [handoff/PR185_Rev3_Owner_Decision.md](handoff/PR185_Rev3_Owner_Decision.md); revision 2 kept in [AR1_PREREG_REV2.md](AR1_PREREG_REV2.md)). Phase 0 passes, including the
     new C-7b page-boundary check. SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every
     clause. 14 of 14 mutations are flagged at every seed.
-  - **Now:** PR #185 merges after its refreshed verification. G3, the counted runs, stays on HOLD for a separate GO
-    on the dedicated VM.
+  - PR #185 merged. cody gave the G3 go on 2026-11-23 ([handoff/AR1_G3_Owner_Decision.md](handoff/AR1_G3_Owner_Decision.md)).
+  - **Now:** G3 is frozen at `575f493` ([handoff/AR1_G3_Freeze.md](handoff/AR1_G3_Freeze.md)). The counted
+    campaign runs on a dedicated VM from [experiments/ar1/G3_VM_CARD.md](../experiments/ar1/G3_VM_CARD.md). No
+    counted result exists yet.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event

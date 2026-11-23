@@ -3,7 +3,7 @@
 This card is for cody. It runs the G3 counted campaign that cody authorized on 2026-11-23
 (`docs/handoff/AR1_G3_Owner_Decision.md`), under `docs/AR1_PREREG.md` revision 3.
 
-- **Frozen commit:** `FROZEN_SHA`.
+- **Frozen commit:** `575f49304d0766ff1445e7d442cb7024c3928bbc`.
 - **Driver:** `ar1/g3.py`, which runs every phase without stopping.
 - **Expected time:** about 20 hours.
 - **Restarts:** it can be restarted after a reboot, and it keeps the runs that are already finished.
@@ -27,13 +27,13 @@ apt-get update -q && apt-get install -y -q git curl bzip2 tmux
 id ar1run >/dev/null 2>&1 || useradd -m ar1run
 mkdir -p /srv && cd /srv
 [ -d snc ] || git clone -q https://github.com/codypendant/SNC-server-OS.git snc
-cd /srv/snc && git -c safe.directory='*' fetch -q origin && git -c safe.directory='*' checkout -q FROZEN_SHA && git -c safe.directory='*' log --oneline -1
+cd /srv/snc && git -c safe.directory='*' fetch -q origin && git -c safe.directory='*' checkout -q 575f49304d0766ff1445e7d442cb7024c3928bbc && git -c safe.directory='*' log --oneline -1
 AR1_ENV=/opt/ar1 bash experiments/ar1/setup.sh
 mkdir -p /srv/ar1-runs /srv/ar1-g3 && chown -R ar1run /srv/snc /srv/ar1-runs /srv/ar1-g3
 cat > /srv/ar1-g3.sh <<'EOF'
 #!/bin/bash
 cd /srv/snc/experiments/ar1
-exec runuser -u ar1run -- env AR1_PGBIN=/opt/ar1/bin AR1_RUNS=/srv/ar1-runs AR1_FREEZE_EXPECT=FROZEN_SHA \
+exec runuser -u ar1run -- env AR1_PGBIN=/opt/ar1/bin AR1_RUNS=/srv/ar1-runs AR1_FREEZE_EXPECT=575f49304d0766ff1445e7d442cb7024c3928bbc \
   PYTHONPATH=/srv/snc/experiments/ar1 HOME=/home/ar1run /opt/ar1/bin/python -m ar1.g3 /srv/ar1-g3 >> /srv/ar1-g3/driver.log 2>&1
 EOF
 chmod +x /srv/ar1-g3.sh
