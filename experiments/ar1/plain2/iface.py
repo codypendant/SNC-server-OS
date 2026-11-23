@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sys
@@ -58,6 +59,10 @@ def state():
     }
 
 
+def kind(x):
+    return "record" if "late_attempt" in (x["data"] or {}) else x["kind"]
+
+
 def reconstruct():
     cs = commits("ref=%s OR data ? %s", arg, arg)
     disp = [x for x in cs if "-disp" in x["name"]]
@@ -66,12 +71,12 @@ def reconstruct():
         "authorized": None,
         "executed": {
             "attempts": [{"n": k + 1, "epoch": x["epoch"]} for k, x in enumerate(disp)],
-            "states": [x["state"] for x in cs],
+            "states": [x["state"] for x in cs if x["kind"] != "derive"],
         },
-        "committed": {"transitions": [{k: x[k] for k in ("token", "name", "state")} for x in cs]},
+        "committed": {"transitions": [{k: x[k] for k in ("token", "name", "state")} | {"kind": kind(x)} for x in cs]},
         "commits": cs,
     }
-    inv = rows("SELECT body, whole_hash FROM plain.invocation WHERE id=%s", arg)
+    inv = rows("SELECT body, whole_hash, request_id, output FROM plain.invocation WHERE id=%s", arg)
     call = rows(
         "SELECT i.body, i.whole_hash, d.rule_version, d.approval FROM plain.call c"
         " JOIN plain.decision d ON d.id = c.policy JOIN plain.invocation i ON i.id = d.inv WHERE c.id=%s",
@@ -79,6 +84,11 @@ def reconstruct():
     )
     if inv or call:
         out["shown"] = {"items": (inv or call)[0][0]["items"], "whole_hash": (inv or call)[0][1]}
+    if inv and inv[0][3]:
+        out["executed"] |= {
+            "provider_request_id": inv[0][2],
+            "output_sha256": hashlib.sha256(inv[0][3].encode()).hexdigest(),
+        }
     if call:
         out["authorized"] = {"rule_version": call[0][2], "approval": call[0][3]}
     return out

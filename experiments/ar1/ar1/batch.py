@@ -104,51 +104,72 @@ def jobs(kind):
         (pt, s, m, "snc")
         for m, pts in ADEQUACY.items()
         for pt in pts
-        for s in seeds(pt, 5, f"adequacy:{m}", WANT.get(m) if pt.startswith("C-b2/") else None)
+        for s in seeds(
+            pt, 5, f"adequacy:{os.environ.get('AR1_FREEZE', '')}{m}", WANT.get(m) if pt.startswith("C-b2/") else None
+        )
     ]
+
+
+def is_invalid(r):
+    return (r.get("check") or {}).get("verdict") == "invalid"
 
 
 def main():
     kind, out = sys.argv[1], Path(sys.argv[2])
     worker, workers = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (0, 1)
-    done = set()
+    done, invalid = set(), {}
     if out.exists():
-        done = {
-            (r["point"], r["seed"], r["mutation"] or "none", r["arm"])
-            for r in map(json.loads, out.read_text().splitlines())
-        }
+        for r in map(json.loads, out.read_text().splitlines()):
+            k = (r["point"], r["seed"], r["mutation"] or "none", r["arm"])
+            if is_invalid(r):
+                invalid[r["point"]] = invalid.get(r["point"], 0) + 1
+                if invalid[r["point"]] == 1:
+                    continue
+            done.add(k)
     env = {
         **os.environ,
         "AR1_PORT": str(int(os.environ.get("AR1_PORT_BASE", "24320")) + 100 * worker),
         "AR1_RUNS": f"{os.environ.get('AR1_RUNS', '/tmp/ar1-runs')}/w{worker}",
     }
     code = code_hash()
+    subprocess.run(["pkill", "-9", "-f", "--", f"-D {env['AR1_RUNS']}"], capture_output=True)
     for i, job in enumerate(jobs(kind)):
         if i % workers != worker or job in done:
             continue
-        p = subprocess.Popen(
-            [PY, "-m", "ar1.harness", job[0], str(job[1]), job[2], job[3]],
-            cwd=HERE,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-        )
-        try:
-            so, err = p.communicate(timeout=420)
-        except subprocess.TimeoutExpired:
-            so, err = "", "batch timeout"
-        subprocess.run(["pkill", "-9", "-s", str(p.pid)], capture_output=True)
-        try:
-            res = json.loads(so.strip().splitlines()[-1])
-        except (IndexError, ValueError):
-            res = {"point": job[0], "seed": job[1], "arm": job[3], "harness_error": err[-2000:]}
-        res["mutation"] = res.get("mutation") or job[2]
-        res["code"] = code
-        with open(out, "a") as f:
-            f.write(json.dumps(res, default=str) + "\n")
-        subprocess.run(["pkill", "-9", "-f", f"-D {env['AR1_RUNS']}"], capture_output=True)
+        while True:
+            res = run(job, env, code)
+            with open(out, "a") as f:
+                f.write(json.dumps(res, default=str) + "\n")
+            if not is_invalid(res):
+                break
+            invalid[job[0]] = invalid.get(job[0], 0) + 1
+            if invalid[job[0]] > 1:
+                break
+
+
+def run(job, env, code):
+    p = subprocess.Popen(
+        [PY, "-m", "ar1.harness", job[0], str(job[1]), job[2], job[3]],
+        cwd=HERE,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        so, err = p.communicate(timeout=420)
+    except subprocess.TimeoutExpired:
+        so, err = "", "batch timeout"
+    subprocess.run(["pkill", "-9", "-s", str(p.pid)], capture_output=True)
+    try:
+        res = json.loads(so.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        res = {"point": job[0], "seed": job[1], "arm": job[3], "harness_error": err[-2000:]}
+    res["mutation"] = res.get("mutation") or job[2]
+    res["code"] = code
+    subprocess.run(["pkill", "-9", "-f", "--", f"-D {env['AR1_RUNS']}"], capture_output=True)
+    return res
 
 
 if __name__ == "__main__":

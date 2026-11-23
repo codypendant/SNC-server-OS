@@ -19,9 +19,9 @@ CREATE TABLE plain.agent (id text PRIMARY KEY, epoch int, version int);
 CREATE TABLE plain.task (id text PRIMARY KEY, agent text, status text, requester text, goal text, version int);
 CREATE TABLE plain.memory (id text PRIMARY KEY, version int, agent text, content_hash text, token text);
 CREATE TABLE plain.invocation (id text PRIMARY KEY, n int, epoch int, state text, attempts int, body jsonb,
-    whole_hash text, request_id text, output text, late bool, retry_of text);
+    whole_hash text, request_id text, output text, late bool, retry_of text, stale bool);
 CREATE TABLE plain.call (id text PRIMARY KEY, agent text, task text, tool text, key text, epoch int, state text,
-    attempts int, result jsonb, policy text);
+    attempts int, result jsonb, policy text, stale bool);
 CREATE TABLE plain.decision (id text PRIMARY KEY, task text, inv text, rule_version text, inputs text, result text,
     approval text, epoch int);
 CREATE TABLE plain.commits (token text PRIMARY KEY, xid xid8, epoch int, kind text, name text, agent text, ref text,

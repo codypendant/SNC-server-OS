@@ -17,6 +17,7 @@ from .harness import ARMS, HERE, PY, RUNS
 
 HOOK = Path(__file__).resolve().parent / "perfhook"
 STUB_MS = 500
+TOKENS = {"snc": "snc.commit_token", "plain1": "plain.commits", "plain2": "plain.commits"}
 
 
 def reset_dbs(port):
@@ -116,6 +117,8 @@ def task(pair, arm, i):
     s0 = next((e["lsn"] for e in ev if e["kind"] == "task-start"), None)
     s1 = next((e["lsn"] for e in ev if e["kind"] == "task-end"), None)
     commits, wal_bytes = window(pair, s0, s1) if s0 and s1 else (None, None)
+    with pg.connect(pair.primary.port, pg.ADMIN, "ar1") as c:
+        tokens = c.execute(f"SELECT count(*) FROM {TOKENS[arm]}").fetchone()[0]
     out = {
         "arm": arm,
         "i": i,
@@ -126,6 +129,7 @@ def task(pair, arm, i):
         "http_requests": sum(e["kind"] == "http" for e in ev),
         "net_ns": t1 - t0 - http if t0 and t1 else None,
         "commits": commits,
+        "consequential_commits": tokens,
         "wal_bytes": wal_bytes,
         "blob_bytes": sum(f.stat().st_size for f in (R / "blobs").iterdir()) if (R / "blobs").exists() else 0,
     }
@@ -143,8 +147,12 @@ def main():
             for arm in arms:
                 if (arm, i) in done:
                     continue
+                try:
+                    row = task(pair, arm, i)
+                except Exception as e:
+                    row = {"arm": arm, "i": i, "error": repr(e)}
                 with open(out, "a") as f:
-                    f.write(json.dumps(task(pair, arm, i)) + "\n")
+                    f.write(json.dumps(row) + "\n")
     finally:
         pair.destroy()
 

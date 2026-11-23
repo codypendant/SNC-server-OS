@@ -5,7 +5,7 @@ This card is for cody. It runs the G3 counted campaign that cody authorized on 2
 
 - **Frozen commit:** `FROZEN_SHA`.
 - **Driver:** `ar1/g3.py`, which runs every phase without stopping.
-- **Expected time:** about 18 hours.
+- **Expected time:** about 20 hours.
 - **Restarts:** it can be restarted after a reboot, and it keeps the runs that are already finished.
 
 ## 1. Create the VM
@@ -23,7 +23,6 @@ SSH. Run nothing else on it while the campaign runs.
 Log in as root over SSH, then paste this block as it is:
 
 ```bash
-set -e
 apt-get update -q && apt-get install -y -q git curl bzip2 tmux
 id ar1run >/dev/null 2>&1 || useradd -m ar1run
 mkdir -p /srv && cd /srv
@@ -77,11 +76,15 @@ upload has been confirmed.
 3. **Phase 0, the hard gate:**
    - OI-1a, the OI-1a control, OI-1a-v, OI-1b, OI-1c, OI-1d, C-7 and C-7b run 20 times each, and OI-1e runs 20
      times with 1,000 freezes;
+   - an invalid run is repeated once with the same seed;
    - if any check fails, the campaign stops with REFINE (design);
-   - if OI-1e fails or is incomplete, the campaign stops with UNRESOLVED.
-4. **The counted arms:** SNC, plain DBOS step 1 and plain DBOS step 2. Each runs all 128 points with 20 seeds, which
-   is 2,560 runs per arm. An UNRESOLVED run, or a cap being hit, stops the campaign.
-5. **Performance:** 1,000 tasks for each of SNC and plain step 2, run alternately, with the stub at 500 ms. This
-   gives the latency budget B.
-6. **Determinism divergence:** reported only; it is not a gate.
-7. **Outcome:** the section 9 outcome goes in `summary.json` and on the last line of `driver.log`.
+   - if a check crashes, has too few valid runs, or OI-1e fails or is incomplete, it stops with UNRESOLVED.
+4. **Checker adequacy on the frozen code (section 7.3):** all 14 mutations, 5 seeds at each observable point, every
+   run flagged. A missed mutation stops the campaign with UNRESOLVED.
+5. **The counted arms:** SNC, plain DBOS step 1 and plain DBOS step 2. Each runs all 128 points with 20 seeds, which
+   is 2,560 runs per arm. An invalid run is repeated once with the same seed. An UNRESOLVED run, more than one
+   invalid run at a point, a missing run, or a cap being hit stops the campaign.
+6. **Performance:** 1,000 tasks for each of SNC and plain step 2, run alternately, with the stub at 500 ms. This
+   gives the latency budget B, per consequential commit. Every task must finish, or the outcome is UNRESOLVED.
+7. **Determinism divergence:** reported only; it is not a gate.
+8. **Outcome:** the section 9 outcome goes in `summary.json` and on the last line of `driver.log`.

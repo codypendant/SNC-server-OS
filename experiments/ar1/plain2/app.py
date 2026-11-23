@@ -38,12 +38,20 @@ def q(sql, **p):
     return ds.sql_session().execute(sa.text(sql), p)
 
 
+class Rejected(Exception):
+    def __init__(self, reason, xid=None):
+        super().__init__(reason)
+        self.xid = xid
+
+
 def lock(kind):
-    e, status = q(
-        "SELECT epoch, (SELECT status FROM plain.task WHERE id='T') FROM plain.agent WHERE id='A' FOR SHARE"
-    ).one()
-    if kind != "outcome" and (e != EPOCH or status == "cancelled"):
-        raise RuntimeError(f"rejected: activation epoch {EPOCH}, agent epoch {e}, task {status}")
+    sql = "SELECT epoch, (SELECT status FROM plain.task WHERE id='T'), pg_current_xact_id()::text FROM plain.agent"
+    e, status, xid = q(sql + " WHERE id='A' FOR SHARE").one()
+    if kind != "outcome" and e != EPOCH:
+        raise Rejected(f"stale epoch: activation epoch {EPOCH} is below agent epoch {e}", xid)
+    if kind != "outcome" and status == "cancelled":
+        raise Rejected("task cancelled", xid)
+    return e
 
 
 def commit(name, kind, ref, state, data=None):
@@ -59,7 +67,7 @@ def decision(name):
         yield
     except Exception as e:
         if stale:
-            fault.stale_end("rejected", repr(e))
+            fault.stale_end("rejected", str(e), getattr(e, "xid", None))
         raise
     if stale:
         fault.stale_end("committed")
@@ -162,10 +170,17 @@ def call_model(i, by):
 
 @tx
 def record_model(i, rid, out):
-    lock("outcome")
+    stale = lock("outcome") != EPOCH
     sql = "UPDATE plain.invocation SET state='output', output=:o, request_id=:r, late=(state='result_unknown')"
-    q(sql + " WHERE id=:i", o=out, r=rid, i=i)
+    q(sql + ", stale=:st WHERE id=:i", o=out, r=rid, st=stale, i=i)
     commit("I-out", "outcome", i, "output")
+
+
+@tx
+def derive(table, x, name):
+    lock("derive")
+    q(f"UPDATE plain.{table} SET stale=false WHERE id=:i", i=x["id"])
+    commit(name, "derive", x["id"], "derived")
 
 
 def run_model():
@@ -173,6 +188,8 @@ def run_model():
         i = read("SELECT * FROM plain.invocation ORDER BY n DESC LIMIT 1")
         s = i and i["state"]
         if s == "output":
+            if i["stale"]:
+                derive("invocation", i, "I-derive")
             return i["id"]
         if s in ("dispatched", "accepted"):
             DBOS.sleep(4)
@@ -242,11 +259,19 @@ def call_tool(c, by):
 
 @tx
 def outcome(c, n, res):
-    lock("outcome")
+    stale = lock("outcome") != EPOCH
     state = "rejected" if res["kind"] == "rejected_stale" else "completed"
-    sql = "UPDATE plain.call SET state=:s, result=CAST(:r AS jsonb) WHERE id=:i AND attempts=:n AND state NOT IN"
-    ok = q(sql + " ('completed', 'rejected') RETURNING 1", s=state, r=json.dumps(res["result"]), i=c["id"], n=n).first()
-    commit(c["tool"].replace("-", "") + "-out", "outcome", c["id"], state if ok or state == "rejected" else "duplicate")
+    sql = "UPDATE plain.call SET state=:s, result=CAST(:r AS jsonb), stale=:st WHERE id=:i AND attempts=:n AND state"
+    r = json.dumps(res["result"])
+    ok = q(sql + " NOT IN ('completed', 'rejected') RETURNING 1", s=state, r=r, st=stale, i=c["id"], n=n).first()
+    late = None if ok else {"late_attempt": n}
+    commit(
+        c["tool"].replace("-", "") + "-out",
+        "outcome",
+        c["id"],
+        state if ok or state == "rejected" else "duplicate",
+        late,
+    )
 
 
 def run_tool(tool, pol):
@@ -255,6 +280,8 @@ def run_tool(tool, pol):
         c = read("SELECT * FROM plain.call WHERE tool=:t ORDER BY epoch DESC LIMIT 1", t=tool)
         s = c and c["state"]
         if s == "completed":
+            if c["stale"]:
+                derive("call", c, f"{p}-derive")
             return
         if s in (None, "rejected"):
             with decision(f"{p}-prep"):
@@ -264,6 +291,7 @@ def run_tool(tool, pol):
         if s == "dispatched" and tool == "T-N":
             DBOS.sleep(4)
             move("TN-indoubt", "call", c, "in_doubt")
+            after("TN-indoubt")
             continue
         if s == "dispatched" and tool == "T-I":
             st = get(f"/status?key={c['key']}")

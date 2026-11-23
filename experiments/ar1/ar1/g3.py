@@ -1,7 +1,7 @@
 """AR-1 G3 counted campaign (prereg revision 3): python -m ar1.g3 <results dir>.
 
 Runs as the non-root runner on the dedicated VM, from a clean checkout of the frozen commit. Phases, each with its
-section 10 cap: Phase 0 (hard gate), SNC arm, plain step 1, plain step 2, performance, determinism divergence. A
+section 10 cap: Phase 0 (hard gate), checker adequacy on the frozen code, SNC arm, plain step 1, plain step 2, performance, determinism divergence. A
 Phase 0 failure, or any UNRESOLVED run, stops the campaign (section 9). Resumable: finished rows are kept.
 """
 
@@ -14,7 +14,9 @@ import time
 from pathlib import Path
 
 from . import pg
-from .batch import code_hash
+from check.score import score
+
+from .batch import ADEQUACY, code_hash
 from .harness import HERE, PY
 from .matrix import points
 
@@ -22,7 +24,7 @@ REPO = HERE.parent.parent
 SEEDS = int(os.environ.get("AR1_SEEDS", "20"))
 TASKS = int(os.environ.get("AR1_PERF_TASKS", "1000"))
 CHECKS = [(c, SEEDS) for c in ("OI-1a", "OI-1a-control", "OI-1a-v", "OI-1b", "OI-1c", "OI-1d", "C-7", "C-7b")]
-CAP_H = {"phase0": 8, "snc": 16, "plain1": 16, "plain2": 16, "perf": 4}
+CAP_H = {"phase0": 8, "adequacy": 6, "snc": 16, "plain1": 16, "plain2": 16, "perf": 4}
 WORKERS = int(os.environ.get("AR1_WORKERS", "2"))
 
 
@@ -79,54 +81,57 @@ def manifest(out, fz):
     (out / "manifest.txt").write_text(text + "\n")
 
 
-def capped(cmd, hours, env=None):
+def capped(cmd, end, env=None):
     try:
-        return subprocess.run(cmd, cwd=HERE, env={**os.environ, **(env or {})}, timeout=hours * 3600).returncode
+        return subprocess.run(
+            cmd, cwd=HERE, env={**os.environ, **(env or {})}, timeout=max(1, end - time.time())
+        ).returncode
     except subprocess.TimeoutExpired:
         return "cap"
 
 
-def phase0(out):
+def phase0(out, end):
     d = out / "phase0"
-    end = time.time() + CAP_H["phase0"] * 3600
     for name, n in CHECKS:
-        if (d / f"{name}.json").exists():
-            continue
-        if capped([PY, "-m", "ar1.phase0", name, str(n), str(d)], max(0.01, (end - time.time()) / 3600)) == "cap":
+        if not (d / f"{name}.json").exists() and capped([PY, "-m", "ar1.phase0", name, str(n), str(d)], end) == "cap":
             return {"gate": "UNRESOLVED", "reason": f"Phase 0 cap hit during {name}"}
-    if not (d / "OI-1e.json").exists():
-        with open(d / "OI-1e.json", "w") as f:
-            subprocess.run(
-                [
-                    PY,
-                    "-m",
-                    "check.oi1e",
-                    str(Path(os.environ.get("AR1_RUNS", "/tmp/ar1-runs")) / "oi1e"),
-                    str(SEEDS),
-                    "1000" if SEEDS == 20 else "40",
-                ],
-                cwd=HERE,
-                stdout=f,
-                timeout=max(1, end - time.time()),
-            )
-    fails = []
+    e1 = d / "OI-1e.json"
+    if not (e1.exists() and e1.read_text().strip()):
+        work = Path(os.environ.get("AR1_RUNS", "/tmp/ar1-runs")) / "oi1e"
+        try:
+            with open(e1, "w") as f:
+                subprocess.run(
+                    [PY, "-m", "check.oi1e", str(work), str(SEEDS), "1000" if SEEDS == 20 else "40"],
+                    cwd=HERE,
+                    stdout=f,
+                    timeout=max(1, end - time.time()),
+                )
+        except subprocess.TimeoutExpired:
+            return {"gate": "UNRESOLVED", "reason": "Phase 0 cap hit during OI-1e"}
+    fails, unexplained = [], []
     for name, n in CHECKS:
         rs = json.loads((d / f"{name}.json").read_text()) if (d / f"{name}.json").exists() else []
-        if len(rs) < n or not all(r.get("pass") for r in rs):
+        if len(rs) < n or any(r.get("error") for r in rs):
+            unexplained.append(name)
+        elif not all(r.get("pass") for r in rs):
             fails.append(name)
-    e = json.loads((d / "OI-1e.json").read_text() or "{}")
+    try:
+        e = json.loads(e1.read_text())
+    except ValueError:
+        e = {}
     if e.get("overall") != "pass":
-        return {"gate": "UNRESOLVED", "reason": "OI-1e instrument failure (section 6)", "fails": fails + ["OI-1e"]}
+        unexplained.append("OI-1e")
+    if unexplained:
+        return {"gate": "UNRESOLVED", "reason": "crash, too few valid runs, or OI-1e", "unexplained": unexplained}
     return {"gate": "pass"} if not fails else {"gate": "REFINE (design)", "fails": fails}
 
 
-def arm(out, name):
-    files = [out / f"{name}.w{w}.jsonl" for w in range(WORKERS)]
+def batch(out, kind, end):
+    files = [out / f"{kind}.w{w}.jsonl" for w in range(WORKERS)]
     procs = [
-        subprocess.Popen([PY, "-m", "ar1.batch", f"counted-{name}", str(f), str(w), str(WORKERS)], cwd=HERE)
+        subprocess.Popen([PY, "-m", "ar1.batch", kind, str(f), str(w), str(WORKERS)], cwd=HERE)
         for w, f in enumerate(files)
     ]
-    end = time.time() + CAP_H[name] * 3600
     capped_out = False
     for p in procs:
         try:
@@ -134,27 +139,47 @@ def arm(out, name):
         except subprocess.TimeoutExpired:
             p.kill()
             capped_out = True
-    rows = [json.loads(l) for f in files if f.exists() for l in f.read_text().splitlines()]
-    return summarize(name, rows, capped_out)
+    return [json.loads(l) for f in files if f.exists() for l in f.read_text().splitlines()], capped_out
+
+
+def adequacy(out, end):
+    rows, capped_out = batch(out, "adequacy", end)
+    sc = score(rows)
+    missed = {
+        m: {k: sc.get(m, {}).get(k) for k in ("runs", "detected", "not_scored")}
+        for m, pts in ADEQUACY.items()
+        if sc.get(m, {}).get("runs") != 5 * len(pts) or sc[m]["detected"] != sc[m]["runs"]
+    }
+    return {"capped": capped_out, "runs": len(rows), "missed": missed, "score": sc}
+
+
+def verdict(r):
+    if "check" in r:
+        return r["check"]["verdict"]
+    return "missing_point" if "missing_point" in r else "unresolved" if "unresolved" in r else "harness_error"
 
 
 def summarize(name, rows, capped_out):
     ids = {p["id"] for p in points()}
-    checked = [r for r in rows if "check" in r]
-    verdicts = {}
+    invalid_at = {}
     for r in rows:
-        k = (
-            r["check"]["verdict"]
-            if "check" in r
-            else ("missing_point" if "missing_point" in r else "unresolved" if "unresolved" in r else "harness_error")
-        )
-        verdicts[k] = verdicts.get(k, 0) + 1
-    exercised, violations = {}, {}
+        if verdict(r) == "invalid":
+            invalid_at[r["point"]] = invalid_at.get(r["point"], 0) + 1
+    last = {}
+    for r in rows:
+        last[(r["point"], r["seed"])] = r
+    rows = list(last.values())
+    checked = [r for r in rows if "check" in r]
+    verdicts, exercised, failing = {}, {}, {}
+    for r in rows:
+        verdicts[verdict(r)] = verdicts.get(verdict(r), 0) + 1
     for r in checked:
         for c in r["check"]["exercised"]:
             exercised[c] = exercised.get(c, 0) + 1
-        for v in r["check"]["violations"]:
-            violations[v["clause"]] = violations.get(v["clause"], 0) + 1
+        for c, st in r["check"]["clauses"].items():
+            if st in ("violation", "unmet"):
+                failing.setdefault(c, {}).setdefault(st, 0)
+                failing[c][st] += 1
     clauses = set(checked[0]["check"]["clauses"]) if checked else set()
     unresolved = [
         {
@@ -162,25 +187,28 @@ def summarize(name, rows, capped_out):
             "seed": r["seed"],
             "why": r.get("unresolved")
             or r.get("harness_error")
-            or r["check"].get("unresolved")
-            or r["check"].get("invalid"),
+            or r.get("missing_point")
+            or (r.get("check") or {}).get("unresolved")
+            or (r.get("check") or {}).get("invalid"),
         }
         for r in rows
-        if "unresolved" in r
-        or "harness_error" in r
-        or ("check" in r and (r["check"]["verdict"] not in ("pass", "violation")))
-    ]
+        if verdict(r) not in ("pass", "violation")
+    ] + [{"point": p, "why": f"{n} invalid runs"} for p, n in invalid_at.items() if n > 1]
+    per_point = {}
+    for r in rows:
+        per_point[r["point"]] = per_point.get(r["point"], 0) + 1
     return {
         "arm": name,
         "runs": len(rows),
         "expected": len(ids) * SEEDS,
+        "short_points": sorted(p for p in ids if per_point.get(p, 0) < SEEDS),
         "capped": capped_out,
         "verdicts": verdicts,
         "points_reached": len({r["point"] for r in checked}),
-        "violations_by_clause": violations,
+        "failing_by_clause": failing,
         "exercised_runs_per_clause": dict(sorted(exercised.items())),
         "unexercised": sorted(clauses - set(exercised)),
-        "missing_points": sorted({r["point"] for r in rows if "missing_point" in r}),
+        "invalid_repeated": invalid_at,
         "unresolved": unresolved,
         "max_seconds": max((float(r.get("seconds") or 0) for r in rows), default=0),
     }
@@ -206,9 +234,9 @@ def lines():
     return {"step1_to_step2_lines": count, "plain2_total_lines": total, "snc_rt_lines": snc}
 
 
-def perf(out):
+def perf(out, end):
     f = out / "perf.jsonl"
-    rc = capped([PY, "-m", "ar1.perf", "snc,plain2", str(TASKS), str(f)], CAP_H["perf"])
+    rc = capped([PY, "-m", "ar1.perf", "snc,plain2", str(TASKS), str(f)], end)
     rows = [json.loads(l) for l in f.read_text().splitlines()] if f.exists() else []
 
     def q(xs, p):
@@ -217,23 +245,31 @@ def perf(out):
 
     by = {}
     for a in ("snc", "plain2"):
-        ok = [r for r in rows if r["arm"] == a and r["rc"] == 0 and r["net_ns"] is not None]
+        mine = [r for r in rows if r["arm"] == a]
+        ok = [r for r in mine if r.get("rc") == 0 and r.get("net_ns") is not None and r.get("result")]
         by[a] = {
             "tasks": len(ok),
-            "failed": sum(r["arm"] == a for r in rows) - len(ok),
+            "failed": [{k: r.get(k) for k in ("i", "rc", "error", "result")} for r in mine if r not in ok],
             "net_ms_p50": q([r["net_ns"] / 1e6 for r in ok], 0.5),
             "net_ms_p99": q([r["net_ns"] / 1e6 for r in ok], 0.99),
-            "commits_per_task": q([r["commits"] for r in ok], 0.5),
+            "consequential_commits_per_task": q([r["consequential_commits"] for r in ok], 0.5),
+            "commit_records_per_task": q([r["commits"] for r in ok], 0.5),
             "wal_bytes_per_task": q([r["wal_bytes"] for r in ok], 0.5),
             "blob_bytes_per_task": q([r["blob_bytes"] for r in ok], 0.5),
         }
     s, p2 = by["snc"], by["plain2"]
-    res = {"capped": rc == "cap", "arms": by}
-    if s["tasks"] and p2["tasks"] and s["commits_per_task"]:
-        res["B_ms_p50"] = (s["net_ms_p50"] - p2["net_ms_p50"]) / s["commits_per_task"]
-        res["B_ms_p99"] = (s["net_ms_p99"] - p2["net_ms_p99"]) / s["commits_per_task"]
+    res = {"capped": rc == "cap", "complete": s["tasks"] == TASKS and p2["tasks"] == TASKS, "arms": by}
+    if res["complete"] and s["consequential_commits_per_task"]:
+        n = s["consequential_commits_per_task"]
+        res["B_ms_p50"] = (s["net_ms_p50"] - p2["net_ms_p50"]) / n
+        res["B_ms_p99"] = (s["net_ms_p99"] - p2["net_ms_p99"]) / n
         res["B_holds"] = res["B_ms_p50"] <= 10 and res["B_ms_p99"] <= 50
         res["B_factor"] = max(res["B_ms_p50"] / 10, res["B_ms_p99"] / 50)
+        m = s["commit_records_per_task"]
+        res["B_per_commit_record_ms"] = [
+            (s["net_ms_p50"] - p2["net_ms_p50"]) / m,
+            (s["net_ms_p99"] - p2["net_ms_p99"]) / m,
+        ]
     return res
 
 
@@ -242,7 +278,10 @@ def diverge(out):
     for a in ("snc", "plain1", "plain2"):
         f = out / f"diverge-{a}.json"
         if not f.exists():
-            subprocess.run([PY, "-m", "ar1.diverge", a, "1", str(f)], cwd=HERE, timeout=900)
+            try:
+                subprocess.run([PY, "-m", "ar1.diverge", a, "1", str(f)], cwd=HERE, timeout=900)
+            except subprocess.TimeoutExpired:
+                pass
         d = json.loads(f.read_text()) if f.exists() else {}
         res[a] = {
             "shadow_loaded": d.get("shadow_loaded"),
@@ -261,26 +300,27 @@ def outcome(s):
         return "UNRESOLVED", p0
     if p0["gate"] != "pass":
         return "REFINE (design)", p0
+    if s["adequacy"]["capped"] or s["adequacy"]["missed"]:
+        return "UNRESOLVED", {"missed mutations": s["adequacy"]["missed"], "capped": s["adequacy"]["capped"]}
     arms = [s[a] for a in ("snc", "plain1", "plain2") if a in s]
-    if (
-        any(a["capped"] or a["unresolved"] or a["runs"] < a["expected"] for a in arms)
-        or s["snc"]["unexercised"]
-        or s["snc"].get("missing_points")
-        or s.get("perf", {}).get("capped")
-    ):
-        return "UNRESOLVED", "cap, unresolved run, missing SNC point or unexercised clause"
-    b = s.get("perf", {})
-    if s["snc"]["violations_by_clause"]:
-        return "STOP (unless package 3.5 can fix it)", s["snc"]["violations_by_clause"]
-    if "B_holds" not in b:
-        return "UNRESOLVED", "no B measurement"
+    bad = [a["arm"] for a in arms if a["capped"] or a["unresolved"] or a["short_points"]]
+    if bad or s["snc"]["unexercised"]:
+        return "UNRESOLVED", {"arms": bad, "snc_unexercised": s["snc"]["unexercised"]}
+    if s["snc"]["failing_by_clause"] or s["snc"]["verdicts"].get("violation"):
+        return "STOP (unless package 3.5 can fix it)", s["snc"]["failing_by_clause"]
+    b = s["perf"]
+    if b["capped"] or "B_holds" not in b:
+        return "UNRESOLVED", "performance capped or incomplete"
     if b["B_factor"] > 2:
         return "STOP", "B fails by more than a factor of 2"
     if not b["B_holds"]:
         return "REFINE", "B fails by at most a factor of 2"
     p2 = s["plain2"]
     if p2["verdicts"].get("pass") == p2["runs"] and s["lines"]["step1_to_step2_lines"] <= 300:
-        return "NARROW", "plain DBOS step 2 meets items 1-7 in L lines or fewer"
+        return "NARROW", {
+            "why": "plain DBOS step 2 meets items 1-7 in L lines or fewer",
+            "unexercised": p2["unexercised"],
+        }
     return "GO", "Phase 0 passes, items 1-7 pass on SNC, B holds, plain DBOS needs more than L lines"
 
 
@@ -288,6 +328,7 @@ def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
     fz = freeze()
+    subprocess.run(["pkill", "-9", "-f", "--", f"-D {os.environ.get('AR1_RUNS', '/tmp/ar1-runs')}"])
     os.environ["AR1_FREEZE"] = fz["commit"]
     if not (out / "manifest.txt").exists():
         manifest(out, fz)
@@ -300,32 +341,40 @@ def main():
         sf.write_text(json.dumps(s, indent=1))
 
     s.setdefault("lines", lines())
-    if "phase0" not in s:
-        s["phase0"] = phase0(out)
+
+    def end(phase):
+        t = s.setdefault("started", {}).setdefault(phase, time.time())
         save()
-    if s["phase0"]["gate"] != "pass":
+        return t + CAP_H[phase] * 3600
+
+    def finish():
         s["outcome"] = outcome(s)
         save()
         print(json.dumps(s["outcome"]))
-        return
+
+    if "phase0" not in s:
+        s["phase0"] = phase0(out, end("phase0"))
+        save()
+    if s["phase0"]["gate"] != "pass":
+        return finish()
+    if "adequacy" not in s:
+        s["adequacy"] = adequacy(out, end("adequacy"))
+        save()
+    if s["adequacy"]["capped"] or s["adequacy"]["missed"]:
+        return finish()
     for a in ("snc", "plain1", "plain2"):
         if a not in s:
-            s[a] = arm(out, a)
+            s[a] = summarize(a, *batch(out, f"counted-{a}", end(a)))
             save()
-        if s[a]["unresolved"] or s[a]["capped"]:
-            s["outcome"] = outcome(s)
-            save()
-            print(json.dumps(s["outcome"]))
-            return
+        if s[a]["unresolved"] or s[a]["capped"] or s[a]["short_points"]:
+            return finish()
     if "perf" not in s:
-        s["perf"] = perf(out)
+        s["perf"] = perf(out, end("perf"))
         save()
     if "diverge" not in s:
         s["diverge"] = diverge(out)
         save()
-    s["outcome"] = outcome(s)
-    save()
-    print(json.dumps(s["outcome"]))
+    finish()
 
 
 if __name__ == "__main__":
