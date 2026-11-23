@@ -825,22 +825,24 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     work = Path(os.environ.get("AR1_RUNS", "/tmp/ar1-runs")) / "phase0"
     signal.signal(signal.SIGTERM, lambda *a: sys.exit(1))
+    prefix = f"phase0:{os.environ['AR1_FREEZE']}" if os.environ.get("AR1_FREEZE") else "phase0"
     for name in (CHECKS if which == "all" else [which]):
-        results = []
-        for i in range(runs):
-            rnd = random.Random(f"phase0:{name}:{i}")
+        results, invalid, i = [], [], 0
+        while len(results) < runs and i < 2 * runs:
+            rnd = random.Random(f"{prefix}:{name}:{i}")
             t0 = time.monotonic()
             try:
                 r = CHECKS[name](work / f"{name}-{i}", rnd, i)
             except Exception as e:
                 r = {"pass": False, "error": repr(e)}
             r["run"], r["seconds"] = i, round(time.monotonic() - t0, 1)
-            results.append(r)
+            (invalid if r.get("invalid") else results).append(r)
+            i += 1
             print(
                 json.dumps(
                     {
                         "check": name,
-                        "run": i,
+                        "run": r["run"],
                         "pass": r.get("pass"),
                         "invalid": r.get("invalid"),
                         "error": r.get("error"),
@@ -849,6 +851,8 @@ def main():
                 ),
                 flush=True,
             )
+        if invalid:
+            (out_dir / f"{name}.invalid.json").write_text(json.dumps(invalid, indent=1, default=str))
         (out_dir / f"{name}.json").write_text(json.dumps(results, indent=1, default=str))
 
 

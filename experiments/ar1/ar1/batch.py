@@ -1,4 +1,6 @@
-"""Uncounted G2 runs: python -m ar1.batch bringup|adequacy <out.jsonl> [worker] [workers]."""
+"""python -m ar1.batch bringup|bringup-<arm>|adequacy|counted-<arm> <out.jsonl> [worker] [workers].
+
+Counted kinds need AR1_FREEZE, the frozen SHA set (section 5.5); their seeds are sha256(freeze, point, i)."""
 
 import hashlib
 import json
@@ -83,10 +85,18 @@ def code_hash():
 
 
 def jobs(kind):
-    if kind == "bringup":
+    if kind.startswith("counted-"):
+        freeze = os.environ["AR1_FREEZE"]
+        return [
+            (p["id"], seed(p["id"], i, f"counted:{freeze}"), "none", kind[8:])
+            for p in points()
+            for i in range(int(os.environ.get("AR1_SEEDS", "20")))
+        ]
+    if kind.startswith("bringup"):
+        arms = [kind[8:]] if kind.startswith("bringup-") else ["snc", "plain1"]
         return [
             (p["id"], s, "none", arm)
-            for arm in ("snc", "plain1")
+            for arm in arms
             for p in points()
             for s in seeds(p["id"], 2, "bringup", BRINGUP.get(p["id"]))
         ]
@@ -109,7 +119,7 @@ def main():
         }
     env = {
         **os.environ,
-        "AR1_PORT": str(24320 + 100 * worker),
+        "AR1_PORT": str(int(os.environ.get("AR1_PORT_BASE", "24320")) + 100 * worker),
         "AR1_RUNS": f"{os.environ.get('AR1_RUNS', '/tmp/ar1-runs')}/w{worker}",
     }
     code = code_hash()

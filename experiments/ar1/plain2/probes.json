@@ -1,0 +1,7 @@
+{
+ "takeover_committed": "SELECT 1 FROM plain.agent WHERE epoch=2",
+ "new_tn_dispatch": "SELECT 1 FROM plain.commits WHERE name='TN-disp' AND epoch=2",
+ "policy_committed": "SELECT 1 FROM plain.commits WHERE name='P-dec'",
+ "inject_memory": "INSERT INTO plain.memory VALUES ('x1', 1, 'B', 'hx', 'inject')",
+ "inject_token": "INSERT INTO plain.commits VALUES ('inject', pg_current_xact_id(), 0, 'outcome', 'X-mem', 'B', 'x1', NULL, NULL) RETURNING xid::text"
+}

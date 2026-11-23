@@ -1,5 +1,7 @@
 {
  "takeover_committed": "SELECT 1 FROM snc.commit_token WHERE name='TAKEOVER'",
  "new_tn_dispatch": "SELECT 1 FROM snc.attempt WHERE call_id LIKE 'TN%' AND epoch=2 UNION ALL SELECT 1 FROM snc.commit_token WHERE name='TN-resolve' AND epoch=2",
- "policy_committed": "SELECT 1 FROM snc.commit_token WHERE name='P-dec'"
+ "policy_committed": "SELECT 1 FROM snc.commit_token WHERE name='P-dec'",
+ "inject_memory": "INSERT INTO snc.memory VALUES ('x1', 1, 'B', 'hx', 'inject')",
+ "inject_token": "INSERT INTO snc.commit_token VALUES ('inject', pg_current_xact_id(), 0, 'outcome', 'X-mem', 'B') RETURNING xid::text"
 }
