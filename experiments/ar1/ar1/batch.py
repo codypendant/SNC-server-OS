@@ -110,6 +110,17 @@ def jobs(kind):
     ]
 
 
+def rows(path):
+    """Complete rows of a results file; a partial last line (power loss) is cut off."""
+    if not path.exists():
+        return []
+    text = path.read_text()
+    if text and not text.endswith("\n"):
+        text = text[: text.rfind("\n") + 1]
+        path.write_text(text)
+    return [json.loads(l) for l in text.splitlines() if l.strip()]
+
+
 def is_invalid(r):
     return (r.get("check") or {}).get("verdict") == "invalid"
 
@@ -118,14 +129,13 @@ def main():
     kind, out = sys.argv[1], Path(sys.argv[2])
     worker, workers = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (0, 1)
     done, invalid = set(), {}
-    if out.exists():
-        for r in map(json.loads, out.read_text().splitlines()):
-            k = (r["point"], r["seed"], r["mutation"] or "none", r["arm"])
-            if is_invalid(r):
-                invalid[r["point"]] = invalid.get(r["point"], 0) + 1
-                if invalid[r["point"]] == 1:
-                    continue
-            done.add(k)
+    for r in rows(out):
+        k = (r["point"], r["seed"], r["mutation"] or "none", r["arm"])
+        if is_invalid(r):
+            invalid[k[0], k[2]] = invalid.get((k[0], k[2]), 0) + 1
+            if invalid[k[0], k[2]] == 1:
+                continue
+        done.add(k)
     env = {
         **os.environ,
         "AR1_PORT": str(int(os.environ.get("AR1_PORT_BASE", "24320")) + 100 * worker),
@@ -142,8 +152,8 @@ def main():
                 f.write(json.dumps(res, default=str) + "\n")
             if not is_invalid(res):
                 break
-            invalid[job[0]] = invalid.get(job[0], 0) + 1
-            if invalid[job[0]] > 1:
+            invalid[job[0], job[2]] = invalid.get((job[0], job[2]), 0) + 1
+            if invalid[job[0], job[2]] > 1:
                 break
 
 

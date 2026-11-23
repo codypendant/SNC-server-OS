@@ -16,7 +16,7 @@ from pathlib import Path
 from . import pg
 from check.score import score
 
-from .batch import ADEQUACY, code_hash
+from .batch import ADEQUACY, code_hash, rows
 from .harness import HERE, PY
 from .matrix import points
 
@@ -25,6 +25,10 @@ SEEDS = int(os.environ.get("AR1_SEEDS", "20"))
 TASKS = int(os.environ.get("AR1_PERF_TASKS", "1000"))
 CHECKS = [(c, SEEDS) for c in ("OI-1a", "OI-1a-control", "OI-1a-v", "OI-1b", "OI-1c", "OI-1d", "C-7", "C-7b")]
 CAP_H = {"phase0": 8, "adequacy": 6, "snc": 16, "plain1": 16, "plain2": 16, "perf": 4}
+PLAIN_NA = {
+    "4.gateway": "consistency check on the SNC gateway's own decision log (items 4 and 7.4); plain DBOS has none",
+    "3.late_marked": "item 3's other branch: the arm may leave a crashed invocation result unknown instead",
+}
 WORKERS = int(os.environ.get("AR1_WORKERS", "2"))
 
 
@@ -35,6 +39,8 @@ def sh(*a, **kw):
 def freeze():
     if sh("git", "-C", str(REPO), "status", "--porcelain", "--", "experiments/ar1"):
         sys.exit("experiments/ar1 has uncommitted changes: counted runs need the frozen tree (prereg 5.5)")
+    if subprocess.run([PY, "-m", "black", "--check", "-q", "plain1", "plain2"], cwd=HERE).returncode:
+        sys.exit("plain1/plain2 are not black-formatted: the line count needs the formatted tree (section 8)")
     head = sh("git", "-C", str(REPO), "rev-parse", "HEAD")
     want = os.environ.get("AR1_FREEZE_EXPECT")
     if not want or not head.startswith(want):
@@ -139,39 +145,54 @@ def batch(out, kind, end):
         except subprocess.TimeoutExpired:
             p.kill()
             capped_out = True
-    return [json.loads(l) for f in files if f.exists() for l in f.read_text().splitlines()], capped_out
+    if not capped_out and any(p.returncode for p in procs):
+        sys.exit(f"a {kind} worker crashed; restart the driver to resume")
+    return [r for f in files for r in rows(f)], capped_out
+
+
+def last(rs, key):
+    out = {}
+    for r in rs:
+        out[key(r)] = r
+    return list(out.values())
 
 
 def adequacy(out, end):
-    rows, capped_out = batch(out, "adequacy", end)
-    sc = score(rows)
+    rs, capped_out = batch(out, "adequacy", end)
+    invalid = {}
+    for r in rs:
+        if verdict(r) == "invalid":
+            invalid[r["mutation"], r["point"]] = invalid.get((r["mutation"], r["point"]), 0) + 1
+    sc = score(last(rs, lambda r: (r["mutation"], r["point"], r["seed"])))
     missed = {
         m: {k: sc.get(m, {}).get(k) for k in ("runs", "detected", "not_scored")}
         for m, pts in ADEQUACY.items()
         if sc.get(m, {}).get("runs") != 5 * len(pts) or sc[m]["detected"] != sc[m]["runs"]
     }
-    return {"capped": capped_out, "runs": len(rows), "missed": missed, "score": sc}
+    missed.update({f"{m} {p}": f"{n} invalid runs" for (m, p), n in invalid.items() if n > 1})
+    return {"capped": capped_out, "runs": len(rs), "missed": missed, "score": sc}
 
 
 def verdict(r):
-    if "check" in r:
-        return r["check"]["verdict"]
-    return "missing_point" if "missing_point" in r else "unresolved" if "unresolved" in r else "harness_error"
+    for k in ("unresolved", "harness_error", "missing_point"):
+        if k in r:
+            return k
+    return (r.get("check") or {}).get("verdict") or "harness_error"
 
 
-def summarize(name, rows, capped_out):
+def summarize(name, rs, capped_out):
     ids = {p["id"] for p in points()}
-    invalid_at = {}
-    for r in rows:
+    invalid_at, failing = {}, {}
+    for r in rs:
         if verdict(r) == "invalid":
             invalid_at[r["point"]] = invalid_at.get(r["point"], 0) + 1
-    last = {}
-    for r in rows:
-        last[(r["point"], r["seed"])] = r
-    rows = list(last.values())
-    checked = [r for r in rows if "check" in r]
-    verdicts, exercised, failing = {}, {}, {}
-    for r in rows:
+            for v in r["check"].get("violations", []):
+                failing.setdefault(v["clause"], {}).setdefault("violation in an invalid run", 0)
+                failing[v["clause"]]["violation in an invalid run"] += 1
+    rs = last(rs, lambda r: (r["point"], r["seed"]))
+    checked = [r for r in rs if verdict(r) in ("pass", "violation")]
+    verdicts, exercised = {}, {}
+    for r in rs:
         verdicts[verdict(r)] = verdicts.get(verdict(r), 0) + 1
     for r in checked:
         for c in r["check"]["exercised"]:
@@ -181,6 +202,7 @@ def summarize(name, rows, capped_out):
                 failing.setdefault(c, {}).setdefault(st, 0)
                 failing[c][st] += 1
     clauses = set(checked[0]["check"]["clauses"]) if checked else set()
+    unexplained = ("pass", "violation") if name == "snc" else ("pass", "violation", "missing_point")
     unresolved = [
         {
             "point": r["point"],
@@ -189,17 +211,18 @@ def summarize(name, rows, capped_out):
             or r.get("harness_error")
             or r.get("missing_point")
             or (r.get("check") or {}).get("unresolved")
-            or (r.get("check") or {}).get("invalid"),
+            or (r.get("check") or {}).get("invalid")
+            or verdict(r),
         }
-        for r in rows
-        if verdict(r) not in ("pass", "violation")
+        for r in rs
+        if verdict(r) not in unexplained
     ] + [{"point": p, "why": f"{n} invalid runs"} for p, n in invalid_at.items() if n > 1]
     per_point = {}
-    for r in rows:
+    for r in rs:
         per_point[r["point"]] = per_point.get(r["point"], 0) + 1
     return {
         "arm": name,
-        "runs": len(rows),
+        "runs": len(rs),
         "expected": len(ids) * SEEDS,
         "short_points": sorted(p for p in ids if per_point.get(p, 0) < SEEDS),
         "capped": capped_out,
@@ -210,13 +233,27 @@ def summarize(name, rows, capped_out):
         "unexercised": sorted(clauses - set(exercised)),
         "invalid_repeated": invalid_at,
         "unresolved": unresolved,
-        "max_seconds": max((float(r.get("seconds") or 0) for r in rows), default=0),
+        "max_seconds": max((float(r.get("seconds") or 0) for r in rs), default=0),
     }
 
 
 def lines():
     """Section 8: logical non-blank, non-comment lines of the black-formatted diff from step 1 to step 2."""
-    d = sh("git", "-C", str(REPO), "diff", "--no-index", "-U0", "experiments/ar1/plain1", "experiments/ar1/plain2")
+    names = sorted({f.name for d in ("plain1", "plain2") for f in (HERE / d).glob("*.py")})
+    side = lambda d, n: str(HERE / d / n) if (HERE / d / n).exists() else "/dev/null"
+    d = "\n".join(
+        sh(
+            "git",
+            "diff",
+            "--no-index",
+            "--no-ext-diff",
+            "--diff-algorithm=myers",
+            "-U0",
+            side("plain1", n),
+            side("plain2", n),
+        )
+        for n in names
+    )
     added = [l[1:] for l in d.splitlines() if l.startswith("+") and not l.startswith("+++")]
     count = sum(1 for l in added if l.strip() and not l.strip().startswith("#"))
     total = sum(
@@ -316,11 +353,13 @@ def outcome(s):
     if not b["B_holds"]:
         return "REFINE", "B fails by at most a factor of 2"
     p2 = s["plain2"]
-    if p2["verdicts"].get("pass") == p2["runs"] and s["lines"]["step1_to_step2_lines"] <= 300:
-        return "NARROW", {
-            "why": "plain DBOS step 2 meets items 1-7 in L lines or fewer",
-            "unexercised": p2["unexercised"],
-        }
+    gaps = sorted(set(p2["unexercised"]) - set(PLAIN_NA))
+    meets = p2["verdicts"].get("pass") == p2["runs"] and not p2["failing_by_clause"]
+    small = s["lines"]["step1_to_step2_lines"] <= 300
+    if meets and small and not gaps:
+        return "NARROW", {"why": "plain DBOS step 2 meets items 1-7 in L lines or fewer", "not_applicable": PLAIN_NA}
+    if small:
+        return "UNRESOLVED", {"why": "plain step 2 is within L but has not been shown to meet items 1-7", "gaps": gaps}
     return "GO", "Phase 0 passes, items 1-7 pass on SNC, B holds, plain DBOS needs more than L lines"
 
 

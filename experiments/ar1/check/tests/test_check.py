@@ -919,17 +919,17 @@ class Iface(Base):
         ex["output_sha256"] = "0" * 64
         self.assertFlags(check(w), "3.no_regenerate")
 
-    def after_terminal(self, kind=None):
+    def after_terminal(self, kind=None, obj="i1", frm="output", to="result_unknown"):
         w = happy(self.R, arm=self.arm)
         tok = w.commit("I-unknown", "recovery")
         w.tables["history"].append(
-            {"id": 99, "kind": kind or "invocation", "obj": "i1", "from_state": "output", "to_state": "result_unknown"}
+            {"id": 99, "kind": kind or "invocation", "obj": obj, "from_state": frm, "to_state": to}
             | {"epoch": 1, "token": tok}
         )
         w.logs["answers"] = [a for a in w.logs["answers"] if a["call"] != "reconstruct"]
         w.final()
         if kind:
-            ans = [a["answer"] for a in w.logs["answers"] if a["call"] == "reconstruct" and a["arg"] == "i1"][0]
+            ans = [a["answer"] for a in w.logs["answers"] if a["call"] == "reconstruct" and a["arg"] == obj][0]
             ans["committed"]["transitions"][-1]["kind"] = kind
         return check(w)
 
@@ -940,7 +940,15 @@ class Iface(Base):
 
     def test_labelled_record_after_terminal_skipped(self):
         self.arm = "plain2"
-        self.assertClean(self.after_terminal("record"))
+        self.assertClean(self.after_terminal("record", to="output"))
+        self.R = self.tmp()
+        self.assertClean(self.after_terminal("record", obj="c-T-F", frm="completed", to="rejected"))
+
+    def test_record_label_cannot_hide_reopen(self):
+        self.arm = "plain2"
+        for kind in ("record", "attempt"):
+            self.R = self.tmp()
+            self.assertFlags(self.after_terminal(kind, obj="c-T-I", frm="completed", to="dispatched"), "6.derive")
 
     def test_duplicate_needs_the_recorded_state(self):
         w = happy(self.R, arm="plain2", point="B/b2:T-N")

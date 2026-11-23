@@ -283,13 +283,22 @@ class Check:
             if c.get("kind") in ("takeover", "cancel") and isinstance(c.get("data"), dict):
                 out = [o for o, s in c["data"].items() if s == "outstanding"]
                 db["run_event"].append({"token": t, "kind": c["kind"], "outstanding": out})
+        tools = {}
+        for cid in calls:
+            reqs = [s for s in TOOLS for e in self.requests(s) if str(e.get("call_id")) == cid]
+            names = [x.get("name") or "" for x in self.rec_commits(cid)]
+            tools[cid] = reqs[0] if reqs else next((PFX_TOOL[n[:2]] for n in names if n[:2] in PFX_TOOL), None)
         for oid, r in rec.items():
             table = "tool_call" if oid in calls else "invocation" if oid in invs else "memory"
+            prev = None
             for tr in (r.get("committed") or {}).get("transitions") or []:
                 if isinstance(tr, dict):
                     to = tr.get("to", tr.get("state"))
-                    rec_only = tr.get("kind") in ("record", "attempt") or to in RECORD_STATES
+                    # a record label may not hide a state change, e.g. a reopening after the outcome
+                    harmless = to in (*RECORD_STATES, prev) or (to == "rejected" and tools.get(oid) == "T-F")
+                    rec_only = to in RECORD_STATES or tr.get("kind") in ("record", "attempt") and harmless
                     kind = "derive" if tr.get("kind") == "derive" else "record" if rec_only else table
+                    prev = to if kind == table else prev
                     db["history"].append(
                         {
                             "id": len(db["history"]),
@@ -301,10 +310,12 @@ class Check:
                         | {"token": tr.get("token"), "epoch": self.tokens.get(tr.get("token"), {}).get("epoch")}
                     )
         for cid, c in calls.items():
-            reqs = [(s, e) for s in TOOLS for e in self.requests(s) if str(e.get("call_id")) == cid]
-            names = [x.get("name") or "" for x in self.rec_commits(cid)]
-            tool = reqs[0][0] if reqs else next((PFX_TOOL[n[:2]] for n in names if n[:2] in PFX_TOOL), None)
-            key = reqs[0][1].get("key") if reqs else None
+            tool = tools[cid]
+            key = (
+                next((e.get("key") for e in self.requests(tool) if str(e.get("call_id")) == cid), None)
+                if tool
+                else None
+            )
             db["tool_call"].append({"id": cid, "tool": tool, "key": key, **(c or {})})
             disp = [x for x in self.rec_commits(cid) if tool and x.get("name") == DISP[tool]]
             for n in sorted(attempt_nums(((rec.get(cid) or {}).get("executed") or {}).get("attempts"))):

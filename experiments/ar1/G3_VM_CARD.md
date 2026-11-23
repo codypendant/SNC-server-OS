@@ -27,7 +27,7 @@ apt-get update -q && apt-get install -y -q git curl bzip2 tmux
 id ar1run >/dev/null 2>&1 || useradd -m ar1run
 mkdir -p /srv && cd /srv
 [ -d snc ] || git clone -q https://github.com/codypendant/SNC-server-OS.git snc
-cd /srv/snc && git fetch -q origin && git checkout -q FROZEN_SHA && git log --oneline -1
+cd /srv/snc && git -c safe.directory='*' fetch -q origin && git -c safe.directory='*' checkout -q FROZEN_SHA && git -c safe.directory='*' log --oneline -1
 AR1_ENV=/opt/ar1 bash experiments/ar1/setup.sh
 mkdir -p /srv/ar1-runs /srv/ar1-g3 && chown -R ar1run /srv/snc /srv/ar1-runs /srv/ar1-g3
 cat > /srv/ar1-g3.sh <<'EOF'
@@ -50,7 +50,8 @@ campaign keeps running inside tmux.
 tail -5 /srv/ar1-g3/driver.log; ls /srv/ar1-g3; cat /srv/ar1-g3/*.w*.jsonl 2>/dev/null | wc -l
 ```
 
-If the VM rebooted, start the campaign again with `tmux new -d -s g3 /srv/ar1-g3.sh`. It picks up where it stopped.
+If the VM rebooted, start the campaign again with `tmux new -d -s g3 /srv/ar1-g3.sh`. It picks up where it stopped. Each phase's cap is counted in wall time from the phase's start, so time the VM is down counts against it:
+restart soon after a reboot.
 
 ## 4. When it ends
 
