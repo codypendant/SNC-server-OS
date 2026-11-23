@@ -1,0 +1,178 @@
+[
+ {
+  "vary": {
+   "dummy_writes": 992,
+   "checkpoint": true,
+   "pad": 5843
+  },
+  "restartpoint_before": false,
+  "restart_after": false,
+  "cut_off": false,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2
+  },
+  "pass": true,
+  "run": 0,
+  "seconds": 4.1
+ },
+ {
+  "vary": {
+   "dummy_writes": 569,
+   "checkpoint": true,
+   "pad": 6642
+  },
+  "restartpoint_before": true,
+  "restart_after": false,
+  "cut_off": false,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 2,
+   "control_after_checkpoint": 2
+  },
+  "pass": true,
+  "run": 1,
+  "seconds": 3.6
+ },
+ {
+  "vary": {
+   "dummy_writes": 498,
+   "checkpoint": false,
+   "pad": 3068
+  },
+  "restartpoint_before": false,
+  "restart_after": true,
+  "cut_off": false,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2,
+   "after_restart": 2,
+   "identify_after_restart": 2
+  },
+  "pass": true,
+  "run": 2,
+  "seconds": 3.9
+ },
+ {
+  "vary": {
+   "dummy_writes": 540,
+   "checkpoint": false,
+   "pad": 2052
+  },
+  "restartpoint_before": true,
+  "restart_after": true,
+  "cut_off": false,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2,
+   "after_restart": 2,
+   "identify_after_restart": 2
+  },
+  "pass": true,
+  "run": 3,
+  "seconds": 4.8
+ },
+ {
+  "vary": {
+   "dummy_writes": 113,
+   "checkpoint": true,
+   "pad": 601
+  },
+  "restartpoint_before": false,
+  "restart_after": false,
+  "cut_off": true,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2
+  },
+  "pass": true,
+  "run": 4,
+  "seconds": 3.6
+ },
+ {
+  "vary": {
+   "dummy_writes": 198,
+   "checkpoint": true,
+   "pad": 7514
+  },
+  "restartpoint_before": true,
+  "restart_after": false,
+  "cut_off": true,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2
+  },
+  "pass": true,
+  "run": 5,
+  "seconds": 3.5
+ },
+ {
+  "vary": {
+   "dummy_writes": 22,
+   "checkpoint": false,
+   "pad": 6004
+  },
+  "restartpoint_before": false,
+  "restart_after": true,
+  "cut_off": true,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2,
+   "after_restart": 2,
+   "identify_after_restart": 2
+  },
+  "pass": true,
+  "run": 6,
+  "seconds": 3.5
+ },
+ {
+  "vary": {
+   "dummy_writes": 507,
+   "checkpoint": false,
+   "pad": 6285
+  },
+  "restartpoint_before": true,
+  "restart_after": true,
+  "cut_off": true,
+  "pre_session_before": "error: ObjectNotInPrerequisiteState",
+  "reads": {
+   "first": 2,
+   "identify": 2,
+   "pre_session_after": 2,
+   "control_checkpoint": 1,
+   "control_after_checkpoint": 2,
+   "after_restart": 2,
+   "identify_after_restart": 2
+  },
+  "pass": true,
+  "run": 7,
+  "seconds": 4.1
+ }
+]

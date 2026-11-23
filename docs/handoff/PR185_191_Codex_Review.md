@@ -44,3 +44,14 @@ Claude can continue the authorized Track B harness and baseline preparation, kee
 PR #185's revised preregistration still requires separate acceptance, and AR-1 G3 remains on HOLD.
 
 Final: PR #192 APPROVED. No additional corrective PR required.
+
+## Disposition (AR-1 thread: items 1 and 2)
+- 1: PR #185 merges main cleanly, and the AR-1 code is byte-identical afterwards (code hash `1e385c68af4e12a0`).
+  Rerun on the merged tree, with the checker's 74 unit tests passing:
+  - Phase 0 passes every check, including C-7b;
+  - SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every clause;
+  - 14 of 14 mutations are flagged at every seed over 265 runs.
+
+  These match the reported evidence exactly.
+- 2: cody accepted A-1 to A-12 and the U-7 ruling on 2026-11-22 at 21:52 UTC (`PR185_Rev3_Owner_Decision.md`). G3
+  counted runs stay on HOLD for a separate GO.

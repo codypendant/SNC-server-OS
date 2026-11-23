@@ -15,6 +15,7 @@ command lines.
 | Host | Role | Manifest |
 | --- | --- | --- |
 | This project's cloud VM (4 vCPU, 15 GiB, one NUMA node) | Development, loopback regression checks. Not experiment evidence: multi-process runs are CPU-oversubscribed | [dev-vm-4vcpu-20261104.txt](dev-vm-4vcpu-20261104.txt) |
+| AR-1 G2 cloud session (4 vCPU, 15 GiB, one NUMA node), 2026-11-21 | AR-1 uncounted bring-up, Phase 0 at bring-up scale and checker adequacy. Not counted G3 evidence | [ar1-g2-cloud-20261121.txt](ar1-g2-cloud-20261121.txt) |
 | Vultr VPSs, 2026-11-04 (three, 2 vCPU) | Lab run P0-P6. Destroyed; no script manifest. What was recorded: [REAL_MACHINES.md](../../docs/REAL_MACHINES.md) | none |
 | Main local server: Dell PowerEdge R640 (2 × Xeon Gold 6150, 320 GB, data on a 3.84 TB SAS SSD, no NVMe, eno1 at 10 GbE; not the R740xd) | Bare-metal local SNC benchmarks | **current:** [r640-main-20261106d.txt](r640-main-20261106d.txt) (governor performance, DIMM slots; numa_balancing was 1 at capture). Before that: [c](r640-main-20261106c.txt) (BIOS Performance profile, numa_balancing 0), [b](r640-main-20261106b.txt) (data SSD and a 10 GbE switch added). First, untouched: [r640-main-20261106.txt](r640-main-20261106.txt). Review in [R640_TOPOLOGY.md](../../docs/R640_TOPOLOGY.md) |
 | R740xd | TrueNAS Scale; not used for bare-metal SNC tests | n/a |

@@ -1,0 +1,58 @@
+[
+ {
+  "vary": {
+   "dummy_writes": 976,
+   "checkpoint": true,
+   "pad": 240
+  },
+  "in_syncrep": true,
+  "before_d7": {
+   "token_visible": false,
+   "xact_status": "in progress"
+  },
+  "deterministic": {
+   "lookup": true,
+   "bound": "0/40C9560",
+   "commit_end": "0/40C5490",
+   "bound_ok": true,
+   "ok": true
+  },
+  "random": {
+   "kills": 20,
+   "committed": 20,
+   "violations": []
+  },
+  "negative_control_fired": true,
+  "pass": true,
+  "run": 0,
+  "seconds": 13.4
+ },
+ {
+  "vary": {
+   "dummy_writes": 110,
+   "checkpoint": false,
+   "pad": 6850
+  },
+  "in_syncrep": true,
+  "before_d7": {
+   "token_visible": false,
+   "xact_status": "in progress"
+  },
+  "deterministic": {
+   "lookup": true,
+   "bound": "0/409A030",
+   "commit_end": "0/4099F90",
+   "bound_ok": true,
+   "ok": true
+  },
+  "random": {
+   "kills": 20,
+   "committed": 17,
+   "violations": []
+  },
+  "negative_control_fired": true,
+  "pass": true,
+  "run": 1,
+  "seconds": 12.3
+ }
+]

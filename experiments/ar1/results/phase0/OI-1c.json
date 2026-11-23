@@ -1,0 +1,48 @@
+[
+ {
+  "vary": {
+   "dummy_writes": 206,
+   "checkpoint": true,
+   "pad": 5142
+  },
+  "early_xid": false,
+  "xid": "968",
+  "switchpoint": "0/40A2FB8",
+  "x_commit_start": "0/40A9A88",
+  "before": {
+   "xact_status": "error: transaction ID 968 is in the future",
+   "token": false
+  },
+  "after": {
+   "xact_status": "committed",
+   "token": false,
+   "reissuing_txn": "committed"
+  },
+  "pass": true,
+  "run": 0,
+  "seconds": 4.0
+ },
+ {
+  "vary": {
+   "dummy_writes": 640,
+   "checkpoint": true,
+   "pad": 1126
+  },
+  "early_xid": true,
+  "xid": "1402",
+  "switchpoint": "0/40B5228",
+  "x_commit_start": "0/40BBCF8",
+  "before": {
+   "xact_status": "aborted",
+   "token": false
+  },
+  "after": {
+   "xact_status": "aborted",
+   "token": false,
+   "reissuing_txn": null
+  },
+  "pass": true,
+  "run": 1,
+  "seconds": 4.1
+ }
+]
