@@ -11,6 +11,10 @@ commit-waited AOF):
   unseen    negative control: probe accounts preset below the start balance
             (--no-load), so no deadline read can show the expected balance:
             every probe misses.
+  unacked   negative control on a stand-in RESP server that applies each
+            transfer at once but replies 300 ms later: reads show every
+            credit in time, yet with a 20 ms SLO every probe misses, because
+            the commit-waited reply came too late.
   flags     bad probe settings are refused.
 
 Usage: test_resp_bench.py BUILD_DIR GARNET [scenario ...]
@@ -22,6 +26,7 @@ import signal
 import socket
 import struct
 import subprocess
+import asyncio
 import sys
 import tempfile
 import threading
@@ -118,6 +123,71 @@ def unseen(g):
     print(f"unseen: {p['misses']} of {p['probed']} probes missed with credits hidden")
 
 
+class SlowAcks:
+    """A RESP stand-in for Garnet's B1 commands: state changes at once, but a
+    connection's replies to ACCT.XFER wait DELAY_S."""
+    DELAY_S = 0.3
+
+    def __init__(self):
+        self.bal = {}
+        self.ready = threading.Event()
+        threading.Thread(target=lambda: asyncio.run(self.main()), daemon=True).start()
+        assert self.ready.wait(10)
+
+    async def main(self):
+        srv = await asyncio.start_server(self.conn, "127.0.0.1", 0)
+        self.port = srv.sockets[0].getsockname()[1]
+        self.ready.set()
+        await srv.serve_forever()
+
+    async def conn(self, r, w):
+        out = asyncio.Queue()
+
+        async def writer():
+            while True:
+                due, data = await out.get()
+                await asyncio.sleep(max(0, due - time.monotonic()))
+                w.write(data)
+                await w.drain()
+        task = asyncio.create_task(writer())
+        try:
+            while True:
+                n = int((await r.readline())[1:])
+                args = []
+                for _ in range(n):
+                    ln = int((await r.readline())[1:])
+                    args.append((await r.readexactly(ln + 2))[:-2])
+                out.put_nowait(self.run(args))
+        except (asyncio.IncompleteReadError, ValueError, ConnectionError):
+            task.cancel()
+
+    def run(self, a):
+        now = time.monotonic()
+        if a[0] == b"SET":
+            self.bal[a[1]] = struct.unpack_from("<q", a[2])[0]
+            return now, b"+OK\r\n"
+        if a[0] == b"GET":
+            v = struct.pack("<q", self.bal[a[1]]) + bytes(192)
+            return now, b"$200\r\n" + v + b"\r\n"
+        if a[0] == b"ACCT.DEP":
+            self.bal[a[1]] += int(a[2])
+            return now, b":%d\r\n" % self.bal[a[1]]
+        self.bal[a[1]] -= int(a[3])
+        self.bal[a[2]] += int(a[3])
+        return now + self.DELAY_S, b"+OK\r\n"
+
+
+def unacked(_):
+    srv = SlowAcks()
+    cmd = [f"{BUILD}/resp_bench", "--port", str(srv.port)] + COMMON + [
+        "--rate", "500", "--seconds", "3", "--probe-pct", "20", "--probe-slo-us", "20000", "--probe-accounts", "1024"]
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    assert p.returncode == 0, (p.returncode, p.stdout, p.stderr)
+    pr = probe(p.stdout)
+    assert pr["probed"] > 50 and pr["misses"] == pr["probed"], p.stdout
+    print(f"unacked: {pr['misses']} of {pr['probed']} probes missed with replies 300 ms late")
+
+
 def flags(_):
     for bad in (["--rate", "100", "--probe-pct", "1"], ["--rate", "100", "--probe-pct", "101"],
                 ["--rate", "100", "--probe-pct", "1", "--probe-slo-us", "20000000"],
@@ -129,10 +199,10 @@ def flags(_):
 
 
 def main():
-    for name in ("flags", "conserve", "late", "unseen"):
+    for name in ("flags", "unacked", "conserve", "late", "unseen"):
         if ONLY and name not in ONLY:
             continue
-        g = None if name == "flags" else Garnet()
+        g = None if name in ("flags", "unacked") else Garnet()
         try:
             globals()[name](g)
         finally:
