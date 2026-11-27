@@ -53,3 +53,14 @@
   needs "plain DBOS needs more than L lines", and that has not been shown in this case.
 - **Invalid runs:** an invalid run is repeated once with the same seed. A second invalid run at a point makes the
   campaign UNRESOLVED. A violation seen in an invalid run still counts (section 7.1).
+
+## Hardware deviation (recorded 2026-11-27, before the run)
+
+- **Prereg section 2 (PROPOSED):** one isolated cloud VM with 4 vCPU, 16 GB and a local SSD.
+- **Actual:** cody's Vultr VM, Ubuntu 24.04, with 6 vCPU, 16 GB and 320 GB of local NVMe. Vultr does not offer a 4 vCPU,
+  16 GB size with local SSD. The driver's `manifest.txt` records the exact CPU, memory, kernel and filesystem.
+- **Effect:**
+  - The verdicts do not depend on the CPU count. The driver still runs 2 workers, as it did in the smoke test.
+  - The extra cores and the faster disk leave more headroom under the per-run and per-phase caps.
+  - B compares SNC and plain step 2 interleaved on the same machine, so both arms see the same hardware.
+  - No CPU pinning, card change or code change. The frozen commit stays `575f493`.
