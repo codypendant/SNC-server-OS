@@ -3,8 +3,8 @@
 commit-waited AOF):
 
   conserve  transfers, deposits and the probe at 10^9 starting balances with
-            a 1 s SLO: every probe settles, --verify finds every account
-            (probe accounts included) exact.
+            a 1 s SLO and 5 s grace: every probe settles, --verify finds every
+            account (probe accounts included) exact.
   late      Garnet stopped 500 ms mid-window with a 20 ms SLO: probes due in
             the stall miss, because the reply and the read must both come
             back by intended send + SLO + g.
