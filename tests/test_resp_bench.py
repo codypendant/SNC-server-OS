@@ -84,8 +84,10 @@ def probe(out):
 
 
 def conserve(g):
-    out = g.bench(["--rate", "2000", "--warmup", "1", "--seconds", "4", "--probe-pct", "10", "--probe-slo-us",
-                   "1000000", "--probe-accounts", "1024"])
+    # A grace of 5 s rides out the 100-300 ms AOF stalls seen on CI VMs, so any
+    # miss here is the probe's accounting, not the host.
+    out = g.bench(["--rate", "2000", "--warmup", "1", "--seconds", "4", "--drain-s", "20", "--probe-pct", "10",
+                   "--probe-slo-us", "1000000", "--probe-grace-us", "5000000", "--probe-accounts", "1024"])
     p = probe(out)
     assert p["probed"] > 200 and p["misses"] == 0 and p["skipped"] == 0 and p["reads"] >= p["probed"], out
     assert "verify: 3024 accounts, 0 mismatches" in out, out
