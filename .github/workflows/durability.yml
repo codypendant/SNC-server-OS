@@ -5,7 +5,7 @@ name: durability
 
 on:
   pull_request:
-    paths: ["bench/durability/**", "bench/net_bench.cpp", "bench/resp_bench.cpp", "bench/garnet/**", ".github/workflows/durability.yml"]
+    paths: ["bench/durability/**", "bench/net_bench.cpp", "bench/resp_bench.cpp", "bench/garnet/**", "tests/test_resp_bench.py", ".github/workflows/durability.yml"]
   workflow_dispatch:
 
 permissions:
@@ -60,6 +60,23 @@ jobs:
             /var/tmp/dlw/acks
             /var/tmp/dlw/server.log
 
+  resp-bench:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: .NET and build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q dotnet-sdk-10.0 libmimalloc-dev libxxhash-dev liburing-dev
+      - name: Build
+        run: |
+          dotnet build -c Release bench/garnet
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          cmake --build build -j "$(nproc)" --target resp_bench
+      - name: Settlement probe on Garnet
+        run: python3 tests/test_resp_bench.py build bench/garnet/bin/Release/net10.0/SncGarnet
+
   garnet:
     needs: controls
     runs-on: ubuntu-24.04
@@ -95,6 +112,7 @@ jobs:
             --check "python3 $S check $G $A ${{ matrix.device }} 1000000000" -- \
             python3 $S load "$G" "$PWD/build/resp_bench" $A ${{ matrix.device }} --threads 2 --conns 2 \
             --objects 3000 --rate 2000 --seconds 16 --warmup 2 --transfer 50 --reads 20 --start-balance 1000000000 \
+            --probe-pct 5 --probe-slo-us 100000 \
             | tee /var/tmp/dlw-result.txt
           rc=${PIPESTATUS[0]}
           r=$(tail -1 /var/tmp/dlw-result.txt)
