@@ -11,10 +11,18 @@
 //                   [--objects N] [--depth D] --rate R [--warmup S]
 //                   [--seconds S] [--drain-s S] [--transfer PCT] [--reads PCT]
 //                   [--start-balance C] [--verify] [--ack-log FILE] [--no-load]
+//                   [--probe-pct P --probe-slo-us S [--probe-grace-us G]
+//                    [--probe-accounts K]]
 // --transfer PCT of ops are transfers; --reads PCT of the rest are reads; the
 // others deposit. Each thread holds C connections for writes and C for reads,
 // so a read never waits behind a write's AOF commit. --depth bounds each
-// thread's ops in flight. --no-load uses existing accounts 0..N-1.
+// thread's ops in flight. --no-load uses existing accounts 0..N-1 (and the
+// probe accounts N..N+K-1).
+// --probe-pct: P% of transfers credit one of K extra accounts that nothing
+// else touches, as in net_bench. A probe is settled only if the transfer's
+// commit-waited reply came back by intended send + S + G and one GET of the
+// target at intended send + S answers by then with at least every probe credit
+// sent to it (docs/DIRECTION_COMPARISON_PLAN.md 4.1); otherwise it is a miss.
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -64,17 +72,30 @@ struct Args {
   i64 start_balance = 1000;
   bool verify = false, load = true;
   std::string ack_log;
+  double probe_pct = 0;
+  u64 probe_slo_ns = 0, probe_grace_ns = 0;
+  u64 probe_accounts = 1024;
+  u64 accounts() const { return objects + (probe_pct > 0 ? probe_accounts : 0); }
 };
 
-enum Kind : u8 { kRead, kDeposit, kTransfer, kCreate, kKinds };
-const char* const kKindName[kKinds] = {"read", "deposit", "transfer", "create"};
+enum Kind : u8 { kRead, kDeposit, kTransfer, kCreate, kProbe, kKinds };
+const char* const kKindName[kKinds] = {"read", "deposit", "transfer", "create", "probe read"};
 enum Applied : u8 { kApplied, kNotApplied, kInDoubt };
 constexpr u64 kNone = ~0ull;
+constexpr u32 kNoProbe = ~0u;
 
 struct Op {
   u64 start, from, to;
   Kind kind;
   bool measured;
+  u32 probe = kNoProbe;  // the probe record of a probed transfer or a probe read
+};
+
+struct Probe {
+  u64 read_at, due_by, p;
+  i64 want;
+  bool measured, rejected = false, acked = false, seen = false;
+  u8 pending = 2;  // the transfer's reply and the read's; p is reused after both
 };
 
 struct Ack {
@@ -165,6 +186,11 @@ struct Thread {
   std::vector<u32> doubt_down, doubt_up;
   std::vector<Ack> acks;
   std::vector<i64>* scan = nullptr;  // verify: where reads land
+  std::vector<Probe> probes;
+  std::size_t probe_head = 0;
+  std::vector<u64> probe_free;
+  std::vector<i64> probe_expected;  // start plus every probe credit sent, by p
+  u64 probe_n = 0, probe_miss = 0, probe_skipped = 0, probe_reads = 0;
   std::string error;
 };
 
@@ -191,11 +217,12 @@ bool connect_all(Thread& t) {
 
 void send_op(Thread& t, const Op& op) {
   const std::size_t half = t.conns.size() / 2;
-  Conn& c = op.kind == kRead ? t.conns[half + t.next_read++ % half] : t.conns[t.next_write++ % half];
+  Conn& c = op.kind == kRead || op.kind == kProbe ? t.conns[half + t.next_read++ % half] : t.conns[t.next_write++ % half];
   char k1[16], k2[16];
   key(k1, op.from);
   switch (op.kind) {
     case kRead:
+    case kProbe:
       command(c.out, {{"GET", 3}, {k1, 16}});
       break;
     case kDeposit:
@@ -218,8 +245,24 @@ void send_op(Thread& t, const Op& op) {
   ++t.outstanding;
 }
 
+void probe_done(Thread& t, Probe& r) {
+  if (--r.pending) return;
+  t.probe_free.push_back(r.p);
+  if (!r.measured || r.rejected) return;
+  ++t.probe_n;
+  t.probe_miss += !(r.acked && r.seen);
+}
+
 void on_reply(Thread& t, const Op& op, const Reply& r, u64 now) {
   --t.outstanding;
+  if (op.kind == kProbe) {
+    Probe& pr = t.probes[op.probe];
+    if (r.type != '$') ++t.errors;
+    pr.seen = now <= pr.due_by && r.type == '$' && r.num >= pr.want;
+    if (op.measured) t.kind[kProbe].add(now - op.start);
+    probe_done(t, pr);
+    return;
+  }
   Applied ap = kInDoubt;
   bool served = true;
   switch (op.kind) {
@@ -249,6 +292,12 @@ void on_reply(Thread& t, const Op& op, const Reply& r, u64 now) {
       break;
     default:
       break;
+  }
+  if (op.probe != kNoProbe) {
+    Probe& pr = t.probes[op.probe];
+    if (ap == kNotApplied) --t.probe_expected[pr.p], pr.rejected = true;
+    pr.acked = ap == kApplied && now <= pr.due_by;
+    probe_done(t, pr);
   }
   const Args& a = t.sh->a;
   if (!a.ack_log.empty() && op.kind != kRead) {
@@ -309,8 +358,8 @@ bool poll_conns(Thread& t, int wait_ms) {
 
 bool load(Thread& t) {
   const Args& a = t.sh->a;
-  for (u64 n = t.index; n < a.objects || t.outstanding;) {
-    while (n < a.objects && t.outstanding < a.depth) {
+  for (u64 n = t.index; n < a.accounts() || t.outstanding;) {
+    while (n < a.accounts() && t.outstanding < a.depth) {
       send_op(t, {0, n, kNone, kCreate, false});
       n += a.threads;
     }
@@ -326,6 +375,18 @@ void issue(Thread& t, u64 start, bool measured) {
     op.kind = kTransfer;
     op.to = t.rng() % a.objects;
     if (op.to == op.from) op.to = (op.to + 1) % a.objects;
+    if (a.probe_pct > 0 && static_cast<double>(t.rng() % 1000000) < a.probe_pct * 10000) {
+      if (t.probe_free.empty()) {
+        t.probe_skipped += measured;
+      } else {
+        const u64 p = t.probe_free.back();
+        t.probe_free.pop_back();
+        op.probe = static_cast<u32>(t.probes.size());
+        op.to = a.objects + p;
+        t.probes.push_back({start + a.probe_slo_ns, start + a.probe_slo_ns + a.probe_grace_ns, p,
+                            ++t.probe_expected[p], measured});
+      }
+    }
   } else if (static_cast<int>(t.rng() % 100) >= a.reads_pct) {
     op.kind = kDeposit;
   }
@@ -345,6 +406,11 @@ void run_rate(Thread& t) {
       t.outstanding_at_end = t.outstanding;
     }
     const u64 due = past_end ? total : now <= sh.t0 ? 0 : t.sched.due_before(now - sh.t0);
+    while (t.probe_head < t.probes.size() && t.probes[t.probe_head].read_at <= now && t.outstanding < sh.a.depth) {
+      const Probe& pr = t.probes[t.probe_head];
+      t.probe_reads += pr.measured;
+      send_op(t, {pr.read_at, sh.a.objects + pr.p, kNone, kProbe, pr.measured, static_cast<u32>(t.probe_head++)});
+    }
     while (t.next_k < due && t.outstanding < sh.a.depth) {
       const u64 intended = sh.t0 + t.sched.at(t.next_k);
       t.lateness.add(now - intended);
@@ -352,13 +418,14 @@ void run_rate(Thread& t) {
       issue(t, intended, intended >= sh.measure);
       ++t.next_k;
     }
-    if (past_end && t.next_k == total && t.outstanding == 0) {
+    if (past_end && t.next_k == total && t.probe_head == t.probes.size() && t.outstanding == 0) {
       t.drained = true;
       return;
     }
     if (now >= sh.deadline) return;
     int wait_ms = 1;
     if (t.next_k < total && t.outstanding < sh.a.depth && sh.t0 + t.sched.at(t.next_k) <= now + 1500000) wait_ms = 0;
+    if (t.probe_head < t.probes.size() && t.probes[t.probe_head].read_at <= now + 1500000) wait_ms = 0;
     if (!poll_conns(t, wait_ms)) return;
   }
 }
@@ -373,11 +440,12 @@ void pin(int cpu) {
 // Reads every account until two scans agree, and checks each against its
 // start plus acknowledged changes, within the ops in doubt.
 bool verify(std::vector<Thread>& threads, const Args& a, bool undrained) {
-  std::vector<i64> want(a.objects, a.start_balance), lo, hi;
-  std::vector<u64> down(a.objects, 0), up(a.objects, 0);
+  const u64 n = a.accounts();
+  std::vector<i64> want(n, a.start_balance);
+  std::vector<u64> down(n, 0), up(n, 0);
   u64 doubt = 0;
   for (auto& t : threads) {
-    for (u64 j = 0; j < a.objects; ++j) {
+    for (u64 j = 0; j < n; ++j) {
       want[j] += t.delta[j];
       down[j] += t.doubt_down[j];
       up[j] += t.doubt_up[j];
@@ -388,17 +456,17 @@ bool verify(std::vector<Thread>& threads, const Args& a, bool undrained) {
   Thread& r = threads[0];
   std::vector<i64> got, prev;
   for (; scans < 50; ++scans) {
-    got.assign(a.objects, INT64_MIN);
+    got.assign(n, INT64_MIN);
     r.scan = &got;
-    for (u64 j = 0; j < a.objects || r.outstanding;) {
-      for (; j < a.objects && r.outstanding < a.depth; ++j) send_op(r, {0, j, kNone, kRead, false});
+    for (u64 j = 0; j < n || r.outstanding;) {
+      for (; j < n && r.outstanding < a.depth; ++j) send_op(r, {0, j, kNone, kRead, false});
       if (!poll_conns(r, 10)) return false;
     }
     if (got == prev) break;
     prev = got;
   }
   r.scan = nullptr;
-  for (u64 j = 0; j < a.objects; ++j) {
+  for (u64 j = 0; j < n; ++j) {
     doubt += down[j] + up[j] > 0;
     expected += want[j];
     if (got[j] == INT64_MIN) {
@@ -410,7 +478,7 @@ bool verify(std::vector<Thread>& threads, const Args& a, bool undrained) {
   }
   const bool ok = !bad && !undrained;
   std::printf("verify: %llu accounts, %llu mismatches  scans %llu  in_doubt %llu  sum %lld expected %lld: %s\n",
-              (unsigned long long)a.objects, (unsigned long long)bad, (unsigned long long)scans + 1,
+              (unsigned long long)n, (unsigned long long)bad, (unsigned long long)scans + 1,
               (unsigned long long)doubt, (long long)sum, (long long)expected, ok ? "ok" : "FAILED");
   return ok;
 }
@@ -447,6 +515,7 @@ void print_hist(const char* name, const Histogram& h) {
 
 Args parse_args(int argc, char** argv) {
   Args a;
+  bool grace = false;
   for (int i = 1; i < argc; ++i) {
     std::string k = argv[i];
     auto val = [&]() -> const char* {
@@ -475,7 +544,18 @@ Args parse_args(int argc, char** argv) {
     else if (k == "--verify") a.verify = true;
     else if (k == "--no-load") a.load = false;
     else if (k == "--ack-log") a.ack_log = val();
+    else if (k == "--probe-pct") a.probe_pct = std::atof(val());
+    else if (k == "--probe-slo-us") a.probe_slo_ns = std::strtoull(val(), nullptr, 10) * 1000;
+    else if (k == "--probe-grace-us") a.probe_grace_ns = std::strtoull(val(), nullptr, 10) * 1000, grace = true;
+    else if (k == "--probe-accounts") a.probe_accounts = std::strtoull(val(), nullptr, 10);
     else bad(("unknown flag " + k).c_str());
+  }
+  if (a.probe_pct < 0 || a.probe_pct > 100) bad("--probe-pct must be 0..100");
+  if (a.probe_pct > 0) {
+    if (!a.probe_slo_ns) bad("--probe-pct needs --probe-slo-us");
+    if (!grace) a.probe_grace_ns = a.probe_slo_ns / 10;
+    if (a.probe_slo_ns + a.probe_grace_ns >= a.drain_s * 1e9) bad("--probe-slo-us plus grace must be under --drain-s");
+    if (a.probe_accounts < a.threads) bad("--probe-accounts must be at least --threads");
   }
   if (!a.rate) bad("--rate is required");
   if (!a.threads || !a.conns || !a.depth || a.objects < 2) bad("threads, conns, depth must be >= 1 and objects >= 2");
@@ -500,9 +580,14 @@ int main(int argc, char** argv) {
     t.rng.seed(4321 + i);
     t.sched = RateSchedule(a.rate, a.threads, i);
     if (a.verify) {
-      t.delta.assign(a.objects, 0);
-      t.doubt_down.assign(a.objects, 0);
-      t.doubt_up.assign(a.objects, 0);
+      t.delta.assign(a.accounts(), 0);
+      t.doubt_down.assign(a.accounts(), 0);
+      t.doubt_up.assign(a.accounts(), 0);
+    }
+    if (a.probe_pct > 0) {
+      for (u64 p = i; p < a.probe_accounts; p += a.threads) t.probe_free.push_back(p);
+      t.probe_expected.assign(a.probe_accounts, a.start_balance);
+      t.probes.reserve(1 << 16);
     }
     ts.emplace_back([&, i] {
       Thread& t = threads[i];
@@ -553,12 +638,13 @@ int main(int argc, char** argv) {
     drained &= t.drained;
   }
   std::printf("resp_bench threads=%u conns=%u depth=%u/thread\n", a.threads, a.conns, a.depth);
-  std::printf("load: %llu objects in %.2fs\n", (unsigned long long)(a.load ? a.objects : 0), load_s);
+  std::printf("load: %llu objects in %.2fs\n", (unsigned long long)(a.load ? a.accounts() : 0), load_s);
   std::printf("run: transfer=%d%% reads=%d%% of the rest  seconds=%.2f\n", a.transfer_pct, a.reads_pct, a.seconds);
   std::printf("  ops/s %.0f  errors %llu\n", ops / a.seconds, (unsigned long long)errors);
   std::printf("  rejected %llu (%.4f%% of ops)\n", (unsigned long long)rejected, ops ? 100.0 * rejected / ops : 0.0);
   print_hist("total", all);
   for (int k = 0; k < kCreate; ++k) print_hist(kKindName[k], kinds[k]);
+  if (a.probe_pct > 0) print_hist(kKindName[kProbe], kinds[kProbe]);
   std::printf("rate: offered %llu ops/s  warmup %.2fs  window %.2fs  drain limit %.2fs\n", (unsigned long long)a.rate,
               a.warmup, a.seconds, a.drain_s);
   std::printf("  scheduled_in_window %llu  issued_by_end %llu  completed_in_window %llu  achieved %.0f ops/s\n",
@@ -567,6 +653,23 @@ int main(int argc, char** argv) {
   std::printf("  in_flight_at_end %llu  late_over_1ms %llu  lateness p99 %.0f ns\n", (unsigned long long)at_end,
               (unsigned long long)late, lateness.percentile(99));
   std::printf("  drained %s\n", drained ? "yes" : "no");
+  if (a.probe_pct > 0) {
+    u64 n = 0, miss = 0, skipped = 0, reads = 0;
+    for (const auto& t : threads) {
+      u64 open = 0;  // never settled before the drain limit: a miss
+      for (const auto& r : t.probes) open += r.pending && r.measured && !r.rejected;
+      n += open + t.probe_n;
+      miss += open;
+      miss += t.probe_miss;
+      skipped += t.probe_skipped;
+      reads += t.probe_reads;
+    }
+    std::printf("probe: pct %.4f  slo_us %llu  grace_us %llu  accounts %llu  probed %llu  misses %llu  "
+                "miss_pct %.4f  skipped %llu  reads %llu\n",
+                a.probe_pct, (unsigned long long)(a.probe_slo_ns / 1000), (unsigned long long)(a.probe_grace_ns / 1000),
+                (unsigned long long)a.probe_accounts, (unsigned long long)n, (unsigned long long)miss,
+                100.0 * miss / std::max<u64>(1, n), (unsigned long long)skipped, (unsigned long long)reads);
+  }
   if (a.verify && !verify(threads, a, !drained)) return 1;
   return errors ? 1 : 0;
 }
