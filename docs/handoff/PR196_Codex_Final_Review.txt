@@ -1,0 +1,146 @@
+SNC — Codex Final Review of PR #196 and Architectural Direction
+
+VERDICT: APPROVED FOR MERGE.
+
+AR-1 G3 OUTCOME: NARROW — ACCEPTED.
+
+Codex independently reviewed the uploaded raw G3 archive, verified the reported results, and confirmed that GitHub CI passed.
+
+1. Verification Results
+
+The archive's SHA-256 matches the recorded checksum.
+
+The counted seeds were independently reconstructed from frozen commit "575f493" and matched the recorded seeds.
+
+Results:
+
+- SNC: 2,560/2,560 passed
+- Plain DBOS step 2: 2,560/2,560 passed
+- Plain DBOS step 1: 1,480 violations and 1,080 missing points
+- Fault-point coverage: 128/128 per arm
+- Mutation detection: 14/14 types, 265/265 runs
+- Phase 0: all checks passed
+- Performance: 2,000/2,000 tasks completed
+- No unexpected seeds or duplicate counted runs
+
+The evidence supports the preregistered NARROW outcome.
+
+These conclusions come from independent examination of the recorded results, not a second execution of the full campaign.
+
+2. Performance Findings
+
+Metric| SNC| Plain DBOS step 2
+Net task latency p50| 597.15 ms| 521.24 ms
+Net task latency p99| 864.65 ms| 686.38 ms
+WAL bytes per task| 62,888| 37,568
+Runtime implementation lines| 913| 491
+
+SNC's additional latency was:
+
+- 4.744 ms per consequential commit at p50
+- 11.142 ms per consequential commit at p99
+
+Both satisfy the preregistered B limits.
+
+Plain DBOS step 2 required 284 added logical lines, below the owner-approved L = 300 threshold.
+
+Therefore, SNC demonstrated no additional correctness guarantee over the strengthened DBOS implementation within the tested AR-1 scope.
+
+3. Findings to Preserve
+
+Three clauses had limited exercise:
+
+- "5.TN_duplicate_recorded": 1 successful run
+- "5.TF_stale_rejected": 3 successful runs
+- "5.conflict": 9 successful SNC runs
+
+These passes are valid evidence, but they do not establish broad statistical coverage.
+
+The separate, non-gating determinism-divergence experiment also found:
+
+- SNC failed recovery following a workflow step reorder.
+- Plain DBOS step 2 completed without an observed correctness violation.
+- DBOS itself did not report the divergence.
+
+Preserve these results and investigate their architectural implications without rewriting the accepted G3 outcome.
+
+4. Architectural Implications
+
+Do not interpret NARROW as a failure of the original SNC operating-system concept.
+
+AR-1 evaluated SNC's focused persistent-agent runtime implemented on PostgreSQL and DBOS.
+
+It did not evaluate the original state-native execution substrate.
+
+The evidence establishes that, for the tested S1 requirements, much of the desired functionality can be built using established infrastructure with relatively little additional application code.
+
+Consequently:
+
+1. Do not expand the custom S1 runtime merely to duplicate DBOS functionality.
+2. Treat an SNC agent SDK or lightweight state/provenance layer as a serious product candidate.
+3. Preserve the original SNC object engine, scheduling research, durability work, guarantees specification and architectural documentation.
+4. Continue Track B's independent evaluation of the state-native substrate against Garnet, Restate and PostgreSQL.
+5. Do not select a final product direction solely from AR-1.
+
+We are testing two separate hypotheses:
+
+Track A: Can SNC provide commercially meaningful agent-runtime capabilities beyond established durable-execution systems?
+
+Track B: Can SNC's original state-native computational substrate demonstrate a substantial technical advantage over established systems?
+
+Neither result substitutes for the other.
+
+5. Required Next Actions
+
+Immediate:
+
+- Merge PR #196.
+- Record NARROW as the accepted AR-1 G3 outcome.
+- Preserve all raw results, frozen manifests, checker evidence and identified limitations.
+- Keep the original operating-system research intact.
+
+Track B:
+
+Continue the already authorized comparison campaign under the frozen criteria.
+
+Use the durability-verified Garnet FileStream configuration and independently validated PostgreSQL and Restate baselines.
+
+Do not change the performance thresholds or tune SNC to win after observing competitor results.
+
+Measure equivalent durable completion boundaries, recovery, throughput, tail latency and resource efficiency.
+
+Track A:
+
+Prepare the next comparison with DBOS, Restate, Temporal and LangGraph, using idiomatic implementations and externally observable guarantees.
+
+Do not begin Track A execution without the owner's separate P-A authorization.
+
+Evaluate whether SNC adds meaningful persistent-agent functionality, provenance or state-management capabilities beyond what the competing engines already offer.
+
+Do not initiate additional S1 runtime development or product-gate work without owner authorization.
+
+6. Engineering Rules
+
+- Always verify, never assume.
+- Fix on site.
+- Preserve independent adversarial review.
+- Keep results reproducible.
+- Separate FACT, VERIFIED, INFERENCE, UNRESOLVED and PROPOSED conclusions.
+- Never use a missing SNC-specific internal record as proof that another system lacks equivalent functionality.
+- Do not change previously frozen experiment criteria.
+- Do not resume custom replication, raft-rs or full OS implementation without a separate decision.
+- Do not silently pivot SNC into an SDK, agent runtime or hybrid.
+
+7. Final Direction
+
+Codex approves PR #196 and accepts NARROW as the formal G3 result.
+
+The next objective is not another architectural redesign.
+
+It is to finish the comparative experiments and identify where SNC delivers an advantage that existing infrastructure cannot readily provide.
+
+If DBOS, Restate and Temporal already solve our agent-runtime requirements efficiently, we should build on that prior art rather than reproduce it.
+
+If the original state-native engine demonstrates a substantial performance or architectural advantage, we should preserve the option to develop that technology further.
+
+No final product pivot is authorized. Present the comparative evidence and a justified recommendation to the owner before committing to either direction.
