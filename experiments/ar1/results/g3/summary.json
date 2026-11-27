@@ -1,0 +1,600 @@
+{
+ "freeze": {
+  "commit": "575f49304d0766ff1445e7d442cb7024c3928bbc",
+  "trees": {
+   "snc_rt": "1a6aef5a75fc699190b1792c29bb3c12649ad54f",
+   "ar1_check": "461b8da20f36bf0f85782d0d9e7a87f1de6e7e6e",
+   "plain_dbos_step1": "0d5012cacf8ed05e66c4b05a9dd0ee56f7787c8f",
+   "plain_dbos_step2": "4695e61930499ba28e2cea78492b9bee5b43895f"
+  },
+  "code_hash": "57b0bd493b10645f"
+ },
+ "lines": {
+  "step1_to_step2_lines": 284,
+  "plain2_total_lines": 491,
+  "snc_rt_lines": 913
+ },
+ "started": {
+  "phase0": 1795744851.5779889,
+  "adequacy": 1795748052.2786417,
+  "snc": 1795750190.7759929,
+  "plain1": 1795773011.936877,
+  "plain2": 1795785135.4601715,
+  "perf": 1795807377.0865834
+ },
+ "phase0": {
+  "gate": "pass"
+ },
+ "adequacy": {
+  "capped": false,
+  "runs": 265,
+  "missed": {},
+  "score": {
+   "M1": {
+    "runs": 40,
+    "exercised": 40,
+    "detected": 40,
+    "flagged": {
+     "4.gateway": 40,
+     "4.established": 20
+    },
+    "not_scored": {},
+    "by_clause": {
+     "4.established": 20,
+     "4.gateway": 40
+    },
+    "clauses": [
+     "4.established",
+     "4.gateway"
+    ]
+   },
+   "M10": {
+    "runs": 10,
+    "exercised": 10,
+    "detected": 10,
+    "flagged": {
+     "1.stale_epoch": 10
+    },
+    "not_scored": {},
+    "by_clause": {
+     "1.stale_epoch": 10
+    },
+    "clauses": [
+     "1.stale_epoch"
+    ]
+   },
+   "M11": {
+    "runs": 85,
+    "exercised": 85,
+    "detected": 85,
+    "flagged": {
+     "6.outstanding": 85
+    },
+    "not_scored": {},
+    "by_clause": {
+     "6.outstanding": 85
+    },
+    "clauses": [
+     "6.outstanding"
+    ]
+   },
+   "M12": {
+    "runs": 10,
+    "exercised": 10,
+    "detected": 10,
+    "flagged": {
+     "3.recall": 10
+    },
+    "not_scored": {},
+    "by_clause": {
+     "3.recall": 10,
+     "3.late_marked": 0
+    },
+    "clauses": [
+     "3.recall",
+     "3.late_marked"
+    ]
+   },
+   "M13": {
+    "runs": 20,
+    "exercised": 20,
+    "detected": 20,
+    "flagged": {
+     "6.derive": 20
+    },
+    "not_scored": {},
+    "by_clause": {
+     "6.derive": 20
+    },
+    "clauses": [
+     "6.derive"
+    ]
+   },
+   "M14": {
+    "runs": 5,
+    "exercised": 5,
+    "detected": 5,
+    "flagged": {
+     "2.no_repeat": 5,
+     "5.TN_no_retry": 5,
+     "5.conflict": 5
+    },
+    "not_scored": {},
+    "by_clause": {
+     "5.conflict": 5
+    },
+    "clauses": [
+     "5.conflict"
+    ]
+   },
+   "M2": {
+    "runs": 20,
+    "exercised": 20,
+    "detected": 20,
+    "flagged": {
+     "1.stale_epoch": 20,
+     "2.no_repeat": 8,
+     "5.TN_duplicate_recorded": 8,
+     "6.derive": 8,
+     "5.conflict": 7,
+     "6.no_deadlock": 2
+    },
+    "not_scored": {},
+    "by_clause": {
+     "1.stale_epoch": 20
+    },
+    "clauses": [
+     "1.stale_epoch"
+    ]
+   },
+   "M3": {
+    "runs": 10,
+    "exercised": 10,
+    "detected": 10,
+    "flagged": {
+     "3.crash_unknown": 10,
+     "3.no_regenerate": 10,
+     "3.recall": 10,
+     "4.mapped": 10
+    },
+    "not_scored": {},
+    "by_clause": {
+     "3.no_regenerate": 10,
+     "3.crash_unknown": 10
+    },
+    "clauses": [
+     "3.no_regenerate",
+     "3.crash_unknown"
+    ]
+   },
+   "M4": {
+    "runs": 10,
+    "exercised": 10,
+    "detected": 10,
+    "flagged": {
+     "2.no_repeat": 10,
+     "5.TN_no_retry": 10
+    },
+    "not_scored": {},
+    "by_clause": {
+     "5.TN_no_retry": 10,
+     "2.no_repeat": 10
+    },
+    "clauses": [
+     "5.TN_no_retry",
+     "2.no_repeat"
+    ]
+   },
+   "M5": {
+    "runs": 5,
+    "exercised": 5,
+    "detected": 5,
+    "flagged": {
+     "4.policy_read": 5
+    },
+    "not_scored": {},
+    "by_clause": {
+     "4.policy_read": 5
+    },
+    "clauses": [
+     "4.policy_read"
+    ]
+   },
+   "M6": {
+    "runs": 20,
+    "exercised": 20,
+    "detected": 20,
+    "flagged": {
+     "6.prepared_rejected": 20
+    },
+    "not_scored": {},
+    "by_clause": {
+     "6.prepared_rejected": 20
+    },
+    "clauses": [
+     "6.prepared_rejected"
+    ]
+   },
+   "M7": {
+    "runs": 5,
+    "exercised": 5,
+    "detected": 5,
+    "flagged": {
+     "7.executed": 5
+    },
+    "not_scored": {},
+    "by_clause": {
+     "7.executed": 5
+    },
+    "clauses": [
+     "7.executed"
+    ]
+   },
+   "M8": {
+    "runs": 20,
+    "exercised": 20,
+    "detected": 20,
+    "flagged": {
+     "5.recorded": 5,
+     "6.outcome_exempt": 15,
+     "5.TF_stale_rejected": 2,
+     "5.TN_duplicate_recorded": 2
+    },
+    "not_scored": {},
+    "by_clause": {
+     "5.recorded": 5,
+     "6.outcome_exempt": 15
+    },
+    "clauses": [
+     "5.recorded",
+     "6.outcome_exempt"
+    ]
+   },
+   "M9": {
+    "runs": 5,
+    "exercised": 5,
+    "detected": 5,
+    "flagged": {
+     "2.no_repeat": 5,
+     "5.TI_one_effect": 5,
+     "5.TI_same_key": 5
+    },
+    "not_scored": {},
+    "by_clause": {
+     "5.TI_same_key": 5,
+     "5.TI_one_effect": 5,
+     "2.no_repeat": 5
+    },
+    "clauses": [
+     "5.TI_same_key",
+     "5.TI_one_effect",
+     "2.no_repeat"
+    ]
+   }
+  }
+ },
+ "snc": {
+  "arm": "snc",
+  "runs": 2560,
+  "expected": 2560,
+  "short_points": [],
+  "capped": false,
+  "verdicts": {
+   "pass": 2560
+  },
+  "points_reached": 128,
+  "failing_by_clause": {},
+  "exercised_runs_per_clause": {
+   "1.lower": 2140,
+   "1.prefix": 2528,
+   "1.stale_epoch": 320,
+   "1.state": 2528,
+   "1.upper": 460,
+   "2.end_state": 2560,
+   "2.no_lost_output": 2540,
+   "2.no_repeat": 2330,
+   "3.crash_unknown": 60,
+   "3.hash": 2540,
+   "3.late_marked": 20,
+   "3.no_regenerate": 2540,
+   "3.recall": 157,
+   "3.states": 2560,
+   "4.denied": 77,
+   "4.established": 2540,
+   "4.gateway": 2540,
+   "4.mapped": 2540,
+   "4.policy_read": 20,
+   "5.TF_stale_rejected": 3,
+   "5.TI_one_effect": 2430,
+   "5.TI_same_key": 2110,
+   "5.TN_duplicate_recorded": 1,
+   "5.TN_no_retry": 2064,
+   "5.conflict": 9,
+   "5.recorded": 2237,
+   "6.TI_status": 71,
+   "6.derive": 118,
+   "6.in_doubt_owner": 154,
+   "6.no_deadlock": 80,
+   "6.outcome_exempt": 300,
+   "6.outstanding": 315,
+   "6.prepared_rejected": 161,
+   "7.authorized": 2430,
+   "7.committed": 2560,
+   "7.executed": 2560,
+   "7.reconstructed": 2560,
+   "7.shown": 2560
+  },
+  "unexercised": [],
+  "invalid_repeated": {},
+  "unresolved": [],
+  "max_seconds": 90.7
+ },
+ "plain1": {
+  "arm": "plain1",
+  "runs": 2560,
+  "expected": 2560,
+  "short_points": [],
+  "capped": false,
+  "verdicts": {
+   "violation": 1480,
+   "missing_point": 1080
+  },
+  "points_reached": 74,
+  "failing_by_clause": {
+   "3.late_marked": {
+    "unmet": 1480
+   },
+   "3.no_regenerate": {
+    "unmet": 1460
+   },
+   "3.states": {
+    "unmet": 1480
+   },
+   "4.mapped": {
+    "violation": 1460
+   },
+   "7.committed": {
+    "unmet": 1480
+   },
+   "7.executed": {
+    "violation": 1460,
+    "unmet": 20
+   },
+   "7.shown": {
+    "unmet": 1310
+   },
+   "1.state": {
+    "unmet": 1340
+   },
+   "3.crash_unknown": {
+    "violation": 40
+   },
+   "3.recall": {
+    "violation": 260
+   },
+   "2.no_repeat": {
+    "violation": 260
+   },
+   "5.TN_duplicate_recorded": {
+    "violation": 1
+   },
+   "5.TN_no_retry": {
+    "violation": 40
+   },
+   "1.stale_epoch": {
+    "violation": 204
+   },
+   "5.TI_one_effect": {
+    "violation": 220
+   },
+   "5.conflict": {
+    "violation": 209
+   },
+   "6.derive": {
+    "unmet": 179
+   },
+   "6.outstanding": {
+    "unmet": 440
+   },
+   "6.prepared_rejected": {
+    "unmet": 440
+   },
+   "5.TF_stale_rejected": {
+    "violation": 15
+   },
+   "5.recorded": {
+    "violation": 195
+   },
+   "7.reconstructed": {
+    "violation": 195
+   },
+   "2.end_state": {
+    "violation": 220
+   }
+  },
+  "exercised_runs_per_clause": {
+   "1.lower": 1220,
+   "1.prefix": 1440,
+   "1.stale_epoch": 220,
+   "1.state": 1440,
+   "1.upper": 200,
+   "2.end_state": 1480,
+   "2.no_lost_output": 1460,
+   "2.no_repeat": 1370,
+   "3.crash_unknown": 40,
+   "3.hash": 1460,
+   "3.no_regenerate": 1460,
+   "3.recall": 260,
+   "4.denied": 70,
+   "4.mapped": 1460,
+   "5.TF_stale_rejected": 15,
+   "5.TI_one_effect": 1370,
+   "5.TI_same_key": 1190,
+   "5.TN_duplicate_recorded": 1,
+   "5.TN_no_retry": 1190,
+   "5.conflict": 209,
+   "5.recorded": 1230,
+   "6.TI_status": 69,
+   "6.derive": 179,
+   "6.outcome_exempt": 260,
+   "7.authorized": 1310,
+   "7.executed": 1480,
+   "7.reconstructed": 1480,
+   "7.shown": 1480
+  },
+  "unexercised": [
+   "3.late_marked",
+   "3.states",
+   "4.established",
+   "4.gateway",
+   "4.policy_read",
+   "6.in_doubt_owner",
+   "6.no_deadlock",
+   "6.outstanding",
+   "6.prepared_rejected",
+   "7.committed"
+  ],
+  "invalid_repeated": {},
+  "unresolved": [],
+  "max_seconds": 31.4
+ },
+ "plain2": {
+  "arm": "plain2",
+  "runs": 2560,
+  "expected": 2560,
+  "short_points": [],
+  "capped": false,
+  "verdicts": {
+   "pass": 2560
+  },
+  "points_reached": 128,
+  "failing_by_clause": {},
+  "exercised_runs_per_clause": {
+   "1.lower": 2140,
+   "1.prefix": 2520,
+   "1.stale_epoch": 320,
+   "1.state": 2520,
+   "1.upper": 460,
+   "2.end_state": 2560,
+   "2.no_lost_output": 2540,
+   "2.no_repeat": 2330,
+   "3.crash_unknown": 60,
+   "3.hash": 2540,
+   "3.no_regenerate": 2540,
+   "3.recall": 140,
+   "3.states": 2560,
+   "4.denied": 77,
+   "4.established": 2540,
+   "4.mapped": 2540,
+   "4.policy_read": 20,
+   "5.TF_stale_rejected": 3,
+   "5.TI_one_effect": 2430,
+   "5.TI_same_key": 2110,
+   "5.TN_duplicate_recorded": 1,
+   "5.TN_no_retry": 2064,
+   "5.conflict": 1,
+   "5.recorded": 2245,
+   "6.TI_status": 70,
+   "6.derive": 130,
+   "6.in_doubt_owner": 142,
+   "6.no_deadlock": 80,
+   "6.outcome_exempt": 300,
+   "6.outstanding": 315,
+   "6.prepared_rejected": 160,
+   "7.authorized": 2430,
+   "7.committed": 2560,
+   "7.executed": 2560,
+   "7.reconstructed": 2560,
+   "7.shown": 2560
+  },
+  "unexercised": [
+   "3.late_marked",
+   "4.gateway"
+  ],
+  "invalid_repeated": {},
+  "unresolved": [],
+  "max_seconds": 99.8
+ },
+ "perf": {
+  "capped": false,
+  "complete": true,
+  "arms": {
+   "snc": {
+    "tasks": 1000,
+    "failed": [],
+    "net_ms_p50": 597.150494,
+    "net_ms_p99": 864.654834,
+    "consequential_commits_per_task": 16,
+    "commit_records_per_task": 65,
+    "wal_bytes_per_task": 62888,
+    "blob_bytes_per_task": 104
+   },
+   "plain2": {
+    "tasks": 1000,
+    "failed": [],
+    "net_ms_p50": 521.242503,
+    "net_ms_p99": 686.383196,
+    "consequential_commits_per_task": 16,
+    "commit_records_per_task": 54,
+    "wal_bytes_per_task": 37568,
+    "blob_bytes_per_task": 56
+   }
+  },
+  "B_ms_p50": 4.744249437499995,
+  "B_ms_p99": 11.141977375000003,
+  "B_holds": true,
+  "B_factor": 0.47442494374999955,
+  "B_per_commit_record_ms": [
+   1.167815246153845,
+   2.7426405846153856
+  ]
+ },
+ "diverge": {
+  "snc": {
+   "shadow_loaded": [
+    "shadow-e1"
+   ],
+   "dbos_reported": [],
+   "results": {},
+   "verdict": "violation",
+   "violations": [
+    "2.end_state"
+   ]
+  },
+  "plain1": {
+   "shadow_loaded": [
+    "shadow-e1"
+   ],
+   "dbos_reported": [],
+   "results": {
+    "result-e1": "completed"
+   },
+   "verdict": "violation",
+   "violations": [
+    "4.mapped",
+    "7.executed"
+   ]
+  },
+  "plain2": {
+   "shadow_loaded": [
+    "shadow-e1"
+   ],
+   "dbos_reported": [],
+   "results": {
+    "result-e1": "completed"
+   },
+   "verdict": "pass",
+   "violations": []
+  }
+ },
+ "outcome": [
+  "NARROW",
+  {
+   "why": "plain DBOS step 2 meets items 1-7 in L lines or fewer",
+   "not_applicable": {
+    "4.gateway": "consistency check on the SNC gateway's own decision log (items 4 and 7.4); plain DBOS has none",
+    "3.late_marked": "item 3's other branch: the arm may leave a crashed invocation result unknown instead"
+   }
+  }
+ ]
+}

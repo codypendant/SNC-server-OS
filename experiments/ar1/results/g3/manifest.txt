@@ -1,0 +1,99 @@
+# AR-1 G3 manifest, 2026-11-27 02:00:51 UTC
+host: vultr
+kernel: 6.8.0-149-generic
+freeze: {"commit": "575f49304d0766ff1445e7d442cb7024c3928bbc", "trees": {"snc_rt": "1a6aef5a75fc699190b1792c29bb3c12649ad54f", "ar1_check": "461b8da20f36bf0f85782d0d9e7a87f1de6e7e6e", "plain_dbos_step1": "0d5012cacf8ed05e66c4b05a9dd0ee56f7787c8f", "plain_dbos_step2": "4695e61930499ba28e2cea78492b9bee5b43895f"}, "code_hash": "57b0bd493b10645f"}
+workers: 2, seeds: 20, perf tasks: 1000
+## cpu
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           40 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  6
+On-line CPU(s) list:                     0-5
+Vendor ID:                               GenuineIntel
+Model name:                              Intel Core Processor (Broadwell, no TSX, IBRS)
+CPU family:                              6
+Model:                                   61
+Thread(s) per core:                      2
+Core(s) per socket:                      3
+Socket(s):                               1
+Stepping:                                2
+BogoMIPS:                                4788.90
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx rdtscp lm constant_tsc rep_good nopl xtopology cpuid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm cpuid_fault pti ssbd ibrs ibpb fsgsbase bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat
+Hypervisor vendor:                       Microsoft
+Virtualization type:                     full
+L1d cache:                               192 KiB (6 instances)
+L1i cache:                               192 KiB (6 instances)
+L2 cache:                                12 MiB (3 instances)
+L3 cache:                                16 MiB (1 instance)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-5
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Mitigation; Aligned branch/return thunks
+Vulnerability Itlb multihit:             KVM: Mitigation: VMX unsupported
+Vulnerability L1tf:                      Mitigation; PTE Inversion
+Vulnerability Mds:                       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+Vulnerability Meltdown:                  Mitigation; PTI
+Vulnerability Mmio stale data:           Unknown: No mitigations
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; IBPB conditional; IBRS_FW; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Retpoline
+Vulnerability Srbds:                     Unknown: Dependent on hypervisor status
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+## memory
+total        used        free      shared  buff/cache   available
+Mem:     16763064320   715948032 14675136512     1466368  1694511104 16047116288
+Swap:     8589930496           0  8589930496
+## runs filesystem
+Filesystem     Type 1K-blocks     Used Available Use% Mounted on
+/dev/vda2      ext4 314071948 12983636 287606800   5% /
+TARGET SOURCE    FSTYPE OPTIONS
+/      /dev/vda2 ext4   rw,relatime
+## postgres
+postgres (PostgreSQL) 18.7
+## postgresql.conf additions (ar1/pg.py)
+
+listen_addresses = '127.0.0.1'
+port = {port}
+unix_socket_directories = '{sock}'
+wal_level = replica
+synchronous_commit = on
+synchronous_standby_names = 'FIRST 1 (s1)'
+fsync = on
+full_page_writes = on
+wal_keep_size = '8GB'
+max_wal_senders = 8
+wal_sender_timeout = '60s'
+shared_buffers = '128MB'
+max_connections = 200
+hot_standby = on
+log_min_messages = warning
+log_line_prefix = '%m [%p] '
+logging_collector = off
+
+## python
+3.12.16 (main, Oct 26 2026, 11:37:43) [GCC 15.3.0]
+black==25.11.0
+click==8.5.1
+croniter==7.0.0
+dbos==3.6.0
+greenlet==3.5.6
+mypy_extensions==1.2.0
+packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1785888127/work
+pathspec==1.1.1
+platformdirs==4.14.8
+psycopg==3.3.9
+psycopg-binary==3.3.9
+python-dateutil==4.0.0
+pytokens==0.4.1
+PyYAML==6.0.4
+setuptools==84.2.1
+SQLAlchemy==2.1.9
+typing_extensions==4.16.0
+tzdata==2026.6
+wheel==0.48.0

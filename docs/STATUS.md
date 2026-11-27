@@ -552,9 +552,11 @@ Decided by cody on 2026-11-04.
     new C-7b page-boundary check. SNC passes 256 of 256 bring-up runs, reaches all 128 points and exercises every
     clause. 14 of 14 mutations are flagged at every seed.
   - PR #185 merged. cody gave the G3 go on 2026-11-23 ([handoff/AR1_G3_Owner_Decision.md](handoff/AR1_G3_Owner_Decision.md)).
-  - **Now:** G3 is frozen at `575f493` ([handoff/AR1_G3_Freeze.md](handoff/AR1_G3_Freeze.md)). The counted
-    campaign runs on a dedicated VM from [experiments/ar1/G3_VM_CARD.md](../experiments/ar1/G3_VM_CARD.md). No
-    counted result exists yet.
+  - G3 was frozen at `575f493` ([handoff/AR1_G3_Freeze.md](handoff/AR1_G3_Freeze.md)) and ran on a dedicated VM
+    on 2026-11-27. **Outcome: NARROW** ([experiments/ar1/results/G3_REPORT.md](../experiments/ar1/results/G3_REPORT.md)).
+    Phase 0 passed. Adequacy flagged 14 of 14 mutations. SNC and plain DBOS step 2 each passed 2,560 of 2,560 runs.
+    Plain step 2 needed 284 added lines (L = 300). B held at 4.7 ms per consequential commit at p50.
+  - **Now:** cody decides what NARROW means for S1's direction. Nothing has changed until then.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event
