@@ -1,8 +1,8 @@
 # Track A criteria: campaign dc1-tracka
 
 **Status: thresholds APPROVED (P-G1, 2026-11-22), not yet FROZEN. Codex put the freeze on HOLD on 2026-11-28
-(`docs/handoff/PR197_Codex_Review.txt`). It waits for Codex's review of execution plan revision 2. cody made the two decisions of its section 6 on
-2026-11-28 (`docs/handoff/TRACK_A_O5_Budget_Owner_Decision.md`).**
+(`docs/handoff/PR197_Codex_Review.txt`). Codex held it again on 2026-11-28 (`docs/handoff/PR199_Codex_Review.txt`). It waits for Codex's
+review of execution plan revision 3. cody's decisions of 2026-11-28 are in `docs/handoff/TRACK_A_O5_Budget_Owner_Decision.md`.**
 - **Source:** `docs/DIRECTION_COMPARISON_PLAN.md` revision 3, section 3, and `docs/TRACK_A_EXECUTION_PLAN.md`.
 - **Authorization:** cody gave P-A on 2026-11-27 (`docs/handoff/TRACK_A_PA_Owner_Decision.md`).
 - **Freeze:** a later commit freezes this file after Codex's review, and records its own SHA here. It lands before
@@ -14,7 +14,7 @@
 |---|---|
 | Arms | SNC (`snc_rt` tree `1a6aef5` at `575f493`, plus an adapter), DBOS 3.6.0 (Python), Restate 1.8.1 with Rust SDK 0.13.0, Temporal 1.32.2 with sdk-python 1.36.1 (PostgreSQL persistence), LangGraph 1.2.24 with checkpoint-postgres 3.2.1 (durability `sync`) |
 | Build order | DBOS, Restate, Temporal, LangGraph; all four built (execution plan AM-1, an amendment to the plan's early stop; rows unchanged; 12 agent-day cap kept) |
-| SNC and O-5 | DECIDED by cody 2026-11-28, option A (execution plan section 3): the frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED. SNC is judged on O-1 to O-4, A09 and A10 are not run on SNC, and O-5 is counted against SNC's layer in criteria 1 and 3 |
+| SNC and O-5 | The frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED, and A09 and A10 cannot run on it (execution plan section 3). **Formal outcome:** the rows apply as written, so row 1 applies to the frozen candidate. **Diagnostic, labelled, not overriding:** SNC and the competitors compared on O-1 to O-4; competitor O-5 reported separately |
 | Durability | competitors: one copy with fsync before acknowledgement. PostgreSQL 18: `synchronous_commit = on`, `fsync = on`, no standby. Restate: RocksDB WAL fsync on (the default). SNC: AR-1's same-host synchronous standby, charged to SNC |
 | Retention | any default that deletes history inside a run is raised by configuration, and the value is reported |
 | Forbidden | engine source changes; LangGraph durability `async` or `exit`; Temporal's SQLite dev server; DBOS on SQLite; changing Restate code under a live deployment |
@@ -27,7 +27,7 @@
 | Guarantees | O-1 to O-5, as written in plan 3.3, judged from the service logs and the arm's `state` and `reconstruct` only |
 | Quiesce | 10 s |
 | Zombie release time T | 60 s; no takeover within T makes the run UNRESOLVED |
-| Checker adequacy | hard gate, execution plan section 4: layers L1 (service logs), L2 (each arm's state, reconstruct and event interfaces) and L3 (one mutant per guarantee of each frozen arm), by an independent adequacy author; every fault is flagged, and every L3 mutant at every seed of each observable point; a miss makes the campaign UNRESOLVED |
+| Checker adequacy | hard gate, execution plan section 4: layers L1 (service logs), L2 (each arm's state, reconstruct and event interfaces) and L3 (one mutant per guarantee of each frozen arm), by an independent adequacy author; every fault is flagged, and every L3 mutant at every seed of each observable point; each L3 mutant needs a passing positive control, independent evidence that it ran, and a new violation the step-1 baseline does not already have; an unexercised mutant is UNRESOLVED; a miss makes the campaign UNRESOLVED |
 | Invalid runs | repeated once with the same seed; a second invalid run at a point is UNRESOLVED; a violation seen in an invalid run counts |
 
 ## Line limits (plan 3.5)
@@ -52,9 +52,9 @@
 | Item | Value |
 |---|---|
 | Agent effort | 12 agent-days after P-A |
-| Run | 5 minutes per run (accepted by cody 2026-11-28) |
-| Run set | 3 h per arm and step (accepted by cody 2026-11-28) |
-| VM total | 30 VM hours for counted runs, adequacy, performance and any VM bring-up (accepted by cody 2026-11-28; the plan's 8 h assumed the early stop) |
+| Run | 5 minutes per run (hard cap, accepted by cody 2026-11-28) |
+| Run set | 3 h per arm and step (hard cap, accepted by cody 2026-11-28) |
+| VM total | 30 VM hours for counted runs, adequacy, performance and any VM bring-up (hard cap, accepted by cody 2026-11-28; the plan's 8 h assumed the early stop) |
 | A cap hit | stops the item; what completed is reported and the rest is UNRESOLVED |
 
 ## Reported, not gated (plan 3.6)
