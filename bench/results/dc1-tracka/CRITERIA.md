@@ -1,13 +1,12 @@
 # Track A criteria: campaign dc1-tracka
 
-**Status: thresholds APPROVED (P-G1, 2026-11-22), not yet FROZEN. Codex put the freeze on HOLD on 2026-11-28
-(`docs/handoff/PR197_Codex_Review.txt`). Codex held it again on 2026-11-28 (`docs/handoff/PR199_Codex_Review.txt`,
-`docs/handoff/PR201_Codex_Review.txt`). It waits for Codex's review of execution plan revision 4. cody chose the original rules for SNC's O-5
-on 2026-11-28 (plan section 6). cody's decisions of 2026-11-28 are in `docs/handoff/TRACK_A_O5_Budget_Owner_Decision.md`.**
+**Status: FROZEN 2026-11-28.** Thresholds approved at P-G1 (2026-11-22); Codex approved the freeze in its review of
+PR #202 (`docs/handoff/PR202_Codex_Review.txt`). The freeze commit and file hashes are in
+`docs/handoff/TRACK_A_Criteria_Freeze.md`.
 - **Source:** `docs/DIRECTION_COMPARISON_PLAN.md` revision 3, section 3, and `docs/TRACK_A_EXECUTION_PLAN.md`.
 - **Authorization:** cody gave P-A on 2026-11-27 (`docs/handoff/TRACK_A_PA_Owner_Decision.md`).
-- **Freeze:** a later commit freezes this file after Codex's review, and records its own SHA here. It lands before
-  any comparative run. After the freeze, any change is a new commit, reported next to the results.
+- **Freeze:** this file is frozen before any comparative run. Any later change is a new commit, reported next to the
+  results.
 - No comparative number existed when this was written.
 
 ## Scope
@@ -15,7 +14,7 @@ on 2026-11-28 (plan section 6). cody's decisions of 2026-11-28 are in `docs/hand
 |---|---|
 | Arms | SNC (`snc_rt` tree `1a6aef5` at `575f493`, plus an adapter), DBOS 3.6.0 (Python), Restate 1.8.1 with Rust SDK 0.13.0, Temporal 1.32.2 with sdk-python 1.36.1 (PostgreSQL persistence), LangGraph 1.2.24 with checkpoint-postgres 3.2.1 (durability `sync`) |
 | Build order | DBOS, Restate, Temporal, LangGraph; all four built (execution plan AM-1, an amendment to the plan's early stop; rows unchanged; 12 agent-day cap kept) |
-| SNC and O-5 | The frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED, and A09 and A10 cannot run on it (execution plan section 3). **Formal outcome:** the original rules, chosen by cody 2026-11-28 ("Keep rules."); SNC's O-5 is UNSUPPORTED, so row 1 applies to the frozen candidate. Option A is not adopted. **Diagnostic, labelled, not overriding:** SNC and the competitors compared on the 94 S-M runs; the approval and denial subclauses of O-3 and O-4 are reported separately (UNSUPPORTED for SNC); competitor O-5 reported separately |
+| SNC and O-5 | The frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED, and A09 and A10 cannot run on it (execution plan section 3). **Formal outcome:** the original rules, chosen by cody 2026-11-28 ("Keep rules."); SNC's O-5 is UNSUPPORTED, so row 1 applies to the frozen candidate. Option A is not adopted. **Diagnostic, labelled, not overriding:** SNC and the competitors compared on the 94 S-M runs; O-4 covers the ordinary policy decision (SNC's `P-dec`) where observable; the asynchronous approval and denial subclauses of O-3 and O-4 are reported separately (UNSUPPORTED for SNC); competitor O-5 reported separately |
 | Durability | competitors: one copy with fsync before acknowledgement. PostgreSQL 18: `synchronous_commit = on`, `fsync = on`, no standby. Restate: RocksDB WAL fsync on (the default). SNC: AR-1's same-host synchronous standby, charged to SNC |
 | Retention | any default that deletes history inside a run is raised by configuration, and the value is reported |
 | Forbidden | engine source changes; LangGraph durability `async` or `exit`; Temporal's SQLite dev server; DBOS on SQLite; changing Restate code under a live deployment |

@@ -1,0 +1,44 @@
+SNC — Codex Review of PR #202
+
+VERDICT: APPROVED — ONE MINOR CORRECTION BEFORE CRITERIA FREEZE.
+
+PR #202 revision 4 adequately resolves the outstanding blockers from PR #201.
+
+Verified:
+
+1. Cody explicitly selected "Keep rules." The original formal Track A outcome rules remain intact.
+2. Frozen SNC O-5 is UNSUPPORTED. The formal row-1 outcome applies to this candidate.
+3. The O-1 through O-4 comparison is separately labelled DIAGNOSTIC and cannot override the formal result.
+4. Mutation adequacy now requires passing positive controls and independent evidence that each mutant executes and introduces a new violation.
+5. Step-1 correctness failures are distinguished from checker failures. Guarantees established by step 2 receive separate adequacy verification.
+6. The original 12-agent-day cap and approved 30 VM-hour hard budget remain unchanged.
+7. All four competing implementations remain in scope.
+8. CI passed.
+
+Minor Correction Required
+
+Section 3 states that S-M has no policy decision.
+
+The frozen SNC runtime executes "P-dec" in S-M. Its policy permits execution without requiring approval.
+
+Correct the wording to distinguish policy decisions from asynchronous approvals and denials.
+
+O-4 reconstruction of the ordinary policy decision remains within S-M coverage where observable. Approval and denial subclauses remain outside the 94 S-M runs and require separate reporting.
+
+This does not change the matrix, guarantees, thresholds or outcome rules.
+
+Next Stage
+
+After this correction:
+
+- Codex approves freezing Track A CRITERIA.md.
+- Freeze the approved criteria and record the exact commit and relevant hashes.
+- Proceed under the existing P-A authorization.
+- Implement independent, idiomatic DBOS, Restate, Temporal and LangGraph arms.
+- Complete checker adequacy before counted execution.
+- Enforce the approved resource caps.
+- Continue Track B independently.
+
+Do not modify the frozen SNC implementation, expand S1, select production dependencies or authorize a product pivot.
+
+FINAL: APPROVE PR #202. CORRECT THE POLICY-DECISION WORDING ON SITE, THEN FREEZE THE CRITERIA AND PROCEED UNDER EXISTING AUTHORIZATION. No additional Codex review is required for that wording correction.
