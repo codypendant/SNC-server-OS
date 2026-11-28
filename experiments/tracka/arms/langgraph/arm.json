@@ -1,0 +1,23 @@
+{
+  "name": "langgraph",
+  "engines": [],
+  "restart_engine": "pg",
+  "build": ["sh", "-c", "test -x .venv/bin/python || { /opt/ar1/bin/python3 -m venv .venv && .venv/bin/pip install --require-hashes --no-deps -r requirements.lock; }"],
+  "setup": ["{arm}/.venv/bin/python", "{arm}/lg.py", "setup"],
+  "submit": ["true"],
+  "worker": ["{arm}/.venv/bin/python", "{arm}/lg.py", "worker"],
+  "deliver": ["{arm}/.venv/bin/python", "{arm}/lg.py", "deliver"],
+  "state": ["{arm}/.venv/bin/python", "{arm}/lg.py", "state"],
+  "reconstruct": ["{arm}/.venv/bin/python", "{arm}/lg.py", "reconstruct"],
+  "config": {
+    "durability": "sync",
+    "retention": "forever (no checkpointer or store TTL)",
+    "http_timeout_s": 30,
+    "owner_timeout_s": 30,
+    "tn_retry_policy": "RetryPolicy(retry_on=httpx.TransportError), max_attempts 3",
+    "takeover": "none: a new worker forks the latest checkpoint (update_state as_node __copy__) and re-invokes the thread_id; LangGraph OSS has no lease",
+    "tf_token": "langgraph_step (the fork raises it by one per worker start)",
+    "pg_pool": "psycopg_pool.ConnectionPool, check=ConnectionPool.check_connection, default sizes and timeouts (min_size 4, timeout 30 s)"
+  },
+  "unsupported": []
+}
