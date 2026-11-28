@@ -1,0 +1,22 @@
+{
+  "name": "restate",
+  "engines": [{"name": "restate", "start": ["{arm}/restate.sh"], "ready": ["{arm}/tracka.sh", "ready"]}],
+  "restart_engine": "restate",
+  "build": ["{arm}/build.sh"],
+  "setup": ["{arm}/tracka.sh", "setup"],
+  "submit": ["{arm}/tracka.sh", "submit"],
+  "worker": ["{arm}/tracka.sh", "worker"],
+  "deliver": ["{arm}/tracka.sh", "deliver"],
+  "state": ["{arm}/tracka.sh", "state"],
+  "reconstruct": ["{arm}/tracka.sh", "reconstruct"],
+  "config": {
+    "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+    "inactivity_timeout_s": 5,
+    "abort_timeout_s": 5,
+    "retry_policy": "server default per docs: 50ms initial, factor 2, max 60s, 70 attempts, then pause; ctx.run default (no per-run policy)",
+    "durability": "single node, bifrost replicated loglet with replication 1, log-server rocksdb-disable-wal-fsync=false (default)",
+    "t_f_token": "sys_invocation.last_start_at (ms) of the attempt that sends T-F",
+    "owner_timeout": "the engine's own retry: the owner is asked when T-N runs in an attempt after its journalled Run command"
+  },
+  "unsupported": []
+}
