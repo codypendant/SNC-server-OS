@@ -83,7 +83,8 @@ the arm called the owner and the owner answered `happened` is not yet recorded (
 ## Services (`TRACKA_SVC`)
 
 All requests and replies are JSON. Each service appends to `R/svc/<svc>.jsonl` (one `write` and `fsync` per line)
-before it acts.
+before it acts. **Every JSONL line in `R`, in every file, carries `t`** (`time.monotonic_ns()`, one host), so order
+across files is known.
 
 - **Stub, `POST /stub`** `{invocation_id, retry_of, agent, task, body}`. `invocation_id` is chosen by the arm;
   `body` is any JSON value, the model input. The reply is chunked NDJSON: first `{"request_id": rid}`, then
@@ -94,7 +95,7 @@ before it acts.
   `attempt` are the arm's ids, used only to correlate. Reply `{kind, result}`:
   - T-I and T-F return the first result again for a repeated `key` (`duplicate`);
   - T-F rejects, with HTTP 409 and `rejected_stale`, a `token` (an integer) below the highest it has seen for that
-    agent. A request without `token` uses its `epoch` field (the frozen SNC arm);
+    agent. The stale check comes before the key dedupe, so a stale token is rejected even under a repeated key. A request without `token` uses its `epoch` field (the frozen SNC arm);
   - T-N has no key and no status query: every request is a new effect;
   - `GET /status?key=` answers T-I's first result for a key, or `{found: false}`.
   Logs `{kind: "request", call_id, key, attempt, agent, task, token, args}`, then `{kind: "effect" | "duplicate" |
@@ -137,7 +138,7 @@ before it acts.
 | Path | Writer | Content |
 |---|---|---|
 | `R/run.json` | harness | `{point, seed, seed_string, arm, scenario, kind, boundary, varies, ports, unsupported}`; `unsupported` is copied from `arm.json` (a list of clause ids, empty by default) |
-| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `quiesced`, `run-end` (`data: {verdict}`) |
+| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `quiesced`, `error` (`data: {reason}`, the harness failed), `run-end` (`data: {status: "ended" | "cap" | "error"}`, the harness's own status, not the checker's verdict). In `reached`, `svc` is `model`, `T-I`, `T-F`, `T-N` or `approver` |
 | `R/svc/*.jsonl` | services | above |
 | `R/answers.jsonl` | harness | `{t, call: "state" | "reconstruct", arg, answer, exit}` after the quiesce |
 | `R/logs/<proc>.log` | harness | each process's stdout and stderr |
