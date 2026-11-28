@@ -1,0 +1,6 @@
+{"agent": "A", "args": {"reply": "rid-9a3b3b780a264c978c8cd980f746300d"}, "attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "request", "t": 7542253461243, "task": "T", "token": null, "tool": "T-I"}
+{"agent": "A", "args": {"reply": "rid-9a3b3b780a264c978c8cd980f746300d"}, "attempt": 2, "call_id": "T:T-I", "key": "T:T-I", "kind": "request", "t": 7542869433574, "task": "T", "token": null, "tool": "T-I"}
+{"attempt": 2, "call_id": "T:T-I", "key": "T:T-I", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 7542869867537, "token": null}
+{"attempt": 2, "call_id": "T:T-I", "key": "T:T-I", "kind": "delivered", "t": 7542870367584}
+{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "duplicate", "result": {"effect": "T-I-1"}, "t": 7542878096841, "token": null}
+{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "delivered", "t": 7542878698992}

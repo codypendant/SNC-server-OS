@@ -49,16 +49,22 @@ def check(R):
         "fails": by("fail"),
         "unresolved": by("unresolved"),
         "invalid": out.get("invalid", []),
+        "clauses": {c["id"]: c["status"] for c in out["clauses"]},
+        "details": {
+            c["id"]: c.get("detail", "")[:600]
+            for c in out["clauses"]
+            if c["status"] in ("fail", "unresolved")
+        },
     }
 
 
-def run(arm_dir, name, point, seed, scenario="S-M"):
+def run(arm_dir, name, point, seed, scenario="S-M", env=None):
     p = subprocess.run(
         [PY, "-m", "adequacy.drive", str(arm_dir), name, point, str(seed), scenario],
         cwd=TRACKA,
         capture_output=True,
         text=True,
-        env={**os.environ, "TRACKA_RUNS": str(RUNS)},
+        env={**os.environ, "TRACKA_RUNS": str(RUNS), **(env or {})},
     )
     try:
         return json.loads(p.stdout.strip().splitlines()[-1])

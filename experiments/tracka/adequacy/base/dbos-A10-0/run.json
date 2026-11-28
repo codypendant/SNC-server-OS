@@ -8,9 +8,9 @@
  "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A10:0",
  "arm": "dbos",
  "ports": {
-  "pg": 16006,
-  "svc": 16007,
-  "arm": 16008
+  "pg": 19570,
+  "svc": 19571,
+  "arm": 19572
  },
  "unsupported": []
 }

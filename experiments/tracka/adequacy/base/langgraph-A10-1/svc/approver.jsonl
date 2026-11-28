@@ -1,0 +1,3 @@
+{"action": "T-I,T-F,T-N", "kind": "request", "t": 7608468690223, "task": "T", "thread_id": "T"}
+{"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "kind": "posted", "t": 7609235544481, "task": "T"}
+{"action": "T-I,T-F,T-N", "kind": "delivered", "t": 7609239284114, "task": "T"}

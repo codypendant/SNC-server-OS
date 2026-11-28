@@ -1,0 +1,6 @@
+{"agent": "A", "args": {"op": "perform T-F", "task": "T", "tool": "T-F"}, "attempt": 1, "call_id": "TF.e1", "epoch": 1, "key": "A:T:T-F", "kind": "request", "t": 7849737588282, "task": null, "token": 1}
+{"agent": "A", "args": {"op": "perform T-F", "task": "T", "tool": "T-F"}, "attempt": 2, "call_id": "TF.e1", "epoch": 2, "key": "A:T:T-F", "kind": "request", "t": 7850613674299, "task": null, "token": 2}
+{"attempt": 2, "call_id": "TF.e1", "key": "A:T:T-F", "kind": "effect", "result": {"effect": "T-F-1"}, "t": 7850614251655, "token": 2}
+{"attempt": 2, "call_id": "TF.e1", "key": "A:T:T-F", "kind": "delivered", "t": 7850614664848}
+{"attempt": 1, "call_id": "TF.e1", "key": "A:T:T-F", "kind": "rejected_stale", "result": {"highest": 2}, "t": 7850622301072, "token": 1}
+{"attempt": 1, "call_id": "TF.e1", "key": "A:T:T-F", "kind": "delivered", "t": 7850622808316}

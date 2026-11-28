@@ -1,0 +1,5274 @@
+{
+ "snc|state_retention|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)'"
+  },
+  "fault": "state_retention",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_task_id|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "state task id 'T2', not 'T'"
+  },
+  "fault": "state_task_id",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|status_done_to_doubt|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "owner not asked after T-N 'TN.e1'; last T-N reply was delivered with no fault at T-N"
+  },
+  "fault": "status_done_to_doubt",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_input|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-0f2877a8f171401c91c4703c131a860e': input hash differs from body_sha256"
+  },
+  "fault": "model_input",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_output_sha|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-0f2877a8f171401c91c4703c131a860e': output_sha256 differs from the stub reply"
+  },
+  "fault": "model_output_sha",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_used_false|none-S-M-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "model_used_false",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_extra|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "1 model entries with no stub request"
+  },
+  "fault": "model_extra",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_drop|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "stub request 'rid-0f2877a8f171401c91c4703c131a860e' (invocation 'inv.e1.1') missing"
+  },
+  "fault": "model_drop",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_drop|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call entry 'TF.e1' without attempts"
+  },
+  "fault": "attempt_drop",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_drop|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ)"
+  },
+  "fault": "call_drop",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_outcome|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: outcome 'duplicate', logged 'effect'; call 'TI.e1': outcome 'effect', last attempt 'duplicate'"
+  },
+  "fault": "attempt_outcome",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_args|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: not in reconstruct (or call fields differ); call 'TI.e1' attempt 1: not in the logs; call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "call_args",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_token|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call 'TF.e1' attempt 1: not in the logs; call 'TF.e1': outcome result differs from the log"
+  },
+  "fault": "call_token",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|outcome_result|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "outcome_result",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|rule_version_null|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "fault": "rule_version_null",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_action|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "action 'T-I,T-F', want 'T-I,T-F,T-N'"
+  },
+  "fault": "policy_action",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_result|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "result 'needs_approval', want 'allow'"
+  },
+  "fault": "policy_result",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_drop|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got []"
+  },
+  "fault": "policy_drop",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_dup|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got [{'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}, {'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}]"
+  },
+  "fault": "policy_dup",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|approval_without_event|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "approval {'decision': 'approve'} where the rule needs none"
+  },
+  "fault": "approval_without_event",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|recon_retention|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt'"
+  },
+  "fault": "recon_retention",
+  "point": "none-S-M-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_retention|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)'"
+  },
+  "fault": "state_retention",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_task_id|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "state task id 'T2', not 'T'"
+  },
+  "fault": "state_task_id",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|status_done_to_doubt|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "owner not asked after T-N 'TN.e2'; last T-N reply was delivered with no fault at T-N"
+  },
+  "fault": "status_done_to_doubt",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_input|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-cfca7be30ab34d3c878a0ec087762df0': input hash differs from body_sha256"
+  },
+  "fault": "model_input",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_output_sha|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-cfca7be30ab34d3c878a0ec087762df0': output_sha256 differs from the stub reply"
+  },
+  "fault": "model_output_sha",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_used_false|A02-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "model_used_false",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_extra|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "1 model entries with no stub request"
+  },
+  "fault": "model_extra",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_drop|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "stub request 'rid-cfca7be30ab34d3c878a0ec087762df0' (invocation 'inv.e1.1') missing"
+  },
+  "fault": "model_drop",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_drop|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ); call entry 'TF.e2' without attempts"
+  },
+  "fault": "attempt_drop",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_drop|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ)"
+  },
+  "fault": "call_drop",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_outcome|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: outcome 'duplicate', logged 'effect'; call 'TI.e1': outcome 'effect', last attempt 'duplicate'"
+  },
+  "fault": "attempt_outcome",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_args|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: not in reconstruct (or call fields differ); call 'TI.e1' attempt 1: not in the logs; call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "call_args",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_token|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ); call 'TF.e2' attempt 1: not in the logs; call 'TF.e2': outcome result differs from the log"
+  },
+  "fault": "call_token",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|outcome_result|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "outcome_result",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|rule_version_null|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "fault": "rule_version_null",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_action|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "action 'T-I,T-F', want 'T-I,T-F,T-N'"
+  },
+  "fault": "policy_action",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_result|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "result 'needs_approval', want 'allow'"
+  },
+  "fault": "policy_result",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_drop|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got []"
+  },
+  "fault": "policy_drop",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_dup|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got [{'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}, {'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}]"
+  },
+  "fault": "policy_dup",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|approval_without_event|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "approval {'decision': 'approve'} where the rule needs none"
+  },
+  "fault": "approval_without_event",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|recon_retention|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt'"
+  },
+  "fault": "recon_retention",
+  "point": "A02-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_retention|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)'"
+  },
+  "fault": "state_retention",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_task_id|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "state task id 'T2', not 'T'"
+  },
+  "fault": "state_task_id",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|status_done_to_doubt|A04-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "status_done_to_doubt",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-2.memory"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_input|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-e0f63a5e41c1416e9780168d8a80beb3': input hash differs from body_sha256"
+  },
+  "fault": "model_input",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_output_sha|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-e0f63a5e41c1416e9780168d8a80beb3': output_sha256 differs from the stub reply"
+  },
+  "fault": "model_output_sha",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_used_false|A04-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "model_used_false",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_extra|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "1 model entries with no stub request"
+  },
+  "fault": "model_extra",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_drop|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "stub request 'rid-e0f63a5e41c1416e9780168d8a80beb3' (invocation 'inv.e1.1') missing"
+  },
+  "fault": "model_drop",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_drop|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call entry 'TF.e1' without attempts"
+  },
+  "fault": "attempt_drop",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_drop|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ)"
+  },
+  "fault": "call_drop",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_outcome|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: outcome 'duplicate', logged 'effect'; call 'TI.e1': outcome 'effect', last attempt 'duplicate'"
+  },
+  "fault": "attempt_outcome",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_args|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: not in reconstruct (or call fields differ); call 'TI.e1' attempt 1: not in the logs; call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "call_args",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_token|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call 'TF.e1' attempt 1: not in the logs; call 'TF.e1': outcome result differs from the log"
+  },
+  "fault": "call_token",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|outcome_result|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "outcome_result",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|rule_version_null|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "fault": "rule_version_null",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_action|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "action 'T-I,T-F', want 'T-I,T-F,T-N'"
+  },
+  "fault": "policy_action",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_result|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "result 'needs_approval', want 'allow'"
+  },
+  "fault": "policy_result",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_drop|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got []"
+  },
+  "fault": "policy_drop",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_dup|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got [{'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}, {'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}]"
+  },
+  "fault": "policy_dup",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|approval_without_event|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "approval {'decision': 'approve'} where the rule needs none"
+  },
+  "fault": "approval_without_event",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|recon_retention|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt'"
+  },
+  "fault": "recon_retention",
+  "point": "A04-0",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_retention|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)'"
+  },
+  "fault": "state_retention",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_task_id|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "state task id 'T2', not 'T'"
+  },
+  "fault": "state_task_id",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|status_done_to_doubt|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "owner not asked after T-N 'TN.e2'; last T-N reply was delivered with no fault at T-N"
+  },
+  "fault": "status_done_to_doubt",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_input|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-c2c9759ada5449ddb3ac016f161df1e2': input hash differs from body_sha256"
+  },
+  "fault": "model_input",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_output_sha|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-c2c9759ada5449ddb3ac016f161df1e2': output_sha256 differs from the stub reply"
+  },
+  "fault": "model_output_sha",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_used_false|A06-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "model_used_false",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_extra|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "1 model entries with no stub request"
+  },
+  "fault": "model_extra",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_drop|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "stub request 'rid-c2c9759ada5449ddb3ac016f161df1e2' (invocation 'inv.e1.1') missing"
+  },
+  "fault": "model_drop",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_drop|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ); call entry 'TF.e2' without attempts"
+  },
+  "fault": "attempt_drop",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_drop|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ)"
+  },
+  "fault": "call_drop",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_outcome|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: outcome 'duplicate', logged 'effect'; call 'TI.e1': outcome 'effect', last attempt 'duplicate'"
+  },
+  "fault": "attempt_outcome",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_args|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: not in reconstruct (or call fields differ); call 'TI.e1' attempt 1: not in the logs; call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "call_args",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_token|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e2' attempt 1: not in reconstruct (or call fields differ); call 'TF.e2' attempt 1: not in the logs; call 'TF.e2': outcome result differs from the log"
+  },
+  "fault": "call_token",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|outcome_result|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "outcome_result",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|rule_version_null|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "fault": "rule_version_null",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_action|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "action 'T-I,T-F', want 'T-I,T-F,T-N'"
+  },
+  "fault": "policy_action",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_result|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "result 'needs_approval', want 'allow'"
+  },
+  "fault": "policy_result",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_drop|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got []"
+  },
+  "fault": "policy_drop",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_dup|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got [{'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}, {'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}]"
+  },
+  "fault": "policy_dup",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|approval_without_event|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "approval {'decision': 'approve'} where the rule needs none"
+  },
+  "fault": "approval_without_event",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|recon_retention|A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt'"
+  },
+  "fault": "recon_retention",
+  "point": "A06-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_retention|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)'"
+  },
+  "fault": "state_retention",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|state_task_id|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "state task id 'T2', not 'T'"
+  },
+  "fault": "state_task_id",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|status_done_to_doubt|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "fail",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-1.end_state": "owner not asked after T-N 'TN.e1'; last T-N reply was delivered with no fault at T-N"
+  },
+  "fault": "status_done_to_doubt",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_input|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-93acefd697304ab0bcdbff3dfcd6cb2b': input hash differs from body_sha256"
+  },
+  "fault": "model_input",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_output_sha|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "'rid-93acefd697304ab0bcdbff3dfcd6cb2b': output_sha256 differs from the stub reply"
+  },
+  "fault": "model_output_sha",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_used_false|A15-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {},
+  "fault": "model_used_false",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "status": "unsupported (clause listed in arm.json)",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_extra|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "1 model entries with no stub request"
+  },
+  "fault": "model_extra",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|model_drop|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "fail",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.model": "stub request 'rid-93acefd697304ab0bcdbff3dfcd6cb2b' (invocation 'inv.e1.1') missing"
+  },
+  "fault": "model_drop",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_drop|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call entry 'TF.e1' without attempts"
+  },
+  "fault": "attempt_drop",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_drop|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ)"
+  },
+  "fault": "call_drop",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|attempt_outcome|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: outcome 'duplicate', logged 'effect'; call 'TI.e1': outcome 'effect', last attempt 'duplicate'"
+  },
+  "fault": "attempt_outcome",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_args|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-I 'TI.e1' attempt 1: not in reconstruct (or call fields differ); call 'TI.e1' attempt 1: not in the logs; call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "call_args",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|call_token|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "T-F 'TF.e1' attempt 1: not in reconstruct (or call fields differ); call 'TF.e1' attempt 1: not in the logs; call 'TF.e1': outcome result differs from the log"
+  },
+  "fault": "call_token",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|outcome_result|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.calls": "call 'TI.e1': outcome result differs from the log"
+  },
+  "fault": "outcome_result",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|rule_version_null|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "fault": "rule_version_null",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_action|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "action 'T-I,T-F', want 'T-I,T-F,T-N'"
+  },
+  "fault": "policy_action",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_result|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "result 'needs_approval', want 'allow'"
+  },
+  "fault": "policy_result",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_drop|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got []"
+  },
+  "fault": "policy_drop",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|policy_dup|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "expected one policy decision, got [{'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}, {'action': 'T-I,T-F,T-N', 'approval': None, 'result': 'allow', 'rule_version': 'p1'}]"
+  },
+  "fault": "policy_dup",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|approval_without_event|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "pass",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.policy": "approval {'decision': 'approve'} where the rule needs none"
+  },
+  "fault": "approval_without_event",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|recon_retention|A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "clauses": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "unsupported",
+   "O-1.no_recall": "unsupported",
+   "O-1.takeover": "pass",
+   "O-2.memory": "unsupported",
+   "O-2.single_exec": "unsupported",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "unsupported",
+   "O-4.model": "pass",
+   "O-4.model_used": "unsupported",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "unsupported",
+   "O-4.retention": "fail",
+   "O-5.accepted": "unsupported",
+   "O-5.once": "unsupported",
+   "O-5.waits": "unsupported",
+   "O-5.proceeds": "unsupported"
+  },
+  "details": {
+   "O-4.retention": "retention reconstruct 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt (edited)', state 'all: snc_rt deletes no record of an agent, task, invocation, call or attempt'"
+  },
+  "fault": "recon_retention",
+  "point": "A15-1",
+  "seed": "",
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "status": "flagged",
+  "evidence": "replayed answer",
+  "control_fails": []
+ },
+ "snc|passthrough|none|0|S-M": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "correct-pass",
+  "details": {},
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "control_fails": []
+ },
+ "snc|passthrough|A04|0|S-M": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "correct-pass",
+  "details": {},
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "A04",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "control_fails": []
+ }
+}

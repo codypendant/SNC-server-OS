@@ -1,0 +1,3 @@
+{"agent": "A", "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}", "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc", "invocation_id": "T:model:1", "kind": "request", "request_id": "rid-6a2da726d9b3417cbf219917a21c976c", "retry_of": null, "t": 6975473483484, "task": "T"}
+{"kind": "reply", "output_sha256": "f51e68554fb0bd888913eff7c3180c36d46bf27f2fa31cbb21709ff44870e7dd", "request_id": "rid-6a2da726d9b3417cbf219917a21c976c", "t": 6975474022548}
+{"kind": "delivered", "request_id": "rid-6a2da726d9b3417cbf219917a21c976c", "t": 6975474416960}

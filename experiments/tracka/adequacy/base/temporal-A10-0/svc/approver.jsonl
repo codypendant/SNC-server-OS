@@ -1,0 +1,3 @@
+{"action": "T-I,T-F,T-N", "kind": "request", "t": 7372576800701, "task": "T"}
+{"action": "T-I,T-F,T-N", "decision": "approve", "exit": 0, "kind": "posted", "t": 7372842947062, "task": "T"}
+{"action": "T-I,T-F,T-N", "kind": "delivered", "t": 7372845309406, "task": "T"}

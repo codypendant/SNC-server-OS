@@ -123,13 +123,19 @@ def l3(arm):
 
 def controls(arm):
     data = load(f"controls-{arm}") or {}
+    v = {"pass": "pass", "unresolved": "unresolved"}
     rows = [
-        (k, got(r), r["run"], "pass" if r["verdict"] == "pass" else "step-1 finding")
+        (
+            k,
+            got(r),
+            r["run"],
+            "; ".join(f"{c}: {d}" for c, d in r.get("details", {}).items()) or "-",
+            v.get(r["verdict"], "step-1 finding"),
+        )
         for k, r in data.items()
     ]
-    return table(
-        [f"control ({arm}, unmodified)", "checker result", "harness", "status"], rows
-    )
+    head = [f"control ({arm}, unmodified)", "checker result", "harness", "detail"]
+    return table(head + ["status"], rows)
 
 
 def main():

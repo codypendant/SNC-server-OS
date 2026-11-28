@@ -1,0 +1,16 @@
+{
+ "point": "A09",
+ "scenario": "S-AP",
+ "kind": "kill_at_approval",
+ "boundary": "approver",
+ "varies": "deny",
+ "seed": 1,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A09:1",
+ "arm": "langgraph",
+ "ports": {
+  "pg": 16072,
+  "svc": 16073,
+  "arm": 16074
+ },
+ "unsupported": []
+}

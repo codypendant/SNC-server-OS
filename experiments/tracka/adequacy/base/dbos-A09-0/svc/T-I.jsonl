@@ -1,3 +1,3 @@
-{"agent": "A", "args": {"reply": "rid-6d73531569924d10a55e1d73da1b41d0"}, "attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "request", "t": 4220027069865, "task": "T", "token": null}
-{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 4220028198947, "token": null}
-{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "delivered", "t": 4220028515341}
+{"agent": "A", "args": {"reply": "rid-193342c4f1f54b9f82db6eb588fb347a"}, "attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "request", "t": 6016050934839, "task": "T", "token": null}
+{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 6016051672157, "token": null}
+{"attempt": 1, "call_id": "T:T-I", "key": "T:T-I", "kind": "delivered", "t": 6016052537058}

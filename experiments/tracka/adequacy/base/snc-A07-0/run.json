@@ -1,0 +1,28 @@
+{
+ "point": "A07",
+ "scenario": "S-M",
+ "kind": "kill_after_reply",
+ "boundary": "T-F",
+ "varies": "delay_ms=0",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A07:0",
+ "arm": "snc",
+ "ports": {
+  "pg": 15324,
+  "svc": 15325,
+  "arm": 15326
+ },
+ "unsupported": [
+  "O-1.one_reply",
+  "O-1.no_recall",
+  "O-2.memory",
+  "O-2.single_exec",
+  "O-4.model_used",
+  "O-3.deny_no_tool",
+  "O-4.approval",
+  "O-5.accepted",
+  "O-5.once",
+  "O-5.waits",
+  "O-5.proceeds"
+ ]
+}

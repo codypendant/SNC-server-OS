@@ -1,0 +1,3 @@
+{"agent": "A", "args": {"reply": "rid-8058306fea0b4856b3507e96b2a180be", "ti": "T-I-1"}, "attempt": 1, "call_id": "T:T-F", "key": "T:T-F", "kind": "request", "t": 7527952117346, "task": "T", "token": 4, "tool": "T-F"}
+{"attempt": 1, "call_id": "T:T-F", "key": "T:T-F", "kind": "effect", "result": {"effect": "T-F-1"}, "t": 7527955278354, "token": 4}
+{"attempt": 1, "call_id": "T:T-F", "key": "T:T-F", "kind": "delivered", "t": 7527955729547}

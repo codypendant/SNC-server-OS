@@ -1,4 +1,8 @@
 {
   "ref": "arms/ref",
-  "dbos": "arms/dbos"
+  "dbos": "arms/dbos",
+  "restate": "arms/restate",
+  "temporal": "arms/temporal",
+  "langgraph": "arms/langgraph",
+  "snc": "arms/snc"
 }

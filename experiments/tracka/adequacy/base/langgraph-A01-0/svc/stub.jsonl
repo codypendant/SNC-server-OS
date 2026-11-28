@@ -1,0 +1,5 @@
+{"agent": "A", "body": "{\"agent\":\"A\",\"prompt\":\"plan T\",\"task\":\"T\"}", "body_sha256": "a9a5b217367b5b2918e709c9630d333cde6c5aa440743cca2cf4f7668b73d27d", "invocation_id": "T:model:1", "kind": "request", "request_id": "rid-86a8e60a104a4bdeb8fb1bf9984581c0", "retry_of": null, "t": 7391716883903, "task": "T"}
+{"kind": "reply", "output_sha256": "f542148a33558260172c11cc5310ee7ffe9db1661be32239e73eac6431456a52", "request_id": "rid-86a8e60a104a4bdeb8fb1bf9984581c0", "t": 7391728082956}
+{"agent": "A", "body": "{\"agent\":\"A\",\"prompt\":\"plan T\",\"task\":\"T\"}", "body_sha256": "a9a5b217367b5b2918e709c9630d333cde6c5aa440743cca2cf4f7668b73d27d", "invocation_id": "T:model:2", "kind": "request", "request_id": "rid-70179a3407eb4ebd8cfcfd3bbce74ab3", "retry_of": "T:model:1", "t": 7392348855731, "task": "T"}
+{"kind": "reply", "output_sha256": "3e56d16b23cf09f121ea16a4f9d73b7844ee1ea4e3eea5055b204b22d1e6d6a4", "request_id": "rid-70179a3407eb4ebd8cfcfd3bbce74ab3", "t": 7392349247133}
+{"kind": "delivered", "request_id": "rid-70179a3407eb4ebd8cfcfd3bbce74ab3", "t": 7392349556151}

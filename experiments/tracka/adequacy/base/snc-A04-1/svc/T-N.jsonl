@@ -1,0 +1,2 @@
+{"agent": "A", "args": {"op": "perform T-N", "task": "T", "tool": "T-N"}, "attempt": 1, "call_id": "TN.e1", "epoch": 1, "key": "A:T:T-N", "kind": "request", "t": 7684785344188, "task": null, "token": 1}
+{"attempt": 1, "call_id": "TN.e1", "key": "A:T:T-N", "kind": "effect", "result": {"effect": "T-N-1"}, "t": 7684795386330, "token": 1}

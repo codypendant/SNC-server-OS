@@ -1,0 +1,16 @@
+{
+ "point": "A17",
+ "scenario": "S-M",
+ "kind": "zombie_takeover",
+ "boundary": "T-N",
+ "varies": "new_first",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A17:0",
+ "arm": "restate",
+ "ports": {
+  "pg": 11166,
+  "svc": 11167,
+  "arm": 11168
+ },
+ "unsupported": []
+}

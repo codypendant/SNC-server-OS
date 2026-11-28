@@ -1,0 +1,4 @@
+{"agent": "A", "args": {"op": "perform T-I", "task": "T", "tool": "T-I"}, "attempt": 1, "call_id": "TI.e1", "epoch": 1, "key": "A:T:T-I", "kind": "request", "t": 7770447289114, "task": null, "token": 1}
+{"attempt": 1, "call_id": "TI.e1", "key": "A:T:T-I", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 7770459269260, "token": 1}
+{"found": true, "key": "A:T:T-I", "kind": "status", "result": {"effect": "T-I-1"}, "t": 7771233280683}
+{"found": true, "key": "A:T:T-I", "kind": "status", "result": {"effect": "T-I-1"}, "t": 7771960926550}

@@ -1,9 +1,8 @@
-{"data": {"worker": "w1"}, "event": "started", "t": 4216307169266}
-{"data": {"phase": "approval", "point": "A09", "svc": "approver"}, "event": "reached", "t": 4218836075925}
-{"data": {"worker": "w1"}, "event": "killed", "t": 4218836274094}
-{"data": {"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "task": "T"}, "event": "posted", "t": 4219374865912}
-{"data": {"worker": "w2"}, "event": "started", "t": 4219376457274}
-{"data": {"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "task": "T"}, "event": "posted", "t": 4221516501124}
-{"data": {"status": "denied"}, "event": "end-state", "t": 4222590299981}
-{"data": {}, "event": "quiesced", "t": 4232594527475}
-{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 4233718934389}
+{"data": {"worker": "w1"}, "event": "started", "t": 6011317464184}
+{"data": {"phase": "approval", "point": "A09", "svc": "approver"}, "event": "reached", "t": 6014060304226}
+{"data": {"worker": "w1"}, "event": "killed", "t": 6014060650282}
+{"data": {"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "task": "T"}, "event": "posted", "t": 6014597642167}
+{"data": {"worker": "w2"}, "event": "started", "t": 6014598484511}
+{"data": {"status": "denied"}, "event": "end-state", "t": 6017626397554}
+{"data": {}, "event": "quiesced", "t": 6027629774833}
+{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 6028714431096}

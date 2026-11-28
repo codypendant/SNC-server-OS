@@ -1,0 +1,16 @@
+{
+ "point": "A07",
+ "scenario": "S-M",
+ "kind": "kill_after_reply",
+ "boundary": "T-F",
+ "varies": "delay_ms=0",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A07:0",
+ "arm": "temporal",
+ "ports": {
+  "pg": 19614,
+  "svc": 19615,
+  "arm": 19616
+ },
+ "unsupported": []
+}

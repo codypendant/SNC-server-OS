@@ -1,0 +1,6 @@
+{"data": {"worker": "w1"}, "event": "started", "t": 7262153436412}
+{"data": {"phase": "receipt", "point": "A13", "svc": "T-N"}, "event": "reached", "t": 7262716417984}
+{"data": {"engine": "temporal"}, "event": "engine-restarted", "t": 7265123942696}
+{"data": {"status": "done"}, "event": "end-state", "t": 7265431952470}
+{"data": {}, "event": "quiesced", "t": 7275441902351}
+{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 7276444044008}

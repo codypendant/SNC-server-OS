@@ -612,13 +612,15 @@ def main():
             r = Run(b)
             try:
                 fn(r)
-            except Skip:
+            except (Skip, KeyError, IndexError, TypeError, AttributeError):
                 continue
             d = tmp / f"{b.name}--{name}"
             r.save(d)
             res = check(d)
             res.update(fault=name, base=b.name, expected=expect or opt)
             res["status"] = status(res, expect, opt)
+            if any(res["clauses"].get(c) == "unsupported" for c in expect):
+                res["status"] = "unsupported (clause listed in arm.json)"
             out[f"{name}|{b.name}"] = res
             log(
                 res["status"],

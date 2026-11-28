@@ -1875,5 +1875,6485 @@
     "t": 6881219680978
    }
   ]
+ },
+ "A04-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-38f62123048646da9b908e11beaba991",
+     "retry_of": null,
+     "t": 7165692378060,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "f0bf0ec3ce749341c46c7715130e6f1a87098d38db4449411312437eb76e4ebf",
+     "request_id": "rid-38f62123048646da9b908e11beaba991",
+     "t": 7165693053190
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-38f62123048646da9b908e11beaba991",
+     "t": 7165693423751
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-38f62123048646da9b908e11beaba991"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7165748869632,
+     "task": "T",
+     "token": 1795845600214203015
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7165749436864,
+     "token": 1795845600214203015
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7165749827330
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-38f62123048646da9b908e11beaba991",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7165783128095,
+     "task": "T",
+     "token": 1795845600248194784
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7165783749495,
+     "token": 1795845600248194784
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7165784260220
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-38f62123048646da9b908e11beaba991",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7165818412153,
+     "task": "T",
+     "token": 1795845600282091202
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7165828371852,
+     "token": 1795845600282091202
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-38f62123048646da9b908e11beaba991",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7183763959219
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-38f62123048646da9b908e11beaba991"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845600214203015,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-38f62123048646da9b908e11beaba991",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845600248194784,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-38f62123048646da9b908e11beaba991",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "token": 1795845600282091202,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "f0bf0ec3ce749341c46c7715130e6f1a87098d38db4449411312437eb76e4ebf",
+       "request_id": "rid-38f62123048646da9b908e11beaba991",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7184131017339
+   }
+  ]
+ },
+ "A05-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-ae67a6602793457199b3cef389be9e0c",
+     "retry_of": null,
+     "t": 7165670716184,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1fc382ec85eb9f0689a45227ccac09885c9b839d46f4d709f9f4b9b42d5073a0",
+     "request_id": "rid-ae67a6602793457199b3cef389be9e0c",
+     "t": 7165671364723
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-ae67a6602793457199b3cef389be9e0c",
+     "t": 7165671856542
+    },
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:2",
+     "kind": "request",
+     "request_id": "rid-a4d9a67951a548248b405240da097c0a",
+     "retry_of": "agent-A:T:model:1",
+     "t": 7172716640852,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "d8fdd3d2079380ac951836c02c2315b507a5ccebc55137e9f3c1e8ddbf6db538",
+     "request_id": "rid-a4d9a67951a548248b405240da097c0a",
+     "t": 7172717326495
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-a4d9a67951a548248b405240da097c0a",
+     "t": 7172717841170
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a4d9a67951a548248b405240da097c0a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7172782903452,
+     "task": "T",
+     "token": 1795845607250153627
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7172783741473,
+     "token": 1795845607250153627
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7172784293693
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a4d9a67951a548248b405240da097c0a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7172812129251,
+     "task": "T",
+     "token": 1795845607280748582
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7172812684432,
+     "token": 1795845607280748582
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7172812985299
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a4d9a67951a548248b405240da097c0a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7172840249633,
+     "task": "T",
+     "token": 1795845607310305492
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7172840972822,
+     "token": 1795845607310305492
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7172841371762
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-a4d9a67951a548248b405240da097c0a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7183656526361
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-a4d9a67951a548248b405240da097c0a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845607250153627,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-a4d9a67951a548248b405240da097c0a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845607280748582,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-a4d9a67951a548248b405240da097c0a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845607310305492,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": null,
+       "request_id": null,
+       "used": false
+      },
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:2",
+       "output_sha256": "d8fdd3d2079380ac951836c02c2315b507a5ccebc55137e9f3c1e8ddbf6db538",
+       "request_id": "rid-a4d9a67951a548248b405240da097c0a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7184023311176
+   }
+  ]
+ },
+ "A06-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-I': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-d16c3f423822426f93dcfa02ce845bc5",
+     "retry_of": null,
+     "t": 7189027531371,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9b340cf87518cbcb2aaea2207241503bd3a77d27b79f0ad8e97d848fb5501564",
+     "request_id": "rid-d16c3f423822426f93dcfa02ce845bc5",
+     "t": 7189028526318
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d16c3f423822426f93dcfa02ce845bc5",
+     "t": 7189029378592
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d16c3f423822426f93dcfa02ce845bc5"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7189089881990,
+     "task": "T",
+     "token": 1795845623562715389
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7189090485366,
+     "token": 1795845623562715389
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7189090863608
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d16c3f423822426f93dcfa02ce845bc5"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7196142536292,
+     "task": "T",
+     "token": 1795845630587946757
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7196143044706,
+     "token": 1795845630587946757
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7196143451196
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d16c3f423822426f93dcfa02ce845bc5",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7196174284621,
+     "task": "T",
+     "token": 1795845630641477852
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7196174925526,
+     "token": 1795845630641477852
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7196175332559
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d16c3f423822426f93dcfa02ce845bc5",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7196204688055,
+     "task": "T",
+     "token": 1795845630672894971
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7196205355399,
+     "token": 1795845630672894971
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7196205801655
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d16c3f423822426f93dcfa02ce845bc5",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7207138935420
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-d16c3f423822426f93dcfa02ce845bc5"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": null,
+       "token": 1795845623562715389,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d16c3f423822426f93dcfa02ce845bc5"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845630587946757,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d16c3f423822426f93dcfa02ce845bc5",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845630641477852,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-d16c3f423822426f93dcfa02ce845bc5",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845630672894971,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "9b340cf87518cbcb2aaea2207241503bd3a77d27b79f0ad8e97d848fb5501564",
+       "request_id": "rid-d16c3f423822426f93dcfa02ce845bc5",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7207505291826
+   }
+  ]
+ },
+ "A06-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+     "retry_of": null,
+     "t": 7189363465303,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "f1980641245d45a8f358f175ab78200f1f21d39f9e47c99c35fcbafa6e955984",
+     "request_id": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+     "t": 7189364401427
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+     "t": 7189365001979
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7189421516606,
+     "task": "T",
+     "token": 1795845623889687143
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7189422724346,
+     "token": 1795845623889687143
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7189423511777
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7191486966269,
+     "task": "T",
+     "token": 1795845625929948728
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7191488198162,
+     "token": 1795845625929948728
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7191488814227
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7191523768679,
+     "task": "T",
+     "token": 1795845625988469204
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7191524353232,
+     "token": 1795845625988469204
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7191524690991
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7203245137954
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845623889687143,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845625929948728,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845625988469204,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "f1980641245d45a8f358f175ab78200f1f21d39f9e47c99c35fcbafa6e955984",
+       "request_id": "rid-9d44ea8dd2b346ddb7d8a2e1e7bc7eef",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7203663463226
+   }
+  ]
+ },
+ "A07-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-F': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-b016df2a55c8415bb47ac790d061a62a",
+     "retry_of": null,
+     "t": 7207489153295,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "6d068420db7f57e28570957966a199215090d97a8367264678d90b62fd3b3382",
+     "request_id": "rid-b016df2a55c8415bb47ac790d061a62a",
+     "t": 7207490072611
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b016df2a55c8415bb47ac790d061a62a",
+     "t": 7207490626777
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b016df2a55c8415bb47ac790d061a62a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7207560115239,
+     "task": "T",
+     "token": 1795845642026463881
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7207560861522,
+     "token": 1795845642026463881
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7207561424346
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7207593744495,
+     "task": "T",
+     "token": 1795845642058039227
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7207594245229,
+     "token": 1795845642058039227
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7207594624769
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+      "ti": "T-I-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7214634798272,
+     "task": "T",
+     "token": 1795845649088007845
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7214635536648,
+     "token": 1795845649088007845
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7214639046181
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7214665912990,
+     "task": "T",
+     "token": 1795845649137146993
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7214666515916,
+     "token": 1795845649137146993
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7214666868668
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7225513053741
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-b016df2a55c8415bb47ac790d061a62a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845642026463881,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": null,
+       "token": 1795845642058039227,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845649088007845,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-b016df2a55c8415bb47ac790d061a62a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845649137146993,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "6d068420db7f57e28570957966a199215090d97a8367264678d90b62fd3b3382",
+       "request_id": "rid-b016df2a55c8415bb47ac790d061a62a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7225778759523
+   }
+  ]
+ },
+ "A08-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+     "retry_of": null,
+     "t": 7211672988207,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "78bb7a747496c31c3c1f068605d913b98ab569a9a1295f4e12ff63d8c7132e38",
+     "request_id": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+     "t": 7211673840643
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+     "t": 7211674329712
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7211725940357,
+     "task": "T",
+     "token": 1795845646196713718
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7211726591016,
+     "token": 1795845646196713718
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7211726997423
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7211751389395,
+     "task": "T",
+     "token": 1795845646222204519
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7211752114026,
+     "token": 1795845646222204519
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7211752508656
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7211782433519,
+     "task": "T",
+     "token": 1795845646249119896
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7211783127120,
+     "token": 1795845646249119896
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7211783514759
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7229740865125
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845646196713718,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845646222204519,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "token": 1795845646249119896,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "78bb7a747496c31c3c1f068605d913b98ab569a9a1295f4e12ff63d8c7132e38",
+       "request_id": "rid-2b265f428aec46e5a590b3ae68b29f0f",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7230057926456
+   }
+  ]
+ },
+ "A08-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-d89a00d565804bd198743d299b635830",
+     "retry_of": null,
+     "t": 7228681840894,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "45ac567e9f86675a082d298ee1a814a08918ef91c16e5db682e178394acc7de6",
+     "request_id": "rid-d89a00d565804bd198743d299b635830",
+     "t": 7228682687982
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d89a00d565804bd198743d299b635830",
+     "t": 7228683181980
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d89a00d565804bd198743d299b635830"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7228730899063,
+     "task": "T",
+     "token": 1795845663203342995
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7228731435726,
+     "token": 1795845663203342995
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7228731763166
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d89a00d565804bd198743d299b635830",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7228754552503,
+     "task": "T",
+     "token": 1795845663226293848
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7228755006301,
+     "token": 1795845663226293848
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7228755302878
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d89a00d565804bd198743d299b635830",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7228778693468,
+     "task": "T",
+     "token": 1795845663250667795
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7228779193273,
+     "token": 1795845663250667795
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7228779499426
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d89a00d565804bd198743d299b635830",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7242925072723
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-d89a00d565804bd198743d299b635830"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845663203342995,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d89a00d565804bd198743d299b635830",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845663226293848,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-d89a00d565804bd198743d299b635830",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845663250667795,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "45ac567e9f86675a082d298ee1a814a08918ef91c16e5db682e178394acc7de6",
+       "request_id": "rid-d89a00d565804bd198743d299b635830",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7243241655456
+   }
+  ]
+ },
+ "A11-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-I': outcome None, last attempt 'unknown'; call 'T:T-I': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+     "retry_of": null,
+     "t": 7233911534971,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "eaefa8cd62962b8a8e3b89fcac5505a2bf4c0df8ab01d9b742015d7277a5d842",
+     "request_id": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+     "t": 7233912250460
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+     "t": 7233912665065
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7233957684319,
+     "task": "T",
+     "token": 1795845668431493730
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7233964763751,
+     "token": 1795845668431493730
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7241005810968,
+     "task": "T",
+     "token": 1795845675454859695
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7241015749421,
+     "token": 1795845675454859695
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+     },
+     "attempt": 3,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7246047669044,
+     "task": "T",
+     "token": 1795845680490145335
+    },
+    {
+     "attempt": 3,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7246048066287,
+     "token": 1795845680490145335
+    },
+    {
+     "attempt": 3,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7246048350122
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7246075518280,
+     "task": "T",
+     "token": 1795845680544308726
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7246076072585,
+     "token": 1795845680544308726
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7246076353069
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7246104929517,
+     "task": "T",
+     "token": 1795845680574151631
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7246105705973,
+     "token": 1795845680574151631
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7246106124668
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7258114712871
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": null,
+       "token": 1795845668431493730,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": null,
+       "token": 1795845675454859695,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44"
+       },
+       "attempts": [
+        {
+         "attempt": 3,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845680490145335,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845680544308726,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845680574151631,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "eaefa8cd62962b8a8e3b89fcac5505a2bf4c0df8ab01d9b742015d7277a5d842",
+       "request_id": "rid-02d5087f1b9d44dabebdaa2b3cfa4d44",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7258431307864
+   }
+  ]
+ },
+ "A12-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+     "retry_of": null,
+     "t": 7247704069635,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "beceaff7ffbdea77239b3da0ad91b4cf32c27a3e44745d60acf04c26993a502c",
+     "request_id": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+     "t": 7247704722767
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+     "t": 7247705157367
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7247749907822,
+     "task": "T",
+     "token": 1795845682222095008
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7250090710047,
+     "token": 1795845682222095008
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7250091254525
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7250120665958,
+     "task": "T",
+     "token": 1795845684590420393
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7250121107885,
+     "token": 1795845684590420393
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7250121432693
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7250142647920,
+     "task": "T",
+     "token": 1795845684616489504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7250143138811,
+     "token": 1795845684616489504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7250143459381
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7260820132577
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845682222095008,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845684590420393,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845684616489504,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "beceaff7ffbdea77239b3da0ad91b4cf32c27a3e44745d60acf04c26993a502c",
+       "request_id": "rid-ba64b7f0e02d421aa91e71cd3927ce66",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7261136254422
+   }
+  ]
+ },
+ "A13-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+     "retry_of": null,
+     "t": 7262583302682,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1f9d2d02821d9acfff98196946d3e1f8b7502f1539f8b39de2e4d532cd70638f",
+     "request_id": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+     "t": 7262584105744
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+     "t": 7262584551826
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7262643739348,
+     "task": "T",
+     "token": 1795845697113812039
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7262644376708,
+     "token": 1795845697113812039
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7262644870842
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7262672173196,
+     "task": "T",
+     "token": 1795845697140664005
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7262672918192,
+     "token": 1795845697140664005
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7262673315133
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7262715816557,
+     "task": "T",
+     "token": 1795845697181977325
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7265125810295,
+     "token": 1795845697181977325
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7265126274851
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7275858537982
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845697113812039,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845697140664005,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845697181977325,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "1f9d2d02821d9acfff98196946d3e1f8b7502f1539f8b39de2e4d532cd70638f",
+       "request_id": "rid-d618d443928b41c89ea4dfbc8ea9db4a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7276125133153
+   }
+  ]
+ },
+ "A14-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-f54151b15c604b689e280b02ba4c779f",
+     "retry_of": null,
+     "t": 7265818230861,
+     "task": "T"
+    },
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:2",
+     "kind": "request",
+     "request_id": "rid-3c8da77689444a87acb991c19c0d2dac",
+     "retry_of": "agent-A:T:model:1",
+     "t": 7274857969640,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "eed4d2eefa25fffc83c192bfe79c342ffe59931d2532c9b36fe2465bb6fa212b",
+     "request_id": "rid-3c8da77689444a87acb991c19c0d2dac",
+     "t": 7274858376218
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-3c8da77689444a87acb991c19c0d2dac",
+     "t": 7274858966305
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "6381de360c2f1c14f14ed148f3650bb34fe98f033860cc26f44715f9c32bc713",
+     "request_id": "rid-f54151b15c604b689e280b02ba4c779f",
+     "t": 7274869270193
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-f54151b15c604b689e280b02ba4c779f",
+     "t": 7274869823443
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3c8da77689444a87acb991c19c0d2dac"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7274920469289,
+     "task": "T",
+     "token": 1795845709389189711
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7274921140697,
+     "token": 1795845709389189711
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7274921522304
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3c8da77689444a87acb991c19c0d2dac",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7274950538050,
+     "task": "T",
+     "token": 1795845709418989279
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7274951365264,
+     "token": 1795845709418989279
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7274951817802
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3c8da77689444a87acb991c19c0d2dac",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7274989839788,
+     "task": "T",
+     "token": 1795845709449670776
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7274990697685,
+     "token": 1795845709449670776
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7274991148223
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-3c8da77689444a87acb991c19c0d2dac",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7285880373809
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-3c8da77689444a87acb991c19c0d2dac"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845709389189711,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-3c8da77689444a87acb991c19c0d2dac",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845709418989279,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-3c8da77689444a87acb991c19c0d2dac",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845709449670776,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": null,
+       "request_id": null,
+       "used": false
+      },
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:2",
+       "output_sha256": "eed4d2eefa25fffc83c192bfe79c342ffe59931d2532c9b36fe2465bb6fa212b",
+       "request_id": "rid-3c8da77689444a87acb991c19c0d2dac",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7286146542091
+   }
+  ]
+ },
+ "A14-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-ae9082914060411e902e2846ad02c53a",
+     "retry_of": null,
+     "t": 7280476400332,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "747fd2417d94f21117ebe52e77d7ce11b2dc4e19093ef3ffb92e1a2cfa9001bb",
+     "request_id": "rid-ae9082914060411e902e2846ad02c53a",
+     "t": 7280479517315
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-ae9082914060411e902e2846ad02c53a",
+     "t": 7280480096159
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ae9082914060411e902e2846ad02c53a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7280528193044,
+     "task": "T",
+     "token": 1795845715000975906
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7280528786617,
+     "token": 1795845715000975906
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7280529087684
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ae9082914060411e902e2846ad02c53a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7280550714361,
+     "task": "T",
+     "token": 1795845715024218078
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7280551302804,
+     "token": 1795845715024218078
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7280551671057
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-ae9082914060411e902e2846ad02c53a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7280574526117,
+     "task": "T",
+     "token": 1795845715046346907
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7280575186502,
+     "token": 1795845715046346907
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7280575477803
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-ae9082914060411e902e2846ad02c53a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7292618335712
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-ae9082914060411e902e2846ad02c53a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845715000975906,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-ae9082914060411e902e2846ad02c53a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845715024218078,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-ae9082914060411e902e2846ad02c53a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845715046346907,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "747fd2417d94f21117ebe52e77d7ce11b2dc4e19093ef3ffb92e1a2cfa9001bb",
+       "request_id": "rid-ae9082914060411e902e2846ad02c53a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7292934933836
+   }
+  ]
+ },
+ "A15-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-I': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-f5d6fa24208a4bc086c3bab32f372322",
+     "retry_of": null,
+     "t": 7290471073908,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "c3ad4d0635b431025595ebd421484360e63f5f9226bf8117b2f32e2646f1f0d1",
+     "request_id": "rid-f5d6fa24208a4bc086c3bab32f372322",
+     "t": 7290472044324
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-f5d6fa24208a4bc086c3bab32f372322",
+     "t": 7290472488385
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f5d6fa24208a4bc086c3bab32f372322"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7290525034762,
+     "task": "T",
+     "token": 1795845724996028348
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f5d6fa24208a4bc086c3bab32f372322"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7299586924868,
+     "task": "T",
+     "token": 1795845734037802855
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7299587653356,
+     "token": 1795845734037802855
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7299588087460
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7299596099908,
+     "token": 1795845724996028348
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7299596646432
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f5d6fa24208a4bc086c3bab32f372322",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7299617913884,
+     "task": "T",
+     "token": 1795845734085062661
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7299618642792,
+     "token": 1795845734085062661
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7299619064974
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f5d6fa24208a4bc086c3bab32f372322",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7299644494578,
+     "task": "T",
+     "token": 1795845734115411154
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7299645169311,
+     "token": 1795845734115411154
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7299645636730
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-f5d6fa24208a4bc086c3bab32f372322",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7310633173084
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-f5d6fa24208a4bc086c3bab32f372322"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": null,
+       "token": 1795845724996028348,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-f5d6fa24208a4bc086c3bab32f372322"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845734037802855,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-f5d6fa24208a4bc086c3bab32f372322",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845734085062661,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-f5d6fa24208a4bc086c3bab32f372322",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845734115411154,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "c3ad4d0635b431025595ebd421484360e63f5f9226bf8117b2f32e2646f1f0d1",
+       "request_id": "rid-f5d6fa24208a4bc086c3bab32f372322",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7310904486239
+   }
+  ]
+ },
+ "A15-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-08fcb915b8d643e5bc8e973274b743dc",
+     "retry_of": null,
+     "t": 7297043238912,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "a2695257e9c28df71683e0270b7a11a0be9eebdf10f22dba9c27e74d89d20993",
+     "request_id": "rid-08fcb915b8d643e5bc8e973274b743dc",
+     "t": 7297043946893
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-08fcb915b8d643e5bc8e973274b743dc",
+     "t": 7297044451328
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-08fcb915b8d643e5bc8e973274b743dc"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7297091481789,
+     "task": "T",
+     "token": 1795845731563100804
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7297094364927,
+     "token": 1795845731563100804
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7297094721096
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-08fcb915b8d643e5bc8e973274b743dc",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7297116930654,
+     "task": "T",
+     "token": 1795845731589815429
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7297117487191,
+     "token": 1795845731589815429
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7297117855690
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-08fcb915b8d643e5bc8e973274b743dc",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7297140679573,
+     "task": "T",
+     "token": 1795845731613162765
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7297141216620,
+     "token": 1795845731613162765
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7297141548447
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-08fcb915b8d643e5bc8e973274b743dc",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7309289129675
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-08fcb915b8d643e5bc8e973274b743dc"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845731563100804,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-08fcb915b8d643e5bc8e973274b743dc",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845731589815429,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-08fcb915b8d643e5bc8e973274b743dc",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845731613162765,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "a2695257e9c28df71683e0270b7a11a0be9eebdf10f22dba9c27e74d89d20993",
+       "request_id": "rid-08fcb915b8d643e5bc8e973274b743dc",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7309555401444
+   }
+  ]
+ },
+ "A16-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-F': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+     "retry_of": null,
+     "t": 7313138264389,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9d239e9f4d39cafdb593985e09f8b92ccb1d7305c9bbf0e4096c6a8482126d78",
+     "request_id": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+     "t": 7313138747457
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+     "t": 7313139120653
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7313181738782,
+     "task": "T",
+     "token": 1795845747656701481
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7313182170377,
+     "token": 1795845747656701481
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7313182491177
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7313201831615,
+     "task": "T",
+     "token": 1795845747676394294
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+      "ti": "T-I-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7322258761448,
+     "task": "T",
+     "token": 1795845756713575560
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7322259267002,
+     "token": 1795845756713575560
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7322259767002
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "rejected_stale",
+     "result": {
+      "highest": 1795845756713575560
+     },
+     "t": 7322265312290,
+     "token": 1795845747676394294
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7322265711251
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7322292331528,
+     "task": "T",
+     "token": 1795845756756710470
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7322292875875,
+     "token": 1795845756756710470
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7322293188492
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7333378248765
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845747656701481,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": null,
+       "token": 1795845747676394294,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845756713575560,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845756756710470,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "9d239e9f4d39cafdb593985e09f8b92ccb1d7305c9bbf0e4096c6a8482126d78",
+       "request_id": "rid-c006e7d48e1647c0a00a9c6238609fcf",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7333746567455
+   }
+  ]
+ },
+ "A16-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-415723ddaad04cf9b43417adb105f16d",
+     "retry_of": null,
+     "t": 7314769896745,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "4ecce7f3470a8b4e25219b86fc83c1776e021e7cee89e8c79c63e43d07c5859f",
+     "request_id": "rid-415723ddaad04cf9b43417adb105f16d",
+     "t": 7314770699511
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-415723ddaad04cf9b43417adb105f16d",
+     "t": 7314771312788
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-415723ddaad04cf9b43417adb105f16d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7314824203225,
+     "task": "T",
+     "token": 1795845749292558121
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7314824800367,
+     "token": 1795845749292558121
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7314825202716
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-415723ddaad04cf9b43417adb105f16d",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7314853647188,
+     "task": "T",
+     "token": 1795845749322448966
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7314856556180,
+     "token": 1795845749322448966
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7314857097619
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-415723ddaad04cf9b43417adb105f16d",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7314886136091,
+     "task": "T",
+     "token": 1795845749354112413
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7314886809056,
+     "token": 1795845749354112413
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7314887507373
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-415723ddaad04cf9b43417adb105f16d",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7326993763371
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-415723ddaad04cf9b43417adb105f16d"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845749292558121,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-415723ddaad04cf9b43417adb105f16d",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845749322448966,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-415723ddaad04cf9b43417adb105f16d",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845749354112413,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "4ecce7f3470a8b4e25219b86fc83c1776e021e7cee89e8c79c63e43d07c5859f",
+       "request_id": "rid-415723ddaad04cf9b43417adb105f16d",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7327259939950
+   }
+  ]
+ },
+ "A17-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-N': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-d3c067a8846f40a8843c477d6948a291",
+     "retry_of": null,
+     "t": 7331099969500,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "71f99e3a33de648dad570587f33ec674605d839b4858ab0f0f77bce5dbeffa07",
+     "request_id": "rid-d3c067a8846f40a8843c477d6948a291",
+     "t": 7331100419074
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d3c067a8846f40a8843c477d6948a291",
+     "t": 7331100809754
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d3c067a8846f40a8843c477d6948a291"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7331145941113,
+     "task": "T",
+     "token": 1795845765619619575
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7331146550565,
+     "token": 1795845765619619575
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7331147075887
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7331172000623,
+     "task": "T",
+     "token": 1795845765642670389
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7331172573682,
+     "token": 1795845765642670389
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7331173159987
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7331199268528,
+     "task": "T",
+     "token": 1795845765668764356
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+      "tf": "T-F-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7340292329636,
+     "task": "T",
+     "token": 1795845774764499533
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7340292608861,
+     "token": 1795845774764499533
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7340292869830
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-2"
+     },
+     "t": 7340300977203,
+     "token": 1795845765668764356
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7340301688465
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7351425203125
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-d3c067a8846f40a8843c477d6948a291"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845765619619575,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845765642670389,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:did_not_happen"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": null,
+       "token": 1795845765668764356,
+       "tool": "T-N"
+      },
+      {
+       "args": {
+        "reply": "rid-d3c067a8846f40a8843c477d6948a291",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845774764499533,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "71f99e3a33de648dad570587f33ec674605d839b4858ab0f0f77bce5dbeffa07",
+       "request_id": "rid-d3c067a8846f40a8843c477d6948a291",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7351791541435
+   }
+  ]
+ },
+ "A17-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+     "retry_of": null,
+     "t": 7337439210654,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "321c0aa716e4f45ced958afc8d1c958f41da73df911fbb4da2c37d89de1b5148",
+     "request_id": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+     "t": 7337439775039
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+     "t": 7337440203727
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7337485646485,
+     "task": "T",
+     "token": 1795845771958479208
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7337486160158,
+     "token": 1795845771958479208
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7337486530051
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7337513386701,
+     "task": "T",
+     "token": 1795845771984780472
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7337514013045,
+     "token": 1795845771984780472
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7337514392570
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7337537385812,
+     "task": "T",
+     "token": 1795845772008852738
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7337540213516,
+     "token": 1795845772008852738
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7337541206203
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7349742228578
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845771958479208,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845771984780472,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845772008852738,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "321c0aa716e4f45ced958afc8d1c958f41da73df911fbb4da2c37d89de1b5148",
+       "request_id": "rid-2e660b4c4e864ff78e12bf4c4c23f5a7",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7350059291185
+   }
+  ]
+ },
+ "A09-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+     "retry_of": null,
+     "t": 7354256695675,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "42d2bc5f123bada402588c772f867227d5f40811bfc212b2ef189273633745bb",
+     "request_id": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+     "t": 7354257283978
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+     "t": 7354257735871
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7356608254198,
+     "task": "T",
+     "token": 1795845791053739123
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7356608990348,
+     "token": 1795845791053739123
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7356609366118
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7356636532048,
+     "task": "T",
+     "token": 1795845791106020138
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7356637048446,
+     "token": 1795845791106020138
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7356637439411
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7356662903864,
+     "task": "T",
+     "token": 1795845791133520634
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7356663353289,
+     "token": 1795845791133520634
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7356663756749
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 7354298393429,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 7354581647115,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7368426218270
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845791053739123,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845791106020138,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845791133520634,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "42d2bc5f123bada402588c772f867227d5f40811bfc212b2ef189273633745bb",
+       "request_id": "rid-d6d2d994e0f847e59c5efb74d37064bd",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7368742534872
+   }
+  ]
+ },
+ "A09-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "not_exercised",
+   "O-3.tn_no_repeat": "not_exercised",
+   "O-3.tf_stale": "not_exercised",
+   "O-3.deny_no_tool": "pass",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-fac2503520604e5daed85468baa5c329",
+     "retry_of": null,
+     "t": 7355843883047,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "c33b3ada28c83696011fa61199dc8e6dfc69fc87a9a4026dd919284fece3a6e6",
+     "request_id": "rid-fac2503520604e5daed85468baa5c329",
+     "t": 7355844462163
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-fac2503520604e5daed85468baa5c329",
+     "t": 7355844900902
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 7355892152123,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 7356172951587,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-fac2503520604e5daed85468baa5c329"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7370070680714
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "c33b3ada28c83696011fa61199dc8e6dfc69fc87a9a4026dd919284fece3a6e6",
+       "request_id": "rid-fac2503520604e5daed85468baa5c329",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7370336472042
+   }
+  ]
+ },
+ "A10-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {
+   "O-4.calls": "call 'T:T-I': outcome None, last attempt 'unknown'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-0d4f070001b8400a99101c6e41ffa308",
+     "retry_of": null,
+     "t": 7372529129430,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "826ed312c94825bcb4f25d75d0c2945879120d4a9d10712bfef9c239b558dcc7",
+     "request_id": "rid-0d4f070001b8400a99101c6e41ffa308",
+     "t": 7372530136312
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-0d4f070001b8400a99101c6e41ffa308",
+     "t": 7372530800258
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-0d4f070001b8400a99101c6e41ffa308"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "request",
+     "t": 7377889889808,
+     "task": "T",
+     "token": 1795845812353827384
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 7377890503719,
+     "token": 1795845812353827384
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "agent-A:T:T-I",
+     "kind": "delivered",
+     "t": 7377890926715
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-0d4f070001b8400a99101c6e41ffa308",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "request",
+     "t": 7377912453761,
+     "task": "T",
+     "token": 1795845812385879040
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 7377913063009,
+     "token": 1795845812385879040
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "agent-A:T:T-F",
+     "kind": "delivered",
+     "t": 7377913441034
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-0d4f070001b8400a99101c6e41ffa308",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "request",
+     "t": 7377936173166,
+     "task": "T",
+     "token": 1795845812408477836
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 7377936520053,
+     "token": 1795845812408477836
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "agent-A:T:T-N",
+     "kind": "delivered",
+     "t": 7377936833294
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 7372576800701,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 7372842947062,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 7372845309406,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-0d4f070001b8400a99101c6e41ffa308",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7388694587980
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "reply": "rid-0d4f070001b8400a99101c6e41ffa308"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": null,
+       "token": 1795845807306643424,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-0d4f070001b8400a99101c6e41ffa308"
+       },
+       "attempts": [
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "agent-A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1795845812353827384,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "reply": "rid-0d4f070001b8400a99101c6e41ffa308",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "agent-A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1795845812385879040,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "reply": "rid-0d4f070001b8400a99101c6e41ffa308",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "agent-A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1795845812408477836,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "826ed312c94825bcb4f25d75d0c2945879120d4a9d10712bfef9c239b558dcc7",
+       "request_id": "rid-0d4f070001b8400a99101c6e41ffa308",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7388960718184
+   }
+  ]
+ },
+ "A10-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "not_exercised",
+   "O-3.tn_no_repeat": "not_exercised",
+   "O-3.tf_stale": "not_exercised",
+   "O-3.deny_no_tool": "pass",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"plan T-I, T-F, T-N\",\"task\":\"T\"}",
+     "body_sha256": "f4d655335ad2d3e1e010d09ba893991b1a17c613546ee5c39668c14ae88d64f8",
+     "invocation_id": "agent-A:T:model:1",
+     "kind": "request",
+     "request_id": "rid-9512e9b99e4f49fb8ca742170f4aefb9",
+     "retry_of": null,
+     "t": 7374210238598,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9fbe81c9bff06dc9499406cf242e8451fb4f0845e8a1429394cd0c1cb8935b43",
+     "request_id": "rid-9512e9b99e4f49fb8ca742170f4aefb9",
+     "t": 7374210963170
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-9512e9b99e4f49fb8ca742170f4aefb9",
+     "t": 7374211360562
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 7374253825656,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 7374519647865,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 7374521010692,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-9512e9b99e4f49fb8ca742170f4aefb9"
+     },
+     "retention": "720h (namespace tracka workflow execution retention)",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 7386359480401
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "plan T-I, T-F, T-N",
+        "task": "T"
+       },
+       "invocation_id": "agent-A:T:model:1",
+       "output_sha256": "9fbe81c9bff06dc9499406cf242e8451fb4f0845e8a1429394cd0c1cb8935b43",
+       "request_id": "rid-9512e9b99e4f49fb8ca742170f4aefb9",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "720h (namespace tracka workflow execution retention)"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 7386625704283
+   }
+  ]
  }
 }

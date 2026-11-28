@@ -201,31 +201,94 @@ CELLS = {
 }
 
 
+CTL_TARGET = "/tmp/adq-cargo-ctl"
+CARGO = "/tmp/adq-cargo"
+
+
+def spec(arm):
+    from . import mutants as m
+
+    if arm == "dbos":
+        return MUTANTS, CELLS, CONTROLS
+    ctl = CONTROLS if arm != "snc" else [c for c in CONTROLS if c[2] == "S-M"]
+    cells = m.SNC_CELLS if arm == "snc" else m.COMMON
+    muts = m.SPECS[arm]
+    return muts, {k: v for k, v in cells.items() if k in muts}, ctl
+
+
+def env(arm, d=None):
+    if arm != "restate":
+        return {}
+    return {"CARGO_TARGET_DIR": f"{d}/target" if d else CTL_TARGET}
+
+
+def cargo(src, out):
+    import os
+    import subprocess
+
+    import glob
+
+    for f in glob.glob(f"{CARGO}/release/.fingerprint/tracka-restate-*") + glob.glob(
+        f"{CARGO}/release/tracka-restate"
+    ):
+        shutil.rmtree(f) if os.path.isdir(f) else os.unlink(f)
+    e = {
+        **os.environ,
+        "CARGO_TARGET_DIR": CARGO,
+        "PATH": f"{os.environ['HOME']}/.cargo/bin:{os.environ['PATH']}",
+    }
+    p = subprocess.run(
+        ["nice", "cargo", "build", "--release", "--locked", "-q", "-j", "2"],
+        cwd=src,
+        env=e,
+        capture_output=True,
+        text=True,
+    )
+    assert p.returncode == 0, p.stderr[-3000:]
+    (out / "release").mkdir(parents=True, exist_ok=True)
+    dst = out / "release" / "tracka-restate"
+    dst.unlink(missing_ok=True)
+    shutil.copy(f"{CARGO}/release/tracka-restate", dst)
+
+
 def build(arm, mid):
+    from .mutants import PY_MARK, RS_MARK
+
     src = ARMS[arm]
     d = BUILD / "arms" / f"l3-{arm}-{mid}"
     shutil.rmtree(d, ignore_errors=True)
-    shutil.copytree(src, d, ignore=shutil.ignore_patterns(".venv", "__pycache__"))
-    if (src / ".venv").exists():
-        (d / ".venv").symlink_to(src / ".venv")
+    skip = shutil.ignore_patterns(".venv", "__pycache__", "target", "bin")
+    shutil.copytree(src, d, ignore=skip)
+    for link in (".venv", "bin"):
+        if (src / link).exists():
+            (d / link).symlink_to(src / link)
     shutil.copy(TRACKA / "policy.json", BUILD / "policy.json")
-    for f, edits in MUTANTS[mid][1].items():
+    for f, edits in spec(arm)[0][mid][1].items():
         text = (d / f).read_text()
         for old, new in edits:
             assert text.count(old) == 1, (mid, f, old)
             text = text.replace(old, new)
-        imports = text.index("\n\n\n")
-        (d / f).write_text(text[:imports] + MARK + text[imports:])
+        if f.endswith(".rs"):
+            text += RS_MARK
+        else:
+            imports = text.index("\n\n\n")
+            text = (
+                text[:imports] + (MARK if arm == "dbos" else PY_MARK) + text[imports:]
+            )
+        (d / f).write_text(text)
+    if arm == "restate":
+        cargo(d, d / "target")
     return d
 
 
-def cells(mid):
+def cells(arm, mid):
+    _, cellmap, ctl = spec(arm)
     out = []
-    for c in CELLS[mid]:
+    for c in cellmap[mid]:
         if isinstance(c, tuple):
-            out += [x for x in CONTROLS if x[:2] == c]
+            out += [x for x in ctl if x[:2] == c]
         else:
-            out += [x for x in CONTROLS if x[0] == c]
+            out += [x for x in ctl if x[0] == c]
     return out
 
 
@@ -234,8 +297,8 @@ def tail(cell):
     return f"{p}-{sc}-{s}" if p == "none" else f"{p}-{s}"
 
 
-def execute(arm_dir, name, cell, keep=None):
-    out = run(arm_dir, name, *cell)
+def execute(arm_dir, name, cell, keep=None, extra=None):
+    out = run(arm_dir, name, *cell, env=extra)
     R = out.get("R")
     res = check(R) if R else {"verdict": "driver-error", "fails": [], "unresolved": []}
     res.update(run=out.get("status"), why=out.get("why"), notes=out.get("notes"))
@@ -261,13 +324,15 @@ def controls(arm):
         k = tail(cell)
         if k in done and done[k]["run"] in ("ended", "cap"):
             return k, done[k]
-        res = execute(ARMS[arm], arm, cell, keep=BASE / f"{arm}-{k}")
+        res = execute(ARMS[arm], arm, cell, keep=BASE / f"{arm}-{k}", extra=env(arm))
         log("control", arm, k, res["verdict"], res["fails"], res["unresolved"])
         return k, res
 
     ref = [("none", 0, "S-M"), ("A04", 0, "S-M"), ("A07", 0, "S-M"), ("A15", 0, "S-M")]
     ref += [("A09", 0, "S-AP"), ("A09", 1, "S-AP"), ("A10", 0, "S-AP")]
-    for k, res in pmap(one, ref if arm == "ref" else CONTROLS):
+    if arm == "restate":
+        cargo(ARMS[arm], __import__("pathlib").Path(CTL_TARGET))
+    for k, res in pmap(one, ref if arm == "ref" else spec(arm)[2]):
         done[k] = res
         save(f"controls-{arm}", done)
 
@@ -286,9 +351,10 @@ def evidence(mid, res, cell):
     deny = cell[2] == "S-AP" and cell[1] % 2
     if mid.startswith("O-1"):
         late = [s for s in stub if used and s["t"] > used[0]["t"]]
+        marks = m.count("model-call") + m.count("restart-from-scratch")
         return (
             bool(late),
-            f"model-call marks {m.count('model-call')}, stub requests after first use {len(late)}",
+            f"model-call marks {marks}, stub requests after first use {len(late)}",
         )
     if mid.startswith("O-2"):
         replies = {x["args"].get("reply") for x in tools}
@@ -315,10 +381,15 @@ def evidence(mid, res, cell):
     posted = [x["t"] for x in res["svc"]["approver"] if x["kind"] == "posted"]
     if mid == "O-5-wait-skipped":
         early = [x for x in tools if not posted or x["t"] < posted[0]]
-        ok = "wait-skipped" in m and (bool(tools) if deny else True)
+        rec = [
+            r["answer"] for r in res.get("answers", []) if r["call"] == "reconstruct"
+        ]
+        pol = ((rec[-1] or {}).get("policy") or [{}]) if rec else [{}]
+        lost = not any((x or {}).get("approval") for x in pol)
+        ok = "wait-skipped" in m and (bool(tools) if deny else bool(early) or lost)
         return (
             ok,
-            f"wait-skipped marks {m.count('wait-skipped')}, tool requests {len(tools)} ({len(early)} before posted)",
+            f"wait-skipped marks {m.count('wait-skipped')}, tool requests {len(tools)} ({len(early)} before posted), approval record {'missing' if lost else 'present'}",
         )
     if mid == "O-5-recv-no-wait":
         got = [
@@ -327,22 +398,42 @@ def evidence(mid, res, cell):
         return any(g is None for g in got), f"recv(timeout 0) returned {got}"
     if mid.startswith("O-5-event-dropped"):
         rows = sum(
-            x.get("rows") or 0
+            x.get("rows", 1) or 0
             for x in res.get("marks", [])
             if x["event"] == "event-dropped"
         )
-        return rows > 0, f"notifications deleted at worker start: {rows}"
+        same = deny and not any("rows" in x for x in res.get("marks", []))
+        return rows > 0 and not same, f"events dropped: {rows}" + (
+            " (deny seed: timeout outcome coincides with the decision)" if same else ""
+        )
+
+
+def cmap(res):
+    st = res.get("clauses", res.get("status"))
+    return st if isinstance(st, dict) else {}
+
+
+def gstat(res, g):
+    st = cmap(res)
+    if not st:
+        return res["guarantees"].get(g)
+    mine = [v for k, v in st.items() if k.startswith(g + ".") and v != "unsupported"]
+    return next(
+        (x for x in ("fail", "unresolved", "pass") if x in mine),
+        "unsupported" if not mine else "not_exercised",
+    )
 
 
 def judge(mid, g, res, ctl, cell):
     ran, ev = evidence(mid, res, cell)
-    gc = [c for c in res["fails"] if c.startswith(g + ".")]
+    uns = {k for k, v in cmap(ctl).items() if v == "unsupported"}
+    gc = [c for c in res["fails"] if c.startswith(g + ".") and c not in uns]
     cc = [c for c in ctl["fails"] if c.startswith(g + ".")]
     new = [c for c in gc if c not in cc]
-    if ctl["guarantees"].get(g) == "fail":
+    if gstat(ctl, g) == "fail":
         st = "no-credit (step-1 failure)"
-    elif ctl["guarantees"].get(g) != "pass":
-        st = f"no-credit (control {ctl['guarantees'].get(g)})"
+    elif gstat(ctl, g) != "pass":
+        st = f"no-credit (control {gstat(ctl, g)})"
     elif not ran:
         st = "unresolved (not exercised)"
     elif new:
@@ -357,7 +448,10 @@ def judge(mid, g, res, ctl, cell):
 def mutants(arm, only=()):
     ctls = load(f"controls-{arm}")
     done = load(f"l3-{arm}") or {}
-    jobs = [(mid, c) for mid in MUTANTS if not only or mid in only for c in cells(mid)]
+    muts = spec(arm)[0]
+    jobs = [
+        (mid, c) for mid in muts if not only or mid in only for c in cells(arm, mid)
+    ]
     dirs = {mid: build(arm, mid) for mid in {j[0] for j in jobs}}
 
     def one(job):
@@ -366,9 +460,9 @@ def mutants(arm, only=()):
         if k in done and done[k]["run"] in ("ended", "cap"):
             res = done[k]
         else:
-            res = execute(dirs[mid], f"l3-{arm}-{mid}", cell)
-        res.update(judge(mid, MUTANTS[mid][0], res, ctls[tail(cell)], cell))
-        res.update(mutant=mid, guarantee=MUTANTS[mid][0], cell=tail(cell))
+            res = execute(dirs[mid], f"l3-{arm}-{mid}", cell, extra=env(arm, dirs[mid]))
+        res.update(judge(mid, muts[mid][0], res, ctls[tail(cell)], cell))
+        res.update(mutant=mid, guarantee=muts[mid][0], cell=tail(cell))
         log("mutant", k, res["status"], res["fails"], res["evidence"])
         return k, res
 

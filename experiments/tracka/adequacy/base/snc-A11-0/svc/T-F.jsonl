@@ -1,0 +1,3 @@
+{"agent": "A", "args": {"op": "perform T-F", "task": "T", "tool": "T-F"}, "attempt": 1, "call_id": "TF.e3", "epoch": 3, "key": "A:T:T-F", "kind": "request", "t": 7772010818853, "task": null, "token": 3}
+{"attempt": 1, "call_id": "TF.e3", "key": "A:T:T-F", "kind": "effect", "result": {"effect": "T-F-1"}, "t": 7772011272110, "token": 3}
+{"attempt": 1, "call_id": "TF.e3", "key": "A:T:T-F", "kind": "delivered", "t": 7772011591932}

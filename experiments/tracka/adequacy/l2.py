@@ -53,15 +53,16 @@ def wrapper(arm, fault):
     real = ARMS[arm]
     cfg = json.loads((real / "arm.json").read_text())
     d = BUILD / "arms" / f"l2-{arm}-{fault}"
-    shutil.rmtree(d, ignore_errors=True)
-    d.mkdir(parents=True)
+    d.mkdir(parents=True, exist_ok=True)
     px = [PY, str(ADQ / "proxy.py"), fault, str(real)]
     for k in CMDS:
         if k in cfg:
             cfg[k] = px + [k]
     for i, e in enumerate(cfg.get("engines", [])):
         e["start"], e["ready"] = px + [f"engine:{i}:start"], px + [f"engine:{i}:ready"]
-    (d / "arm.json").write_text(json.dumps(cfg, indent=1))
+    tmp = d / f".arm.{fault}.{id(cfg)}"
+    tmp.write_text(json.dumps(cfg, indent=1))
+    tmp.rename(d / "arm.json")
     return d
 
 
@@ -73,11 +74,7 @@ def status(expected, res, applied):
         return "harness-error"
     if res["run"] == "cap":
         hit = [c for c in expected if c in res["fails"] and c not in CAPPED]
-        return (
-            "flagged (run invalid: cap)"
-            if hit
-            else "unresolved (cap; checker says invalid + violation)"
-        )
+        return "flagged (capped run)" if hit else "unresolved (cap)"
     if not expected:
         return "correct-pass" if not res["fails"] else "flagged-extra"
     if not applied:
@@ -98,7 +95,9 @@ def one(job):
         n = int(old["evidence"].split()[2].rstrip("x,"))
         old["status"] = status(expected, old, n)
         return key, old
-    out = run(wrapper(arm, fault), f"l2-{arm}-{fault}", point, seed, scen)
+    from .l3 import env
+
+    out = run(wrapper(arm, fault), f"l2-{arm}-{fault}", point, seed, scen, env=env(arm))
     R = out.get("R")
     res = check(R) if R else {"verdict": "driver-error", "fails": [], "unresolved": []}
     res["run"] = out.get("status")
@@ -124,12 +123,92 @@ def one(job):
     return key, res
 
 
+LIVE = [
+    ("passthrough", [SM, AP1], []),
+    ("deliver_flip", [AP0, AP1], ["O-5.proceeds"]),
+    ("deliver_twice", [AP0], []),
+    ("deliver_drop_fail", [AP1], ["O-5.accepted"]),
+]
+REPLAY_AT = (
+    "none-S-M-0",
+    "A02-0",
+    "A04-0",
+    "A06-1",
+    "A15-1",
+    "A09-0",
+    "A09-1",
+    "A10-0",
+)
+
+
+def replay(arm):
+    import copy
+
+    from .common import BASE, RUNS, write
+    from .proxy import RECON, STATE
+
+    exp = {}
+    for f, cells, e in CASES:
+        for c in cells:
+            exp.setdefault(f, {})[c[2]] = e
+    out = {}
+    for tail in REPLAY_AT:
+        b = BASE / f"{arm}-{tail}"
+        if not b.exists():
+            continue
+        ctl = check(b)
+        scen = json.loads((b / "run.json").read_text())["scenario"]
+        rows = read(b / "answers.jsonl")
+        tn_fault = tail.split("-")[0] in ("A04", "A08", "A13", "A17")
+        for f, e in ((f, x[scen]) for f, x in exp.items() if scen in x):
+            if f == "status_done_to_doubt" and tn_fault:
+                e = ["O-2.memory"]
+            fn, call = (
+                (STATE[f], "state") if f in STATE else (RECON.get(f), "reconstruct")
+            )
+            if not fn:
+                continue
+            new = copy.deepcopy(rows)
+            try:
+                fn([r for r in new if r["call"] == call][-1]["answer"])
+            except Exception:
+                continue
+            d = RUNS / "l2r" / f"{arm}-{tail}-{f}"
+            shutil.rmtree(d, ignore_errors=True)
+            shutil.copytree(b, d)
+            write(d / "answers.jsonl", new)
+            res = check(d)
+            shutil.rmtree(d)
+            uns = [c for c in e if ctl["clauses"].get(c) == "unsupported"]
+            if uns:
+                st = "unsupported (clause listed in arm.json)"
+            elif any(c in ctl["fails"] for c in e):
+                st = "no-credit (control fails this clause)"
+            elif all(c in res["fails"] for c in e):
+                st = "flagged"
+            else:
+                st = "miss"
+            res.update(fault=f, point=tail, seed="", scenario=scen, expected=e)
+            res.update(
+                status=st, evidence="replayed answer", control_fails=ctl["fails"]
+            )
+            out[f"{arm}|{f}|{tail}"] = res
+            log(arm, f, tail, st, res["fails"])
+    done = load(f"l2-{arm}") or {}
+    save(f"l2-{arm}", {**done, **out})
+
+
 def main():
     arm = sys.argv[1]
+    if sys.argv[2:] == ["replay"]:
+        return replay(arm)
     only = set(sys.argv[2:])
+    cases = CASES if arm == "dbos" else LIVE if arm != "snc" else LIVE[:1]
     jobs = [
-        (arm, f, c, e) for f, cells, e in CASES for c in cells if not only or f in only
+        (arm, f, c, e) for f, cells, e in cases for c in cells if not only or f in only
     ]
+    if arm == "snc":
+        jobs = [(arm, "passthrough", c, []) for c in (SM, A04)]
     done = load(f"l2-{arm}") or {}
     for key, res in pmap(one, jobs):
         done[key] = res

@@ -1,0 +1,16 @@
+{
+ "point": "A11",
+ "scenario": "S-M",
+ "kind": "kill_during_recovery",
+ "boundary": "T-I_then_first_after_recovery",
+ "varies": "none",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A11:0",
+ "arm": "temporal",
+ "ports": {
+  "pg": 15852,
+  "svc": 15853,
+  "arm": 15854
+ },
+ "unsupported": []
+}

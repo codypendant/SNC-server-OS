@@ -1,16 +1,14 @@
 {
  "none-S-M-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -27,7 +25,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -35,18 +33,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -55,36 +46,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+     "request_id": "rid-c4a5d7ddace04cf28484f019d4bd888a",
      "retry_of": null,
-     "t": 6579248786249,
+     "t": 6931216113333,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "52477a56f6a171d203fda2f5b80dcb43481c1881baac04fa6ddf9fdee9a8ed07",
-     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
-     "t": 6579249914057
+     "output_sha256": "a78d9c32a6c0f708cc67be2ff6736c3a5fce1890b12875f1bbde2be9ccc99d2e",
+     "request_id": "rid-c4a5d7ddace04cf28484f019d4bd888a",
+     "t": 6931216499986
     },
     {
      "kind": "delivered",
-     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
-     "t": 6579250407355
+     "request_id": "rid-c4a5d7ddace04cf28484f019d4bd888a",
+     "t": 6931216836056
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f"
+      "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6579288497656,
+     "t": 6931254373489,
      "task": "T",
-     "token": 1795845013721
+     "token": 1795845365691
     },
     {
      "attempt": 1,
@@ -94,31 +85,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6579289098909,
-     "token": 1795845013721
+     "t": 6931254846308,
+     "token": 1795845365691
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6579289627184
+     "t": 6931255233594
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6579339906298,
+     "t": 6931304316347,
      "task": "T",
-     "token": 1795845013721
+     "token": 1795845365691
     },
     {
      "attempt": 1,
@@ -128,31 +119,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6579340525233,
-     "token": 1795845013721
+     "t": 6931304796664,
+     "token": 1795845365691
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6579341014241
+     "t": 6931305084247
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6579382749119,
+     "t": 6931356668956,
      "task": "T",
-     "token": 1795845013721
+     "token": 1795845365691
     },
     {
      "attempt": 1,
@@ -162,15 +153,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6579383398027,
-     "token": 1795845013721
+     "t": 6931357184738,
+     "token": 1795845365691
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6579383924516
+     "t": 6931357472170
     }
    ],
    "approver": []
@@ -179,7 +170,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -193,7 +184,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6590538409741
+    "t": 6943110385666
    },
    {
     "answer": {
@@ -201,7 +192,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f"
+        "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a"
        },
        "attempt": 1,
        "attempts": [
@@ -219,13 +210,13 @@
         }
        },
        "task": "T",
-       "token": 1795845013721,
+       "token": 1795845365691,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+        "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -244,13 +235,13 @@
         }
        },
        "task": "T",
-       "token": 1795845013721,
+       "token": 1795845365691,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+        "reply": "rid-c4a5d7ddace04cf28484f019d4bd888a",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -269,7 +260,7 @@
         }
        },
        "task": "T",
-       "token": 1795845013721,
+       "token": 1795845365691,
        "tool": "T-N"
       }
      ],
@@ -280,8 +271,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "52477a56f6a171d203fda2f5b80dcb43481c1881baac04fa6ddf9fdee9a8ed07",
-       "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+       "output_sha256": "a78d9c32a6c0f708cc67be2ff6736c3a5fce1890b12875f1bbde2be9ccc99d2e",
+       "request_id": "rid-c4a5d7ddace04cf28484f019d4bd888a",
        "used": true
       }
      ],
@@ -290,7 +281,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -298,22 +289,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6590572347604
+    "t": 6943127599691
    }
   ]
  },
  "A01-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -330,7 +319,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -338,18 +327,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -358,16 +340,16 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-2c1a5c15660d4b1e973a5cc37a48dfa2",
+     "request_id": "rid-d51fe43025a34c4b8110dd7d0ef8d131",
      "retry_of": null,
-     "t": 6579182007898,
+     "t": 6931193985746,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "6973cac01b45b264f9415271a20b16d1142fcb745f0147f1eb047ac101fe63be",
-     "request_id": "rid-2c1a5c15660d4b1e973a5cc37a48dfa2",
-     "t": 6579187520331
+     "output_sha256": "bf892f22654b23bec56135479d3bfe8104e9b82e60c1f6cbbd52d68ea9bfc343",
+     "request_id": "rid-d51fe43025a34c4b8110dd7d0ef8d131",
+     "t": 6931199326295
     },
     {
      "agent": "A",
@@ -375,36 +357,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:2",
      "kind": "request",
-     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+     "request_id": "rid-1a07725827c04a9684ecb854affb7aec",
      "retry_of": "T:model:1",
-     "t": 6580226881096,
+     "t": 6931711875290,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "5572eb8604f3a61b8a9842b430233187696e2900fac56f45c24dd0ff56aee80b",
-     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
-     "t": 6580227407116
+     "output_sha256": "8ee0ebf09fe426a940630070f94c43857044bcb8b896e4b3488f3b3dd1c88b0f",
+     "request_id": "rid-1a07725827c04a9684ecb854affb7aec",
+     "t": 6931712306714
     },
     {
      "kind": "delivered",
-     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
-     "t": 6580227975712
+     "request_id": "rid-1a07725827c04a9684ecb854affb7aec",
+     "t": 6931712621821
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2"
+      "reply": "rid-1a07725827c04a9684ecb854affb7aec"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6580273906786,
+     "t": 6931758745825,
      "task": "T",
-     "token": 1795845014703
+     "token": 1795845366191
     },
     {
      "attempt": 1,
@@ -414,31 +396,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6580274613459,
-     "token": 1795845014703
+     "t": 6931759363092,
+     "token": 1795845366191
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6580275060658
+     "t": 6931759718493
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "reply": "rid-1a07725827c04a9684ecb854affb7aec",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6580323133743,
+     "t": 6931801225829,
      "task": "T",
-     "token": 1795845014703
+     "token": 1795845366191
     },
     {
      "attempt": 1,
@@ -448,31 +430,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6580324211540,
-     "token": 1795845014703
+     "t": 6931802086347,
+     "token": 1795845366191
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6580324669580
+     "t": 6931802476504
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "reply": "rid-1a07725827c04a9684ecb854affb7aec",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6580366069102,
+     "t": 6931844172561,
      "task": "T",
-     "token": 1795845014703
+     "token": 1795845366191
     },
     {
      "attempt": 1,
@@ -482,15 +464,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6580366638311,
-     "token": 1795845014703
+     "t": 6931844872130,
+     "token": 1795845366191
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6580366945679
+     "t": 6931845149203
     }
    ],
    "approver": []
@@ -499,7 +481,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "reply": "rid-1a07725827c04a9684ecb854affb7aec",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -513,7 +495,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6590600612503
+    "t": 6942969465767
    },
    {
     "answer": {
@@ -521,7 +503,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2"
+        "reply": "rid-1a07725827c04a9684ecb854affb7aec"
        },
        "attempt": 1,
        "attempts": [
@@ -539,13 +521,13 @@
         }
        },
        "task": "T",
-       "token": 1795845014703,
+       "token": 1795845366191,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+        "reply": "rid-1a07725827c04a9684ecb854affb7aec",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -564,13 +546,13 @@
         }
        },
        "task": "T",
-       "token": 1795845014703,
+       "token": 1795845366191,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+        "reply": "rid-1a07725827c04a9684ecb854affb7aec",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -589,7 +571,7 @@
         }
        },
        "task": "T",
-       "token": 1795845014703,
+       "token": 1795845366191,
        "tool": "T-N"
       }
      ],
@@ -610,8 +592,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:2",
-       "output_sha256": "5572eb8604f3a61b8a9842b430233187696e2900fac56f45c24dd0ff56aee80b",
-       "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+       "output_sha256": "8ee0ebf09fe426a940630070f94c43857044bcb8b896e4b3488f3b3dd1c88b0f",
+       "request_id": "rid-1a07725827c04a9684ecb854affb7aec",
        "used": true
       }
      ],
@@ -620,7 +602,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -628,7 +610,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6590634526595
+    "t": 6942986304974
    }
   ]
  },
@@ -642,8 +624,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -661,7 +642,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -670,18 +651,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -690,36 +665,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+     "request_id": "rid-c559eef5c45043bdb2d70332a5df3ad1",
      "retry_of": null,
-     "t": 6593310761650,
+     "t": 6945675907233,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "495404827d4acb7c0782da8b43105771c57942d0c5c384e019bfce64328eec63",
-     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
-     "t": 6593311593352
+     "output_sha256": "72acdde8f4da2e07842917cda81bf36968986bbfafe65e6be1d79e7ba5a4c8e9",
+     "request_id": "rid-c559eef5c45043bdb2d70332a5df3ad1",
+     "t": 6945676589584
     },
     {
      "kind": "delivered",
-     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
-     "t": 6593312304742
+     "request_id": "rid-c559eef5c45043bdb2d70332a5df3ad1",
+     "t": 6945676964092
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+      "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6593354376209,
+     "t": 6945719360218,
      "task": "T",
-     "token": 1795845027785
+     "token": 1795845380153
     },
     {
      "attempt": 1,
@@ -729,21 +704,21 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6593359650640,
-     "token": 1795845027785
+     "t": 6945724863913,
+     "token": 1795845380153
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+      "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6594504667577,
+     "t": 6946909391569,
      "task": "T",
-     "token": 1795845028979
+     "token": 1795845381385
     },
     {
      "attempt": 2,
@@ -753,31 +728,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6594505927238,
-     "token": 1795845028979
+     "t": 6946909885897,
+     "token": 1795845381385
     },
     {
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6594506700215
+     "t": 6946910226551
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6594548545393,
+     "t": 6946950123210,
      "task": "T",
-     "token": 1795845028979
+     "token": 1795845381385
     },
     {
      "attempt": 1,
@@ -787,31 +762,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6594549193492,
-     "token": 1795845028979
+     "t": 6946950617144,
+     "token": 1795845381385
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6594549794154
+     "t": 6946950906594
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6594596746303,
+     "t": 6946998051647,
      "task": "T",
-     "token": 1795845028979
+     "token": 1795845381385
     },
     {
      "attempt": 1,
@@ -821,15 +796,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6594598932518,
-     "token": 1795845028979
+     "t": 6946998768729,
+     "token": 1795845381385
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6594599974016
+     "t": 6946999230193
     }
    ],
    "approver": []
@@ -838,7 +813,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -852,7 +827,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6606590334847
+    "t": 6959076689937
    },
    {
     "answer": {
@@ -860,7 +835,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+        "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1"
        },
        "attempt": 2,
        "attempts": [
@@ -882,13 +857,13 @@
         }
        },
        "task": "T",
-       "token": 1795845028979,
+       "token": 1795845381385,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+        "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -907,13 +882,13 @@
         }
        },
        "task": "T",
-       "token": 1795845028979,
+       "token": 1795845381385,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+        "reply": "rid-c559eef5c45043bdb2d70332a5df3ad1",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -932,7 +907,7 @@
         }
        },
        "task": "T",
-       "token": 1795845028979,
+       "token": 1795845381385,
        "tool": "T-N"
       }
      ],
@@ -943,8 +918,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "495404827d4acb7c0782da8b43105771c57942d0c5c384e019bfce64328eec63",
-       "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+       "output_sha256": "72acdde8f4da2e07842917cda81bf36968986bbfafe65e6be1d79e7ba5a4c8e9",
+       "request_id": "rid-c559eef5c45043bdb2d70332a5df3ad1",
        "used": true
       }
      ],
@@ -953,7 +928,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -961,7 +936,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6606607841423
+    "t": 6959096075329
    }
   ]
  },
@@ -975,8 +950,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -994,7 +968,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -1003,18 +977,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -1023,36 +991,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-99b223292f994084b6785b16137ab11c",
+     "request_id": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
      "retry_of": null,
-     "t": 6593223287609,
+     "t": 6945572720435,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "4b1e3468691dc55626a6bab81bb0ec2bc65d4991779f406e829f0a35e0a67223",
-     "request_id": "rid-99b223292f994084b6785b16137ab11c",
-     "t": 6593224266457
+     "output_sha256": "8c7aa6385bcc5e1a56aa562243ddb01a3f8658e36c6fe8b46689c0bc81ef6677",
+     "request_id": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
+     "t": 6945573548387
     },
     {
      "kind": "delivered",
-     "request_id": "rid-99b223292f994084b6785b16137ab11c",
-     "t": 6593225103736
+     "request_id": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
+     "t": 6945573940378
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-99b223292f994084b6785b16137ab11c"
+      "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6593269141555,
+     "t": 6945619229004,
      "task": "T",
-     "token": 1795845027697
+     "token": 1795845380050
     },
     {
      "attempt": 1,
@@ -1062,21 +1030,21 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6593274516149,
-     "token": 1795845027697
+     "t": 6945624500829,
+     "token": 1795845380050
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-99b223292f994084b6785b16137ab11c"
+      "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6594522735319,
+     "t": 6946712395178,
      "task": "T",
-     "token": 1795845028994
+     "token": 1795845381190
     },
     {
      "attempt": 2,
@@ -1086,31 +1054,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6594523330981,
-     "token": 1795845028994
+     "t": 6946714885661,
+     "token": 1795845381190
     },
     {
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6594524081309
+     "t": 6946715260137
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6594564924763,
+     "t": 6946757956236,
      "task": "T",
-     "token": 1795845028994
+     "token": 1795845381190
     },
     {
      "attempt": 1,
@@ -1120,31 +1088,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6594565788400,
-     "token": 1795845028994
+     "t": 6946758608533,
+     "token": 1795845381190
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6594566336558
+     "t": 6946759083524
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6594617783739,
+     "t": 6946799811693,
      "task": "T",
-     "token": 1795845028994
+     "token": 1795845381190
     },
     {
      "attempt": 1,
@@ -1154,15 +1122,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6594618521811,
-     "token": 1795845028994
+     "t": 6946800491148,
+     "token": 1795845381190
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6594619154209
+     "t": 6946801000000
     }
    ],
    "approver": []
@@ -1171,7 +1139,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -1185,7 +1153,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6606590359876
+    "t": 6957050575324
    },
    {
     "answer": {
@@ -1193,7 +1161,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-99b223292f994084b6785b16137ab11c"
+        "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a"
        },
        "attempt": 2,
        "attempts": [
@@ -1215,13 +1183,13 @@
         }
        },
        "task": "T",
-       "token": 1795845028994,
+       "token": 1795845381190,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-99b223292f994084b6785b16137ab11c",
+        "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -1240,13 +1208,13 @@
         }
        },
        "task": "T",
-       "token": 1795845028994,
+       "token": 1795845381190,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-99b223292f994084b6785b16137ab11c",
+        "reply": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -1265,7 +1233,7 @@
         }
        },
        "task": "T",
-       "token": 1795845028994,
+       "token": 1795845381190,
        "tool": "T-N"
       }
      ],
@@ -1276,8 +1244,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "4b1e3468691dc55626a6bab81bb0ec2bc65d4991779f406e829f0a35e0a67223",
-       "request_id": "rid-99b223292f994084b6785b16137ab11c",
+       "output_sha256": "8c7aa6385bcc5e1a56aa562243ddb01a3f8658e36c6fe8b46689c0bc81ef6677",
+       "request_id": "rid-2f2e6987b32c41f0be1f161f4bda3b6a",
        "used": true
       }
      ],
@@ -1286,7 +1254,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -1294,7 +1262,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6606607372590
+    "t": 6957067996139
    }
   ]
  },
@@ -1308,8 +1276,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -1327,7 +1294,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -1336,18 +1303,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -1356,36 +1317,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+     "request_id": "rid-0869b94637b8423fb911d6460fb78796",
      "retry_of": null,
-     "t": 6609240561991,
+     "t": 6959479086048,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "f273309525a810ec134325f77a3e8c12fea0775f3f3df25b46b245fb38f29827",
-     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
-     "t": 6609241535128
+     "output_sha256": "1429a410a829e852d442fff0ffd9fa41345462bb875cc5779eca9d9575fba43b",
+     "request_id": "rid-0869b94637b8423fb911d6460fb78796",
+     "t": 6959479997372
     },
     {
      "kind": "delivered",
-     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
-     "t": 6609242141186
+     "request_id": "rid-0869b94637b8423fb911d6460fb78796",
+     "t": 6959480704925
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f"
+      "reply": "rid-0869b94637b8423fb911d6460fb78796"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6609286860342,
+     "t": 6959524223410,
      "task": "T",
-     "token": 1795845043716
+     "token": 1795845393952
     },
     {
      "attempt": 1,
@@ -1395,31 +1356,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6609287568912,
-     "token": 1795845043716
+     "t": 6959525156961,
+     "token": 1795845393952
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6609288151916
+     "t": 6959525725995
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "reply": "rid-0869b94637b8423fb911d6460fb78796",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6609333545224,
+     "t": 6959569496574,
      "task": "T",
-     "token": 1795845043716
+     "token": 1795845393952
     },
     {
      "attempt": 1,
@@ -1429,22 +1390,22 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6609338920681,
-     "token": 1795845043716
+     "t": 6959574844729,
+     "token": 1795845393952
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "reply": "rid-0869b94637b8423fb911d6460fb78796",
       "ti": "T-I-1"
      },
      "attempt": 2,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6610622166469,
+     "t": 6960889082276,
      "task": "T",
-     "token": 1795845045099
+     "token": 1795845395359
     },
     {
      "attempt": 2,
@@ -1454,31 +1415,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6610622807270,
-     "token": 1795845045099
+     "t": 6960889424635,
+     "token": 1795845395359
     },
     {
      "attempt": 2,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6610623127268
+     "t": 6960889848370
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "reply": "rid-0869b94637b8423fb911d6460fb78796",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6610668145837,
+     "t": 6960932817117,
      "task": "T",
-     "token": 1795845045099
+     "token": 1795845395359
     },
     {
      "attempt": 1,
@@ -1488,15 +1449,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6610668747438,
-     "token": 1795845045099
+     "t": 6960933312512,
+     "token": 1795845395359
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6610669207268
+     "t": 6960933628160
     }
    ],
    "approver": []
@@ -1505,7 +1466,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "reply": "rid-0869b94637b8423fb911d6460fb78796",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -1519,7 +1480,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6622705981908
+    "t": 6972914925916
    },
    {
     "answer": {
@@ -1527,7 +1488,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f"
+        "reply": "rid-0869b94637b8423fb911d6460fb78796"
        },
        "attempt": 1,
        "attempts": [
@@ -1545,13 +1506,13 @@
         }
        },
        "task": "T",
-       "token": 1795845043716,
+       "token": 1795845393952,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+        "reply": "rid-0869b94637b8423fb911d6460fb78796",
         "ti": "T-I-1"
        },
        "attempt": 2,
@@ -1574,13 +1535,13 @@
         }
        },
        "task": "T",
-       "token": 1795845045099,
+       "token": 1795845395359,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+        "reply": "rid-0869b94637b8423fb911d6460fb78796",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -1599,7 +1560,7 @@
         }
        },
        "task": "T",
-       "token": 1795845045099,
+       "token": 1795845395359,
        "tool": "T-N"
       }
      ],
@@ -1610,8 +1571,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "f273309525a810ec134325f77a3e8c12fea0775f3f3df25b46b245fb38f29827",
-       "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+       "output_sha256": "1429a410a829e852d442fff0ffd9fa41345462bb875cc5779eca9d9575fba43b",
+       "request_id": "rid-0869b94637b8423fb911d6460fb78796",
        "used": true
       }
      ],
@@ -1620,7 +1581,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -1628,7 +1589,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6622758169738
+    "t": 6972931868170
    }
   ]
  },
@@ -1642,8 +1603,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -1661,7 +1621,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -1670,18 +1630,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -1690,36 +1644,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+     "request_id": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
      "retry_of": null,
-     "t": 6608831974761,
+     "t": 6961647066863,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "9749220403e0e7610e5bf54cc13640e99d69fd55b3d0292b23f1e3e4405265f5",
-     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
-     "t": 6608832619648
+     "output_sha256": "6066074462142b6fa305c81e1ee131cc7de6a4251ec8918e09d64e8a6ccfd4ca",
+     "request_id": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
+     "t": 6961648102125
     },
     {
      "kind": "delivered",
-     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
-     "t": 6608833023919
+     "request_id": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
+     "t": 6961648709592
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726"
+      "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6608879187464,
+     "t": 6961691234743,
      "task": "T",
-     "token": 1795845043310
+     "token": 1795845396124
     },
     {
      "attempt": 1,
@@ -1729,31 +1683,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6608879867535,
-     "token": 1795845043310
+     "t": 6961691734758,
+     "token": 1795845396124
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6608880326415
+     "t": 6961692060277
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6608929140548,
+     "t": 6961734613447,
      "task": "T",
-     "token": 1795845043310
+     "token": 1795845396124
     },
     {
      "attempt": 1,
@@ -1763,31 +1717,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6608929808208,
-     "token": 1795845043310
+     "t": 6961735157891,
+     "token": 1795845396124
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6608930174917
+     "t": 6961735470962
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6608970847373,
+     "t": 6961778984348,
      "task": "T",
-     "token": 1795845043310
+     "token": 1795845396124
     },
     {
      "attempt": 1,
@@ -1797,8 +1751,8 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6608976214867,
-     "token": 1795845043310
+     "t": 6961783934015,
+     "token": 1795845396124
     }
    ],
    "approver": []
@@ -1807,7 +1761,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "owner:happened"
@@ -1821,7 +1775,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6620685440226
+    "t": 6973008130223
    },
    {
     "answer": {
@@ -1829,7 +1783,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726"
+        "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a"
        },
        "attempt": 1,
        "attempts": [
@@ -1847,13 +1801,13 @@
         }
        },
        "task": "T",
-       "token": 1795845043310,
+       "token": 1795845396124,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+        "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -1872,13 +1826,13 @@
         }
        },
        "task": "T",
-       "token": 1795845043310,
+       "token": 1795845396124,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+        "reply": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
         "tf": "T-F-1"
        },
        "attempt": 2,
@@ -1899,7 +1853,7 @@
         "result": null
        },
        "task": "T",
-       "token": 1795845044011,
+       "token": 1795845397381,
        "tool": "T-N"
       }
      ],
@@ -1910,8 +1864,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "9749220403e0e7610e5bf54cc13640e99d69fd55b3d0292b23f1e3e4405265f5",
-       "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+       "output_sha256": "6066074462142b6fa305c81e1ee131cc7de6a4251ec8918e09d64e8a6ccfd4ca",
+       "request_id": "rid-2779a32d7f7f4b058eb4d462ad3c396a",
        "used": true
       }
      ],
@@ -1920,7 +1874,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -1928,7 +1882,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6620719660912
+    "t": 6973024996282
    }
   ]
  },
@@ -1942,8 +1896,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -1961,7 +1914,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -1970,18 +1923,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -1990,36 +1937,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+     "request_id": "rid-633c2bfa491040d2a64e85b6d3ff719c",
      "retry_of": null,
-     "t": 6623261824112,
+     "t": 6975392689973,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "5fb25866975260af97b5f3266482e55c76ff592f412b41dd4063a97aff85e2d2",
-     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
-     "t": 6623262515140
+     "output_sha256": "2258c3063829a8edcd37f033197b37317a19a32e3def4211a90fbf699234af43",
+     "request_id": "rid-633c2bfa491040d2a64e85b6d3ff719c",
+     "t": 6975395736883
     },
     {
      "kind": "delivered",
-     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
-     "t": 6623262861462
+     "request_id": "rid-633c2bfa491040d2a64e85b6d3ff719c",
+     "t": 6975396195389
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a"
+      "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6623306895271,
+     "t": 6975438893051,
      "task": "T",
-     "token": 1795845057737
+     "token": 1795845409869
     },
     {
      "attempt": 1,
@@ -2029,31 +1976,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6623307805580,
-     "token": 1795845057737
+     "t": 6975439577072,
+     "token": 1795845409869
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6623308429557
+     "t": 6975440283790
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6623354518440,
+     "t": 6975484401846,
      "task": "T",
-     "token": 1795845057737
+     "token": 1795845409869
     },
     {
      "attempt": 1,
@@ -2063,31 +2010,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6623355496204,
-     "token": 1795845057737
+     "t": 6975485004131,
+     "token": 1795845409869
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6623356067155
+     "t": 6975485339047
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6623406272638,
+     "t": 6975527171239,
      "task": "T",
-     "token": 1795845057737
+     "token": 1795845409869
     },
     {
      "attempt": 1,
@@ -2097,8 +2044,8 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6623415949464,
-     "token": 1795845057737
+     "t": 6975532374029,
+     "token": 1795845409869
     }
    ],
    "approver": []
@@ -2107,7 +2054,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "owner:happened"
@@ -2121,7 +2068,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6634981779003
+    "t": 6986793614622
    },
    {
     "answer": {
@@ -2129,7 +2076,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a"
+        "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c"
        },
        "attempt": 1,
        "attempts": [
@@ -2147,13 +2094,13 @@
         }
        },
        "task": "T",
-       "token": 1795845057737,
+       "token": 1795845409869,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+        "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -2172,13 +2119,13 @@
         }
        },
        "task": "T",
-       "token": 1795845057737,
+       "token": 1795845409869,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+        "reply": "rid-633c2bfa491040d2a64e85b6d3ff719c",
         "tf": "T-F-1"
        },
        "attempt": 2,
@@ -2199,7 +2146,7 @@
         "result": null
        },
        "task": "T",
-       "token": 1795845058544,
+       "token": 1795845411169,
        "tool": "T-N"
       }
      ],
@@ -2210,8 +2157,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "5fb25866975260af97b5f3266482e55c76ff592f412b41dd4063a97aff85e2d2",
-       "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+       "output_sha256": "2258c3063829a8edcd37f033197b37317a19a32e3def4211a90fbf699234af43",
+       "request_id": "rid-633c2bfa491040d2a64e85b6d3ff719c",
        "used": true
       }
      ],
@@ -2220,7 +2167,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -2228,22 +2175,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6634999171753
+    "t": 6986810783345
    }
   ]
  },
  "A05-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -2260,7 +2205,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -2268,18 +2213,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -2288,36 +2226,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+     "request_id": "rid-6a2da726d9b3417cbf219917a21c976c",
      "retry_of": null,
-     "t": 6624995673433,
+     "t": 6975473483484,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "ccfb8244821c4af1a10d54d4e3127c2f552296a9338f03d3d5e5762aa9642269",
-     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
-     "t": 6624996863866
+     "output_sha256": "f51e68554fb0bd888913eff7c3180c36d46bf27f2fa31cbb21709ff44870e7dd",
+     "request_id": "rid-6a2da726d9b3417cbf219917a21c976c",
+     "t": 6975474022548
     },
     {
      "kind": "delivered",
-     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
-     "t": 6624997536990
+     "request_id": "rid-6a2da726d9b3417cbf219917a21c976c",
+     "t": 6975474416960
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a"
+      "reply": "rid-6a2da726d9b3417cbf219917a21c976c"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6625617155729,
+     "t": 6976681869005,
      "task": "T",
-     "token": 1795845060045
+     "token": 1795845411109
     },
     {
      "attempt": 1,
@@ -2327,31 +2265,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6625618390430,
-     "token": 1795845060045
+     "t": 6976682731214,
+     "token": 1795845411109
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6625619086539
+     "t": 6976683384546
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "reply": "rid-6a2da726d9b3417cbf219917a21c976c",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6625662962509,
+     "t": 6976723626975,
      "task": "T",
-     "token": 1795845060045
+     "token": 1795845411109
     },
     {
      "attempt": 1,
@@ -2361,31 +2299,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6625664093619,
-     "token": 1795845060045
+     "t": 6976724379724,
+     "token": 1795845411109
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6625664672530
+     "t": 6976724828919
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "reply": "rid-6a2da726d9b3417cbf219917a21c976c",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6625708293440,
+     "t": 6976776507211,
      "task": "T",
-     "token": 1795845060045
+     "token": 1795845411109
     },
     {
      "attempt": 1,
@@ -2395,15 +2333,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6625709397106,
-     "token": 1795845060045
+     "t": 6976777113424,
+     "token": 1795845411109
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6625710060595
+     "t": 6976777665684
     }
    ],
    "approver": []
@@ -2412,7 +2350,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "reply": "rid-6a2da726d9b3417cbf219917a21c976c",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -2426,7 +2364,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6636839560692
+    "t": 6986945196848
    },
    {
     "answer": {
@@ -2434,7 +2372,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a"
+        "reply": "rid-6a2da726d9b3417cbf219917a21c976c"
        },
        "attempt": 1,
        "attempts": [
@@ -2452,13 +2390,13 @@
         }
        },
        "task": "T",
-       "token": 1795845060045,
+       "token": 1795845411109,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+        "reply": "rid-6a2da726d9b3417cbf219917a21c976c",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -2477,13 +2415,13 @@
         }
        },
        "task": "T",
-       "token": 1795845060045,
+       "token": 1795845411109,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+        "reply": "rid-6a2da726d9b3417cbf219917a21c976c",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -2502,7 +2440,7 @@
         }
        },
        "task": "T",
-       "token": 1795845060045,
+       "token": 1795845411109,
        "tool": "T-N"
       }
      ],
@@ -2513,8 +2451,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "ccfb8244821c4af1a10d54d4e3127c2f552296a9338f03d3d5e5762aa9642269",
-       "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+       "output_sha256": "f51e68554fb0bd888913eff7c3180c36d46bf27f2fa31cbb21709ff44870e7dd",
+       "request_id": "rid-6a2da726d9b3417cbf219917a21c976c",
        "used": true
       }
      ],
@@ -2523,7 +2461,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -2531,22 +2469,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6636857574512
+    "t": 6986962232053
    }
   ]
  },
  "A06-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -2563,7 +2499,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -2571,18 +2507,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -2591,36 +2520,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+     "request_id": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
      "retry_of": null,
-     "t": 6637415480864,
+     "t": 6989258851358,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "70d6951937020e336eaa61f94fa8322b45b261c6baebbd4769217f6aec1cd24e",
-     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
-     "t": 6637416646033
+     "output_sha256": "57ccd99e246fe8f7a04b2499a80d53bcb00f5111631016f263938a99e773bd13",
+     "request_id": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
+     "t": 6989259598281
     },
     {
      "kind": "delivered",
-     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
-     "t": 6637417196468
+     "request_id": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
+     "t": 6989260124074
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd"
+      "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6637459143940,
+     "t": 6989301433903,
      "task": "T",
-     "token": 1795845071890
+     "token": 1795845423735
     },
     {
      "attempt": 1,
@@ -2630,31 +2559,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6637460027371,
-     "token": 1795845071890
+     "t": 6989301951571,
+     "token": 1795845423735
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6637460407959
+     "t": 6989302301346
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6638553922611,
+     "t": 6990445449611,
      "task": "T",
-     "token": 1795845073022
+     "token": 1795845424923
     },
     {
      "attempt": 1,
@@ -2664,31 +2593,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6638555436480,
-     "token": 1795845073022
+     "t": 6990446045720,
+     "token": 1795845424923
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6638555968854
+     "t": 6990446471707
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6638595920705,
+     "t": 6990493041732,
      "task": "T",
-     "token": 1795845073022
+     "token": 1795845424923
     },
     {
      "attempt": 1,
@@ -2698,15 +2627,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6638597874402,
-     "token": 1795845073022
+     "t": 6990493579917,
+     "token": 1795845424923
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6638599277726
+     "t": 6990494068666
     }
    ],
    "approver": []
@@ -2715,7 +2644,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -2729,7 +2658,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6648838235247
+    "t": 7000628369760
    },
    {
     "answer": {
@@ -2737,7 +2666,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd"
+        "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a"
        },
        "attempt": 1,
        "attempts": [
@@ -2755,13 +2684,13 @@
         }
        },
        "task": "T",
-       "token": 1795845071890,
+       "token": 1795845423735,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+        "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -2780,13 +2709,13 @@
         }
        },
        "task": "T",
-       "token": 1795845073022,
+       "token": 1795845424923,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+        "reply": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -2805,7 +2734,7 @@
         }
        },
        "task": "T",
-       "token": 1795845073022,
+       "token": 1795845424923,
        "tool": "T-N"
       }
      ],
@@ -2816,8 +2745,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "70d6951937020e336eaa61f94fa8322b45b261c6baebbd4769217f6aec1cd24e",
-       "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+       "output_sha256": "57ccd99e246fe8f7a04b2499a80d53bcb00f5111631016f263938a99e773bd13",
+       "request_id": "rid-a583ee6d9e2b48fb89f64fe974ee5a5a",
        "used": true
       }
      ],
@@ -2826,7 +2755,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -2834,23 +2763,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6648855602551
+    "t": 7000645895600
    }
   ]
  },
  "A06-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.calls",
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -2866,8 +2792,8 @@
    "O-3.deny_no_tool": "not_exercised",
    "O-4.model": "pass",
    "O-4.model_used": "pass",
-   "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.calls": "pass",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -2875,19 +2801,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -2896,36 +2814,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+     "request_id": "rid-8e1cb71767f54fae8be9a555519b2427",
      "retry_of": null,
-     "t": 6638792377832,
+     "t": 6989338302046,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "88ed7f78d376c523e14a51f1e2ce18a84f151d814bac66f440d6a246f3c7ab19",
-     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
-     "t": 6638795742557
+     "output_sha256": "b88b5d2dfa6cd4f9f7c357edce0fddfc5b1fc4f4f4d3d2bc483c1631477a6502",
+     "request_id": "rid-8e1cb71767f54fae8be9a555519b2427",
+     "t": 6989338969252
     },
     {
      "kind": "delivered",
-     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
-     "t": 6638796314324
+     "request_id": "rid-8e1cb71767f54fae8be9a555519b2427",
+     "t": 6989339353016
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
+      "reply": "rid-8e1cb71767f54fae8be9a555519b2427"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6638836139175,
+     "t": 6989380757968,
      "task": "T",
-     "token": 1795845073270
+     "token": 1795845423814
     },
     {
      "attempt": 1,
@@ -2935,62 +2853,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6638837025090,
-     "token": 1795845073270
+     "t": 6989381510787,
+     "token": 1795845423814
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6638837494719
-    },
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
-     },
-     "attempt": 2,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "request",
-     "t": 6639425756316,
-     "task": "T",
-     "token": 1795845073902
-    },
-    {
-     "attempt": 2,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "duplicate",
-     "result": {
-      "effect": "T-I-1"
-     },
-     "t": 6639426915588,
-     "token": 1795845073902
-    },
-    {
-     "attempt": 2,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "delivered",
-     "t": 6639427342157
+     "t": 6989382118042
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "reply": "rid-8e1cb71767f54fae8be9a555519b2427",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6639466327415,
+     "t": 6990427752056,
      "task": "T",
-     "token": 1795845073902
+     "token": 1795845424903
     },
     {
      "attempt": 1,
@@ -3000,31 +2887,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6639467191534,
-     "token": 1795845073902
+     "t": 6990431016724,
+     "token": 1795845424903
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6639467583037
+     "t": 6990431501814
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "reply": "rid-8e1cb71767f54fae8be9a555519b2427",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6639509879081,
+     "t": 6990470850698,
      "task": "T",
-     "token": 1795845073902
+     "token": 1795845424903
     },
     {
      "attempt": 1,
@@ -3034,15 +2921,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6639510586768,
-     "token": 1795845073902
+     "t": 6990471502726,
+     "token": 1795845424903
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6639510886669
+     "t": 6990471942702
     }
    ],
    "approver": []
@@ -3051,7 +2938,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "reply": "rid-8e1cb71767f54fae8be9a555519b2427",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -3065,7 +2952,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6650693730227
+    "t": 7000823423285
    },
    {
     "answer": {
@@ -3073,35 +2960,31 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
+        "reply": "rid-8e1cb71767f54fae8be9a555519b2427"
        },
-       "attempt": 2,
+       "attempt": 1,
        "attempts": [
         {
          "attempt": 1,
-         "outcome": "unknown"
-        },
-        {
-         "attempt": 2,
-         "outcome": "duplicate"
+         "outcome": "effect"
         }
        ],
        "call_id": "T:T-I",
        "key": "T:T-I",
        "outcome": {
-        "kind": "duplicate",
+        "kind": "effect",
         "result": {
          "effect": "T-I-1"
         }
        },
        "task": "T",
-       "token": 1795845073902,
+       "token": 1795845423814,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+        "reply": "rid-8e1cb71767f54fae8be9a555519b2427",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -3120,13 +3003,13 @@
         }
        },
        "task": "T",
-       "token": 1795845073902,
+       "token": 1795845424903,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+        "reply": "rid-8e1cb71767f54fae8be9a555519b2427",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -3145,7 +3028,7 @@
         }
        },
        "task": "T",
-       "token": 1795845073902,
+       "token": 1795845424903,
        "tool": "T-N"
       }
      ],
@@ -3156,8 +3039,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "88ed7f78d376c523e14a51f1e2ce18a84f151d814bac66f440d6a246f3c7ab19",
-       "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+       "output_sha256": "b88b5d2dfa6cd4f9f7c357edce0fddfc5b1fc4f4f4d3d2bc483c1631477a6502",
+       "request_id": "rid-8e1cb71767f54fae8be9a555519b2427",
        "used": true
       }
      ],
@@ -3166,7 +3049,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -3174,22 +3057,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6650726730861
+    "t": 7000841451658
    }
   ]
  },
  "A07-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -3206,7 +3087,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -3214,18 +3095,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -3234,36 +3108,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+     "request_id": "rid-1a47cdddddab444fb25bd403194a7773",
      "retry_of": null,
-     "t": 6651281063533,
+     "t": 7003221243955,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "1da4e4605018e5a822b216761ea9e2471cc0592255cf73e7fe4834e75ce4eeb0",
-     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
-     "t": 6651282045494
+     "output_sha256": "886e17ededcbf81486212288438c00289d8e10cd517025b92e6c285284eac572",
+     "request_id": "rid-1a47cdddddab444fb25bd403194a7773",
+     "t": 7003222158421
     },
     {
      "kind": "delivered",
-     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
-     "t": 6651282687414
+     "request_id": "rid-1a47cdddddab444fb25bd403194a7773",
+     "t": 7003222665135
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0"
+      "reply": "rid-1a47cdddddab444fb25bd403194a7773"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6651328107774,
+     "t": 7003264805192,
      "task": "T",
-     "token": 1795845085758
+     "token": 1795845437695
     },
     {
      "attempt": 1,
@@ -3273,31 +3147,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6651328788776,
-     "token": 1795845085758
+     "t": 7003265455606,
+     "token": 1795845437695
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6651329283660
+     "t": 7003265857036
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "reply": "rid-1a47cdddddab444fb25bd403194a7773",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6651374745229,
+     "t": 7003317752248,
      "task": "T",
-     "token": 1795845085758
+     "token": 1795845437695
     },
     {
      "attempt": 1,
@@ -3307,31 +3181,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6651375206676,
-     "token": 1795845085758
+     "t": 7003318461004,
+     "token": 1795845437695
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6651375610632
+     "t": 7003318966134
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "reply": "rid-1a47cdddddab444fb25bd403194a7773",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6652534624370,
+     "t": 7004366972690,
      "task": "T",
-     "token": 1795845087010
+     "token": 1795845438842
     },
     {
      "attempt": 1,
@@ -3341,15 +3215,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6652535302854,
-     "token": 1795845087010
+     "t": 7004367897229,
+     "token": 1795845438842
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6652536235896
+     "t": 7004368512071
     }
    ],
    "approver": []
@@ -3358,7 +3232,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "reply": "rid-1a47cdddddab444fb25bd403194a7773",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -3372,7 +3246,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6662669962170
+    "t": 7014602832062
    },
    {
     "answer": {
@@ -3380,7 +3254,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0"
+        "reply": "rid-1a47cdddddab444fb25bd403194a7773"
        },
        "attempt": 1,
        "attempts": [
@@ -3398,13 +3272,13 @@
         }
        },
        "task": "T",
-       "token": 1795845085758,
+       "token": 1795845437695,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+        "reply": "rid-1a47cdddddab444fb25bd403194a7773",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -3423,13 +3297,13 @@
         }
        },
        "task": "T",
-       "token": 1795845085758,
+       "token": 1795845437695,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+        "reply": "rid-1a47cdddddab444fb25bd403194a7773",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -3448,7 +3322,7 @@
         }
        },
        "task": "T",
-       "token": 1795845087010,
+       "token": 1795845438842,
        "tool": "T-N"
       }
      ],
@@ -3459,8 +3333,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "1da4e4605018e5a822b216761ea9e2471cc0592255cf73e7fe4834e75ce4eeb0",
-       "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+       "output_sha256": "886e17ededcbf81486212288438c00289d8e10cd517025b92e6c285284eac572",
+       "request_id": "rid-1a47cdddddab444fb25bd403194a7773",
        "used": true
       }
      ],
@@ -3469,7 +3343,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -3477,22 +3351,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6662703678209
+    "t": 7014620708879
    }
   ]
  },
  "A08-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -3509,7 +3381,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -3517,18 +3389,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -3537,36 +3402,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+     "request_id": "rid-1997abf283af4306a0df1e3097990328",
      "retry_of": null,
-     "t": 6653116967366,
+     "t": 7003478674985,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "3139994d74f818c7a0b935d590a24ab7f02d20914f07892bf2abd04484eba9b5",
-     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
-     "t": 6653118092602
+     "output_sha256": "7ab9dbcb23b8ada37cc41ad256bdc344d3026326af78028e01aee086717a064f",
+     "request_id": "rid-1997abf283af4306a0df1e3097990328",
+     "t": 7003479643687
     },
     {
      "kind": "delivered",
-     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
-     "t": 6653118631343
+     "request_id": "rid-1997abf283af4306a0df1e3097990328",
+     "t": 7003480212204
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-86ffb76c042341bc85b2a46f383488b4"
+      "reply": "rid-1997abf283af4306a0df1e3097990328"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6653164840900,
+     "t": 7003524268903,
      "task": "T",
-     "token": 1795845087591
+     "token": 1795845437953
     },
     {
      "attempt": 1,
@@ -3576,31 +3441,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6653165564608,
-     "token": 1795845087591
+     "t": 7003524963376,
+     "token": 1795845437953
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6653165924451
+     "t": 7003525398527
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "reply": "rid-1997abf283af4306a0df1e3097990328",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6653209292408,
+     "t": 7003572983525,
      "task": "T",
-     "token": 1795845087591
+     "token": 1795845437953
     },
     {
      "attempt": 1,
@@ -3610,31 +3475,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6653210142555,
-     "token": 1795845087591
+     "t": 7003573695146,
+     "token": 1795845437953
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6653210878119
+     "t": 7003574052817
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "reply": "rid-1997abf283af4306a0df1e3097990328",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6653254390192,
+     "t": 7003616630896,
      "task": "T",
-     "token": 1795845087591
+     "token": 1795845437953
     },
     {
      "attempt": 1,
@@ -3644,15 +3509,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6653255349221,
-     "token": 1795845087591
+     "t": 7003617298266,
+     "token": 1795845437953
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6653256099010
+     "t": 7003617984619
     }
    ],
    "approver": []
@@ -3661,7 +3526,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "reply": "rid-1997abf283af4306a0df1e3097990328",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -3675,7 +3540,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6666569665218
+    "t": 7016900114659
    },
    {
     "answer": {
@@ -3683,7 +3548,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-86ffb76c042341bc85b2a46f383488b4"
+        "reply": "rid-1997abf283af4306a0df1e3097990328"
        },
        "attempt": 1,
        "attempts": [
@@ -3701,13 +3566,13 @@
         }
        },
        "task": "T",
-       "token": 1795845087591,
+       "token": 1795845437953,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+        "reply": "rid-1997abf283af4306a0df1e3097990328",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -3726,13 +3591,13 @@
         }
        },
        "task": "T",
-       "token": 1795845087591,
+       "token": 1795845437953,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+        "reply": "rid-1997abf283af4306a0df1e3097990328",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -3751,7 +3616,7 @@
         }
        },
        "task": "T",
-       "token": 1795845087591,
+       "token": 1795845437953,
        "tool": "T-N"
       }
      ],
@@ -3762,8 +3627,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "3139994d74f818c7a0b935d590a24ab7f02d20914f07892bf2abd04484eba9b5",
-       "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+       "output_sha256": "7ab9dbcb23b8ada37cc41ad256bdc344d3026326af78028e01aee086717a064f",
+       "request_id": "rid-1997abf283af4306a0df1e3097990328",
        "used": true
       }
      ],
@@ -3772,7 +3637,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -3780,7 +3645,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6666603200778
+    "t": 7016917628613
    }
   ]
  },
@@ -3794,7 +3659,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -3811,8 +3676,8 @@
    "O-3.deny_no_tool": "not_exercised",
    "O-4.model": "pass",
    "O-4.model_used": "pass",
-   "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.calls": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -3821,17 +3686,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -3840,36 +3700,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+     "request_id": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
      "retry_of": null,
-     "t": 6665105755395,
+     "t": 7017057012469,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "d703129198cbaafed3b5e608577b72ffcac9299b2851550a996e94d5654d6269",
-     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
-     "t": 6665106682501
+     "output_sha256": "9af6d82419b26e4cdbc318f1305df191eb1f2f838dfb9d9713734f1ace31ebb0",
+     "request_id": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
+     "t": 7017057868335
     },
     {
      "kind": "delivered",
-     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
-     "t": 6665107271968
+     "request_id": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
+     "t": 7017058421689
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0"
+      "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6665154151553,
+     "t": 7017107783385,
      "task": "T",
-     "token": 1795845099581
+     "token": 1795845451533
     },
     {
      "attempt": 1,
@@ -3879,31 +3739,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6665154884879,
-     "token": 1795845099581
+     "t": 7017108326935,
+     "token": 1795845451533
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6665155396682
+     "t": 7017108981236
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6665198903581,
+     "t": 7017147136056,
      "task": "T",
-     "token": 1795845099581
+     "token": 1795845451533
     },
     {
      "attempt": 1,
@@ -3913,31 +3773,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6665199518366,
-     "token": 1795845099581
+     "t": 7017153058770,
+     "token": 1795845451533
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6665199942436
+     "t": 7017153592062
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6665243265077,
+     "t": 7017207245650,
      "task": "T",
-     "token": 1795845099581
+     "token": 1795845451533
     },
     {
      "attempt": 1,
@@ -3947,15 +3807,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6665244249118,
-     "token": 1795845099581
+     "t": 7017207969106,
+     "token": 1795845451533
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6665244900237
+     "t": 7017208482567
     }
    ],
    "approver": []
@@ -3964,10 +3824,10 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
       "tf": "T-F-1",
       "ti": "T-I-1",
-      "tn": "T-N-1"
+      "tn": "owner:happened"
      },
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
      "task": {
@@ -3978,7 +3838,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6676532980889
+    "t": 7030378425881
    },
    {
     "answer": {
@@ -3986,7 +3846,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0"
+        "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43"
        },
        "attempt": 1,
        "attempts": [
@@ -4004,13 +3864,13 @@
         }
        },
        "task": "T",
-       "token": 1795845099581,
+       "token": 1795845451533,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+        "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -4029,32 +3889,34 @@
         }
        },
        "task": "T",
-       "token": 1795845099581,
+       "token": 1795845451533,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+        "reply": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
         "tf": "T-F-1"
        },
-       "attempt": 1,
+       "attempt": 2,
        "attempts": [
         {
          "attempt": 1,
-         "outcome": "effect"
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
         }
        ],
        "call_id": "T:T-N",
        "key": "T:T-N",
        "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-N-1"
-        }
+        "kind": "owner:happened",
+        "result": null
        },
        "task": "T",
-       "token": 1795845099581,
+       "token": 1795845452958,
        "tool": "T-N"
       }
      ],
@@ -4065,8 +3927,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "d703129198cbaafed3b5e608577b72ffcac9299b2851550a996e94d5654d6269",
-       "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+       "output_sha256": "9af6d82419b26e4cdbc318f1305df191eb1f2f838dfb9d9713734f1ace31ebb0",
+       "request_id": "rid-78af63c8b4c1414a93a8a6a5f819cd43",
        "used": true
       }
      ],
@@ -4075,7 +3937,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -4083,7 +3945,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6676551066887
+    "t": 7030395884504
    }
   ]
  },
@@ -4097,8 +3959,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -4116,7 +3977,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -4125,18 +3986,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ); T-I 'T:T-I' attempt 2: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ); T-I 'T:T-I' attempt 2: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -4145,36 +4000,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+     "request_id": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
      "retry_of": null,
-     "t": 6669114210156,
+     "t": 7019286495952,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "75de0d533068d1f62800bf14138c9ab0912a582986f9bf4ebf7cfed474709856",
-     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
-     "t": 6669116059867
+     "output_sha256": "27d698334ac0e4973c486984bbdf55db7fa95fbba9309de5dd2f24136675c5d0",
+     "request_id": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
+     "t": 7019287642431
     },
     {
      "kind": "delivered",
-     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
-     "t": 6669116989125
+     "request_id": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
+     "t": 7019288366835
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6669161707950,
+     "t": 7019333957178,
      "task": "T",
-     "token": 1795845103591
+     "token": 1795845453764
     },
     {
      "attempt": 1,
@@ -4184,21 +4039,21 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6669166740826,
-     "token": 1795845103591
+     "t": 7019339350642,
+     "token": 1795845453764
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6670303763035,
+     "t": 7020374448618,
      "task": "T",
-     "token": 1795845104782
+     "token": 1795845454850
     },
     {
      "attempt": 2,
@@ -4208,21 +4063,21 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6670308850789,
-     "token": 1795845104782
+     "t": 7020379634280,
+     "token": 1795845454850
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6673527780462,
+     "t": 7023530367793,
      "task": "T",
-     "token": 1795845108004
+     "token": 1795845458006
     },
     {
      "attempt": 2,
@@ -4232,31 +4087,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6673528307507,
-     "token": 1795845108004
+     "t": 7023531020384,
+     "token": 1795845458006
     },
     {
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6673528685013
+     "t": 7023531728390
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6673575012459,
+     "t": 7023573085652,
      "task": "T",
-     "token": 1795845108004
+     "token": 1795845458006
     },
     {
      "attempt": 1,
@@ -4266,31 +4121,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6673575755534,
-     "token": 1795845108004
+     "t": 7023573818879,
+     "token": 1795845458006
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6673576417481
+     "t": 7023574322548
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6673620548924,
+     "t": 7023617232934,
      "task": "T",
-     "token": 1795845108004
+     "token": 1795845458006
     },
     {
      "attempt": 1,
@@ -4300,15 +4155,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6673621213227,
-     "token": 1795845108004
+     "t": 7023617998361,
+     "token": 1795845458006
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6673621915139
+     "t": 7023618513027
     }
    ],
    "approver": []
@@ -4317,7 +4172,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -4331,7 +4186,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6684587681119
+    "t": 7034727139460
    },
    {
     "answer": {
@@ -4339,7 +4194,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+        "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f"
        },
        "attempt": 2,
        "attempts": [
@@ -4361,13 +4216,13 @@
         }
        },
        "task": "T",
-       "token": 1795845108004,
+       "token": 1795845458006,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+        "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -4386,13 +4241,13 @@
         }
        },
        "task": "T",
-       "token": 1795845108004,
+       "token": 1795845458006,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+        "reply": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -4411,7 +4266,7 @@
         }
        },
        "task": "T",
-       "token": 1795845108004,
+       "token": 1795845458006,
        "tool": "T-N"
       }
      ],
@@ -4422,8 +4277,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "75de0d533068d1f62800bf14138c9ab0912a582986f9bf4ebf7cfed474709856",
-       "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+       "output_sha256": "27d698334ac0e4973c486984bbdf55db7fa95fbba9309de5dd2f24136675c5d0",
+       "request_id": "rid-a225d43939ba40859ff35c5b8e8e5d3f",
        "used": true
       }
      ],
@@ -4432,7 +4287,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -4440,7 +4295,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6684605584334
+    "t": 7034744126804
    }
   ]
  },
@@ -4454,8 +4309,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -4473,7 +4327,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -4482,18 +4336,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -4502,49 +4350,49 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+     "request_id": "rid-05e9411ea70945f6a4a0463b37979ecc",
      "retry_of": null,
-     "t": 6679002684018,
+     "t": 7032682266788,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "eed280b0a2cc467bde86091ca0c3bcf832621ba5746d1d24eeca8fba478f7517",
-     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
-     "t": 6679003668041
+     "output_sha256": "bfd9c5f74b5daebbae9e33df6bc67bd904670e0ae98dfd6cba92a3211bf256ce",
+     "request_id": "rid-05e9411ea70945f6a4a0463b37979ecc",
+     "t": 7032683288284
     },
     {
      "kind": "delivered",
-     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
-     "t": 6679004185862
+     "request_id": "rid-05e9411ea70945f6a4a0463b37979ecc",
+     "t": 7032683864376
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+      "reply": "rid-05e9411ea70945f6a4a0463b37979ecc"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6679049546514,
+     "t": 7032725320473,
      "task": "T",
-     "token": 1795845113480
+     "token": 1795845467157
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+      "reply": "rid-05e9411ea70945f6a4a0463b37979ecc"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6679484706986,
+     "t": 7033159904848,
      "task": "T",
-     "token": 1795845113959
+     "token": 1795845467638
     },
     {
      "attempt": 2,
@@ -4554,15 +4402,15 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6679485044718,
-     "token": 1795845113959
+     "t": 7033160268906,
+     "token": 1795845467638
     },
     {
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6679485653463
+     "t": 7033160878531
     },
     {
      "attempt": 1,
@@ -4572,24 +4420,24 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6679683951982,
-     "token": 1795845113480
+     "t": 7033359310869,
+     "token": 1795845467157
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "reply": "rid-05e9411ea70945f6a4a0463b37979ecc",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6679523941770,
+     "t": 7033203052899,
      "task": "T",
-     "token": 1795845113959
+     "token": 1795845467638
     },
     {
      "attempt": 1,
@@ -4599,31 +4447,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6679524583470,
-     "token": 1795845113959
+     "t": 7033203629284,
+     "token": 1795845467638
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6679524961630
+     "t": 7033204097869
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "reply": "rid-05e9411ea70945f6a4a0463b37979ecc",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6679579059952,
+     "t": 7033246921455,
      "task": "T",
-     "token": 1795845113959
+     "token": 1795845467638
     },
     {
      "attempt": 1,
@@ -4633,15 +4481,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6679579577612,
-     "token": 1795845113959
+     "t": 7033247414501,
+     "token": 1795845467638
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6679580053923
+     "t": 7033247771567
     }
    ],
    "approver": []
@@ -4650,7 +4498,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "reply": "rid-05e9411ea70945f6a4a0463b37979ecc",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -4664,7 +4512,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6690424928559
+    "t": 7044109087762
    },
    {
     "answer": {
@@ -4672,7 +4520,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+        "reply": "rid-05e9411ea70945f6a4a0463b37979ecc"
        },
        "attempt": 2,
        "attempts": [
@@ -4694,13 +4542,13 @@
         }
        },
        "task": "T",
-       "token": 1795845113959,
+       "token": 1795845467638,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+        "reply": "rid-05e9411ea70945f6a4a0463b37979ecc",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -4719,13 +4567,13 @@
         }
        },
        "task": "T",
-       "token": 1795845113959,
+       "token": 1795845467638,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+        "reply": "rid-05e9411ea70945f6a4a0463b37979ecc",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -4744,7 +4592,7 @@
         }
        },
        "task": "T",
-       "token": 1795845113959,
+       "token": 1795845467638,
        "tool": "T-N"
       }
      ],
@@ -4755,8 +4603,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "eed280b0a2cc467bde86091ca0c3bcf832621ba5746d1d24eeca8fba478f7517",
-       "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+       "output_sha256": "bfd9c5f74b5daebbae9e33df6bc67bd904670e0ae98dfd6cba92a3211bf256ce",
+       "request_id": "rid-05e9411ea70945f6a4a0463b37979ecc",
        "used": true
       }
      ],
@@ -4765,7 +4613,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -4773,7 +4621,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6690458306839
+    "t": 7044126029580
    }
   ]
  },
@@ -4787,8 +4635,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -4806,7 +4653,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -4815,18 +4662,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -4835,36 +4676,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+     "request_id": "rid-3de62cd0932a4e7593eed230c9a252bb",
      "retry_of": null,
-     "t": 6687249129442,
+     "t": 7036993257628,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "f4dfa7bcc21ccb5ec788f62eb7e14577cadc86cb24d92156968086c1a2bb860d",
-     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
-     "t": 6687250160015
+     "output_sha256": "8a22ae29509a187d2e9f67db7b2f7157f50511c24bba58fe71fc5fa1886f1885",
+     "request_id": "rid-3de62cd0932a4e7593eed230c9a252bb",
+     "t": 7036994459389
     },
     {
      "kind": "delivered",
-     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
-     "t": 6687250830924
+     "request_id": "rid-3de62cd0932a4e7593eed230c9a252bb",
+     "t": 7036995226546
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a661f5c7d0d2437aac49a259e585746e"
+      "reply": "rid-3de62cd0932a4e7593eed230c9a252bb"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6687291177933,
+     "t": 7037037349118,
      "task": "T",
-     "token": 1795845121727
+     "token": 1795845471469
     },
     {
      "attempt": 1,
@@ -4874,31 +4715,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6687291677431,
-     "token": 1795845121727
+     "t": 7037038135027,
+     "token": 1795845471469
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6687293042750
+     "t": 7037038704723
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6687333544636,
+     "t": 7037084119220,
      "task": "T",
-     "token": 1795845121727
+     "token": 1795845471469
     },
     {
      "attempt": 1,
@@ -4908,45 +4749,45 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6687334238552,
-     "token": 1795845121727
+     "t": 7037084889827,
+     "token": 1795845471469
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6687334570664
+     "t": 7037085289427
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6687377721700,
+     "t": 7037128606039,
      "task": "T",
-     "token": 1795845121727
+     "token": 1795845471469
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
       "tf": "T-F-1"
      },
      "attempt": 2,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6687805100148,
+     "t": 7037564461518,
      "task": "T",
-     "token": 1795845122282
+     "token": 1795845472038
     },
     {
      "attempt": 2,
@@ -4956,15 +4797,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6687805403697,
-     "token": 1795845122282
+     "t": 7037564772003,
+     "token": 1795845472038
     },
     {
      "attempt": 2,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6687805687143
+     "t": 7037565077190
     },
     {
      "attempt": 1,
@@ -4974,8 +4815,8 @@
      "result": {
       "effect": "T-N-2"
      },
-     "t": 6688007186957,
-     "token": 1795845121727
+     "t": 7037763858421,
+     "token": 1795845471469
     }
    ],
    "approver": []
@@ -4984,7 +4825,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -4998,7 +4839,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6698577897681
+    "t": 7048430673882
    },
    {
     "answer": {
@@ -5006,7 +4847,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a661f5c7d0d2437aac49a259e585746e"
+        "reply": "rid-3de62cd0932a4e7593eed230c9a252bb"
        },
        "attempt": 1,
        "attempts": [
@@ -5024,13 +4865,13 @@
         }
        },
        "task": "T",
-       "token": 1795845121727,
+       "token": 1795845471469,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+        "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -5049,13 +4890,13 @@
         }
        },
        "task": "T",
-       "token": 1795845121727,
+       "token": 1795845471469,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+        "reply": "rid-3de62cd0932a4e7593eed230c9a252bb",
         "tf": "T-F-1"
        },
        "attempt": 2,
@@ -5082,7 +4923,7 @@
         }
        },
        "task": "T",
-       "token": 1795845122282,
+       "token": 1795845472038,
        "tool": "T-N"
       }
      ],
@@ -5093,8 +4934,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "f4dfa7bcc21ccb5ec788f62eb7e14577cadc86cb24d92156968086c1a2bb860d",
-       "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+       "output_sha256": "8a22ae29509a187d2e9f67db7b2f7157f50511c24bba58fe71fc5fa1886f1885",
+       "request_id": "rid-3de62cd0932a4e7593eed230c9a252bb",
        "used": true
       }
      ],
@@ -5103,7 +4944,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -5111,22 +4952,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6698594879113
+    "t": 7048448130792
    }
   ]
  },
  "A14-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -5143,7 +4982,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -5151,18 +4990,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -5171,9 +5003,9 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-38b693dff6c145d6957ec8193c453a1e",
+     "request_id": "rid-9fd3273339fa4892baddb45f921e5782",
      "retry_of": null,
-     "t": 6692852676748,
+     "t": 7046488955552,
      "task": "T"
     },
     {
@@ -5182,42 +5014,42 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:2",
      "kind": "request",
-     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+     "request_id": "rid-de9e017ef46b454586604ab1f8afe056",
      "retry_of": "T:model:1",
-     "t": 6709066771961,
+     "t": 7062538584341,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "8947ada1861949ec68763c64287e47c84a0f482ee30aace93f4363bba623fece",
-     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
-     "t": 6709067689240
+     "output_sha256": "4aaf3e94df975280319ffa0b1707958c780742731584b1a762b4c7c5c35daa3a",
+     "request_id": "rid-de9e017ef46b454586604ab1f8afe056",
+     "t": 7062538949942
     },
     {
      "kind": "delivered",
-     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
-     "t": 6709068231771
+     "request_id": "rid-de9e017ef46b454586604ab1f8afe056",
+     "t": 7062539303993
     },
     {
      "kind": "reply",
-     "output_sha256": "08d781591f2d2353af0a311e764b1db86b3c49ee70226ee434d2a560433208c3",
-     "request_id": "rid-38b693dff6c145d6957ec8193c453a1e",
-     "t": 6709077343486
+     "output_sha256": "459639c9a5d563c917aa738e7c4ff74a81cfd958e472a9e76eb301067ec36a2b",
+     "request_id": "rid-9fd3273339fa4892baddb45f921e5782",
+     "t": 7062551049236
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d"
+      "reply": "rid-de9e017ef46b454586604ab1f8afe056"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6709109612881,
+     "t": 7062588425254,
      "task": "T",
-     "token": 1795845143542
+     "token": 1795845497016
     },
     {
      "attempt": 1,
@@ -5227,31 +5059,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6709110399891,
-     "token": 1795845143542
+     "t": 7062589107193,
+     "token": 1795845497016
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6709110893202
+     "t": 7062589421298
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "reply": "rid-de9e017ef46b454586604ab1f8afe056",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6709156452225,
+     "t": 7062634211343,
      "task": "T",
-     "token": 1795845143542
+     "token": 1795845497016
     },
     {
      "attempt": 1,
@@ -5261,31 +5093,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6709157377459,
-     "token": 1795845143542
+     "t": 7062634959590,
+     "token": 1795845497016
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6709158002278
+     "t": 7062635284901
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "reply": "rid-de9e017ef46b454586604ab1f8afe056",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6709203246360,
+     "t": 7062682351951,
      "task": "T",
-     "token": 1795845143542
+     "token": 1795845497016
     },
     {
      "attempt": 1,
@@ -5295,15 +5127,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6709203983715,
-     "token": 1795845143542
+     "t": 7062682937435,
+     "token": 1795845497016
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6709204596041
+     "t": 7062683265927
     }
    ],
    "approver": []
@@ -5312,7 +5144,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "reply": "rid-de9e017ef46b454586604ab1f8afe056",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -5326,7 +5158,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6720326032904
+    "t": 7073967010158
    },
    {
     "answer": {
@@ -5334,7 +5166,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d"
+        "reply": "rid-de9e017ef46b454586604ab1f8afe056"
        },
        "attempt": 1,
        "attempts": [
@@ -5352,13 +5184,13 @@
         }
        },
        "task": "T",
-       "token": 1795845143542,
+       "token": 1795845497016,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+        "reply": "rid-de9e017ef46b454586604ab1f8afe056",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -5377,13 +5209,13 @@
         }
        },
        "task": "T",
-       "token": 1795845143542,
+       "token": 1795845497016,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+        "reply": "rid-de9e017ef46b454586604ab1f8afe056",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -5402,7 +5234,7 @@
         }
        },
        "task": "T",
-       "token": 1795845143542,
+       "token": 1795845497016,
        "tool": "T-N"
       }
      ],
@@ -5423,8 +5255,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:2",
-       "output_sha256": "8947ada1861949ec68763c64287e47c84a0f482ee30aace93f4363bba623fece",
-       "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+       "output_sha256": "4aaf3e94df975280319ffa0b1707958c780742731584b1a762b4c7c5c35daa3a",
+       "request_id": "rid-de9e017ef46b454586604ab1f8afe056",
        "used": true
       }
      ],
@@ -5433,7 +5265,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -5441,22 +5273,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6720343284840
+    "t": 7073983886787
    }
   ]
  },
  "A14-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -5473,7 +5303,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -5481,18 +5311,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -5501,36 +5324,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+     "request_id": "rid-53d57a8b3a574d29bcf6455afe182415",
      "retry_of": null,
-     "t": 6700880113716,
+     "t": 7050374642203,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "db2c62c20b0616b34761d4ed3276ef45ff1301f524c78914ce5aeffcf74eff38",
-     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
-     "t": 6700883805632
+     "output_sha256": "d468567bbf45be8d7a84a2c4e9c318f4ee6d49a50f865de38eadfedb52cb1d25",
+     "request_id": "rid-53d57a8b3a574d29bcf6455afe182415",
+     "t": 7050378058633
     },
     {
      "kind": "delivered",
-     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
-     "t": 6700884494125
+     "request_id": "rid-53d57a8b3a574d29bcf6455afe182415",
+     "t": 7050378618230
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4524066895484d8dc353757bbfdede"
+      "reply": "rid-53d57a8b3a574d29bcf6455afe182415"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6700923651658,
+     "t": 7050422480248,
      "task": "T",
-     "token": 1795845135352
+     "token": 1795845484853
     },
     {
      "attempt": 1,
@@ -5540,31 +5363,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6700924316135,
-     "token": 1795845135352
+     "t": 7050423242570,
+     "token": 1795845484853
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6700924735245
+     "t": 7050423606064
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "reply": "rid-53d57a8b3a574d29bcf6455afe182415",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6700985989359,
+     "t": 7050461707021,
      "task": "T",
-     "token": 1795845135352
+     "token": 1795845484853
     },
     {
      "attempt": 1,
@@ -5574,31 +5397,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6700986669029,
-     "token": 1795845135352
+     "t": 7050462323638,
+     "token": 1795845484853
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6700987013755
+     "t": 7050462680164
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "reply": "rid-53d57a8b3a574d29bcf6455afe182415",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6701040792170,
+     "t": 7050509700473,
      "task": "T",
-     "token": 1795845135352
+     "token": 1795845484853
     },
     {
      "attempt": 1,
@@ -5608,15 +5431,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6701041440415,
-     "token": 1795845135352
+     "t": 7050510525272,
+     "token": 1795845484853
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6701041849230
+     "t": 7050510991039
     }
    ],
    "approver": []
@@ -5625,7 +5448,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "reply": "rid-53d57a8b3a574d29bcf6455afe182415",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -5639,7 +5462,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6712297289374
+    "t": 7062249457202
    },
    {
     "answer": {
@@ -5647,7 +5470,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4524066895484d8dc353757bbfdede"
+        "reply": "rid-53d57a8b3a574d29bcf6455afe182415"
        },
        "attempt": 1,
        "attempts": [
@@ -5665,13 +5488,13 @@
         }
        },
        "task": "T",
-       "token": 1795845135352,
+       "token": 1795845484853,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4524066895484d8dc353757bbfdede",
+        "reply": "rid-53d57a8b3a574d29bcf6455afe182415",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -5690,13 +5513,13 @@
         }
        },
        "task": "T",
-       "token": 1795845135352,
+       "token": 1795845484853,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4524066895484d8dc353757bbfdede",
+        "reply": "rid-53d57a8b3a574d29bcf6455afe182415",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -5715,7 +5538,7 @@
         }
        },
        "task": "T",
-       "token": 1795845135352,
+       "token": 1795845484853,
        "tool": "T-N"
       }
      ],
@@ -5726,8 +5549,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "db2c62c20b0616b34761d4ed3276ef45ff1301f524c78914ce5aeffcf74eff38",
-       "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+       "output_sha256": "d468567bbf45be8d7a84a2c4e9c318f4ee6d49a50f865de38eadfedb52cb1d25",
+       "request_id": "rid-53d57a8b3a574d29bcf6455afe182415",
        "used": true
       }
      ],
@@ -5736,7 +5559,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -5744,7 +5567,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6712314010510
+    "t": 7062266624492
    }
   ]
  },
@@ -5758,8 +5581,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -5777,7 +5599,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -5786,18 +5608,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -5806,49 +5622,49 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+     "request_id": "rid-4b08947929a84c94b9e2d88e8135f525",
      "retry_of": null,
-     "t": 6714789369171,
+     "t": 7064273171876,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "9fe5e5f1f5b8bb697fae671cf434adabb03266a1069a724accdb3eba34c62036",
-     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
-     "t": 6714790263772
+     "output_sha256": "3e66c6dcf0d44ff9ee25f6e6be5acbf676200898ed6d0a19e057b606c61d72cd",
+     "request_id": "rid-4b08947929a84c94b9e2d88e8135f525",
+     "t": 7064273976915
     },
     {
      "kind": "delivered",
-     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
-     "t": 6714790846384
+     "request_id": "rid-4b08947929a84c94b9e2d88e8135f525",
+     "t": 7064274558268
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+      "reply": "rid-4b08947929a84c94b9e2d88e8135f525"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6714835038973,
+     "t": 7064323441907,
      "task": "T",
-     "token": 1795845149266
+     "token": 1795845498752
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+      "reply": "rid-4b08947929a84c94b9e2d88e8135f525"
      },
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6730860914253,
+     "t": 7079904188802,
      "task": "T",
-     "token": 1795845165338
+     "token": 1795845514381
     },
     {
      "attempt": 2,
@@ -5858,15 +5674,15 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6730861586441,
-     "token": 1795845165338
+     "t": 7079904825511,
+     "token": 1795845514381
     },
     {
      "attempt": 2,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6730861911894
+     "t": 7079905202350
     },
     {
      "attempt": 1,
@@ -5876,24 +5692,24 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6730868939744,
-     "token": 1795845149266
+     "t": 7079913231729,
+     "token": 1795845498752
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "reply": "rid-4b08947929a84c94b9e2d88e8135f525",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6730905738713,
+     "t": 7079949349080,
      "task": "T",
-     "token": 1795845165338
+     "token": 1795845514381
     },
     {
      "attempt": 1,
@@ -5903,31 +5719,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6730906890110,
-     "token": 1795845165338
+     "t": 7079950030036,
+     "token": 1795845514381
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6730907285942
+     "t": 7079950313300
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "reply": "rid-4b08947929a84c94b9e2d88e8135f525",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6730955679615,
+     "t": 7079994977921,
      "task": "T",
-     "token": 1795845165338
+     "token": 1795845514381
     },
     {
      "attempt": 1,
@@ -5937,15 +5753,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6730956334750,
-     "token": 1795845165338
+     "t": 7079995908150,
+     "token": 1795845514381
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6730956819811
+     "t": 7079996324525
     }
    ],
    "approver": []
@@ -5954,7 +5770,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "reply": "rid-4b08947929a84c94b9e2d88e8135f525",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -5968,7 +5784,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6742186597848
+    "t": 7090205936685
    },
    {
     "answer": {
@@ -5976,7 +5792,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+        "reply": "rid-4b08947929a84c94b9e2d88e8135f525"
        },
        "attempt": 2,
        "attempts": [
@@ -5998,13 +5814,13 @@
         }
        },
        "task": "T",
-       "token": 1795845165338,
+       "token": 1795845514381,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+        "reply": "rid-4b08947929a84c94b9e2d88e8135f525",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -6023,13 +5839,13 @@
         }
        },
        "task": "T",
-       "token": 1795845165338,
+       "token": 1795845514381,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+        "reply": "rid-4b08947929a84c94b9e2d88e8135f525",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -6048,7 +5864,7 @@
         }
        },
        "task": "T",
-       "token": 1795845165338,
+       "token": 1795845514381,
        "tool": "T-N"
       }
      ],
@@ -6059,8 +5875,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "9fe5e5f1f5b8bb697fae671cf434adabb03266a1069a724accdb3eba34c62036",
-       "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+       "output_sha256": "3e66c6dcf0d44ff9ee25f6e6be5acbf676200898ed6d0a19e057b606c61d72cd",
+       "request_id": "rid-4b08947929a84c94b9e2d88e8135f525",
        "used": true
       }
      ],
@@ -6069,7 +5885,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -6077,22 +5893,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6742203790356
+    "t": 7090223180122
    }
   ]
  },
  "A15-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -6109,7 +5923,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -6117,18 +5931,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -6137,36 +5944,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+     "request_id": "rid-97543d88ff574151b9ce269a3b7f03bc",
      "retry_of": null,
-     "t": 6722818390753,
+     "t": 7076422896567,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "037bf8cc3b87a526505857eaf1f9e74383f32a6441d07342da6602517feab037",
-     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
-     "t": 6722819209467
+     "output_sha256": "622f949e2b4f31f93a544165bb4824f6334dfb181699d48e7ccb95e8522c78f7",
+     "request_id": "rid-97543d88ff574151b9ce269a3b7f03bc",
+     "t": 7076423853293
     },
     {
      "kind": "delivered",
-     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
-     "t": 6722819607264
+     "request_id": "rid-97543d88ff574151b9ce269a3b7f03bc",
+     "t": 7076424263932
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3"
+      "reply": "rid-97543d88ff574151b9ce269a3b7f03bc"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6722855707013,
+     "t": 7076468775779,
      "task": "T",
-     "token": 1795845157287
+     "token": 1795845510900
     },
     {
      "attempt": 1,
@@ -6176,31 +5983,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6722878262686,
-     "token": 1795845157287
+     "t": 7076472091190,
+     "token": 1795845510900
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6722878898690
+     "t": 7076472568631
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "reply": "rid-97543d88ff574151b9ce269a3b7f03bc",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6722932564931,
+     "t": 7076514730350,
      "task": "T",
-     "token": 1795845157287
+     "token": 1795845510900
     },
     {
      "attempt": 1,
@@ -6210,31 +6017,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6722933906248,
-     "token": 1795845157287
+     "t": 7076515369294,
+     "token": 1795845510900
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6722934321206
+     "t": 7076515743845
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "reply": "rid-97543d88ff574151b9ce269a3b7f03bc",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6722986045603,
+     "t": 7076562613194,
      "task": "T",
-     "token": 1795845157287
+     "token": 1795845510900
     },
     {
      "attempt": 1,
@@ -6244,15 +6051,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6722986632213,
-     "token": 1795845157287
+     "t": 7076563680406,
+     "token": 1795845510900
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6722986980488
+     "t": 7076564232777
     }
    ],
    "approver": []
@@ -6261,7 +6068,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "reply": "rid-97543d88ff574151b9ce269a3b7f03bc",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -6275,7 +6082,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6734211455119
+    "t": 7087804228897
    },
    {
     "answer": {
@@ -6283,7 +6090,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3"
+        "reply": "rid-97543d88ff574151b9ce269a3b7f03bc"
        },
        "attempt": 1,
        "attempts": [
@@ -6301,13 +6108,13 @@
         }
        },
        "task": "T",
-       "token": 1795845157287,
+       "token": 1795845510900,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+        "reply": "rid-97543d88ff574151b9ce269a3b7f03bc",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -6326,13 +6133,13 @@
         }
        },
        "task": "T",
-       "token": 1795845157287,
+       "token": 1795845510900,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+        "reply": "rid-97543d88ff574151b9ce269a3b7f03bc",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -6351,7 +6158,7 @@
         }
        },
        "task": "T",
-       "token": 1795845157287,
+       "token": 1795845510900,
        "tool": "T-N"
       }
      ],
@@ -6362,8 +6169,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "037bf8cc3b87a526505857eaf1f9e74383f32a6441d07342da6602517feab037",
-       "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+       "output_sha256": "622f949e2b4f31f93a544165bb4824f6334dfb181699d48e7ccb95e8522c78f7",
+       "request_id": "rid-97543d88ff574151b9ce269a3b7f03bc",
        "used": true
       }
      ],
@@ -6372,7 +6179,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -6380,7 +6187,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6734228548498
+    "t": 7087823414639
    }
   ]
  },
@@ -6394,8 +6201,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -6413,7 +6219,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -6422,18 +6228,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -6442,36 +6242,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+     "request_id": "rid-e17e8549309c4314bab9890882e1f248",
      "retry_of": null,
-     "t": 6736825574350,
+     "t": 7090424209511,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "aedd5a58fdfe70ac735065dd654eb43c0bfb6082e3c577cb9ae9abd8a82fa8aa",
-     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
-     "t": 6736826516660
+     "output_sha256": "bddabc84441db65e0db1e9e945a84f459df266621cd594a3f65cb688bb6ac8ee",
+     "request_id": "rid-e17e8549309c4314bab9890882e1f248",
+     "t": 7090425129399
     },
     {
      "kind": "delivered",
-     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
-     "t": 6736827023166
+     "request_id": "rid-e17e8549309c4314bab9890882e1f248",
+     "t": 7090425804837
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-2a124462a8084d799e53b990704d2a89"
+      "reply": "rid-e17e8549309c4314bab9890882e1f248"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6736877675956,
+     "t": 7090467960821,
      "task": "T",
-     "token": 1795845171300
+     "token": 1795845524902
     },
     {
      "attempt": 1,
@@ -6481,45 +6281,45 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6736878414151,
-     "token": 1795845171300
+     "t": 7090468579680,
+     "token": 1795845524902
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6736878820103
+     "t": 7090468933813
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "reply": "rid-e17e8549309c4314bab9890882e1f248",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6736929966229,
+     "t": 7090514796642,
      "task": "T",
-     "token": 1795845171300
+     "token": 1795845524902
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "reply": "rid-e17e8549309c4314bab9890882e1f248",
       "ti": "T-I-1"
      },
      "attempt": 2,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6753009517751,
+     "t": 7106595410292,
      "task": "T",
-     "token": 1795845187488
+     "token": 1795845541074
     },
     {
      "attempt": 2,
@@ -6529,15 +6329,15 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6753010141586,
-     "token": 1795845187488
+     "t": 7106595814296,
+     "token": 1795845541074
     },
     {
      "attempt": 2,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6753010523578
+     "t": 7106596285746
     },
     {
      "attempt": 1,
@@ -6545,26 +6345,26 @@
      "key": "T:T-F",
      "kind": "rejected_stale",
      "result": {
-      "highest": 1795845187488
+      "highest": 1795845541074
      },
-     "t": 6753020509269,
-     "token": 1795845171300
+     "t": 7106600495553,
+     "token": 1795845524902
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "reply": "rid-e17e8549309c4314bab9890882e1f248",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6753060374190,
+     "t": 7106643023276,
      "task": "T",
-     "token": 1795845187488
+     "token": 1795845541074
     },
     {
      "attempt": 1,
@@ -6574,15 +6374,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6753061040522,
-     "token": 1795845187488
+     "t": 7106643630476,
+     "token": 1795845541074
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6753061334579
+     "t": 7106644095745
     }
    ],
    "approver": []
@@ -6591,7 +6391,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "reply": "rid-e17e8549309c4314bab9890882e1f248",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -6605,7 +6405,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6764256408362
+    "t": 7117845396148
    },
    {
     "answer": {
@@ -6613,7 +6413,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-2a124462a8084d799e53b990704d2a89"
+        "reply": "rid-e17e8549309c4314bab9890882e1f248"
        },
        "attempt": 1,
        "attempts": [
@@ -6631,13 +6431,13 @@
         }
        },
        "task": "T",
-       "token": 1795845171300,
+       "token": 1795845524902,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-2a124462a8084d799e53b990704d2a89",
+        "reply": "rid-e17e8549309c4314bab9890882e1f248",
         "ti": "T-I-1"
        },
        "attempt": 2,
@@ -6660,13 +6460,13 @@
         }
        },
        "task": "T",
-       "token": 1795845187488,
+       "token": 1795845541074,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-2a124462a8084d799e53b990704d2a89",
+        "reply": "rid-e17e8549309c4314bab9890882e1f248",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -6685,7 +6485,7 @@
         }
        },
        "task": "T",
-       "token": 1795845187488,
+       "token": 1795845541074,
        "tool": "T-N"
       }
      ],
@@ -6696,8 +6496,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "aedd5a58fdfe70ac735065dd654eb43c0bfb6082e3c577cb9ae9abd8a82fa8aa",
-       "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+       "output_sha256": "bddabc84441db65e0db1e9e945a84f459df266621cd594a3f65cb688bb6ac8ee",
+       "request_id": "rid-e17e8549309c4314bab9890882e1f248",
        "used": true
       }
      ],
@@ -6706,7 +6506,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -6714,22 +6514,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6764273626830
+    "t": 7117862289581
    }
   ]
  },
  "A16-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -6746,7 +6544,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -6754,18 +6552,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -6774,36 +6565,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+     "request_id": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
      "retry_of": null,
-     "t": 6744595341839,
+     "t": 7092484664384,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "6faec6b963fffebce3c13606fedd0488e984b715cb31f94ad5b3db174fb6b4ef",
-     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
-     "t": 6744596132219
+     "output_sha256": "bf67f3b9b236a5be14e37338ece78b0346b1dcf3c84794f6a00354eb9652d5b1",
+     "request_id": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
+     "t": 7092485739074
     },
     {
      "kind": "delivered",
-     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
-     "t": 6744596495353
+     "request_id": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
+     "t": 7092486238965
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9e5c5e54db744b1b93875876e5d98905"
+      "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6744639517725,
+     "t": 7092528496622,
      "task": "T",
-     "token": 1795845179072
+     "token": 1795845526962
     },
     {
      "attempt": 1,
@@ -6813,31 +6604,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6744640111527,
-     "token": 1795845179072
+     "t": 7092529357546,
+     "token": 1795845526962
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6744640377930
+     "t": 7092529849300
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6744686299240,
+     "t": 7092580980365,
      "task": "T",
-     "token": 1795845179072
+     "token": 1795845526962
     },
     {
      "attempt": 1,
@@ -6847,31 +6638,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6744689193863,
-     "token": 1795845179072
+     "t": 7092586582790,
+     "token": 1795845526962
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6744689646332
+     "t": 7092587265631
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6744733769374,
+     "t": 7092624759289,
      "task": "T",
-     "token": 1795845179072
+     "token": 1795845526962
     },
     {
      "attempt": 1,
@@ -6881,15 +6672,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6744734373025,
-     "token": 1795845179072
+     "t": 7092625716512,
+     "token": 1795845526962
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6744734841492
+     "t": 7092626187403
     }
    ],
    "approver": []
@@ -6898,7 +6689,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -6912,7 +6703,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6756043177232
+    "t": 7104347240794
    },
    {
     "answer": {
@@ -6920,7 +6711,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9e5c5e54db744b1b93875876e5d98905"
+        "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1"
        },
        "attempt": 1,
        "attempts": [
@@ -6938,13 +6729,13 @@
         }
        },
        "task": "T",
-       "token": 1795845179072,
+       "token": 1795845526962,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+        "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -6963,13 +6754,13 @@
         }
        },
        "task": "T",
-       "token": 1795845179072,
+       "token": 1795845526962,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+        "reply": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -6988,7 +6779,7 @@
         }
        },
        "task": "T",
-       "token": 1795845179072,
+       "token": 1795845526962,
        "tool": "T-N"
       }
      ],
@@ -6999,8 +6790,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "6faec6b963fffebce3c13606fedd0488e984b715cb31f94ad5b3db174fb6b4ef",
-       "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+       "output_sha256": "bf67f3b9b236a5be14e37338ece78b0346b1dcf3c84794f6a00354eb9652d5b1",
+       "request_id": "rid-2d9b15ecebfb480f83b4922c0e0dfaf1",
        "used": true
       }
      ],
@@ -7009,7 +6800,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -7017,7 +6808,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6756060285741
+    "t": 7104380951136
    }
   ]
  },
@@ -7031,8 +6822,7 @@
    "O-5": "not_exercised"
   },
   "fails": [
-   "O-4.calls",
-   "O-4.policy"
+   "O-4.calls"
   ],
   "unresolved": [],
   "invalid": [],
@@ -7050,7 +6840,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "fail",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -7059,18 +6849,12 @@
    "O-5.proceeds": "not_exercised"
   },
   "details": {
-   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)",
-   "O-4.policy": "rule_version None, want 'p1'"
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)"
   },
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -7079,36 +6863,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+     "request_id": "rid-93267d23eb114e64a7e57baed9b8136c",
      "retry_of": null,
-     "t": 6758772821663,
+     "t": 7106493169756,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "466e16262765de0a531075aadf728e70b19d19e73d88c2d940efffbca7dba9e7",
-     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
-     "t": 6758773836778
+     "output_sha256": "04679305634ddead07ad0783581f9ef971400646ec60de136f09343125058baa",
+     "request_id": "rid-93267d23eb114e64a7e57baed9b8136c",
+     "t": 7106493978608
     },
     {
      "kind": "delivered",
-     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
-     "t": 6758774513661
+     "request_id": "rid-93267d23eb114e64a7e57baed9b8136c",
+     "t": 7106494525455
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0"
+      "reply": "rid-93267d23eb114e64a7e57baed9b8136c"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6758817145256,
+     "t": 7106537511964,
      "task": "T",
-     "token": 1795845193245
+     "token": 1795845540969
     },
     {
      "attempt": 1,
@@ -7118,31 +6902,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6758818097913,
-     "token": 1795845193245
+     "t": 7106538413910,
+     "token": 1795845540969
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6758818678064
+     "t": 7106538927608
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6758862220619,
+     "t": 7106583906767,
      "task": "T",
-     "token": 1795845193245
+     "token": 1795845540969
     },
     {
      "attempt": 1,
@@ -7152,45 +6936,45 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6758862973904,
-     "token": 1795845193245
+     "t": 7106584447142,
+     "token": 1795845540969
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6758863512000
+     "t": 7106584890679
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6758906470036,
+     "t": 7106628720325,
      "task": "T",
-     "token": 1795845193245
+     "token": 1795845540969
     },
     {
      "agent": "A",
      "args": {
-      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
       "tf": "T-F-1"
      },
      "attempt": 2,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6775083302138,
+     "t": 7122174704817,
      "task": "T",
-     "token": 1795845209560
+     "token": 1795845556649
     },
     {
      "attempt": 2,
@@ -7200,15 +6984,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6775083552103,
-     "token": 1795845209560
+     "t": 7122175093334,
+     "token": 1795845556649
     },
     {
      "attempt": 2,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6775083798362
+     "t": 7122175403468
     },
     {
      "attempt": 1,
@@ -7218,8 +7002,8 @@
      "result": {
       "effect": "T-N-2"
      },
-     "t": 6775094756657,
-     "token": 1795845193245
+     "t": 7122176391038,
+     "token": 1795845540969
     }
    ],
    "approver": []
@@ -7228,7 +7012,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -7242,7 +7026,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6786217183375
+    "t": 7132381070023
    },
    {
     "answer": {
@@ -7250,7 +7034,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0"
+        "reply": "rid-93267d23eb114e64a7e57baed9b8136c"
        },
        "attempt": 1,
        "attempts": [
@@ -7268,13 +7052,13 @@
         }
        },
        "task": "T",
-       "token": 1795845193245,
+       "token": 1795845540969,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+        "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -7293,13 +7077,13 @@
         }
        },
        "task": "T",
-       "token": 1795845193245,
+       "token": 1795845540969,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+        "reply": "rid-93267d23eb114e64a7e57baed9b8136c",
         "tf": "T-F-1"
        },
        "attempt": 2,
@@ -7326,7 +7110,7 @@
         }
        },
        "task": "T",
-       "token": 1795845209560,
+       "token": 1795845556649,
        "tool": "T-N"
       }
      ],
@@ -7337,8 +7121,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "466e16262765de0a531075aadf728e70b19d19e73d88c2d940efffbca7dba9e7",
-       "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+       "output_sha256": "04679305634ddead07ad0783581f9ef971400646ec60de136f09343125058baa",
+       "request_id": "rid-93267d23eb114e64a7e57baed9b8136c",
        "used": true
       }
      ],
@@ -7347,7 +7131,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -7355,22 +7139,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6786234350266
+    "t": 7132399723424
    }
   ]
  },
  "A17-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "not_exercised"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -7387,7 +7169,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "not_exercised",
    "O-4.retention": "pass",
    "O-5.accepted": "not_exercised",
@@ -7395,18 +7177,11 @@
    "O-5.waits": "not_exercised",
    "O-5.proceeds": "not_exercised"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -7415,36 +7190,36 @@
      "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+     "request_id": "rid-0ea5016d105344b69c70d21d81566fd3",
      "retry_of": null,
-     "t": 6766433761478,
+     "t": 7120114780419,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "411d8432d449235f20106d227215357073fe72652e26f2313b6f56627e8b355a",
-     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
-     "t": 6766434624238
+     "output_sha256": "f96a4cb851a1045fadcec3efb730a935b259cfe0dd7bad1cd287632898d849e9",
+     "request_id": "rid-0ea5016d105344b69c70d21d81566fd3",
+     "t": 7120115471667
     },
     {
      "kind": "delivered",
-     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
-     "t": 6766435246586
+     "request_id": "rid-0ea5016d105344b69c70d21d81566fd3",
+     "t": 7120115927165
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-321772885f574fd18dae34ea3ed2c641"
+      "reply": "rid-0ea5016d105344b69c70d21d81566fd3"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6766475519015,
+     "t": 7120159205284,
      "task": "T",
-     "token": 1795845200910
+     "token": 1795845554590
     },
     {
      "attempt": 1,
@@ -7454,31 +7229,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6766476165531,
-     "token": 1795845200910
+     "t": 7120159955255,
+     "token": 1795845554590
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6766476548582
+     "t": 7120160472565
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "reply": "rid-0ea5016d105344b69c70d21d81566fd3",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6766521691522,
+     "t": 7120211013994,
      "task": "T",
-     "token": 1795845200910
+     "token": 1795845554590
     },
     {
      "attempt": 1,
@@ -7488,31 +7263,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6766522420817,
-     "token": 1795845200910
+     "t": 7120211928134,
+     "token": 1795845554590
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6766522780788
+     "t": 7120212649134
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "reply": "rid-0ea5016d105344b69c70d21d81566fd3",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6766565581265,
+     "t": 7120257753148,
      "task": "T",
-     "token": 1795845200910
+     "token": 1795845554590
     },
     {
      "attempt": 1,
@@ -7522,15 +7297,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6766568571174,
-     "token": 1795845200910
+     "t": 7120261288797,
+     "token": 1795845554590
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6766568953205
+     "t": 7120261889361
     }
    ],
    "approver": []
@@ -7539,7 +7314,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "reply": "rid-0ea5016d105344b69c70d21d81566fd3",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -7553,7 +7328,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6778340637329
+    "t": 7131996194915
    },
    {
     "answer": {
@@ -7561,7 +7336,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-321772885f574fd18dae34ea3ed2c641"
+        "reply": "rid-0ea5016d105344b69c70d21d81566fd3"
        },
        "attempt": 1,
        "attempts": [
@@ -7579,13 +7354,13 @@
         }
        },
        "task": "T",
-       "token": 1795845200910,
+       "token": 1795845554590,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+        "reply": "rid-0ea5016d105344b69c70d21d81566fd3",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -7604,13 +7379,13 @@
         }
        },
        "task": "T",
-       "token": 1795845200910,
+       "token": 1795845554590,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+        "reply": "rid-0ea5016d105344b69c70d21d81566fd3",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -7629,7 +7404,7 @@
         }
        },
        "task": "T",
-       "token": 1795845200910,
+       "token": 1795845554590,
        "tool": "T-N"
       }
      ],
@@ -7640,8 +7415,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "411d8432d449235f20106d227215357073fe72652e26f2313b6f56627e8b355a",
-       "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+       "output_sha256": "f96a4cb851a1045fadcec3efb730a935b259cfe0dd7bad1cd287632898d849e9",
+       "request_id": "rid-0ea5016d105344b69c70d21d81566fd3",
        "used": true
       }
      ],
@@ -7650,7 +7425,7 @@
        "action": "T-I,T-F,T-N",
        "approval": null,
        "result": "allow",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -7658,22 +7433,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6778358001398
+    "t": 7132029787119
    }
   ]
  },
  "A09-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "pass"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -7690,7 +7463,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "pass",
    "O-4.retention": "pass",
    "O-5.accepted": "pass",
@@ -7698,18 +7471,11 @@
    "O-5.waits": "pass",
    "O-5.proceeds": "pass"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -7718,36 +7484,36 @@
      "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+     "request_id": "rid-694c22684a634b7182053202a94e606d",
      "retry_of": null,
-     "t": 6780746030464,
+     "t": 7134113590525,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "bba3452090c0b873b2e0af0145f9de7d77fedcc59c2d352af48f122ccab8e5f5",
-     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
-     "t": 6780746960622
+     "output_sha256": "46fa160794285762defaa188343c834d6a3d94dc6bdccce01f1b0805273361e2",
+     "request_id": "rid-694c22684a634b7182053202a94e606d",
+     "t": 7134114133126
     },
     {
      "kind": "delivered",
-     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
-     "t": 6780747697619
+     "request_id": "rid-694c22684a634b7182053202a94e606d",
+     "t": 7134114521257
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c48a408731b64dafb4385b57e16160b0"
+      "reply": "rid-694c22684a634b7182053202a94e606d"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6782070582713,
+     "t": 7134844690287,
      "task": "T",
-     "token": 1795845216504
+     "token": 1795845569275
     },
     {
      "attempt": 1,
@@ -7757,31 +7523,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6782071298333,
-     "token": 1795845216504
+     "t": 7134845190643,
+     "token": 1795845569275
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6782071750468
+     "t": 7134845612726
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "reply": "rid-694c22684a634b7182053202a94e606d",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6782119120874,
+     "t": 7134888434009,
      "task": "T",
-     "token": 1795845216504
+     "token": 1795845569275
     },
     {
      "attempt": 1,
@@ -7791,31 +7557,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6782119842846,
-     "token": 1795845216504
+     "t": 7134889120690,
+     "token": 1795845569275
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6782120387694
+     "t": 7134889669481
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "reply": "rid-694c22684a634b7182053202a94e606d",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6782168262996,
+     "t": 7134935986575,
      "task": "T",
-     "token": 1795845216504
+     "token": 1795845569275
     },
     {
      "attempt": 1,
@@ -7825,15 +7591,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6782168731592,
-     "token": 1795845216504
+     "t": 7134936587550,
+     "token": 1795845569275
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6782169052147
+     "t": 7134937114319
     }
    ],
    "approver": [
@@ -7841,7 +7607,7 @@
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6780788760920,
+     "t": 7134155083919,
      "task": "T"
     },
     {
@@ -7849,20 +7615,20 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 6780811809628,
+     "t": 7134179333589,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6782018714529,
+     "t": 7134789652986,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 6782020422326,
+     "t": 7134790441850,
      "task": "T"
     }
    ]
@@ -7871,7 +7637,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "reply": "rid-694c22684a634b7182053202a94e606d",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -7885,7 +7651,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6794147504986
+    "t": 7145918732709
    },
    {
     "answer": {
@@ -7893,7 +7659,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c48a408731b64dafb4385b57e16160b0"
+        "reply": "rid-694c22684a634b7182053202a94e606d"
        },
        "attempt": 1,
        "attempts": [
@@ -7911,13 +7677,13 @@
         }
        },
        "task": "T",
-       "token": 1795845216504,
+       "token": 1795845569275,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+        "reply": "rid-694c22684a634b7182053202a94e606d",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -7936,13 +7702,13 @@
         }
        },
        "task": "T",
-       "token": 1795845216504,
+       "token": 1795845569275,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+        "reply": "rid-694c22684a634b7182053202a94e606d",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -7961,7 +7727,7 @@
         }
        },
        "task": "T",
-       "token": 1795845216504,
+       "token": 1795845569275,
        "tool": "T-N"
       }
      ],
@@ -7972,8 +7738,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "bba3452090c0b873b2e0af0145f9de7d77fedcc59c2d352af48f122ccab8e5f5",
-       "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+       "output_sha256": "46fa160794285762defaa188343c834d6a3d94dc6bdccce01f1b0805273361e2",
+       "request_id": "rid-694c22684a634b7182053202a94e606d",
        "used": true
       }
      ],
@@ -7984,7 +7750,7 @@
         "decision": "approve"
        },
        "result": "needs_approval",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -7992,22 +7758,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6794164184317
+    "t": 7145952631906
    }
   ]
  },
  "A09-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "pass"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -8024,7 +7788,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "pass",
    "O-4.retention": "pass",
    "O-5.accepted": "pass",
@@ -8032,18 +7796,11 @@
    "O-5.waits": "pass",
    "O-5.proceeds": "pass"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -8052,21 +7809,21 @@
      "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+     "request_id": "rid-8588add9d8794aae9fb94c0ff29c49b7",
      "retry_of": null,
-     "t": 6788866763822,
+     "t": 7135298883099,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "e8f62e2893a22950fbbf47c9c42599045a8625bf6081d039f742cc93cdca8a06",
-     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
-     "t": 6788872225854
+     "output_sha256": "9dcb533ec01dd80565b9c1725bef5eb046af671486cedcc7b49593eff7776ec7",
+     "request_id": "rid-8588add9d8794aae9fb94c0ff29c49b7",
+     "t": 7135299733629
     },
     {
      "kind": "delivered",
-     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
-     "t": 6788872790936
+     "request_id": "rid-8588add9d8794aae9fb94c0ff29c49b7",
+     "t": 7135300295179
     }
    ],
    "T-I": [],
@@ -8077,7 +7834,7 @@
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6788908113848,
+     "t": 7135329512685,
      "task": "T"
     },
     {
@@ -8085,20 +7842,20 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 6788941988501,
+     "t": 7135360084876,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6790198276923,
+     "t": 7136580739091,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 6790199094564,
+     "t": 7136581592455,
      "task": "T"
     }
    ]
@@ -8108,7 +7865,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-a5b3c01807524e5187b688833c6ff220"
+      "reply": "rid-8588add9d8794aae9fb94c0ff29c49b7"
      },
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
      "task": {
@@ -8119,7 +7876,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6800330302749
+    "t": 7146719787092
    },
    {
     "answer": {
@@ -8131,8 +7888,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "e8f62e2893a22950fbbf47c9c42599045a8625bf6081d039f742cc93cdca8a06",
-       "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+       "output_sha256": "9dcb533ec01dd80565b9c1725bef5eb046af671486cedcc7b49593eff7776ec7",
+       "request_id": "rid-8588add9d8794aae9fb94c0ff29c49b7",
        "used": true
       }
      ],
@@ -8143,7 +7900,7 @@
         "decision": "deny"
        },
        "result": "needs_approval",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -8151,22 +7908,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6800347505990
+    "t": 7146754358389
    }
   ]
  },
  "A10-0": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "pass"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -8183,7 +7938,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "pass",
    "O-4.retention": "pass",
    "O-5.accepted": "pass",
@@ -8191,18 +7946,11 @@
    "O-5.waits": "pass",
    "O-5.proceeds": "pass"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -8211,36 +7959,36 @@
      "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+     "request_id": "rid-39eb5880df174616865860860783f448",
      "retry_of": null,
-     "t": 6796755154800,
+     "t": 7148558400249,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "c78ecaea2f69226ddce1c22d26999b66c9aeba6279c860faf50a52fd0f8d1133",
-     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
-     "t": 6796755949873
+     "output_sha256": "c23361b26806673bfcf2b27c0b19e91693646ef029c3f3c9c1c3a44816037b5c",
+     "request_id": "rid-39eb5880df174616865860860783f448",
+     "t": 7148558911868
     },
     {
      "kind": "delivered",
-     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
-     "t": 6796756369500
+     "request_id": "rid-39eb5880df174616865860860783f448",
+     "t": 7148559367326
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4fa4e6652c4712b966453d487a988d"
+      "reply": "rid-39eb5880df174616865860860783f448"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 6798118206449,
+     "t": 7149776420858,
      "task": "T",
-     "token": 1795845232553
+     "token": 1795845584201
     },
     {
      "attempt": 1,
@@ -8250,31 +7998,31 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 6798118787627,
-     "token": 1795845232553
+     "t": 7149777113715,
+     "token": 1795845584201
     },
     {
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 6798119112286
+     "t": 7149777538259
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "reply": "rid-39eb5880df174616865860860783f448",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 6798161146143,
+     "t": 7149823269546,
      "task": "T",
-     "token": 1795845232553
+     "token": 1795845584201
     },
     {
      "attempt": 1,
@@ -8284,31 +8032,31 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 6798161847850,
-     "token": 1795845232553
+     "t": 7149823936217,
+     "token": 1795845584201
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 6798162245276
+     "t": 7149824375623
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "reply": "rid-39eb5880df174616865860860783f448",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 6798205159512,
+     "t": 7149863760074,
      "task": "T",
-     "token": 1795845232553
+     "token": 1795845584201
     },
     {
      "attempt": 1,
@@ -8318,15 +8066,15 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 6798205722757,
-     "token": 1795845232553
+     "t": 7149864245262,
+     "token": 1795845584201
     },
     {
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 6798206022632
+     "t": 7149864663228
     }
    ],
    "approver": [
@@ -8334,7 +8082,7 @@
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6796791408583,
+     "t": 7148590855487,
      "task": "T"
     },
     {
@@ -8342,26 +8090,26 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 6796808630623,
+     "t": 7148608313089,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 6796811511098,
+     "t": 7148610689144,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6798066591079,
+     "t": 7149715806651,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 6798067314507,
+     "t": 7149716477071,
      "task": "T"
     }
    ]
@@ -8370,7 +8118,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "reply": "rid-39eb5880df174616865860860783f448",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -8384,7 +8132,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6810095691519
+    "t": 7159999871868
    },
    {
     "answer": {
@@ -8392,7 +8140,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4fa4e6652c4712b966453d487a988d"
+        "reply": "rid-39eb5880df174616865860860783f448"
        },
        "attempt": 1,
        "attempts": [
@@ -8410,13 +8158,13 @@
         }
        },
        "task": "T",
-       "token": 1795845232553,
+       "token": 1795845584201,
        "tool": "T-I"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+        "reply": "rid-39eb5880df174616865860860783f448",
         "ti": "T-I-1"
        },
        "attempt": 1,
@@ -8435,13 +8183,13 @@
         }
        },
        "task": "T",
-       "token": 1795845232553,
+       "token": 1795845584201,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+        "reply": "rid-39eb5880df174616865860860783f448",
         "tf": "T-F-1"
        },
        "attempt": 1,
@@ -8460,7 +8208,7 @@
         }
        },
        "task": "T",
-       "token": 1795845232553,
+       "token": 1795845584201,
        "tool": "T-N"
       }
      ],
@@ -8471,8 +8219,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "c78ecaea2f69226ddce1c22d26999b66c9aeba6279c860faf50a52fd0f8d1133",
-       "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+       "output_sha256": "c23361b26806673bfcf2b27c0b19e91693646ef029c3f3c9c1c3a44816037b5c",
+       "request_id": "rid-39eb5880df174616865860860783f448",
        "used": true
       }
      ],
@@ -8483,7 +8231,7 @@
         "decision": "approve"
        },
        "result": "needs_approval",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -8491,22 +8239,20 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6810112928107
+    "t": 7160033773761
    }
   ]
  },
  "A10-1": {
-  "verdict": "violation",
+  "verdict": "pass",
   "guarantees": {
    "O-1": "pass",
    "O-2": "pass",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "pass",
    "O-5": "pass"
   },
-  "fails": [
-   "O-4.policy"
-  ],
+  "fails": [],
   "unresolved": [],
   "invalid": [],
   "status": {
@@ -8523,7 +8269,7 @@
    "O-4.model": "pass",
    "O-4.model_used": "pass",
    "O-4.calls": "pass",
-   "O-4.policy": "fail",
+   "O-4.policy": "pass",
    "O-4.approval": "pass",
    "O-4.retention": "pass",
    "O-5.accepted": "pass",
@@ -8531,18 +8277,11 @@
    "O-5.waits": "pass",
    "O-5.proceeds": "pass"
   },
-  "details": {
-   "O-4.policy": "rule_version None, want 'p1'"
-  },
+  "details": {},
   "run": "ended",
   "why": null,
   "notes": [],
-  "marks": [
-   {
-    "event": "no-rule-version",
-    "t": 0
-   }
-  ],
+  "marks": [],
   "svc": {
    "stub": [
     {
@@ -8551,21 +8290,21 @@
      "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
      "invocation_id": "T:model:1",
      "kind": "request",
-     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+     "request_id": "rid-6d813153a15f441cac4198aca200da8d",
      "retry_of": null,
-     "t": 6802892645743,
+     "t": 7149330540645,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "b5e33d9880d7acfad92b9fd00aea5a816114c42ccbe4a7ff003996b3cf516288",
-     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
-     "t": 6802894617369
+     "output_sha256": "28c23997fef778146925756ced39fdd111d8a185ed48accef1570410ea0ca24c",
+     "request_id": "rid-6d813153a15f441cac4198aca200da8d",
+     "t": 7149336139709
     },
     {
      "kind": "delivered",
-     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
-     "t": 6802895179955
+     "request_id": "rid-6d813153a15f441cac4198aca200da8d",
+     "t": 7149336657638
     }
    ],
    "T-I": [],
@@ -8576,7 +8315,7 @@
      "action": "T-I,T-F,T-N",
      "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
      "kind": "request",
-     "t": 6802933406981,
+     "t": 7149364455752,
      "task": "T"
     },
     {
@@ -8584,13 +8323,26 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 6802951894016,
+     "t": 7149382408554,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 6802953042059,
+     "t": 7149384526099,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 7150671021254,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 7150672354812,
      "task": "T"
     }
    ]
@@ -8600,7 +8352,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-7beb5aad95ba432c9df648598e9e90aa"
+      "reply": "rid-6d813153a15f441cac4198aca200da8d"
      },
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
      "task": {
@@ -8611,7 +8363,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 6814308415352
+    "t": 7160837532430
    },
    {
     "answer": {
@@ -8623,8 +8375,8 @@
         "task": "T"
        },
        "invocation_id": "T:model:1",
-       "output_sha256": "b5e33d9880d7acfad92b9fd00aea5a816114c42ccbe4a7ff003996b3cf516288",
-       "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+       "output_sha256": "28c23997fef778146925756ced39fdd111d8a185ed48accef1570410ea0ca24c",
+       "request_id": "rid-6d813153a15f441cac4198aca200da8d",
        "used": true
       }
      ],
@@ -8635,7 +8387,7 @@
         "decision": "deny"
        },
        "result": "needs_approval",
-       "rule_version": null
+       "rule_version": "p1"
       }
      ],
      "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
@@ -8643,7 +8395,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 6814325327356
+    "t": 7160855383137
    }
   ]
  }

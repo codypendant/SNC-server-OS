@@ -1,0 +1,3050 @@
+{
+ "O-4-attempt-not-recorded|none-S-M-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-79ddf4e3d524457abadd57469ce1eb9a",
+     "retry_of": null,
+     "t": 8998832326029,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "ff71284c73826a3e5d336647444b89fe2f1b5f717350a5a2d7e1831ee385b5df",
+     "request_id": "rid-79ddf4e3d524457abadd57469ce1eb9a",
+     "t": 8998834413660
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-79ddf4e3d524457abadd57469ce1eb9a",
+     "t": 8998834884652
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 8999085817971,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 8999133442759,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 8999133922724
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "epoch": 1,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 8999240871416,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 8999241499893,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 8999241910732
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "epoch": 1,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 8999296247381,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 8999296776326,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 8999297203727
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9010411612856
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e1",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e1",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "ff71284c73826a3e5d336647444b89fe2f1b5f717350a5a2d7e1831ee385b5df",
+       "request_id": "rid-79ddf4e3d524457abadd57469ce1eb9a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9011029060399
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "none-S-M-0"
+ },
+ "O-4-attempt-not-recorded|A02-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-d0d1c093d3eb4181bcf03fb53b77ca20",
+     "retry_of": null,
+     "t": 8998548351788,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "0cf29d932c81d4860751032a6ce20667c3e85cd25357c58027ff2c7da0fa6a37",
+     "request_id": "rid-d0d1c093d3eb4181bcf03fb53b77ca20",
+     "t": 8998549047468
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d0d1c093d3eb4181bcf03fb53b77ca20",
+     "t": 8998549421001
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 8998764470846,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 8998779122529,
+     "token": 1
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 8999683311304
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "epoch": 2,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 8999739507900,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 8999740380570,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 8999740849978
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "epoch": 2,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 8999806289515,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 8999806707973,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 8999807011594
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9010511454998
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e2",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e2",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "0cf29d932c81d4860751032a6ce20667c3e85cd25357c58027ff2c7da0fa6a37",
+       "request_id": "rid-d0d1c093d3eb4181bcf03fb53b77ca20",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9010978279186
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A02-0"
+ },
+ "O-4-attempt-not-recorded|A02-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-3ff0775abc61441b92108b68be22fa8b",
+     "retry_of": null,
+     "t": 9017393817282,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1efa16e0e9af5f5ced9ede3db175e7021c2636bd21105517fcdb1ca73800989c",
+     "request_id": "rid-3ff0775abc61441b92108b68be22fa8b",
+     "t": 9017394731277
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-3ff0775abc61441b92108b68be22fa8b",
+     "t": 9017395158091
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9017480843946,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9017488397510,
+     "token": 1
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9018368581440
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "epoch": 2,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9018420263352,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9018420799999,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9018421091559
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "epoch": 2,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9018476355123,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9018476838321,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 9018477178652
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9029595113482
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e2",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e2",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "1efa16e0e9af5f5ced9ede3db175e7021c2636bd21105517fcdb1ca73800989c",
+       "request_id": "rid-3ff0775abc61441b92108b68be22fa8b",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9030112579242
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A02-1"
+ },
+ "O-4-attempt-not-recorded|A04-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-1d41aa4adf9c4998beb98345b744bc6a",
+     "retry_of": null,
+     "t": 9017596236987,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "53cffc960e377361ae7d626e8b6e0c6fcc63f9e09368092232f2c9af9548ca2d",
+     "request_id": "rid-1d41aa4adf9c4998beb98345b744bc6a",
+     "t": 9017596845048
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-1d41aa4adf9c4998beb98345b744bc6a",
+     "t": 9017597285533
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9017825830554,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9017826500501,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 9017826920480
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "epoch": 1,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9017880227588,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9017880710284,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9017881045309
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "epoch": 1,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9018003524231,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9018011549047,
+     "token": 1
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9043710377338
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e1",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "TN.e1",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": {
+         "owner": "happened"
+        }
+       },
+       "token": 1,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "53cffc960e377361ae7d626e8b6e0c6fcc63f9e09368092232f2c9af9548ca2d",
+       "request_id": "rid-1d41aa4adf9c4998beb98345b744bc6a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9044485521702
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A04-0"
+ },
+ "O-4-attempt-not-recorded|A04-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-1bd1dfbdffc241b2b8210cadde3b12e3",
+     "retry_of": null,
+     "t": 9035287692954,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "84b2ede2dbb30bff06af9256780601cc26a0303423365f4842b82b619e6f59d4",
+     "request_id": "rid-1bd1dfbdffc241b2b8210cadde3b12e3",
+     "t": 9035288101740
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-1bd1dfbdffc241b2b8210cadde3b12e3",
+     "t": 9035288430130
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9035399348712,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9035399896122,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 9035400262454
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "epoch": 1,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9035452111263,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9035452597606,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9035452908402
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "epoch": 1,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9035507294182,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9035521673535,
+     "token": 1
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9061408214026
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e1",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "TN.e1",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": {
+         "owner": "happened"
+        }
+       },
+       "token": 1,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "84b2ede2dbb30bff06af9256780601cc26a0303423365f4842b82b619e6f59d4",
+       "request_id": "rid-1bd1dfbdffc241b2b8210cadde3b12e3",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9061875409870
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A04-1"
+ },
+ "O-4-attempt-not-recorded|A06-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-ead9f81f99244189932b946a475978a5",
+     "retry_of": null,
+     "t": 9050980845508,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "10c0505836846733ead11b58e8fd43030ce9d5658922d48f4c361071ecc2fbcb",
+     "request_id": "rid-ead9f81f99244189932b946a475978a5",
+     "t": 9050981536440
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-ead9f81f99244189932b946a475978a5",
+     "t": 9050982021107
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9051085969838,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9051086548291,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 9051086873255
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9051889475752
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "epoch": 2,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9051945247783,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9051945841402,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9051946285629
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "epoch": 2,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9052002196638,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9052002737642,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 9052003101433
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9062815204117
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e2",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e2",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "10c0505836846733ead11b58e8fd43030ce9d5658922d48f4c361071ecc2fbcb",
+       "request_id": "rid-ead9f81f99244189932b946a475978a5",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9063283046378
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A06-0"
+ },
+ "O-4-attempt-not-recorded|A11-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "unsupported",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "status": "unresolved (not exercised)",
+  "details": {},
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-c40eebecdcc046d898100a9c39cfb042",
+     "retry_of": null,
+     "t": 9068488859545,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "da3030fd8dd663f87e3c3ca386d68ce6625a2131e006405a4a7b3d67a8e25aad",
+     "request_id": "rid-c40eebecdcc046d898100a9c39cfb042",
+     "t": 9068489571724
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c40eebecdcc046d898100a9c39cfb042",
+     "t": 9068489966268
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9068592035638,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9068605748194,
+     "token": 1
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9069532105969
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9070437423286
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e3",
+     "epoch": 3,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9070484405261,
+     "task": null,
+     "token": 3
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e3",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9070484884654,
+     "token": 3
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e3",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9070485168344
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e3",
+     "epoch": 3,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9070530299028,
+     "task": null,
+     "token": 3
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e3",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9070530667638,
+     "token": 3
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e3",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 9070530925605
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9082332291333
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e3",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 3,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e3",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 3,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "da3030fd8dd663f87e3c3ca386d68ce6625a2131e006405a4a7b3d67a8e25aad",
+       "request_id": "rid-c40eebecdcc046d898100a9c39cfb042",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9082799203426
+   }
+  ],
+  "evidence": "attempt-skipped marks 0, T-N requests 1",
+  "new": [],
+  "control_fails": [],
+  "mutant": "O-4-attempt-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A11-0"
+ },
+ "O-4-rule-version-not-recorded|none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": "flagged",
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "t": 9082332453161,
+    "event": "no-rule-version"
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-bdb8ff0a845843b3bdad84192624f58e",
+     "retry_of": null,
+     "t": 9069871622981,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1f9e5e0dba664a053cdf063b9a1e9364a733695841ece718e10cd13fa92fc89b",
+     "request_id": "rid-bdb8ff0a845843b3bdad84192624f58e",
+     "t": 9069872265909
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-bdb8ff0a845843b3bdad84192624f58e",
+     "t": 9069872589666
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9069960896756,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9069962246232,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 9069962763297
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "epoch": 1,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9070009819078,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9070010240174,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9070010517731
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "epoch": 1,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9070058869124,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9070059524019,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 9070059882533
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9081923504207
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e1",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e1",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "1f9e5e0dba664a053cdf063b9a1e9364a733695841ece718e10cd13fa92fc89b",
+       "request_id": "rid-bdb8ff0a845843b3bdad84192624f58e",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9082490574570
+   }
+  ],
+  "evidence": "no-rule-version marks 1",
+  "new": [
+   "O-4.policy"
+  ],
+  "control_fails": [],
+  "mutant": "O-4-rule-version-not-recorded",
+  "guarantee": "O-4",
+  "cell": "none-S-M-0"
+ },
+ "O-4-rule-version-not-recorded|A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": "flagged",
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "t": 9101602976263,
+    "event": "no-rule-version"
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-b24ca8314f514364942629164f11c5a6",
+     "retry_of": null,
+     "t": 9089423420389,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "886667f0e5c5562880e825823ed03a65ecc019dc70fb3a501c1935e2f0b371cd",
+     "request_id": "rid-b24ca8314f514364942629164f11c5a6",
+     "t": 9089423923204
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b24ca8314f514364942629164f11c5a6",
+     "t": 9089424460066
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9089518294083,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9089527664473,
+     "token": 1
+    },
+    {
+     "found": true,
+     "key": "A:T:T-I",
+     "kind": "status",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9090293693298
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "epoch": 2,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9090335470897,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9090336026074,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e2",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9090336327077
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "epoch": 2,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9090381473363,
+     "task": null,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9090382398057,
+     "token": 2
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e2",
+     "key": "A:T:T-N",
+     "kind": "delivered",
+     "t": 9090383056449
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9101268818694
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e2",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TN.e2",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "token": 2,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "886667f0e5c5562880e825823ed03a65ecc019dc70fb3a501c1935e2f0b371cd",
+       "request_id": "rid-b24ca8314f514364942629164f11c5a6",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9101686246044
+   }
+  ],
+  "evidence": "no-rule-version marks 1",
+  "new": [
+   "O-4.policy"
+  ],
+  "control_fails": [],
+  "mutant": "O-4-rule-version-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A02-0"
+ },
+ "O-4-rule-version-not-recorded|A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "unsupported",
+   "O-2": "unsupported",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": "flagged",
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "t": 9115558489959,
+    "event": "no-rule-version"
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"content\":[\"memory item m1 for agent A\",\"memory item m2 for agent A\",\"memory item m3 for agent A\"],\"items\":[{\"id\":\"m1\",\"kind\":\"memory\",\"sha256\":\"ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e\",\"version\":1},{\"id\":\"m2\",\"kind\":\"memory\",\"sha256\":\"215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa\",\"version\":1},{\"id\":\"m3\",\"kind\":\"memory\",\"sha256\":\"29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8\",\"version\":1}],\"task\":\"write the package\"}",
+     "body_sha256": "9e0ed988d34ca34b164da2bf933b17973a73c267cab6b396f16098638b951bc3",
+     "epoch": 1,
+     "invocation_id": "inv.e1.1",
+     "kind": "request",
+     "request_id": "rid-c53e6b7ceded48468b6e91da2bd881ac",
+     "retry_of": null,
+     "t": 9089184044361,
+     "task": null
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "f21411191a4b19756465cedabf7db2dc370bee5628b4febeeccac4fc96ca38d1",
+     "request_id": "rid-c53e6b7ceded48468b6e91da2bd881ac",
+     "t": 9089184638849
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c53e6b7ceded48468b6e91da2bd881ac",
+     "t": 9089185049048
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-I",
+      "task": "T",
+      "tool": "T-I"
+     },
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "epoch": 1,
+     "key": "A:T:T-I",
+     "kind": "request",
+     "t": 9089280466382,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 9089280873201,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TI.e1",
+     "key": "A:T:T-I",
+     "kind": "delivered",
+     "t": 9089281206364
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-F",
+      "task": "T",
+      "tool": "T-F"
+     },
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "epoch": 1,
+     "key": "A:T:T-F",
+     "kind": "request",
+     "t": 9089318412133,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 9089318857800,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TF.e1",
+     "key": "A:T:T-F",
+     "kind": "delivered",
+     "t": 9089319158965
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "op": "perform T-N",
+      "task": "T",
+      "tool": "T-N"
+     },
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "epoch": 1,
+     "key": "A:T:T-N",
+     "kind": "request",
+     "t": 9089357004668,
+     "task": null,
+     "token": 1
+    },
+    {
+     "attempt": 1,
+     "call_id": "TN.e1",
+     "key": "A:T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 9089366279409,
+     "token": 1
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": "summary written by agent A",
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 9115218048874
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "args": {
+        "op": "perform T-F",
+        "task": "T",
+        "tool": "T-F"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TF.e1",
+       "key": "A:T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-F"
+      },
+      {
+       "args": {
+        "op": "perform T-I",
+        "task": "T",
+        "tool": "T-I"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "TI.e1",
+       "key": "A:T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "token": 1,
+       "tool": "T-I"
+      },
+      {
+       "args": {
+        "op": "perform T-N",
+        "task": "T",
+        "tool": "T-N"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "TN.e1",
+       "key": "A:T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": {
+         "owner": "happened"
+        }
+       },
+       "token": 1,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "content": [
+         "memory item m1 for agent A",
+         "memory item m2 for agent A",
+         "memory item m3 for agent A"
+        ],
+        "items": [
+         {
+          "id": "m1",
+          "kind": "memory",
+          "sha256": "ce23f9e245b44d5315aac03cb452e0e780a958b8d719c7fe2522e648259a878e",
+          "version": 1
+         },
+         {
+          "id": "m2",
+          "kind": "memory",
+          "sha256": "215b782b9ba557c54e07e8d6ba2351829cbd1b23ba088262786b76d516b093fa",
+          "version": 1
+         },
+         {
+          "id": "m3",
+          "kind": "memory",
+          "sha256": "29956b611fb2ce5cc5c83439af0b761278025dedd8ddb275ccf9820b8fe40ca8",
+          "version": 1
+         }
+        ],
+        "task": "write the package"
+       },
+       "invocation_id": "inv.e1.1",
+       "output_sha256": "f21411191a4b19756465cedabf7db2dc370bee5628b4febeeccac4fc96ca38d1",
+       "request_id": "rid-c53e6b7ceded48468b6e91da2bd881ac",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 9115688591389
+   }
+  ],
+  "evidence": "no-rule-version marks 1",
+  "new": [
+   "O-4.policy"
+  ],
+  "control_fails": [],
+  "mutant": "O-4-rule-version-not-recorded",
+  "guarantee": "O-4",
+  "cell": "A04-0"
+ }
+}

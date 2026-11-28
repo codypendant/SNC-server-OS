@@ -1,0 +1,16 @@
+{
+ "point": "A14",
+ "scenario": "S-M",
+ "kind": "zombie_takeover",
+ "boundary": "model",
+ "varies": "new_first",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A14:0",
+ "arm": "langgraph",
+ "ports": {
+  "pg": 16600,
+  "svc": 16601,
+  "arm": 16602
+ },
+ "unsupported": []
+}

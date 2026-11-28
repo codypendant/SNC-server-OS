@@ -1,0 +1,6 @@
+{"agent": "A", "args": {"reply": "rid-f5d6fa24208a4bc086c3bab32f372322"}, "attempt": 1, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "request", "t": 7290525034762, "task": "T", "token": 1795845724996028348}
+{"agent": "A", "args": {"reply": "rid-f5d6fa24208a4bc086c3bab32f372322"}, "attempt": 2, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "request", "t": 7299586924868, "task": "T", "token": 1795845734037802855}
+{"attempt": 2, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 7299587653356, "token": 1795845734037802855}
+{"attempt": 2, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "delivered", "t": 7299588087460}
+{"attempt": 1, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "duplicate", "result": {"effect": "T-I-1"}, "t": 7299596099908, "token": 1795845724996028348}
+{"attempt": 1, "call_id": "T:T-I", "key": "agent-A:T:T-I", "kind": "delivered", "t": 7299596646432}

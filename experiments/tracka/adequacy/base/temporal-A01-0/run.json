@@ -1,0 +1,16 @@
+{
+ "point": "A01",
+ "scenario": "S-M",
+ "kind": "kill_at_receipt",
+ "boundary": "model",
+ "varies": "none",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A01:0",
+ "arm": "temporal",
+ "ports": {
+  "pg": 10484,
+  "svc": 10485,
+  "arm": 10486
+ },
+ "unsupported": []
+}
