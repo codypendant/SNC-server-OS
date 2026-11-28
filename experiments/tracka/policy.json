@@ -1,0 +1,1 @@
+{"version": "p1", "rules": {"S-M": {"allow": true, "approval": false}, "S-AP": {"allow": true, "approval": true}}}
