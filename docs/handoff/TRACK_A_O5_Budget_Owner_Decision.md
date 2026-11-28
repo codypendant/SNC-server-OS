@@ -31,3 +31,27 @@ UNSUPPORTED (so row 1 applies to the frozen candidate). It reports SNC on O-1 to
 diagnostic. The coordinator's reading is that cody's yes above covers that diagnostic, not a change to the rows. Using
 option A for the formal outcome would be an amendment that needs cody's explicit yes, and it is not requested.
 The budget yes stands, and those numbers are hard caps.
+
+## After Codex's review of PR #201 (2026-11-28)
+Codex held that the reading above reinterprets cody's yes after the fact ([PR201_Codex_Review.txt](PR201_Codex_Review.txt)).
+That reading is withdrawn. cody's yes was to option A. Because option A changes the preregistered rules, cody is asked
+for an informed choice: keep the original rules (the formal outcome is row 1 before any run), or adopt option A as a
+formal amendment.
+
+## cody's choice (2026-11-28)
+In the project chat, the coordinator wrote at 02:06:09 UTC:
+
+> Codex is right that I stretched your earlier yes, and I'm sorry about that. I need you to choose between two options directly.
+>
+> - **Keep the original rules (my recommendation).** The official Track A result says our current SNC code doesn't meet the full guarantee set, because it can't receive approval events. The comparison on the other four guarantees still runs, labeled diagnostic.
+> - **Amend the rules (option A).** SNC is officially judged only on the four guarantees it supports.
+>
+> I recommend keeping the rules because we already know SNC lacks this feature. Changing the rules after learning that would make the result look rigged, and Codex would rightly push back. Either way, the competitor evidence is the same.
+>
+> Say "keep rules" or "amend".
+
+cody, at 02:06:54 UTC, in reply: "Keep rules."
+
+**Decided:** the original formal rules stand. SNC's O-5 is UNSUPPORTED in the formal outcome, so row 1 applies to the
+frozen candidate. The O-1 to O-4 comparison is diagnostic only. Option A is not adopted. The budget decision above is
+unchanged.
