@@ -22,6 +22,7 @@ MATRIX = REPO / "docs" / "DIRECTION_COMPARISON_TRACK_A_MATRIX.csv"
 RUNS = Path(os.environ.get("TRACKA_RUNS", "/tmp/tracka-runs"))
 FROZEN = "8a0f787304e6b9df2fdf3a2a93f24ab83f34db84"
 RUN_CAP, QUIESCE, TAKEOVER_T, POLL, CMD_T = 300, 10, 60, 2, 60
+MAX_WORKERS = 20
 SVC = {
     "model": "stub",
     "T-I": "T-I",
@@ -186,6 +187,16 @@ class Run:
 
     def tick(self):
         now = time.monotonic()
+        name, w = self.workers[-1] if self.workers else (None, None)
+        if (
+            w
+            and w.poll()
+            and name not in self.killed
+            and len(self.workers) < MAX_WORKERS
+        ):
+            self.killed.add(name)
+            self.mark("exited", worker=name, code=w.returncode)
+            self.start_worker()
         for name, p in list(self.bg.items()):
             if p.poll() is not None:
                 del self.bg[name]
