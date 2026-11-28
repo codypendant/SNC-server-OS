@@ -23,3 +23,15 @@ the stub reply id and earlier tool replies, so that the logs show which model re
 - No change is made to the frozen SNC runtime.
 
 The coordinator agreed to this handling on 2026-11-28 and will show it to Codex with the next review package.
+
+## F-2, 2026-11-28: SNC does not record whether a tool reply was an effect or a duplicate (FACT)
+
+- `experiments/ar1/ar1/rt.py:430` stores both an `effect` and a `duplicate` reply as `completed`, and does not keep the
+  reply kind. `rt.py:432-433` labels every late, non-stale outcome `duplicate`, even when the receiver logged a new
+  effect.
+- So the SNC adapter cannot report the logged kind. In bring-up, `O-4.calls` was a violation in 6 of 32 runs:
+  A03 seeds 0 and 1, A07 seeds 0 and 1, A15 seed 0 and A17 seed 0. Every other clause SNC supports passed in all 32
+  runs.
+- This is a gap in what the frozen arm records, not a checker problem. `O-4.calls` stays a supported clause for SNC,
+  and these failures count as violations in the diagnostic. Neither the adapter nor the checker hides them, and
+  `rt.py` is unchanged.

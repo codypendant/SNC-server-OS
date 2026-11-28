@@ -1,0 +1,28 @@
+{
+  "name": "snc",
+  "engines": [
+    {"name": "primary", "start": ["/opt/ar1/bin/python3", "{arm}/snc.py", "primary"], "ready": ["/opt/ar1/bin/python3", "{arm}/snc.py", "ready", "primary"]},
+    {"name": "standby", "start": ["/opt/ar1/bin/python3", "{arm}/snc.py", "standby"], "ready": ["/opt/ar1/bin/python3", "{arm}/snc.py", "ready", "standby"]}
+  ],
+  "restart_engine": "primary",
+  "setup": ["/opt/ar1/bin/python3", "{arm}/snc.py", "setup"],
+  "submit": ["true"],
+  "worker": ["/opt/ar1/bin/python3", "{arm}/snc.py", "worker"],
+  "deliver": ["/opt/ar1/bin/python3", "{arm}/snc.py", "deliver"],
+  "state": ["/opt/ar1/bin/python3", "{arm}/snc.py", "state"],
+  "reconstruct": ["/opt/ar1/bin/python3", "{arm}/snc.py", "reconstruct"],
+  "unsupported": [
+    "O-1.one_reply", "O-1.no_recall", "O-2.memory", "O-2.single_exec", "O-4.model_used",
+    "O-3.deny_no_tool", "O-4.approval", "O-5.accepted", "O-5.once", "O-5.waits", "O-5.proceeds"
+  ],
+  "config": {
+    "retention": "all: snc_rt deletes no record of an agent, task, invocation, call or attempt",
+    "frozen": "experiments/ar1/ar1 at 575f493 (snc_rt tree 1a6aef5)",
+    "dispatch_timeout_s": 2.0,
+    "in_doubt_margin_s": 2.0,
+    "owner_escalation_s": 10.0,
+    "service_get_timeout_s": 5,
+    "takeover": "worker w1 is epoch 1 (executor e1); worker wN is a takeover activation at epoch N (executor eN, system database ar1_sys_eN)",
+    "engines": "AR-1 pg.Pair: primary plus one synchronous physical standby s1 (synchronous_standby_names FIRST 1 (s1)); restart_engine restarts the primary only, the standby stays up and reconnects, as in AR-1's E schedules"
+  }
+}
