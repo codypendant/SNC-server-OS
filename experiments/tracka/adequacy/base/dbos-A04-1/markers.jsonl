@@ -1,0 +1,7 @@
+{"data": {"worker": "w1"}, "event": "started", "t": 4062211604941}
+{"data": {"phase": "receipt", "point": "A04", "svc": "T-N"}, "event": "reached", "t": 4064736368418}
+{"data": {"worker": "w1"}, "event": "killed", "t": 4064736560034}
+{"data": {"worker": "w2"}, "event": "started", "t": 4064760810358}
+{"data": {"status": "done"}, "event": "end-state", "t": 4066474789706}
+{"data": {}, "event": "quiesced", "t": 4076479493221}
+{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 4077545168457}

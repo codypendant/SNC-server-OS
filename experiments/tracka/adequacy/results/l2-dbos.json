@@ -1,0 +1,1180 @@
+{
+ "dbos|mem_tf|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-2.memory"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "mem_tf",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-2.memory"
+  ],
+  "evidence": "proxy applied 7x, errors 2",
+  "status": "flagged"
+ },
+ "dbos|passthrough|none|0|S-M": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|passthrough|A04|0|S-M": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "A04",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|passthrough|A09|1|S-AP": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|passthrough|A10|0|S-AP": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "passthrough",
+  "point": "A10",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [],
+  "evidence": "proxy applied 0x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|mem_extra_key|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-2.memory"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "mem_extra_key",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-2.memory"
+  ],
+  "evidence": "proxy applied 7x, errors 2",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|mem_drop_tn|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-2.memory"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "mem_drop_tn",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-2.memory"
+  ],
+  "evidence": "proxy applied 7x, errors 1",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|mem_reply|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-2.memory"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "mem_reply",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-2.memory"
+  ],
+  "evidence": "proxy applied 7x, errors 2",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|state_retention|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "state_retention",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "evidence": "proxy applied 9x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|state_task_id|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "state_task_id",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "evidence": "proxy applied 9x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|status_done_to_doubt|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "status_done_to_doubt",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-1.end_state"
+  ],
+  "evidence": "proxy applied 7x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|model_input|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "model_input",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|model_output_sha|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model",
+   "O-4.model_used"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "model_output_sha",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|model_used_false|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model_used"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "model_used_false",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model_used"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|model_extra|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "model_extra",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|model_drop|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "model_drop",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.model"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|attempt_drop|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "attempt_drop",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|attempt_drop|A04|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "attempt_drop",
+  "point": "A04",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|call_drop|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "call_drop",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|attempt_outcome|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "attempt_outcome",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|call_args|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "call_args",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|call_token|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "call_token",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|outcome_result|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "outcome_result",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.calls"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|rule_version_null|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "rule_version_null",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|rule_version_null|A09|0|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "rule_version_null",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_action|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_action",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_result|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_result",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_drop|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_drop",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_dup|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_dup",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_dup|A09|0|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-4.policy",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_dup",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|policy_dup|A09|1|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-4.policy",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "policy_dup",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|approval_without_event|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "approval_without_event",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.policy"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|approval_flip|A09|0|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "approval_flip",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once",
+   "O-4.approval"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|approval_flip|A09|1|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "approval_flip",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once",
+   "O-4.approval"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|approval_null|A09|0|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "approval_null",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once",
+   "O-4.approval"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|approval_null|A09|1|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "approval_null",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.once",
+   "O-4.approval"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|recon_retention|none|0|S-M": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.retention"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "recon_retention",
+  "point": "none",
+  "seed": 0,
+  "scenario": "S-M",
+  "expected": [
+   "O-4.retention"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|deliver_flip|A09|0|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-4.approval",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "deliver_flip",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.proceeds"
+  ],
+  "evidence": "proxy applied 2x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|deliver_flip|A09|1|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "fail",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-2.single_exec",
+   "O-3.deny_no_tool",
+   "O-4.approval",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "deliver_flip",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.proceeds"
+  ],
+  "evidence": "proxy applied 2x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|deliver_flip|A10|1|S-AP": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "fail",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-2.single_exec",
+   "O-3.deny_no_tool",
+   "O-4.approval",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "deliver_flip",
+  "point": "A10",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.proceeds"
+  ],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "flagged",
+  "control_fails": []
+ },
+ "dbos|deliver_twice|A09|0|S-AP": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "deliver_twice",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [],
+  "evidence": "proxy applied 2x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|deliver_twice|A10|1|S-AP": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "fault": "deliver_twice",
+  "point": "A10",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [],
+  "evidence": "proxy applied 1x, errors 0",
+  "status": "correct-pass",
+  "control_fails": []
+ },
+ "dbos|deliver_drop_fail|A09|1|S-AP": {
+  "verdict": "invalid",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-4.approval",
+   "O-4.calls",
+   "O-4.model",
+   "O-4.model_used",
+   "O-4.policy",
+   "O-4.retention",
+   "O-5.accepted",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "unresolved": [],
+  "invalid": [
+   "markers: no quiesced",
+   "answers.jsonl missing",
+   "answers: no state call",
+   "answers: no reconstruct call"
+  ],
+  "run": "cap",
+  "fault": "deliver_drop_fail",
+  "point": "A09",
+  "seed": 1,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.accepted"
+  ],
+  "evidence": "proxy applied 2x, errors 0",
+  "status": "flagged (run invalid: cap)",
+  "control_fails": []
+ },
+ "dbos|deliver_drop|A09|0|S-AP": {
+  "verdict": "invalid",
+  "guarantees": {
+   "O-1": "fail",
+   "O-2": "fail",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-4.approval",
+   "O-4.calls",
+   "O-4.model",
+   "O-4.model_used",
+   "O-4.policy",
+   "O-4.retention",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "unresolved": [],
+  "invalid": [
+   "markers: no quiesced",
+   "answers.jsonl missing",
+   "answers: no state call",
+   "answers: no reconstruct call"
+  ],
+  "run": "cap",
+  "fault": "deliver_drop",
+  "point": "A09",
+  "seed": 0,
+  "scenario": "S-AP",
+  "expected": [
+   "O-5.proceeds"
+  ],
+  "evidence": "proxy applied 2x, errors 0",
+  "status": "unresolved (cap; checker says invalid + violation)",
+  "control_fails": []
+ }
+}

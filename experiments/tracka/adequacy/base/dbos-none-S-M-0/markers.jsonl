@@ -1,0 +1,4 @@
+{"data": {"worker": "w1"}, "event": "started", "t": 4011180277641}
+{"data": {"status": "done"}, "event": "end-state", "t": 4015389334094}
+{"data": {}, "event": "quiesced", "t": 4025395852687}
+{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 4026435352974}

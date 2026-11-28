@@ -1,0 +1,7 @@
+{"agent": "A", "args": {"reply": "rid-e3267d56c4294d74aac84fa976b59cb3"}, "attempt": 1, "call_id": "T-I:T", "key": "T-I:T", "kind": "request", "t": 4924190956484, "task": "T", "token": 1}
+{"found": false, "key": "T-I:T", "kind": "status", "t": 4924238290255}
+{"agent": "A", "args": {"reply": "rid-e3267d56c4294d74aac84fa976b59cb3"}, "attempt": 2, "call_id": "T-I:T", "key": "T-I:T", "kind": "request", "t": 4924242569850, "task": "T", "token": 2}
+{"attempt": 2, "call_id": "T-I:T", "key": "T-I:T", "kind": "effect", "result": {"effect": "T-I-1"}, "t": 4924242887614, "token": 2}
+{"attempt": 2, "call_id": "T-I:T", "key": "T-I:T", "kind": "delivered", "t": 4924243150052}
+{"attempt": 1, "call_id": "T-I:T", "key": "T-I:T", "kind": "duplicate", "result": {"effect": "T-I-1"}, "t": 4924244768515, "token": 1}
+{"attempt": 1, "call_id": "T-I:T", "key": "T-I:T", "kind": "delivered", "t": 4924245180289}

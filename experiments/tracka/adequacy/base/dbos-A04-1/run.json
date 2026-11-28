@@ -1,0 +1,16 @@
+{
+ "point": "A04",
+ "scenario": "S-M",
+ "kind": "kill_at_receipt",
+ "boundary": "T-N",
+ "varies": "none",
+ "seed": 1,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A04:1",
+ "arm": "dbos",
+ "ports": {
+  "pg": 11430,
+  "svc": 11431,
+  "arm": 11432
+ },
+ "unsupported": []
+}

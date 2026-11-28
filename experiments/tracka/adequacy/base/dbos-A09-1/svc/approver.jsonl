@@ -1,0 +1,5 @@
+{"action": "T-I,T-F,T-N", "kind": "request", "t": 4218834978458, "task": "T"}
+{"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "kind": "posted", "t": 4219374292874, "task": "T"}
+{"action": "T-I,T-F,T-N", "kind": "request", "t": 4220798515865, "task": "T"}
+{"action": "T-I,T-F,T-N", "kind": "delivered", "t": 4220799071412, "task": "T"}
+{"action": "T-I,T-F,T-N", "decision": "deny", "exit": 0, "kind": "posted", "t": 4221515948832, "task": "T"}

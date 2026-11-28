@@ -1,0 +1,3 @@
+{"agent": "A", "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}", "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244", "invocation_id": "T:model", "kind": "request", "request_id": "rid-c0b0053544db470f839230e63b9a5731", "retry_of": null, "t": 4200895658200, "task": "T"}
+{"kind": "reply", "output_sha256": "82c2759e4281114fd8f37371001d1cbc96e7915ca6d78fd0448e2a93ec2dd3a7", "request_id": "rid-c0b0053544db470f839230e63b9a5731", "t": 4200896237198}
+{"kind": "delivered", "request_id": "rid-c0b0053544db470f839230e63b9a5731", "t": 4200897642685}

@@ -1,0 +1,6 @@
+{"agent": "A", "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}", "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244", "invocation_id": "T:model", "kind": "request", "request_id": "rid-32be419c84604aaab2f264c237240eaf", "retry_of": null, "t": 4066969256282, "task": "T"}
+{"kind": "reply", "output_sha256": "1557b3285506279eb522aea8a67e88a285d1a564a68812e3a298e95e99c5e838", "request_id": "rid-32be419c84604aaab2f264c237240eaf", "t": 4066969864553}
+{"kind": "delivered", "request_id": "rid-32be419c84604aaab2f264c237240eaf", "t": 4066970285842}
+{"agent": "A", "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}", "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244", "invocation_id": "T:model", "kind": "request", "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc", "retry_of": null, "t": 4068457212991, "task": "T"}
+{"kind": "reply", "output_sha256": "7ca0bfcdca870dc8e25df28eac69498bc24a9fa2172779a36812958cc0b53ebf", "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc", "t": 4068457662109}
+{"kind": "delivered", "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc", "t": 4068458021547}

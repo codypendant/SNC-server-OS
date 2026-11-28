@@ -1,0 +1,7654 @@
+{
+ "none-S-M-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-17b3f4ee0e8944899e0331fed923b39a",
+     "retry_of": null,
+     "t": 4013877861430,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "201ed2d6f1afbff8a596188966915206c3515c670455774cb5020913862f9ed3",
+     "request_id": "rid-17b3f4ee0e8944899e0331fed923b39a",
+     "t": 4013878339823
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-17b3f4ee0e8944899e0331fed923b39a",
+     "t": 4013878663926
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-17b3f4ee0e8944899e0331fed923b39a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4013892892344,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4013893296556,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4013893575788
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-17b3f4ee0e8944899e0331fed923b39a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4013900811100,
+     "task": "T",
+     "token": 1795842448345
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4013901284873,
+     "token": 1795842448345
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4013901728894
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-17b3f4ee0e8944899e0331fed923b39a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4013915240430,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4013915729144,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4013916166028
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-17b3f4ee0e8944899e0331fed923b39a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4025712503163
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-17b3f4ee0e8944899e0331fed923b39a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-17b3f4ee0e8944899e0331fed923b39a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842448345,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-17b3f4ee0e8944899e0331fed923b39a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "201ed2d6f1afbff8a596188966915206c3515c670455774cb5020913862f9ed3",
+       "request_id": "rid-17b3f4ee0e8944899e0331fed923b39a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4026179597804
+   }
+  ]
+ },
+ "A01-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-550f49a7e946413cb7d2f156fc8d6f82",
+     "retry_of": null,
+     "t": 4013852404775,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "996f58dd312e63b1808df2757ec5406d7553138b0c210ece22ce544a07c90d7e",
+     "request_id": "rid-550f49a7e946413cb7d2f156fc8d6f82",
+     "t": 4013868075334
+    },
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-27218de2fcf249af88f5d075f5e277b6",
+     "retry_of": null,
+     "t": 4015318471975,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "a223375a80f41458b7fcfe58f1ab3781a084212da159c333ac5aa1908579beee",
+     "request_id": "rid-27218de2fcf249af88f5d075f5e277b6",
+     "t": 4015318986437
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-27218de2fcf249af88f5d075f5e277b6",
+     "t": 4015319454868
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-27218de2fcf249af88f5d075f5e277b6"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4015328390729,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4015328868371,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4015329269216
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-27218de2fcf249af88f5d075f5e277b6",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4015335557017,
+     "task": "T",
+     "token": 1795842449787
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4015336091786,
+     "token": 1795842449787
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4015336384646
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-27218de2fcf249af88f5d075f5e277b6",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4015348223505,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4015348801454,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4015349143687
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-27218de2fcf249af88f5d075f5e277b6",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4025788764346
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-27218de2fcf249af88f5d075f5e277b6"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-27218de2fcf249af88f5d075f5e277b6",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842449787,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-27218de2fcf249af88f5d075f5e277b6",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "a223375a80f41458b7fcfe58f1ab3781a084212da159c333ac5aa1908579beee",
+       "request_id": "rid-27218de2fcf249af88f5d075f5e277b6",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4026255028847
+   }
+  ]
+ },
+ "A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-1e08015fe74b480f997be6ea2ee0130d",
+     "retry_of": null,
+     "t": 4030660610990,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "5e3b8501febc15c863c47877f3739870ae6fa5c07fbb0d74ffa1a2e122993f94",
+     "request_id": "rid-1e08015fe74b480f997be6ea2ee0130d",
+     "t": 4030661350656
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-1e08015fe74b480f997be6ea2ee0130d",
+     "t": 4030661870362
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1e08015fe74b480f997be6ea2ee0130d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4030671971713,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4030683453556,
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1e08015fe74b480f997be6ea2ee0130d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4032149524103,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4032150010621,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4032150536130
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1e08015fe74b480f997be6ea2ee0130d",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4032158870692,
+     "task": "T",
+     "token": 1795842466617
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4032159529119,
+     "token": 1795842466617
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4032159879475
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1e08015fe74b480f997be6ea2ee0130d",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4032171169296,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4032171617872,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4032171957192
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-1e08015fe74b480f997be6ea2ee0130d",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4042751341915
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1e08015fe74b480f997be6ea2ee0130d"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1e08015fe74b480f997be6ea2ee0130d",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842466617,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1e08015fe74b480f997be6ea2ee0130d",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "5e3b8501febc15c863c47877f3739870ae6fa5c07fbb0d74ffa1a2e122993f94",
+       "request_id": "rid-1e08015fe74b480f997be6ea2ee0130d",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4043218021243
+   }
+  ]
+ },
+ "A02-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-b7938298c04b416ab328c3c7b12bbe95",
+     "retry_of": null,
+     "t": 4030875269150,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "b59c0abd9a7cbc6a46efd66920b54547699e50bd4cc1eaa2e58243a53bfd00a0",
+     "request_id": "rid-b7938298c04b416ab328c3c7b12bbe95",
+     "t": 4030875938947
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b7938298c04b416ab328c3c7b12bbe95",
+     "t": 4030876488918
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7938298c04b416ab328c3c7b12bbe95"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4030887182690,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4030902063961,
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7938298c04b416ab328c3c7b12bbe95"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4032322179418,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4032322671872,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4032322998577
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7938298c04b416ab328c3c7b12bbe95",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4032330796639,
+     "task": "T",
+     "token": 1795842466782
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4032331271618,
+     "token": 1795842466782
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4032331581769
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7938298c04b416ab328c3c7b12bbe95",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4032342732051,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4032343223443,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4032343547860
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b7938298c04b416ab328c3c7b12bbe95",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4042824995052
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7938298c04b416ab328c3c7b12bbe95"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7938298c04b416ab328c3c7b12bbe95",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842466782,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7938298c04b416ab328c3c7b12bbe95",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "b59c0abd9a7cbc6a46efd66920b54547699e50bd4cc1eaa2e58243a53bfd00a0",
+       "request_id": "rid-b7938298c04b416ab328c3c7b12bbe95",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4043292093473
+   }
+  ]
+ },
+ "A03-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+     "retry_of": null,
+     "t": 4047777364634,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "82f6433479354414e964eba1b1d3cc3b9686a3c76b2771dd37c27013297651be",
+     "request_id": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+     "t": 4047778144425
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+     "t": 4047778645787
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4047789323972,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4047789735867,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4047790061864
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4047797547146,
+     "task": "T",
+     "token": 1795842482241
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4047807244912,
+     "token": 1795842482241
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4049205292206,
+     "task": "T",
+     "token": 1795842483664
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4049206000555,
+     "token": 1795842483664
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4049206560837
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4049221308561,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4049222052241,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4049222648750
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4059768688054
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842483664,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "82f6433479354414e964eba1b1d3cc3b9686a3c76b2771dd37c27013297651be",
+       "request_id": "rid-fdd1d2e08f0f46adbaad34cda58b76ee",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4060237544411
+   }
+  ]
+ },
+ "A04-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+     "retry_of": null,
+     "t": 4047839301547,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "fcd62afcd334f3a4416feb8412efe5187aaebf34948e76da611de245a55ffbe5",
+     "request_id": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+     "t": 4047840268771
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+     "t": 4047841021638
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4047855843064,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4047856494407,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4047857157886
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4047865253493,
+     "task": "T",
+     "token": 1795842482302
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4047865876752,
+     "token": 1795842482302
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4047866398758
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4047879051200,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4047890578626,
+     "token": null
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4062013183286
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842482302,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "fcd62afcd334f3a4416feb8412efe5187aaebf34948e76da611de245a55ffbe5",
+       "request_id": "rid-c9ee2d1f3a0d4e3a9cdde2e5fef0f13a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4062530430199
+   }
+  ]
+ },
+ "A04-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-8eb4ff2f88ea488494249a7ded03edad",
+     "retry_of": null,
+     "t": 4064701536567,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "0113e2acb5b51416d42b81a32ae1af5799c3fc8bd2ad7e3e290e4844110f0d61",
+     "request_id": "rid-8eb4ff2f88ea488494249a7ded03edad",
+     "t": 4064702305335
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-8eb4ff2f88ea488494249a7ded03edad",
+     "t": 4064702614175
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-8eb4ff2f88ea488494249a7ded03edad"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4064711319326,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4064711842843,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4064712116448
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-8eb4ff2f88ea488494249a7ded03edad",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4064718287232,
+     "task": "T",
+     "token": 1795842499167
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4064718818406,
+     "token": 1795842499167
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4064719245624
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-8eb4ff2f88ea488494249a7ded03edad",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4064732320029,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4064751576035,
+     "token": null
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-8eb4ff2f88ea488494249a7ded03edad",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4076795097105
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-8eb4ff2f88ea488494249a7ded03edad"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-8eb4ff2f88ea488494249a7ded03edad",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842499167,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-8eb4ff2f88ea488494249a7ded03edad",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "0113e2acb5b51416d42b81a32ae1af5799c3fc8bd2ad7e3e290e4844110f0d61",
+       "request_id": "rid-8eb4ff2f88ea488494249a7ded03edad",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4077261290119
+   }
+  ]
+ },
+ "A05-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-32be419c84604aaab2f264c237240eaf",
+     "retry_of": null,
+     "t": 4066969256282,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1557b3285506279eb522aea8a67e88a285d1a564a68812e3a298e95e99c5e838",
+     "request_id": "rid-32be419c84604aaab2f264c237240eaf",
+     "t": 4066969864553
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-32be419c84604aaab2f264c237240eaf",
+     "t": 4066970285842
+    },
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+     "retry_of": null,
+     "t": 4068457212991,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "7ca0bfcdca870dc8e25df28eac69498bc24a9fa2172779a36812958cc0b53ebf",
+     "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+     "t": 4068457662109
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+     "t": 4068458021547
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4068466788611,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4068467333137,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4068467621895
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4068474339077,
+     "task": "T",
+     "token": 1795842502926
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4068474780629,
+     "token": 1795842502926
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4068475085735
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4068484745219,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4068485145070,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4068485408185
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4079078272764
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842502926,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "7ca0bfcdca870dc8e25df28eac69498bc24a9fa2172779a36812958cc0b53ebf",
+       "request_id": "rid-7d3aa259656a4fc1a13a8b995d4c17fc",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4079596187176
+   }
+  ]
+ },
+ "A06-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-5d8c926d047d48288debb9c4edde9ce3",
+     "retry_of": null,
+     "t": 4081647072008,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "8b73ab4f911e51c643fc86ff2dffb3c68af9e469dfe8f27151af2d2da80b58ac",
+     "request_id": "rid-5d8c926d047d48288debb9c4edde9ce3",
+     "t": 4081647809333
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-5d8c926d047d48288debb9c4edde9ce3",
+     "t": 4081648611512
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5d8c926d047d48288debb9c4edde9ce3"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4081661471423,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4081661961757,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4081662268550
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5d8c926d047d48288debb9c4edde9ce3"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4083109844395,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4083110371010,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4083110790673
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5d8c926d047d48288debb9c4edde9ce3",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4083119674736,
+     "task": "T",
+     "token": 1795842517570
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4083120257285,
+     "token": 1795842517570
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4083120542705
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5d8c926d047d48288debb9c4edde9ce3",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4083129877757,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4083130314211,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4083130588949
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-5d8c926d047d48288debb9c4edde9ce3",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4093792108398
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5d8c926d047d48288debb9c4edde9ce3"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5d8c926d047d48288debb9c4edde9ce3",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842517570,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5d8c926d047d48288debb9c4edde9ce3",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "8b73ab4f911e51c643fc86ff2dffb3c68af9e469dfe8f27151af2d2da80b58ac",
+       "request_id": "rid-5d8c926d047d48288debb9c4edde9ce3",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4094308378741
+   }
+  ]
+ },
+ "A06-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+     "retry_of": null,
+     "t": 4083938312981,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "310914bc994c7f7a556a237489767f4fe040c0f4856ea619733f879dc51d6aec",
+     "request_id": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+     "t": 4083939102644
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+     "t": 4083939647413
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4083948328675,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4083948749193,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4083949065434
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4085451644621,
+     "task": "T",
+     "token": 1795842519901
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4085452369990,
+     "token": 1795842519901
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4085452735204
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4085464589121,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4085465006965,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4085465310983
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4096138060540
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842519901,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "310914bc994c7f7a556a237489767f4fe040c0f4856ea619733f879dc51d6aec",
+       "request_id": "rid-04c2e25a0a3c4e119346e7983bc318d9",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4096658004423
+   }
+  ]
+ },
+ "A07-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+     "retry_of": null,
+     "t": 4098884297988,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "111cc60498f186811a7e369df483176b7ddddceee5196eaa27a9c739d50faf86",
+     "request_id": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+     "t": 4098884885139
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+     "t": 4098885273865
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4098895041420,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4098895461583,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4098895762427
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4098901651085,
+     "task": "T",
+     "token": 1795842533347
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4098902156586,
+     "token": 1795842533347
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4098902489628
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4100392408554,
+     "task": "T",
+     "token": 1795842534853
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4100392795642,
+     "token": 1795842534853
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4100393085531
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4100405424287,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4100405872675,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4100406170031
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4110936966632
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842534853,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "111cc60498f186811a7e369df483176b7ddddceee5196eaa27a9c739d50faf86",
+       "request_id": "rid-2e33d2dbb2a44b9586d61c8e5275dcb7",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4111355014986
+   }
+  ]
+ },
+ "A08-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+     "retry_of": null,
+     "t": 4100925549365,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "425a63ce895725b790fb409c6f227b217676cf99c9eab29ea692e4f7aefb32dc",
+     "request_id": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+     "t": 4100926249286
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+     "t": 4100926760074
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4100937308283,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4100937768477,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4100938164157
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4100945287753,
+     "task": "T",
+     "token": 1795842535385
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4100945706429,
+     "token": 1795842535385
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4100946070960
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4100957967122,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4100958295972,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4100958570742
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4113098054273
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842535385,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "425a63ce895725b790fb409c6f227b217676cf99c9eab29ea692e4f7aefb32dc",
+       "request_id": "rid-b6b7812fbe0a4e97b229d96f8e9ddf96",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4113518413626
+   }
+  ]
+ },
+ "A08-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+     "retry_of": null,
+     "t": 4115524321072,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "16725c369e6e6e79b0ad6264c78869f6163fd5946f59d435d0fbe0bacd9bb94b",
+     "request_id": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+     "t": 4115525012665
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+     "t": 4115525419573
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4115536089516,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4115536511483,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4115536862206
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4115544282907,
+     "task": "T",
+     "token": 1795842549991
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4115544752409,
+     "token": 1795842549991
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4115545084112
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4115560314121,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4115560784229,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4115561136284
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4127744302400
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842549991,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "16725c369e6e6e79b0ad6264c78869f6163fd5946f59d435d0fbe0bacd9bb94b",
+       "request_id": "rid-1ced5eb2c91546a787bb14a477e6e8bc",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4128262904454
+   }
+  ]
+ },
+ "A11-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+     "retry_of": null,
+     "t": 4117817112805,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "c19e0a89acf3b1cb742b928d3eaec9c746fdeba9dee4b32a8b75b9d10cf8b343",
+     "request_id": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+     "t": 4117818437797
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+     "t": 4117819217856
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4117830130636,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4117841920549,
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4119270226170,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4119285975341,
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4120749099076,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4120749483716,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4120749844715
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4120759451988,
+     "task": "T",
+     "token": 1795842555213
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4120759990876,
+     "token": 1795842555213
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4120760386924
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4120770857439,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4120771248621,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4120771526051
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4132057050429
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842555213,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "c19e0a89acf3b1cb742b928d3eaec9c746fdeba9dee4b32a8b75b9d10cf8b343",
+       "request_id": "rid-e381e98c93954f7aa85ffcb3ebb2747a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4132573634311
+   }
+  ]
+ },
+ "A12-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-830ac7f249de470694df68e5278d4c84",
+     "retry_of": null,
+     "t": 4132843173711,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "de363568dbbdc22dc4641cb4be86b63dff70dbdfc7e230f7de73e37590a706e6",
+     "request_id": "rid-830ac7f249de470694df68e5278d4c84",
+     "t": 4132843829171
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-830ac7f249de470694df68e5278d4c84",
+     "t": 4132844457351
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-830ac7f249de470694df68e5278d4c84"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4132854291874,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4133073614588,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4133074208141
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-830ac7f249de470694df68e5278d4c84",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4133100540553,
+     "task": "T",
+     "token": 1795842567306
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4133101463602,
+     "token": 1795842567306
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4133101812515
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-830ac7f249de470694df68e5278d4c84",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4133114168686,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4133115086749,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4133115466888
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-830ac7f249de470694df68e5278d4c84",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4145064909058
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-830ac7f249de470694df68e5278d4c84"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-830ac7f249de470694df68e5278d4c84",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842567306,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-830ac7f249de470694df68e5278d4c84",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "de363568dbbdc22dc4641cb4be86b63dff70dbdfc7e230f7de73e37590a706e6",
+       "request_id": "rid-830ac7f249de470694df68e5278d4c84",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4145531409317
+   }
+  ]
+ },
+ "A13-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+     "retry_of": null,
+     "t": 4137197757405,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "50acaab247bf0b6905085c0cb3a37a1e6c64971d18087e245e84a194556aa641",
+     "request_id": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+     "t": 4137198453761
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+     "t": 4137198894619
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4137207210995,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4137207724840,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4137208097798
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4137214279576,
+     "task": "T",
+     "token": 1795842571667
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4137214807630,
+     "token": 1795842571667
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4137215128106
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4137224180091,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4137444838161,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4137445344887
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4149357052827
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842571667,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "50acaab247bf0b6905085c0cb3a37a1e6c64971d18087e245e84a194556aa641",
+       "request_id": "rid-c16ded8e07bb4b72975d0372cc361dc5",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4149823340327
+   }
+  ]
+ },
+ "A14-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.model"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-39301e42acff4ad4a1fdba9f3b68b900",
+     "retry_of": null,
+     "t": 4149799195540,
+     "task": "T"
+    },
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-2e11915b35114673879c26b12da5d039",
+     "retry_of": null,
+     "t": 4151211730760,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9061fbb5f68dc8383268f2c4a4fc458825a99ea6b8b0a516821c483d3a58a7da",
+     "request_id": "rid-2e11915b35114673879c26b12da5d039",
+     "t": 4151212438717
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-2e11915b35114673879c26b12da5d039",
+     "t": 4151213054171
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "ac120784506432bb9b6d0694fedde862a06c86fc41dfc45eed0a4400e16f4278",
+     "request_id": "rid-39301e42acff4ad4a1fdba9f3b68b900",
+     "t": 4151220805400
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-39301e42acff4ad4a1fdba9f3b68b900",
+     "t": 4151221641423
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e11915b35114673879c26b12da5d039"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4151229590737,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4151230113426,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4151230438175
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e11915b35114673879c26b12da5d039",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4151244151349,
+     "task": "T",
+     "token": 1795842585673
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4151244612775,
+     "token": 1795842585673
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4151244967645
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2e11915b35114673879c26b12da5d039",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4151257703453,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4151258244280,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4151258545672
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-2e11915b35114673879c26b12da5d039",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4161919351803
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e11915b35114673879c26b12da5d039"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e11915b35114673879c26b12da5d039",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842585673,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2e11915b35114673879c26b12da5d039",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "9061fbb5f68dc8383268f2c4a4fc458825a99ea6b8b0a516821c483d3a58a7da",
+       "request_id": "rid-2e11915b35114673879c26b12da5d039",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4162386023645
+   }
+  ]
+ },
+ "A14-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+     "retry_of": null,
+     "t": 4153070185194,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "b6f66d64e08e069f258f0898211c247c05efd8b84c351d2d5adbaf537a7f3914",
+     "request_id": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+     "t": 4153073292445
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+     "t": 4153073786148
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4153081975787,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4153082503271,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4153082862896
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4153088312463,
+     "task": "T",
+     "token": 1795842587540
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4153088785152,
+     "token": 1795842587540
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4153089069545
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4153098461180,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4153098966348,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4153099289022
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4164257526484
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842587540,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "b6f66d64e08e069f258f0898211c247c05efd8b84c351d2d5adbaf537a7f3914",
+       "request_id": "rid-4ed9e711d25c43ecb17fa3823a8f04e6",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4164774493996
+   }
+  ]
+ },
+ "A15-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-39a51c630df6458eb265d4399a499ec5",
+     "retry_of": null,
+     "t": 4166796715611,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1d41f2d3d2e7eabe469cb1454e98d309b6b6d281dff3765fe0f5b3b6c70847ae",
+     "request_id": "rid-39a51c630df6458eb265d4399a499ec5",
+     "t": 4166798024528
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-39a51c630df6458eb265d4399a499ec5",
+     "t": 4166800248350
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-39a51c630df6458eb265d4399a499ec5"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4166820406708,
+     "task": "T",
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-39a51c630df6458eb265d4399a499ec5"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4168367710305,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4168368317801,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4168368746253
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4168376580339,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4168377166879
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-39a51c630df6458eb265d4399a499ec5",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4168381286152,
+     "task": "T",
+     "token": 1795842602830
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4168382138532,
+     "token": 1795842602830
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4168382523435
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-39a51c630df6458eb265d4399a499ec5",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4168402333308,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4168402817861,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4168403172194
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-39a51c630df6458eb265d4399a499ec5",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4178939402761
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-39a51c630df6458eb265d4399a499ec5"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-39a51c630df6458eb265d4399a499ec5",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842602830,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-39a51c630df6458eb265d4399a499ec5",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "1d41f2d3d2e7eabe469cb1454e98d309b6b6d281dff3765fe0f5b3b6c70847ae",
+       "request_id": "rid-39a51c630df6458eb265d4399a499ec5",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4179406394619
+   }
+  ]
+ },
+ "A15-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-f8e83d3063a24305928e7cbe361de266",
+     "retry_of": null,
+     "t": 4168253230262,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "326c93366a6761d7a8e257e25434ab4bf939ebede8365fbb83884cd33191a906",
+     "request_id": "rid-f8e83d3063a24305928e7cbe361de266",
+     "t": 4168253919440
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-f8e83d3063a24305928e7cbe361de266",
+     "t": 4168254460187
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f8e83d3063a24305928e7cbe361de266"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4168264422656,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4168267382164,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4168267759944
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f8e83d3063a24305928e7cbe361de266",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4168274549882,
+     "task": "T",
+     "token": 1795842602720
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4168274972882,
+     "token": 1795842602720
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4168275302573
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-f8e83d3063a24305928e7cbe361de266",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4168287914014,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4168288523301,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4168288855683
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-f8e83d3063a24305928e7cbe361de266",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4179283874095
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-f8e83d3063a24305928e7cbe361de266"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-f8e83d3063a24305928e7cbe361de266",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842602720,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-f8e83d3063a24305928e7cbe361de266",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "326c93366a6761d7a8e257e25434ab4bf939ebede8365fbb83884cd33191a906",
+       "request_id": "rid-f8e83d3063a24305928e7cbe361de266",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4179800297311
+   }
+  ]
+ },
+ "A16-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-30ae73c5bb5841d2add904588f716ad9",
+     "retry_of": null,
+     "t": 4183588536602,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "93253b105b18af4fa8f00b44b05b2503546f9951860c563d9f886a403176e8a8",
+     "request_id": "rid-30ae73c5bb5841d2add904588f716ad9",
+     "t": 4183589146331
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-30ae73c5bb5841d2add904588f716ad9",
+     "t": 4183589505847
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-30ae73c5bb5841d2add904588f716ad9"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4183603447057,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4183603969927,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4183604402449
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4183611297081,
+     "task": "T",
+     "token": 1795842618055
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4185020479662,
+     "task": "T",
+     "token": 1795842619474
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4185020930467,
+     "token": 1795842619474
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4185021287504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "rejected_stale",
+     "result": {
+      "highest": 1795842619474
+     },
+     "t": 4185022256827,
+     "token": 1795842618055
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4185022628131
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4185037071015,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4185037576012,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4185038041602
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4195835081752
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-30ae73c5bb5841d2add904588f716ad9"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842619474,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-30ae73c5bb5841d2add904588f716ad9",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "93253b105b18af4fa8f00b44b05b2503546f9951860c563d9f886a403176e8a8",
+       "request_id": "rid-30ae73c5bb5841d2add904588f716ad9",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4196301730085
+   }
+  ]
+ },
+ "A16-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-9550b20225e44b1a9e7ab921ace3815d",
+     "retry_of": null,
+     "t": 4184055872291,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "69c6a24991d5e170a350f9b76bcc3bb6e593f00c3848460f1ed74489cbba8e4c",
+     "request_id": "rid-9550b20225e44b1a9e7ab921ace3815d",
+     "t": 4184056509020
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-9550b20225e44b1a9e7ab921ace3815d",
+     "t": 4184056898529
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9550b20225e44b1a9e7ab921ace3815d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4184066341100,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4184066729625,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4184067126540
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9550b20225e44b1a9e7ab921ace3815d",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4184074233165,
+     "task": "T",
+     "token": 1795842618523
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4184077143060,
+     "token": 1795842618523
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4184077603334
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9550b20225e44b1a9e7ab921ace3815d",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4184087940169,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4184088439369,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4184088795921
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-9550b20225e44b1a9e7ab921ace3815d",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4196183056318
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9550b20225e44b1a9e7ab921ace3815d"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9550b20225e44b1a9e7ab921ace3815d",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842618523,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9550b20225e44b1a9e7ab921ace3815d",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "69c6a24991d5e170a350f9b76bcc3bb6e593f00c3848460f1ed74489cbba8e4c",
+       "request_id": "rid-9550b20225e44b1a9e7ab921ace3815d",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4196750508043
+   }
+  ]
+ },
+ "A17-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-c0b0053544db470f839230e63b9a5731",
+     "retry_of": null,
+     "t": 4200895658200,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "82c2759e4281114fd8f37371001d1cbc96e7915ca6d78fd0448e2a93ec2dd3a7",
+     "request_id": "rid-c0b0053544db470f839230e63b9a5731",
+     "t": 4200896237198
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c0b0053544db470f839230e63b9a5731",
+     "t": 4200897642685
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c0b0053544db470f839230e63b9a5731"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4200909991540,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4200910426444,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4200910713027
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c0b0053544db470f839230e63b9a5731",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4200917322016,
+     "task": "T",
+     "token": 1795842635359
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4200917744140,
+     "token": 1795842635359
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4200918067153
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c0b0053544db470f839230e63b9a5731",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4200928277879,
+     "task": "T",
+     "token": null
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c0b0053544db470f839230e63b9a5731",
+      "tf": "T-F-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4202404533868,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4202405251842,
+     "token": null
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4202405907731
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-2"
+     },
+     "t": 4202415629213,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4202416513815
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c0b0053544db470f839230e63b9a5731",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4213038243243
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c0b0053544db470f839230e63b9a5731"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c0b0053544db470f839230e63b9a5731",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842635359,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c0b0053544db470f839230e63b9a5731",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "owner:did_not_happen"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "82c2759e4281114fd8f37371001d1cbc96e7915ca6d78fd0448e2a93ec2dd3a7",
+       "request_id": "rid-c0b0053544db470f839230e63b9a5731",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4213555248892
+   }
+  ]
+ },
+ "A17-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "not_exercised"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-11fd271a58f344b4b4f68cd52e35d564",
+     "retry_of": null,
+     "t": 4201600557844,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "337b4e75efbcec286a5bbc10468ab7c9992efcbca9f13d20c1d46eaae494cf17",
+     "request_id": "rid-11fd271a58f344b4b4f68cd52e35d564",
+     "t": 4201601249810
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-11fd271a58f344b4b4f68cd52e35d564",
+     "t": 4201601619720
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-11fd271a58f344b4b4f68cd52e35d564"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4201612099365,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4201612933648,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4201613387730
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-11fd271a58f344b4b4f68cd52e35d564",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4201620821561,
+     "task": "T",
+     "token": 1795842636065
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4201621433035,
+     "token": 1795842636065
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4201621675947
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-11fd271a58f344b4b4f68cd52e35d564",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4201632109994,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4201634995172,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4201635403109
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-11fd271a58f344b4b4f68cd52e35d564",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4213779211729
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-11fd271a58f344b4b4f68cd52e35d564"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-11fd271a58f344b4b4f68cd52e35d564",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842636065,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-11fd271a58f344b4b4f68cd52e35d564",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "337b4e75efbcec286a5bbc10468ab7c9992efcbca9f13d20c1d46eaae494cf17",
+       "request_id": "rid-11fd271a58f344b4b4f68cd52e35d564",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4214245467170
+   }
+  ]
+ },
+ "A09-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+     "retry_of": null,
+     "t": 4218015534736,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "ae3eace9fcbc490aefb7a11e882be3b631999a24b5d0c61b79086c10b1b80160",
+     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+     "t": 4218016564011
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+     "t": 4218017032764
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-6d73531569924d10a55e1d73da1b41d0"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4220027069865,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4220028198947,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4220028515341
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4220035480530,
+     "task": "T",
+     "token": 1795842654470
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4220036509767,
+     "token": 1795842654470
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4220036860138
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4220047637876,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4220048566183,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4220048877441
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4218026713802,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4218568138354,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4220010128248,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 4220010790731,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4220726833180,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4232218451376
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-6d73531569924d10a55e1d73da1b41d0"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842654470,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "ae3eace9fcbc490aefb7a11e882be3b631999a24b5d0c61b79086c10b1b80160",
+       "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4232785115443
+   }
+  ]
+ },
+ "A09-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+     "retry_of": null,
+     "t": 4218815302858,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "307085a6b08ab68a9aabba8f1c30ffaa9d4e23e1c5335c2374a2d49991e1e593",
+     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+     "t": 4218816799747
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+     "t": 4218817382084
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4218834978458,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4219374292874,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4220798515865,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 4220799071412,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4221515948832,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-e8b8a3b9c4fd4b66bb38c33845d96903"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4232910730101
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "307085a6b08ab68a9aabba8f1c30ffaa9d4e23e1c5335c2374a2d49991e1e593",
+       "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4233376833096
+   }
+  ]
+ },
+ "A10-0": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+     "retry_of": null,
+     "t": 4237353657487,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "923fb4e748a2666f6adde9cf6788be83faaaf23ce85748b90b77244858e588a6",
+     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+     "t": 4237354165936
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+     "t": 4237354509646
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-753721acc3e54ec68db704e6e98a9530"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 4239471352957,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 4239471913720,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 4239472389318
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 4239481848041,
+     "task": "T",
+     "token": 1795842673913
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 4239482345203,
+     "token": 1795842673913
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 4239482645782
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 4239493395148,
+     "task": "T",
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 4239493802455,
+     "token": null
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 4239494176793
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4237362044803,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4237982756761,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 4237986559200,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4251562658776
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-753721acc3e54ec68db704e6e98a9530"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+        "ti": "T-I-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795842673913,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+        "tf": "T-F-1"
+       },
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": null,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "923fb4e748a2666f6adde9cf6788be83faaaf23ce85748b90b77244858e588a6",
+       "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4252078926789
+   }
+  ]
+ },
+ "A10-1": {
+  "verdict": "pass",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "pass",
+   "O-5": "pass"
+  },
+  "fails": [],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+     "retry_of": null,
+     "t": 4238299689259,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "3e582f14c0ac0a26bba7cbcdcbbc4fa6c16d3ec48925fe3842503e943beced08",
+     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+     "t": 4238300528612
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+     "t": 4238300900283
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 4238310229383,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 4238829437916,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 4238832226216,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-08b7115dead841fdb8c99a4f794a8bcc"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 4252456500265
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "3e582f14c0ac0a26bba7cbcdcbbc4fa6c16d3ec48925fe3842503e943beced08",
+       "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 4252972688899
+   }
+  ]
+ }
+}

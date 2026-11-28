@@ -1,0 +1,9 @@
+{"data": {"worker": "w1"}, "event": "started", "t": 4215557415834}
+{"data": {"phase": "approval", "point": "A09", "svc": "approver"}, "event": "reached", "t": 4218027471387}
+{"data": {"worker": "w1"}, "event": "killed", "t": 4218027667151}
+{"data": {"action": "T-I,T-F,T-N", "decision": "approve", "exit": 0, "task": "T"}, "event": "posted", "t": 4218568777349}
+{"data": {"worker": "w2"}, "event": "started", "t": 4218570388276}
+{"data": {"action": "T-I,T-F,T-N", "decision": "approve", "exit": 0, "task": "T"}, "event": "posted", "t": 4220727535987}
+{"data": {"status": "done"}, "event": "end-state", "t": 4221842171391}
+{"data": {}, "event": "quiesced", "t": 4231852435631}
+{"data": {"status": "ended", "why": null}, "event": "run-end", "t": 4233069388085}

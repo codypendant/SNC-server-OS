@@ -1,0 +1,16 @@
+{
+ "point": "none",
+ "scenario": "S-M",
+ "kind": "none",
+ "boundary": "none",
+ "varies": "none",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:none:0",
+ "arm": "ref",
+ "ports": {
+  "pg": 18756,
+  "svc": 18757,
+  "arm": 18758
+ },
+ "unsupported": []
+}

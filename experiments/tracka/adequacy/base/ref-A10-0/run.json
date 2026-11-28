@@ -1,0 +1,16 @@
+{
+ "point": "A10",
+ "scenario": "S-AP",
+ "kind": "event_before_wait",
+ "boundary": "approver",
+ "varies": "approve",
+ "seed": 0,
+ "seed_string": "tracka:8a0f787304e6b9df2fdf3a2a93f24ab83f34db84:A10:0",
+ "arm": "ref",
+ "ports": {
+  "pg": 17964,
+  "svc": 17965,
+  "arm": 17966
+ },
+ "unsupported": []
+}
