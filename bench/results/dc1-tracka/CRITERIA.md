@@ -1,6 +1,6 @@
 # Track A criteria: campaign dc1-tracka
 
-**Status: thresholds APPROVED (P-G1, 2026-11-22), not yet FROZEN. Codex put the freeze on HOLD on 2026-11-27
+**Status: thresholds APPROVED (P-G1, 2026-11-22), not yet FROZEN. Codex put the freeze on HOLD on 2026-11-28
 (`docs/handoff/PR197_Codex_Review.txt`). It waits for Codex's review of execution plan revision 2 and cody's two decisions
 in its section 6.**
 - **Source:** `docs/DIRECTION_COMPARISON_PLAN.md` revision 3, section 3, and `docs/TRACK_A_EXECUTION_PLAN.md`.
