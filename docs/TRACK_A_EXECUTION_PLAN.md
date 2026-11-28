@@ -1,4 +1,4 @@
-# Track A execution plan (PROPOSED revision 4, for Codex review)
+# Track A execution plan (revision 4, APPROVED by Codex 2026-11-28)
 
 ## 0. Status
 
@@ -18,8 +18,9 @@
   - mutation credit needs a passing control, and step-2 guarantees get their own adequacy check (section 4);
   - the diagnostic does not claim full O-3 or O-4 coverage from the S-M runs (section 3, B).
   Revisions 1 to 3 were merged in PRs #197, #199 and #201 and stay in git history.
-- **The freeze is on hold.** CRITERIA.md stays unfrozen, and no counted work starts, until Codex approves this
-  revision.
+- **Approved.** Codex approved revision 4 on 2026-11-28 with one wording correction, made on site
+  ([handoff/PR202_Codex_Review.txt](handoff/PR202_Codex_Review.txt)). CRITERIA.md is frozen; the commit and hashes are
+  in [handoff/TRACK_A_Criteria_Freeze.md](handoff/TRACK_A_Criteria_Freeze.md).
 - **What does not change:** the design, the matrix, the limits of 3.5 and the outcome rows of section 6. There is no
   product pivot, no S1 runtime development, no change to SNC's engine, and no tuning of the SNC arm to win.
 - **Labels:** FACT (read in this repository), EXT (external, cited), INF (inference), UNRESOLVED and PROPOSED.
@@ -111,10 +112,12 @@ evaluations.
 **B. Diagnostic comparison (labelled DIAGNOSTIC; it does not replace or override A).**
 - SNC and every competitor are compared at the same points (the 94 S-M runs), with the same checker, on O-1, O-2,
   and the parts of O-3 and O-4 that S-M exercises.
-- **Coverage limit:** S-M has no policy decision, so it does not exercise approvals or denials. These subclauses are
-  reported separately and are not claimed from the S-M runs:
+- **Coverage limit:** S-M has an ordinary policy decision (in SNC, `P-dec`) whose rule allows the action without an
+  approval. O-4's reconstruction of that decision is covered by the S-M runs where it is observable. S-M has no
+  asynchronous approval and no denial, so these subclauses are reported separately and are not claimed from the S-M
+  runs (wording corrected per [handoff/PR202_Codex_Review.txt](handoff/PR202_Codex_Review.txt)):
   - O-3: "a denied approval leaves no tool request";
-  - O-4: the approval, and the reconstruction of policy decisions including denials.
+  - O-4: the approval, and the reconstruction of denied decisions.
   For competitors they come from A09 and A10 (20 runs). For SNC they are **UNSUPPORTED**: no asynchronous approval
   can reach the frozen arm, so they cannot be tested. The diagnostic's O-3 and O-4 columns are labelled "without
   approval subclauses".
