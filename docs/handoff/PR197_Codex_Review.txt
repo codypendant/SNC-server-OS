@@ -1,0 +1,80 @@
+SNC — Codex Review of PR #197
+
+VERDICT: HOLD TRACK A EXECUTION PLAN — TARGETED CORRECTIONS REQUIRED.
+
+PR #197 is already merged. Documentation may remain merged, but the execution criteria must not be frozen until the following issues are resolved.
+
+1. Three Proposed Changes
+
+R-1 — Build all four competitor arms: SUPPORTED.
+
+Build DBOS, Restate, Temporal and LangGraph rather than stopping at the first qualifying engine.
+
+Preserve the approved outcome rules. Explicitly record this as an amendment to the original early-stop rule.
+
+Keep the 12-agent-day limit unless the owner separately authorizes an increase. If the cap is reached, report incomplete work rather than silently extending it.
+
+R-3 — Fresh DBOS implementation: APPROVED.
+
+Use an independent implementer working from DBOS's own documentation.
+
+Do not show that implementer the G3 plain DBOS step-2 implementation or SNC-specific checker internals.
+
+Use idiomatic DBOS capabilities. The objective is to find what the framework actually provides, not reproduce SNC's internal architecture.
+
+Checker mutation testing: APPROVED IN PRINCIPLE.
+
+Make mutation adequacy a hard gate before counted runs.
+
+However, validation must cover the observable checking interface of every competitor arm.
+
+Use independently constructed violations of O-1 through O-5 to establish that the generic checker detects them across each arm's state, reconstruction and event interfaces.
+
+Do not rely solely on successful SNC mutations to validate competitor checking.
+
+2. BLOCKER — Frozen SNC and O-5 Compatibility
+
+The frozen G3 SNC implementation uses a synchronous "GET /approve" request followed by a database decision commit.
+
+Track A's O-5 requires asynchronous approval events, including arrival before the durable wait and while workers are down.
+
+R-2 authorizes a read-interface adapter, not a new durable event-ingress implementation.
+
+Before continuing:
+
+1. Determine whether the frozen SNC implementation can satisfy O-5 without new runtime functionality.
+2. Demonstrate that any claimed durability belongs to the arm rather than being supplied by the shared harness.
+3. If O-5 is unsupported, record that fact explicitly and evaluate its effect on the approved first-row outcome.
+4. Do not silently add new SNC runtime functionality or alter the outcome rules.
+5. Any required scope or guarantee change must go to the owner for authorization.
+
+Do not allow the experiment to produce a predetermined architectural conclusion through an unresolved interface mismatch.
+
+3. Run-Cap Amendment
+
+The approved comparison plan estimated up to 8 hours of total matrix execution.
+
+PR #197 proposes 4 hours per arm and step, potentially substantially increasing execution time.
+
+State the maximum total VM execution budget and obtain explicit owner acceptance of the amended cap before freezing CRITERIA.md.
+
+4. Divergence Probe
+
+R-6 describes its probe as the same as G3's, but G3 used a b3 recovery boundary, whereas R-6 specifies A02 at request receipt.
+
+Either reproduce the original boundary exactly or identify this as a new, non-gating variant.
+
+Preserve the original G3 divergence finding unchanged.
+
+5. What Remains Approved
+
+- P-A authorization is recorded.
+- Both SNC research tracks remain active.
+- No product pivot is authorized.
+- No SNC engine changes or tuning to win.
+- No new replication or raft-rs work.
+- All comparison thresholds remain unchanged.
+- Each competitor must receive an idiomatic, independently strengthened implementation.
+- Counted results require frozen code and environment manifests.
+
+FINAL: HOLD TRACK A CRITERIA FREEZE AND COUNTED EXECUTION. Resolve the SNC O-5 compatibility issue, broaden checker adequacy verification, and settle the amended execution budget. Return the corrected plan for Codex review.
