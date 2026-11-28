@@ -1097,15 +1097,18 @@
   "control_fails": []
  },
  "dbos|deliver_drop_fail|A09|1|S-AP": {
-  "verdict": "invalid",
+  "verdict": "violation",
   "guarantees": {
-   "O-1": "fail",
-   "O-2": "fail",
+   "O-1": "unresolved",
+   "O-2": "unresolved",
    "O-3": "pass",
-   "O-4": "fail",
+   "O-4": "unresolved",
    "O-5": "fail"
   },
   "fails": [
+   "O-5.accepted"
+  ],
+  "unresolved": [
    "O-1.end_state",
    "O-2.memory",
    "O-4.approval",
@@ -1114,17 +1117,24 @@
    "O-4.model_used",
    "O-4.policy",
    "O-4.retention",
-   "O-5.accepted",
    "O-5.once",
    "O-5.proceeds"
   ],
-  "unresolved": [],
-  "invalid": [
-   "markers: no quiesced",
-   "answers.jsonl missing",
-   "answers: no state call",
-   "answers: no reconstruct call"
-  ],
+  "invalid": [],
+  "status": "flagged (run invalid: cap)",
+  "details": {
+   "O-1.end_state": "run capped before the answers: state task id None, not 'T'; status None, allowed ('denied',)",
+   "O-2.memory": "run capped before the answers: no state answer",
+   "O-4.model": "run capped before the answers: reconstruct.model missing",
+   "O-4.model_used": "run capped before the answers: reconstruct.model missing",
+   "O-4.calls": "run capped before the answers: reconstruct.calls missing",
+   "O-4.policy": "run capped before the answers: expected one policy decision, got None",
+   "O-4.approval": "run capped before the answers: approval decisions [], logs say 'deny'; denied task reconstructs calls None",
+   "O-4.retention": "run capped before the answers: retention reconstruct None, state None",
+   "O-5.accepted": "deliver exited 1",
+   "O-5.once": "run capped before the answers: approval recorded []; one 'deny' expected",
+   "O-5.proceeds": "run capped before the answers: denied task status None"
+  },
   "run": "cap",
   "fault": "deliver_drop_fail",
   "point": "A09",
@@ -1133,20 +1143,20 @@
   "expected": [
    "O-5.accepted"
   ],
-  "evidence": "proxy applied 2x, errors 0",
-  "status": "flagged (run invalid: cap)",
+  "evidence": "proxy applied 1x, errors 0",
   "control_fails": []
  },
  "dbos|deliver_drop|A09|0|S-AP": {
-  "verdict": "invalid",
+  "verdict": "unresolved",
   "guarantees": {
-   "O-1": "fail",
-   "O-2": "fail",
+   "O-1": "unresolved",
+   "O-2": "unresolved",
    "O-3": "pass",
-   "O-4": "fail",
-   "O-5": "fail"
+   "O-4": "unresolved",
+   "O-5": "unresolved"
   },
-  "fails": [
+  "fails": [],
+  "unresolved": [
    "O-1.end_state",
    "O-2.memory",
    "O-4.approval",
@@ -1158,13 +1168,20 @@
    "O-5.once",
    "O-5.proceeds"
   ],
-  "unresolved": [],
-  "invalid": [
-   "markers: no quiesced",
-   "answers.jsonl missing",
-   "answers: no state call",
-   "answers: no reconstruct call"
-  ],
+  "invalid": [],
+  "status": "unresolved (cap; checker says invalid + violation)",
+  "details": {
+   "O-1.end_state": "run capped before the answers: state task id None, not 'T'; status None, allowed ('done', 'stopped_in_doubt')",
+   "O-2.memory": "run capped before the answers: no state answer",
+   "O-4.model": "run capped before the answers: reconstruct.model missing",
+   "O-4.model_used": "run capped before the answers: reconstruct.model missing",
+   "O-4.calls": "run capped before the answers: reconstruct.calls missing",
+   "O-4.policy": "run capped before the answers: expected one policy decision, got None",
+   "O-4.approval": "run capped before the answers: approval decisions [], logs say 'approve'",
+   "O-4.retention": "run capped before the answers: retention reconstruct None, state None",
+   "O-5.once": "run capped before the answers: approval recorded []; one 'approve' expected",
+   "O-5.proceeds": "run capped before the answers: approved task status None; approved task sent no T-I request"
+  },
   "run": "cap",
   "fault": "deliver_drop",
   "point": "A09",
@@ -1173,8 +1190,7 @@
   "expected": [
    "O-5.proceeds"
   ],
-  "evidence": "proxy applied 2x, errors 0",
-  "status": "unresolved (cap; checker says invalid + violation)",
+  "evidence": "proxy applied 1x, errors 0",
   "control_fails": []
  }
 }

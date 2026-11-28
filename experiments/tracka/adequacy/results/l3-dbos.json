@@ -15431,7 +15431,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4688312280401,
+    "t": 6052361312138,
     "event": "no-rule-version"
    }
   ],
@@ -15443,34 +15443,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-c041c24ddd1240eaa854c0352c255d97",
+     "request_id": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
      "retry_of": null,
-     "t": 4688302344689,
+     "t": 6052354187062,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "fa83123e618e8653e98ca59e8a6f299ab57c0d8c51d9fc97e6dec97aa4dc55e4",
-     "request_id": "rid-c041c24ddd1240eaa854c0352c255d97",
-     "t": 4688303445965
+     "output_sha256": "a070c5d811c56614cc96d28107ddae1bc83b6b82f59cffeaadd5ad0cf080834a",
+     "request_id": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
+     "t": 6052354870117
     },
     {
      "kind": "delivered",
-     "request_id": "rid-c041c24ddd1240eaa854c0352c255d97",
-     "t": 4688303952778
+     "request_id": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
+     "t": 6052355277733
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c041c24ddd1240eaa854c0352c255d97"
+      "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4690367389630,
+     "t": 6054363772598,
      "task": "T",
      "token": null
     },
@@ -15482,7 +15482,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4690367965019,
+     "t": 6054364305694,
      "token": null
     },
     {
@@ -15490,23 +15490,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4690368402132
+     "t": 6054364718712
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c041c24ddd1240eaa854c0352c255d97",
+      "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4690376546382,
+     "t": 6054371928245,
      "task": "T",
-     "token": 1795843124812
+     "token": 1795844488812
     },
     {
      "attempt": 1,
@@ -15516,29 +15516,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4690377281222,
-     "token": 1795843124812
+     "t": 6054372399806,
+     "token": 1795844488812
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4690377674744
+     "t": 6054372709005
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c041c24ddd1240eaa854c0352c255d97",
+      "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4690388506539,
+     "t": 6054381323310,
      "task": "T",
      "token": null
     },
@@ -15550,7 +15550,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4690389020420,
+     "t": 6054381733937,
      "token": null
     },
     {
@@ -15558,14 +15558,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4690389347266
+     "t": 6054382104046
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4688318339837,
+     "t": 6052365210104,
      "task": "T"
     },
     {
@@ -15573,27 +15573,19 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4688911445244,
+     "t": 6052900515045,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4690351002264,
+     "t": 6054347996985,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4690351682363,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4691024145508,
+     "t": 6054348617408,
      "task": "T"
     }
    ]
@@ -15602,7 +15594,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-c041c24ddd1240eaa854c0352c255d97",
+      "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -15616,7 +15608,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4701606729436
+    "t": 6066318913434
    },
    {
     "answer": {
@@ -15624,7 +15616,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c041c24ddd1240eaa854c0352c255d97"
+        "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379"
        },
        "attempts": [
         {
@@ -15647,7 +15639,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c041c24ddd1240eaa854c0352c255d97",
+        "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -15665,13 +15657,13 @@
         }
        },
        "task": "T",
-       "token": 1795843124812,
+       "token": 1795844488812,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c041c24ddd1240eaa854c0352c255d97",
+        "reply": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -15701,8 +15693,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "fa83123e618e8653e98ca59e8a6f299ab57c0d8c51d9fc97e6dec97aa4dc55e4",
-       "request_id": "rid-c041c24ddd1240eaa854c0352c255d97",
+       "output_sha256": "a070c5d811c56614cc96d28107ddae1bc83b6b82f59cffeaadd5ad0cf080834a",
+       "request_id": "rid-b4d5b9b3f6ca493cb24cdf1c2fdce379",
        "used": true
       }
      ],
@@ -15721,7 +15713,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4702239743099
+    "t": 6066836066641
    }
   ],
   "status": "flagged",
@@ -15753,7 +15745,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4704064563223,
+    "t": 6052214310275,
     "event": "no-rule-version"
    }
   ],
@@ -15765,21 +15757,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-b62ac27afdd4497da104f19207d00e58",
+     "request_id": "rid-c9ccb05725804c1b8f681b6ce18e36b2",
      "retry_of": null,
-     "t": 4704054678386,
+     "t": 6052206130043,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "bcc5b2e8fd0d32ecbe10a7aa9d165f2b03df1cbb67fad332640f3c2583e47d19",
-     "request_id": "rid-b62ac27afdd4497da104f19207d00e58",
-     "t": 4704055709754
+     "output_sha256": "dd0bd69a8cc192299c606530b3014584c70bdfe0b1a4c8125914cacb739a7bd3",
+     "request_id": "rid-c9ccb05725804c1b8f681b6ce18e36b2",
+     "t": 6052206730910
     },
     {
      "kind": "delivered",
-     "request_id": "rid-b62ac27afdd4497da104f19207d00e58",
-     "t": 4704056360744
+     "request_id": "rid-c9ccb05725804c1b8f681b6ce18e36b2",
+     "t": 6052207169705
     }
    ],
    "T-I": [],
@@ -15789,7 +15781,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4704071329532,
+     "t": 6052221309149,
      "task": "T"
     },
     {
@@ -15797,27 +15789,19 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4704618935384,
+     "t": 6052755107562,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4706220651294,
+     "t": 6054216507399,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4706221285674,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "deny",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4706988318644,
+     "t": 6054217058921,
      "task": "T"
     }
    ]
@@ -15827,7 +15811,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-b62ac27afdd4497da104f19207d00e58"
+      "reply": "rid-c9ccb05725804c1b8f681b6ce18e36b2"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -15838,7 +15822,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4718348242068
+    "t": 6066068585859
    },
    {
     "answer": {
@@ -15851,8 +15835,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "bcc5b2e8fd0d32ecbe10a7aa9d165f2b03df1cbb67fad332640f3c2583e47d19",
-       "request_id": "rid-b62ac27afdd4497da104f19207d00e58",
+       "output_sha256": "dd0bd69a8cc192299c606530b3014584c70bdfe0b1a4c8125914cacb739a7bd3",
+       "request_id": "rid-c9ccb05725804c1b8f681b6ce18e36b2",
        "used": true
       }
      ],
@@ -15871,7 +15855,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4718873109223
+    "t": 6066484814532
    }
   ],
   "status": "flagged",
@@ -15903,7 +15887,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4706959521231,
+    "t": 6070834956364,
     "event": "no-rule-version"
    }
   ],
@@ -15915,34 +15899,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-68ee7e64771941b6a0559225e74f9353",
+     "request_id": "rid-a7a236b004914e1ebf4e9e88d565dc19",
      "retry_of": null,
-     "t": 4706947933172,
+     "t": 6070829678824,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "e950f2522ffb0829e6bc2c50cf4dcf6d13b07912ba8bba971e1515317fc5a39a",
-     "request_id": "rid-68ee7e64771941b6a0559225e74f9353",
-     "t": 4706949941607
+     "output_sha256": "65d65084399441dd780bc252ab9be842e22cadae9b40d8022b8ec4d11288ce1e",
+     "request_id": "rid-a7a236b004914e1ebf4e9e88d565dc19",
+     "t": 6070830241316
     },
     {
      "kind": "delivered",
-     "request_id": "rid-68ee7e64771941b6a0559225e74f9353",
-     "t": 4706950675120
+     "request_id": "rid-a7a236b004914e1ebf4e9e88d565dc19",
+     "t": 6070830628940
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-68ee7e64771941b6a0559225e74f9353"
+      "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4709057139533,
+     "t": 6072827647599,
      "task": "T",
      "token": null
     },
@@ -15954,7 +15938,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4709057698591,
+     "t": 6072828218074,
      "token": null
     },
     {
@@ -15962,23 +15946,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4709058065653
+     "t": 6072828562939
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-68ee7e64771941b6a0559225e74f9353",
+      "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4709066474934,
+     "t": 6072838381577,
      "task": "T",
-     "token": 1795843143501
+     "token": 1795844507284
     },
     {
      "attempt": 1,
@@ -15988,29 +15972,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4709066935054,
-     "token": 1795843143501
+     "t": 6072838888654,
+     "token": 1795844507284
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4709067579605
+     "t": 6072839186705
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-68ee7e64771941b6a0559225e74f9353",
+      "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4709079147544,
+     "t": 6072847993838,
      "task": "T",
      "token": null
     },
@@ -16022,7 +16006,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4709079575211,
+     "t": 6072848392489,
      "token": null
     },
     {
@@ -16030,14 +16014,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4709080060270
+     "t": 6072848680099
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4706965418370,
+     "t": 6070838608147,
      "task": "T"
     },
     {
@@ -16045,13 +16029,13 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4707483866356,
+     "t": 6071304547265,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4707486926588,
+     "t": 6071307555702,
      "task": "T"
     }
    ]
@@ -16060,7 +16044,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-68ee7e64771941b6a0559225e74f9353",
+      "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -16074,7 +16058,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4721089076167
+    "t": 6084973271500
    },
    {
     "answer": {
@@ -16082,7 +16066,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-68ee7e64771941b6a0559225e74f9353"
+        "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19"
        },
        "attempts": [
         {
@@ -16105,7 +16089,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-68ee7e64771941b6a0559225e74f9353",
+        "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -16123,13 +16107,13 @@
         }
        },
        "task": "T",
-       "token": 1795843143501,
+       "token": 1795844507284,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-68ee7e64771941b6a0559225e74f9353",
+        "reply": "rid-a7a236b004914e1ebf4e9e88d565dc19",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -16159,8 +16143,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "e950f2522ffb0829e6bc2c50cf4dcf6d13b07912ba8bba971e1515317fc5a39a",
-       "request_id": "rid-68ee7e64771941b6a0559225e74f9353",
+       "output_sha256": "65d65084399441dd780bc252ab9be842e22cadae9b40d8022b8ec4d11288ce1e",
+       "request_id": "rid-a7a236b004914e1ebf4e9e88d565dc19",
        "used": true
       }
      ],
@@ -16179,7 +16163,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4721560488492
+    "t": 6085490077154
    }
   ],
   "status": "flagged",
@@ -16211,7 +16195,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4723309970053,
+    "t": 6071016231666,
     "event": "no-rule-version"
    }
   ],
@@ -16223,21 +16207,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-241bdd6266be46cfb578f488eae8eb11",
+     "request_id": "rid-20a5fe4d726b48d6ab4b937072dd79b1",
      "retry_of": null,
-     "t": 4723303227710,
+     "t": 6071009609652,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "03a5f50d5cafc541ee3347b25932441973db30641ceed9803ffcb9c81b22eeaf",
-     "request_id": "rid-241bdd6266be46cfb578f488eae8eb11",
-     "t": 4723303796514
+     "output_sha256": "2e09f8fffd0a5bef44f38c74788ee90717984806238cf5f7f6bd6c4b98678de4",
+     "request_id": "rid-20a5fe4d726b48d6ab4b937072dd79b1",
+     "t": 6071010404014
     },
     {
      "kind": "delivered",
-     "request_id": "rid-241bdd6266be46cfb578f488eae8eb11",
-     "t": 4723304321871
+     "request_id": "rid-20a5fe4d726b48d6ab4b937072dd79b1",
+     "t": 6071010922592
     }
    ],
    "T-I": [],
@@ -16247,7 +16231,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4723315205277,
+     "t": 6071020155283,
      "task": "T"
     },
     {
@@ -16255,13 +16239,13 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4723832557918,
+     "t": 6071486409907,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4723840597969,
+     "t": 6071487569591,
      "task": "T"
     }
    ]
@@ -16271,7 +16255,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-241bdd6266be46cfb578f488eae8eb11"
+      "reply": "rid-20a5fe4d726b48d6ab4b937072dd79b1"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -16282,7 +16266,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4737558636929
+    "t": 6085227468003
    },
    {
     "answer": {
@@ -16295,8 +16279,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "03a5f50d5cafc541ee3347b25932441973db30641ceed9803ffcb9c81b22eeaf",
-       "request_id": "rid-241bdd6266be46cfb578f488eae8eb11",
+       "output_sha256": "2e09f8fffd0a5bef44f38c74788ee90717984806238cf5f7f6bd6c4b98678de4",
+       "request_id": "rid-20a5fe4d726b48d6ab4b937072dd79b1",
        "used": true
       }
      ],
@@ -16315,7 +16299,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4738146827201
+    "t": 6085744275681
    }
   ],
   "status": "flagged",
@@ -16348,7 +16332,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4728083647900,
+    "t": 6091861256534,
     "event": "wait-skipped",
     "worker": "w2"
    }
@@ -16361,34 +16345,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-612e7384cc554930bb795053f50299eb",
+     "request_id": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
      "retry_of": null,
-     "t": 4726058845889,
+     "t": 6089853046054,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "db06ca01813dd0cd274d90580b912ce1b6cfb10c94f9475c136f641688098592",
-     "request_id": "rid-612e7384cc554930bb795053f50299eb",
-     "t": 4726059759755
+     "output_sha256": "7638a431f3e34e0a5bf91e8d2e077878c19df285b40593da3843eaa1b0c21193",
+     "request_id": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
+     "t": 6089853893559
     },
     {
      "kind": "delivered",
-     "request_id": "rid-612e7384cc554930bb795053f50299eb",
-     "t": 4726060309223
+     "request_id": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
+     "t": 6089854491211
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-612e7384cc554930bb795053f50299eb"
+      "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4728087168905,
+     "t": 6091864586139,
      "task": "T",
      "token": null
     },
@@ -16400,7 +16384,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4728087688090,
+     "t": 6091865437665,
      "token": null
     },
     {
@@ -16408,23 +16392,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4728088260804
+     "t": 6091865860623
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-612e7384cc554930bb795053f50299eb",
+      "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4728095327931,
+     "t": 6091873199482,
      "task": "T",
-     "token": 1795843162543
+     "token": 1795844526314
     },
     {
      "attempt": 1,
@@ -16434,29 +16418,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4728095809468,
-     "token": 1795843162543
+     "t": 6091874050923,
+     "token": 1795844526314
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4728096171665
+     "t": 6091874879401
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-612e7384cc554930bb795053f50299eb",
+      "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4728106415408,
+     "t": 6091885236043,
      "task": "T",
      "token": null
     },
@@ -16468,7 +16452,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4728106794850,
+     "t": 6091885742745,
      "token": null
     },
     {
@@ -16476,14 +16460,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4728107107054
+     "t": 6091886025380
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4726071688918,
+     "t": 6089870651727,
      "task": "T"
     },
     {
@@ -16491,27 +16475,19 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4726610884905,
+     "t": 6090415581086,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4728079027979,
+     "t": 6091855444885,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4728079738373,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4728748530580,
+     "t": 6091856465536,
      "task": "T"
     }
    ]
@@ -16520,7 +16496,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-612e7384cc554930bb795053f50299eb",
+      "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -16534,7 +16510,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4740254510765
+    "t": 6103949174891
    },
    {
     "answer": {
@@ -16542,7 +16518,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-612e7384cc554930bb795053f50299eb"
+        "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438"
        },
        "attempts": [
         {
@@ -16565,7 +16541,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-612e7384cc554930bb795053f50299eb",
+        "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -16583,13 +16559,13 @@
         }
        },
        "task": "T",
-       "token": 1795843162543,
+       "token": 1795844526314,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-612e7384cc554930bb795053f50299eb",
+        "reply": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -16619,8 +16595,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "db06ca01813dd0cd274d90580b912ce1b6cfb10c94f9475c136f641688098592",
-       "request_id": "rid-612e7384cc554930bb795053f50299eb",
+       "output_sha256": "7638a431f3e34e0a5bf91e8d2e077878c19df285b40593da3843eaa1b0c21193",
+       "request_id": "rid-d4240a0e7a7844d8be1b0e6dc18d4438",
        "used": true
       }
      ],
@@ -16637,7 +16613,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4740934474850
+    "t": 6104465515179
    }
   ],
   "status": "flagged",
@@ -16675,7 +16651,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4744878802500,
+    "t": 6092071304512,
     "event": "wait-skipped",
     "worker": "w2"
    }
@@ -16688,34 +16664,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+     "request_id": "rid-9b515dafffeb401e9c1cf0d4844870d3",
      "retry_of": null,
-     "t": 4742736038199,
+     "t": 6090070688252,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "cf8e733bdcbb32a586f3348043a8214c292ed8dd7fed8456ecf676b5c5c2ed0d",
-     "request_id": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
-     "t": 4742736658776
+     "output_sha256": "293befd4bd6aac5046ff53c46d03e0301b9bb8bda80d8ec7d47cda350b2adabb",
+     "request_id": "rid-9b515dafffeb401e9c1cf0d4844870d3",
+     "t": 6090071777757
     },
     {
      "kind": "delivered",
-     "request_id": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
-     "t": 4742737028707
+     "request_id": "rid-9b515dafffeb401e9c1cf0d4844870d3",
+     "t": 6090072901743
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794"
+      "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4744881424193,
+     "t": 6092073841945,
      "task": "T",
      "token": null
     },
@@ -16727,7 +16703,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4744882015942,
+     "t": 6092074386573,
      "token": null
     },
     {
@@ -16735,23 +16711,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4744882408424
+     "t": 6092074706522
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+      "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4744889791145,
+     "t": 6092083135720,
      "task": "T",
-     "token": 1795843179337
+     "token": 1795844526508
     },
     {
      "attempt": 1,
@@ -16761,29 +16737,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4744890437873,
-     "token": 1795843179337
+     "t": 6092084394552,
+     "token": 1795844526508
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4744890820929
+     "t": 6092084781427
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+      "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4744901454242,
+     "t": 6092097970265,
      "task": "T",
      "token": null
     },
@@ -16795,7 +16771,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4744902001967,
+     "t": 6092098482764,
      "token": null
     },
     {
@@ -16803,14 +16779,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4744902432038
+     "t": 6092098787019
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4742747548471,
+     "t": 6090089541085,
      "task": "T"
     },
     {
@@ -16818,27 +16794,19 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4743283869508,
+     "t": 6090632679618,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4744874027253,
+     "t": 6092066175746,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4744874812995,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "deny",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4745603020705,
+     "t": 6092066907794,
      "task": "T"
     }
    ]
@@ -16847,7 +16815,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+      "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -16861,7 +16829,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4756883959932
+    "t": 6104302282924
    },
    {
     "answer": {
@@ -16869,7 +16837,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794"
+        "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3"
        },
        "attempts": [
         {
@@ -16892,7 +16860,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+        "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -16910,13 +16878,13 @@
         }
        },
        "task": "T",
-       "token": 1795843179337,
+       "token": 1795844526508,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+        "reply": "rid-9b515dafffeb401e9c1cf0d4844870d3",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -16946,8 +16914,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "cf8e733bdcbb32a586f3348043a8214c292ed8dd7fed8456ecf676b5c5c2ed0d",
-       "request_id": "rid-f8a96dfe5e6e451ba4aaee4539be5794",
+       "output_sha256": "293befd4bd6aac5046ff53c46d03e0301b9bb8bda80d8ec7d47cda350b2adabb",
+       "request_id": "rid-9b515dafffeb401e9c1cf0d4844870d3",
        "used": true
       }
      ],
@@ -16964,7 +16932,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4757401025162
+    "t": 6104818461927
    }
   ],
   "status": "flagged",
@@ -16989,7 +16957,6 @@
   },
   "fails": [
    "O-4.approval",
-   "O-4.calls",
    "O-5.once"
   ],
   "unresolved": [],
@@ -16999,12 +16966,12 @@
   "notes": [],
   "marks": [
    {
-    "t": 4746172333585,
+    "t": 6109260241807,
     "event": "wait-skipped",
     "worker": "w1"
    },
    {
-    "t": 4747683211099,
+    "t": 6110690617358,
     "event": "wait-skipped",
     "worker": "w2"
    }
@@ -17017,34 +16984,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-fbf8efd981bc478aa8848c914f5e6497",
+     "request_id": "rid-13eb726baa37446191fd13878501b984",
      "retry_of": null,
-     "t": 4745633520044,
+     "t": 6108774956664,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "790093d388f02bc426d6ba330825f91691ed93bd8dfe25e99caf52427557dc58",
-     "request_id": "rid-fbf8efd981bc478aa8848c914f5e6497",
-     "t": 4745634132600
+     "output_sha256": "49accc038824bf17055d0702fe71f9d08e5a854239c4ec02a341b04e198cb770",
+     "request_id": "rid-13eb726baa37446191fd13878501b984",
+     "t": 6108775671499
     },
     {
      "kind": "delivered",
-     "request_id": "rid-fbf8efd981bc478aa8848c914f5e6497",
-     "t": 4745634667732
+     "request_id": "rid-13eb726baa37446191fd13878501b984",
+     "t": 6108777600046
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-fbf8efd981bc478aa8848c914f5e6497"
+      "reply": "rid-13eb726baa37446191fd13878501b984"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4746175104288,
+     "t": 6109262286453,
      "task": "T",
      "token": null
     },
@@ -17056,7 +17023,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4746175534871,
+     "t": 6109263022019,
      "token": null
     },
     {
@@ -17064,54 +17031,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4746175841738
-    },
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-fbf8efd981bc478aa8848c914f5e6497"
-     },
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "request",
-     "t": 4747693017380,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "duplicate",
-     "result": {
-      "effect": "T-I-1"
-     },
-     "t": 4747693541598,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "delivered",
-     "t": 4747693875325
+     "t": 6109263458408
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-fbf8efd981bc478aa8848c914f5e6497",
+      "reply": "rid-13eb726baa37446191fd13878501b984",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4747703763513,
+     "t": 6110703295364,
      "task": "T",
-     "token": 1795843182152
+     "token": 1795844545155
     },
     {
      "attempt": 1,
@@ -17121,29 +17057,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4747704316169,
-     "token": 1795843182152
+     "t": 6110704025736,
+     "token": 1795844545155
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4747704598174
+     "t": 6110704386602
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-fbf8efd981bc478aa8848c914f5e6497",
+      "reply": "rid-13eb726baa37446191fd13878501b984",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4747715796201,
+     "t": 6110718530164,
      "task": "T",
      "token": null
     },
@@ -17155,7 +17091,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4747716317398,
+     "t": 6110719092596,
      "token": null
     },
     {
@@ -17163,14 +17099,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4747716653947
+     "t": 6110719458174
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4745645858206,
+     "t": 6108786055811,
      "task": "T"
     },
     {
@@ -17178,13 +17114,13 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4746162611708,
+     "t": 6109254402819,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4746168334331,
+     "t": 6109257388580,
      "task": "T"
     }
    ]
@@ -17193,7 +17129,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-fbf8efd981bc478aa8848c914f5e6497",
+      "reply": "rid-13eb726baa37446191fd13878501b984",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -17207,7 +17143,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4759637889162
+    "t": 6123013262183
    },
    {
     "answer": {
@@ -17215,18 +17151,18 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-fbf8efd981bc478aa8848c914f5e6497"
+        "reply": "rid-13eb726baa37446191fd13878501b984"
        },
        "attempts": [
         {
          "attempt": 1,
-         "outcome": "duplicate"
+         "outcome": "effect"
         }
        ],
        "call_id": "T:T-I",
        "key": "T:T-I",
        "outcome": {
-        "kind": "duplicate",
+        "kind": "effect",
         "result": {
          "effect": "T-I-1"
         }
@@ -17238,7 +17174,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-fbf8efd981bc478aa8848c914f5e6497",
+        "reply": "rid-13eb726baa37446191fd13878501b984",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -17256,13 +17192,13 @@
         }
        },
        "task": "T",
-       "token": 1795843182152,
+       "token": 1795844545155,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-fbf8efd981bc478aa8848c914f5e6497",
+        "reply": "rid-13eb726baa37446191fd13878501b984",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -17292,8 +17228,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "790093d388f02bc426d6ba330825f91691ed93bd8dfe25e99caf52427557dc58",
-       "request_id": "rid-fbf8efd981bc478aa8848c914f5e6497",
+       "output_sha256": "49accc038824bf17055d0702fe71f9d08e5a854239c4ec02a341b04e198cb770",
+       "request_id": "rid-13eb726baa37446191fd13878501b984",
        "used": true
       }
      ],
@@ -17310,11 +17246,11 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4760211077510
+    "t": 6123631192373
    }
   ],
   "status": "flagged",
-  "evidence": "wait-skipped marks 2, tool requests 4 (0 before posted)",
+  "evidence": "wait-skipped marks 2, tool requests 3 (0 before posted)",
   "new": [
    "O-5.once"
   ],
@@ -17338,7 +17274,6 @@
    "O-2.single_exec",
    "O-3.deny_no_tool",
    "O-4.approval",
-   "O-4.calls",
    "O-5.once",
    "O-5.proceeds"
   ],
@@ -17349,12 +17284,12 @@
   "notes": [],
   "marks": [
    {
-    "t": 4763104399699,
+    "t": 6109619059346,
     "event": "wait-skipped",
     "worker": "w1"
    },
    {
-    "t": 4764539119463,
+    "t": 6111081237021,
     "event": "wait-skipped",
     "worker": "w2"
    }
@@ -17367,34 +17302,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+     "request_id": "rid-33fd15b698634b728b9426b16fdcfc55",
      "retry_of": null,
-     "t": 4762313180265,
+     "t": 6109085778233,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "82a7a811257abcd97d2179a5d60017da12b3eda0d4d1a8496cbcc64864dddf85",
-     "request_id": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
-     "t": 4762313945775
+     "output_sha256": "dd30adb72c0f8396e6063cc7cbd9d016cff551f0eab5b5f9c9d11b1a070cbed8",
+     "request_id": "rid-33fd15b698634b728b9426b16fdcfc55",
+     "t": 6109086439362
     },
     {
      "kind": "delivered",
-     "request_id": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
-     "t": 4762314429587
+     "request_id": "rid-33fd15b698634b728b9426b16fdcfc55",
+     "t": 6109086965930
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4"
+      "reply": "rid-33fd15b698634b728b9426b16fdcfc55"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4763107977990,
+     "t": 6109621362687,
      "task": "T",
      "token": null
     },
@@ -17406,7 +17341,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4763108881967,
+     "t": 6109621903534,
      "token": null
     },
     {
@@ -17414,54 +17349,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4763109188954
-    },
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4"
-     },
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "request",
-     "t": 4764549310919,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "duplicate",
-     "result": {
-      "effect": "T-I-1"
-     },
-     "t": 4764549739095,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "delivered",
-     "t": 4764550087820
+     "t": 6109622167738
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+      "reply": "rid-33fd15b698634b728b9426b16fdcfc55",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4764562713066,
+     "t": 6111095463396,
      "task": "T",
-     "token": 1795843199010
+     "token": 1795844545554
     },
     {
      "attempt": 1,
@@ -17471,29 +17375,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4764563232349,
-     "token": 1795843199010
+     "t": 6111096181321,
+     "token": 1795844545554
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4764563542952
+     "t": 6111096654184
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+      "reply": "rid-33fd15b698634b728b9426b16fdcfc55",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4764575376436,
+     "t": 6111109255226,
      "task": "T",
      "token": null
     },
@@ -17505,7 +17409,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4764575783248,
+     "t": 6111109844792,
      "token": null
     },
     {
@@ -17513,14 +17417,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4764576196801
+     "t": 6111110231676
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4762325235560,
+     "t": 6109095315790,
      "task": "T"
     },
     {
@@ -17528,13 +17432,13 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4763097492589,
+     "t": 6109612901858,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4763099318339,
+     "t": 6109616095609,
      "task": "T"
     }
    ]
@@ -17543,7 +17447,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+      "reply": "rid-33fd15b698634b728b9426b16fdcfc55",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -17557,7 +17461,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4776303497526
+    "t": 6123240140876
    },
    {
     "answer": {
@@ -17565,18 +17469,18 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4"
+        "reply": "rid-33fd15b698634b728b9426b16fdcfc55"
        },
        "attempts": [
         {
          "attempt": 1,
-         "outcome": "duplicate"
+         "outcome": "effect"
         }
        ],
        "call_id": "T:T-I",
        "key": "T:T-I",
        "outcome": {
-        "kind": "duplicate",
+        "kind": "effect",
         "result": {
          "effect": "T-I-1"
         }
@@ -17588,7 +17492,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+        "reply": "rid-33fd15b698634b728b9426b16fdcfc55",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -17606,13 +17510,13 @@
         }
        },
        "task": "T",
-       "token": 1795843199010,
+       "token": 1795844545554,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+        "reply": "rid-33fd15b698634b728b9426b16fdcfc55",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -17642,8 +17546,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "82a7a811257abcd97d2179a5d60017da12b3eda0d4d1a8496cbcc64864dddf85",
-       "request_id": "rid-c66fb0dbc1ac4b138bd0ffbcd1afe9d4",
+       "output_sha256": "dd30adb72c0f8396e6063cc7cbd9d016cff551f0eab5b5f9c9d11b1a070cbed8",
+       "request_id": "rid-33fd15b698634b728b9426b16fdcfc55",
        "used": true
       }
      ],
@@ -17660,11 +17564,11 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4776823513884
+    "t": 6123857590657
    }
   ],
   "status": "flagged",
-  "evidence": "wait-skipped marks 2, tool requests 4 (0 before posted)",
+  "evidence": "wait-skipped marks 2, tool requests 3 (0 before posted)",
   "new": [
    "O-5.once",
    "O-5.proceeds"
@@ -17691,7 +17595,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4767276933026,
+    "t": 6130142586183,
     "event": "recv-no-wait",
     "got": "approve",
     "worker": "w2"
@@ -17705,34 +17609,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+     "request_id": "rid-541b89b1ca1b4ae7822002600287124f",
      "retry_of": null,
-     "t": 4765141769838,
+     "t": 6128141679618,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "1b2bf377dfb1ea8d276c798b4374f8decdec2b62de8f6ffc6d5a824ecd061d64",
-     "request_id": "rid-80e6561cff1b49cbb4dc8a530943c2db",
-     "t": 4765142777709
+     "output_sha256": "712d9f051e17838242f702d50d10e7b287a3cb8e057f4761b567931d57aa0ab3",
+     "request_id": "rid-541b89b1ca1b4ae7822002600287124f",
+     "t": 6128142374451
     },
     {
      "kind": "delivered",
-     "request_id": "rid-80e6561cff1b49cbb4dc8a530943c2db",
-     "t": 4765143467565
+     "request_id": "rid-541b89b1ca1b4ae7822002600287124f",
+     "t": 6128142861483
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db"
+      "reply": "rid-541b89b1ca1b4ae7822002600287124f"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4767279092658,
+     "t": 6130144942760,
      "task": "T",
      "token": null
     },
@@ -17744,7 +17648,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4767279607537,
+     "t": 6130145637215,
      "token": null
     },
     {
@@ -17752,23 +17656,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4767279956229
+     "t": 6130145954665
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+      "reply": "rid-541b89b1ca1b4ae7822002600287124f",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4767289140635,
+     "t": 6130154527847,
      "task": "T",
-     "token": 1795843201721
+     "token": 1795844564585
     },
     {
      "attempt": 1,
@@ -17778,29 +17682,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4767289575654,
-     "token": 1795843201721
+     "t": 6130155085135,
+     "token": 1795844564585
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4767289836692
+     "t": 6130155425837
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+      "reply": "rid-541b89b1ca1b4ae7822002600287124f",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4767300077491,
+     "t": 6130166252230,
      "task": "T",
      "token": null
     },
@@ -17812,7 +17716,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4767300508758,
+     "t": 6130166620846,
      "token": null
     },
     {
@@ -17820,14 +17724,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4767300854553
+     "t": 6130166939927
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4765154713225,
+     "t": 6128153325090,
      "task": "T"
     },
     {
@@ -17835,27 +17739,19 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4765745687477,
+     "t": 6128689561700,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4767259312958,
+     "t": 6130126719777,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4767259901937,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4767975806193,
+     "t": 6130127448451,
      "task": "T"
     }
    ]
@@ -17864,7 +17760,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+      "reply": "rid-541b89b1ca1b4ae7822002600287124f",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -17878,7 +17774,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4779122654289
+    "t": 6142237293453
    },
    {
     "answer": {
@@ -17886,7 +17782,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db"
+        "reply": "rid-541b89b1ca1b4ae7822002600287124f"
        },
        "attempts": [
         {
@@ -17909,7 +17805,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+        "reply": "rid-541b89b1ca1b4ae7822002600287124f",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -17927,13 +17823,13 @@
         }
        },
        "task": "T",
-       "token": 1795843201721,
+       "token": 1795844564585,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+        "reply": "rid-541b89b1ca1b4ae7822002600287124f",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -17963,8 +17859,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "1b2bf377dfb1ea8d276c798b4374f8decdec2b62de8f6ffc6d5a824ecd061d64",
-       "request_id": "rid-80e6561cff1b49cbb4dc8a530943c2db",
+       "output_sha256": "712d9f051e17838242f702d50d10e7b287a3cb8e057f4761b567931d57aa0ab3",
+       "request_id": "rid-541b89b1ca1b4ae7822002600287124f",
        "used": true
       }
      ],
@@ -17983,7 +17879,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4779693612034
+    "t": 6142753979105
    }
   ],
   "status": "unresolved (not exercised)",
@@ -18011,7 +17907,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4783750565400,
+    "t": 6130380400124,
     "event": "recv-no-wait",
     "got": "deny",
     "worker": "w2"
@@ -18025,21 +17921,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-7f35639103ef4fd185791e0dbfc81fd2",
+     "request_id": "rid-c4a9de386e3445ceb7668b3a723729f2",
      "retry_of": null,
-     "t": 4781682612121,
+     "t": 6128359589585,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "0c457fb2877f4c696ae80d5dbd759209b3d5756d7ada89f419fa053d5a418825",
-     "request_id": "rid-7f35639103ef4fd185791e0dbfc81fd2",
-     "t": 4781683558582
+     "output_sha256": "f20f96243139af4f0f061adb1e69aa8103adfe9da3f1982dbaf4e06700a6309b",
+     "request_id": "rid-c4a9de386e3445ceb7668b3a723729f2",
+     "t": 6128360489330
     },
     {
      "kind": "delivered",
-     "request_id": "rid-7f35639103ef4fd185791e0dbfc81fd2",
-     "t": 4781684048740
+     "request_id": "rid-c4a9de386e3445ceb7668b3a723729f2",
+     "t": 6128361021177
     }
    ],
    "T-I": [],
@@ -18049,7 +17945,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4781696247121,
+     "t": 6128370105381,
      "task": "T"
     },
     {
@@ -18057,27 +17953,19 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4782237129132,
+     "t": 6128905849643,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4783732851118,
+     "t": 6130366844044,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4783733651567,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "deny",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4784450326231,
+     "t": 6130367437102,
      "task": "T"
     }
    ]
@@ -18087,7 +17975,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-7f35639103ef4fd185791e0dbfc81fd2"
+      "reply": "rid-c4a9de386e3445ceb7668b3a723729f2"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -18098,7 +17986,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4795895674155
+    "t": 6142424597479
    },
    {
     "answer": {
@@ -18111,8 +17999,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "0c457fb2877f4c696ae80d5dbd759209b3d5756d7ada89f419fa053d5a418825",
-       "request_id": "rid-7f35639103ef4fd185791e0dbfc81fd2",
+       "output_sha256": "f20f96243139af4f0f061adb1e69aa8103adfe9da3f1982dbaf4e06700a6309b",
+       "request_id": "rid-c4a9de386e3445ceb7668b3a723729f2",
        "used": true
       }
      ],
@@ -18131,7 +18019,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4796464801502
+    "t": 6142941489861
    }
   ],
   "status": "unresolved (not exercised)",
@@ -18159,7 +18047,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4786375959806,
+    "t": 6149127518995,
     "event": "recv-no-wait",
     "got": "approve",
     "worker": "w2"
@@ -18173,34 +18061,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-5e110f50374941c89e53122494dacc8d",
+     "request_id": "rid-b265ac8f7ed14f5daf9c148aeb865737",
      "retry_of": null,
-     "t": 4784261328116,
+     "t": 6147105222218,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "88eb2c5138f5fa7fb018ebdf81b7389eb09df30f1a9483c9a3d213420cae7689",
-     "request_id": "rid-5e110f50374941c89e53122494dacc8d",
-     "t": 4784262106367
+     "output_sha256": "545700b37e5be81a7347ff8c27a50d8ae2777b40e74269532a749d4cfc97e52e",
+     "request_id": "rid-b265ac8f7ed14f5daf9c148aeb865737",
+     "t": 6147105910031
     },
     {
      "kind": "delivered",
-     "request_id": "rid-5e110f50374941c89e53122494dacc8d",
-     "t": 4784262775496
+     "request_id": "rid-b265ac8f7ed14f5daf9c148aeb865737",
+     "t": 6147106277114
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e110f50374941c89e53122494dacc8d"
+      "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4786388965635,
+     "t": 6149139139956,
      "task": "T",
      "token": null
     },
@@ -18212,7 +18100,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4786389834653,
+     "t": 6149139804929,
      "token": null
     },
     {
@@ -18220,23 +18108,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4786390284933
+     "t": 6149140195091
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e110f50374941c89e53122494dacc8d",
+      "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4786399597970,
+     "t": 6149152858346,
      "task": "T",
-     "token": 1795843220831
+     "token": 1795844583586
     },
     {
      "attempt": 1,
@@ -18246,29 +18134,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4786400541118,
-     "token": 1795843220831
+     "t": 6149153336637,
+     "token": 1795844583586
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4786401049805
+     "t": 6149153694927
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-5e110f50374941c89e53122494dacc8d",
+      "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4786415259830,
+     "t": 6149167882880,
      "task": "T",
      "token": null
     },
@@ -18280,7 +18168,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4786415902366,
+     "t": 6149168420950,
      "token": null
     },
     {
@@ -18288,14 +18176,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4786416320648
+     "t": 6149168873807
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4784277472102,
+     "t": 6147120484734,
      "task": "T"
     },
     {
@@ -18303,13 +18191,13 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4784844749974,
+     "t": 6147636780985,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4784847777168,
+     "t": 6147638031328,
      "task": "T"
     }
    ]
@@ -18318,7 +18206,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-5e110f50374941c89e53122494dacc8d",
+      "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -18332,7 +18220,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4798523260748
+    "t": 6161104028924
    },
    {
     "answer": {
@@ -18340,7 +18228,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e110f50374941c89e53122494dacc8d"
+        "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737"
        },
        "attempts": [
         {
@@ -18363,7 +18251,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e110f50374941c89e53122494dacc8d",
+        "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -18381,13 +18269,13 @@
         }
        },
        "task": "T",
-       "token": 1795843220831,
+       "token": 1795844583586,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-5e110f50374941c89e53122494dacc8d",
+        "reply": "rid-b265ac8f7ed14f5daf9c148aeb865737",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -18417,8 +18305,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "88eb2c5138f5fa7fb018ebdf81b7389eb09df30f1a9483c9a3d213420cae7689",
-       "request_id": "rid-5e110f50374941c89e53122494dacc8d",
+       "output_sha256": "545700b37e5be81a7347ff8c27a50d8ae2777b40e74269532a749d4cfc97e52e",
+       "request_id": "rid-b265ac8f7ed14f5daf9c148aeb865737",
        "used": true
       }
      ],
@@ -18437,7 +18325,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4799043463514
+    "t": 6161620306834
    }
   ],
   "status": "unresolved (not exercised)",
@@ -18465,7 +18353,7 @@
   "notes": [],
   "marks": [
    {
-    "t": 4803488079550,
+    "t": 6149323946077,
     "event": "recv-no-wait",
     "got": "deny",
     "worker": "w2"
@@ -18479,21 +18367,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-a51fa24a778441ecb288d0e649211316",
+     "request_id": "rid-9c4360df97af49b7b338774a72d542c1",
      "retry_of": null,
-     "t": 4801097737211,
+     "t": 6147297626690,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "ded2a5fbba3bb7042adb7784bbf919ad28d847da7a134035453e3f9965245001",
-     "request_id": "rid-a51fa24a778441ecb288d0e649211316",
-     "t": 4801098369296
+     "output_sha256": "b7928e06dfa00acd2216b4808bed19f3bba5ea546ab6e473c5ef1733ce62d690",
+     "request_id": "rid-9c4360df97af49b7b338774a72d542c1",
+     "t": 6147298477493
     },
     {
      "kind": "delivered",
-     "request_id": "rid-a51fa24a778441ecb288d0e649211316",
-     "t": 4801098736673
+     "request_id": "rid-9c4360df97af49b7b338774a72d542c1",
+     "t": 6147299078133
     }
    ],
    "T-I": [],
@@ -18503,7 +18391,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4801114436785,
+     "t": 6147310493485,
      "task": "T"
     },
     {
@@ -18511,13 +18399,13 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4801854992628,
+     "t": 6147826832059,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4801861837190,
+     "t": 6147828244302,
      "task": "T"
     }
    ]
@@ -18527,7 +18415,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-a51fa24a778441ecb288d0e649211316"
+      "reply": "rid-9c4360df97af49b7b338774a72d542c1"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -18538,7 +18426,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4815261468925
+    "t": 6161421741903
    },
    {
     "answer": {
@@ -18551,8 +18439,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "ded2a5fbba3bb7042adb7784bbf919ad28d847da7a134035453e3f9965245001",
-       "request_id": "rid-a51fa24a778441ecb288d0e649211316",
+       "output_sha256": "b7928e06dfa00acd2216b4808bed19f3bba5ea546ab6e473c5ef1733ce62d690",
+       "request_id": "rid-9c4360df97af49b7b338774a72d542c1",
        "used": true
       }
      ],
@@ -18571,7 +18459,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4815779162960
+    "t": 6161938389202
    }
   ],
   "status": "unresolved (not exercised)",
@@ -18583,15 +18471,21 @@
   "cell": "A10-1"
  },
  "O-5-event-dropped|A09-0": {
-  "verdict": "pass",
+  "verdict": "violation",
   "guarantees": {
-   "O-1": "pass",
-   "O-2": "pass",
+   "O-1": "fail",
+   "O-2": "fail",
    "O-3": "pass",
-   "O-4": "pass",
-   "O-5": "pass"
+   "O-4": "fail",
+   "O-5": "fail"
   },
-  "fails": [],
+  "fails": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-4.approval",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
   "unresolved": [],
   "invalid": [],
   "run": "ended",
@@ -18599,13 +18493,13 @@
   "notes": [],
   "marks": [
    {
-    "t": 4802066051592,
+    "t": 6163667909259,
     "event": "event-dropped",
     "rows": 0,
     "worker": "w1"
    },
    {
-    "t": 4805230667818,
+    "t": 6166586797235,
     "event": "event-dropped",
     "rows": 1,
     "worker": "w2"
@@ -18619,347 +18513,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-27a6202461b24715a9ccbfdefef41e9b",
+     "request_id": "rid-23d341c0853744218c98301e6a48c7b8",
      "retry_of": null,
-     "t": 4804199206724,
+     "t": 6165759003453,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "8949f3cec76964f233f8c63074e07c2cfb4f11b0da1e6e649f6418ebd1b03ec5",
-     "request_id": "rid-27a6202461b24715a9ccbfdefef41e9b",
-     "t": 4804199856852
+     "output_sha256": "5659f7d63669f06027e09bd541d32a533f330c1a9dd7eecbaa966af0eb9d624c",
+     "request_id": "rid-23d341c0853744218c98301e6a48c7b8",
+     "t": 6165759669219
     },
     {
      "kind": "delivered",
-     "request_id": "rid-27a6202461b24715a9ccbfdefef41e9b",
-     "t": 4804200369122
-    }
-   ],
-   "T-I": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-27a6202461b24715a9ccbfdefef41e9b"
-     },
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "request",
-     "t": 4806923029175,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "effect",
-     "result": {
-      "effect": "T-I-1"
-     },
-     "t": 4806923573269,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "delivered",
-     "t": 4806923971426
-    }
-   ],
-   "T-F": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-27a6202461b24715a9ccbfdefef41e9b",
-      "ti": "T-I-1"
-     },
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "request",
-     "t": 4806935606543,
-     "task": "T",
-     "token": 1795843240792
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "effect",
-     "result": {
-      "effect": "T-F-1"
-     },
-     "t": 4806936128623,
-     "token": 1795843240792
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "delivered",
-     "t": 4806936447848
-    }
-   ],
-   "T-N": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-27a6202461b24715a9ccbfdefef41e9b",
-      "tf": "T-F-1"
-     },
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "request",
-     "t": 4806947864890,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "effect",
-     "result": {
-      "effect": "T-N-1"
-     },
-     "t": 4806948431414,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "delivered",
-     "t": 4806948748630
-    }
-   ],
-   "approver": [
-    {
-     "action": "T-I,T-F,T-N",
-     "kind": "request",
-     "t": 4804213652328,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4804801506331,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "kind": "request",
-     "t": 4806330291668,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "kind": "delivered",
-     "t": 4806330700832,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4807047277152,
-     "task": "T"
-    }
-   ]
-  },
-  "answers": [
-   {
-    "answer": {
-     "memory": {
-      "reply": "rid-27a6202461b24715a9ccbfdefef41e9b",
-      "tf": "T-F-1",
-      "ti": "T-I-1",
-      "tn": "T-N-1"
-     },
-     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
-     "task": {
-      "id": "T",
-      "status": "done"
-     }
-    },
-    "arg": "A",
-    "call": "state",
-    "exit": 0,
-    "t": 4818172607218
-   },
-   {
-    "answer": {
-     "calls": [
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-27a6202461b24715a9ccbfdefef41e9b"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-I",
-       "key": "T:T-I",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-I-1"
-        }
-       },
-       "task": "T",
-       "token": null,
-       "tool": "T-I"
-      },
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-27a6202461b24715a9ccbfdefef41e9b",
-        "ti": "T-I-1"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-F",
-       "key": "T:T-F",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-F-1"
-        }
-       },
-       "task": "T",
-       "token": 1795843240792,
-       "tool": "T-F"
-      },
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-27a6202461b24715a9ccbfdefef41e9b",
-        "tf": "T-F-1"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-N",
-       "key": "T:T-N",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-N-1"
-        }
-       },
-       "task": "T",
-       "token": null,
-       "tool": "T-N"
-      }
-     ],
-     "model": [
-      {
-       "input": {
-        "agent": "A",
-        "prompt": "Plan task T for A.",
-        "task": "T"
-       },
-       "invocation_id": "T:model",
-       "output_sha256": "8949f3cec76964f233f8c63074e07c2cfb4f11b0da1e6e649f6418ebd1b03ec5",
-       "request_id": "rid-27a6202461b24715a9ccbfdefef41e9b",
-       "used": true
-      }
-     ],
-     "policy": [
-      {
-       "action": "T-I,T-F,T-N",
-       "approval": {
-        "decision": "approve"
-       },
-       "result": "needs_approval",
-       "rule_version": "p1"
-      }
-     ],
-     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
-    },
-    "arg": "T",
-    "call": "reconstruct",
-    "exit": 0,
-    "t": 4818742555859
-   }
-  ],
-  "status": "miss",
-  "evidence": "notifications deleted at worker start: 1",
-  "new": [],
-  "control_fails": [],
-  "mutant": "O-5-event-dropped",
-  "guarantee": "O-5",
-  "cell": "A09-0"
- },
- "O-5-event-dropped|A09-1": {
-  "verdict": "pass",
-  "guarantees": {
-   "O-1": "pass",
-   "O-2": "pass",
-   "O-3": "pass",
-   "O-4": "pass",
-   "O-5": "pass"
-  },
-  "fails": [],
-  "unresolved": [],
-  "invalid": [],
-  "run": "ended",
-  "why": null,
-  "notes": [],
-  "marks": [
-   {
-    "t": 4818246477630,
-    "event": "event-dropped",
-    "rows": 0,
-    "worker": "w1"
-   },
-   {
-    "t": 4821460343340,
-    "event": "event-dropped",
-    "rows": 1,
-    "worker": "w2"
-   }
-  ],
-  "svc": {
-   "stub": [
-    {
-     "agent": "A",
-     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
-     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
-     "invocation_id": "T:model",
-     "kind": "request",
-     "request_id": "rid-29d89e7ba547447cab28be77870e7520",
-     "retry_of": null,
-     "t": 4820343433184,
-     "task": "T"
-    },
-    {
-     "kind": "reply",
-     "output_sha256": "d2a51b39c0735f9e2051e087930982dbcb1dbfbf35d6a0547619ccfcf06c8885",
-     "request_id": "rid-29d89e7ba547447cab28be77870e7520",
-     "t": 4820345926124
-    },
-    {
-     "kind": "delivered",
-     "request_id": "rid-29d89e7ba547447cab28be77870e7520",
-     "t": 4820347043076
+     "request_id": "rid-23d341c0853744218c98301e6a48c7b8",
+     "t": 6165760070976
     }
    ],
    "T-I": [],
@@ -18969,35 +18537,27 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4820358651834,
+     "t": 6165769645357,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
-     "decision": "deny",
+     "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4820865810799,
+     "t": 6166255627246,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4822693939327,
+     "t": 6167634480720,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4822694691713,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "deny",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4823460875978,
+     "t": 6167635103033,
      "task": "T"
     }
    ]
@@ -19007,7 +18567,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-29d89e7ba547447cab28be77870e7520"
+      "reply": "rid-23d341c0853744218c98301e6a48c7b8"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -19018,7 +18578,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4834566957661
+    "t": 6200016591679
    },
    {
     "answer": {
@@ -19031,8 +18591,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "d2a51b39c0735f9e2051e087930982dbcb1dbfbf35d6a0547619ccfcf06c8885",
-       "request_id": "rid-29d89e7ba547447cab28be77870e7520",
+       "output_sha256": "5659f7d63669f06027e09bd541d32a533f330c1a9dd7eecbaa966af0eb9d624c",
+       "request_id": "rid-23d341c0853744218c98301e6a48c7b8",
        "used": true
       }
      ],
@@ -19040,7 +18600,7 @@
       {
        "action": "T-I,T-F,T-N",
        "approval": {
-        "decision": "deny"
+        "decision": null
        },
        "result": "needs_approval",
        "rule_version": "p1"
@@ -19051,12 +18611,166 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4835133737873
+    "t": 6200532997778
    }
   ],
-  "status": "miss",
+  "status": "flagged",
   "evidence": "notifications deleted at worker start: 1",
-  "new": [],
+  "new": [
+   "O-5.once",
+   "O-5.proceeds"
+  ],
+  "control_fails": [],
+  "mutant": "O-5-event-dropped",
+  "guarantee": "O-5",
+  "cell": "A09-0"
+ },
+ "O-5-event-dropped|A09-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "fail"
+  },
+  "fails": [
+   "O-4.approval",
+   "O-5.once"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "t": 6164218475638,
+    "event": "event-dropped",
+    "rows": 0,
+    "worker": "w1"
+   },
+   {
+    "t": 6167193230781,
+    "event": "event-dropped",
+    "rows": 1,
+    "worker": "w2"
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"agent\":\"A\",\"prompt\":\"Plan task T for A.\",\"task\":\"T\"}",
+     "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
+     "invocation_id": "T:model",
+     "kind": "request",
+     "request_id": "rid-fe6b0949b1df440ea65586525727469e",
+     "retry_of": null,
+     "t": 6166300302585,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "7807ef49a5f314883ee94d0a654e1def47c597fbd3777d02a47eaf8652934cac",
+     "request_id": "rid-fe6b0949b1df440ea65586525727469e",
+     "t": 6166301068661
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-fe6b0949b1df440ea65586525727469e",
+     "t": 6166301534856
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 6166313458835,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 6166851531685,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "request",
+     "t": 6168261977412,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6168262607394,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-fe6b0949b1df440ea65586525727469e"
+     },
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6200483916601
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "agent": "A",
+        "prompt": "Plan task T for A.",
+        "task": "T"
+       },
+       "invocation_id": "T:model",
+       "output_sha256": "7807ef49a5f314883ee94d0a654e1def47c597fbd3777d02a47eaf8652934cac",
+       "request_id": "rid-fe6b0949b1df440ea65586525727469e",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": null
+       },
+       "result": "needs_approval",
+       "rule_version": "p1"
+      }
+     ],
+     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6201001059975
+   }
+  ],
+  "status": "flagged",
+  "evidence": "notifications deleted at worker start: 1",
+  "new": [
+   "O-5.once"
+  ],
   "control_fails": [],
   "mutant": "O-5-event-dropped",
   "guarantee": "O-5",
@@ -19085,13 +18799,13 @@
   "notes": [],
   "marks": [
    {
-    "t": 4821755673113,
+    "t": 6202960466003,
     "event": "event-dropped",
     "rows": 0,
     "worker": "w1"
    },
    {
-    "t": 4824930962235,
+    "t": 6206025525686,
     "event": "event-dropped",
     "rows": 1,
     "worker": "w2"
@@ -19105,21 +18819,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-517ed50b04f24fad8bb7634794072268",
+     "request_id": "rid-5b3e6e51eb51478ba3c19d8106cbba01",
      "retry_of": null,
-     "t": 4823876848514,
+     "t": 6205057748817,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "6df15e70ea3bd92b14581ee8c209306c0ba71ca719db24236822f19a27364fc6",
-     "request_id": "rid-517ed50b04f24fad8bb7634794072268",
-     "t": 4823880135306
+     "output_sha256": "db76589846a03c5f0dca16221685ef960a8433c982fe5fe67b7970932b658c82",
+     "request_id": "rid-5b3e6e51eb51478ba3c19d8106cbba01",
+     "t": 6205058671871
     },
     {
      "kind": "delivered",
-     "request_id": "rid-517ed50b04f24fad8bb7634794072268",
-     "t": 4823884339697
+     "request_id": "rid-5b3e6e51eb51478ba3c19d8106cbba01",
+     "t": 6205059169006
     }
    ],
    "T-I": [],
@@ -19129,7 +18843,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4823923334519,
+     "t": 6205075930868,
      "task": "T"
     },
     {
@@ -19137,13 +18851,13 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4824499169885,
+     "t": 6205643734366,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4824502486149,
+     "t": 6205646875647,
      "task": "T"
     }
    ]
@@ -19153,7 +18867,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-517ed50b04f24fad8bb7634794072268"
+      "reply": "rid-5b3e6e51eb51478ba3c19d8106cbba01"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -19164,7 +18878,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4857823593526
+    "t": 6239289979341
    },
    {
     "answer": {
@@ -19177,8 +18891,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "6df15e70ea3bd92b14581ee8c209306c0ba71ca719db24236822f19a27364fc6",
-       "request_id": "rid-517ed50b04f24fad8bb7634794072268",
+       "output_sha256": "db76589846a03c5f0dca16221685ef960a8433c982fe5fe67b7970932b658c82",
+       "request_id": "rid-5b3e6e51eb51478ba3c19d8106cbba01",
        "used": true
       }
      ],
@@ -19197,7 +18911,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4858390363380
+    "t": 6239806082146
    }
   ],
   "status": "flagged",
@@ -19231,13 +18945,13 @@
   "notes": [],
   "marks": [
    {
-    "t": 4837784903769,
+    "t": 6203434708584,
     "event": "event-dropped",
     "rows": 0,
     "worker": "w1"
    },
    {
-    "t": 4840838158833,
+    "t": 6206438964421,
     "event": "event-dropped",
     "rows": 1,
     "worker": "w2"
@@ -19251,21 +18965,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-85c320d7cd5c42de96db682375df127b",
+     "request_id": "rid-b320027f8f9740bc843e958da8c7ff21",
      "retry_of": null,
-     "t": 4839894936288,
+     "t": 6205518155788,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "c5b9daff80f1f6b43ae2d4bd0926bc8d26cd856097e48f4106189ba6cc5831d8",
-     "request_id": "rid-85c320d7cd5c42de96db682375df127b",
-     "t": 4839895771605
+     "output_sha256": "0e0a463ef483cae6ec05c47f96b433fc142a3ea4c3b1f67099c7143d673f591e",
+     "request_id": "rid-b320027f8f9740bc843e958da8c7ff21",
+     "t": 6205519123572
     },
     {
      "kind": "delivered",
-     "request_id": "rid-85c320d7cd5c42de96db682375df127b",
-     "t": 4839897420067
+     "request_id": "rid-b320027f8f9740bc843e958da8c7ff21",
+     "t": 6205519759274
     }
    ],
    "T-I": [],
@@ -19275,7 +18989,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4839908507024,
+     "t": 6205530205162,
      "task": "T"
     },
     {
@@ -19283,13 +18997,13 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4840429202626,
+     "t": 6206046940230,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4840431363164,
+     "t": 6206049536192,
      "task": "T"
     }
    ]
@@ -19299,7 +19013,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-85c320d7cd5c42de96db682375df127b"
+      "reply": "rid-b320027f8f9740bc843e958da8c7ff21"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -19310,7 +19024,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4874053410687
+    "t": 6239621745307
    },
    {
     "answer": {
@@ -19323,8 +19037,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "c5b9daff80f1f6b43ae2d4bd0926bc8d26cd856097e48f4106189ba6cc5831d8",
-       "request_id": "rid-85c320d7cd5c42de96db682375df127b",
+       "output_sha256": "0e0a463ef483cae6ec05c47f96b433fc142a3ea4c3b1f67099c7143d673f591e",
+       "request_id": "rid-b320027f8f9740bc843e958da8c7ff21",
        "used": true
       }
      ],
@@ -19343,7 +19057,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4874725142728
+    "t": 6240088647938
    }
   ],
   "status": "flagged",
@@ -19357,29 +19071,40 @@
   "cell": "A10-1"
  },
  "O-5-event-dropped-hang|A09-0": {
-  "verdict": "pass",
+  "verdict": "unresolved",
   "guarantees": {
-   "O-1": "pass",
-   "O-2": "pass",
+   "O-1": "unresolved",
+   "O-2": "unresolved",
    "O-3": "pass",
-   "O-4": "pass",
-   "O-5": "pass"
+   "O-4": "unresolved",
+   "O-5": "unresolved"
   },
   "fails": [],
-  "unresolved": [],
+  "unresolved": [
+   "O-1.end_state",
+   "O-2.memory",
+   "O-4.approval",
+   "O-4.calls",
+   "O-4.model",
+   "O-4.model_used",
+   "O-4.policy",
+   "O-4.retention",
+   "O-5.once",
+   "O-5.proceeds"
+  ],
   "invalid": [],
-  "run": "ended",
-  "why": null,
+  "run": "cap",
+  "why": "run cap 300 s",
   "notes": [],
   "marks": [
    {
-    "t": 4861078462843,
+    "t": 6241967533052,
     "event": "event-dropped",
     "rows": 0,
     "worker": "w1"
    },
    {
-    "t": 4864024250967,
+    "t": 6244814527896,
     "event": "event-dropped",
     "rows": 1,
     "worker": "w2"
@@ -19393,129 +19118,31 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-140b046de89945309639ed4be6897dbe",
+     "request_id": "rid-32d726aea25142fc9604360caccc3708",
      "retry_of": null,
-     "t": 4863156978980,
+     "t": 6244037444024,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "15c7bd2927c52f21f00053e6d257f1e69efe13e973315a8b959ec91fc3fd2bd4",
-     "request_id": "rid-140b046de89945309639ed4be6897dbe",
-     "t": 4863157556121
+     "output_sha256": "f58aefcc24b242c9563dc122a9198b3aaefc32b75f19020409d32f8b53b0fbdd",
+     "request_id": "rid-32d726aea25142fc9604360caccc3708",
+     "t": 6244038084921
     },
     {
      "kind": "delivered",
-     "request_id": "rid-140b046de89945309639ed4be6897dbe",
-     "t": 4863157908692
+     "request_id": "rid-32d726aea25142fc9604360caccc3708",
+     "t": 6244038442193
     }
    ],
-   "T-I": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-140b046de89945309639ed4be6897dbe"
-     },
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "request",
-     "t": 4865717336351,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "effect",
-     "result": {
-      "effect": "T-I-1"
-     },
-     "t": 4865717857177,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-I",
-     "key": "T:T-I",
-     "kind": "delivered",
-     "t": 4865718269790
-    }
-   ],
-   "T-F": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-140b046de89945309639ed4be6897dbe",
-      "ti": "T-I-1"
-     },
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "request",
-     "t": 4865725245540,
-     "task": "T",
-     "token": 1795843299615
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "effect",
-     "result": {
-      "effect": "T-F-1"
-     },
-     "t": 4865725785416,
-     "token": 1795843299615
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-F",
-     "key": "T:T-F",
-     "kind": "delivered",
-     "t": 4865726172901
-    }
-   ],
-   "T-N": [
-    {
-     "agent": "A",
-     "args": {
-      "reply": "rid-140b046de89945309639ed4be6897dbe",
-      "tf": "T-F-1"
-     },
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "request",
-     "t": 4865741617709,
-     "task": "T",
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "effect",
-     "result": {
-      "effect": "T-N-1"
-     },
-     "t": 4865742128386,
-     "token": null
-    },
-    {
-     "attempt": 1,
-     "call_id": "T:T-N",
-     "key": "T:T-N",
-     "kind": "delivered",
-     "t": 4865742473913
-    }
-   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4863166622766,
+     "t": 6244048114046,
      "task": "T"
     },
     {
@@ -19523,158 +19150,25 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4863653832375,
+     "t": 6244482040634,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4865163789450,
+     "t": 6245945956078,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4865164617897,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4865831360844,
+     "t": 6245946589478,
      "task": "T"
     }
    ]
   },
-  "answers": [
-   {
-    "answer": {
-     "memory": {
-      "reply": "rid-140b046de89945309639ed4be6897dbe",
-      "tf": "T-F-1",
-      "ti": "T-I-1",
-      "tn": "T-N-1"
-     },
-     "retention": "forever: no DBOS workflow retention or garbage collection is configured",
-     "task": {
-      "id": "T",
-      "status": "done"
-     }
-    },
-    "arg": "A",
-    "call": "state",
-    "exit": 0,
-    "t": 4877154765912
-   },
-   {
-    "answer": {
-     "calls": [
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-140b046de89945309639ed4be6897dbe"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-I",
-       "key": "T:T-I",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-I-1"
-        }
-       },
-       "task": "T",
-       "token": null,
-       "tool": "T-I"
-      },
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-140b046de89945309639ed4be6897dbe",
-        "ti": "T-I-1"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-F",
-       "key": "T:T-F",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-F-1"
-        }
-       },
-       "task": "T",
-       "token": 1795843299615,
-       "tool": "T-F"
-      },
-      {
-       "agent": "A",
-       "args": {
-        "reply": "rid-140b046de89945309639ed4be6897dbe",
-        "tf": "T-F-1"
-       },
-       "attempts": [
-        {
-         "attempt": 1,
-         "outcome": "effect"
-        }
-       ],
-       "call_id": "T:T-N",
-       "key": "T:T-N",
-       "outcome": {
-        "kind": "effect",
-        "result": {
-         "effect": "T-N-1"
-        }
-       },
-       "task": "T",
-       "token": null,
-       "tool": "T-N"
-      }
-     ],
-     "model": [
-      {
-       "input": {
-        "agent": "A",
-        "prompt": "Plan task T for A.",
-        "task": "T"
-       },
-       "invocation_id": "T:model",
-       "output_sha256": "15c7bd2927c52f21f00053e6d257f1e69efe13e973315a8b959ec91fc3fd2bd4",
-       "request_id": "rid-140b046de89945309639ed4be6897dbe",
-       "used": true
-      }
-     ],
-     "policy": [
-      {
-       "action": "T-I,T-F,T-N",
-       "approval": {
-        "decision": "approve"
-       },
-       "result": "needs_approval",
-       "rule_version": "p1"
-      }
-     ],
-     "retention": "forever: no DBOS workflow retention or garbage collection is configured"
-    },
-    "arg": "T",
-    "call": "reconstruct",
-    "exit": 0,
-    "t": 4877776884606
-   }
-  ],
-  "status": "miss",
+  "answers": [],
+  "status": "unresolved (cap)",
   "evidence": "notifications deleted at worker start: 1",
   "new": [],
   "control_fails": [],

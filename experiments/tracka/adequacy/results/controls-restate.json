@@ -1,0 +1,8650 @@
+{
+ "none-S-M-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+     "retry_of": null,
+     "t": 6579248786249,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "52477a56f6a171d203fda2f5b80dcb43481c1881baac04fa6ddf9fdee9a8ed07",
+     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+     "t": 6579249914057
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+     "t": 6579250407355
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6579288497656,
+     "task": "T",
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6579289098909,
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6579289627184
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6579339906298,
+     "task": "T",
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6579340525233,
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6579341014241
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6579382749119,
+     "task": "T",
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6579383398027,
+     "token": 1795845013721
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6579383924516
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6590538409741
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845013721,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845013721,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845013721,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "52477a56f6a171d203fda2f5b80dcb43481c1881baac04fa6ddf9fdee9a8ed07",
+       "request_id": "rid-a9295d3b4a5745e88b855efe75f24b9f",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6590572347604
+   }
+  ]
+ },
+ "A01-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-2c1a5c15660d4b1e973a5cc37a48dfa2",
+     "retry_of": null,
+     "t": 6579182007898,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "6973cac01b45b264f9415271a20b16d1142fcb745f0147f1eb047ac101fe63be",
+     "request_id": "rid-2c1a5c15660d4b1e973a5cc37a48dfa2",
+     "t": 6579187520331
+    },
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:2",
+     "kind": "request",
+     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+     "retry_of": "T:model:1",
+     "t": 6580226881096,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "5572eb8604f3a61b8a9842b430233187696e2900fac56f45c24dd0ff56aee80b",
+     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+     "t": 6580227407116
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+     "t": 6580227975712
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6580273906786,
+     "task": "T",
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6580274613459,
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6580275060658
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6580323133743,
+     "task": "T",
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6580324211540,
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6580324669580
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6580366069102,
+     "task": "T",
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6580366638311,
+     "token": 1795845014703
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6580366945679
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6590600612503
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845014703,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845014703,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845014703,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": null,
+       "request_id": null,
+       "used": false
+      },
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:2",
+       "output_sha256": "5572eb8604f3a61b8a9842b430233187696e2900fac56f45c24dd0ff56aee80b",
+       "request_id": "rid-a86fa0f9f92546009bba4f8a11a5abb2",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6590634526595
+   }
+  ]
+ },
+ "A02-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+     "retry_of": null,
+     "t": 6593310761650,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "495404827d4acb7c0782da8b43105771c57942d0c5c384e019bfce64328eec63",
+     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+     "t": 6593311593352
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+     "t": 6593312304742
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6593354376209,
+     "task": "T",
+     "token": 1795845027785
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6593359650640,
+     "token": 1795845027785
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6594504667577,
+     "task": "T",
+     "token": 1795845028979
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6594505927238,
+     "token": 1795845028979
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6594506700215
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6594548545393,
+     "task": "T",
+     "token": 1795845028979
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6594549193492,
+     "token": 1795845028979
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6594549794154
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6594596746303,
+     "task": "T",
+     "token": 1795845028979
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6594598932518,
+     "token": 1795845028979
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6594599974016
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6606590334847
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b3b5ccae13c640f98808076c6780a554"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028979,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028979,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b3b5ccae13c640f98808076c6780a554",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028979,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "495404827d4acb7c0782da8b43105771c57942d0c5c384e019bfce64328eec63",
+       "request_id": "rid-b3b5ccae13c640f98808076c6780a554",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6606607841423
+   }
+  ]
+ },
+ "A02-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-99b223292f994084b6785b16137ab11c",
+     "retry_of": null,
+     "t": 6593223287609,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "4b1e3468691dc55626a6bab81bb0ec2bc65d4991779f406e829f0a35e0a67223",
+     "request_id": "rid-99b223292f994084b6785b16137ab11c",
+     "t": 6593224266457
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-99b223292f994084b6785b16137ab11c",
+     "t": 6593225103736
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-99b223292f994084b6785b16137ab11c"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6593269141555,
+     "task": "T",
+     "token": 1795845027697
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6593274516149,
+     "token": 1795845027697
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-99b223292f994084b6785b16137ab11c"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6594522735319,
+     "task": "T",
+     "token": 1795845028994
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6594523330981,
+     "token": 1795845028994
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6594524081309
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6594564924763,
+     "task": "T",
+     "token": 1795845028994
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6594565788400,
+     "token": 1795845028994
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6594566336558
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6594617783739,
+     "task": "T",
+     "token": 1795845028994
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6594618521811,
+     "token": 1795845028994
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6594619154209
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-99b223292f994084b6785b16137ab11c",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6606590359876
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-99b223292f994084b6785b16137ab11c"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028994,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-99b223292f994084b6785b16137ab11c",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028994,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-99b223292f994084b6785b16137ab11c",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845028994,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "4b1e3468691dc55626a6bab81bb0ec2bc65d4991779f406e829f0a35e0a67223",
+       "request_id": "rid-99b223292f994084b6785b16137ab11c",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6606607372590
+   }
+  ]
+ },
+ "A03-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+     "retry_of": null,
+     "t": 6609240561991,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "f273309525a810ec134325f77a3e8c12fea0775f3f3df25b46b245fb38f29827",
+     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+     "t": 6609241535128
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+     "t": 6609242141186
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6609286860342,
+     "task": "T",
+     "token": 1795845043716
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6609287568912,
+     "token": 1795845043716
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6609288151916
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6609333545224,
+     "task": "T",
+     "token": 1795845043716
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6609338920681,
+     "token": 1795845043716
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "ti": "T-I-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6610622166469,
+     "task": "T",
+     "token": 1795845045099
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6610622807270,
+     "token": 1795845045099
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6610623127268
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6610668145837,
+     "task": "T",
+     "token": 1795845045099
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6610668747438,
+     "token": 1795845045099
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6610669207268
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6622705981908
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845043716,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+        "ti": "T-I-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845045099,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845045099,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "f273309525a810ec134325f77a3e8c12fea0775f3f3df25b46b245fb38f29827",
+       "request_id": "rid-e40f6efd75be4cdcb46c57a4f3da2f8f",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6622758169738
+   }
+  ]
+ },
+ "A04-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+     "retry_of": null,
+     "t": 6608831974761,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9749220403e0e7610e5bf54cc13640e99d69fd55b3d0292b23f1e3e4405265f5",
+     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+     "t": 6608832619648
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+     "t": 6608833023919
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6608879187464,
+     "task": "T",
+     "token": 1795845043310
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6608879867535,
+     "token": 1795845043310
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6608880326415
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6608929140548,
+     "task": "T",
+     "token": 1795845043310
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6608929808208,
+     "token": 1795845043310
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6608930174917
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6608970847373,
+     "task": "T",
+     "token": 1795845043310
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6608976214867,
+     "token": 1795845043310
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6620685440226
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845043310,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845043310,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-18abf3f5e2b641028f5f375c1bb31726",
+        "tf": "T-F-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": 1795845044011,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "9749220403e0e7610e5bf54cc13640e99d69fd55b3d0292b23f1e3e4405265f5",
+       "request_id": "rid-18abf3f5e2b641028f5f375c1bb31726",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6620719660912
+   }
+  ]
+ },
+ "A04-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ); call 'T:T-N': outcome 'owner:happened', last attempt 'unknown'",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+     "retry_of": null,
+     "t": 6623261824112,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "5fb25866975260af97b5f3266482e55c76ff592f412b41dd4063a97aff85e2d2",
+     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+     "t": 6623262515140
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+     "t": 6623262861462
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6623306895271,
+     "task": "T",
+     "token": 1795845057737
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6623307805580,
+     "token": 1795845057737
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6623308429557
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6623354518440,
+     "task": "T",
+     "token": 1795845057737
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6623355496204,
+     "token": 1795845057737
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6623356067155
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6623406272638,
+     "task": "T",
+     "token": 1795845057737
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6623415949464,
+     "token": 1795845057737
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "owner:happened"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6634981779003
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845057737,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845057737,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+        "tf": "T-F-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:happened"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "owner:happened",
+        "result": null
+       },
+       "task": "T",
+       "token": 1795845058544,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "5fb25866975260af97b5f3266482e55c76ff592f412b41dd4063a97aff85e2d2",
+       "request_id": "rid-49a6c8f662ac4e93bf1735f74b69b06a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6634999171753
+   }
+  ]
+ },
+ "A05-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+     "retry_of": null,
+     "t": 6624995673433,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "ccfb8244821c4af1a10d54d4e3127c2f552296a9338f03d3d5e5762aa9642269",
+     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+     "t": 6624996863866
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+     "t": 6624997536990
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6625617155729,
+     "task": "T",
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6625618390430,
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6625619086539
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6625662962509,
+     "task": "T",
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6625664093619,
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6625664672530
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6625708293440,
+     "task": "T",
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6625709397106,
+     "token": 1795845060045
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6625710060595
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6636839560692
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845060045,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845060045,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b40a26e77d584a599e8055c416d3ba2a",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845060045,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "ccfb8244821c4af1a10d54d4e3127c2f552296a9338f03d3d5e5762aa9642269",
+       "request_id": "rid-b40a26e77d584a599e8055c416d3ba2a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6636857574512
+   }
+  ]
+ },
+ "A06-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+     "retry_of": null,
+     "t": 6637415480864,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "70d6951937020e336eaa61f94fa8322b45b261c6baebbd4769217f6aec1cd24e",
+     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+     "t": 6637416646033
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+     "t": 6637417196468
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6637459143940,
+     "task": "T",
+     "token": 1795845071890
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6637460027371,
+     "token": 1795845071890
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6637460407959
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6638553922611,
+     "task": "T",
+     "token": 1795845073022
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6638555436480,
+     "token": 1795845073022
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6638555968854
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6638595920705,
+     "task": "T",
+     "token": 1795845073022
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6638597874402,
+     "token": 1795845073022
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6638599277726
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6648838235247
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845071890,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845073022,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845073022,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "70d6951937020e336eaa61f94fa8322b45b261c6baebbd4769217f6aec1cd24e",
+       "request_id": "rid-c3f56cdedbd04e05a202188d86cf6fbd",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6648855602551
+   }
+  ]
+ },
+ "A06-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+     "retry_of": null,
+     "t": 6638792377832,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "88ed7f78d376c523e14a51f1e2ce18a84f151d814bac66f440d6a246f3c7ab19",
+     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+     "t": 6638795742557
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+     "t": 6638796314324
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6638836139175,
+     "task": "T",
+     "token": 1795845073270
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6638837025090,
+     "token": 1795845073270
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6638837494719
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6639425756316,
+     "task": "T",
+     "token": 1795845073902
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6639426915588,
+     "token": 1795845073902
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6639427342157
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6639466327415,
+     "task": "T",
+     "token": 1795845073902
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6639467191534,
+     "token": 1795845073902
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6639467583037
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6639509879081,
+     "task": "T",
+     "token": 1795845073902
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6639510586768,
+     "token": 1795845073902
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6639510886669
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6650693730227
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b5c275a887224d88a5342eee2024e1e4"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845073902,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845073902,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b5c275a887224d88a5342eee2024e1e4",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845073902,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "88ed7f78d376c523e14a51f1e2ce18a84f151d814bac66f440d6a246f3c7ab19",
+       "request_id": "rid-b5c275a887224d88a5342eee2024e1e4",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6650726730861
+   }
+  ]
+ },
+ "A07-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+     "retry_of": null,
+     "t": 6651281063533,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "1da4e4605018e5a822b216761ea9e2471cc0592255cf73e7fe4834e75ce4eeb0",
+     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+     "t": 6651282045494
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+     "t": 6651282687414
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6651328107774,
+     "task": "T",
+     "token": 1795845085758
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6651328788776,
+     "token": 1795845085758
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6651329283660
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6651374745229,
+     "task": "T",
+     "token": 1795845085758
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6651375206676,
+     "token": 1795845085758
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6651375610632
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6652534624370,
+     "task": "T",
+     "token": 1795845087010
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6652535302854,
+     "token": 1795845087010
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6652536235896
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6662669962170
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845085758,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845085758,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845087010,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "1da4e4605018e5a822b216761ea9e2471cc0592255cf73e7fe4834e75ce4eeb0",
+       "request_id": "rid-9f9c3d4c63e44acb8ce8529ff5786bb0",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6662703678209
+   }
+  ]
+ },
+ "A08-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+     "retry_of": null,
+     "t": 6653116967366,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "3139994d74f818c7a0b935d590a24ab7f02d20914f07892bf2abd04484eba9b5",
+     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+     "t": 6653118092602
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+     "t": 6653118631343
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-86ffb76c042341bc85b2a46f383488b4"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6653164840900,
+     "task": "T",
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6653165564608,
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6653165924451
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6653209292408,
+     "task": "T",
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6653210142555,
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6653210878119
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6653254390192,
+     "task": "T",
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6653255349221,
+     "token": 1795845087591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6653256099010
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6666569665218
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-86ffb76c042341bc85b2a46f383488b4"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845087591,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845087591,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-86ffb76c042341bc85b2a46f383488b4",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845087591,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "3139994d74f818c7a0b935d590a24ab7f02d20914f07892bf2abd04484eba9b5",
+       "request_id": "rid-86ffb76c042341bc85b2a46f383488b4",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6666603200778
+   }
+  ]
+ },
+ "A08-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+     "retry_of": null,
+     "t": 6665105755395,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "d703129198cbaafed3b5e608577b72ffcac9299b2851550a996e94d5654d6269",
+     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+     "t": 6665106682501
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+     "t": 6665107271968
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6665154151553,
+     "task": "T",
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6665154884879,
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6665155396682
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6665198903581,
+     "task": "T",
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6665199518366,
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6665199942436
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6665243265077,
+     "task": "T",
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6665244249118,
+     "token": 1795845099581
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6665244900237
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6676532980889
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845099581,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845099581,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845099581,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "d703129198cbaafed3b5e608577b72ffcac9299b2851550a996e94d5654d6269",
+       "request_id": "rid-5e7b0ca28f6e4384a6fcae416f1b7dd0",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6676551066887
+   }
+  ]
+ },
+ "A11-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ); T-I 'T:T-I' attempt 2: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+     "retry_of": null,
+     "t": 6669114210156,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "75de0d533068d1f62800bf14138c9ab0912a582986f9bf4ebf7cfed474709856",
+     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+     "t": 6669116059867
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+     "t": 6669116989125
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6669161707950,
+     "task": "T",
+     "token": 1795845103591
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6669166740826,
+     "token": 1795845103591
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6670303763035,
+     "task": "T",
+     "token": 1795845104782
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6670308850789,
+     "token": 1795845104782
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6673527780462,
+     "task": "T",
+     "token": 1795845108004
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6673528307507,
+     "token": 1795845108004
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6673528685013
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6673575012459,
+     "task": "T",
+     "token": 1795845108004
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6673575755534,
+     "token": 1795845108004
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6673576417481
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6673620548924,
+     "task": "T",
+     "token": 1795845108004
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6673621213227,
+     "token": 1795845108004
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6673621915139
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6684587681119
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-efa05d5a440449e59b8d5c28c989da63"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "duplicate"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "duplicate",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845108004,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845108004,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-efa05d5a440449e59b8d5c28c989da63",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845108004,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "75de0d533068d1f62800bf14138c9ab0912a582986f9bf4ebf7cfed474709856",
+       "request_id": "rid-efa05d5a440449e59b8d5c28c989da63",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6684605584334
+   }
+  ]
+ },
+ "A12-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+     "retry_of": null,
+     "t": 6679002684018,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "eed280b0a2cc467bde86091ca0c3bcf832621ba5746d1d24eeca8fba478f7517",
+     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+     "t": 6679003668041
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+     "t": 6679004185862
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6679049546514,
+     "task": "T",
+     "token": 1795845113480
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6679484706986,
+     "task": "T",
+     "token": 1795845113959
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6679485044718,
+     "token": 1795845113959
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6679485653463
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6679683951982,
+     "token": 1795845113480
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6679523941770,
+     "task": "T",
+     "token": 1795845113959
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6679524583470,
+     "token": 1795845113959
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6679524961630
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6679579059952,
+     "task": "T",
+     "token": 1795845113959
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6679579577612,
+     "token": 1795845113959
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6679580053923
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6690424928559
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845113959,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845113959,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845113959,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "eed280b0a2cc467bde86091ca0c3bcf832621ba5746d1d24eeca8fba478f7517",
+       "request_id": "rid-5aa7f2a7d94f4e44869bc2243703d5ae",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6690458306839
+   }
+  ]
+ },
+ "A13-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+     "retry_of": null,
+     "t": 6687249129442,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "f4dfa7bcc21ccb5ec788f62eb7e14577cadc86cb24d92156968086c1a2bb860d",
+     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+     "t": 6687250160015
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+     "t": 6687250830924
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a661f5c7d0d2437aac49a259e585746e"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6687291177933,
+     "task": "T",
+     "token": 1795845121727
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6687291677431,
+     "token": 1795845121727
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6687293042750
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6687333544636,
+     "task": "T",
+     "token": 1795845121727
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6687334238552,
+     "token": 1795845121727
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6687334570664
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6687377721700,
+     "task": "T",
+     "token": 1795845121727
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "tf": "T-F-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6687805100148,
+     "task": "T",
+     "token": 1795845122282
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6687805403697,
+     "token": 1795845122282
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6687805687143
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-2"
+     },
+     "t": 6688007186957,
+     "token": 1795845121727
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6698577897681
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a661f5c7d0d2437aac49a259e585746e"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845121727,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845121727,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-a661f5c7d0d2437aac49a259e585746e",
+        "tf": "T-F-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:did_not_happen"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845122282,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "f4dfa7bcc21ccb5ec788f62eb7e14577cadc86cb24d92156968086c1a2bb860d",
+       "request_id": "rid-a661f5c7d0d2437aac49a259e585746e",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6698594879113
+   }
+  ]
+ },
+ "A14-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-38b693dff6c145d6957ec8193c453a1e",
+     "retry_of": null,
+     "t": 6692852676748,
+     "task": "T"
+    },
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:2",
+     "kind": "request",
+     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+     "retry_of": "T:model:1",
+     "t": 6709066771961,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "8947ada1861949ec68763c64287e47c84a0f482ee30aace93f4363bba623fece",
+     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+     "t": 6709067689240
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+     "t": 6709068231771
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "08d781591f2d2353af0a311e764b1db86b3c49ee70226ee434d2a560433208c3",
+     "request_id": "rid-38b693dff6c145d6957ec8193c453a1e",
+     "t": 6709077343486
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6709109612881,
+     "task": "T",
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6709110399891,
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6709110893202
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6709156452225,
+     "task": "T",
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6709157377459,
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6709158002278
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6709203246360,
+     "task": "T",
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6709203983715,
+     "token": 1795845143542
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6709204596041
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6720326032904
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845143542,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845143542,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845143542,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": null,
+       "request_id": null,
+       "used": false
+      },
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:2",
+       "output_sha256": "8947ada1861949ec68763c64287e47c84a0f482ee30aace93f4363bba623fece",
+       "request_id": "rid-d1f88a92d55f4c669d8c7571b746dd3d",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6720343284840
+   }
+  ]
+ },
+ "A14-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+     "retry_of": null,
+     "t": 6700880113716,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "db2c62c20b0616b34761d4ed3276ef45ff1301f524c78914ce5aeffcf74eff38",
+     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+     "t": 6700883805632
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+     "t": 6700884494125
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4524066895484d8dc353757bbfdede"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6700923651658,
+     "task": "T",
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6700924316135,
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6700924735245
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6700985989359,
+     "task": "T",
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6700986669029,
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6700987013755
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6701040792170,
+     "task": "T",
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6701041440415,
+     "token": 1795845135352
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6701041849230
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-3d4524066895484d8dc353757bbfdede",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6712297289374
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4524066895484d8dc353757bbfdede"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845135352,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4524066895484d8dc353757bbfdede",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845135352,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4524066895484d8dc353757bbfdede",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845135352,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "db2c62c20b0616b34761d4ed3276ef45ff1301f524c78914ce5aeffcf74eff38",
+       "request_id": "rid-3d4524066895484d8dc353757bbfdede",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6712314010510
+   }
+  ]
+ },
+ "A15-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-I 'T:T-I' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+     "retry_of": null,
+     "t": 6714789369171,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "9fe5e5f1f5b8bb697fae671cf434adabb03266a1069a724accdb3eba34c62036",
+     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+     "t": 6714790263772
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+     "t": 6714790846384
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6714835038973,
+     "task": "T",
+     "token": 1795845149266
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+     },
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6730860914253,
+     "task": "T",
+     "token": 1795845165338
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6730861586441,
+     "token": 1795845165338
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6730861911894
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "duplicate",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6730868939744,
+     "token": 1795845149266
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6730905738713,
+     "task": "T",
+     "token": 1795845165338
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6730906890110,
+     "token": 1795845165338
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6730907285942
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6730955679615,
+     "task": "T",
+     "token": 1795845165338
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6730956334750,
+     "token": 1795845165338
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6730956819811
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6742186597848
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c31bda1df279413fb8e73a41328e840a"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845165338,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845165338,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c31bda1df279413fb8e73a41328e840a",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845165338,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "9fe5e5f1f5b8bb697fae671cf434adabb03266a1069a724accdb3eba34c62036",
+       "request_id": "rid-c31bda1df279413fb8e73a41328e840a",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6742203790356
+   }
+  ]
+ },
+ "A15-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+     "retry_of": null,
+     "t": 6722818390753,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "037bf8cc3b87a526505857eaf1f9e74383f32a6441d07342da6602517feab037",
+     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+     "t": 6722819209467
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+     "t": 6722819607264
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6722855707013,
+     "task": "T",
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6722878262686,
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6722878898690
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6722932564931,
+     "task": "T",
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6722933906248,
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6722934321206
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6722986045603,
+     "task": "T",
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6722986632213,
+     "token": 1795845157287
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6722986980488
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6734211455119
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845157287,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845157287,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845157287,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "037bf8cc3b87a526505857eaf1f9e74383f32a6441d07342da6602517feab037",
+       "request_id": "rid-35bb34f2b240494081e2eeeea8ae92f3",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6734228548498
+   }
+  ]
+ },
+ "A16-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-F 'T:T-F' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+     "retry_of": null,
+     "t": 6736825574350,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "aedd5a58fdfe70ac735065dd654eb43c0bfb6082e3c577cb9ae9abd8a82fa8aa",
+     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+     "t": 6736826516660
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+     "t": 6736827023166
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2a124462a8084d799e53b990704d2a89"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6736877675956,
+     "task": "T",
+     "token": 1795845171300
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6736878414151,
+     "token": 1795845171300
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6736878820103
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6736929966229,
+     "task": "T",
+     "token": 1795845171300
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "ti": "T-I-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6753009517751,
+     "task": "T",
+     "token": 1795845187488
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6753010141586,
+     "token": 1795845187488
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6753010523578
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "rejected_stale",
+     "result": {
+      "highest": 1795845187488
+     },
+     "t": 6753020509269,
+     "token": 1795845171300
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6753060374190,
+     "task": "T",
+     "token": 1795845187488
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6753061040522,
+     "token": 1795845187488
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6753061334579
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-2a124462a8084d799e53b990704d2a89",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6764256408362
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2a124462a8084d799e53b990704d2a89"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845171300,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2a124462a8084d799e53b990704d2a89",
+        "ti": "T-I-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845187488,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-2a124462a8084d799e53b990704d2a89",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845187488,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "aedd5a58fdfe70ac735065dd654eb43c0bfb6082e3c577cb9ae9abd8a82fa8aa",
+       "request_id": "rid-2a124462a8084d799e53b990704d2a89",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6764273626830
+   }
+  ]
+ },
+ "A16-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+     "retry_of": null,
+     "t": 6744595341839,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "6faec6b963fffebce3c13606fedd0488e984b715cb31f94ad5b3db174fb6b4ef",
+     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+     "t": 6744596132219
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+     "t": 6744596495353
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9e5c5e54db744b1b93875876e5d98905"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6744639517725,
+     "task": "T",
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6744640111527,
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6744640377930
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6744686299240,
+     "task": "T",
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6744689193863,
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6744689646332
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6744733769374,
+     "task": "T",
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6744734373025,
+     "token": 1795845179072
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6744734841492
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6756043177232
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9e5c5e54db744b1b93875876e5d98905"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845179072,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845179072,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-9e5c5e54db744b1b93875876e5d98905",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845179072,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "6faec6b963fffebce3c13606fedd0488e984b715cb31f94ad5b3db174fb6b4ef",
+       "request_id": "rid-9e5c5e54db744b1b93875876e5d98905",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6756060285741
+   }
+  ]
+ },
+ "A17-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.calls",
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "fail",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.calls": "T-N 'T:T-N' attempt 1: not in reconstruct (or call fields differ)",
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+     "retry_of": null,
+     "t": 6758772821663,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "466e16262765de0a531075aadf728e70b19d19e73d88c2d940efffbca7dba9e7",
+     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+     "t": 6758773836778
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+     "t": 6758774513661
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6758817145256,
+     "task": "T",
+     "token": 1795845193245
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6758818097913,
+     "token": 1795845193245
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6758818678064
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6758862220619,
+     "task": "T",
+     "token": 1795845193245
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6758862973904,
+     "token": 1795845193245
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6758863512000
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6758906470036,
+     "task": "T",
+     "token": 1795845193245
+    },
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "tf": "T-F-1"
+     },
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6775083302138,
+     "task": "T",
+     "token": 1795845209560
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6775083552103,
+     "token": 1795845209560
+    },
+    {
+     "attempt": 2,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6775083798362
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-2"
+     },
+     "t": 6775094756657,
+     "token": 1795845193245
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6786217183375
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845193245,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845193245,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+        "tf": "T-F-1"
+       },
+       "attempt": 2,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "unknown"
+        },
+        {
+         "attempt": 1,
+         "outcome": "owner:did_not_happen"
+        },
+        {
+         "attempt": 2,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845209560,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "466e16262765de0a531075aadf728e70b19d19e73d88c2d940efffbca7dba9e7",
+       "request_id": "rid-b7ee50c6ffa7443b8ba6c4e76454d6b0",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6786234350266
+   }
+  ]
+ },
+ "A17-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "not_exercised"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "pass",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "not_exercised",
+   "O-4.retention": "pass",
+   "O-5.accepted": "not_exercised",
+   "O-5.once": "not_exercised",
+   "O-5.waits": "not_exercised",
+   "O-5.proceeds": "not_exercised"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-M\",\"task\":\"T\"}",
+     "body_sha256": "613c08141b3441ed81cd7eac454a4586fb9049d37e4d84321f4b24d67a8bf5bc",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+     "retry_of": null,
+     "t": 6766433761478,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "411d8432d449235f20106d227215357073fe72652e26f2313b6f56627e8b355a",
+     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+     "t": 6766434624238
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+     "t": 6766435246586
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-321772885f574fd18dae34ea3ed2c641"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6766475519015,
+     "task": "T",
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6766476165531,
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6766476548582
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6766521691522,
+     "task": "T",
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6766522420817,
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6766522780788
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6766565581265,
+     "task": "T",
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6766568571174,
+     "token": 1795845200910
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6766568953205
+    }
+   ],
+   "approver": []
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6778340637329
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-321772885f574fd18dae34ea3ed2c641"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845200910,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845200910,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-321772885f574fd18dae34ea3ed2c641",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845200910,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-M",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "411d8432d449235f20106d227215357073fe72652e26f2313b6f56627e8b355a",
+       "request_id": "rid-321772885f574fd18dae34ea3ed2c641",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": null,
+       "result": "allow",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6778358001398
+   }
+  ]
+ },
+ "A09-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-AP\",\"task\":\"T\"}",
+     "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+     "retry_of": null,
+     "t": 6780746030464,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "bba3452090c0b873b2e0af0145f9de7d77fedcc59c2d352af48f122ccab8e5f5",
+     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+     "t": 6780746960622
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+     "t": 6780747697619
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c48a408731b64dafb4385b57e16160b0"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6782070582713,
+     "task": "T",
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6782071298333,
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6782071750468
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6782119120874,
+     "task": "T",
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6782119842846,
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6782120387694
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6782168262996,
+     "task": "T",
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6782168731592,
+     "token": 1795845216504
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6782169052147
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6780788760920,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 6780811809628,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6782018714529,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6782020422326,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6794147504986
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c48a408731b64dafb4385b57e16160b0"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845216504,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845216504,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-c48a408731b64dafb4385b57e16160b0",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845216504,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-AP",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "bba3452090c0b873b2e0af0145f9de7d77fedcc59c2d352af48f122ccab8e5f5",
+       "request_id": "rid-c48a408731b64dafb4385b57e16160b0",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6794164184317
+   }
+  ]
+ },
+ "A09-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "not_exercised",
+   "O-3.tn_no_repeat": "not_exercised",
+   "O-3.tf_stale": "not_exercised",
+   "O-3.deny_no_tool": "pass",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-AP\",\"task\":\"T\"}",
+     "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+     "retry_of": null,
+     "t": 6788866763822,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "e8f62e2893a22950fbbf47c9c42599045a8625bf6081d039f742cc93cdca8a06",
+     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+     "t": 6788872225854
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+     "t": 6788872790936
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6788908113848,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 6788941988501,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6790198276923,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6790199094564,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-a5b3c01807524e5187b688833c6ff220"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6800330302749
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-AP",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "e8f62e2893a22950fbbf47c9c42599045a8625bf6081d039f742cc93cdca8a06",
+       "request_id": "rid-a5b3c01807524e5187b688833c6ff220",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6800347505990
+   }
+  ]
+ },
+ "A10-0": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "pass",
+   "O-3.tn_no_repeat": "pass",
+   "O-3.tf_stale": "pass",
+   "O-3.deny_no_tool": "not_exercised",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-AP\",\"task\":\"T\"}",
+     "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+     "retry_of": null,
+     "t": 6796755154800,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "c78ecaea2f69226ddce1c22d26999b66c9aeba6279c860faf50a52fd0f8d1133",
+     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+     "t": 6796755949873
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+     "t": 6796756369500
+    }
+   ],
+   "T-I": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4fa4e6652c4712b966453d487a988d"
+     },
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "request",
+     "t": 6798118206449,
+     "task": "T",
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "effect",
+     "result": {
+      "effect": "T-I-1"
+     },
+     "t": 6798118787627,
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-I",
+     "key": "T:T-I",
+     "kind": "delivered",
+     "t": 6798119112286
+    }
+   ],
+   "T-F": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "ti": "T-I-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "request",
+     "t": 6798161146143,
+     "task": "T",
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "effect",
+     "result": {
+      "effect": "T-F-1"
+     },
+     "t": 6798161847850,
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-F",
+     "key": "T:T-F",
+     "kind": "delivered",
+     "t": 6798162245276
+    }
+   ],
+   "T-N": [
+    {
+     "agent": "A",
+     "args": {
+      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "tf": "T-F-1"
+     },
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "request",
+     "t": 6798205159512,
+     "task": "T",
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "effect",
+     "result": {
+      "effect": "T-N-1"
+     },
+     "t": 6798205722757,
+     "token": 1795845232553
+    },
+    {
+     "attempt": 1,
+     "call_id": "T:T-N",
+     "key": "T:T-N",
+     "kind": "delivered",
+     "t": 6798206022632
+    }
+   ],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6796791408583,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "approve",
+     "exit": 0,
+     "kind": "posted",
+     "t": 6796808630623,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6796811511098,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6798066591079,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6798067314507,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+      "tf": "T-F-1",
+      "ti": "T-I-1",
+      "tn": "T-N-1"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "done"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6810095691519
+   },
+   {
+    "answer": {
+     "calls": [
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4fa4e6652c4712b966453d487a988d"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-I",
+       "key": "T:T-I",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-I-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845232553,
+       "tool": "T-I"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+        "ti": "T-I-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-F",
+       "key": "T:T-F",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-F-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845232553,
+       "tool": "T-F"
+      },
+      {
+       "agent": "A",
+       "args": {
+        "reply": "rid-3d4fa4e6652c4712b966453d487a988d",
+        "tf": "T-F-1"
+       },
+       "attempt": 1,
+       "attempts": [
+        {
+         "attempt": 1,
+         "outcome": "effect"
+        }
+       ],
+       "call_id": "T:T-N",
+       "key": "T:T-N",
+       "outcome": {
+        "kind": "effect",
+        "result": {
+         "effect": "T-N-1"
+        }
+       },
+       "task": "T",
+       "token": 1795845232553,
+       "tool": "T-N"
+      }
+     ],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-AP",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "c78ecaea2f69226ddce1c22d26999b66c9aeba6279c860faf50a52fd0f8d1133",
+       "request_id": "rid-3d4fa4e6652c4712b966453d487a988d",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "approve"
+       },
+       "result": "needs_approval",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6810112928107
+   }
+  ]
+ },
+ "A10-1": {
+  "verdict": "violation",
+  "guarantees": {
+   "O-1": "pass",
+   "O-2": "pass",
+   "O-3": "pass",
+   "O-4": "fail",
+   "O-5": "pass"
+  },
+  "fails": [
+   "O-4.policy"
+  ],
+  "unresolved": [],
+  "invalid": [],
+  "status": {
+   "O-1.end_state": "pass",
+   "O-1.one_reply": "pass",
+   "O-1.no_recall": "pass",
+   "O-1.takeover": "not_exercised",
+   "O-2.memory": "pass",
+   "O-2.single_exec": "pass",
+   "O-3.ti_once": "not_exercised",
+   "O-3.tn_no_repeat": "not_exercised",
+   "O-3.tf_stale": "not_exercised",
+   "O-3.deny_no_tool": "pass",
+   "O-4.model": "pass",
+   "O-4.model_used": "pass",
+   "O-4.calls": "pass",
+   "O-4.policy": "fail",
+   "O-4.approval": "pass",
+   "O-4.retention": "pass",
+   "O-5.accepted": "pass",
+   "O-5.once": "pass",
+   "O-5.waits": "pass",
+   "O-5.proceeds": "pass"
+  },
+  "details": {
+   "O-4.policy": "rule_version None, want 'p1'"
+  },
+  "run": "ended",
+  "why": null,
+  "notes": [],
+  "marks": [
+   {
+    "event": "no-rule-version",
+    "t": 0
+   }
+  ],
+  "svc": {
+   "stub": [
+    {
+     "agent": "A",
+     "body": "{\"scenario\":\"S-AP\",\"task\":\"T\"}",
+     "body_sha256": "79a196c71fe778c709b786e242f9f2687d8405ddad0f66262f7d54ba88447d1f",
+     "invocation_id": "T:model:1",
+     "kind": "request",
+     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+     "retry_of": null,
+     "t": 6802892645743,
+     "task": "T"
+    },
+    {
+     "kind": "reply",
+     "output_sha256": "b5e33d9880d7acfad92b9fd00aea5a816114c42ccbe4a7ff003996b3cf516288",
+     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+     "t": 6802894617369
+    },
+    {
+     "kind": "delivered",
+     "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+     "t": 6802895179955
+    }
+   ],
+   "T-I": [],
+   "T-F": [],
+   "T-N": [],
+   "approver": [
+    {
+     "action": "T-I,T-F,T-N",
+     "awakeable": "sign_15bQJVy0-hTdPQRx2U_aOiZYfu9s8oqqcAAAAEQ",
+     "kind": "request",
+     "t": 6802933406981,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "decision": "deny",
+     "exit": 0,
+     "kind": "posted",
+     "t": 6802951894016,
+     "task": "T"
+    },
+    {
+     "action": "T-I,T-F,T-N",
+     "kind": "delivered",
+     "t": 6802953042059,
+     "task": "T"
+    }
+   ]
+  },
+  "answers": [
+   {
+    "answer": {
+     "memory": {
+      "denied": true,
+      "reply": "rid-7beb5aad95ba432c9df648598e9e90aa"
+     },
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires",
+     "task": {
+      "id": "T",
+      "status": "denied"
+     }
+    },
+    "arg": "A",
+    "call": "state",
+    "exit": 0,
+    "t": 6814308415352
+   },
+   {
+    "answer": {
+     "calls": [],
+     "model": [
+      {
+       "input": {
+        "scenario": "S-AP",
+        "task": "T"
+       },
+       "invocation_id": "T:model:1",
+       "output_sha256": "b5e33d9880d7acfad92b9fd00aea5a816114c42ccbe4a7ff003996b3cf516288",
+       "request_id": "rid-7beb5aad95ba432c9df648598e9e90aa",
+       "used": true
+      }
+     ],
+     "policy": [
+      {
+       "action": "T-I,T-F,T-N",
+       "approval": {
+        "decision": "deny"
+       },
+       "result": "needs_approval",
+       "rule_version": null
+      }
+     ],
+     "retention": "journal 1d, idempotency 1d (server defaults); Agent K/V state never expires"
+    },
+    "arg": "T",
+    "call": "reconstruct",
+    "exit": 0,
+    "t": 6814325327356
+   }
+  ]
+ }
+}

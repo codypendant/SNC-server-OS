@@ -6823,34 +6823,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+     "request_id": "rid-193342c4f1f54b9f82db6eb588fb347a",
      "retry_of": null,
-     "t": 4218015534736,
+     "t": 6014064643740,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "ae3eace9fcbc490aefb7a11e882be3b631999a24b5d0c61b79086c10b1b80160",
-     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
-     "t": 4218016564011
+     "output_sha256": "b7b281af1e4a44f46eed34daaa97fb9faf81c058b78ccdc39e7192e9dfdcec2e",
+     "request_id": "rid-193342c4f1f54b9f82db6eb588fb347a",
+     "t": 6014065356137
     },
     {
      "kind": "delivered",
-     "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
-     "t": 4218017032764
+     "request_id": "rid-193342c4f1f54b9f82db6eb588fb347a",
+     "t": 6014066000648
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-6d73531569924d10a55e1d73da1b41d0"
+      "reply": "rid-193342c4f1f54b9f82db6eb588fb347a"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4220027069865,
+     "t": 6016050934839,
      "task": "T",
      "token": null
     },
@@ -6862,7 +6862,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4220028198947,
+     "t": 6016051672157,
      "token": null
     },
     {
@@ -6870,23 +6870,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4220028515341
+     "t": 6016052537058
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "reply": "rid-193342c4f1f54b9f82db6eb588fb347a",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4220035480530,
+     "t": 6016058543971,
      "task": "T",
-     "token": 1795842654470
+     "token": 1795844450481
     },
     {
      "attempt": 1,
@@ -6896,29 +6896,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4220036509767,
-     "token": 1795842654470
+     "t": 6016059099309,
+     "token": 1795844450481
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4220036860138
+     "t": 6016059602685
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "reply": "rid-193342c4f1f54b9f82db6eb588fb347a",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4220047637876,
+     "t": 6016069932817,
      "task": "T",
      "token": null
     },
@@ -6930,7 +6930,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4220048566183,
+     "t": 6016070379525,
      "token": null
     },
     {
@@ -6938,14 +6938,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4220048877441
+     "t": 6016070684101
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4218026713802,
+     "t": 6014083375009,
      "task": "T"
     },
     {
@@ -6953,27 +6953,19 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4218568138354,
+     "t": 6014575166826,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4220010128248,
+     "t": 6016028851342,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4220010790731,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "approve",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4220726833180,
+     "t": 6016029393754,
      "task": "T"
     }
    ]
@@ -6982,7 +6974,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+      "reply": "rid-193342c4f1f54b9f82db6eb588fb347a",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -6996,7 +6988,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4232218451376
+    "t": 6028007547570
    },
    {
     "answer": {
@@ -7004,7 +6996,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-6d73531569924d10a55e1d73da1b41d0"
+        "reply": "rid-193342c4f1f54b9f82db6eb588fb347a"
        },
        "attempts": [
         {
@@ -7027,7 +7019,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+        "reply": "rid-193342c4f1f54b9f82db6eb588fb347a",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -7045,13 +7037,13 @@
         }
        },
        "task": "T",
-       "token": 1795842654470,
+       "token": 1795844450481,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-6d73531569924d10a55e1d73da1b41d0",
+        "reply": "rid-193342c4f1f54b9f82db6eb588fb347a",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -7081,8 +7073,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "ae3eace9fcbc490aefb7a11e882be3b631999a24b5d0c61b79086c10b1b80160",
-       "request_id": "rid-6d73531569924d10a55e1d73da1b41d0",
+       "output_sha256": "b7b281af1e4a44f46eed34daaa97fb9faf81c058b78ccdc39e7192e9dfdcec2e",
+       "request_id": "rid-193342c4f1f54b9f82db6eb588fb347a",
        "used": true
       }
      ],
@@ -7101,7 +7093,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4232785115443
+    "t": 6028524353066
    }
   ]
  },
@@ -7129,21 +7121,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+     "request_id": "rid-67c0790f7b094aa8bebfe2539c99f1c3",
      "retry_of": null,
-     "t": 4218815302858,
+     "t": 6014044960717,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "307085a6b08ab68a9aabba8f1c30ffaa9d4e23e1c5335c2374a2d49991e1e593",
-     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
-     "t": 4218816799747
+     "output_sha256": "70592a404d2a40951e038d8ce4c29947f954b14e00671341476758f575c5ba5b",
+     "request_id": "rid-67c0790f7b094aa8bebfe2539c99f1c3",
+     "t": 6014045700714
     },
     {
      "kind": "delivered",
-     "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
-     "t": 4218817382084
+     "request_id": "rid-67c0790f7b094aa8bebfe2539c99f1c3",
+     "t": 6014046313565
     }
    ],
    "T-I": [],
@@ -7153,7 +7145,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4218834978458,
+     "t": 6014059677884,
      "task": "T"
     },
     {
@@ -7161,27 +7153,19 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4219374292874,
+     "t": 6014597190364,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4220798515865,
+     "t": 6016094500020,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4220799071412,
-     "task": "T"
-    },
-    {
-     "action": "T-I,T-F,T-N",
-     "decision": "deny",
-     "exit": 0,
-     "kind": "posted",
-     "t": 4221515948832,
+     "t": 6016095069370,
      "task": "T"
     }
    ]
@@ -7191,7 +7175,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-e8b8a3b9c4fd4b66bb38c33845d96903"
+      "reply": "rid-67c0790f7b094aa8bebfe2539c99f1c3"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -7202,7 +7186,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4232910730101
+    "t": 6027945690380
    },
    {
     "answer": {
@@ -7215,8 +7199,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "307085a6b08ab68a9aabba8f1c30ffaa9d4e23e1c5335c2374a2d49991e1e593",
-       "request_id": "rid-e8b8a3b9c4fd4b66bb38c33845d96903",
+       "output_sha256": "70592a404d2a40951e038d8ce4c29947f954b14e00671341476758f575c5ba5b",
+       "request_id": "rid-67c0790f7b094aa8bebfe2539c99f1c3",
        "used": true
       }
      ],
@@ -7235,7 +7219,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4233376833096
+    "t": 6028462569307
    }
   ]
  },
@@ -7263,34 +7247,34 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+     "request_id": "rid-698a8a7edbf5490d8d3f5b256873cd37",
      "retry_of": null,
-     "t": 4237353657487,
+     "t": 6032942983730,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "923fb4e748a2666f6adde9cf6788be83faaaf23ce85748b90b77244858e588a6",
-     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
-     "t": 4237354165936
+     "output_sha256": "1aab4f85efcbd2650be328b7fcd3169082aad961711611ca052c844fc2373527",
+     "request_id": "rid-698a8a7edbf5490d8d3f5b256873cd37",
+     "t": 6032943914430
     },
     {
      "kind": "delivered",
-     "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
-     "t": 4237354509646
+     "request_id": "rid-698a8a7edbf5490d8d3f5b256873cd37",
+     "t": 6032944476008
     }
    ],
    "T-I": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-753721acc3e54ec68db704e6e98a9530"
+      "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37"
      },
      "attempt": 1,
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "request",
-     "t": 4239471352957,
+     "t": 6034850177907,
      "task": "T",
      "token": null
     },
@@ -7302,7 +7286,7 @@
      "result": {
       "effect": "T-I-1"
      },
-     "t": 4239471913720,
+     "t": 6034851161272,
      "token": null
     },
     {
@@ -7310,23 +7294,23 @@
      "call_id": "T:T-I",
      "key": "T:T-I",
      "kind": "delivered",
-     "t": 4239472389318
+     "t": 6034851601405
     }
    ],
    "T-F": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37",
       "ti": "T-I-1"
      },
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "request",
-     "t": 4239481848041,
+     "t": 6034859362717,
      "task": "T",
-     "token": 1795842673913
+     "token": 1795844469297
     },
     {
      "attempt": 1,
@@ -7336,29 +7320,29 @@
      "result": {
       "effect": "T-F-1"
      },
-     "t": 4239482345203,
-     "token": 1795842673913
+     "t": 6034860053927,
+     "token": 1795844469297
     },
     {
      "attempt": 1,
      "call_id": "T:T-F",
      "key": "T:T-F",
      "kind": "delivered",
-     "t": 4239482645782
+     "t": 6034860426934
     }
    ],
    "T-N": [
     {
      "agent": "A",
      "args": {
-      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37",
       "tf": "T-F-1"
      },
      "attempt": 1,
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "request",
-     "t": 4239493395148,
+     "t": 6034876095090,
      "task": "T",
      "token": null
     },
@@ -7370,7 +7354,7 @@
      "result": {
       "effect": "T-N-1"
      },
-     "t": 4239493802455,
+     "t": 6034876679191,
      "token": null
     },
     {
@@ -7378,14 +7362,14 @@
      "call_id": "T:T-N",
      "key": "T:T-N",
      "kind": "delivered",
-     "t": 4239494176793
+     "t": 6034876962435
     }
    ],
    "approver": [
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4237362044803,
+     "t": 6032957570372,
      "task": "T"
     },
     {
@@ -7393,13 +7377,13 @@
      "decision": "approve",
      "exit": 0,
      "kind": "posted",
-     "t": 4237982756761,
+     "t": 6033424287048,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4237986559200,
+     "t": 6033426095669,
      "task": "T"
     }
    ]
@@ -7408,7 +7392,7 @@
    {
     "answer": {
      "memory": {
-      "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+      "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37",
       "tf": "T-F-1",
       "ti": "T-I-1",
       "tn": "T-N-1"
@@ -7422,7 +7406,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4251562658776
+    "t": 6046893201878
    },
    {
     "answer": {
@@ -7430,7 +7414,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-753721acc3e54ec68db704e6e98a9530"
+        "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37"
        },
        "attempts": [
         {
@@ -7453,7 +7437,7 @@
       {
        "agent": "A",
        "args": {
-        "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+        "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37",
         "ti": "T-I-1"
        },
        "attempts": [
@@ -7471,13 +7455,13 @@
         }
        },
        "task": "T",
-       "token": 1795842673913,
+       "token": 1795844469297,
        "tool": "T-F"
       },
       {
        "agent": "A",
        "args": {
-        "reply": "rid-753721acc3e54ec68db704e6e98a9530",
+        "reply": "rid-698a8a7edbf5490d8d3f5b256873cd37",
         "tf": "T-F-1"
        },
        "attempts": [
@@ -7507,8 +7491,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "923fb4e748a2666f6adde9cf6788be83faaaf23ce85748b90b77244858e588a6",
-       "request_id": "rid-753721acc3e54ec68db704e6e98a9530",
+       "output_sha256": "1aab4f85efcbd2650be328b7fcd3169082aad961711611ca052c844fc2373527",
+       "request_id": "rid-698a8a7edbf5490d8d3f5b256873cd37",
        "used": true
       }
      ],
@@ -7527,7 +7511,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4252078926789
+    "t": 6047413278889
    }
   ]
  },
@@ -7555,21 +7539,21 @@
      "body_sha256": "fdf47af41515ecaad3a616b40495a85b48c29bdad223b4f3c5eb6d61a5391244",
      "invocation_id": "T:model",
      "kind": "request",
-     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+     "request_id": "rid-58bf95e77a5044f9b6ca3e8e7c6b8d43",
      "retry_of": null,
-     "t": 4238299689259,
+     "t": 6032942617292,
      "task": "T"
     },
     {
      "kind": "reply",
-     "output_sha256": "3e582f14c0ac0a26bba7cbcdcbbc4fa6c16d3ec48925fe3842503e943beced08",
-     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
-     "t": 4238300528612
+     "output_sha256": "687e55ab1b876413292810529913014d9a274fb10f98b62bd78754dc57cbb3e6",
+     "request_id": "rid-58bf95e77a5044f9b6ca3e8e7c6b8d43",
+     "t": 6032943417236
     },
     {
      "kind": "delivered",
-     "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
-     "t": 4238300900283
+     "request_id": "rid-58bf95e77a5044f9b6ca3e8e7c6b8d43",
+     "t": 6032943936432
     }
    ],
    "T-I": [],
@@ -7579,7 +7563,7 @@
     {
      "action": "T-I,T-F,T-N",
      "kind": "request",
-     "t": 4238310229383,
+     "t": 6032957787974,
      "task": "T"
     },
     {
@@ -7587,13 +7571,13 @@
      "decision": "deny",
      "exit": 0,
      "kind": "posted",
-     "t": 4238829437916,
+     "t": 6033424552405,
      "task": "T"
     },
     {
      "action": "T-I,T-F,T-N",
      "kind": "delivered",
-     "t": 4238832226216,
+     "t": 6033426665679,
      "task": "T"
     }
    ]
@@ -7603,7 +7587,7 @@
     "answer": {
      "memory": {
       "denied": true,
-      "reply": "rid-08b7115dead841fdb8c99a4f794a8bcc"
+      "reply": "rid-58bf95e77a5044f9b6ca3e8e7c6b8d43"
      },
      "retention": "forever: no DBOS workflow retention or garbage collection is configured",
      "task": {
@@ -7614,7 +7598,7 @@
     "arg": "A",
     "call": "state",
     "exit": 0,
-    "t": 4252456500265
+    "t": 6046893043728
    },
    {
     "answer": {
@@ -7627,8 +7611,8 @@
         "task": "T"
        },
        "invocation_id": "T:model",
-       "output_sha256": "3e582f14c0ac0a26bba7cbcdcbbc4fa6c16d3ec48925fe3842503e943beced08",
-       "request_id": "rid-08b7115dead841fdb8c99a4f794a8bcc",
+       "output_sha256": "687e55ab1b876413292810529913014d9a274fb10f98b62bd78754dc57cbb3e6",
+       "request_id": "rid-58bf95e77a5044f9b6ca3e8e7c6b8d43",
        "used": true
       }
      ],
@@ -7647,7 +7631,7 @@
     "arg": "T",
     "call": "reconstruct",
     "exit": 0,
-    "t": 4252972688899
+    "t": 6047510620513
    }
   ]
  }
