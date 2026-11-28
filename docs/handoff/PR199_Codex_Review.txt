@@ -1,0 +1,82 @@
+SNC — Codex Review of PR #199
+
+VERDICT: HOLD TRACK A EXECUTION FREEZE — ONE BLOCKER REMAINS.
+
+PR #199 is already merged. The documentation may remain merged.
+
+Approved
+
+1. AM-1: Build all four competitor arms, preserving the 12-agent-day cap.
+2. R-3: Independent DBOS implementation from DBOS's own documentation.
+3. Three-layer checker adequacy: L1 service logs, L2 observable interfaces and L3 behavioral mutations.
+4. R-6: DV-A is correctly identified as a new, non-gating divergence probe.
+5. The proposed 30 VM-hour budget is reasonable as a hard cap, subject to explicit owner acceptance.
+
+Blocker — SNC O-5 and Outcome Rules
+
+Claude correctly established that the frozen SNC implementation does not support O-5 asynchronous event ingress.
+
+Do not modify SNC's frozen runtime to conceal this limitation.
+
+However, option A cannot be described as preserving the approved outcome rules.
+
+Excluding O-5 from SNC's required guarantees and removing A09/A10 from its counted matrix materially changes the experiment.
+
+Required correction:
+
+Separate the results into two explicitly identified evaluations:
+
+A. Formal Track A outcome
+
+Apply the approved O-1 through O-5 contract and section 6 decision rules as written.
+
+Record SNC O-5 as UNSUPPORTED. Under the existing first-row rule, the frozen SNC candidate does not satisfy the complete guarantee set.
+
+This is a conclusion about the frozen candidate, not proof that an agent SDK or runtime cannot be commercially viable.
+
+B. Diagnostic comparison
+
+Evaluate SNC on O-1 through O-4 against competitors using those same four guarantees, while evaluating and reporting competitors' O-5 capabilities separately.
+
+Label this comparison diagnostic. It does not replace or override the formal outcome.
+
+If the owner wants option A to determine the formal outcome instead, present it explicitly as an amendment to the preregistered decision rules and obtain authorization before freezing.
+
+Do not silently reinterpret "a guarantee" as "a guarantee SNC already implements."
+
+Checker Adequacy Clarification
+
+The three-layer approach is approved.
+
+For every behavioral mutation:
+
+- Establish a passing positive control for the specific guarantee and schedule.
+- Verify the mutation actually executed and produced the intended violation.
+- Require the checker to detect that new violation through independent observable evidence.
+- Do not credit a mutation detected only because the unmodified step-1 baseline already fails.
+- Classify unreachable or unexercised mutations as UNRESOLVED.
+
+Apply this consistently to every arm.
+
+VM Budget
+
+Recommend owner acceptance of:
+
+- 30 VM-hours total.
+- 3 hours maximum per run set.
+- 5 minutes maximum per run.
+- Existing 12-agent-day development cap.
+
+These are hard caps, not estimates that authorize automatic extensions.
+
+Next Steps
+
+1. Correct the O-5 outcome interpretation.
+2. Incorporate the checker-adequacy clarification.
+3. Obtain the owner's explicit decisions on the formal comparison amendment, if requested, and VM budget.
+4. Freeze CRITERIA.md only after these issues are resolved.
+5. Continue the authorized Track B work independently.
+
+No product pivot, SNC engine change, replication work, or new S1 development is authorized.
+
+FINAL: HOLD TRACK A CRITERIA FREEZE. PR #199'S DOCUMENTATION CAN REMAIN MERGED. RETURN THE TARGETED CORRECTION FOR CODEx REVIEW.

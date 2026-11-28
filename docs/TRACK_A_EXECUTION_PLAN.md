@@ -1,4 +1,4 @@
-# Track A execution plan (PROPOSED revision 2, for Codex review)
+# Track A execution plan (PROPOSED revision 3, for Codex review)
 
 ## 0. Status
 
@@ -7,12 +7,14 @@
   - the design is [DIRECTION_COMPARISON_PLAN.md](DIRECTION_COMPARISON_PLAN.md) section 3 (revision 3, approved at
     P-G1);
   - AR-1's G3 ended NARROW, which was accepted ([handoff/AR1_G3_Outcome_Accepted.md](handoff/AR1_G3_Outcome_Accepted.md)).
-- **Revision 2** applies Codex's HOLD on revision 1 ([handoff/PR197_Codex_Review.txt](handoff/PR197_Codex_Review.txt)).
-  Revision 1 was merged in PR #197 and stays in git history.
-- **The freeze is on hold.** CRITERIA.md stays unfrozen, and no counted work starts, until both of these happen:
-  - Codex approves this revision;
-  - cody decides the two owner items in section 6. **Done 2026-11-28:** cody accepted both recommendations
-    ([handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)).
+- **Revision 2** applied Codex's HOLD on revision 1 ([handoff/PR197_Codex_Review.txt](handoff/PR197_Codex_Review.txt)).
+  **Revision 3** applies Codex's HOLD on revision 2 ([handoff/PR199_Codex_Review.txt](handoff/PR199_Codex_Review.txt)):
+  - option A is no longer a reading of the outcome rows. The rows apply as written (section 3, evaluation A), and
+    SNC's O-1 to O-4 comparison is a separately labelled diagnostic (evaluation B);
+  - the adequacy gate takes Codex's five conditions for every behavioural mutation (section 4).
+  Revisions 1 and 2 were merged in PRs #197 and #199 and stay in git history.
+- **The freeze is on hold.** CRITERIA.md stays unfrozen, and no counted work starts, until Codex approves this
+  revision. cody's decisions of 2026-11-28 are in section 6.
 - **What does not change:** the design, the matrix, the limits of 3.5 and the outcome rows of section 6. There is no
   product pivot, no S1 runtime development, no change to SNC's engine, and no tuning of the SNC arm to win.
 - **Labels:** FACT (read in this repository), EXT (external, cited), INF (inference), UNRESOLVED and PROPOSED.
@@ -85,21 +87,31 @@
   decision. In both cases the durability would come from new code or from the harness, which R-2 does not allow.
 - This is recorded as **SNC: O-5 UNSUPPORTED (no asynchronous event ingress)**. It is not a fault-injection failure.
 
-**Effect on the outcome rows.**
-- Row 1 reads "SNC's arm, as frozen in PR #185, fails a guarantee → neither product direction, on this evidence".
-  Applied literally, it would fire before any competitor is judged, so the experiment's answer would be decided by a
-  missing interface before it runs. That is the predetermined conclusion Codex warns against.
-- The rows cannot be changed without cody. The options go to cody (section 6, item 1):
+**Two evaluations (Codex review of PR #199).** The results are reported as two explicitly separate evaluations.
 
-| Option | What happens | Rows |
-|---|---|---|
-| **A (recommended).** SNC is judged on O-1 to O-4. O-5 is recorded as SNC UNSUPPORTED, and the S-AP points A09 and A10 are not run on SNC | Row 1 fires only on an O-1 to O-4 failure. O-5's evidence is competitor against competitor. SNC's missing ingress is a FACT row under criteria 1 and 3, where it counts against SNC's layer | rows unchanged; row 1's "a guarantee" is read as "a guarantee the frozen arm implements", with O-5 recorded as unsupported |
-| B. Row 1 applied literally | Track A's row is "neither product direction". The competitor arms are still built and reported (AM-1), but they cannot change the row | unchanged |
-| C. An SNC event ingress is built first | New S1 runtime functionality, which needs cody's explicit authorization and its own review. Then all 114 runs | unchanged |
+**A. Formal Track A outcome.**
+- The O-1 to O-5 contract and the section 6 rows apply exactly as written. Nothing is reinterpreted.
+- SNC's O-5 is recorded as **UNSUPPORTED**. A09 and A10 cannot be executed on SNC, because the arm has nowhere to
+  receive the event. They are recorded as O-5 not met, not as UNRESOLVED and not as pass.
+- So row 1 applies: the frozen SNC candidate does not meet the complete guarantee set, and the formal outcome is
+  **"neither product direction, on this evidence"**. This is known before any run [FACT, from the code].
+- **Scope of that conclusion:** it is about the frozen candidate of PR #185. It is not proof that an agent SDK or
+  runtime built on SNC cannot be viable, and it is not a finding against SNC's engine.
+- The competitor arms are still built, run and reported (AM-1). Under the ordered rows they cannot change the
+  formal outcome.
 
-- **Why A:** it measures what the frozen arm actually does, and it records the gap where it belongs. It also avoids
-  both a predetermined row (B) and new S1 runtime work (C). It is the strictest reading against SNC that is still
-  informative: SNC gets no credit for O-5.
+**B. Diagnostic comparison (labelled DIAGNOSTIC; it does not replace or override A).**
+- SNC and every competitor are compared on O-1 to O-4, at the same points (the 94 S-M runs), with the same checker.
+- Each competitor's O-5 (A09 and A10, 20 runs) is evaluated and reported separately. SNC's column reads UNSUPPORTED.
+- For each competitor arm, the report states whether it meets O-1 to O-5 within L, and whether it meets O-1 to O-4
+  within L. These are evidence for criteria 1 and 3, and they go to cody with the recommendation (W7).
+- If SNC fails O-1 to O-4 in a counted run, that is reported in B as well. It changes nothing in A.
+
+**What was not done, and why.**
+- No SNC event ingress is built, and SNC's frozen runtime is not changed to hide the gap. Building one is new S1
+  runtime work, which is not authorized.
+- No amendment to the rows is proposed. Using option A to decide the formal outcome would be an amendment to the
+  preregistered rules and would need cody's explicit authorization before the freeze. It is not requested.
 
 ## 4. Checker adequacy: a hard gate before counted runs
 
@@ -118,7 +130,20 @@ The gate checks every arm's own observable interfaces, not only SNC (Codex secti
 - **Pass:**
   - every L1 and L2 fault is flagged, with the clause it breaks;
   - every L3 mutant is flagged at every seed of every point where it is observable;
-  - for SNC, O-5 is not applicable under option A.
+  - SNC has no O-5 mutant, because it has no event ingress (section 3). Its L2 proxy covers `state` and
+    `reconstruct` only.
+- **Conditions for every L3 mutant, in every arm (Codex review of PR #199):**
+  - **Positive control:** the unmodified frozen step-1 arm passes that guarantee at that point and seed. A point
+    and seed without a passing control gives the mutant no credit there.
+  - **The mutation ran:** evidence independent of the checker's verdict shows the mutated code path executed and
+    produced the intended violation, for example a marker the mutant writes to its own log, or the service-side
+    count of duplicate effects.
+  - **A new violation is detected:** the checker flags a clause of that guarantee that the control did not flag,
+    from the service logs or the arm's interfaces.
+  - **No borrowed credit:** a mutant flagged only for a clause that the unmodified step-1 arm already fails is not
+    credited.
+  - **Unexercised:** a mutant that is unreachable, or never executes at any seed of a point, is UNRESOLVED for
+    that point, and is reported.
 - **A miss** makes Track A UNRESOLVED until the checker is fixed and reviewed again.
 - **Order:** the adequacy layers L2 and L3 for an arm run after that arm's step 1 is frozen, and before its counted
   matrix run.
@@ -148,7 +173,7 @@ The gate checks every arm's own observable interfaces, not only SNC (Codex secti
 
 | Item | Run sets | Hours each | VM hours |
 |---|---|---|---|
-| Counted matrix: SNC (94 runs under option A), and step 1 plus step 2 for each of four competitors | at most 9 | about 1.5 | about 14 |
+| Counted matrix: SNC (the 94 S-M runs; A09 and A10 cannot run on it), and step 1 plus step 2 for each of four competitors | at most 9 | about 1.5 | about 14 |
 | Adequacy L3 on the VM, if it does not fit the cloud session | 5 arms | about 1 | about 5 |
 | Performance (1 agent and 100 concurrent agents) and operations, 5 arms | 5 | about 1 | about 5 |
 | Bring-up of arms that cannot run in the cloud session | up to 2 | about 1 | about 2 |
@@ -159,22 +184,21 @@ The gate checks every arm's own observable interfaces, not only SNC (Codex secti
   - a run set that hits 3 h is UNRESOLVED for that arm and step;
   - when the 30 h total is reached, everything not run is UNRESOLVED and is reported in build order;
   - there is no extension without cody.
-- **Stop rule for SNC:** if SNC fails O-1 to O-4, the first row applies and is reported. The SNC arm is not fixed
-  inside Track A.
+- **Stop rule for SNC:** the SNC arm is not fixed inside Track A. An O-1 to O-4 failure is reported in the
+  diagnostic (section 3, B). The formal outcome is already row 1 (section 3, A).
 
-## 6. What cody decides before the freeze
+## 6. Owner decisions
 
-**Decided 2026-11-28:** cody said yes to both items as recommended
-([handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)).
-
-1. **SNC and O-5 (section 3).** Recommended: **option A**. SNC is judged on O-1 to O-4, and O-5 is recorded as
-   UNSUPPORTED and counted against SNC's layer in criteria 1 and 3.
-2. **The VM budget (section 5).** Recommended: accept **30 VM hours in total**, at most 3 h per run set and 5 min per
-   run. The 12 agent-day cap is unchanged.
+cody said yes on 2026-11-28 to both recommendations of revision 2
+([handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)):
+1. **SNC and O-5.** After Codex's review of PR #199, the coordinator's reading of that yes is that it covers SNC being
+   judged on O-1 to O-4 as the diagnostic B of section 3, with O-5 recorded as UNSUPPORTED. It is not an amendment to
+   the rows, and none is requested. If cody wants option A to decide the formal outcome, that is a separate
+   amendment, and it needs cody's explicit yes before the freeze.
+2. **The VM budget.** 30 VM hours in total, at most 3 h per run set and 5 min per run, and the 12 agent-day cap. These
+   are hard caps, not estimates, and they are not extended automatically.
 
 ## 7. Questions for Codex
 
-1. Does section 3 settle the blocker, and is option A a fair reading to recommend?
-2. Do the three adequacy layers of section 4 cover every arm's observable interfaces well enough?
-3. Is DV-A correctly labelled and scoped (R-6)?
-4. Is the 30-hour budget's breakdown sound?
+1. Does section 3's split into the formal outcome A and the diagnostic B settle the blocker?
+2. Do section 4's five conditions apply Codex's clarification correctly to every arm?

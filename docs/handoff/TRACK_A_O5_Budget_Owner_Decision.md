@@ -23,3 +23,11 @@ cody, at 00:56:24 UTC, in reply: "Yes."
 ## What is not decided
 - CRITERIA.md is not frozen. The freeze waits for Codex's review of execution plan revision 2.
 - Everything listed as not decided in [TRACK_A_PA_Owner_Decision.md](TRACK_A_PA_Owner_Decision.md) stays not decided.
+
+## After Codex's review of PR #199 (2026-11-28)
+Codex held the freeze: option A changes the experiment, so it cannot be a reading of the outcome rows
+([PR199_Codex_Review.txt](PR199_Codex_Review.txt)). The plan now applies the rows as written, with SNC's O-5
+UNSUPPORTED (so row 1 applies to the frozen candidate). It reports SNC on O-1 to O-4 as a separately labelled
+diagnostic. The coordinator's reading is that cody's yes above covers that diagnostic, not a change to the rows. Using
+option A for the formal outcome would be an amendment that needs cody's explicit yes, and it is not requested.
+The budget yes stands, and those numbers are hard caps.
