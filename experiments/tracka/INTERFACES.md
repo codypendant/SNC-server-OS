@@ -112,7 +112,8 @@ arm knows of one, else `null`;
 - **Approver, `POST /approval`** `{task, action}`. Logs `{kind: "request", task, action}` and replies 202
   `{status: "pending"}`. The harness then runs the arm's `deliver` with decision `approve` on even seeds and `deny`
   on odd seeds, logging `{kind: "posted", task, action, decision, exit}` to `R/svc/approver.jsonl` when `deliver`
-  returns. The usual delay before posting is 200 ms.
+  returns. The usual delay before posting is 200 ms. The harness posts once per `(task, action)` per run: a request
+  repeated after a restart is logged but not answered again, so the arm must keep the decision it was sent.
 - **Owner, `GET /owner?task=&call_id=`** answers the truth at the moment it is asked: `{answer: "happened"}` if
   T-N's log holds an effect for that `call_id`, else `did_not_happen`, and logs `{kind: "answer", task, call_id, answer}` to `R/svc/owner.jsonl`.
 

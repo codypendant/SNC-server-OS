@@ -505,6 +505,38 @@ class Violations(unittest.TestCase):
         extra_ti_effect(d)
         self.assertEqual(run(d)["verdict"], "violation")
 
+    def test_cap_before_answers_is_unresolved(self):
+        d = s_m()
+        d["run_end"] = "cap"
+
+        def strip(R):
+            (R / "answers.jsonl").unlink()
+            m = (R / "markers.jsonl").read_text().splitlines()
+            keep = [x for x in m if json.loads(x)["event"] != "quiesced"]
+            (R / "markers.jsonl").write_text("\n".join(keep) + "\n")
+
+        res = run(d, strip)
+        self.assertEqual(res["verdict"], "unresolved", res)
+
+    def test_rejected_stale_tf_args_not_in_u(self):
+        d = s_m()
+        tf = dict(d["svc"]["T-F"][0]["args"], reply="req-other")
+        d["svc"]["T-F"] += tool("T-F", "c8", "k8", 1, -1, tf, "rejected_stale", None)
+        d["recon"]["calls"].append(
+            call(
+                "T-F",
+                "c8",
+                "k8",
+                -1,
+                tf,
+                [(1, "rejected_stale")],
+                ("rejected_stale", None),
+            )
+        )
+        st = status(run(d))
+        for c in ("O-1.one_reply", "O-2.single_exec", "O-2.memory"):
+            self.assertEqual(st[c], "pass", (c, st))
+
     def test_in_doubt_without_owner(self):
         d = in_doubt()
         d["svc"]["owner"] = []

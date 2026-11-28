@@ -129,6 +129,7 @@ class Run:
         self.workers, self.engines, self.bg, self.threads = [], {}, {}, []
         self.reached, self.buf, self.status, self.arm_id = [], b"", None, 0
         self.poll_at, self.poller, self.killed = 0, None, set()
+        self.posted, self.post_lock = set(), threading.Lock()
         self.svc = self.pg = None
         self.notes = []
 
@@ -297,6 +298,10 @@ class Run:
         self.notes.append("end state before the fault point")
 
     def deliver(self, task, action):
+        with self.post_lock:
+            if (task, action) in self.posted:
+                return
+            self.posted.add((task, action))
         decision = "deny" if self.seed % 2 else "approve"
         rc, _ = self.oneshot("deliver", [task, action, decision])
         rec = {"task": task, "action": action, "decision": decision, "exit": rc}

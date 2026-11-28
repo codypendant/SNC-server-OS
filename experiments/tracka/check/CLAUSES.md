@@ -11,7 +11,8 @@ approver,owner}.jsonl`, and the last `state` and `reconstruct` rows of `answers.
   rejected_stale` line with the same `(call_id, key, attempt)` (a line whose `token` also matches is preferred), and
   it is **delivered** if a `delivered` line with that triple follows the outcome.
 - **Token** of a request: `token`, or `epoch` when `token` is null.
-- **Used replies** `U`: the set of `args.reply` over all tool requests. In a run with no tool request, `memory.reply`.
+- **Used replies** `U`: the set of `args.reply` over all tool requests except T-F requests answered `rejected_stale`
+  (plan 3.3). In a run with no such request, `memory.reply`.
   `u` is the single member of `U`, when there is exactly one.
 - **E_ti** and **E_tf**: `result.effect` of the T-I `effect` line and of the T-F `effect` line, when exactly one
   exists.
@@ -27,7 +28,7 @@ approver,owner}.jsonl`, and the last `state` and `reconstruct` rows of `answers.
 | Id | Exercised | Pass condition |
 |---|---|---|
 | `O-1.end_state` | always | `state.task.id` is `T`. Deny run: status `denied`. Otherwise `done` or `stopped_in_doubt`. `stopped_in_doubt` also needs: a T-N request exists; the owner was asked about the last T-N request's call id after that request (either answer); and that request was not delivered, or T-N is a fault service |
-| `O-1.one_reply` | always (pass with no tool request) | `U` has one member `u`; `u` is the `request_id` of a stub request with a logged `reply` and `delivered`. Tool args without `reply` give `U = {null}` and fail |
+| `O-1.one_reply` | always (pass with no tool request outside the stale exemption) | `U` has one member `u`; `u` is the `request_id` of a stub request with a logged `reply` and `delivered`. Tool args without `reply` give `U = {null}` and fail |
 | `O-1.no_recall` | always (pass with no use) | No stub request has a `t` after the first tool request whose `args.reply` is a stub `request_id`. No exception: a zombie's and a new worker's concurrent model calls both come before the first downstream use, so they pass on their times |
 | `O-1.takeover` | `zombie_takeover` with a `stopped` marker | `unresolved` when the first `resumed` marker is 60 s or more after `stopped`, or missing; otherwise pass |
 | `O-2.memory` | always | `state.memory` equals the derived value. Deny run: `{"reply": m, "denied": true}`, where `m` is a delivered stub reply id. `stopped_in_doubt`: `null`. `done`: keys exactly `reply, ti, tf, tn`, with `reply = u`, `ti = E_ti`, `tf = E_tf` (each must exist), and `tn` the effect of the last T-N request if that request has an `effect` and was delivered, or `"owner:happened"` if the owner answered `happened` after it. Any other status fails |
@@ -56,8 +57,10 @@ The clauses that rely on the deterministic-causality table, directly or through 
   guarantee id such as `O-5` matches no clause. A listed clause is reported `unsupported` whatever it computed. For
   the guarantee roll-up it counts as `not_exercised` if it computed that, otherwise as `unsupported`.
 - **Guarantee** = the first of `fail, unresolved, unsupported, pass, not_exercised` among its clauses.
-- **Run cap**: when a `run-end` marker has `status: "cap"` and `T`'s status is `running`, a failure of
-  `O-1.end_state`, `O-2.memory` or `O-5.proceeds` is reported `unresolved`. Other failures stay failures.
+- **Run cap**: when a `run-end` marker has `status: "cap"`, the harness collected no answers, so a failure of a
+  clause that reads them (`O-1.end_state`, `O-2.memory`, every `O-4` clause, `O-5.once`, `O-5.proceeds`) is reported
+  `unresolved`, and a missing `quiesced` marker or missing answers do not make the run invalid. Failures of the
+  log-only clauses stay failures.
 - **Verdict**: `invalid` if any reason below holds (clauses are still evaluated and reported, since a violation in an
   invalid run counts); else `violation` if a clause fails; else `unresolved` if one is unresolved; else `pass`.
 - **Invalid reasons**: `run.json` missing or unreadable, or a non-integer seed; `markers.jsonl` or `answers.jsonl`

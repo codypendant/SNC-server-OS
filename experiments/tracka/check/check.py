@@ -127,7 +127,7 @@ class Run:
             x.get("event") == "run-end" and get(x, "data", "status") == "cap" for x in m
         )
         ends = [x["t"] for x in m if x.get("event") == "end-state"]
-        if "quiesced" not in ev:
+        if "quiesced" not in ev and not self.cap:
             bad.append("markers: no quiesced")
         if self.kind == "zombie_takeover" and "stopped" in ev and "resumed" not in ev:
             bad.append("markers: zombie stopped but never resumed")
@@ -171,11 +171,11 @@ class Run:
                     bad.append(f"owner answered {x.get('answer')} against T-N's log")
 
         a = rows(R / "answers.jsonl", bad)
-        if a is None:
+        if a is None and not self.cap:
             bad.append("answers.jsonl missing")
         last = {x.get("call"): x for x in a or []}
         for c in ("state", "reconstruct"):
-            if c not in last:
+            if c not in last and not self.cap:
                 bad.append(f"answers: no {c} call")
         if ends and any(x["t"] < ends[0] + QUIESCE_T for x in a or []):
             bad.append("answers less than 10 s after the end-state detection")
@@ -185,8 +185,9 @@ class Run:
         self.status = get(self.state, "task", "status")
         self.mem = get(self.state, "memory")
 
-        used = [canon(get(q, "args", "reply")) for q in self.all_tools]
-        if not self.all_tools and isinstance(self.mem, dict) and "reply" in self.mem:
+        self.live = [q for q in self.all_tools if kind_of(q) != "rejected_stale"]
+        used = [canon(get(q, "args", "reply")) for q in self.live]
+        if not self.live and isinstance(self.mem, dict) and "reply" in self.mem:
             used = [canon(self.mem["reply"])]
         self.used = set(used)
         self.u = json.loads(used[0]) if len(self.used) == 1 else None
@@ -240,13 +241,13 @@ def owner_after(r, q, answer):
 
 
 def capped(r, res):
-    if res[0] == "fail" and r.cap and r.status == "running":
-        return ("unresolved", "run cap hit with T running: " + res[1])
+    if res[0] == "fail" and r.cap:
+        return ("unresolved", "run capped before the answers: " + res[1])
     return res
 
 
 def o1_one_reply(r):
-    if not r.all_tools:
+    if not r.live:
         return ("pass", "no downstream request")
     errs = []
     if len(r.used) != 1:
@@ -709,7 +710,18 @@ CLAUSES = [
     ("O-5.waits", o5_waits),
     ("O-5.proceeds", o5_proceeds),
 ]
-CAPPED = ("O-1.end_state", "O-2.memory", "O-5.proceeds")
+CAPPED = (
+    "O-1.end_state",
+    "O-2.memory",
+    "O-4.model",
+    "O-4.model_used",
+    "O-4.calls",
+    "O-4.policy",
+    "O-4.approval",
+    "O-4.retention",
+    "O-5.once",
+    "O-5.proceeds",
+)
 ROLLUP = ("fail", "unresolved", "unsupported", "pass", "not_exercised")
 
 

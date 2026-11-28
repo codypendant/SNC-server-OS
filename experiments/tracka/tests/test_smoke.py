@@ -85,6 +85,8 @@ def test_ref_row(row):
     ]
     if row[0] != "none":
         assert "reached" in events
+    if row[0] in ("A09", "A10"):
+        assert events.count("posted") == 1
     assert ok(check(res["R"]))
     assert not strays()
     assert not os.path.exists(f"{res['R']}/pg/data")
