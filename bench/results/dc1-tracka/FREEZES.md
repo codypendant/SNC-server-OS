@@ -9,3 +9,4 @@ Trees are authoritative (a rebase changes commit ids, not trees).
 | Checker, harness (integration versions, before adequacy) | `abf93ab` | `check` `c4190df`, `tracka` `a96b814` | 2026-11-28 |
 | Restate arm, step 1 (implementer + strengthening reviewer) | `a0d8539` | `arms/restate` `bf8dc1e` | 2026-11-28 |
 | Temporal arm, step 1 (implementer + strengthening reviewer) | `2555988` | `arms/temporal` `c41dd8e` | 2026-11-28 |
+| LangGraph arm, step 1 (implementer + strengthening reviewer) | `c407364` | `arms/langgraph` `43fc819` | 2026-11-28 |
