@@ -1,0 +1,32 @@
+{
+  "name": "temporal",
+  "build": ["sh", "{arm}/build.sh"],
+  "engines": [
+    {
+      "name": "temporal",
+      "start": ["{arm}/.venv/bin/python", "{arm}/arm.py", "server"],
+      "ready": ["{arm}/.venv/bin/python", "{arm}/arm.py", "ready"]
+    }
+  ],
+  "restart_engine": "temporal",
+  "setup": ["{arm}/.venv/bin/python", "{arm}/arm.py", "setup"],
+  "submit": ["{arm}/.venv/bin/python", "{arm}/arm.py", "submit"],
+  "worker": ["{arm}/.venv/bin/python", "{arm}/arm.py", "worker"],
+  "deliver": ["{arm}/.venv/bin/python", "{arm}/arm.py", "deliver"],
+  "state": ["{arm}/.venv/bin/python", "{arm}/arm.py", "state"],
+  "reconstruct": ["{arm}/.venv/bin/python", "{arm}/arm.py", "reconstruct"],
+  "config": {
+    "retention": "720h, namespace tracka workflow execution retention",
+    "activity_start_to_close_s": 5,
+    "activity_retry": "maximum_attempts 1 for model, T-I, T-F, T-N and owner, retried in workflow code as a new Activity so that Event History keeps every attempt; policy and approval use the SDK default (initial 1 s, backoff 2.0, max interval 100 s, unlimited attempts)",
+    "approval": "the approval Activity is cancelled (TRY_CANCEL) once the decision Signal arrives, so the server does not retry it",
+    "t_n_retry": "a timed-out or failed T-N asks the owner; did_not_happen sends T-N again",
+    "t_f_token": "workflow.time_ns() of the Workflow Task that schedules the attempt",
+    "workflow_task_timeout_s": 2,
+    "sticky_queue_schedule_to_start_timeout_s": 2,
+    "max_concurrent_activities": 1,
+    "num_history_shards": 4,
+    "takeover": "a timed-out attempt is rescheduled by the workflow and runs on any worker; a worker busy with an attempt holds no activity poll (max_concurrent_activities 1); workflow tasks leave a dead or stopped worker after the sticky or workflow task timeout"
+  },
+  "unsupported": []
+}
