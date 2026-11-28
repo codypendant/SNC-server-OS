@@ -162,3 +162,18 @@ which keys the stub's outputs: `out = sha256(f"{seed_string}:{rid}:{body_sha256}
 The harness polls `state` every 2 s to see an end state, so `state` must be cheap. Only the first request to the
 boundary service triggers its fault. Every run ends with the workers up until `T`
 reaches an end state or the 5-minute run cap, then the 10 s quiesce, then `state` and `reconstruct`.
+
+## Checker output
+
+`python -m check.check <R>` prints one JSON object and writes it to `R/check.json`:
+```json
+{"verdict": "pass | violation | unresolved | invalid",
+ "guarantees": {"O-1": "pass | fail | unresolved | not_exercised | unsupported", "O-2": "...", "O-3": "...", "O-4": "...", "O-5": "..."},
+ "clauses": [{"id": "O-3.ti_once", "guarantee": "O-3", "status": "pass | fail | unresolved | not_exercised | unsupported", "detail": "..."}]}
+```
+- `invalid`: the run itself is unusable (a service log is missing or cut, `run.json` is missing, the harness reported
+  an error in `markers.jsonl`). The harness repeats an invalid run once with the same seed.
+- `unresolved`: no clause failed, but a clause could not be decided (for example no takeover within 60 s).
+- `unsupported` is set only from `run.json`'s `unsupported` list (for example SNC's approval subclauses), never
+  inferred.
+- A clause that the run's scenario or point does not exercise is `not_exercised`.
