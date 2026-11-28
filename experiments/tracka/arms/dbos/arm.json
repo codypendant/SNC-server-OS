@@ -1,0 +1,24 @@
+{
+  "name": "dbos",
+  "engines": [],
+  "restart_engine": "pg",
+  "setup": ["{arm}/.venv/bin/python", "{arm}/arm.py", "setup"],
+  "submit": ["{arm}/.venv/bin/python", "{arm}/arm.py", "submit"],
+  "worker": ["{arm}/.venv/bin/python", "{arm}/arm.py", "worker"],
+  "deliver": ["{arm}/.venv/bin/python", "{arm}/arm.py", "deliver"],
+  "state": ["{arm}/.venv/bin/python", "{arm}/arm.py", "state"],
+  "reconstruct": ["{arm}/.venv/bin/python", "{arm}/arm.py", "reconstruct"],
+  "config": {
+    "retention": "forever: no DBOS workflow retention or garbage collection is configured",
+    "executor_id": "local (DBOS default); every worker recovers the PENDING workflows of executor local at launch",
+    "takeover": "a new worker re-enqueues and runs PENDING workflows at DBOS.launch, with no timeout",
+    "recv_timeout_s": 3600,
+    "owner_timeout_s": "30 (T-N request timeout); the owner is also asked at once when the T-N child workflow is dead-lettered on recovery",
+    "max_recovery_attempts": {"run_task": 100, "send_tn": 0},
+    "queue": {"name": "agents", "partition_concurrency": 1, "polling_interval_sec": 1.0},
+    "notification_listener_polling_interval_sec": 1.0,
+    "sys_db_idle_transaction_timeout_sec": 60.0,
+    "step_retries": "none (DBOS default retries_allowed=False)"
+  },
+  "unsupported": []
+}
