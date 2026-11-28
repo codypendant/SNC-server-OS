@@ -68,6 +68,7 @@ outcome the arm cannot know, after it asked the owner. An owner answer `happened
 - `engines`: long-running servers the arm needs besides PostgreSQL, started in order after PostgreSQL; `ready` is a
   command that exits 0 when the engine serves. `restart_engine` names the engine restarted at A12 and A13: `pg` for
   library arms, otherwise one of `engines`.
+- `build` (optional): one-shot, run once per run set before any run, with a 30-minute timeout (compiling, downloads). Every other command gets 60 s.
 - `setup`: one-shot, after the engines are ready (schemas, deployments, registrations).
 - `submit`: one-shot, called once per run, after the first worker is started. It must return once `T` is durably
   submitted. An arm whose worker submits by itself may make it a no-op.
@@ -84,17 +85,22 @@ outcome the arm cannot know, after it asked the owner. An owner answer `happened
 
 ## Services (`TRACKA_SVC`)
 
+Requests may carry extra fields; services log and ignore them (an approval request may carry, for example, an
+awakeable id the arm's `deliver` later reads from the approver log). Read answers may carry extra fields too.
+
 All requests and replies are JSON. Each service appends to `R/svc/<svc>.jsonl` (one `write` and `fsync` per line)
 before it acts. **Every JSONL line in `R`, in every file, carries `t`** (`time.monotonic_ns()`, one host), so order
 across files is known.
 
-- **Stub, `POST /stub`** `{invocation_id, retry_of, agent, task, body}`. `invocation_id` is chosen by the arm;
+- **Stub, `POST /stub`** `{invocation_id, retry_of, agent, task, body}`. `invocation_id` is chosen by the arm; `retry_of` is the arm's earlier `invocation_id` for the same model call if the
+arm knows of one, else `null`;
   `body` is any JSON value, the model input. The reply is chunked NDJSON: first `{"request_id": rid}`, then
   `{"output": out, "model": "stub-1"}`. `rid` is fresh for every physical request. Logs `{kind: "request",
   request_id, invocation_id, retry_of, agent, task, body (canonical JSON text), body_sha256}`, then `{kind: "reply",
   request_id, output_sha256}` (`output_sha256` is the sha256 of the UTF-8 `output` string) and `{kind: "delivered", request_id}`.
 - **Tools, `POST /T-I`, `/T-F`, `/T-N`** `{call_id, key, attempt, agent, task, token, args}`. `call_id` and
-  `attempt` are the arm's ids, used only to correlate. Reply `{kind, result}`:
+  `attempt` are the arm's ids, used only to correlate; an arm that cannot count attempts sends `1`. T-N may carry a
+  `key`; T-N ignores it. Reply `{kind, result}`:
   - T-I and T-F return the first result again for a repeated `key` (`duplicate`);
   - T-F rejects, with HTTP 409 and `rejected_stale`, a `token` (an integer) below the highest it has seen for that
     agent. The stale check comes before the key dedupe, so a stale token is rejected even under a repeated key. A request without `token` uses its `epoch` field (the frozen SNC arm);
