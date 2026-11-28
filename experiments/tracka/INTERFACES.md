@@ -136,7 +136,7 @@ before it acts.
 
 | Path | Writer | Content |
 |---|---|---|
-| `R/run.json` | harness | `{point, seed, arm, scenario, kind, boundary, varies, ports}` |
+| `R/run.json` | harness | `{point, seed, seed_string, arm, scenario, kind, boundary, varies, ports, unsupported}`; `unsupported` is copied from `arm.json` (a list of clause ids, empty by default) |
 | `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `quiesced`, `run-end` (`data: {verdict}`) |
 | `R/svc/*.jsonl` | services | above |
 | `R/answers.jsonl` | harness | `{t, call: "state" | "reconstruct", arg, answer, exit}` after the quiesce |
