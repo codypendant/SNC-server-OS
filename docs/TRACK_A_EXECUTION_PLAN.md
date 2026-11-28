@@ -11,7 +11,8 @@
   Revision 1 was merged in PR #197 and stays in git history.
 - **The freeze is on hold.** CRITERIA.md stays unfrozen, and no counted work starts, until both of these happen:
   - Codex approves this revision;
-  - cody decides the two owner items in section 6.
+  - cody decides the two owner items in section 6. **Done 2026-11-28:** cody accepted both recommendations
+    ([handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)).
 - **What does not change:** the design, the matrix, the limits of 3.5 and the outcome rows of section 6. There is no
   product pivot, no S1 runtime development, no change to SNC's engine, and no tuning of the SNC arm to win.
 - **Labels:** FACT (read in this repository), EXT (external, cited), INF (inference), UNRESOLVED and PROPOSED.
@@ -162,6 +163,9 @@ The gate checks every arm's own observable interfaces, not only SNC (Codex secti
   inside Track A.
 
 ## 6. What cody decides before the freeze
+
+**Decided 2026-11-28:** cody said yes to both items as recommended
+([handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)).
 
 1. **SNC and O-5 (section 3).** Recommended: **option A**. SNC is judged on O-1 to O-4, and O-5 is recorded as
    UNSUPPORTED and counted against SNC's layer in criteria 1 and 3.

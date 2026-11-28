@@ -1,8 +1,8 @@
 # Track A criteria: campaign dc1-tracka
 
 **Status: thresholds APPROVED (P-G1, 2026-11-22), not yet FROZEN. Codex put the freeze on HOLD on 2026-11-28
-(`docs/handoff/PR197_Codex_Review.txt`). It waits for Codex's review of execution plan revision 2 and cody's two decisions
-in its section 6.**
+(`docs/handoff/PR197_Codex_Review.txt`). It waits for Codex's review of execution plan revision 2. cody made the two decisions of its section 6 on
+2026-11-28 (`docs/handoff/TRACK_A_O5_Budget_Owner_Decision.md`).**
 - **Source:** `docs/DIRECTION_COMPARISON_PLAN.md` revision 3, section 3, and `docs/TRACK_A_EXECUTION_PLAN.md`.
 - **Authorization:** cody gave P-A on 2026-11-27 (`docs/handoff/TRACK_A_PA_Owner_Decision.md`).
 - **Freeze:** a later commit freezes this file after Codex's review, and records its own SHA here. It lands before
@@ -14,7 +14,7 @@ in its section 6.**
 |---|---|
 | Arms | SNC (`snc_rt` tree `1a6aef5` at `575f493`, plus an adapter), DBOS 3.6.0 (Python), Restate 1.8.1 with Rust SDK 0.13.0, Temporal 1.32.2 with sdk-python 1.36.1 (PostgreSQL persistence), LangGraph 1.2.24 with checkpoint-postgres 3.2.1 (durability `sync`) |
 | Build order | DBOS, Restate, Temporal, LangGraph; all four built (execution plan AM-1, an amendment to the plan's early stop; rows unchanged; 12 agent-day cap kept) |
-| SNC and O-5 | OPEN, for cody (execution plan section 3): the frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED. Recommended option A: SNC is judged on O-1 to O-4, A09 and A10 are not run on SNC, and O-5 is recorded against SNC's layer |
+| SNC and O-5 | DECIDED by cody 2026-11-28, option A (execution plan section 3): the frozen SNC arm has no asynchronous event ingress, so O-5 is UNSUPPORTED. SNC is judged on O-1 to O-4, A09 and A10 are not run on SNC, and O-5 is counted against SNC's layer in criteria 1 and 3 |
 | Durability | competitors: one copy with fsync before acknowledgement. PostgreSQL 18: `synchronous_commit = on`, `fsync = on`, no standby. Restate: RocksDB WAL fsync on (the default). SNC: AR-1's same-host synchronous standby, charged to SNC |
 | Retention | any default that deletes history inside a run is raised by configuration, and the value is reported |
 | Forbidden | engine source changes; LangGraph durability `async` or `exit`; Temporal's SQLite dev server; DBOS on SQLite; changing Restate code under a live deployment |
@@ -52,9 +52,9 @@ in its section 6.**
 | Item | Value |
 |---|---|
 | Agent effort | 12 agent-days after P-A |
-| Run | 5 minutes per run (PROPOSED) |
-| Run set | 3 h per arm and step (PROPOSED) |
-| VM total | 30 VM hours for counted runs, adequacy, performance and any VM bring-up (PROPOSED, for cody; the plan's 8 h assumed the early stop) |
+| Run | 5 minutes per run (accepted by cody 2026-11-28) |
+| Run set | 3 h per arm and step (accepted by cody 2026-11-28) |
+| VM total | 30 VM hours for counted runs, adequacy, performance and any VM bring-up (accepted by cody 2026-11-28; the plan's 8 h assumed the early stop) |
 | A cap hit | stops the item; what completed is reported and the rest is UNRESOLVED |
 
 ## Reported, not gated (plan 3.6)
