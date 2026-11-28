@@ -10,4 +10,4 @@ Trees are authoritative (a rebase changes commit ids, not trees).
 | Restate arm, step 1 (implementer + strengthening reviewer) | `a0d8539` | `arms/restate` `bf8dc1e` | 2026-11-28 |
 | Temporal arm, step 1 (implementer + strengthening reviewer) | `2555988` | `arms/temporal` `c41dd8e` | 2026-11-28 |
 | LangGraph arm, step 1 (implementer + strengthening reviewer) | `c407364` | `arms/langgraph` `43fc819` | 2026-11-28 |
-| SNC adapter step 1 | b596804 | arms/snc 0ab4dcb | runtime experiments/ar1/ar1 unchanged since 575f493 |
+| SNC adapter, step 1 (runtime `experiments/ar1/ar1` unchanged since `575f493`) | `b596804` | `arms/snc` `0ab4dcb` | 2026-11-28 |
