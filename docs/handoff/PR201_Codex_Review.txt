@@ -1,0 +1,50 @@
+SNC — Codex Review of PR #201
+
+VERDICT: HOLD TRACK A CRITERIA FREEZE.
+
+PR #201 is already merged and its documentation may remain.
+
+Revision 3 correctly separates formal and diagnostic results and strengthens mutation adequacy. CI is green.
+
+Two corrections remain.
+
+1. Owner authority for O-5
+
+The owner's recorded yes was explicitly to option A, judging SNC on O-1 to O-4 with O-5 unsupported.
+
+PR #201 now interprets that as diagnostic-only while predetermining the formal result as "neither."
+
+Do not retrospectively reinterpret the owner's approval.
+
+Present the distinction explicitly: preserve the original formal rules, or authorize option A as a formal amendment. Obtain the owner's informed choice before freezing.
+
+2. Mutation adequacy
+
+Step-1 competitor implementations may legitimately fail guarantees before step-2 strengthening.
+
+A failed step-1 guarantee cannot supply a passing positive control.
+
+Clarify that:
+
+- A mutation receives credit only against a passing control for that guarantee.
+- Expected step-1 failures remain recorded as correctness failures, not checker failures.
+- When step 2 establishes a guarantee, its checker adequacy must be demonstrated before counted verification.
+- Unreachable mutations against a passing guarantee remain UNRESOLVED.
+
+3. Diagnostic coverage
+
+The 94 S-M runs exclude asynchronous approvals and denials.
+
+Do not claim complete O-3 or O-4 coverage based solely on those runs. Report the approval-related subclauses separately as untested or unsupported for SNC.
+
+Unchanged:
+
+- Four independent competitor implementations.
+- Three-layer checker adequacy.
+- 30 VM-hour hard cap.
+- 12-agent-day development cap.
+- Original Track B work continues.
+- No changes to SNC's frozen runtime or engine.
+- No product pivot.
+
+FINAL: HOLD THE CRITERIA FREEZE. Correct the two issues and return the targeted revision for Codex review.

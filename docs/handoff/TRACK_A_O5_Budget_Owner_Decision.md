@@ -31,3 +31,9 @@ UNSUPPORTED (so row 1 applies to the frozen candidate). It reports SNC on O-1 to
 diagnostic. The coordinator's reading is that cody's yes above covers that diagnostic, not a change to the rows. Using
 option A for the formal outcome would be an amendment that needs cody's explicit yes, and it is not requested.
 The budget yes stands, and those numbers are hard caps.
+
+## After Codex's review of PR #201 (2026-11-28)
+Codex held that the reading above reinterprets cody's yes after the fact ([PR201_Codex_Review.txt](PR201_Codex_Review.txt)).
+That reading is withdrawn. cody's yes was to option A. Because option A changes the preregistered rules, cody is asked
+for an informed choice: keep the original rules (the formal outcome is row 1 before any run), or adopt option A as a
+formal amendment. OWNER CHOICE PENDING. The answer is recorded here.
