@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check.check import canon, check, sha
+from check.check import canon, check, get, sha
 
 BODY = {"messages": [{"role": "user", "content": "plan T"}]}
 
@@ -191,13 +191,15 @@ def in_doubt():
     return d
 
 
-def tn_retry(seed):
+def tn_retry(first_effect=False):
+    """T-N killed at receipt; the owner, asked about it, answers truthfully; then a resend."""
     d = s_m()
-    d["run"].update(point="A08", seed=seed, kind="kill_after_reply", boundary="T-N")
-    d["markers"][1]["data"] = {"point": "A08", "svc": "T-N", "phase": "after_reply"}
+    d["run"].update(point="A04", kind="kill_at_receipt", boundary="T-N")
+    d["markers"][1]["data"] = {"point": "A04", "svc": "T-N", "phase": "receipt"}
     tn = d["svc"]["T-N"][0]["args"]
-    ans = "did_not_happen" if seed % 2 == 0 else "happened"
-    first = tool("T-N", "c3", None, 1, 2, tn, "effect", "en")
+    ans = "happened" if first_effect else "did_not_happen"
+    first = tool("T-N", "c3", None, 1, 2, tn, "effect", "en", delivered=False)
+    first = first if first_effect else first[:1]
     d["svc"]["owner"] = [row(kind="answer", task="T", call_id="c3", answer=ans)]
     d["svc"]["T-N"] = first + tool("T-N", "c4", None, 1, 3, tn, "effect", "en2")
     d["state"]["memory"]["tn"] = "en2"
@@ -220,16 +222,21 @@ def write(d, root, quiesce_s=11):
         max(x.get("t", 0) for xs in [d["markers"], *d["svc"].values()] for x in xs) + 1
     )
     markers = d["markers"]
+    t = end + int(quiesce_s * 1e9)
     if not any(x["event"] == "quiesced" for x in markers):
         status = d.get("run_end", "ended")
+        seen = get(d["state"], "task", "status")
         markers = markers + [
-            {"t": end, "event": "run-end", "data": {"status": status}},
-            {"t": end + 1, "event": "quiesced", "data": {}},
+            {"t": end + 10**10, "event": "quiesced", "data": {}},
+            {"t": t + 1, "event": "run-end", "data": {"status": status}},
         ]
+        if status != "cap":
+            markers.insert(
+                -2, {"t": end, "event": "end-state", "data": {"status": seen}}
+            )
     (R / "markers.jsonl").write_text(lines(markers))
     for name, xs in d["svc"].items():
         (R / "svc" / f"{name}.jsonl").write_text(lines(xs))
-    t = end + int(quiesce_s * 1e9)
     ans = [
         {"t": t, "call": "state", "arg": "A", "answer": d["state"], "exit": 0},
         {"t": t, "call": "reconstruct", "arg": "T", "answer": d["recon"], "exit": 0},
@@ -280,8 +287,21 @@ class Correct(unittest.TestCase):
     def test_in_doubt(self):
         self.assertEqual(run(in_doubt())["verdict"], "pass")
 
+    def test_in_doubt_after_did_not_happen(self):
+        d = in_doubt()
+        d["svc"]["T-N"] = d["svc"]["T-N"][:1]
+        d["svc"]["owner"][0]["answer"] = "did_not_happen"
+        d["recon"]["calls"][3]["attempts"][0]["outcome"] = "owner:did_not_happen"
+        d["recon"]["calls"][3]["outcome"]["kind"] = "owner:did_not_happen"
+        self.assertEqual(run(d)["verdict"], "pass")
+
+    def test_resend_under_new_token_is_own_entry(self):
+        d = tn_retry()
+        d["recon"]["calls"][4]["token"] = 2
+        self.assertEqual(status(run(d))["O-4.calls"], "fail")
+
     def test_tn_retry_after_did_not_happen(self):
-        self.assertEqual(run(tn_retry(0))["verdict"], "pass")
+        self.assertEqual(run(tn_retry())["verdict"], "pass")
 
     def test_zombie_takeover(self):
         res = run(zombie(1.5))
@@ -404,7 +424,7 @@ VIOLATIONS = [
     ("O-2.single_exec", s_m, extra_tf("effect", 3)),
     ("O-2.single_exec", s_m, set_(("svc", "T-F", 0, "agent"), "B")),
     ("O-3.ti_once", s_m, extra_ti_effect),
-    ("O-3.tn_no_repeat", lambda: tn_retry(1), lambda d: None),
+    ("O-3.tn_no_repeat", lambda: tn_retry(True), lambda d: None),
     ("O-3.tf_stale", s_m, extra_tf("duplicate", 1)),
     ("O-3.tf_stale", s_m, set_(("svc", "T-F", 0, "token"), None)),
     (
@@ -463,7 +483,7 @@ class Violations(unittest.TestCase):
         self.assertEqual((st["O-4.model"], st["O-4.model_used"]), ("pass", "fail"))
 
     def test_tn_repeat_before_owner_answer(self):
-        d = tn_retry(0)
+        d = tn_retry()
         d["svc"]["owner"][0]["t"] = d["svc"]["T-N"][-1]["t"] + 1
         self.assertEqual(status(run(d))["O-3.tn_no_repeat"], "fail")
 
@@ -485,11 +505,15 @@ class Violations(unittest.TestCase):
         extra_ti_effect(d)
         self.assertEqual(run(d)["verdict"], "violation")
 
-    def test_in_doubt_with_did_not_happen(self):
+    def test_in_doubt_without_owner(self):
         d = in_doubt()
-        d["run"]["seed"] = 2
-        d["svc"]["owner"][0]["answer"] = "did_not_happen"
+        d["svc"]["owner"] = []
         self.assertEqual(status(run(d))["O-1.end_state"], "fail")
+
+    def test_owner_contradicting_truth_is_invalid(self):
+        d = in_doubt()
+        d["svc"]["owner"][0]["answer"] = "did_not_happen"
+        self.assertEqual(run(d)["verdict"], "invalid")
 
     def test_zombie_no_takeover_unresolved(self):
         res = run(zombie(61))

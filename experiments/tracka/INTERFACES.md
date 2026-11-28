@@ -147,7 +147,7 @@ arm knows of one, else `null`;
 | Path | Writer | Content |
 |---|---|---|
 | `R/run.json` | harness | `{point, seed, seed_string, arm, scenario, kind, boundary, varies, ports, unsupported}`; `unsupported` is copied from `arm.json` (a list of clause ids, empty by default) |
-| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `end-state` (`data: {status}`, the harness saw an end state in `state`), `quiesced` (written after the 10 s quiesce), `error` (`data: {reason}`, the harness failed), `run-end` (`data: {status: "ended" | "cap" | "error"}`, the harness's own status, not the checker's verdict). In `reached`, `svc` is `model`, `T-I`, `T-F`, `T-N` or `approver` |
+| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `end-state` (`data: {status}`, the harness saw an end state in `state`), `quiesced` (written after the 10 s quiesce), `error` (`data: {reason}`, the harness failed), `run-end` (`data: {status: "ended" | "cap" | "error"}`, the harness's own status, not the checker's verdict). In `reached`, `svc` is `model`, `T-I`, `T-F`, `T-N`, `approver`, or `owner` (A11's second kill can land on `/owner`) |
 | `R/svc/*.jsonl` | services | above |
 | `R/answers.jsonl` | harness | `{t, call: "state" | "reconstruct", arg, answer, exit}` after the quiesce |
 | `R/logs/<proc>.log` | harness | each process's stdout and stderr |

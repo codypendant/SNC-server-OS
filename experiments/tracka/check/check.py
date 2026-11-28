@@ -126,11 +126,8 @@ class Run:
         self.cap = any(
             x.get("event") == "run-end" and get(x, "data", "status") == "cap" for x in m
         )
-        q = [x["t"] for x in m if x.get("event") == "quiesced"]
-        ends = [
-            x["t"] for x in m if x.get("event") == "run-end" and q and x["t"] <= q[0]
-        ]
-        if not q:
+        ends = [x["t"] for x in m if x.get("event") == "end-state"]
+        if "quiesced" not in ev:
             bad.append("markers: no quiesced")
         if self.kind == "zombie_takeover" and "stopped" in ev and "resumed" not in ev:
             bad.append("markers: zombie stopped but never resumed")
@@ -164,10 +161,14 @@ class Run:
             if x.get("kind") == "answer" and x.get("task") == "T":
                 self.owner.setdefault(x.get("call_id"), []).append(x.get("answer"))
                 self.owner_rows.append(x)
-                if odd is not None and x.get("answer") != (
-                    "happened" if odd else "did_not_happen"
-                ):
-                    bad.append(f"owner answered {x.get('answer')} against the seed")
+                done = any(
+                    y.get("kind") == "effect"
+                    and y.get("call_id") == x.get("call_id")
+                    and y["t"] < x["t"]
+                    for y in log["T-N"]
+                )
+                if x.get("answer") != ("happened" if done else "did_not_happen"):
+                    bad.append(f"owner answered {x.get('answer')} against T-N's log")
 
         a = rows(R / "answers.jsonl", bad)
         if a is None:
@@ -176,8 +177,7 @@ class Run:
         for c in ("state", "reconstruct"):
             if c not in last:
                 bad.append(f"answers: no {c} call")
-        end = ends[-1] if ends else q[0] if q else None
-        if end is not None and any(x["t"] < end + QUIESCE_T for x in a or []):
+        if ends and any(x["t"] < ends[0] + QUIESCE_T for x in a or []):
             bad.append("answers less than 10 s after the end-state detection")
         self.state, self.recon = answer(last.get("state")), answer(
             last.get("reconstruct")
@@ -223,8 +223,8 @@ def o1_end_state(r):
             errs.append("stopped_in_doubt without a T-N request")
         else:
             q = tn[-1]
-            if not owner_after(r, q, "happened"):
-                errs.append(f"owner not answered happened for T-N {q.get('call_id')!r}")
+            if not any(owner_after(r, q, a) for a in ("happened", "did_not_happen")):
+                errs.append(f"owner not asked after T-N {q.get('call_id')!r}")
             if q["delivered"] and "T-N" not in r.reached:
                 errs.append("last T-N reply was delivered with no fault at T-N")
     return ok(errs)

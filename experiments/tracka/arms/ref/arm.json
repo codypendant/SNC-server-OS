@@ -1,0 +1,14 @@
+{
+  "name": "ref",
+  "engines": [],
+  "restart_engine": "pg",
+  "build": ["python3", "-c", "print('ref: nothing to build')"],
+  "setup": ["python3", "{arm}/ref.py", "setup"],
+  "submit": ["python3", "{arm}/ref.py", "submit"],
+  "worker": ["python3", "{arm}/ref.py", "worker"],
+  "deliver": ["python3", "{arm}/ref.py", "deliver"],
+  "state": ["python3", "{arm}/ref.py", "state"],
+  "reconstruct": ["python3", "{arm}/ref.py", "reconstruct"],
+  "config": {"retention": "forever", "owner_timeout_s": 0, "takeover": "a new worker takes over at start"},
+  "unsupported": []
+}

@@ -26,7 +26,7 @@ approver,owner}.jsonl`, and the last `state` and `reconstruct` rows of `answers.
 
 | Id | Exercised | Pass condition |
 |---|---|---|
-| `O-1.end_state` | always | `state.task.id` is `T`. Deny run: status `denied`. Otherwise `done` or `stopped_in_doubt`. `stopped_in_doubt` also needs: a T-N request exists; the owner answered `happened` after the last T-N request; and that request was not delivered, or T-N is a fault service |
+| `O-1.end_state` | always | `state.task.id` is `T`. Deny run: status `denied`. Otherwise `done` or `stopped_in_doubt`. `stopped_in_doubt` also needs: a T-N request exists; the owner was asked about the last T-N request's call id after that request (either answer); and that request was not delivered, or T-N is a fault service |
 | `O-1.one_reply` | always (pass with no tool request) | `U` has one member `u`; `u` is the `request_id` of a stub request with a logged `reply` and `delivered`. Tool args without `reply` give `U = {null}` and fail |
 | `O-1.no_recall` | always (pass with no use) | No stub request has a `t` after the first tool request whose `args.reply` is a stub `request_id`. No exception: a zombie's and a new worker's concurrent model calls both come before the first downstream use, so they pass on their times |
 | `O-1.takeover` | `zombie_takeover` with a `stopped` marker | `unresolved` when the first `resumed` marker is 60 s or more after `stopped`, or missing; otherwise pass |
@@ -38,7 +38,7 @@ approver,owner}.jsonl`, and the last `state` and `reconstruct` rows of `answers.
 | `O-3.deny_no_tool` | deny run | no request in any tool log |
 | `O-4.model` | always | Every stub request matches its own `reconstruct.model` entry: same `invocation_id`, and `request_id` equal or null (an entry with the exact `request_id` is preferred). For each: `sha256(canonical(input)) = body_sha256` (null input fails), and any non-null `output_sha256` equals the logged one. No entry is left over. Does not use `U` |
 | `O-4.model_used` | always | For the same pairs (pass if `reconstruct.model` is missing; `O-4.model` reports that): `used` is `true` exactly when the `request_id` is in `U`, and a used entry carries its `request_id` and the logged `output_sha256` |
-| `O-4.calls` | always | Every tool request matches its own attempt in a `reconstruct.calls` entry with the same `tool, call_id, key, token, args` and `attempt`. The attempt outcome is the logged kind; or `unknown` if the request was not delivered, its tool is a fault service, or a later request of the same call follows (same key; any later T-N); or, for T-N, `owner:<a>` where the owner answered `a` for that call id. Attempts that match no request may only be `unknown` or such an `owner:` value. Every entry has attempts. `outcome.kind` is the outcome of the entry's highest attempt, and if that is a logged kind, `outcome.result` equals the logged result |
+| `O-4.calls` | always | Every tool request matches its own attempt in a `reconstruct.calls` entry with the same `tool, call_id, key, token, args` and `attempt`. Entries are per call and token, so a resend under a new token must be in its own entry. The attempt outcome is the logged kind; or `unknown` if the request was not delivered, its tool is a fault service, or a later request of the same call follows (same key; any later T-N); or, for T-N, `owner:<a>` where the owner answered `a` for that call id. Attempts that match no request may only be `unknown` or such an `owner:` value. Every entry has attempts. `outcome.kind` is the outcome of the entry's highest attempt, and if that is a logged kind, `outcome.result` equals the logged result |
 | `O-4.policy` | always | `reconstruct.policy` has exactly one entry: `rule_version` `p1`, `action` `T-I,T-F,T-N`, `result` `allow` (S-M; `approval` null) or `needs_approval` (S-AP). In S-M this is the ordinary policy decision (SNC's `P-dec`) |
 | `O-4.approval` | S-AP | The policy decisions are exactly `[decision]`; `approver.jsonl` holds a request for `T` with that action and a `posted` line with that decision. Deny run: `reconstruct.calls` is `[]` |
 | `O-4.retention` | always | `reconstruct.retention` and `state.retention` are non-null and equal |
@@ -64,18 +64,19 @@ The clauses that rely on the deterministic-causality table, directly or through 
   missing; any line that is not a JSON object, or a file not ending in a newline (cut); a service log missing while a
   marker names that service (`reached`, or `posted` for the approver); an outcome or `delivered` line without its
   request; a line without an integer `t`; a marker `error`, or `run-end` with status `error`; no `quiesced`
-  marker; an `answers.jsonl` row less than 10 s after the end-state detection, which is the last `run-end` at or
-  before the first `quiesced` marker, or that `quiesced` marker if no `run-end` precedes it; no `state` or
-  `reconstruct` row; a zombie run with `stopped` but no `resumed`; a posted decision or an owner answer that
-  contradicts the seed. A missing service log that no marker names counts as empty.
+  marker; an `answers.jsonl` row less than 10 s after the first `end-state` marker (not checked when there is no
+  `end-state`, as in a capped run); no `state` or
+  `reconstruct` row; a zombie run with `stopped` but no `resumed`; a posted decision that contradicts the seed; an owner answer that contradicts the truth at its `t`: `happened`
+  exactly when T-N's log holds an `effect` line for that call id with an earlier `t`. A missing service log that no marker names counts as empty.
 
 ## Readings chosen where plan 3.3 is open
 
 1. Re-call rule: no model request may come after the first downstream request. Zombie runs need no exception, since
    a new worker's call made before the zombie's first downstream use passes on its time.
 2. One-reply rule: the reply must have been delivered.
-3. `stopped_in_doubt` requires the owner's `happened`, given after the last T-N request (INTERFACES' wording). The
-   T-N outcome must also be one the arm could have missed. After `did_not_happen` the arm must resend.
+3. `stopped_in_doubt` requires that the owner was asked about the last T-N request after it was sent. Either answer
+   is accepted. The T-N outcome must also be one the arm could have missed: the request was not delivered, or T-N
+   was a fault boundary.
 4. Memory `tn`: the actual effect is accepted only if that reply was delivered; `"owner:happened"` only if the owner
    said so after the last T-N request. Both are accepted when both hold, for example when a zombie learned the
    effect.
