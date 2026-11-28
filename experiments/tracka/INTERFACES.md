@@ -10,7 +10,7 @@ implementer works from this file, `docs/DIRECTION_COMPARISON_PLAN.md` section 3 
 One agent `A`, one task `T`, scenario `S-M` or `S-AP` (from `TRACKA_SCENARIO`).
 
 1. **Model call.** The arm sends one request to the stub and uses its reply.
-2. **Policy decision.** The arm applies `tracka/policy.json` (rule version `p1`). Under `S-M` the rule allows the
+2. **Policy decision.** The arm applies `experiments/tracka/policy.json` (rule version `p1`). Under `S-M` the rule allows the
    action `T-I,T-F,T-N` without an approval. Under `S-AP` it needs an approval: the arm asks the approver, durably
    waits for the decision, and on `deny` ends `T` with no tool request.
 3. **Tools,** in this order: `T-I`, `T-F`, `T-N`.
@@ -29,8 +29,9 @@ are exactly:
 
 `"owner:happened"` is used when the arm could not learn T-N's outcome and the owner answered `happened`.
 
-**Allowed end states:** `T` is `done` or `denied`; or `T` stops only on a T-N request with no logged outcome, after
-the arm called the owner and the owner answered `happened` is not yet recorded (`stopped_in_doubt`).
+**Allowed end states:** `T` is `done` or `denied`; or `T` stops (`stopped_in_doubt`) only on a T-N request whose
+outcome the arm cannot know, after it asked the owner. An owner answer `happened` lets the arm complete with
+`"owner:happened"`; `did_not_happen` lets it send T-N again (once per such answer).
 
 ## Environment of every arm command
 
@@ -74,6 +75,7 @@ the arm called the owner and the owner answered `happened` is not yet recorded (
   the whole group. Each start is the arm's documented recovery entry point: DBOS restart, a Temporal or Restate
   worker start, a LangGraph re-invoke of the thread, SNC's new epoch. A worker that finishes `T` stays up until the
   harness stops it.
+- The harness appends the arguments shown to the command's argv.
 - `deliver <task> <action> <decision>`: one-shot. Posts the approver's decision to the arm through the ingress the arm
   chose. It may run while no worker is up, and must return once the decision is durably accepted.
 - `state <agent>` and `reconstruct <task>`: one-shot, print one JSON object on stdout (below). They may run while
@@ -90,7 +92,7 @@ across files is known.
   `body` is any JSON value, the model input. The reply is chunked NDJSON: first `{"request_id": rid}`, then
   `{"output": out, "model": "stub-1"}`. `rid` is fresh for every physical request. Logs `{kind: "request",
   request_id, invocation_id, retry_of, agent, task, body (canonical JSON text), body_sha256}`, then `{kind: "reply",
-  request_id, output_sha256}` and `{kind: "delivered", request_id}`.
+  request_id, output_sha256}` (`output_sha256` is the sha256 of the UTF-8 `output` string) and `{kind: "delivered", request_id}`.
 - **Tools, `POST /T-I`, `/T-F`, `/T-N`** `{call_id, key, attempt, agent, task, token, args}`. `call_id` and
   `attempt` are the arm's ids, used only to correlate. Reply `{kind, result}`:
   - T-I and T-F return the first result again for a repeated `key` (`duplicate`);
