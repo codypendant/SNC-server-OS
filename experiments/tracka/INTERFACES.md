@@ -113,8 +113,8 @@ arm knows of one, else `null`;
   `{status: "pending"}`. The harness then runs the arm's `deliver` with decision `approve` on even seeds and `deny`
   on odd seeds, logging `{kind: "posted", task, action, decision, exit}` to `R/svc/approver.jsonl` when `deliver`
   returns. The usual delay before posting is 200 ms.
-- **Owner, `GET /owner?task=&call_id=`** answers `{answer: "happened"}` on odd seeds and `did_not_happen` on even
-  seeds, and logs `{kind: "answer", task, call_id, answer}` to `R/svc/owner.jsonl`.
+- **Owner, `GET /owner?task=&call_id=`** answers the truth at the moment it is asked: `{answer: "happened"}` if
+  T-N's log holds an effect for that `call_id`, else `did_not_happen`, and logs `{kind: "answer", task, call_id, answer}` to `R/svc/owner.jsonl`.
 
 ## Read answers
 
@@ -138,6 +138,7 @@ arm knows of one, else `null`;
 ```
 - `model[].input` is the `body` sent; the checker compares `sha256(canonical(input))` with the stub's `body_sha256`.
   Canonical JSON is `json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`.
+- `calls[]` has one entry per call and token: a resend under a new token is a new entry with the same `call_id`.
 - `approval` is `null` when the rule needs none. A field the arm has no record for is `null`; the checker scores it
   as unmet for that clause.
 
@@ -146,7 +147,7 @@ arm knows of one, else `null`;
 | Path | Writer | Content |
 |---|---|---|
 | `R/run.json` | harness | `{point, seed, seed_string, arm, scenario, kind, boundary, varies, ports, unsupported}`; `unsupported` is copied from `arm.json` (a list of clause ids, empty by default) |
-| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `quiesced`, `error` (`data: {reason}`, the harness failed), `run-end` (`data: {status: "ended" | "cap" | "error"}`, the harness's own status, not the checker's verdict). In `reached`, `svc` is `model`, `T-I`, `T-F`, `T-N` or `approver` |
+| `R/markers.jsonl` | harness, services | `{t, event, data}`: `reached` (`data: {point, svc, phase: "receipt" | "after_reply" | "approval"}`), `killed`, `started` (`data: {worker}`), `stopped`, `resumed`, `engine-restarted`, `posted`, `end-state` (`data: {status}`, the harness saw an end state in `state`), `quiesced` (written after the 10 s quiesce), `error` (`data: {reason}`, the harness failed), `run-end` (`data: {status: "ended" | "cap" | "error"}`, the harness's own status, not the checker's verdict). In `reached`, `svc` is `model`, `T-I`, `T-F`, `T-N` or `approver` |
 | `R/svc/*.jsonl` | services | above |
 | `R/answers.jsonl` | harness | `{t, call: "state" | "reconstruct", arg, answer, exit}` after the quiesce |
 | `R/logs/<proc>.log` | harness | each process's stdout and stderr |
@@ -171,6 +172,11 @@ which keys the stub's outputs: `out = sha256(f"{seed_string}:{rid}:{body_sha256}
 The harness polls `state` every 2 s to see an end state, so `state` must be cheap. Only the first request to the
 boundary service triggers its fault. Every run ends with the workers up until `T`
 reaches an end state or the 5-minute run cap, then the 10 s quiesce, then `state` and `reconstruct`.
+
+## Formatting
+
+Line counts (plan 3.5) use `black` 25.11.0 with its default settings (line length 88) and `rustfmt` from the pinned
+toolchain with its defaults.
 
 ## Checker output
 
