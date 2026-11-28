@@ -557,7 +557,7 @@ Decided by cody on 2026-11-04.
     Phase 0 passed. Adequacy flagged 14 of 14 mutations. SNC and plain DBOS step 2 each passed 2,560 of 2,560 runs.
     Plain step 2 needed 284 added lines (L = 300). B held at 4.7 ms per consequential commit at p50.
   - Codex's final review accepted NARROW ([handoff/AR1_G3_Outcome_Accepted.md](handoff/AR1_G3_Outcome_Accepted.md)). There is no direction change, and no S1 runtime work.
-  - **Now:** Track A. cody gave P-A on 2026-11-27 ([handoff/TRACK_A_PA_Owner_Decision.md](handoff/TRACK_A_PA_Owner_Decision.md)). The execution plan ([TRACK_A_EXECUTION_PLAN.md](TRACK_A_EXECUTION_PLAN.md)) and `bench/results/dc1-tracka/CRITERIA.md` wait for Codex's review, and no comparative work starts before CRITERIA.md is frozen.
+  - **Now:** Track A. cody gave P-A on 2026-11-27 ([handoff/TRACK_A_PA_Owner_Decision.md](handoff/TRACK_A_PA_Owner_Decision.md)). The execution plan ([TRACK_A_EXECUTION_PLAN.md](TRACK_A_EXECUTION_PLAN.md)) and `bench/results/dc1-tracka/CRITERIA.md` wait for Codex's review (cody accepted O-5 option A and the 30 VM-hour budget on 2026-11-28, [handoff/TRACK_A_O5_Budget_Owner_Decision.md](handoff/TRACK_A_O5_Budget_Owner_Decision.md)), and no comparative work starts before CRITERIA.md is frozen.
 - **Agent-SNC v0.1 architecture (design input, not authorized):**
   cody's synthesis of Agent-SNC (agents as durable state; events move
   execution, documents move knowledge; WorkOrders, channels, the Event
